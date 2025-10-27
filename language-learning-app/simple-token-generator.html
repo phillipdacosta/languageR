@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Agora Token Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Simple Agora Token Generator</h1>
+    <p>This tool will help you generate a token for testing your video call.</p>
+    
+    <form id="tokenForm">
+        <div class="form-group">
+            <label>App ID:</label>
+            <input type="text" id="appId" value="134e5b056b944b66b14fc9e275726131" readonly>
+        </div>
+        
+        <div class="form-group">
+            <label>App Certificate:</label>
+            <input type="text" id="appCertificate" value="91a442420aa74c1fa06b1b42d19fd692" readonly>
+        </div>
+        
+        <div class="form-group">
+            <label>Channel Name:</label>
+            <input type="text" id="channelName" value="language-class-001">
+        </div>
+        
+        <div class="form-group">
+            <label>User ID:</label>
+            <input type="number" id="uid" value="0">
+        </div>
+        
+        <button type="submit">Generate Token</button>
+    </form>
+    
+    <div id="result" class="result" style="display: none;">
+        <h3>Generated Token:</h3>
+        <textarea id="tokenOutput" rows="4" cols="80" readonly></textarea>
+        <p><strong>Instructions:</strong></p>
+        <ol>
+            <li>Copy the token above</li>
+            <li>Open your environment.ts file</li>
+            <li>Replace 'PASTE_YOUR_GENERATED_TOKEN_HERE' with this token</li>
+            <li>Save the file and test your video call</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simple token generation using a different approach
+        function generateSimpleToken(appId, appCertificate, channelName, uid) {
+            // This is a simplified approach - for production, use proper token generation
+            const timestamp = Math.floor(Date.now() / 1000);
+            const expirationTime = timestamp + 3600; // 1 hour from now
+            
+            // Create a simple token-like string (this is NOT a real Agora token)
+            // For actual use, you need to implement proper token generation
+            const tokenData = {
+                appId: appId,
+                channel: channelName,
+                uid: uid,
+                timestamp: timestamp,
+                expiration: expirationTime
+            };
+            
+            // This is just a placeholder - you need a real token
+            return btoa(JSON.stringify(tokenData));
+        }
+        
+        document.getElementById('tokenForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const appId = document.getElementById('appId').value;
+            const appCertificate = document.getElementById('appCertificate').value;
+            const channelName = document.getElementById('channelName').value;
+            const uid = parseInt(document.getElementById('uid').value);
+            
+            if (!appCertificate) {
+                alert('Please enter your App Certificate');
+                return;
+            }
+            
+            // For now, let's use a different approach
+            // You can use Agora's online token generator or implement proper token generation
+            const resultDiv = document.getElementById('result');
+            const tokenOutput = document.getElementById('tokenOutput');
+            
+            // Show instructions for manual token generation
+            tokenOutput.value = `To generate a real token:
+
+1. Go to: https://console.agora.io/projects
+2. Select your project
+3. Go to "Project Management" > "Edit"
+4. Use the "Generate Temp Token" feature
+5. Or use Agora's online token generator
+
+For now, you can try using null as the token if your project allows it.
+
+App ID: ${appId}
+Channel: ${channelName}
+UID: ${uid}
+Certificate: ${appCertificate}`;
+            
+            resultDiv.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
+

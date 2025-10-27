@@ -1,0 +1,112 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-avatar style="width: 40px; height: 40px;">
+        <img src="assets/avatar.png" alt="User Avatar">
+      </ion-avatar>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+          <!-- <div class="greeting-section">
+            <p class="greeting-text">Hey,</p>
+            <p class="greeting-text">Tommy!</p>
+            <h1 class="main-title">Speak freely anywhere</h1>
+          </div> -->
+
+
+  <div class="searchbar-container" (click)="openSearchTutors()" *ngIf="currentUser?.userType === 'student'">
+    <ion-input 
+      readonly="true"
+      placeholder="Find a tutor" 
+      class="custom-searchbar">
+      <ion-icon name="search" slot="start"></ion-icon>
+    </ion-input>
+  </div>
+
+  <div class="section-header">
+    <h2>Continue learning</h2>
+    <ion-button fill="clear" class="see-all-btn">See All</ion-button>
+  </div>
+
+  <!-- Video Call Button -->
+  <div class="video-call-section">
+    <ion-button expand="block" fill="solid" color="success" (click)="startVideoCall()" class="video-call-btn">
+      <ion-icon name="videocam" slot="start"></ion-icon>
+      Start Video Class
+    </ion-button>
+    
+    <!-- Debug button - only show on web -->
+    <!-- <ion-button expand="block" fill="outline" color="medium" (click)="openDebugPage()" class="debug-btn" *ngIf="isWeb">
+      <ion-icon name="bug" slot="start"></ion-icon>
+      Debug Permissions
+    </ion-button>
+  </div> -->
+
+  <!-- Platform Information - only show on web for development -->
+  <!-- <div class="platform-info-section" *ngIf="isWeb">
+    <div class="section-header">
+      <h2>Platform Information</h2>
+    </div>
+    <ion-card class="platform-card">
+      <ion-card-content>
+        <div class="platform-details">
+          <div class="platform-item">
+            <strong>Platform:</strong> {{ currentPlatform }}
+          </div>
+          <div class="platform-item">
+            <strong>Screen Size:</strong> {{ platformService.getScreenSize() }}
+          </div>
+          <div class="platform-item">
+            <strong>Touch Device:</strong> {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}
+          </div>
+          <div class="platform-item">
+            <strong>Mobile:</strong> {{ isMobile ? 'Yes' : 'No' }}
+          </div>
+          <div class="platform-item">
+            <strong>Web:</strong> {{ isWeb ? 'Yes' : 'No' }}
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div> -->
+  </div>
+
+  <div class="courses-container">
+    <!-- Spanish Course Card -->
+    <ion-card class="course-card spanish-card">
+      <ion-card-content>
+        <div class="card-content-wrapper">
+          <div class="course-info">
+            <h3>Spanish language</h3>
+            <p class="lessons-count">40 tutors</p>
+            <ion-progress-bar value="0.6" class="course-progress"></ion-progress-bar>
+          </div>
+          <div class="course-avatar">
+            <img src="assets/spanish2.jpg" alt="Spanish Instructor">
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- English Course Card -->
+    <!-- <ion-card class="course-card english-card">
+      <ion-card-content>
+        <div class="card-content-wrapper">
+          <div class="course-info">
+            <h3>English language</h3>
+            <p class="lessons-count">120 lessons</p>
+            <ion-progress-bar value="0.4" class="course-progress"></ion-progress-bar>
+          </div>
+          <div class="course-avatar">
+            <img src="assets/english.jpg" alt="English Instructor">
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card> -->
+  </div>
+</ion-content>

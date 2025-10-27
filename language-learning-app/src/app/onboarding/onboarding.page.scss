@@ -1,0 +1,246 @@
+.onboarding-container {
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-section {
+  margin-bottom: 2rem;
+  
+  .step-indicator {
+    text-align: center;
+    margin-top: 0.5rem;
+    color: var(--ion-color-medium);
+    font-size: 0.9rem;
+  }
+}
+
+.step-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  
+  h1, h2 {
+    color: var(--ion-color-primary);
+    margin-bottom: 1rem;
+  }
+  
+  h3 {
+    color: var(--ion-color-dark);
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: var(--ion-color-medium);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+}
+
+.welcome-section {
+  ion-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+  
+  ion-chip {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &.selected {
+      --background: var(--ion-color-primary);
+      --color: white;
+    }
+  }
+}
+
+.goals-list {
+  margin: 2rem 0;
+  
+  ion-item {
+    --background: transparent;
+    --border-color: var(--ion-color-light);
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    
+    &.selected {
+      --background: var(--ion-color-primary-tint);
+      --border-color: var(--ion-color-primary);
+    }
+    
+    ion-checkbox {
+      margin-right: 1rem;
+    }
+  }
+}
+
+.experience-section,
+.schedule-section {
+  margin: 2rem 0;
+  
+  h3 {
+    margin-bottom: 1rem;
+  }
+  
+  .level-options,
+  .schedule-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    
+    ion-button {
+      min-width: 120px;
+    }
+  }
+}
+
+.navigation-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  
+  ion-button {
+    flex: 1;
+    height: 50px;
+    font-weight: 600;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .language-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .level-options,
+  .schedule-options {
+    flex-direction: column;
+    align-items: center;
+    
+    ion-button {
+      width: 100%;
+      max-width: 200px;
+    }
+  }
+  
+  .navigation-buttons {
+    flex-direction: column;
+  }
+}
+
+// Tutor-specific styles
+.tutor-experience-section,
+.tutor-schedule-section,
+.tutor-bio-section,
+.hourly-rate-section,
+.video-section {
+  margin-bottom: 2rem;
+  
+  h3 {
+    margin-bottom: 1rem;
+    color: var(--ion-color-dark);
+  }
+}
+
+.tutor-bio-section {
+  ion-textarea {
+    --background: var(--ion-color-light);
+    --border-radius: 8px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+  }
+  
+  .character-count {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--ion-color-medium);
+    margin-top: 0.5rem;
+  }
+}
+
+.hourly-rate-section {
+  .rate-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.5rem;
+    
+    ion-label {
+      font-weight: 500;
+      color: var(--ion-color-dark);
+    }
+    
+    ion-input {
+      --background: var(--ion-color-light);
+      --border-radius: 8px;
+      --padding-start: 12px;
+      --padding-end: 12px;
+      width: 100px;
+      text-align: center;
+    }
+  }
+  
+  .rate-hint {
+    font-size: 0.8rem;
+    color: var(--ion-color-medium);
+    margin: 0;
+  }
+}
+
+.video-section {
+  .video-description {
+    color: var(--ion-color-medium);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .goals-list {
+    ion-item {
+      &.selected {
+        --background: var(--ion-color-primary-shade);
+      }
+    }
+  }
+  
+  .tutor-bio-section {
+    ion-textarea {
+      --background: var(--ion-color-dark);
+    }
+  }
+  
+  .hourly-rate-section {
+    .rate-input {
+      ion-input {
+        --background: var(--ion-color-dark);
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Agora Token Generator</title>
+    <script src="https://unpkg.com/agora-token@2.0.4/build/AgoraTokenBuilder.js"></script>
+    <script>
+        // Wait for the script to load
+        window.addEventListener('load', function() {
+            console.log('AgoraTokenBuilder loaded:', typeof AgoraTokenBuilder);
+        });
+    </script>
+</head>
+<body>
+    <h1>Agora Token Generator</h1>
+    <p>Use this to generate a temporary token for testing</p>
+    
+    <form id="tokenForm">
+        <div>
+            <label>App ID:</label>
+            <input type="text" id="appId" value="134e5b056b944b66b14fc9e275726131" readonly>
+        </div>
+        <div>
+            <label>App Certificate:</label>
+            <input type="text" id="appCertificate" value="91a442420aa74c1fa06b1b42d19fd692" placeholder="Enter your App Certificate">
+        </div>
+        <div>
+            <label>Channel Name:</label>
+            <input type="text" id="channelName" value="language-class-001">
+        </div>
+        <div>
+            <label>User ID:</label>
+            <input type="number" id="uid" value="0">
+        </div>
+        <div>
+            <label>Expiration Time (seconds):</label>
+            <input type="number" id="expirationTime" value="3600">
+        </div>
+        <button type="submit">Generate Token</button>
+    </form>
+    
+    <div id="result" style="margin-top: 20px;">
+        <h3>Generated Token:</h3>
+        <textarea id="tokenOutput" rows="4" cols="80" readonly></textarea>
+    </div>
+
+    <script>
+        document.getElementById('tokenForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const appId = document.getElementById('appId').value;
+            const appCertificate = document.getElementById('appCertificate').value;
+            const channelName = document.getElementById('channelName').value;
+            const uid = parseInt(document.getElementById('uid').value);
+            const expirationTime = parseInt(document.getElementById('expirationTime').value);
+            
+            if (!appCertificate) {
+                alert('Please enter your App Certificate');
+                return;
+            }
+            
+            if (typeof AgoraTokenBuilder === 'undefined') {
+                alert('AgoraTokenBuilder is not loaded. Please refresh the page and try again.');
+                return;
+            }
+            
+            try {
+                const token = AgoraTokenBuilder.buildTokenWithUid(appId, appCertificate, channelName, uid, AgoraTokenBuilder.Role.Role_Publisher, expirationTime);
+                document.getElementById('tokenOutput').value = token;
+                console.log('Token generated successfully:', token);
+            } catch (error) {
+                alert('Error generating token: ' + error.message);
+                console.error('Token generation error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

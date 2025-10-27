@@ -1,0 +1,211 @@
+.profile-container {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.profile-card {
+  margin-bottom: 1.5rem;
+  
+  .profile-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    
+    .profile-avatar {
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+      
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+      }
+      
+      .profile-initials {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--ion-color-primary);
+        color: white;
+        font-weight: 600;
+        font-size: 24px;
+        border-radius: 50%;
+      }
+    }
+    
+    .profile-info {
+      flex: 1;
+      
+      .profile-name {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--ion-color-dark);
+        margin: 0 0 0.25rem 0;
+      }
+      
+      .profile-email {
+        font-size: 1rem;
+        color: var(--ion-color-medium);
+        margin: 0 0 0.5rem 0;
+      }
+      
+      ion-chip {
+        margin-right: 0.5rem;
+      }
+    }
+  }
+}
+
+.stats-card {
+  margin-bottom: 1.5rem;
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: var(--ion-color-light);
+      border-radius: 8px;
+      
+      ion-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+      }
+      
+      .stat-info {
+        display: flex;
+        flex-direction: column;
+        
+        .stat-number {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--ion-color-dark);
+          line-height: 1.2;
+        }
+        
+        .stat-label {
+          font-size: 0.875rem;
+          color: var(--ion-color-medium);
+          line-height: 1.2;
+        }
+      }
+    }
+  }
+}
+
+.settings-card {
+  margin-bottom: 1.5rem;
+  
+  ion-list {
+    background: transparent;
+    
+    ion-item {
+      --background: transparent;
+      --border-color: var(--ion-color-light);
+      
+      ion-icon {
+        margin-right: 1rem;
+      }
+    }
+  }
+}
+
+.logout-button {
+  margin-top: 1rem;
+  height: 50px;
+  font-weight: 600;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  text-align: center;
+  
+  ion-spinner {
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: var(--ion-color-medium);
+    font-size: 1.1rem;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+    
+    .profile-info {
+      .profile-name {
+        font-size: 1.25rem;
+      }
+    }
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    
+    .stat-item {
+      flex-direction: column;
+      text-align: center;
+      gap: 0.5rem;
+      
+      .stat-info {
+        align-items: center;
+      }
+    }
+  }
+}
+
+// Tutor Video Section
+.tutor-video-card {
+  margin-bottom: 1.5rem;
+  
+  .video-section {
+    .video-description {
+      color: var(--ion-color-medium);
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .stats-card {
+    .stats-grid {
+      .stat-item {
+        background: var(--ion-color-dark);
+        
+        .stat-info {
+          .stat-number {
+            color: var(--ion-color-light);
+          }
+        }
+      }
+    }
+  }
+  
+  .tutor-video-card {
+    .video-section {
+      .video-description {
+        color: var(--ion-color-medium);
+      }
+    }
+  }
+}

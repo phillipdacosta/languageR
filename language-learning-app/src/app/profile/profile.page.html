@@ -1,0 +1,141 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Profile</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="profile-container" *ngIf="user$ | async as user">
+    <!-- User Profile Card -->
+    <ion-card class="profile-card">
+      <ion-card-content>
+        <div class="profile-header">
+          <ion-avatar class="profile-avatar">
+            <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture">
+            <div class="profile-initials" *ngIf="!user.picture">{{ getUserInitials(user) }}</div>
+          </ion-avatar>
+          <div class="profile-info">
+            <h2 class="profile-name">{{ user.name }}</h2>
+            <p class="profile-email">{{ user.email }}</p>
+            <ion-chip *ngIf="user.email_verified" color="success">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <ion-label>Verified</ion-label>
+            </ion-chip>
+            <ion-chip *ngIf="!user.email_verified" color="warning">
+              <ion-icon name="warning"></ion-icon>
+              <ion-label>Unverified</ion-label>
+            </ion-chip>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- User Stats -->
+    <ion-card class="stats-card">
+      <ion-card-header>
+        <ion-card-title>Learning Progress</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <ion-icon name="book" color="primary"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-number">12</span>
+              <span class="stat-label">Lessons Completed</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <ion-icon name="time" color="secondary"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-number">24h</span>
+              <span class="stat-label">Total Study Time</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <ion-icon name="trophy" color="warning"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-number">5</span>
+              <span class="stat-label">Achievements</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <ion-icon name="people" color="success"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-number">3</span>
+              <span class="stat-label">Active Tutors</span>
+            </div>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Tutor Video Section -->
+    <ion-card class="tutor-video-card" *ngIf="isTutor()">
+      <ion-card-header>
+        <ion-card-title>Introduction Video</ion-card-title>
+        <ion-card-subtitle>Help students get to know you better</ion-card-subtitle>
+      </ion-card-header>
+      <ion-card-content>
+        <div class="video-section">
+          <p class="video-description">
+            Upload a short video introducing yourself and explaining your teaching style. 
+            This video will be shown to students when they're browsing tutors.
+          </p>
+          
+          <app-video-upload
+            [videoUrl]="tutorIntroductionVideo"
+            (videoUploaded)="onVideoUploaded($event)"
+            (videoRemoved)="onVideoRemoved()">
+          </app-video-upload>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Settings -->
+    <ion-card class="settings-card">
+      <ion-card-header>
+        <ion-card-title>Settings</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item button>
+            <ion-icon name="notifications" slot="start"></ion-icon>
+            <ion-label>Notifications</ion-label>
+            <ion-toggle slot="end" checked></ion-toggle>
+          </ion-item>
+          <ion-item button>
+            <ion-icon name="language" slot="start"></ion-icon>
+            <ion-label>Language</ion-label>
+            <ion-note slot="end">English</ion-note>
+          </ion-item>
+          <ion-item button>
+            <ion-icon name="moon" slot="start"></ion-icon>
+            <ion-label>Dark Mode</ion-label>
+            <ion-toggle slot="end"></ion-toggle>
+          </ion-item>
+          <ion-item button>
+            <ion-icon name="help-circle" slot="start"></ion-icon>
+            <ion-label>Help & Support</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Logout Button -->
+    <ion-button 
+      expand="block" 
+      fill="outline" 
+      color="danger" 
+      (click)="logout()"
+      class="logout-button">
+      <ion-icon name="log-out" slot="start"></ion-icon>
+      Sign Out
+    </ion-button>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="!(user$ | async)">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading profile...</p>
+  </div>
+</ion-content>

@@ -1,0 +1,84 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>
+      Lessons
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Lessons</ion-title>
+    </ion-toolbar>
+  </ion-header>
+  
+  <div class="container">
+    <!-- Filter Section -->
+    <ion-segment [(ngModel)]="selectedFilter" (ionChange)="filterLessons()">
+      <ion-segment-button value="all">
+        <ion-label>All</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="beginner">
+        <ion-label>Beginner</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="intermediate">
+        <ion-label>Intermediate</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="advanced">
+        <ion-label>Advanced</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+
+    <!-- Category Filter -->
+    <div class="chip-container">
+      <ion-chip *ngFor="let category of categories" 
+                [color]="selectedCategory === category ? 'primary' : 'medium'"
+                (click)="selectCategory(category)">
+        <ion-icon [name]="getCategoryIcon(category)"></ion-icon>
+        <ion-label>{{ category | titlecase }}</ion-label>
+      </ion-chip>
+    </div>
+
+    <!-- Lessons List -->
+    <ion-list>
+      <ion-item-sliding *ngFor="let lesson of filteredLessons">
+        <ion-item button (click)="openLesson(lesson)">
+          <ion-avatar slot="start">
+            <ion-icon [name]="getCategoryIcon(lesson.category)" 
+                      [color]="getLevelColor(lesson.level)"></ion-icon>
+          </ion-avatar>
+          <ion-label>
+            <h2>{{ lesson.title }}</h2>
+            <p>{{ lesson.description }}</p>
+            <div class="lesson-meta">
+              <ion-chip [color]="getLevelColor(lesson.level)" size="small">
+                <ion-label>{{ lesson.level | titlecase }}</ion-label>
+              </ion-chip>
+              <ion-chip color="medium" size="small">
+                <ion-icon name="time"></ion-icon>
+                <ion-label>{{ lesson.estimatedTime }} min</ion-label>
+              </ion-chip>
+              <ion-chip *ngIf="lesson.progress" 
+                        [color]="lesson.progress.status === 'completed' ? 'success' : 'warning'" 
+                        size="small">
+                <ion-icon [name]="lesson.progress.status === 'completed' ? 'checkmark' : 'play'"></ion-icon>
+                <ion-label>{{ lesson.progress.status === 'completed' ? 'Completed' : 'In Progress' }}</ion-label>
+              </ion-chip>
+            </div>
+          </ion-label>
+          <ion-note slot="end">
+            <ion-icon name="chevron-forward"></ion-icon>
+          </ion-note>
+        </ion-item>
+      </ion-item-sliding>
+    </ion-list>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredLessons.length === 0" class="empty-state">
+      <ion-icon name="book-outline" size="large"></ion-icon>
+      <h3>No lessons found</h3>
+      <p>Try adjusting your filters or check back later for new content.</p>
+    </div>
+  </div>
+</ion-content>

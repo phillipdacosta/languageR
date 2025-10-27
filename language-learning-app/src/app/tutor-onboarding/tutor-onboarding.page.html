@@ -1,0 +1,122 @@
+<ion-content class="ion-padding">
+  <div class="onboarding-container">
+    <!-- Header -->
+    <div class="header">
+      <h1>Welcome, Tutor!</h1>
+      <p>Let's set up your teaching profile to help students find you.</p>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-section">
+      <ion-progress-bar [value]="getProgressPercentage() / 100"></ion-progress-bar>
+      <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+    </div>
+
+    <!-- Step Content -->
+    <div class="step-content">
+      
+      <!-- Step 1: Languages -->
+      <div *ngIf="currentStep === 1" class="step">
+        <h2>What languages do you teach?</h2>
+        <p>Select all languages you're comfortable teaching</p>
+        
+        <div class="options-grid">
+          <ion-button 
+            *ngFor="let language of availableLanguages"
+            [class.selected]="selectedLanguages.includes(language)"
+            fill="outline"
+            class="option-button"
+            (click)="toggleLanguage(language)">
+            {{ language }}
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Step 2: Teaching Experience -->
+      <div *ngIf="currentStep === 2" class="step">
+        <h2>What's your teaching experience?</h2>
+        <p>Help students understand your background</p>
+        
+        <div class="options-list">
+          <ion-button 
+            *ngFor="let experience of experienceLevels"
+            [class.selected]="selectedExperience === experience"
+            fill="outline"
+            expand="block"
+            class="option-button"
+            (click)="setExperience(experience)">
+            {{ experience }}
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Step 3: Availability -->
+      <div *ngIf="currentStep === 3" class="step">
+        <h2>When are you available?</h2>
+        <p>Let students know your teaching schedule</p>
+        
+        <div class="options-list">
+          <ion-button 
+            *ngFor="let schedule of scheduleOptions"
+            [class.selected]="selectedSchedule === schedule"
+            fill="outline"
+            expand="block"
+            class="option-button"
+            (click)="setSchedule(schedule)">
+            {{ schedule }}
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Step 4: Profile Setup -->
+      <div *ngIf="currentStep === 4" class="step">
+        <h2>Complete your profile</h2>
+        <p>Add some details about yourself</p>
+        
+        <ion-item>
+          <ion-label position="stacked">Bio (optional)</ion-label>
+          <ion-textarea 
+            [(ngModel)]="profileBio"
+            placeholder="Tell students about yourself..."
+            rows="4">
+          </ion-textarea>
+        </ion-item>
+        
+        <ion-item>
+          <ion-label position="stacked">Hourly Rate (USD)</ion-label>
+          <ion-input 
+            [(ngModel)]="hourlyRate"
+            type="number"
+            placeholder="25">
+          </ion-input>
+        </ion-item>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="navigation">
+      <ion-button 
+        *ngIf="currentStep > 1"
+        fill="clear"
+        (click)="prevStep()">
+        <ion-icon name="chevron-back" slot="start"></ion-icon>
+        Back
+      </ion-button>
+      
+      <ion-button 
+        *ngIf="currentStep < totalSteps"
+        [disabled]="!canProceed()"
+        (click)="nextStep()">
+        Next
+        <ion-icon name="chevron-forward" slot="end"></ion-icon>
+      </ion-button>
+      
+      <ion-button 
+        *ngIf="currentStep === totalSteps"
+        [disabled]="!canProceed()"
+        (click)="completeOnboarding()">
+        Complete Setup
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

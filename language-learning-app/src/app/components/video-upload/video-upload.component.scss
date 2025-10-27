@@ -1,0 +1,110 @@
+.video-upload-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.upload-section {
+  margin-bottom: 1rem;
+}
+
+.upload-area {
+  border: 2px dashed var(--ion-color-medium);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--ion-color-light);
+  
+  &:hover {
+    border-color: var(--ion-color-primary);
+    background: var(--ion-color-primary-tint);
+  }
+  
+  &.dragover {
+    border-color: var(--ion-color-primary);
+    background: var(--ion-color-primary-tint);
+    transform: scale(1.02);
+  }
+}
+
+.upload-icon {
+  font-size: 3rem;
+  color: var(--ion-color-medium);
+  margin-bottom: 1rem;
+}
+
+.upload-text {
+  color: var(--ion-color-dark);
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.upload-hint {
+  color: var(--ion-color-medium);
+  font-size: 0.9rem;
+}
+
+.upload-button {
+  margin-top: 1rem;
+}
+
+.video-preview {
+  margin-top: 1rem;
+  
+  .preview-video {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .remove-button {
+    margin-top: 0.5rem;
+  }
+}
+
+.error-message {
+  color: var(--ion-color-danger);
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .upload-area {
+    background: var(--ion-color-dark);
+    border-color: var(--ion-color-medium);
+    
+    &:hover {
+      background: var(--ion-color-primary-shade);
+    }
+    
+    &.dragover {
+      background: var(--ion-color-primary-shade);
+    }
+  }
+  
+  .upload-icon {
+    color: var(--ion-color-light);
+  }
+  
+  .upload-text {
+    color: var(--ion-color-light);
+  }
+  
+  .upload-hint {
+    color: var(--ion-color-medium);
+  }
+}
+

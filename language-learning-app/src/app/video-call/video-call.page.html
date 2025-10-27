@@ -1,0 +1,290 @@
+        <ion-header [translucent]="true">
+          <ion-toolbar>
+            <ion-title>Video Class</ion-title>
+            <ion-buttons slot="end">
+              <ion-button (click)="endCall()" color="danger">
+                <ion-icon name="call"></ion-icon>
+              </ion-button>
+            </ion-buttons>
+          </ion-toolbar>
+        </ion-header>
+
+        <!-- Debug info -->
+        <div class="debug-info" *ngIf="isConnected">
+          <p>Channel: {{channelName}} | Connected: {{isConnected}} | Remote Users: {{remoteUserCount}}</p>
+        </div>
+
+<ion-content [fullscreen]="true">
+  <div class="video-container">
+    <!-- Main video area -->
+    <div class="main-video">
+      <div #localVideo class="video-container-local" *ngIf="isConnected; else localPlaceholder">
+        <!-- Local video will be displayed here -->
+      </div>
+      <ng-template #localPlaceholder>
+        <div class="video-placeholder">
+          <ion-icon name="videocam" size="large"></ion-icon>
+          <p>Your video will appear here</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Tutor video (smaller) -->
+    <div class="tutor-video">
+      <div #remoteVideo class="video-container-remote" *ngIf="isConnected; else remotePlaceholder">
+        <!-- Remote video will be displayed here -->
+      </div>
+      <ng-template #remotePlaceholder>
+        <div class="video-placeholder small">
+          <ion-icon name="person" size="large"></ion-icon>
+          <p>Waiting for tutor...</p>
+        </div>
+      </ng-template>
+    </div>
+
+            <!-- Controls -->
+            <div class="video-controls">
+              <ion-button (click)="toggleMute()" [color]="isMuted ? 'danger' : 'medium'" fill="clear">
+                <ion-icon [name]="isMuted ? 'mic-off' : 'mic'"></ion-icon>
+              </ion-button>
+              
+              <ion-button (click)="toggleVideo()" [color]="isVideoOff ? 'danger' : 'medium'" fill="clear">
+                <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam'"></ion-icon>
+              </ion-button>
+              
+              <ion-button (click)="toggleWhiteboard()" [color]="showWhiteboard ? 'primary' : 'medium'" fill="clear">
+                <ion-icon name="create"></ion-icon>
+              </ion-button>
+              
+              <ion-button (click)="toggleChat()" [color]="showChat ? 'primary' : 'medium'" fill="clear">
+                <ion-icon name="chatbubbles"></ion-icon>
+              </ion-button>
+              
+              <ion-button (click)="shareScreen()" color="medium" fill="clear">
+                <ion-icon name="desktop"></ion-icon>
+              </ion-button>
+              
+              <!-- Debug button for testing -->
+              <ion-button (click)="refreshVideoDisplay()" color="secondary" fill="clear" title="Refresh Video Display">
+                <ion-icon name="refresh"></ion-icon>
+              </ion-button>
+            </div>
+
+    <!-- Chat Panel (toggleable) -->
+    <div class="chat-panel" *ngIf="showChat">
+      <div class="chat-header">
+        <h3>Chat</h3>
+        <ion-button (click)="toggleChat()" size="small" fill="clear">
+          <ion-icon name="close"></ion-icon>
+        </ion-button>
+      </div>
+      <div class="chat-messages" #chatMessagesContainer>
+        <div *ngFor="let message of chatMessages" class="chat-message" [class.own-message]="message.isOwn">
+          <div class="message-content">
+            <span class="sender-name">{{message.sender}}</span>
+            <p class="message-text">{{message.text}}</p>
+            <span class="message-time">{{message.timestamp | date:'short'}}</span>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input">
+        <ion-input 
+          [(ngModel)]="newMessage" 
+          placeholder="Type a message..."
+          (keyup.enter)="sendMessage()"
+          class="message-input">
+        </ion-input>
+        <ion-button (click)="sendMessage()" fill="clear" size="small">
+          <ion-icon name="send"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Whiteboard (toggleable) -->
+    <div class="whiteboard" 
+         [class.fullscreen]="isWhiteboardFullscreen"
+         [class.dragging]="isWhiteboardDragging"
+         [style.width.px]="whiteboardWidth"
+         [style.height.px]="whiteboardHeight"
+         [style.left.px]="whiteboardX"
+         [style.top.px]="whiteboardY"
+         *ngIf="showWhiteboard">
+      <div class="whiteboard-header" 
+           (mousedown)="startWhiteboardDrag($event)"
+           [class.dragging]="isWhiteboardDragging">
+        <h3>Whiteboard</h3>
+        <div class="whiteboard-controls">
+          <ion-button (click)="toggleFullscreen()" size="small" fill="clear" title="Fullscreen">
+            <ion-icon [name]="isWhiteboardFullscreen ? 'contract' : 'expand'"></ion-icon>
+          </ion-button>
+          <ion-button (click)="clearWhiteboard()" size="small" fill="clear" title="Clear">
+            <ion-icon name="trash"></ion-icon>
+          </ion-button>
+          <ion-button (click)="toggleWhiteboard()" size="small" fill="clear" title="Close">
+            <ion-icon name="close"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+      <div class="whiteboard-content">
+        <div class="canvas-container" #canvasContainer>
+          <canvas 
+            #whiteboardCanvas 
+            [width]="canvasWidth"
+            [height]="canvasHeight"
+            [class.text-cursor]="currentTool === 'text'"
+            [class.move-cursor]="currentTool === 'move'"
+            (mousedown)="handleCanvasClick($event)"
+            (mousemove)="handleCanvasMove($event)"
+            (mouseup)="handleCanvasMouseUp($event)"
+            (mouseleave)="handleCanvasMouseLeave($event)">
+          </canvas>
+          
+          
+          <!-- Inline text input -->
+          <input 
+            #textInput
+            *ngIf="showInlineTextInput"
+            type="text"
+            [(ngModel)]="inlineTextValue"
+            [style.left.px]="textInputX"
+            [style.top.px]="textInputY"
+            [style.color]="currentTextColor"
+            [style.font-size.px]="currentTextSize"
+            class="inline-text-input"
+            (blur)="finishTextInput()"
+            (keyup.enter)="finishTextInput()"
+            (keyup.escape)="cancelTextInput()"
+            autofocus>
+        </div>
+      </div>
+              <div class="whiteboard-tools">
+                <!-- Tool Selection -->
+                <div class="tool-selection">
+                  <div class="tool-button" 
+                       [class.active]="currentTool === 'draw'"
+                       (click)="setTool('draw')"
+                       title="Draw">
+                    <ion-icon name="create"></ion-icon>
+                    <span>Draw</span>
+                  </div>
+                  <div class="tool-button" 
+                       [class.active]="currentTool === 'text'"
+                       (click)="setTool('text')"
+                       title="Add Text">
+                    <ion-icon name="text"></ion-icon>
+                    <span>Text</span>
+                  </div>
+                  <div class="tool-button" 
+                       [class.active]="currentTool === 'move'"
+                       (click)="setTool('move')"
+                       title="Move Elements">
+                    <ion-icon name="move"></ion-icon>
+                    <span>Move</span>
+                  </div>
+                </div>
+                
+                <!-- Color Picker -->
+                <div class="color-picker-section">
+                  <div class="section-label">Color</div>
+                  <div class="color-picker">
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#000000'"
+                         (click)="setBrushColor('#000000')"
+                         style="background-color: #000000"
+                         title="Black"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#ff0000'"
+                         (click)="setBrushColor('#ff0000')"
+                         style="background-color: #ff0000"
+                         title="Red"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#0000ff'"
+                         (click)="setBrushColor('#0000ff')"
+                         style="background-color: #0000ff"
+                         title="Blue"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#00ff00'"
+                         (click)="setBrushColor('#00ff00')"
+                         style="background-color: #00ff00"
+                         title="Green"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#ffff00'"
+                         (click)="setBrushColor('#ffff00')"
+                         style="background-color: #ffff00"
+                         title="Yellow"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#ff00ff'"
+                         (click)="setBrushColor('#ff00ff')"
+                         style="background-color: #ff00ff"
+                         title="Magenta"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#00ffff'"
+                         (click)="setBrushColor('#00ffff')"
+                         style="background-color: #00ffff"
+                         title="Cyan"></div>
+                    <div class="color-option" 
+                         [class.active]="currentColor === '#ffa500'"
+                         (click)="setBrushColor('#ffa500')"
+                         style="background-color: #ffa500"
+                         title="Orange"></div>
+                  </div>
+                </div>
+                
+                <!-- Brush Size -->
+                <div class="brush-size-section" *ngIf="currentTool === 'draw'">
+                  <div class="section-label">Brush Size</div>
+                  <div class="brush-sizes">
+                    <div class="brush-option" 
+                         [class.active]="currentBrushSize === 2"
+                         (click)="setBrushSize(2)"
+                         title="Thin">
+                      <div class="brush-preview" style="width: 2px; height: 2px;"></div>
+                    </div>
+                    <div class="brush-option" 
+                         [class.active]="currentBrushSize === 5"
+                         (click)="setBrushSize(5)"
+                         title="Medium">
+                      <div class="brush-preview" style="width: 5px; height: 5px;"></div>
+                    </div>
+                    <div class="brush-option" 
+                         [class.active]="currentBrushSize === 10"
+                         (click)="setBrushSize(10)"
+                         title="Thick">
+                      <div class="brush-preview" style="width: 10px; height: 10px;"></div>
+                    </div>
+                    <div class="brush-option" 
+                         [class.active]="currentBrushSize === 15"
+                         (click)="setBrushSize(15)"
+                         title="Extra Thick">
+                      <div class="brush-preview" style="width: 15px; height: 15px;"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Text Size -->
+                <div class="text-size-section" *ngIf="currentTool === 'text'">
+                  <div class="section-label">Text Size</div>
+                  <div class="text-sizes">
+                    <div class="text-option" 
+                         [class.active]="currentTextSize === 16"
+                         (click)="setTextSize(16)"
+                         title="Small">A</div>
+                    <div class="text-option" 
+                         [class.active]="currentTextSize === 24"
+                         (click)="setTextSize(24)"
+                         title="Medium">A</div>
+                    <div class="text-option" 
+                         [class.active]="currentTextSize === 32"
+                         (click)="setTextSize(32)"
+                         title="Large">A</div>
+                    <div class="text-option" 
+                         [class.active]="currentTextSize === 48"
+                         (click)="setTextSize(48)"
+                         title="Extra Large">A</div>
+                  </div>
+                </div>
+              </div>
+    </div>
+  </div>
+</ion-content>
+

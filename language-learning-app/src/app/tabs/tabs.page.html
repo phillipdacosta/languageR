@@ -1,0 +1,83 @@
+<ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs">
+
+  <!-- Desktop Web Navigation (Top Toolbar) -->
+  <ion-header *ngIf="isWeb() && !showTabs">
+    <ion-toolbar class="desktop-nav-toolbar">
+      <!-- <ion-title>Language Learning App</ion-title> -->
+      
+      <!-- User Profile Section -->
+      <div class="user-profile" slot="start" *ngIf="user$ | async as user">
+        <ion-avatar class="user-avatar">
+          <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture" (error)="onImageError($event)">
+          <div class="user-initials" *ngIf="!user.picture" [style.display]="user.picture ? 'none' : 'block'">{{ getUserInitials(user) }}</div>
+        </ion-avatar>
+        <div class="user-info">
+          <span class="user-name">{{ user.name }}</span>
+          <!-- <span class="user-email">{{ user.email }}</span> -->
+        </div>
+      </div>
+      
+      <div class="desktop-nav-buttons" slot="end">
+        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/home')" (click)="navigateTo('/tabs/home')">
+          <ion-icon name="home"></ion-icon>
+          <span>Home</span>
+        </button>
+        
+        <button *ngIf="currentUser?.userType === 'student'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-search')" (click)="navigateTo('/tabs/tutor-search')">
+          <ion-icon name="search"></ion-icon>
+          <span>Find Tutors</span>
+        </button>
+        
+        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
+          <ion-icon name="trending-up"></ion-icon>
+          <span>Progress</span>
+        </button>
+        
+        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
+          <ion-icon name="person"></ion-icon>
+          <span>Profile</span>
+        </button>
+        
+        <button class="nav-button logout-button" (click)="logout()">
+          <ion-icon name="log-out"></ion-icon>
+          <span>Logout</span>
+        </button>
+      </div>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
+  <ion-tab-bar slot="bottom" *ngIf="showTabs">
+    <ion-tab-button tab="home" href="/tabs/home">
+      <ion-icon aria-hidden="true" name="home"></ion-icon>
+      <ion-label>Home</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" href="/tabs/tutor-search-content" (click)="openSearchTutors()">
+      <ion-icon aria-hidden="true" name="search"></ion-icon>
+      <ion-label>Search</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="progress" href="/tabs/progress">
+      <ion-icon aria-hidden="true" name="trending-up"></ion-icon>
+      <ion-label>Progress</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="profile" href="/tabs/profile">
+      <ion-icon aria-hidden="true" name="person"></ion-icon>
+      <ion-label>Profile</ion-label>
+    </ion-tab-button>
+  </ion-tab-bar>
+
+  <!-- Tab Content is loaded automatically by ion-tabs -->
+
+  <!-- Platform Debug Info (only in development) -->
+  <div class="platform-debug" *ngIf="isWeb()" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
+    Platform: {{ currentPlatform }}<br>
+    Screen: {{ platformService.getScreenSize() }}<br>
+    Touch: {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}<br>
+    Show Tabs: {{ showTabs ? 'Yes' : 'No' }}<br>
+    Mobile Viewport: {{ isMobileViewport() ? 'Yes' : 'No' }}
+  </div>
+
+</ion-tabs>

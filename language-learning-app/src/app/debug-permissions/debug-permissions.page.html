@@ -1,0 +1,96 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Permission Debug</ion-title>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Browser Diagnostics</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="diagnostic-item">
+        <strong>Browser Support:</strong> 
+        <span [class]="browserSupported ? 'success' : 'error'">
+          {{ browserSupported ? '✅ Supported' : '❌ Not Supported' }}
+        </span>
+      </div>
+      
+      <div class="diagnostic-item">
+        <strong>Camera Permission:</strong> 
+        <span [class]="permissions.camera ? 'success' : 'error'">
+          {{ permissions.camera ? '✅ Granted' : '❌ Not Granted' }}
+        </span>
+      </div>
+      
+      <div class="diagnostic-item">
+        <strong>Microphone Permission:</strong> 
+        <span [class]="permissions.microphone ? 'success' : 'error'">
+          {{ permissions.microphone ? '✅ Granted' : '❌ Not Granted' }}
+        </span>
+      </div>
+      
+      <div class="diagnostic-item">
+        <strong>Cameras Found:</strong> {{ devices.cameras.length }}
+      </div>
+      
+      <div class="diagnostic-item">
+        <strong>Microphones Found:</strong> {{ devices.microphones.length }}
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Test Actions</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-button expand="block" (click)="testPermissions()" class="ion-margin-bottom">
+        Test Permissions
+      </ion-button>
+      
+      <ion-button expand="block" (click)="testAgoraConnection()" class="ion-margin-bottom">
+        Test Agora Connection
+      </ion-button>
+      
+      <ion-button expand="block" (click)="runDiagnostics()" fill="outline">
+        Refresh Diagnostics
+      </ion-button>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Test Results</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <pre>{{ testResult }}</pre>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Device Details</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <h4>Cameras:</h4>
+      <ul>
+        <li *ngFor="let camera of devices.cameras">{{ camera.label || 'Unknown Camera' }}</li>
+        <li *ngIf="devices.cameras.length === 0">No cameras found</li>
+      </ul>
+      
+      <h4>Microphones:</h4>
+      <ul>
+        <li *ngFor="let mic of devices.microphones">{{ mic.label || 'Unknown Microphone' }}</li>
+        <li *ngIf="devices.microphones.length === 0">No microphones found</li>
+      </ul>
+    </ion-card-content>
+  </ion-card>
+</ion-content>
+

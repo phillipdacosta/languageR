@@ -1,0 +1,379 @@
+import { Injectable } from '@angular/core';
+import AgoraRTC, { 
+  IAgoraRTCClient, 
+  ICameraVideoTrack, 
+  IMicrophoneAudioTrack,
+  IRemoteVideoTrack,
+  IRemoteAudioTrack,
+  UID
+} from 'agora-rtc-sdk-ng';
+// import AgoraRTM from 'agora-rtm-sdk'; // Disabled due to compilation issues
+import { environment } from '../../environments/environment';
+import { TokenGeneratorService } from './token-generator.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AgoraService {
+  private client: IAgoraRTCClient | null = null;
+  private localVideoTrack: ICameraVideoTrack | null = null;
+  private localAudioTrack: IMicrophoneAudioTrack | null = null;
+  private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> = new Map();
+
+  // Simple messaging properties
+  private channelName: string = 'default';
+
+  private readonly APP_ID = environment.agora.appId;
+  private readonly TOKEN = environment.agora.token;
+  private readonly UID = environment.agora.uid;
+
+  // Callbacks for real-time messaging
+  onWhiteboardMessage?: (data: any) => void;
+  onChatMessage?: (message: any) => void;
+
+  constructor(private tokenGenerator: TokenGeneratorService) { }
+
+  isBrowserSupported(): boolean {
+    // Check if getUserMedia is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return false;
+    }
+    
+    // Check if WebRTC is supported
+    if (!window.RTCPeerConnection) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  async checkPermissions(): Promise<{ camera: boolean; microphone: boolean }> {
+    try {
+      // Check camera permission
+      const cameraPermission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      const microphonePermission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      
+      return {
+        camera: cameraPermission.state === 'granted',
+        microphone: microphonePermission.state === 'granted'
+      };
+    } catch (error) {
+      console.log("Permission API not supported, will request permissions directly");
+      return { camera: false, microphone: false };
+    }
+  }
+
+  async requestPermissions(): Promise<boolean> {
+    try {
+      // Try to get user media to trigger permission request
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      
+      // Stop the stream immediately as we just needed to request permissions
+      stream.getTracks().forEach(track => track.stop());
+      
+      console.log("Permissions granted successfully");
+      return true;
+    } catch (error) {
+      console.error("Permission denied or error:", error);
+      return false;
+    }
+  }
+
+  async initializeClient(): Promise<IAgoraRTCClient> {
+    if (this.client) {
+      return this.client;
+    }
+
+    // Create Agora client
+    this.client = AgoraRTC.createClient({ 
+      mode: "rtc", 
+      codec: "vp8" 
+    });
+
+    // Set up event listeners
+    this.setupEventListeners();
+
+    return this.client;
+  }
+
+  private setupEventListeners() {
+    if (!this.client) return;
+
+    // Listen for remote user joining
+    this.client.on("user-published", async (user, mediaType) => {
+      console.log("User published:", user, mediaType);
+      
+      // Subscribe to the remote user
+      await this.client!.subscribe(user, mediaType);
+      
+      if (mediaType === "video") {
+        this.remoteUsers.set(user.uid, { 
+          ...this.remoteUsers.get(user.uid), 
+          videoTrack: user.videoTrack 
+        });
+      }
+      
+      if (mediaType === "audio") {
+        this.remoteUsers.set(user.uid, { 
+          ...this.remoteUsers.get(user.uid), 
+          audioTrack: user.audioTrack 
+        });
+        user.audioTrack?.play();
+      }
+    });
+
+    // Listen for remote user leaving
+    this.client.on("user-unpublished", (user, mediaType) => {
+      console.log("User unpublished:", user, mediaType);
+      
+      if (mediaType === "video") {
+        const remoteUser = this.remoteUsers.get(user.uid);
+        if (remoteUser) {
+          remoteUser.videoTrack = undefined;
+        }
+      }
+      
+      if (mediaType === "audio") {
+        const remoteUser = this.remoteUsers.get(user.uid);
+        if (remoteUser) {
+          remoteUser.audioTrack = undefined;
+        }
+      }
+    });
+
+    // Listen for remote user leaving the channel
+    this.client.on("user-left", (user) => {
+      console.log("User left:", user);
+      this.remoteUsers.delete(user.uid);
+    });
+
+    // Note: Data stream messages require Agora RTM SDK
+    // This is a placeholder for future RTM integration
+    // this.client.on("stream-message", (uid, data) => {
+    //   console.log("Received data stream message from user:", uid, data);
+    //   if (this.onDataStreamMessage) {
+    //     this.onDataStreamMessage(uid, data);
+    //   }
+    // });
+  }
+
+  async joinChannel(channelName: string, uid?: UID): Promise<void> {
+    if (!this.client) {
+      throw new Error("Client not initialized");
+    }
+
+    try {
+      // First, request permissions and create local tracks
+      console.log("Requesting camera and microphone permissions...");
+      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      console.log("Successfully created local tracks");
+
+      // Generate token for testing or use null if testing mode is enabled
+      let token = this.tokenGenerator.isTestingModeEnabled() ? null : this.tokenGenerator.generateTestToken(channelName, typeof uid === 'number' ? uid : 0);
+      
+      // If token generation fails, try without token
+      if (!token && !this.tokenGenerator.isTestingModeEnabled()) {
+        console.log('Token generation failed, trying without token...');
+        token = null;
+      }
+      
+      console.log('Using token:', token ? 'Token provided' : 'No token (null)');
+      
+      // Join the RTC channel
+      await this.client.join(this.APP_ID, channelName, token, uid || this.UID);
+      console.log("Successfully joined RTC channel:", channelName);
+      
+      // Publish local tracks
+      await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+      console.log("Successfully published local tracks");
+
+      // Initialize simple real-time messaging
+      this.channelName = channelName;
+      await this.initializeRTM(channelName);
+
+    } catch (error) {
+      console.error("Error joining channel:", error);
+      
+      // Clean up tracks if they were created
+      if (this.localVideoTrack) {
+        this.localVideoTrack.close();
+        this.localVideoTrack = null;
+      }
+      if (this.localAudioTrack) {
+        this.localAudioTrack.close();
+        this.localAudioTrack = null;
+      }
+      
+      throw error;
+    }
+  }
+
+  async leaveChannel(): Promise<void> {
+    if (!this.client) return;
+
+    try {
+      // Stop local tracks
+      if (this.localVideoTrack) {
+        this.localVideoTrack.stop();
+        this.localVideoTrack.close();
+        this.localVideoTrack = null;
+      }
+
+      if (this.localAudioTrack) {
+        this.localAudioTrack.stop();
+        this.localAudioTrack.close();
+        this.localAudioTrack = null;
+      }
+
+      // Leave the channel
+      await this.client.leave();
+      console.log("Successfully left channel");
+
+      // Clear remote users
+      this.remoteUsers.clear();
+      
+      // Clean up messaging
+      this.channelName = 'default';
+
+    } catch (error) {
+      console.error("Error leaving channel:", error);
+      throw error;
+    }
+  }
+
+  async toggleMute(): Promise<boolean> {
+    if (!this.localAudioTrack) return false;
+
+    const isMuted = this.localAudioTrack.muted;
+    await this.localAudioTrack.setMuted(!isMuted);
+    return !isMuted;
+  }
+
+  async toggleVideo(): Promise<boolean> {
+    if (!this.localVideoTrack) return false;
+
+    const isVideoOff = this.localVideoTrack.muted;
+    await this.localVideoTrack.setMuted(!isVideoOff);
+    return !isVideoOff;
+  }
+
+  getLocalVideoTrack(): ICameraVideoTrack | null {
+    return this.localVideoTrack;
+  }
+
+  getRemoteUsers(): Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> {
+    return this.remoteUsers;
+  }
+
+  async getDevices() {
+    try {
+      const devices = await AgoraRTC.getDevices();
+      return {
+        cameras: devices.filter(device => device.kind === 'videoinput'),
+        microphones: devices.filter(device => device.kind === 'audioinput'),
+        speakers: devices.filter(device => device.kind === 'audiooutput')
+      };
+    } catch (error) {
+      console.error("Error getting devices:", error);
+      return { cameras: [], microphones: [], speakers: [] };
+    }
+  }
+
+  // Simple real-time messaging using localStorage events and custom events
+  private async initializeRTM(channelName: string): Promise<void> {
+    try {
+      console.log("Initializing simple real-time messaging...");
+      
+      // Use localStorage events for cross-tab sync
+      window.addEventListener('storage', (e) => {
+        if (e.key === `agora-message-${channelName}` && e.newValue) {
+          this.handleIncomingMessage(e.newValue);
+        }
+      });
+      
+      // Use custom events for same-tab sync
+      window.addEventListener('agora-message', (e: any) => {
+        if (e.detail && e.detail.channel === channelName) {
+          this.handleIncomingMessage(JSON.stringify(e.detail.data));
+        }
+      });
+      
+      console.log("Simple real-time messaging initialized");
+      
+    } catch (error) {
+      console.error("Error initializing messaging:", error);
+    }
+  }
+
+  private handleIncomingMessage(messageData: string): void {
+    try {
+      const data = JSON.parse(messageData);
+      if (data.type === 'whiteboard') {
+        if (this.onWhiteboardMessage) {
+          this.onWhiteboardMessage(data.payload);
+        }
+      } else if (data.type === 'chat') {
+        if (this.onChatMessage) {
+          this.onChatMessage(data.payload);
+        }
+      }
+    } catch (error) {
+      console.error("Error parsing message:", error);
+    }
+  }
+
+  // Send whiteboard data via simple messaging
+  async sendWhiteboardData(data: any): Promise<void> {
+    try {
+      const message = {
+        type: 'whiteboard',
+        payload: data,
+        timestamp: Date.now()
+      };
+      
+      // Send via localStorage for cross-tab sync
+      localStorage.setItem(`agora-message-${this.channelName || 'default'}`, JSON.stringify(message));
+      
+      // Also send via custom event for same-tab sync
+      window.dispatchEvent(new CustomEvent('agora-message', {
+        detail: {
+          channel: this.channelName || 'default',
+          data: message
+        }
+      }));
+      
+      console.log("Whiteboard data sent:", data);
+    } catch (error) {
+      console.error("Error sending whiteboard data:", error);
+    }
+  }
+
+  // Send chat message via simple messaging
+  async sendChatMessage(message: any): Promise<void> {
+    try {
+      const data = {
+        type: 'chat',
+        payload: message,
+        timestamp: Date.now()
+      };
+      
+      // Send via localStorage for cross-tab sync
+      localStorage.setItem(`agora-message-${this.channelName || 'default'}`, JSON.stringify(data));
+      
+      // Also send via custom event for same-tab sync
+      window.dispatchEvent(new CustomEvent('agora-message', {
+        detail: {
+          channel: this.channelName || 'default',
+          data: data
+        }
+      }));
+      
+      console.log("Chat message sent:", message);
+    } catch (error) {
+      console.error("Error sending chat message:", error);
+    }
+  }
+}

@@ -1,0 +1,188 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Welcome to Language Learning</ion-title>
+    <!-- <ion-buttons slot="end">
+      <ion-button (click)="skipOnboarding()" fill="clear">
+        Skip
+      </ion-button>
+    </ion-buttons> -->
+    <ion-buttons slot="end">
+        <ion-button (click)="logout()" fill="clear">
+          Logout
+        </ion-button>
+      </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="onboarding-container">
+    <!-- Progress Bar -->
+    <div class="progress-section">
+      <ion-progress-bar [value]="getProgressPercentage() / 100"></ion-progress-bar>
+      <p class="step-indicator">Step {{ currentStep }} of {{ totalSteps }}</p>
+    </div>
+
+    <!-- Step 1: Welcome -->
+    <div *ngIf="currentStep === 1" class="step-content">
+      <div class="welcome-section">
+        <ion-icon name="school" size="large" color="primary"></ion-icon>
+        <h1>Welcome to Language Learning!</h1>
+        <p>Let's personalize your learning experience by getting to know you better.</p>
+        <p>This will only take a few minutes.</p>
+      </div>
+    </div>
+
+    <!-- Step 2: Language Selection -->
+    <div *ngIf="currentStep === 2" class="step-content">
+      <h2>What languages would you like to learn?</h2>
+      <p>Select all that interest you:</p>
+      
+      <div class="language-grid">
+        <ion-chip 
+          *ngFor="let language of availableLanguages" 
+          [class.selected]="selectedLanguages.includes(language)"
+          (click)="toggleLanguage(language)">
+          {{ language }}
+        </ion-chip>
+      </div>
+    </div>
+
+    <!-- Step 3: Learning Goals -->
+    <div *ngIf="currentStep === 3" class="step-content">
+      <h2>What are your learning goals?</h2>
+      <p>Choose what you want to achieve:</p>
+      
+      <div class="goals-list">
+        <ion-item 
+          *ngFor="let goal of availableGoals" 
+          button 
+          (click)="toggleGoal(goal)"
+          [class.selected]="learningGoals.includes(goal)">
+          <ion-checkbox 
+            slot="start" 
+            [checked]="learningGoals.includes(goal)">
+          </ion-checkbox>
+          <ion-label>{{ goal }}</ion-label>
+        </ion-item>
+      </div>
+    </div>
+
+    <!-- Step 4: Experience & Schedule -->
+    <div *ngIf="currentStep === 4" class="step-content">
+      <h2>Tell us about your experience</h2>
+      
+      <div class="experience-section">
+        <h3>What's your current level?</h3>
+        <div class="level-options">
+          <ion-button 
+            *ngFor="let level of experienceLevels" 
+            [fill]="experienceLevel === level ? 'solid' : 'outline'"
+            (click)="setExperienceLevel(level)">
+            {{ level }}
+          </ion-button>
+        </div>
+      </div>
+
+      <div class="schedule-section">
+        <h3>How often would you like to practice?</h3>
+        <div class="schedule-options">
+          <ion-button 
+            *ngFor="let schedule of scheduleOptions" 
+            [fill]="preferredSchedule === schedule ? 'solid' : 'outline'"
+            (click)="setPreferredSchedule(schedule)">
+            {{ schedule }}
+          </ion-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Tutor-specific steps -->
+    <div *ngIf="currentStep === 5 && currentUser?.['userType'] === 'tutor'" class="step-content">
+      <h2>Complete your tutor profile</h2>
+      
+      <!-- Tutor Experience -->
+      <div class="tutor-experience-section">
+        <h3>Teaching Experience</h3>
+        <div class="experience-options">
+          <ion-button 
+            *ngFor="let experience of tutorExperienceOptions" 
+            [fill]="tutorExperience === experience ? 'solid' : 'outline'"
+            (click)="setTutorExperience(experience)">
+            {{ experience }}
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Tutor Schedule -->
+      <div class="tutor-schedule-section">
+        <h3>When are you available?</h3>
+        <div class="schedule-options">
+          <ion-button 
+            *ngFor="let schedule of tutorScheduleOptions" 
+            [fill]="tutorSchedule === schedule ? 'solid' : 'outline'"
+            (click)="setTutorSchedule(schedule)">
+            {{ schedule }}
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Tutor Bio -->
+      <div class="tutor-bio-section">
+        <h3>Tell students about yourself</h3>
+        <ion-textarea
+          [(ngModel)]="tutorBio"
+          placeholder="Write a brief description of your teaching style, background, and what students can expect from your lessons..."
+          rows="4"
+          maxlength="500">
+        </ion-textarea>
+        <p class="character-count">{{ tutorBio.length }}/500 characters</p>
+      </div>
+
+      <!-- Hourly Rate -->
+      <div class="hourly-rate-section">
+        <h3>Set your hourly rate</h3>
+        <div class="rate-input">
+          <ion-label>$</ion-label>
+          <ion-input
+            type="number"
+            [(ngModel)]="tutorHourlyRate"
+            min="5"
+            max="200"
+            placeholder="25">
+          </ion-input>
+          <ion-label>/hour</ion-label>
+        </div>
+        <p class="rate-hint">Recommended: $15-50 per hour</p>
+      </div>
+
+      <!-- Introduction Video -->
+      <div class="video-section">
+        <h3>Add an introduction video (optional)</h3>
+        <p class="video-description">Record a short video introducing yourself and explaining your teaching style. This helps students get to know you better.</p>
+        
+        <app-video-upload
+          [videoUrl]="tutorIntroductionVideo"
+          (videoUploaded)="onVideoUploaded($event)"
+          (videoRemoved)="onVideoRemoved()">
+        </app-video-upload>
+      </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="navigation-buttons">
+      <ion-button 
+        *ngIf="currentStep > 1" 
+        fill="outline" 
+        (click)="previousStep()">
+        Previous
+      </ion-button>
+      
+      <ion-button 
+        expand="block" 
+        [disabled]="!canProceed()"
+        (click)="nextStep()">
+        {{ currentStep === totalSteps ? 'Complete Setup' : 'Next' }}
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

@@ -1,0 +1,124 @@
+<!-- login.page.html -->
+<ion-content class="login-content">
+    <div class="login-wrapper">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="logo-container">
+          <!-- <div class="logo-circle">
+            <ion-icon name="language"></ion-icon>
+          </div> -->
+        </div>
+        <h1 class="app-title">Speak Freely</h1>
+        <p class="app-subtitle">Connect with tutors worldwide</p>
+      </div>
+  
+      <!-- User Type Selection -->
+      <div class="auth-section" *ngIf="!selectedUserType">
+        <h3 class="section-title">Choose your account type</h3>
+        <div class="user-type-options">
+          <ion-button 
+            expand="block" 
+            size="large"
+            class="user-type-button student-button" 
+            (click)="selectUserType('student')">
+            <ion-icon name="school" slot="start"></ion-icon>
+            I'm a Student
+            <p class="button-description">Learn languages with expert tutors</p>
+          </ion-button>
+          
+          <ion-button 
+            expand="block" 
+            size="large"
+            class="user-type-button tutor-button" 
+            (click)="selectUserType('tutor')">
+            <ion-icon name="person" slot="start"></ion-icon>
+            I'm a Tutor
+            <p class="button-description">Teach languages and earn money</p>
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Login Actions (shown after user type selection) -->
+      <div class="auth-section" *ngIf="selectedUserType">
+        <div class="selected-type-info">
+          <ion-icon [name]="selectedUserType === 'student' ? 'school' : 'person'" class="type-icon"></ion-icon>
+          <span class="type-text">{{ selectedUserType === 'student' ? 'Student' : 'Tutor' }} Account</span>
+          <ion-button fill="clear" size="small" (click)="goBackToTypeSelection()">
+            Change
+          </ion-button>
+        </div>
+        
+        <ion-button 
+          expand="block" 
+          size="large"
+          (click)="login()"
+          [disabled]="isLoading"
+          class="login-btn">
+          <ion-spinner name="crescent" *ngIf="isLoading" slot="start"></ion-spinner>
+          <ion-icon name="log-in" slot="start" *ngIf="!isLoading"></ion-icon>
+          {{ isLoading ? 'Signing in...' : (selectedUserType === 'student' ? 'Sign In as Student' : 'Sign In as Tutor') }}
+        </ion-button>
+      </div>
+  
+      <!-- Features Grid -->
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon video">
+            <ion-icon name="videocam"></ion-icon>
+          </div>
+          <p>Live Video Lessons</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon native">
+            <ion-icon name="people"></ion-icon>
+          </div>
+          <p>Native Speakers</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon progress">
+            <ion-icon name="trophy"></ion-icon>
+          </div>
+          <p>Track Progress</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon flexible">
+            <ion-icon name="time"></ion-icon>
+          </div>
+          <p>Flexible Schedule</p>
+        </div>
+      </div>
+  
+      <!-- Debug Buttons (only show in dev) -->
+      <div class="debug-buttons">
+        <ion-button 
+          fill="clear" 
+          size="small"
+          (click)="clearAuthAndReload()"
+          class="debug-btn">
+          <ion-icon name="refresh" slot="start"></ion-icon>
+          Reset Auth
+        </ion-button>
+        
+        <ion-button 
+          fill="clear" 
+          size="small"
+          (click)="forceLogout()"
+          class="debug-btn">
+          <ion-icon name="log-out" slot="start"></ion-icon>
+          Force Logout
+        </ion-button>
+        
+        <ion-button 
+          fill="clear" 
+          size="small"
+          (click)="nuclearLogout()"
+          class="debug-btn">
+          <ion-icon name="nuclear" slot="start"></ion-icon>
+          Nuclear Logout
+        </ion-button>
+      </div>
+    </div>
+  </ion-content>
