@@ -92,6 +92,44 @@
     }
   }
 
+  // Price Filter Styles
+  .price-filter {
+    cursor: default;
+    
+    &:hover {
+      border-color: #d0d0d0;
+    }
+    
+    .price-display {
+      font-size: 15px;
+      color: #000;
+      font-weight: 500;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    
+    .price-slider-container {
+      padding: 8px 0;
+      
+      .price-range-slider {
+        --bar-background: #e0e0e0;
+        --bar-background-active: #000;
+        --bar-height: 4px;
+        --bar-border-radius: 2px;
+        --knob-background: #000;
+        --knob-size: 20px;
+        --pin-background: #000;
+        --pin-color: #fff;
+        
+        ion-label {
+          font-size: 12px;
+          color: #666;
+          font-weight: 500;
+        }
+      }
+    }
+  }
+
   // Language Dropdown Styles
   .language-dropdown {
     position: absolute;
@@ -513,6 +551,120 @@
     }
   }
 
+  // Skeleton Loading Styles
+  .skeleton-cards {
+    padding: 16px;
+    
+    .skeleton-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+      
+      .skeleton-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 16px;
+        
+        .skeleton-avatar {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: #e0e0e0;
+          margin-right: 16px;
+        }
+        
+        .skeleton-info {
+          flex: 1;
+          
+          .skeleton-name {
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            width: 60%;
+          }
+          
+          .skeleton-languages {
+            height: 16px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            width: 40%;
+          }
+          
+          .skeleton-rating {
+            height: 14px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            width: 30%;
+          }
+        }
+        
+        .skeleton-price {
+          width: 60px;
+          height: 24px;
+          background: #e0e0e0;
+          border-radius: 4px;
+        }
+      }
+      
+      .skeleton-details {
+        margin-bottom: 16px;
+        
+        .skeleton-bio {
+          height: 16px;
+          background: #e0e0e0;
+          border-radius: 4px;
+          margin-bottom: 12px;
+          width: 100%;
+          
+          &:nth-child(2) {
+            width: 80%;
+          }
+        }
+        
+        .skeleton-stats {
+          display: flex;
+          gap: 16px;
+          
+          .skeleton-stat {
+            height: 14px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            width: 80px;
+          }
+        }
+      }
+      
+      .skeleton-actions {
+        display: flex;
+        gap: 12px;
+        
+        .skeleton-button {
+          height: 36px;
+          background: #e0e0e0;
+          border-radius: 8px;
+          flex: 1;
+        }
+      }
+    }
+  }
+
+  @keyframes skeleton-pulse {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
   // Tutors Container
   .tutors-container {
     padding: 0 16px 24px;
@@ -526,11 +678,27 @@
     padding: 16px 0;
     border-bottom: 1px solid #e0e0e0;
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     
     p {
       color: #666;
       font-size: 14px;
       margin: 0;
+    }
+    
+    .updating-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #999;
+      font-size: 12px;
+      
+      .small-spinner {
+        width: 16px;
+        height: 16px;
+      }
     }
   }
 
@@ -541,16 +709,31 @@
     border-radius: 12px;
     padding: 20px;
     margin-bottom: 16px;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideInUp 0.4s ease-out forwards;
     
     &:hover {
       border-color: #000;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
     }
     
     @media (max-width: 768px) {
       padding: 16px;
       margin-bottom: 12px;
+    }
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 

@@ -1,17 +1,42 @@
 // tutor-search-content.page.ts
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } from '../services/user.service';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, timer } from 'rxjs';
+import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
 
 @Component({
   selector: 'app-tutor-search-content',
   templateUrl: './tutor-search-content.page.html',
   styleUrls: ['./tutor-search-content.page.scss'],
   standalone: false,
+  animations: [
+    trigger('fadeInOut', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('300ms ease-in-out', style({ opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in-out', style({ opacity: 0 }))
+      ])
+    ]),
+    trigger('slideInUp', [
+      transition(':enter', [
+        style({ 
+          opacity: 0, 
+          transform: 'translateY(20px)' 
+        }),
+        animate('400ms ease-out', style({ 
+          opacity: 1, 
+          transform: 'translateY(0)' 
+        }))
+      ])
+    ])
+  ]
 })
 export class TutorSearchContentPage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private searchSubject$ = new Subject<void>();
   
   showFiltersView = false;
   showLanguageDropdown = false;
@@ -19,11 +44,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   tutors: Tutor[] = [];
   searchResponse: TutorSearchResponse | null = null;
   currentUser: User | null = null;
-
+  showPriceFilter = false;
+  
   filters: TutorSearchFilters = {
     language: 'Spanish',
-    priceMin: 3,
-    priceMax: 40,
+    priceMin: 0,
+    priceMax: 200,
     country: 'any',
     availability: 'anytime',
     specialties: [],
@@ -36,8 +62,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
 
   // Price range for the dual-knob slider
   priceRange = {
-    lower: 3,
-    upper: 40
+    lower: 0,
+    upper: 200
   };
 
   // Available languages for the dropdown
@@ -74,15 +100,25 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     { value: 'English', label: 'English' }
   ];
 
+
   constructor(private userService: UserService) {}
 
   ngOnInit() {
     this.getCurrentUser();
+    
+    // Set up debounced search to prevent flashing
+    this.searchSubject$.pipe(
+      debounceTime(300), // Wait 300ms after the last change
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      this.performSearch();
+    });
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    this.searchSubject$.complete();
   }
 
   getCurrentUser() {
@@ -111,7 +147,16 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   }
   
   searchTutors() {
-    this.isLoading = true;
+    // Trigger debounced search
+    this.searchSubject$.next();
+  }
+
+  private performSearch() {
+    // Only show loading spinner if we have no tutors yet
+    if (this.tutors.length === 0) {
+      this.isLoading = true;
+    }
+    
     console.log('🔍 Searching tutors with filters:', this.filters);
     
     this.userService.searchTutors(this.filters)
@@ -154,8 +199,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   clearFilters() {
     this.filters = {
       language: 'any',
-      priceMin: 3,
-      priceMax: 40,
+      priceMin: 0,
+      priceMax: 200,
       country: 'any',
       availability: 'anytime',
       specialties: [],
@@ -166,8 +211,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
       limit: 20
     };
     this.priceRange = {
-      lower: 3,
-      upper: 40
+      lower: 0,
+      upper: 200
     };
     this.searchTutors();
   }
@@ -179,12 +224,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   selectLanguage(language: string) {
     this.filters.language = language;
     this.showLanguageDropdown = false;
-    this.searchTutors();
+    this.searchSubject$.next();
   }
 
   updateLanguage(language: string) {
     this.filters.language = language;
-    this.searchTutors();
+    this.searchSubject$.next();
   }
 
   getCurrentLanguageLabel(): string {
@@ -233,7 +278,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     };
     this.filters.priceMin = value.lower;
     this.filters.priceMax = value.upper;
-    this.searchTutors();
+    // Trigger debounced search
+    this.searchSubject$.next();
   }
 
   updateSortBy(sortBy: string) {
@@ -247,6 +293,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
       this.searchTutors();
     }
   }
+
 
   trackByTutorId(index: number, tutor: Tutor): string {
     return tutor.id;

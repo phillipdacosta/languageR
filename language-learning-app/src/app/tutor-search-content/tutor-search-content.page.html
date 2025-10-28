@@ -41,11 +41,21 @@
 
         <!-- Desktop Filters - Hidden on mobile -->
         <div class="desktop-only-filters">
-          <div class="filter-item" (click)="openPriceFilter()">
+          <div class="filter-item price-filter">
             <label>Price per lesson</label>
-            <div class="filter-value-wrapper">
-              <span class="filter-value">${{ filters.priceMin || 3 }} – ${{ filters.priceMax || 40 }}+</span>
-              <ion-icon name="chevron-down-outline"></ion-icon>
+            <div class="price-display">${{ filters.priceMin }} – ${{ filters.priceMax }}</div>
+            <div class="price-slider-container">
+              <ion-range 
+                [value]="priceRange" 
+                (ionChange)="onPriceRangeChange($event)" 
+                dual-knobs="true" 
+                min="0" 
+                max="200" 
+                pin="true"
+                class="price-range-slider">
+                <ion-label slot="start">$0</ion-label>
+                <ion-label slot="end">$200+</ion-label>
+              </ion-range>
             </div>
           </div>
 
@@ -112,21 +122,57 @@
       </div>
     </div>
 
-    <!-- Loading State -->
-    <div class="loading-container" *ngIf="isLoading">
+    <!-- Loading State with Skeleton -->
+    <div class="loading-container" *ngIf="isLoading && tutors.length === 0">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Finding tutors...</p>
     </div>
 
+    <!-- Skeleton Loading Cards -->
+    <div class="skeleton-cards" *ngIf="isLoading && tutors.length > 0">
+      <div class="skeleton-card" *ngFor="let item of [1,2,3]">
+        <div class="skeleton-header">
+          <div class="skeleton-avatar"></div>
+          <div class="skeleton-info">
+            <div class="skeleton-name"></div>
+            <div class="skeleton-languages"></div>
+            <div class="skeleton-rating"></div>
+          </div>
+          <div class="skeleton-price"></div>
+        </div>
+        <div class="skeleton-details">
+          <div class="skeleton-bio"></div>
+          <div class="skeleton-stats">
+            <div class="skeleton-stat"></div>
+            <div class="skeleton-stat"></div>
+            <div class="skeleton-stat"></div>
+          </div>
+        </div>
+        <div class="skeleton-actions">
+          <div class="skeleton-button"></div>
+          <div class="skeleton-button"></div>
+          <div class="skeleton-button"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tutors List -->
-    <div class="tutors-container" *ngIf="!isLoading">
+    <div class="tutors-container" *ngIf="!isLoading || tutors.length > 0" [@fadeInOut]>
       <!-- Results Summary -->
       <div class="results-summary" *ngIf="searchResponse">
         <p>{{ searchResponse.pagination.totalCount }} tutors found</p>
+        <!-- Subtle loading indicator when updating -->
+        <div class="updating-indicator" *ngIf="isLoading && tutors.length > 0">
+          <ion-spinner name="crescent" class="small-spinner"></ion-spinner>
+          <span>Updating...</span>
+        </div>
       </div>
 
       <!-- Tutor Cards -->
-      <div class="tutor-card" *ngFor="let tutor of tutors; trackBy: trackByTutorId">
+      <div class="tutor-card" 
+           *ngFor="let tutor of tutors; trackBy: trackByTutorId; let i = index"
+           [@slideInUp] 
+           [style.animation-delay]="(i * 0.1) + 's'">
         <div class="tutor-header">
           <div class="tutor-avatar">
             <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" (error)="onImageError($event)">
@@ -255,10 +301,10 @@
             (ionChange)="onPriceRangeChange($event)" 
             dual-knobs="true" 
             min="0" 
-            max="100" 
+            max="200" 
             pin="true">
             <ion-label slot="start">$0</ion-label>
-            <ion-label slot="end">$100+</ion-label>
+            <ion-label slot="end">$200+</ion-label>
           </ion-range>
         </div>
       </div>
