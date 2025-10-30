@@ -39,4 +39,4 @@ services:
     env: static
     rootDir: language-learning-app
     buildCommand: npm ci && npm run build
-    staticPublishPath: dist/language-learning-app
+    staticPublishPath: www
