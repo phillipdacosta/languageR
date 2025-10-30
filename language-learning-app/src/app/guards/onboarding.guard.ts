@@ -5,6 +5,7 @@ import { map, take, switchMap, catchError, filter } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { LoadingService } from '../services/loading.service';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -98,7 +99,7 @@ export class OnboardingGuard implements CanActivate {
       console.log('OnboardingGuard: Checking onboarding status for:', email);
       
       // Make API call to check user's onboarding status
-      fetch(`http://localhost:3000/api/users/check-email`, {
+      fetch(`${environment.backendUrl}/api/users/check-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -109,7 +110,7 @@ export class OnboardingGuard implements CanActivate {
       .then(result => {
         if (result.exists) {
           // User exists, check if onboarding is completed
-          fetch(`http://localhost:3000/api/users/by-email`, {
+          fetch(`${environment.backendUrl}/api/users/by-email`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

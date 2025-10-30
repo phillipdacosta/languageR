@@ -3,12 +3,13 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AuthService } from './auth.service';
 import { take, switchMap } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FileUploadService {
-  private apiUrl = 'http://localhost:3000/api';
+  private apiUrl = `${environment.backendUrl}/api`;
 
   constructor(
     private http: HttpClient,

@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
+import { environment } from '../../environments/environment';
 
 export interface User {
   id: string;
@@ -107,7 +108,7 @@ export interface TutorSearchResponse {
   providedIn: 'root'
 })
 export class UserService {
-  private apiUrl = 'http://localhost:3000/api';
+  private apiUrl = `${environment.backendUrl}/api`;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
 

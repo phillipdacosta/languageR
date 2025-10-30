@@ -102,6 +102,9 @@
             "production": {
               "buildTarget": "app:build:production"
             },
+            "staging": {
+              "buildTarget": "app:build:staging"
+            },
             "development": {
               "buildTarget": "app:build:development"
             },
