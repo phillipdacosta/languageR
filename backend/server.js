@@ -8,6 +8,16 @@ require('dotenv').config({ path: './config.env' });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Health check route for Render - MUST be first, before any middleware
+app.get('/health', (req, res) => {
+  console.log('Health check requested');
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
@@ -22,15 +32,6 @@ app.use(express.urlencoded({ extended: true }));
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/language-learning-app')
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
-
-// Health check route for Render
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
 
 // Routes
 app.get('/', (req, res) => {
@@ -67,8 +68,23 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
+  console.log(`Server bound to all interfaces (0.0.0.0)`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+  });
 });
 
 module.exports = app;
