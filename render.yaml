@@ -32,11 +32,9 @@ services:
       - key: GCS_KEY_FILE
         sync: false
 
-  - type: static
+  - type: web
     name: languager-frontend
+    env: static
     rootDir: language-learning-app
     buildCommand: npm ci && npm run build
     staticPublishPath: dist/language-learning-app
-    envVars:
-      - key: NODE_ENV
-        value: development
