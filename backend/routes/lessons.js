@@ -290,12 +290,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     // Generate Agora token
     let token;
     
-    // Prefer runtime temp token if provided via environment (never commit tokens)
-    const TEMP_TOKEN = process.env.AGORA_TEMP_TOKEN;
-    if (TEMP_TOKEN) {
-      console.log('⚠️ Using temporary token from environment for channel:', channelName);
-      token = TEMP_TOKEN;
-    } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
+    // Prefer certificate-based generation for reliability
+    if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
       token = RtcTokenBuilder.buildTokenWithUserAccount(
         AGORA_APP_ID,
         AGORA_APP_CERT,
@@ -304,9 +300,17 @@ router.post('/:id/join', verifyToken, async (req, res) => {
         agoraRole,
         tokenExpiry
       );
+      console.log('✅ Generated certificate-based token for channel:', channelName);
     } else {
-      console.warn('⚠️ No AGORA_TEMP_TOKEN and certificate unavailable; proceeding with null token');
-      token = null;
+      // Fallback to temp token if certificate is not available
+      const TEMP_TOKEN = process.env.AGORA_TEMP_TOKEN;
+      if (TEMP_TOKEN) {
+        console.log('⚠️ Using temporary token from environment for channel:', channelName);
+        token = TEMP_TOKEN;
+      } else {
+        console.warn('⚠️ No certificate and no AGORA_TEMP_TOKEN; proceeding with null token');
+        token = null;
+      }
     }
 
     // Update lesson status to in_progress if this is the first join
