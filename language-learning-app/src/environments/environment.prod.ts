@@ -11,6 +11,6 @@ export const environment = {
     domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com',
     clientId: 'veJihab93y2EdvOK10ve1TvwSffMTflj',
     redirectUri: 'https://languager-frontend.onrender.com/callback',
-    audience: 'https://languager-backend.onrender.com' // Your API audience
+    audience: 'https://dev-h6q8nxbfbq8psb4k.us.auth0.com/api/v2/' // Auth0 Management API
   }
 };
