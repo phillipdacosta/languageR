@@ -35,6 +35,7 @@ import { GlobalLoadingComponent } from './components/global-loading/global-loadi
       clientId: environment.auth0.clientId,
       authorizationParams: {
         redirect_uri: environment.auth0.redirectUri,
+        audience: environment.auth0.audience,
         scope: 'openid profile email'
       },
       // Disable HTTP interceptor for now - we'll use dev tokens

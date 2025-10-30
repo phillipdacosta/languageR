@@ -8,8 +8,9 @@ export const environment = {
     uid: null // Let Agora assign a random UID
   },
   auth0: {
-    domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com', // e.g., 'your-tenant.auth0.com'
-    clientId: 'veJihab93y2EdvOK10ve1TvwSffMTflj', // Your Auth0 application client ID
-    redirectUri: 'https://languager-frontend.onrender.com/callback'
+    domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com',
+    clientId: 'veJihab93y2EdvOK10ve1TvwSffMTflj',
+    redirectUri: 'https://languager-frontend.onrender.com/callback',
+    audience: 'https://languager-backend.onrender.com' // Your API audience
   }
 };
