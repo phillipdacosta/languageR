@@ -1,5 +1,5 @@
 export const environment = {
-  production: true,
+  production: false, // This is for development/staging on Render
   backendUrl: 'https://languager-backend.onrender.com', // Update this with your actual Render backend URL
   agora: {
     appId: '134e5b056b944b66b14fc9e275726131', // Replace with your actual Agora App ID
