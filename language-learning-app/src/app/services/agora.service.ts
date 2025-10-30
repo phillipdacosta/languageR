@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import AgoraRTC, { 
-  IAgoraRTCClient, 
-  ICameraVideoTrack, 
+import AgoraRTC, {
+  IAgoraRTCClient,
+  ICameraVideoTrack,
   IMicrophoneAudioTrack,
   IRemoteVideoTrack,
   IRemoteAudioTrack,
@@ -11,6 +11,7 @@ import AgoraRTC, {
 import { environment } from '../../environments/environment';
 import { TokenGeneratorService } from './token-generator.service';
 import { LessonService, LessonJoinResponse } from './lesson.service';
+import { UserService } from './user.service';
 
 @Injectable({
   providedIn: 'root'
@@ -21,8 +22,10 @@ export class AgoraService {
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
   private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> = new Map();
 
-  // Simple messaging properties
+  // Real-time messaging properties
   private channelName: string = 'default';
+  private lastMessageTime: string = new Date().toISOString();
+  private pollingInterval: any = null;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -34,11 +37,20 @@ export class AgoraService {
 
   constructor(
     private tokenGenerator: TokenGeneratorService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private userService: UserService
   ) { }
 
   getClient(): IAgoraRTCClient | null {
     return this.client;
+  }
+
+  isConnected(): boolean {
+    return this.client?.connectionState === 'CONNECTED';
+  }
+
+  isConnecting(): boolean {
+    return this.client?.connectionState === 'CONNECTING';
   }
 
   isBrowserSupported(): boolean {
@@ -158,14 +170,8 @@ export class AgoraService {
       this.remoteUsers.delete(user.uid);
     });
 
-    // Note: Data stream messages require Agora RTM SDK
-    // This is a placeholder for future RTM integration
-    // this.client.on("stream-message", (uid, data) => {
-    //   console.log("Received data stream message from user:", uid, data);
-    //   if (this.onDataStreamMessage) {
-    //     this.onDataStreamMessage(uid, data);
-    //   }
-    // });
+    // Note: Real-time messaging would require Agora RTM SDK
+    // For now, we'll use localStorage + storage events for cross-window sync
   }
 
   async joinChannel(channelName: string, uid?: UID): Promise<void> {
@@ -198,9 +204,9 @@ export class AgoraService {
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
       console.log("Successfully published local tracks");
 
-      // Initialize simple real-time messaging
+      // Initialize real-time messaging
       this.channelName = channelName;
-      await this.initializeRTM(channelName);
+      this.startMessagePolling();
 
     } catch (error) {
       console.error("Error joining channel:", error);
@@ -226,6 +232,31 @@ export class AgoraService {
   async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string): Promise<LessonJoinResponse> {
     if (!this.client) {
       throw new Error("Client not initialized");
+    }
+
+    // Check if client is already connected to avoid double join
+    if (this.client.connectionState === 'CONNECTED' || this.client.connectionState === 'CONNECTING') {
+      console.log('⚠️ Client already connected/connecting, skipping join');
+      // Return a mock response since we're already connected
+      return {
+        success: true,
+        agora: {
+          appId: this.APP_ID,
+          channelName: 'languageRoom', // We know it's hardcoded
+          token: 'already-connected',
+          uid: this.UID || 0 // Use 0 as fallback if UID is null
+        },
+        lesson: {
+          id: lessonId,
+          startTime: new Date().toISOString(),
+          endTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
+          tutor: { id: 'mock-tutor', name: 'Mock Tutor' },
+          student: { id: 'mock-student', name: 'Mock Student' },
+          subject: 'Mock Subject'
+        },
+        userRole: role,
+        serverTime: new Date().toISOString()
+      };
     }
 
     try {
@@ -259,9 +290,9 @@ export class AgoraService {
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
       console.log("Successfully published local tracks");
 
-      // Initialize simple real-time messaging for the lesson
+      // Initialize real-time messaging for the lesson
       this.channelName = agora.channelName;
-      await this.initializeRTM(agora.channelName);
+      this.startMessagePolling();
 
       return joinResponse;
 
@@ -291,10 +322,95 @@ export class AgoraService {
     }
   }
 
+  private startMessagePolling(): void {
+    // Stop any existing polling
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
+
+    // Poll for new messages every 500ms
+    this.pollingInterval = setInterval(() => {
+      this.pollForMessages();
+    }, 500);
+
+    console.log("Started message polling for channel:", this.channelName);
+  }
+
+  private async pollForMessages(): Promise<void> {
+    if (!this.channelName || this.channelName === 'default') return;
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages?since=${this.lastMessageTime}`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success && data.messages.length > 0) {
+          // Process each message
+          data.messages.forEach((message: any) => {
+            this.handleReceivedMessage(message);
+          });
+
+          // Update last message time
+          this.lastMessageTime = data.serverTime;
+        }
+      }
+    } catch (error) {
+      console.error("Error polling for messages:", error);
+    }
+  }
+
+  private handleReceivedMessage(message: any): void {
+    console.log("Received message:", message);
+    
+    try {
+      if (message.type === 'whiteboard') {
+        if (this.onWhiteboardMessage) {
+          this.onWhiteboardMessage(message.payload);
+        }
+      } else if (message.type === 'chat') {
+        if (this.onChatMessage) {
+          this.onChatMessage(message.payload);
+        }
+      }
+    } catch (error) {
+      console.error("Error handling received message:", error);
+    }
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    // Use the same auth headers as other services, but convert HttpHeaders to plain object
+    const httpHeaders = this.userService.getAuthHeadersSync();
+    const headers: Record<string, string> = {};
+    
+    // Convert HttpHeaders to plain object for fetch API
+    httpHeaders.keys().forEach(key => {
+      const value = httpHeaders.get(key);
+      if (value) {
+        headers[key] = value;
+      }
+    });
+    
+    // Ensure Content-Type is set for JSON requests
+    if (!headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    return headers;
+  }
+
   async leaveChannel(): Promise<void> {
     if (!this.client) return;
 
     try {
+      // Stop message polling
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+
       // Stop local tracks
       if (this.localVideoTrack) {
         this.localVideoTrack.stop();
@@ -405,53 +521,55 @@ export class AgoraService {
     }
   }
 
-  // Send whiteboard data via simple messaging
+  // Send whiteboard data via HTTP API
   async sendWhiteboardData(data: any): Promise<void> {
+    if (!this.channelName || this.channelName === 'default') {
+      console.warn("Cannot send whiteboard data: no active channel");
+      return;
+    }
+
     try {
-      const message = {
-        type: 'whiteboard',
-        payload: data,
-        timestamp: Date.now()
-      };
-      
-      // Send via localStorage for cross-tab sync
-      localStorage.setItem(`agora-message-${this.channelName || 'default'}`, JSON.stringify(message));
-      
-      // Also send via custom event for same-tab sync
-      window.dispatchEvent(new CustomEvent('agora-message', {
-        detail: {
-          channel: this.channelName || 'default',
-          data: message
-        }
-      }));
-      
-      console.log("Whiteboard data sent:", data);
+      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          type: 'whiteboard',
+          payload: data
+        })
+      });
+
+      if (response.ok) {
+        console.log("Whiteboard data sent successfully:", data);
+      } else {
+        console.error("Failed to send whiteboard data:", response.statusText);
+      }
     } catch (error) {
       console.error("Error sending whiteboard data:", error);
     }
   }
 
-  // Send chat message via simple messaging
+  // Send chat message via HTTP API
   async sendChatMessage(message: any): Promise<void> {
+    if (!this.channelName || this.channelName === 'default') {
+      console.warn("Cannot send chat message: no active channel");
+      return;
+    }
+
     try {
-      const data = {
-        type: 'chat',
-        payload: message,
-        timestamp: Date.now()
-      };
-      
-      // Send via localStorage for cross-tab sync
-      localStorage.setItem(`agora-message-${this.channelName || 'default'}`, JSON.stringify(data));
-      
-      // Also send via custom event for same-tab sync
-      window.dispatchEvent(new CustomEvent('agora-message', {
-        detail: {
-          channel: this.channelName || 'default',
-          data: data
-        }
-      }));
-      
-      console.log("Chat message sent:", message);
+      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          type: 'chat',
+          payload: message
+        })
+      });
+
+      if (response.ok) {
+        console.log("Chat message sent successfully:", message);
+      } else {
+        console.error("Failed to send chat message:", response.statusText);
+      }
     } catch (error) {
       console.error("Error sending chat message:", error);
     }

@@ -33,12 +33,14 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const lessonRoutes = require('./routes/lessons');
 const progressRoutes = require('./routes/progress');
+const messagingRoutes = require('./routes/messaging');
 
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/messaging', messagingRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

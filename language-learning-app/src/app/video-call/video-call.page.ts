@@ -144,8 +144,15 @@ export class VideoCallPage implements OnInit, OnDestroy {
       const me = await firstValueFrom(this.userService.getCurrentUser());
       const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
 
-      // Secure join using backend-provided token/appId/uid
-      const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id);
+      // Secure join using backend-provided token/appId/uid (with connection state checking)
+      console.log('🎯 Joining lesson via secure backend:', { lessonId: qp.lessonId, role });
+      
+      if (this.agoraService.isConnected() || this.agoraService.isConnecting()) {
+        console.log('✅ Already connected/connecting to lesson, skipping join');
+      } else {
+        const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id);
+        console.log('✅ Successfully joined lesson via backend');
+      }
 
       // Set up local video (slight delay to ensure DOM is ready)
       setTimeout(() => {
@@ -190,7 +197,11 @@ export class VideoCallPage implements OnInit, OnDestroy {
       }
 
       // If already connected (joined via lessons flow), just set up UI and skip re-join
-      if (this.agoraService.getClient()) {
+      if (this.agoraService.isConnected()) {
+        console.log('✅ Already connected to Agora, skipping initialization');
+        this.isConnected = true;
+      } else if (this.agoraService.isConnecting()) {
+        console.log('⏳ Already connecting to Agora, waiting...');
         this.isConnected = true;
       } else {
         // Initialize Agora client and join when not already connected
