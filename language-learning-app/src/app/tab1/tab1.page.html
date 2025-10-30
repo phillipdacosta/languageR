@@ -35,6 +35,25 @@
 
   <!-- Lessons list -->
   <ng-container *ngIf="!isLoadingLessons">
+    <!-- Featured upcoming lesson card -->
+    <ion-card class="upcoming-lesson-card" *ngIf="lessons && lessons.length > 0">
+      <ion-card-content>
+        <div class="upcoming-lesson-row">
+          <ion-avatar class="upcoming-avatar">
+            <img src="assets/avatar.png" alt="Participant" />
+          </ion-avatar>
+          <div class="upcoming-meta">
+            <div class="upcoming-title">Upcoming lesson</div>
+            <div class="upcoming-name">{{ getOtherParticipantName(lessons[0]) }}</div>
+            <div class="upcoming-time">{{ formatLessonTime(lessons[0]) }}</div>
+          </div>
+          <div class="upcoming-actions">
+            <ion-button size="default" routerLink="/lessons" color="primary">Open</ion-button>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
     <ion-list *ngIf="lessons && lessons.length > 0; else noLessons">
       <ion-item *ngFor="let lesson of lessons; trackBy: trackByLessonId">
         <ion-label>
