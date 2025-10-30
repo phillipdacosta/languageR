@@ -23,6 +23,15 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/language-
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
+// Health check route for Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Routes
 app.get('/', (req, res) => {
   res.json({ message: 'Language Learning App API' });
