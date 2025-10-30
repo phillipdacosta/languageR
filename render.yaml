@@ -38,5 +38,5 @@ services:
     name: languager-frontend
     env: static
     rootDir: language-learning-app
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npm run build -- --configuration=staging
     staticPublishPath: www
