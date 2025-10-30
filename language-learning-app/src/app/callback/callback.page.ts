@@ -4,6 +4,7 @@ import { LoadingController } from '@ionic/angular';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { take } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-callback',
@@ -158,7 +159,7 @@ export class CallbackPage implements OnInit {
   private async checkUserExistsByEmail(email: string): Promise<boolean> {
     try {
       // Make a direct API call to check if user exists by email
-      const response = await fetch(`http://localhost:3000/api/users/check-email`, {
+      const response = await fetch(`${environment.backendUrl}/api/users/check-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -183,7 +184,7 @@ export class CallbackPage implements OnInit {
   private async getUserByEmail(email: string): Promise<any> {
     try {
       // Make a direct API call to get user by email
-      const response = await fetch(`http://localhost:3000/api/users/by-email`, {
+      const response = await fetch(`${environment.backendUrl}/api/users/by-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
