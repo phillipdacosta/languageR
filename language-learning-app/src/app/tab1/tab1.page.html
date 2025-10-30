@@ -29,23 +29,31 @@
   </div>
 
   <div class="section-header">
-    <h2>Continue learning</h2>
-    <ion-button fill="clear" class="see-all-btn">See All</ion-button>
+    <h2>Your lessons</h2>
+    <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
   </div>
 
-  <!-- Video Call Button -->
-  <div class="video-call-section">
-    <ion-button expand="block" fill="solid" color="success" (click)="startVideoCall()" class="video-call-btn">
-      <ion-icon name="videocam" slot="start"></ion-icon>
-      Start Video Class
-    </ion-button>
-    
-    <!-- Debug button - only show on web -->
-    <!-- <ion-button expand="block" fill="outline" color="medium" (click)="openDebugPage()" class="debug-btn" *ngIf="isWeb">
-      <ion-icon name="bug" slot="start"></ion-icon>
-      Debug Permissions
-    </ion-button>
-  </div> -->
+  <!-- Lessons list -->
+  <ng-container *ngIf="!isLoadingLessons">
+    <ion-list *ngIf="lessons?.length > 0; else noLessons">
+      <ion-item *ngFor="let lesson of lessons; trackBy: trackByLessonId">
+        <ion-label>
+          <h3>{{ getOtherParticipantName(lesson) }}</h3>
+          <p>{{ formatLessonTime(lesson) }}</p>
+        </ion-label>
+        <ion-badge [color]="lesson.status === 'scheduled' ? 'primary' : (lesson.status === 'in_progress' ? 'success' : 'medium')">
+          {{ lesson.status === 'scheduled' ? 'Scheduled' : (lesson.status === 'in_progress' ? 'In Progress' : 'Completed') }}
+        </ion-badge>
+      </ion-item>
+    </ion-list>
+    <ng-template #noLessons>
+      <ion-card>
+        <ion-card-content>
+          <p style="margin: 0;">Find a tutor to start a lesson.</p>
+        </ion-card-content>
+      </ion-card>
+    </ng-template>
+  </ng-container>
 
   <!-- Platform Information - only show on web for development -->
   <!-- <div class="platform-info-section" *ngIf="isWeb">
