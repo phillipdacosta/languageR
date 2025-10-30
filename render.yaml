@@ -40,3 +40,7 @@ services:
     rootDir: language-learning-app
     buildCommand: npm ci && npm run build
     staticPublishPath: www
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
