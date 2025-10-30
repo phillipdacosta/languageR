@@ -340,7 +340,7 @@ export class AgoraService {
     if (!this.channelName || this.channelName === 'default') return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages?since=${this.lastMessageTime}`, {
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages?since=${this.lastMessageTime}`, {
         headers: this.getAuthHeaders()
       });
 
@@ -529,7 +529,7 @@ export class AgoraService {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages`, {
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({
@@ -556,7 +556,7 @@ export class AgoraService {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/messaging/channels/${this.channelName}/messages`, {
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({

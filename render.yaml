@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: languager-backend
+    rootDir: backend
+    env: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: AUTH0_AUDIENCE
+        sync: false
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_APP_CERT
+        sync: false
+      - key: AGORA_TEMP_TOKEN
+        sync: false
+      - key: GCS_BUCKET_NAME
+        sync: false
+      - key: GCS_PROJECT_ID
+        sync: false
+      - key: GCS_KEY_FILE
+        sync: false
+
+  - type: static
+    name: languager-frontend
+    rootDir: language-learning-app
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist/language-learning-app
+    envVars:
+      - key: NODE_ENV
+        value: production
