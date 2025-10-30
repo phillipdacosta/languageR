@@ -1,0 +1,163 @@
+<!-- When inline, do not render ion-header or ion-content to avoid nested scroll/toolbar -->
+<ng-container *ngIf="!inline; else inlineTpl">
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>{{ tutorName }}'s Availability</ion-title>
+      <ion-buttons slot="end">
+        <ion-button (click)="close()">
+          <ion-icon name="close"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+  <ion-content>
+    <div class="availability-container">
+      <!-- Header Controls -->
+      <div class="header-controls">
+        <div class="week-navigation">
+          <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="goToToday()">
+            Today
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </ion-button>
+        </div>
+        
+        <div class="week-display">
+          <h2>{{ getWeekRange() }}</h2>
+        </div>
+        
+        <div class="timezone-display">
+          <ion-select [(ngModel)]="timezone" interface="popover" placeholder="Select timezone">
+            <ion-select-option value="America/New_York">America/New_York (GMT -4:00)</ion-select-option>
+            <ion-select-option value="America/Los_Angeles">America/Los_Angeles (GMT -7:00)</ion-select-option>
+            <ion-select-option value="Europe/London">Europe/London (GMT +0:00)</ion-select-option>
+            <ion-select-option value="Europe/Paris">Europe/Paris (GMT +1:00)</ion-select-option>
+            <ion-select-option value="Asia/Tokyo">Asia/Tokyo (GMT +9:00)</ion-select-option>
+            <ion-select-option value="UTC">UTC (GMT +0:00)</ion-select-option>
+          </ion-select>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-swatch available"></span>
+          <span>Available</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-swatch unavailable"></span>
+          <span>Not available</span>
+        </div>
+      </div>
+
+      <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
+      <div class="calendar-grid" *ngIf="!isLoading">
+        <div class="day-header" *ngFor="let date of weekDates">
+          <div class="day-name">{{ daysOfWeek[getDayIndex(date)] }}</div>
+          <div class="day-number">{{ getDayNumber(date) }}</div>
+        </div>
+        <div class="day-slots" *ngFor="let date of weekDates">
+          <div class="slot available" *ngFor="let slot of getAvailableTimeLabelsForDate(date)" (click)="onSelectSlot(date, slot)">
+            {{ slot.label }}
+          </div>
+          <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
+            No times
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-container" *ngIf="isLoading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading availability...</p>
+      </div>
+
+      <!-- No Availability -->
+      <div class="no-availability" *ngIf="!isLoading && availability.length === 0">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <h3>No availability set</h3>
+        <p>This tutor hasn't set their availability yet.</p>
+      </div>
+    </div>
+  </ion-content>
+</ng-container>
+
+<!-- Inline rendering (no ion-header/content) -->
+<ng-template #inlineTpl>
+  <div class="availability-container">
+    <!-- Header Controls -->
+    <div class="header-controls">
+      <div class="week-navigation">
+        <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" size="small" (click)="goToToday()">
+          Today
+        </ion-button>
+        <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </ion-button>
+      </div>
+      
+      <div class="week-display">
+        <h2>{{ getWeekRange() }}</h2>
+      </div>
+      
+      <div class="timezone-display">
+        <ion-select [(ngModel)]="timezone" interface="popover" placeholder="Select timezone">
+          <ion-select-option value="America/New_York">America/New_York (GMT -4:00)</ion-select-option>
+          <ion-select-option value="America/Los_Angeles">America/Los_Angeles (GMT -7:00)</ion-select-option>
+          <ion-select-option value="Europe/London">Europe/London (GMT +0:00)</ion-select-option>
+          <ion-select-option value="Europe/Paris">Europe/Paris (GMT +1:00)</ion-select-option>
+          <ion-select-option value="Asia/Tokyo">Asia/Tokyo (GMT +9:00)</ion-select-option>
+          <ion-select-option value="UTC">UTC (GMT +0:00)</ion-select-option>
+        </ion-select>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-swatch available"></span>
+        <span>Available</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch unavailable"></span>
+        <span>Not available</span>
+      </div>
+    </div>
+
+    <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
+    <div class="calendar-grid" *ngIf="!isLoading">
+      <div class="day-header" *ngFor="let date of weekDates">
+        <div class="day-name">{{ daysOfWeek[getDayIndex(date)] }}</div>
+        <div class="day-number">{{ getDayNumber(date) }}</div>
+      </div>
+      <div class="day-slots" *ngFor="let date of weekDates">
+        <div class="slot available" *ngFor="let slot of getAvailableTimeLabelsForDate(date)" (click)="onSelectSlot(date, slot)">
+          {{ slot.label }}
+        </div>
+        <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
+          No times
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading availability...</p>
+    </div>
+
+    <!-- No Availability -->
+    <div class="no-availability" *ngIf="!isLoading && availability.length === 0">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <h3>No availability set</h3>
+      <p>This tutor hasn't set their availability yet.</p>
+    </div>
+  </div>
+</ng-template>

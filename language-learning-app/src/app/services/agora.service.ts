@@ -10,6 +10,7 @@ import AgoraRTC, {
 // import AgoraRTM from 'agora-rtm-sdk'; // Disabled due to compilation issues
 import { environment } from '../../environments/environment';
 import { TokenGeneratorService } from './token-generator.service';
+import { LessonService, LessonJoinResponse } from './lesson.service';
 
 @Injectable({
   providedIn: 'root'
@@ -31,7 +32,14 @@ export class AgoraService {
   onWhiteboardMessage?: (data: any) => void;
   onChatMessage?: (message: any) => void;
 
-  constructor(private tokenGenerator: TokenGeneratorService) { }
+  constructor(
+    private tokenGenerator: TokenGeneratorService,
+    private lessonService: LessonService
+  ) { }
+
+  getClient(): IAgoraRTCClient | null {
+    return this.client;
+  }
 
   isBrowserSupported(): boolean {
     // Check if getUserMedia is supported
@@ -211,6 +219,78 @@ export class AgoraService {
     }
   }
 
+  /**
+   * Join a scheduled lesson using the secure backend endpoint
+   * This method gets the Agora token from the lesson service only if within the allowed time window
+   */
+  async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string): Promise<LessonJoinResponse> {
+    if (!this.client) {
+      throw new Error("Client not initialized");
+    }
+
+    try {
+      console.log('📅 Attempting to join lesson:', { lessonId, role, userId });
+
+      // Get secure Agora credentials from backend
+      const joinResponse = await new Promise<LessonJoinResponse>((resolve, reject) => {
+        this.lessonService.joinLesson(lessonId, role, userId).subscribe({
+          next: resolve,
+          error: reject
+        });
+      });
+      
+      if (!joinResponse || !joinResponse.success) {
+        throw new Error('Failed to get lesson access');
+      }
+
+      const { agora, lesson, userRole } = joinResponse;
+      console.log('📅 Received Agora credentials for lesson:', lesson.id);
+
+      // First, request permissions and create local tracks
+      console.log("Requesting camera and microphone permissions...");
+      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      console.log("Successfully created local tracks");
+
+      // Join the RTC channel using backend-provided credentials
+      await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
+      console.log("Successfully joined lesson channel:", agora.channelName);
+      
+      // Publish local tracks
+      await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+      console.log("Successfully published local tracks");
+
+      // Initialize simple real-time messaging for the lesson
+      this.channelName = agora.channelName;
+      await this.initializeRTM(agora.channelName);
+
+      return joinResponse;
+
+    } catch (error: any) {
+      console.error("❌ Error joining lesson:", error);
+      
+      // Clean up tracks if they were created
+      if (this.localVideoTrack) {
+        this.localVideoTrack.close();
+        this.localVideoTrack = null;
+      }
+      if (this.localAudioTrack) {
+        this.localAudioTrack.close();
+        this.localAudioTrack = null;
+      }
+      
+      // Provide user-friendly error messages
+      if (error.message?.includes('Too early')) {
+        throw new Error('You can join the lesson 15 minutes before it starts.');
+      } else if (error.message?.includes('ended')) {
+        throw new Error('This lesson has ended.');
+      } else if (error.message?.includes('not authorized')) {
+        throw new Error('You are not authorized to join this lesson.');
+      } else {
+        throw new Error(error.message || 'Failed to join lesson');
+      }
+    }
+  }
+
   async leaveChannel(): Promise<void> {
     if (!this.client) return;
 
@@ -376,4 +456,5 @@ export class AgoraService {
       console.error("Error sending chat message:", error);
     }
   }
+
 }

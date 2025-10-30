@@ -208,4 +208,23 @@
       }
     }
   }
+
+  .tutor-calendar-card {
+    .calendar-section {
+      .calendar-description {
+        color: var(--ion-color-medium);
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 16px;
+      }
+
+      app-tutor-calendar {
+        display: block;
+        height: 600px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+    }
+  }
 }

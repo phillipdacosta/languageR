@@ -91,4 +91,5 @@ export class ProfilePage implements OnInit {
       await loading.dismiss();
     }
   }
+
 }

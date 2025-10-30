@@ -10,6 +10,16 @@ const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'checkout',
+    loadComponent: () => import('./checkout/checkout.page').then(m => m.CheckoutPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'lessons',
+    loadComponent: () => import('./lessons/lessons.page').then(m => m.LessonsPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'login',
     loadChildren: () => import('./login/login.module').then(m => m.LoginPageModule)
   },
@@ -38,6 +48,10 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'tutor/:id',
+    loadComponent: () => import('./tutor/tutor.page').then(m => m.TutorPage)
+  },
+  {
     path: 'video-call',
     loadChildren: () => import('./video-call/video-call.module').then( m => m.VideoCallPageModule),
     canActivate: [AuthGuard]
@@ -54,6 +68,15 @@ const routes: Routes = [
   {
     path: 'tutor-onboarding',
     loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then( m => m.TutorOnboardingPageModule)
+  },
+  {
+    path: 'tutor-calendar',
+    loadChildren: () => import('./tutor-calendar/tutor-calendar.module').then( m => m.TutorCalendarPageModule)
+  },
+  {
+    path: 'availability-setup',
+    loadComponent: () => import('./pages/availability-setup/availability-setup.page').then( m => m.AvailabilitySetupPage),
+    canActivate: [AuthGuard]
   }
 ];
 @NgModule({

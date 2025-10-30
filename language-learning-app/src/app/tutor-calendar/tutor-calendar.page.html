@@ -1,0 +1,120 @@
+<ion-content [fullscreen]="true">
+  <div class="calendar-layout">
+    <!-- Left Sidebar -->
+    <div class="calendar-sidebar">
+      <!-- Mobile Sidebar Header -->
+      <div class="sidebar-header" (click)="toggleSidebar()">
+        <h3>Calendar Tools</h3>
+        <ion-icon 
+          name="chevron-down-outline" 
+          class="sidebar-expand-icon"
+          [class.expanded]="sidebarExpanded">
+        </ion-icon>
+      </div>
+      
+      <!-- Sidebar Content -->
+      <div class="sidebar-content" [class.expanded]="sidebarExpanded">
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+        <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson()">
+          <ion-icon name="add-outline" slot="start"></ion-icon>
+          Schedule lesson
+        </ion-button>
+        
+        <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()">
+          <ion-icon name="time-outline" slot="start"></ion-icon>
+          Add time off
+        </ion-button>
+        
+        <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddExtraSlots()">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add extra slots
+        </ion-button>
+        
+        <ion-button expand="block" fill="outline" class="action-btn" (click)="onSetUpAvailability()">
+          <ion-icon name="settings-outline" slot="start"></ion-icon>
+          Set up availability
+        </ion-button>
+      </div>
+
+      <!-- Tags Section -->
+      <div class="tags-section">
+        <div class="section-header" (click)="toggleTags()">
+          <h4>Tags</h4>
+          <ion-icon 
+            name="chevron-down-outline" 
+            class="expand-icon"
+            [class.expanded]="tagsExpanded">
+          </ion-icon>
+        </div>
+        <div class="tag-list" [class.expanded]="tagsExpanded">
+          <div class="tag-item" [style.border-left-color]="'#10b981'">
+            <div class="tag-color" style="background-color: #10b981;"></div>
+            <span>First lesson</span>
+          </div>
+          <div class="tag-item" [style.border-left-color]="'#3b82f6'">
+            <div class="tag-color" style="background-color: #3b82f6;"></div>
+            <span>Single lesson</span>
+          </div>
+          <div class="tag-item" [style.border-left-color]="'#ec4899'">
+            <div class="tag-color" style="background-color: #ec4899;"></div>
+            <span>Weekly lesson</span>
+          </div>
+          <div class="tag-item" [style.border-left-color]="'#f59e0b'">
+            <div class="tag-color" style="background-color: #f59e0b;"></div>
+            <span>Time off</span>
+          </div>
+          <div class="tag-item" [style.border-left-color]="'#6b7280'">
+            <div class="tag-color" style="background-color: #6b7280;"></div>
+            <span>Google Calendar</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lesson Status Section -->
+      <div class="lesson-status-section">
+        <div class="section-header" (click)="toggleLessonStatus()">
+          <h4>Lesson status</h4>
+          <ion-icon 
+            name="chevron-down-outline" 
+            class="expand-icon"
+            [class.expanded]="lessonStatusExpanded">
+          </ion-icon>
+        </div>
+        <div class="status-list" [class.expanded]="lessonStatusExpanded">
+          <div class="status-item">
+            <ion-icon name="time-outline" class="status-icon"></ion-icon>
+            <span>Awaiting confirmation</span>
+          </div>
+          <div class="status-item">
+            <ion-icon name="checkmark-circle-outline" class="status-icon"></ion-icon>
+            <span>Confirmed lesson</span>
+          </div>
+          <div class="status-item">
+            <ion-icon name="calendar-outline" class="status-icon"></ion-icon>
+            <span>Requested time</span>
+          </div>
+        </div>
+      </div>
+      </div> <!-- Close sidebar-content -->
+    </div>
+
+            <!-- Main Calendar Area -->
+            <div class="main-calendar">
+              <div id="tutor-calendar-container">
+                <!-- Loading state -->
+                <div class="calendar-loading" *ngIf="!isInitialized">
+                  <ion-spinner name="crescent"></ion-spinner>
+                  <p>Loading calendar...</p>
+                </div>
+                
+                <!-- FullCalendar will render here -->
+              </div>
+              
+              <!-- Help Button -->
+              <ion-button class="help-button" fill="clear" size="small" (click)="onHelpClick()">
+                <ion-icon name="help-circle-outline"></ion-icon>
+              </ion-button>
+            </div>
+  </div>
+</ion-content>

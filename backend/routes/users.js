@@ -4,13 +4,40 @@ const User = require('../models/User');
 const { upload, uploadVideoWithCompression, verifyToken } = require('../middleware/videoUploadMiddleware');
 
 
+// GET /api/users/debug - Debug what we're receiving
+router.get('/debug', verifyToken, async (req, res) => {
+  console.log('🔍 DEBUG: Full request user:', JSON.stringify(req.user, null, 2));
+  console.log('🔍 DEBUG: User sub:', req.user.sub);
+  console.log('🔍 DEBUG: User email:', req.user.email);
+  
+  res.json({
+    success: true,
+    receivedUser: req.user,
+    message: 'Debug info'
+  });
+});
+
 // GET /api/users/me - Get current user
 router.get('/me', verifyToken, async (req, res) => {
   console.log('🔍 Getting current user:', req.user);
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    // Try to find user by auth0Id first, then by email as fallback
+    let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user && req.user.email) {
+      console.log('🔍 User not found by auth0Id, trying email:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      
+      // If found by email, update the auth0Id to match the current token
+      if (user) {
+        console.log('🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        user.auth0Id = req.user.sub;
+        await user.save();
+      }
+    }
     
     if (!user) {
+      console.log('🔍 User not found by auth0Id or email');
       return res.status(404).json({ error: 'User not found' });
     }
     
@@ -46,8 +73,19 @@ router.post('/', verifyToken, async (req, res) => {
     console.log('🔍 Creating/updating user with data:', { email, name, userType });
     console.log('🔍 Full request body:', req.body);
     
-    // Check if user already exists
+    // Check if user already exists by auth0Id first, then by email
     let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user && req.user.email) {
+      console.log('🔍 User not found by auth0Id, trying email for update:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      
+      // If found by email, update the auth0Id to match the current token
+      if (user) {
+        console.log('🔍 Found existing user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        user.auth0Id = req.user.sub;
+      }
+    }
     
     if (user) {
       // Update existing user
@@ -186,7 +224,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage } = req.body;
+    const { bio, timezone, preferredLanguage, userType } = req.body;
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -201,6 +239,11 @@ router.put('/profile', verifyToken, async (req, res) => {
       preferredLanguage: preferredLanguage || user.profile.preferredLanguage
     };
     
+    // Update userType if provided
+    if (userType) {
+      user.userType = userType;
+    }
+    
     await user.save();
     
     res.json({
@@ -213,6 +256,7 @@ router.put('/profile', verifyToken, async (req, res) => {
         name: user.name,
         picture: user.picture,
         emailVerified: user.emailVerified,
+        userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
@@ -326,14 +370,14 @@ router.get('/tutors', verifyToken, async (req, res) => {
       filterQuery['onboardingData.languages'] = { $in: [language] };
     }
 
-    // Price range filter - temporarily disabled
-    // if (priceMin && priceMax && priceMin !== 'any' && priceMax !== 'any') {
-    //   filterQuery['hourlyRate'] = {
-    //     $gte: parseInt(priceMin),
-    //     $lte: parseInt(priceMax),
-    //     $ne: null
-    //   };
-    // }
+    // Price range filter
+    if (priceMin !== undefined && priceMax !== undefined && priceMin !== 'any' && priceMax !== 'any') {
+      filterQuery['onboardingData.hourlyRate'] = {
+        $gte: parseInt(priceMin),
+        $lte: parseInt(priceMax),
+        $ne: null
+      };
+    }
 
     // Country filter (if you have country data)
     if (country && country !== 'any') {
@@ -477,5 +521,136 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
 
 // POST /api/users/tutor-video-upload - Upload video file with compression
 router.post('/tutor-video-upload', verifyToken, upload.single('video'), uploadVideoWithCompression);
+
+// PUT /api/users/availability - Update tutor availability
+router.put('/availability', verifyToken, async (req, res) => {
+  try {
+    const { availabilityBlocks } = req.body;
+    
+    if (!availabilityBlocks || !Array.isArray(availabilityBlocks)) {
+      return res.status(400).json({ error: 'Availability blocks are required' });
+    }
+
+    // Find user by auth0Id
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ message: 'Only tutors can set availability' });
+    }
+
+    // Update availability in user document
+    user.availability = availabilityBlocks;
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Availability updated successfully',
+      availability: user.availability 
+    });
+
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:tutorId/availability - Get tutor availability by tutor ID (public)
+// NOTE: This route MUST come before /availability to avoid route conflicts
+router.get('/:tutorId/availability', async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    console.log('📅 Fetching availability for tutor ID:', tutorId);
+    
+    // Validate MongoDB ObjectId format
+    if (!/^[0-9a-fA-F]{24}$/.test(tutorId)) {
+      console.log('📅 Invalid tutor ID format:', tutorId);
+      return res.status(400).json({ message: 'Invalid tutor ID format' });
+    }
+    
+    const tutor = await User.findOne({ _id: tutorId, userType: 'tutor' });
+    
+    if (!tutor) {
+      console.log('📅 Tutor not found:', tutorId);
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    console.log('📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
+    console.log('📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+
+    res.json({ 
+      success: true, 
+      availability: tutor.availability || [],
+      timezone: tutor.profile?.timezone || 'America/New_York'
+    });
+
+  } catch (error) {
+    console.error('Error fetching tutor availability:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/:tutorId/public - Public tutor profile summary
+router.get('/:tutorId/public', async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    if (!/^[0-9a-fA-F]{24}$/.test(tutorId)) {
+      return res.status(400).json({ message: 'Invalid tutor ID format' });
+    }
+
+    const tutor = await User.findOne({ _id: tutorId, userType: 'tutor' });
+    if (!tutor) {
+      return res.status(404).json({ message: 'Tutor not found' });
+    }
+
+    res.json({
+      success: true,
+      tutor: {
+        id: tutor._id,
+        name: tutor.name,
+        email: tutor.email,
+        picture: tutor.picture,
+        languages: tutor.onboardingData?.languages || [],
+        hourlyRate: tutor.onboardingData?.hourlyRate || 25,
+        experience: tutor.onboardingData?.experience || '',
+        schedule: tutor.onboardingData?.schedule || '',
+        bio: tutor.onboardingData?.bio || '',
+        introductionVideo: tutor.onboardingData?.introductionVideo || '',
+        stats: tutor.stats || {},
+        profile: tutor.profile || {}
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching tutor public profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/availability - Get tutor availability (current user)
+router.get('/availability', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ message: 'Only tutors can view availability' });
+    }
+
+    res.json({ 
+      success: true, 
+      availability: user.availability || [] 
+    });
+
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 module.exports = router;

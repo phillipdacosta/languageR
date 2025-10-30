@@ -1,0 +1,69 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="tutorId ? '/tutor/' + tutorId : '/tabs/tutor-search'"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Checkout</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="checkout-layout">
+    <section class="summary">
+      <h2>Your tutor</h2>
+      <div class="tutor-card">
+        <div class="avatar">
+          <img *ngIf="tutor?.picture" [src]="tutor.picture" alt="{{ tutor?.name }}">
+        </div>
+        <div class="meta">
+          <div class="name">{{ tutor?.name || ('Tutor ' + (tutorId | slice:0:6)) }}</div>
+          <div class="slot-line">
+            <div class="date-badge">
+              <div class="mon">{{ dateMonthShort }}</div>
+              <div class="day">{{ dateDayNumber }}</div>
+            </div>
+            <div class="slot-text">
+              <div class="when">{{ dateWeekday }}, {{ timeRange }}</div>
+              <div class="tz-note">Time is based on your location</div>
+            </div>
+          </div>
+          <div class="rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}/hour</div>
+        </div>
+      </div>
+
+      <div class="details">
+        <div class="detail-row">
+          <div class="label">Lesson length</div>
+          <div class="value">{{ lessonMinutes }} min</div>
+        </div>
+        <div class="detail-row">
+          <div class="label">Processing fee</div>
+          <div class="value">${{ processingFee | number:'1.2-2' }}</div>
+        </div>
+        <div class="total-row">
+          <div class="label">Total</div>
+          <div class="value total">${{ total | number:'1.2-2' }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="payment">
+      <h2>Choose how to pay</h2>
+      <ion-item class="pay-method" lines="none">
+        <ion-icon name="card-outline" slot="start"></ion-icon>
+        <ion-label>Credit / Debit card</ion-label>
+      </ion-item>
+
+      <ion-button 
+        expand="block" 
+        color="primary" 
+        class="confirm-btn"
+        [disabled]="isBooking || !tutor || !currentUser"
+        (click)="confirmBooking()">
+        <ion-spinner *ngIf="isBooking" name="crescent"></ion-spinner>
+        {{ isBooking ? 'Booking...' : 'Confirm & Book Lesson' }}
+      </ion-button>
+      <p class="note">By confirming, you agree to our terms and refund policy.</p>
+    </section>
+  </div>
+</ion-content>

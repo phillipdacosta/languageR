@@ -1,287 +1,407 @@
 const express = require('express');
-const Lesson = require('../models/Lesson');
-const Progress = require('../models/Progress');
-const { auth, optionalAuth } = require('../middleware/auth');
-
 const router = express.Router();
+const Lesson = require('../models/Lesson');
+const User = require('../models/User');
+const { RtcRole, RtcTokenBuilder } = require('agora-token');
+const { verifyToken } = require('../middleware/videoUploadMiddleware');
 
-// Get all lessons with optional filtering
-router.get('/', optionalAuth, async (req, res) => {
+const AGORA_APP_ID = process.env.AGORA_APP_ID;
+const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
+
+// Time windows for joining lessons
+const JOIN_EARLY_MINUTES = 15; // Can join 15 minutes early
+const END_GRACE_MINUTES = 5;   // Can join up to 5 minutes after end
+const TOKEN_TTL_SECONDS = 60 * 60; // 1 hour token validity
+
+// Create lesson (called after checkout/booking)
+router.post('/', verifyToken, async (req, res) => {
   try {
-    const { language, level, category, page = 1, limit = 10 } = req.query;
-    
-    const filter = { isActive: true };
-    if (language) filter.language = language;
-    if (level) filter.level = level;
-    if (category) filter.category = category;
+    const { 
+      tutorId, 
+      studentId, 
+      startTime, 
+      endTime, 
+      subject, 
+      price, 
+      duration,
+      bookingData 
+    } = req.body;
 
-    const lessons = await Lesson.find(filter)
-      .populate('createdBy', 'username firstName lastName')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, user: req.user });
 
-    const total = await Lesson.countDocuments(filter);
-
-    // If user is authenticated, add progress information
-    if (req.user) {
-      const lessonIds = lessons.map(lesson => lesson._id);
-      const progressRecords = await Progress.find({
-        user: req.user._id,
-        lesson: { $in: lessonIds }
-      });
-
-      const progressMap = {};
-      progressRecords.forEach(progress => {
-        progressMap[progress.lesson.toString()] = progress;
-      });
-
-      lessons.forEach(lesson => {
-        lesson.progress = progressMap[lesson._id.toString()] || null;
+    // Validate required fields
+    if (!tutorId || !studentId || !startTime || !endTime || !price) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
       });
     }
 
-    res.json({
-      lessons,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      total
+    // Verify tutor and student exist
+    const [tutor, student] = await Promise.all([
+      User.findById(tutorId),
+      User.findById(studentId)
+    ]);
+
+    if (!tutor || !student) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Tutor or student not found' 
+      });
+    }
+
+    const lesson = await Lesson.create({
+      tutorId,
+      studentId,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      subject: subject || 'Language Lesson',
+      price,
+      duration: duration || 60,
+      bookingData,
+      channelName: `lesson_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`
+    });
+
+    // Populate tutor and student details
+    await lesson.populate([
+      { path: 'tutorId', select: 'name email picture' },
+      { path: 'studentId', select: 'name email picture' }
+    ]);
+
+    console.log('📅 Lesson created successfully:', lesson._id);
+
+    res.json({ 
+      success: true, 
+      lesson 
     });
   } catch (error) {
-    console.error('Get lessons error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Error creating lesson:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create lesson',
+      error: error.message 
+    });
   }
 });
 
-// Get lesson by ID
-router.get('/:id', optionalAuth, async (req, res) => {
+// Get lessons for a user (student or tutor)
+router.get('/my-lessons', verifyToken, async (req, res) => {
+  try {
+    // Get user ID from auth token
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    const userId = user._id;
+
+    console.log('📅 Fetching lessons for user:', userId);
+
+    // Find lessons where user is either tutor or student
+    const lessons = await Lesson.find({
+      $or: [
+        { tutorId: userId },
+        { studentId: userId }
+      ]
+    })
+    .populate('tutorId', 'name email picture')
+    .populate('studentId', 'name email picture')
+    .sort({ startTime: 1 });
+
+    res.json({ 
+      success: true, 
+      lessons 
+    });
+  } catch (error) {
+    console.error('❌ Error fetching lessons:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch lessons' 
+    });
+  }
+});
+
+// Get lesson details
+router.get('/:id', async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('createdBy', 'username firstName lastName')
-      .populate('prerequisites');
+      .populate('tutorId', 'name email picture')
+      .populate('studentId', 'name email picture');
 
     if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found' });
-    }
-
-    // If user is authenticated, add progress information
-    if (req.user) {
-      const progress = await Progress.findOne({
-        user: req.user._id,
-        lesson: lesson._id
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not found' 
       });
-      lesson.progress = progress;
     }
 
-    res.json({ lesson });
-  } catch (error) {
-    console.error('Get lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Create new lesson (admin/teacher only)
-router.post('/', auth, async (req, res) => {
-  try {
-    const lessonData = {
-      ...req.body,
-      createdBy: req.user._id
-    };
-
-    const lesson = new Lesson(lessonData);
-    await lesson.save();
-
-    await lesson.populate('createdBy', 'username firstName lastName');
-
-    res.status(201).json({
-      message: 'Lesson created successfully',
-      lesson
+    res.json({ 
+      success: true, 
+      lesson 
     });
   } catch (error) {
-    console.error('Create lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Error fetching lesson:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch lesson' 
+    });
   }
 });
 
-// Update lesson
-router.put('/:id', auth, async (req, res) => {
+// Check if user can join lesson (without generating token)
+router.get('/:id/status', async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
-
-    if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found' });
-    }
-
-    // Check if user is the creator or admin
-    if (lesson.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to update this lesson' });
-    }
-
-    const updatedLesson = await Lesson.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('createdBy', 'username firstName lastName');
-
-    res.json({
-      message: 'Lesson updated successfully',
-      lesson: updatedLesson
-    });
-  } catch (error) {
-    console.error('Update lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Delete lesson
-router.delete('/:id', auth, async (req, res) => {
-  try {
-    const lesson = await Lesson.findById(req.params.id);
-
-    if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found' });
-    }
-
-    // Check if user is the creator or admin
-    if (lesson.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this lesson' });
-    }
-
-    // Soft delete by setting isActive to false
-    lesson.isActive = false;
-    await lesson.save();
-
-    res.json({ message: 'Lesson deleted successfully' });
-  } catch (error) {
-    console.error('Delete lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Start lesson
-router.post('/:id/start', auth, async (req, res) => {
-  try {
-    const lesson = await Lesson.findById(req.params.id);
-
-    if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found' });
-    }
-
-    // Check if progress already exists
-    let progress = await Progress.findOne({
-      user: req.user._id,
-      lesson: lesson._id
-    });
-
-    if (!progress) {
-      // Create new progress record
-      progress = new Progress({
-        user: req.user._id,
-        lesson: lesson._id,
-        status: 'in-progress'
-      });
-      await progress.save();
-    } else if (progress.status === 'completed') {
-      return res.status(400).json({ message: 'Lesson already completed' });
-    } else {
-      // Update existing progress
-      progress.status = 'in-progress';
-      progress.attempts += 1;
-      await progress.save();
-    }
-
-    res.json({
-      message: 'Lesson started successfully',
-      progress
-    });
-  } catch (error) {
-    console.error('Start lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Submit lesson answers
-router.post('/:id/submit', auth, async (req, res) => {
-  try {
-    const { answers } = req.body;
-    const lesson = await Lesson.findById(req.params.id);
-
-    if (!lesson) {
-      return res.status(404).json({ message: 'Lesson not found' });
-    }
-
-    let progress = await Progress.findOne({
-      user: req.user._id,
-      lesson: lesson._id
-    });
-
-    if (!progress) {
-      return res.status(400).json({ message: 'Lesson not started' });
-    }
-
-    // Calculate score and XP
-    let correctAnswers = 0;
-    let totalXP = 0;
-    const exerciseResults = [];
-
-    lesson.exercises.forEach((exercise, index) => {
-      const userAnswer = answers[index];
-      const isCorrect = JSON.stringify(userAnswer) === JSON.stringify(exercise.correctAnswer);
-      
-      if (isCorrect) {
-        correctAnswers++;
-        totalXP += exercise.points;
-      }
-
-      exerciseResults.push({
-        exerciseIndex: index,
-        userAnswer,
-        isCorrect,
-        timeSpent: 0, // This would be calculated on frontend
-        attempts: 1
-      });
-    });
-
-    const score = Math.round((correctAnswers / lesson.exercises.length) * 100);
-    const isCompleted = score >= 70; // 70% to pass
-
-    // Update progress
-    progress.score = score;
-    progress.exerciseResults = exerciseResults;
-    progress.xpEarned = totalXP;
-    progress.attempts += 1;
-
-    if (isCompleted) {
-      progress.status = 'completed';
-      progress.completedAt = new Date();
-    }
-
-    await progress.save();
-
-    // Update user's total XP and streak
-    const User = require('../models/User');
-    const user = await User.findById(req.user._id);
-    user.totalXP += totalXP;
     
-    // Simple streak logic - could be more sophisticated
-    if (isCompleted) {
-      user.streak += 1;
+    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not available' 
+      });
     }
 
-    await user.save();
+    const now = new Date();
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+
+    const earliestJoin = new Date(start.getTime() - JOIN_EARLY_MINUTES * 60000);
+    const latestJoin = new Date(end.getTime() + END_GRACE_MINUTES * 60000);
+
+    const canJoin = now >= earliestJoin && now <= latestJoin;
+    const timeUntilStart = Math.max(0, Math.ceil((start.getTime() - now.getTime()) / 1000));
+    const timeUntilJoin = Math.max(0, Math.ceil((earliestJoin.getTime() - now.getTime()) / 1000));
 
     res.json({
-      message: isCompleted ? 'Lesson completed successfully!' : 'Lesson submitted',
-      score,
-      correctAnswers,
-      totalQuestions: lesson.exercises.length,
-      xpEarned: totalXP,
-      isCompleted,
-      progress
+      success: true,
+      canJoin,
+      timeUntilStart,
+      timeUntilJoin,
+      serverTime: now.toISOString(),
+      lesson: {
+        id: lesson._id,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        status: lesson.status
+      }
     });
   } catch (error) {
-    console.error('Submit lesson error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ Error checking lesson status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to check lesson status' 
+    });
+  }
+});
+
+// Secure join: returns Agora params only within time window
+router.post('/:id/join', verifyToken, async (req, res) => {
+  try {
+    // Get user ID from auth token
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    const userId = user._id;
+    const userRole = req.body.role; // 'tutor' or 'student'
+
+    console.log('📅 User attempting to join lesson:', { userId, lessonId: req.params.id, role: userRole });
+
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name email')
+      .populate('studentId', 'name email');
+
+    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not available' 
+      });
+    }
+
+    // Verify user is part of this lesson
+    const userIdStr = userId.toString();
+    const isTutor = lesson.tutorId._id.toString() === userIdStr;
+    const isStudent = lesson.studentId._id.toString() === userIdStr;
+
+    console.log('📅 Authorization check:', {
+      userIdStr,
+      tutorId: lesson.tutorId._id.toString(),
+      studentId: lesson.studentId._id.toString(),
+      isTutor,
+      isStudent
+    });
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to join this lesson' 
+      });
+    }
+
+    const now = new Date();
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+
+    const earliestJoin = new Date(start.getTime() - JOIN_EARLY_MINUTES * 60000);
+    const latestJoin = new Date(end.getTime() + END_GRACE_MINUTES * 60000);
+
+    if (now < earliestJoin) {
+      const minutesUntilJoin = Math.ceil((earliestJoin.getTime() - now.getTime()) / 60000);
+      return res.status(403).json({ 
+        success: false, 
+        message: `Too early to join. Please wait ${minutesUntilJoin} more minutes.` 
+      });
+    }
+
+    if (now > latestJoin) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Lesson window has ended' 
+      });
+    }
+
+    // Determine Agora role
+    const agoraRole = isTutor ? RtcRole.PUBLISHER : RtcRole.PUBLISHER; // Both can publish for interactive lessons
+
+    // Calculate token expiry (clamp to remaining lesson window)
+    // Use a fixed TTL to avoid edge cases where lesson window math yields short/expired tokens
+    const expireTs = TOKEN_TTL_SECONDS; // 1 hour
+    
+    // HARDCODED: Use fixed channel name for Agora temp tokens
+    const channelName = 'languageRoom';
+    // Use a stable string user account for Web SDK tokens
+    const uidAccount = userId.toString();
+    const tokenExpiry = Math.floor(Date.now() / 1000) + expireTs;
+
+    console.log('📅 Token generation parameters:', {
+      appId: AGORA_APP_ID,
+      channelName,
+      uidAccount,
+      agoraRole,
+      expireTs,
+      tokenExpiry,
+      currentTime: Math.floor(Date.now() / 1000)
+    });
+
+    // Generate Agora token
+    let token;
+    
+    // Prefer runtime temp token if provided via environment (never commit tokens)
+    const TEMP_TOKEN = process.env.AGORA_TEMP_TOKEN;
+    if (TEMP_TOKEN) {
+      console.log('⚠️ Using temporary token from environment for channel:', channelName);
+      token = TEMP_TOKEN;
+    } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
+      token = RtcTokenBuilder.buildTokenWithUserAccount(
+        AGORA_APP_ID,
+        AGORA_APP_CERT,
+        channelName,
+        uidAccount,
+        agoraRole,
+        tokenExpiry
+      );
+    } else {
+      console.warn('⚠️ No AGORA_TEMP_TOKEN and certificate unavailable; proceeding with null token');
+      token = null;
+    }
+
+    // Update lesson status to in_progress if this is the first join
+    if (lesson.status === 'scheduled') {
+      lesson.status = 'in_progress';
+      await lesson.save();
+    }
+
+    console.log('📅 Generated Agora token for lesson:', { 
+      lessonId: lesson._id, 
+      channelName, 
+      userId, 
+      role: isTutor ? 'tutor' : 'student',
+      token: token ? `${token.substring(0, 20)}...` : 'null',
+      appId: AGORA_APP_ID,
+      certExists: !!AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here'
+    });
+
+    res.json({
+      success: true,
+      agora: {
+        appId: AGORA_APP_ID,
+        channelName,
+        token,
+        uid: uidAccount
+      },
+      lesson: {
+        id: lesson._id,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        tutor: lesson.tutorId,
+        student: lesson.studentId,
+        subject: lesson.subject
+      },
+      userRole: isTutor ? 'tutor' : 'student',
+      serverTime: now.toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error joining lesson:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to join lesson',
+      error: error.message 
+    });
+  }
+});
+
+// End lesson (mark as completed)
+router.post('/:id/end', verifyToken, async (req, res) => {
+  try {
+    // Get user ID from auth token
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    const userId = user._id;
+    
+    const lesson = await Lesson.findById(req.params.id);
+    
+    if (!lesson) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not found' 
+      });
+    }
+
+    // Only tutor or student can end the lesson
+    const isTutor = lesson.tutorId.toString() === userId;
+    const isStudent = lesson.studentId.toString() === userId;
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to end this lesson' 
+      });
+    }
+
+    lesson.status = 'completed';
+    await lesson.save();
+
+    console.log('📅 Lesson ended:', lesson._id);
+
+    res.json({ 
+      success: true, 
+      message: 'Lesson completed' 
+    });
+  } catch (error) {
+    console.error('❌ Error ending lesson:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to end lesson' 
+    });
   }
 });
 

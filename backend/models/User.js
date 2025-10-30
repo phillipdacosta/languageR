@@ -116,6 +116,40 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   },
+  // Tutor availability calendar
+  availability: [{
+    id: {
+      type: String,
+      required: true
+    },
+    startTime: {
+      type: String,
+      required: true
+    },
+    endTime: {
+      type: String,
+      required: true
+    },
+    day: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 6
+    },
+    type: {
+      type: String,
+      enum: ['available', 'unavailable', 'break'],
+      default: 'available'
+    },
+    title: {
+      type: String,
+      default: 'Available'
+    },
+    color: {
+      type: String,
+      default: '#4A90E2'
+    }
+  }],
   createdAt: {
     type: Date,
     default: Date.now

@@ -1,155 +1,186 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { AuthService } from './auth.service';
+import { HttpClient } from '@angular/common/http';
+import { Observable, BehaviorSubject } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { UserService } from './user.service';
 
 export interface Lesson {
   _id: string;
-  title: string;
-  description: string;
-  language: string;
-  level: string;
-  category: string;
-  content: any;
-  exercises: Array<{
-    type: string;
-    question: string;
-    options?: string[];
-    correctAnswer: any;
-    explanation?: string;
-    points: number;
-  }>;
-  estimatedTime: number;
-  difficulty: number;
-  prerequisites: string[];
-  tags: string[];
-  isActive: boolean;
-  createdBy: {
+  tutorId: {
     _id: string;
-    username: string;
-    firstName: string;
-    lastName: string;
+    name: string;
+    email: string;
+    picture?: string;
   };
-  progress?: {
+  studentId: {
+    _id: string;
+    name: string;
+    email: string;
+    picture?: string;
+  };
+  startTime: string;
+  endTime: string;
+  channelName: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  subject: string;
+  notes?: string;
+  price: number;
+  duration: number;
+  bookingData?: {
+    selectedDate: string;
+    selectedTime: string;
+    timeRange: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LessonCreateRequest {
+  tutorId: string;
+  studentId: string;
+  startTime: string;
+  endTime: string;
+  subject?: string;
+  price: number;
+  duration?: number;
+  bookingData?: {
+    selectedDate: string;
+    selectedTime: string;
+    timeRange: string;
+  };
+}
+
+export interface LessonJoinResponse {
+  success: boolean;
+  agora: {
+    appId: string;
+    channelName: string;
+    token: string;
+    uid: number;
+  };
+  lesson: {
+    id: string;
+    startTime: string;
+    endTime: string;
+    tutor: any;
+    student: any;
+    subject: string;
+  };
+  userRole: 'tutor' | 'student';
+  serverTime: string;
+}
+
+export interface LessonStatusResponse {
+  success: boolean;
+  canJoin: boolean;
+  timeUntilStart: number;
+  timeUntilJoin: number;
+  serverTime: string;
+  lesson: {
+    id: string;
+    startTime: string;
+    endTime: string;
     status: string;
-    score: number;
-    timeSpent: number;
-    attempts: number;
-    completedAt?: Date;
-    xpEarned: number;
   };
-}
-
-export interface LessonsResponse {
-  lessons: Lesson[];
-  totalPages: number;
-  currentPage: number;
-  total: number;
-}
-
-export interface LessonResponse {
-  lesson: Lesson;
-}
-
-export interface StartLessonResponse {
-  message: string;
-  progress: any;
-}
-
-export interface SubmitLessonResponse {
-  message: string;
-  score: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  xpEarned: number;
-  isCompleted: boolean;
-  progress: any;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class LessonService {
-  private apiUrl = 'http://localhost:3000/api';
+  private baseUrl = `${environment.backendUrl}/api/lessons`;
+  private lessonsSubject = new BehaviorSubject<Lesson[]>([]);
+  public lessons$ = this.lessonsSubject.asObservable();
 
-  constructor(
-    private http: HttpClient,
-    private authService: AuthService
-  ) {}
+  constructor(private http: HttpClient, private userService: UserService) {}
 
-  getLessons(params?: {
-    language?: string;
-    level?: string;
-    category?: string;
-    page?: number;
-    limit?: number;
-  }): Observable<LessonsResponse> {
-    let httpParams = new HttpParams();
-    
-    if (params) {
-      Object.keys(params).forEach(key => {
-        if (params[key as keyof typeof params] !== undefined) {
-          httpParams = httpParams.set(key, params[key as keyof typeof params]!.toString());
-        }
-      });
+  // Create a new lesson (called after checkout)
+  createLesson(lessonData: LessonCreateRequest): Observable<{ success: boolean; lesson: Lesson }> {
+    console.log('📅 Creating lesson:', lessonData);
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; lesson: Lesson }>(`${this.baseUrl}`, lessonData, { headers });
+  }
+
+  // Get all lessons for current user
+  getMyLessons(userId?: string): Observable<{ success: boolean; lessons: Lesson[] }> {
+    const params: Record<string, string> = {};
+    if (userId) {
+      params['userId'] = userId;
     }
-
-    const headers = this.authService.isAuthenticated() 
-      ? this.authService.getAuthHeaders() 
-      : undefined;
-
-    return this.http.get<LessonsResponse>(`${this.apiUrl}/lessons`, {
-      params: httpParams,
-      headers
-    });
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<{ success: boolean; lessons: Lesson[] }>(`${this.baseUrl}/my-lessons`, { params, headers });
   }
 
-  getLesson(id: string): Observable<LessonResponse> {
-    const headers = this.authService.isAuthenticated() 
-      ? this.authService.getAuthHeaders() 
-      : undefined;
-
-    return this.http.get<LessonResponse>(`${this.apiUrl}/lessons/${id}`, {
-      headers
-    });
+  // Get specific lesson details
+  getLesson(lessonId: string): Observable<{ success: boolean; lesson: Lesson }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<{ success: boolean; lesson: Lesson }>(`${this.baseUrl}/${lessonId}`, { headers });
   }
 
-  createLesson(lessonData: Partial<Lesson>): Observable<LessonResponse> {
-    return this.http.post<LessonResponse>(
-      `${this.apiUrl}/lessons`,
-      lessonData,
-      { headers: this.authService.getAuthHeaders() }
-    );
+  // Check if user can join lesson (without generating token)
+  getLessonStatus(lessonId: string): Observable<LessonStatusResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<LessonStatusResponse>(`${this.baseUrl}/${lessonId}/status`, { headers });
   }
 
-  updateLesson(id: string, lessonData: Partial<Lesson>): Observable<LessonResponse> {
-    return this.http.put<LessonResponse>(
-      `${this.apiUrl}/lessons/${id}`,
-      lessonData,
-      { headers: this.authService.getAuthHeaders() }
-    );
+  // Join lesson (generates Agora token if within time window)
+  joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string): Observable<LessonJoinResponse> {
+    const body = { role, userId };
+    console.log('📅 Attempting to join lesson:', { lessonId, role, userId });
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<LessonJoinResponse>(`${this.baseUrl}/${lessonId}/join`, body, { headers });
   }
 
-  deleteLesson(id: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(
-      `${this.apiUrl}/lessons/${id}`,
-      { headers: this.authService.getAuthHeaders() }
-    );
+  // End lesson
+  endLesson(lessonId: string, userId?: string): Observable<{ success: boolean; message: string }> {
+    const body = userId ? { userId } : {};
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/${lessonId}/end`, body, { headers });
   }
 
-  startLesson(id: string): Observable<StartLessonResponse> {
-    return this.http.post<StartLessonResponse>(
-      `${this.apiUrl}/lessons/${id}/start`,
-      {},
-      { headers: this.authService.getAuthHeaders() }
-    );
+  // Helper methods for UI
+  canJoinLesson(lesson: Lesson, serverTime?: string): boolean {
+    const now = serverTime ? new Date(serverTime) : new Date();
+    const startTime = new Date(lesson.startTime);
+    const endTime = new Date(lesson.endTime);
+    
+    const earliestJoin = new Date(startTime.getTime() - 15 * 60000); // 15 minutes early
+    const latestJoin = new Date(endTime.getTime() + 5 * 60000); // 5 minutes after end
+    
+    return now >= earliestJoin && now <= latestJoin && lesson.status === 'scheduled';
   }
 
-  submitLesson(id: string, answers: any[]): Observable<SubmitLessonResponse> {
-    return this.http.post<SubmitLessonResponse>(
-      `${this.apiUrl}/lessons/${id}/submit`,
-      { answers },
-      { headers: this.authService.getAuthHeaders() }
-    );
+  getTimeUntilJoin(lesson: Lesson, serverTime?: string): number {
+    const now = serverTime ? new Date(serverTime) : new Date();
+    const startTime = new Date(lesson.startTime);
+    const earliestJoin = new Date(startTime.getTime() - 15 * 60000);
+    
+    return Math.max(0, Math.ceil((earliestJoin.getTime() - now.getTime()) / 1000));
+  }
+
+  formatTimeUntil(seconds: number): string {
+    if (seconds <= 0) return 'Now';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  }
+
+  // Update local lessons cache
+  updateLessonsCache(lessons: Lesson[]): void {
+    this.lessonsSubject.next(lessons);
+  }
+
+  // Get lessons from cache
+  getCachedLessons(): Lesson[] {
+    return this.lessonsSubject.value;
   }
 }

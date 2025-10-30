@@ -36,8 +36,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.userService.getCurrentUser()
     .pipe(takeUntil(this.destroy$))
     .subscribe(user => {
-      console.log('Database user data:', user);
+      console.log('Tab1Page: Database user data:', user);
+      console.log('Tab1Page: User type:', user?.userType);
       this.currentUser = user;
+      console.log('Tab1Page: Current user set to:', this.currentUser);
+      console.log('Tab1Page: Is student?', this.isStudent());
+      console.log('Tab1Page: Is tutor?', this.isTutor());
     });
   }
 

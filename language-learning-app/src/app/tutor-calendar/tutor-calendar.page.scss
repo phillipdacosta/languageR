@@ -1,0 +1,770 @@
+ion-content {
+  --background: #f8f9fa;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+}
+
+.calendar-layout {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: #f8f9fa;
+}
+
+.calendar-sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100%;
+    background: #f8f9fa;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e9ecef;
+    overflow-y: auto;
+    z-index: 1;
+}
+
+// Sidebar header for mobile
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 31px;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  cursor: pointer;
+  user-select: none;
+  
+  h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #212529;
+  }
+  
+  .sidebar-expand-icon {
+    font-size: 20px;
+    color: #6c757d;
+    transition: transform 0.3s ease;
+    
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+  
+  // Hide on desktop
+  @media (min-width: 769px) {
+    display: none;
+  }
+}
+
+// Sidebar content
+.sidebar-content {
+  padding: 31px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+  position: relative;
+    top: 30px;
+  // Mobile: collapsed by default
+  @media (max-width: 768px) {
+    max-height: 0;
+    overflow: hidden;
+    padding: 0 31px;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    
+    &.expanded {
+      max-height: 1000px; // Large enough for all content
+      padding: 31px;
+    }
+  }
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-lesson-btn {
+  --background: #ec4899;
+  --color: white;
+  --border-radius: 8px;
+  height: 48px;
+  font-weight: 600;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+  margin-bottom: 8px;
+}
+
+.action-btn {
+  --border-color: #ec4899;
+  --color: #ec4899;
+  --border-radius: 8px;
+  height: 44px;
+  font-weight: 500;
+  font-size: 14px;
+  border-width: 1px;
+}
+
+.tags-section, .lesson-status-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.tags-section h4, .lesson-status-section h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #212529;
+  margin: 0 0 16px 0;
+}
+
+// Expandable section headers
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  
+  h4 {
+    margin: 0;
+  }
+  
+  .expand-icon {
+    font-size: 18px;
+    color: #6c757d;
+    transition: transform 0.3s ease;
+    
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+  
+  // Hide expand icon on desktop
+  @media (min-width: 769px) {
+    cursor: default;
+    
+    .expand-icon {
+      display: none;
+    }
+  }
+}
+
+.tag-list, .status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tag-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-left: 3px solid;
+  padding-left: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag-item:hover {
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.tag-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+
+.tag-item span {
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-item:hover {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0 -12px;
+}
+
+.status-icon {
+  margin-right: 12px;
+  color: #6c757d;
+  font-size: 18px;
+}
+
+.status-item span {
+  font-size: 14px;
+  color: #495057;
+  font-weight: 500;
+}
+
+.main-calendar {
+  position: absolute;
+  left: 300px;
+  top: 20px;
+  right: 20px;
+  bottom: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 0;
+}
+
+#tutor-calendar-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  top: 35px;
+}
+
+.calendar-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in-out forwards;
+  
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+  
+  p {
+    color: #666;
+    font-size: 16px;
+    margin: 0;
+  }
+}
+
+// Ensure FullCalendar is visible
+.fc {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 400px !important;
+  background: white !important;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.fc-view-harness {
+  height: 100% !important;
+  min-height: 400px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-scroller {
+  height: 100% !important;
+  min-height: 400px !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-scroller-liquid-absolute {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-scroller-liquid {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-scrollgrid {
+  display: table !important;
+  visibility: visible !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fc-scrollgrid-sync-table {
+  display: table !important;
+  visibility: visible !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.fc-timegrid {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-body {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-slot {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-slot-label {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-slot-lane {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-event-harness {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.fc-timegrid-event {
+  display: block !important;
+  visibility: visible !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Smooth transitions for calendar updates
+.fc {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.fc.fc-loading {
+  opacity: 0.7;
+}
+
+.fc.fc-loaded {
+  opacity: 1;
+}
+
+.help-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  --background: white;
+  --color: #6c757d;
+  --border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.help-button:hover {
+  --background: #f8f9fa;
+  --color: #495057;
+}
+
+// FullCalendar custom styling to match the design
+.fc {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  height: 100%;
+}
+
+.fc-toolbar {
+  padding: 0 0 20px 0;
+  background: transparent;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 20px;
+}
+
+.fc-toolbar-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+.fc-button {
+  background: #ec4899;
+  border: 1px solid #ec4899;
+  color: white;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.fc-button:hover {
+  background: #db2777;
+  border-color: #db2777;
+}
+
+.fc-button-primary:not(:disabled):active {
+  background: #db2777;
+  border-color: #db2777;
+}
+
+.fc-button-primary:not(:disabled).fc-button-active {
+  background: #db2777;
+  border-color: #db2777;
+}
+
+.fc-button-group .fc-button {
+  margin-right: 8px;
+}
+
+.fc-button-group .fc-button:last-child {
+  margin-right: 0;
+}
+
+.fc-daygrid-day {
+  background: white;
+  border: 1px solid #e9ecef;
+}
+
+.fc-daygrid-day-number {
+  color: #495057;
+  font-weight: 500;
+  padding: 8px;
+}
+
+.fc-timegrid-slot {
+  border-color: #f1f3f4;
+}
+
+.fc-timegrid-slot-label {
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.fc-event {
+  background: #ec4899;
+  border: 1px solid #ec4899;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  color: white;
+  font-weight: 500;
+}
+
+.fc-event:hover {
+  background: #db2777;
+  border-color: #db2777;
+}
+
+.fc-timegrid-event {
+  border-radius: 4px;
+}
+
+.fc-timegrid-event-harness {
+  margin: 1px;
+}
+
+.fc-col-header-cell {
+  background: #f8f9fa;
+  border-color: #e9ecef;
+  color: #495057;
+  font-weight: 600;
+  padding: 12px 8px;
+  font-size: 14px;
+}
+
+.fc-scrollgrid {
+  border-color: #e9ecef;
+}
+
+.fc-scrollgrid-sync-table {
+  border-color: #e9ecef;
+}
+
+.fc-timegrid-axis {
+  border-color: #e9ecef;
+}
+
+.fc-timegrid-divider {
+  border-color: #e9ecef;
+}
+
+// Highlight current day
+.fc-day-today {
+  background-color: rgba(236, 72, 153, 0.05) !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+  color: #ec4899;
+  font-weight: 600;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .calendar-layout {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  
+  .calendar-sidebar {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: auto;
+    padding: 0;
+    border-right: none;
+    border-bottom: 1px solid #e9ecef;
+    overflow-y: visible;
+    z-index: auto;
+    
+    .sidebar-header {
+      display: flex;
+    }
+    
+    .sidebar-content {
+      // Content will be collapsed by default due to CSS above
+    }
+  }
+  
+  .main-calendar {
+    position: relative;
+    left: auto;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    border-radius: 0;
+    height: calc(100vh - 80px); // Increased height - less space for header/tabs
+    min-height: calc(100vh - 80px);
+    box-shadow: none;
+  }
+  
+  #tutor-calendar-container {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    height: 100%;
+    min-height: calc(100vh - 100px);
+    padding: 12px;
+  }
+  
+  .help-button {
+    bottom: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  // Mobile expandable sections
+  .tag-list, .status-list {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    
+    &.expanded {
+      max-height: 500px; // Large enough to show all content
+    }
+  }
+  
+  // Show expand icon on mobile
+  .section-header {
+    cursor: pointer;
+    
+    .expand-icon {
+      display: block;
+    }
+  }
+  
+  // Mobile button optimizations
+  .action-buttons {
+    gap: 12px;
+    padding: 16px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    
+    ion-button {
+      height: 44px;
+      font-size: 14px;
+      margin: 4px 0;
+      
+      ion-icon {
+        font-size: 18px;
+      }
+    }
+    
+    .schedule-lesson-btn {
+      height: 48px;
+      font-size: 15px;
+      font-weight: 600;
+      margin: 6px 0;
+    }
+  }
+  
+  // Mobile section optimizations
+  .tags-section, .lesson-status-section {
+    padding: 16px;
+    
+    .section-header {
+      padding: 12px 0;
+      
+      h4 {
+        font-size: 15px;
+      }
+      
+      .expand-icon {
+        font-size: 16px;
+      }
+    }
+  }
+  
+  .tag-item, .status-item {
+    padding: 6px 0;
+    
+    span {
+      font-size: 13px;
+    }
+    
+    .tag-color {
+      width: 10px;
+      height: 10px;
+      margin-right: 10px;
+    }
+    
+    .status-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-sidebar {
+    padding: 12px;
+    gap: 16px;
+  }
+  
+  #tutor-calendar-container {
+    padding: 12px;
+    min-height: 350px;
+  }
+  
+  // Mobile expandable sections for small screens
+  .tag-list, .status-list {
+    &.expanded {
+      max-height: 400px; // Slightly smaller for small screens
+    }
+  }
+  
+  // Further optimize calendar for small screens
+  .main-calendar {
+    height: calc(100vh - 60px);
+    min-height: calc(100vh - 60px);
+  }
+  
+  #tutor-calendar-container {
+    min-height: calc(100vh - 80px);
+    padding: 8px;
+  }
+  
+  // Smaller buttons on very small screens
+  .action-buttons {
+    gap: 10px;
+    padding: 12px;
+    
+    ion-button {
+      height: 40px;
+      font-size: 13px;
+      margin: 3px 0;
+      
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+    
+    .schedule-lesson-btn {
+      height: 44px;
+      font-size: 14px;
+      margin: 4px 0;
+    }
+  }
+  
+  // Mobile FullCalendar optimizations
+  .fc {
+    font-size: 12px;
+    
+    .fc-toolbar {
+      padding: 8px 4px;
+      
+      .fc-toolbar-chunk {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      
+      .fc-button {
+        padding: 4px 8px;
+        font-size: 11px;
+        height: 28px;
+      }
+      
+      .fc-toolbar-title {
+        font-size: 16px;
+        font-weight: 600;
+      }
+    }
+    
+    .fc-col-header-cell {
+      padding: 4px 2px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .fc-timegrid-slot-label {
+      font-size: 10px;
+      padding: 2px;
+    }
+    
+    .fc-timegrid-slot {
+      height: 20px;
+    }
+    
+    .fc-event {
+      font-size: 10px;
+      padding: 1px 2px;
+    }
+  }
+}

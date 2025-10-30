@@ -1,84 +1,69 @@
 const mongoose = require('mongoose');
 
-const lessonSchema = new mongoose.Schema({
-  title: {
-    type: String,
+const LessonSchema = new mongoose.Schema({
+  tutorId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  studentId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  startTime: { 
+    type: Date, 
+    required: true 
+  },
+  endTime: { 
+    type: Date, 
+    required: true 
+  },
+  channelName: { 
+    type: String, 
     required: true,
-    trim: true
+    unique: true 
   },
-  description: {
+  status: { 
+    type: String, 
+    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'], 
+    default: 'scheduled' 
+  },
+  subject: {
     type: String,
-    required: true
+    default: 'Language Lesson'
   },
-  language: {
-    type: String,
-    required: true
-  },
-  level: {
-    type: String,
-    enum: ['beginner', 'intermediate', 'advanced'],
-    required: true
-  },
-  category: {
-    type: String,
-    enum: ['vocabulary', 'grammar', 'pronunciation', 'conversation', 'reading', 'listening'],
-    required: true
-  },
-  content: {
-    type: mongoose.Schema.Types.Mixed,
-    required: true
-  },
-  exercises: [{
-    type: {
-      type: String,
-      enum: ['multiple-choice', 'fill-in-blank', 'translation', 'audio', 'speaking'],
-      required: true
-    },
-    question: {
-      type: String,
-      required: true
-    },
-    options: [String], // For multiple choice
-    correctAnswer: {
-      type: mongoose.Schema.Types.Mixed,
-      required: true
-    },
-    explanation: String,
-    points: {
-      type: Number,
-      default: 10
-    }
-  }],
-  estimatedTime: {
-    type: Number, // in minutes
-    required: true
-  },
-  difficulty: {
+  notes: String,
+  price: {
     type: Number,
-    min: 1,
-    max: 5,
-    default: 1
-  },
-  prerequisites: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Lesson'
-  }],
-  tags: [String],
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
     required: true
+  },
+  duration: {
+    type: Number, // in minutes
+    required: true,
+    default: 60
+  },
+  // Store booking details from checkout
+  bookingData: {
+    selectedDate: String,
+    selectedTime: String,
+    timeRange: String
   }
-}, {
-  timestamps: true
+}, { 
+  timestamps: true 
 });
 
 // Index for efficient queries
-lessonSchema.index({ language: 1, level: 1, category: 1 });
-lessonSchema.index({ tags: 1 });
+LessonSchema.index({ tutorId: 1, startTime: 1 });
+LessonSchema.index({ studentId: 1, startTime: 1 });
+LessonSchema.index({ startTime: 1, status: 1 });
 
-module.exports = mongoose.model('Lesson', lessonSchema);
+// Generate unique channel name
+LessonSchema.pre('save', function(next) {
+  if (!this.channelName) {
+    this.channelName = `lesson_${this._id.toString()}`;
+  }
+  next();
+});
+
+module.exports = mongoose.model('Lesson', LessonSchema);

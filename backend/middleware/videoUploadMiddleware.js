@@ -230,9 +230,13 @@ const verifyToken = async (req, res, next) => {
     }
     
     const token = authHeader.replace('Bearer ', '');
+    console.log('🔍 Backend: Received token:', token.substring(0, 20) + '...');
     
     let userInfo;
+    
+    // Handle dev tokens (for development)
     if (token.startsWith('dev-token-')) {
+      console.log('🔍 Backend: Processing dev token');
       const emailPart = token.replace('dev-token-', '');
       // Convert hyphens back to dots, but preserve the @ symbol
       // The emailPart should be like "phillip-dacosta-gmail-com"
@@ -261,7 +265,52 @@ const verifyToken = async (req, res, next) => {
           name: email.split('@')[0]
         };
       }
-    } else {
+      console.log('🔍 Backend: Dev token processed, user:', userInfo.email);
+    } 
+    // Handle Auth0 JWT tokens
+    else if (token.includes('.')) {
+      console.log('🔍 Backend: Processing Auth0 JWT token');
+      try {
+        // For development, we'll decode the JWT without verification
+        // In production, you should verify the JWT signature
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          throw new Error('Invalid JWT format');
+        }
+        
+        // Add padding if needed for base64 decoding
+        let payload = parts[1];
+        while (payload.length % 4) {
+          payload += '=';
+        }
+        
+        const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
+        console.log('🔍 Backend: JWT payload:', decodedPayload);
+        
+        userInfo = {
+          sub: decodedPayload.sub,
+          email: decodedPayload.email,
+          name: decodedPayload.name || decodedPayload.nickname || decodedPayload.email?.split('@')[0],
+          email_verified: decodedPayload.email_verified
+        };
+        console.log('🔍 Backend: Auth0 token processed, user:', userInfo.email);
+      } catch (jwtError) {
+        console.error('🔍 Backend: Error decoding JWT:', jwtError);
+        console.error('🔍 Backend: Token parts:', token.split('.').length);
+        console.error('🔍 Backend: First 50 chars of token:', token.substring(0, 50));
+        
+        // Fallback: if JWT decoding fails, treat as unknown user
+        console.log('🔍 Backend: JWT decoding failed, using fallback user');
+        userInfo = {
+          sub: 'jwt-decode-failed',
+          email: 'unknown@jwt-failed.com',
+          name: 'JWT Decode Failed'
+        };
+      }
+    }
+    // Fallback for unknown token format
+    else {
+      console.log('🔍 Backend: Unknown token format, using default user');
       userInfo = {
         sub: 'dev-user-123',
         email: 'dev@example.com',
@@ -270,6 +319,7 @@ const verifyToken = async (req, res, next) => {
     }
     
     req.user = userInfo;
+    console.log('🔍 Backend: Final user info:', { sub: userInfo.sub, email: userInfo.email, name: userInfo.name });
     next();
   } catch (error) {
     console.error('Token verification error:', error);

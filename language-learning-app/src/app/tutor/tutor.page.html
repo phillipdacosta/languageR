@@ -1,0 +1,103 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ tutor?.name || 'Tutor' }}</ion-title>
+  </ion-toolbar>
+  <ion-toolbar class="sub-toolbar" *ngIf="tutor">
+    <ion-title size="small">{{ tutor?.languages?.join(', ') }}</ion-title>
+  </ion-toolbar>
+  
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="tutor-layout" *ngIf="!isLoading && tutor; else loadingTpl">
+    <!-- Left: Scrollable Info -->
+    <div class="tutor-info">
+      <h1 class="name">{{ tutor.name }}</h1>
+      <div class="meta">
+        <div class="meta-item" *ngIf="tutor.stats?.totalHours">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>{{ tutor.stats?.totalHours }}h taught</span>
+        </div>
+        <div class="meta-item" *ngIf="tutor.hourlyRate">
+          <ion-icon name="cash-outline"></ion-icon>
+          <span>
+            ${{ tutor.hourlyRate }}/hour
+          </span>
+        </div>
+      </div>
+
+      <section *ngIf="tutor.bio">
+        <h2>About me</h2>
+        <p>{{ tutor.bio }}</p>
+      </section>
+
+      <section *ngIf="tutor.experience">
+        <h2>Experience</h2>
+        <p>{{ tutor.experience }}</p>
+      </section>
+
+      <section *ngIf="tutor.schedule">
+        <h2>Schedule</h2>
+        <p>{{ tutor.schedule }}</p>
+      </section>
+
+      <section>
+        <h2>Weekly availability</h2>
+        <app-tutor-availability-viewer 
+          [tutorId]="tutorId" 
+          [tutorName]="tutor.name"
+          [inline]="true">
+        </app-tutor-availability-viewer>
+      </section>
+    </div>
+
+    <!-- Right: Sticky Video and Actions -->
+    <aside class="tutor-aside">
+      <div class="video-card" *ngIf="tutor.introductionVideo; else placeholderVideo">
+        <div class="video-wrapper">
+          <video #introVideo [src]="tutor.introductionVideo" preload="metadata"></video>
+          <button class="floating-play" [class.hidden]="!showOverlay" type="button" (click)="toggleIntroVideo()">
+            <ion-icon name="play"></ion-icon>
+          </button>
+        </div>
+      </div>
+      <ng-template #placeholderVideo>
+        <div class="video-placeholder">
+          <ion-icon name="person-circle-outline"></ion-icon>
+        </div>
+      </ng-template>
+
+      <div class="actions">
+        <ion-button expand="block" color="success">
+          <ion-icon name="flash-outline" slot="start"></ion-icon>
+          Book trial lesson
+        </ion-button>
+        <ion-button expand="block" fill="outline">
+          <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
+          Send message
+        </ion-button>
+        <ion-button expand="block" fill="outline">
+          <ion-icon name="heart-outline" slot="start"></ion-icon>
+          Save to my list
+        </ion-button>
+        <div class="split-actions">
+          <ion-button fill="outline" color="primary" [routerLink]="['/tutor', tutorId]">
+            <ion-icon name="person-outline" slot="start"></ion-icon>
+            View profile
+          </ion-button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <ng-template #loadingTpl>
+    <div class="loading">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  </ng-template>
+</ion-content>
+
+

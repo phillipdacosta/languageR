@@ -1,0 +1,195 @@
+.lessons-container {
+  padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 64px;
+    color: var(--ion-color-medium);
+    margin-bottom: 16px;
+  }
+  
+  h2 {
+    color: var(--ion-color-dark);
+    margin: 16px 0 8px 0;
+  }
+  
+  p {
+    color: var(--ion-color-medium);
+    margin-bottom: 24px;
+  }
+}
+
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lesson-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--ion-color-step-100);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s ease;
+  }
+}
+
+.lesson-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  
+  .lesson-info {
+    flex: 1;
+    
+    ion-card-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ion-color-dark);
+      margin-bottom: 4px;
+    }
+    
+    ion-card-subtitle {
+      color: var(--ion-color-medium);
+      font-size: 14px;
+    }
+  }
+  
+  .status-chip {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+.participant-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  
+  ion-avatar {
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--ion-color-step-100);
+  }
+  
+  .participant-details {
+    flex: 1;
+    
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ion-color-dark);
+      margin: 0 0 4px 0;
+    }
+    
+    p {
+      font-size: 14px;
+      color: var(--ion-color-medium);
+      margin: 0;
+    }
+  }
+}
+
+.lesson-actions {
+  margin-top: 16px;
+  
+  .join-ready ion-button {
+    --border-radius: 8px;
+    font-weight: 600;
+    height: 48px;
+  }
+  
+  .waiting-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px;
+    background: var(--ion-color-step-50);
+    border-radius: 8px;
+    
+    ion-icon {
+      font-size: 24px;
+      color: var(--ion-color-primary);
+      margin-bottom: 8px;
+    }
+    
+    p {
+      font-size: 14px;
+      color: var(--ion-color-medium);
+      margin: 0 0 12px 0;
+    }
+    
+    ion-button {
+      --border-radius: 6px;
+      font-size: 12px;
+    }
+  }
+}
+
+.completed-info, .cancelled-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  
+  &.completed-info {
+    background: rgba(var(--ion-color-success-rgb), 0.1);
+    color: var(--ion-color-success);
+  }
+  
+  &.cancelled-info {
+    background: rgba(var(--ion-color-danger-rgb), 0.1);
+    color: var(--ion-color-danger);
+  }
+  
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
+// Mobile responsiveness
+@media (max-width: 768px) {
+  .lessons-container {
+    padding: 12px;
+  }
+  
+  .lesson-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    
+    .status-chip {
+      align-self: flex-end;
+    }
+  }
+  
+  .participant-info {
+    .participant-details h3 {
+      font-size: 15px;
+    }
+    
+    .participant-details p {
+      font-size: 13px;
+    }
+  }
+}

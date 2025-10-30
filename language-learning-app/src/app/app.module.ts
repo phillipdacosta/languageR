@@ -1,13 +1,14 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { RouteReuseStrategy, UrlSerializer } from '@angular/router';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { IonicStorageModule } from '@ionic/storage-angular';
 
-import { AuthModule } from '@auth0/auth0-angular';
+import { AuthModule, AuthHttpInterceptor } from '@auth0/auth0-angular';
 import { environment } from '../environments/environment';
 
 import { AppRoutingModule } from './app-routing.module';
@@ -36,12 +37,9 @@ import { GlobalLoadingComponent } from './components/global-loading/global-loadi
         redirect_uri: environment.auth0.redirectUri,
         scope: 'openid profile email'
       },
+      // Disable HTTP interceptor for now - we'll use dev tokens
       httpInterceptor: {
-        allowedList: [
-          {
-            uri: '/api/*'
-          }
-        ]
+        allowedList: []
       },
       useRefreshTokens: false,
       cacheLocation: 'localstorage',
@@ -51,9 +49,11 @@ import { GlobalLoadingComponent } from './components/global-loading/global-loadi
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     { provide: UrlSerializer, useClass: CustomUrlSerializerService },
+    // Removed AuthHttpInterceptor - using dev tokens instead
     AgoraService,
     TokenGeneratorService,
-    PlatformService
+    PlatformService,
+    provideAnimationsAsync()
   ],
   bootstrap: [AppComponent],
 })

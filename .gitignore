@@ -1,3 +1,19 @@
+# Node
+node_modules/
+
+# Environment and secrets
+backend/config.env
+*.env
+*.env.*
+*.local
+
+# Service account keys
+backend/languager-*.json
+
+# Build artifacts
+language-learning-app/www/
+language-learning-app/dist/
+
 # Dependencies
 node_modules/
 npm-debug.log*

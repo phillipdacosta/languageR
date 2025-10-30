@@ -14,6 +14,18 @@
 </ion-header>
 
 <ion-content>
+  <!-- Show message for tutors -->
+  <div *ngIf="currentUser?.userType === 'tutor'" class="tutor-redirect-message">
+    <ion-card>
+      <ion-card-content>
+        <h2>Redirecting...</h2>
+        <p>Tutors should use the Calendar page to manage their schedule.</p>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- Main content only for students -->
+  <div *ngIf="currentUser?.userType === 'student'">
   <!-- Main Content View -->
   <div class="main-content-view" *ngIf="!showFiltersView">
     <div class="filters-container">
@@ -201,13 +213,16 @@
           <div class="tutor-video" *ngIf="tutor.introductionVideo">
             <div class="video-container">
               <video 
+                #cardVideo
                 [src]="tutor.introductionVideo" 
-                controls 
                 preload="metadata"
                 poster=""
                 class="introduction-video">
                 Your browser does not support the video tag.
               </video>
+              <button type="button" class="floating-play" (click)="playIntroVideo(cardVideo)">
+                <ion-icon name="play"></ion-icon>
+              </button>
             </div>
             <p class="video-label">Introduction Video</p>
           </div>
@@ -236,6 +251,14 @@
           <ion-button fill="solid" size="small">
             <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
             Message
+          </ion-button>
+          <ion-button fill="outline" color="primary" size="small" (click)="viewAvailability(tutor)">
+            <ion-icon name="calendar-outline" slot="start"></ion-icon>
+            View availability
+          </ion-button>
+          <ion-button fill="outline" color="medium" size="small" [routerLink]="['/tutor', tutor.id]">
+            <ion-icon name="person-outline" slot="start"></ion-icon>
+            View profile
           </ion-button>
           <ion-button fill="solid" color="success" size="small">
             <ion-icon name="videocam-outline" slot="start"></ion-icon>
@@ -360,4 +383,5 @@
       </ion-button>
     </div>
   </div>
+  </div> <!-- Close the student content div -->
 </ion-content>

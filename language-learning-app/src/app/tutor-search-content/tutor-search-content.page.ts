@@ -4,6 +4,8 @@ import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } fro
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
+import { ModalController } from '@ionic/angular';
+import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 
 @Component({
   selector: 'app-tutor-search-content',
@@ -101,7 +103,10 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   ];
 
 
-  constructor(private userService: UserService) {}
+  constructor(
+    private userService: UserService,
+    private modalController: ModalController
+  ) {}
 
   ngOnInit() {
     this.getCurrentUser();
@@ -125,8 +130,18 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     this.userService.getCurrentUser()
     .pipe(takeUntil(this.destroy$))
     .subscribe(user => {
-      console.log('Database user data:', user);
+      console.log('TutorSearchContent: Database user data:', user);
+      console.log('TutorSearchContent: User type:', user?.userType);
       this.currentUser = user;
+      
+      // Redirect tutors away from this page
+      if (user?.userType === 'tutor') {
+        console.log('TutorSearchContent: Tutor detected, redirecting to calendar');
+        // Redirect tutors to their calendar instead
+        window.location.href = '/tabs/tutor-calendar';
+        return;
+      }
+      
       this.getPreferredLanguage();
       console.log('Current user:', this.currentUser);
       console.log('Preferred language set to:', this.filters.language);
@@ -367,5 +382,38 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
 
   openSortFilter() {
     // Open sort filter
+  }
+
+  async viewAvailability(tutor: Tutor) {
+    const modal = await this.modalController.create({
+      component: TutorAvailabilityViewerComponent,
+      componentProps: {
+        tutorId: tutor.id,
+        tutorName: tutor.name
+      },
+      cssClass: 'tutor-availability-modal'
+    });
+    
+    return await modal.present();
+  }
+
+  playIntroVideo(videoEl: HTMLVideoElement) {
+    if (!videoEl) return;
+    // reveal native controls, start playback
+    videoEl.controls = true;
+    videoEl.play();
+    // hide overlay button by adding a class on its container
+    const container = videoEl.parentElement as HTMLElement | null;
+    if (container) {
+      const btn = container.querySelector('.floating-play') as HTMLElement | null;
+      if (btn) btn.style.display = 'none';
+    }
+    // when paused/ended, show overlay again
+    const showOverlay = () => {
+      const btn = videoEl.parentElement?.querySelector('.floating-play') as HTMLElement | null;
+      if (btn) btn.style.display = '';
+    };
+    videoEl.addEventListener('pause', showOverlay, { once: true });
+    videoEl.addEventListener('ended', showOverlay, { once: true });
   }
 }

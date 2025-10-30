@@ -40,7 +40,6 @@ export class TabsPage implements OnInit, OnDestroy {
         this.currentUser = user;
         console.log('Current user:', this.currentUser);
       });
-            
     });
     this.isAuthenticated$ = this.authService.isAuthenticated$;
   }
@@ -62,11 +61,25 @@ export class TabsPage implements OnInit, OnDestroy {
     };
     window.addEventListener('resize', this.resizeListener);
     
+    // Ensure currentUser is loaded
+    this.loadCurrentUser();
+    
     console.log('Platform detected:', this.currentPlatform);
     console.log('Platform config:', this.platformConfig);
     console.log('Show tabs:', this.showTabs);
     console.log('Is web:', this.isWeb());
     console.log('Is mobile viewport:', this.isMobileViewport());
+  }
+
+  private loadCurrentUser() {
+    this.userService.getCurrentUser()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((user: any) => {
+        console.log('TabsPage: Database user data:', user);
+        this.currentUser = user;
+        console.log('TabsPage: Current user loaded:', this.currentUser);
+        console.log('TabsPage: User type:', this.currentUser?.userType);
+      });
   }
 
   ngOnDestroy() {
