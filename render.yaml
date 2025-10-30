@@ -25,11 +25,13 @@ services:
         sync: false
       - key: AGORA_TEMP_TOKEN
         sync: false
-      - key: GCS_BUCKET_NAME
+      - key: GOOGLE_CLOUD_BUCKET_NAME
         sync: false
-      - key: GCS_PROJECT_ID
+      - key: GOOGLE_CLOUD_PROJECT_ID
         sync: false
-      - key: GCS_KEY_FILE
+      - key: GOOGLE_CLOUD_KEY_FILE
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
         sync: false
 
   - type: web

@@ -17,10 +17,21 @@ function initializeGCS() {
   }
 
   try {
-    storage = new Storage({
+    // Configure Google Cloud Storage
+    const storageConfig = {
       projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-      keyFilename: process.env.GOOGLE_CLOUD_KEY_FILE, // Path to service account key
-    });
+    };
+
+    // For local development, use key file
+    if (process.env.GOOGLE_CLOUD_KEY_FILE) {
+      storageConfig.keyFilename = process.env.GOOGLE_CLOUD_KEY_FILE;
+    }
+    // For cloud deployment (Render), use JSON credentials
+    else if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+      storageConfig.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    }
+
+    storage = new Storage(storageConfig);
 
     bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
     bucket = storage.bucket(bucketName);
