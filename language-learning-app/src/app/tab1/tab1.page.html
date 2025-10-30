@@ -35,7 +35,7 @@
 
   <!-- Lessons list -->
   <ng-container *ngIf="!isLoadingLessons">
-    <ion-list *ngIf="lessons?.length > 0; else noLessons">
+    <ion-list *ngIf="lessons && lessons.length > 0; else noLessons">
       <ion-item *ngFor="let lesson of lessons; trackBy: trackByLessonId">
         <ion-label>
           <h3>{{ getOtherParticipantName(lesson) }}</h3>
