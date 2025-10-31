@@ -287,6 +287,33 @@ export class UserService {
   }
 
   /**
+   * Get user by email (public endpoint)
+   */
+  getUserByEmail(email: string): Observable<User | null> {
+    return this.http.post<{ success: boolean; user?: any }>(`${this.apiUrl}/users/by-email`, { email }).pipe(
+      map(resp => {
+        const u = (resp as any)?.user;
+        if (!u) return null;
+        return {
+          id: u.id,
+          auth0Id: u.auth0Id,
+          email: u.email,
+          name: u.name,
+          picture: u.picture,
+          emailVerified: !!u.emailVerified,
+          userType: (u as any).userType || 'student',
+          onboardingCompleted: !!u.onboardingCompleted,
+          onboardingData: u.onboardingData,
+          profile: u.profile,
+          stats: u.stats,
+          createdAt: u.createdAt,
+          updatedAt: u.updatedAt,
+        } as User;
+      })
+    );
+  }
+
+  /**
    * Initialize user data after authentication
    */
   initializeUser(auth0User: any): Observable<User> {

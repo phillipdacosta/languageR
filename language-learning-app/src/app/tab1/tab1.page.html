@@ -1,138 +1,234 @@
-<ion-header>
+<!-- home.page.html -->
+<ion-header class="custom-header" *ngIf="isMobile">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-menu-button></ion-menu-button>
+      <ion-avatar class="header-avatar">
+        <img [src]="currentUserPicture" alt="User Avatar">
+
+      </ion-avatar>
     </ion-buttons>
     <ion-buttons slot="end">
-      <ion-avatar style="width: 40px; height: 40px;">
-        <img src="assets/avatar.png" alt="User Avatar">
-      </ion-avatar>
+      <ion-button fill="clear" class="notification-btn">
+        <ion-icon name="notifications-outline"></ion-icon>
+        <span class="notification-badge" *ngIf="hasNotifications">3</span>
+      </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-          <!-- <div class="greeting-section">
-            <p class="greeting-text">Hey,</p>
-            <p class="greeting-text">Tommy!</p>
-            <h1 class="main-title">Speak freely anywhere</h1>
-          </div> -->
+<ion-content>
+  <div class="content-wrapper">
+    
+    <!-- Student Search Bar -->
+    <div class="search-container" *ngIf="currentUser?.userType === 'student'" (click)="openSearchTutors()">
+      <ion-icon name="search-outline" class="search-icon"></ion-icon>
+      <input type="text" placeholder="Search by tutor's name" readonly class="search-input">
+    </div>
 
+    <!-- Tutor Insights Bar -->
+    <div class="insights-container" *ngIf="isTutor()">
+      <div class="insight-item">
+        <div class="insight-icon students">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <div class="insight-text">
+          <div class="insight-value">{{ totalStudents || 0 }}</div>
+          <div class="insight-label">Students</div>
+        </div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-icon lessons">
+          <ion-icon name="videocam"></ion-icon>
+        </div>
+        <div class="insight-text">
+          <div class="insight-value">{{ lessonsThisWeek || 0 }}</div>
+          <div class="insight-label">This Week</div>
+        </div>
+      </div>
+      <div class="insight-item">
+        <div class="insight-icon rating">
+          <ion-icon name="star"></ion-icon>
+        </div>
+        <div class="insight-text">
+          <div class="insight-value">{{ tutorRating || '4.8' }}</div>
+          <div class="insight-label">Rating</div>
+        </div>
+      </div>
+    </div>
 
-  <div class="searchbar-container" (click)="openSearchTutors()" *ngIf="currentUser?.userType === 'student'">
-    <ion-input 
-      readonly="true"
-      placeholder="Find a tutor" 
-      class="custom-searchbar">
-      <ion-icon name="search" slot="start"></ion-icon>
-    </ion-input>
-  </div>
+    <!-- Date Strip -->
+    <div class="date-strip-container">
+      <div class="date-strip">
+        <div 
+          class="date-pill" 
+          *ngFor="let d of dateStrip" 
+          [class.active]="selectedDate && d.date.toDateString() === selectedDate.toDateString()" 
+          (click)="selectDate(d.date)">
+          <div class="weekday">{{ d.label }}</div>
+          <div class="daynum">{{ d.dayNum }}</div>
+        </div>
+      </div>
+    </div>
 
-  <div class="section-header">
-    <h2>Your lessons</h2>
-    <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
-  </div>
+    <!-- Students/Tutors Grid (for selected date) -->
+    <div class="tutors-section" *ngIf="isTutor()">
+      <div class="tutors-grid fade-in" *ngIf="getStudentsForDate().length > 0; else noStudentsForDate">
+        <div class="tutor-card" *ngFor="let student of getStudentsForDate()">
+          <div class="tutor-card-content">
+            <ion-avatar class="tutor-avatar">
+              <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}">
+            </ion-avatar>
+            <div class="rating-badge">
+              <ion-icon name="star"></ion-icon>
+              <span>{{ student.rating || '4.5' }}</span>
+            </div>
+          </div>
+          <div class="tutor-info">
+            <h3>{{ student.name }}</h3>
+            <p>{{ student.subject || 'Language Student' }}</p>
+          </div>
+        </div>
+      </div>
+      <ng-template #noStudentsForDate>
+        <ion-card class="empty-inline-card fade-in">
+          <ion-card-content>
+            <div class="empty-inline">
+              <ion-icon name="calendar-outline" class="empty-inline-icon"></ion-icon>
+              <div>
+                <h3>No lessons for selected date</h3>
+                <p>Pick another date, or invite a student.</p>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </ng-template>
+    </div>
 
-  <!-- Lessons list -->
-  <ng-container *ngIf="!isLoadingLessons">
-    <!-- Featured upcoming lesson card -->
-    <ion-card class="upcoming-lesson-card" *ngIf="lessons && lessons.length > 0">
+    <!-- Featured Tutors (for students) -->
+    <div class="tutors-grid" *ngIf="!isTutor()">
+      <div class="tutor-card" *ngFor="let tutor of featuredTutors">
+        <div class="tutor-card-content">
+          <ion-avatar class="tutor-avatar">
+            <img [src]="tutor.profilePicture || 'assets/avatar.png'" alt="{{ tutor.name }}">
+          </ion-avatar>
+          <div class="rating-badge">
+            <ion-icon name="star"></ion-icon>
+            <span>{{ tutor.rating }}</span>
+          </div>
+        </div>
+        <div class="tutor-info">
+          <h3>{{ tutor.name }}</h3>
+          <p>{{ tutor.specialty }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="category-tabs">
+      <div class="tab-item active">
+        <div class="tab-icon hospital">
+          <ion-icon name="briefcase"></ion-icon>
+        </div>
+        <span>Business</span>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon consultant">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <span>Conversation</span>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon kids">
+          <ion-icon name="game-controller"></ion-icon>
+        </div>
+        <span>Kids</span>
+      </div>
+    </div>
+
+    <!-- Upcoming Schedule Section -->
+    <div class="section-header-new">
+      <h2>{{ isTutor() ? 'Upcoming Classes' : 'Upcoming Schedule' }}</h2>
+      <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
+    </div>
+
+    <!-- Upcoming Lesson Card -->
+    <ion-card class="upcoming-lesson-card" *ngIf="upcomingLesson">
       <ion-card-content>
         <div class="upcoming-lesson-row">
-          <ion-avatar class="upcoming-avatar">
-            <img src="assets/avatar.png" alt="Participant" />
+          <ion-avatar class="lesson-avatar-large">
+            <img [src]="upcomingLesson ? getOtherParticipantAvatar(upcomingLesson) : 'assets/avatar.png'" alt="Avatar" />
           </ion-avatar>
-          <div class="upcoming-meta">
-            <div class="upcoming-title">Upcoming lesson</div>
-            <div class="upcoming-name">{{ getOtherParticipantName(lessons[0]) }}</div>
-            <div class="upcoming-time">{{ formatLessonTime(lessons[0]) }}</div>
+          <div class="lesson-details">
+            <h3>{{ upcomingLesson ? getOtherParticipantName(upcomingLesson) : '' }}</h3>
+            <p class="lesson-specialty">{{ upcomingLesson ? getOtherParticipantSpecialty(upcomingLesson) : '' }}</p>
+            <div class="lesson-datetime">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span>{{ upcomingLesson ? formatLessonTime(upcomingLesson) : '' }}</span>
+            </div>
           </div>
-          <div class="upcoming-actions">
-            <ion-button size="default" routerLink="/lessons" color="primary">Open</ion-button>
+          <div class="lesson-actions">
+            <ion-button fill="clear" class="action-icon-btn message">
+              <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+            </ion-button>
+            <ion-button 
+              class="action-icon-btn call" 
+              [disabled]="!canJoinUpcoming()" 
+              (click)="joinUpcomingLesson()">
+              <ion-icon name="call"></ion-icon>
+            </ion-button>
           </div>
         </div>
       </ion-card-content>
     </ion-card>
 
-    <ion-list *ngIf="lessons && lessons.length > 0; else noLessons">
-      <ion-item *ngFor="let lesson of lessons; trackBy: trackByLessonId">
-        <ion-label>
-          <h3>{{ getOtherParticipantName(lesson) }}</h3>
-          <p>{{ formatLessonTime(lesson) }}</p>
-        </ion-label>
-        <ion-badge [color]="lesson.status === 'scheduled' ? 'primary' : (lesson.status === 'in_progress' ? 'success' : 'medium')">
-          {{ lesson.status === 'scheduled' ? 'Scheduled' : (lesson.status === 'in_progress' ? 'In Progress' : 'Completed') }}
-        </ion-badge>
-      </ion-item>
-    </ion-list>
-    <ng-template #noLessons>
-      <ion-card>
+    <!-- Other Upcoming Lessons -->
+    <ng-container *ngIf="!isLoadingLessons">
+      <div class="lessons-list-new" *ngIf="getUpcomingLessons().length > 1">
+        <ion-card class="lesson-card-compact" *ngFor="let lesson of getUpcomingLessons().slice(1, 3)">
+          <ion-card-content>
+            <div class="lesson-row-compact">
+              <ion-avatar class="lesson-avatar-small">
+                <img [src]="getOtherParticipantAvatar(lesson) || 'assets/avatar.png'" alt="Avatar" />
+              </ion-avatar>
+              <div class="lesson-meta-compact">
+                <h4>{{ getOtherParticipantName(lesson) }}</h4>
+                <p>{{ getOtherParticipantSpecialty(lesson) }}</p>
+                <div class="lesson-time-compact">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span>{{ formatLessonTime(lesson) }}</span>
+                </div>
+              </div>
+              <div class="lesson-actions-compact">
+                <ion-button fill="clear" size="small" class="action-icon-btn message">
+                  <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+                </ion-button>
+                <ion-button size="small" class="action-icon-btn call">
+                  <ion-icon name="call"></ion-icon>
+                </ion-button>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- No Lessons State -->
+      <ion-card class="empty-state-card" *ngIf="getUpcomingLessons().length === 0">
         <ion-card-content>
-          <p style="margin: 0;">Find a tutor to start a lesson.</p>
+          <div class="empty-state">
+            <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
+            <h3>No upcoming lessons</h3>
+            <p *ngIf="!isTutor()">Find a tutor to start learning</p>
+            <p *ngIf="isTutor()">Your schedule is clear</p>
+            <ion-button 
+              *ngIf="!isTutor()" 
+              (click)="openSearchTutors()"
+              class="find-tutor-btn">
+              Find a Tutor
+            </ion-button>
+          </div>
         </ion-card-content>
       </ion-card>
-    </ng-template>
-  </ng-container>
+    </ng-container>
 
-  <!-- Platform Information - only show on web for development -->
-  <!-- <div class="platform-info-section" *ngIf="isWeb">
-    <div class="section-header">
-      <h2>Platform Information</h2>
-    </div>
-    <ion-card class="platform-card">
-      <ion-card-content>
-        <div class="platform-details">
-          <div class="platform-item">
-            <strong>Platform:</strong> {{ currentPlatform }}
-          </div>
-          <div class="platform-item">
-            <strong>Screen Size:</strong> {{ platformService.getScreenSize() }}
-          </div>
-          <div class="platform-item">
-            <strong>Touch Device:</strong> {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}
-          </div>
-          <div class="platform-item">
-            <strong>Mobile:</strong> {{ isMobile ? 'Yes' : 'No' }}
-          </div>
-          <div class="platform-item">
-            <strong>Web:</strong> {{ isWeb ? 'Yes' : 'No' }}
-          </div>
-        </div>
-      </ion-card-content>
-    </ion-card>
-  </div> -->
-
-  <div class="courses-container">
-    <!-- Spanish Course Card -->
-    <ion-card class="course-card spanish-card">
-      <ion-card-content>
-        <div class="card-content-wrapper">
-          <div class="course-info">
-            <h3>Spanish language</h3>
-            <p class="lessons-count">40 tutors</p>
-            <ion-progress-bar value="0.6" class="course-progress"></ion-progress-bar>
-          </div>
-          <div class="course-avatar">
-            <img src="assets/spanish2.jpg" alt="Spanish Instructor">
-          </div>
-        </div>
-      </ion-card-content>
-    </ion-card>
-
-    <!-- English Course Card -->
-    <!-- <ion-card class="course-card english-card">
-      <ion-card-content>
-        <div class="card-content-wrapper">
-          <div class="course-info">
-            <h3>English language</h3>
-            <p class="lessons-count">120 lessons</p>
-            <ion-progress-bar value="0.4" class="course-progress"></ion-progress-bar>
-          </div>
-          <div class="course-avatar">
-            <img src="assets/english.jpg" alt="English Instructor">
-          </div>
-        </div>
-      </ion-card-content>
-    </ion-card> -->
   </div>
 </ion-content>
