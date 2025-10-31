@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 @Component({
   selector: 'app-tutor-search',
@@ -7,6 +7,7 @@ import { ModalController } from '@ionic/angular';
   standalone: false,
 })
 export class TutorSearchPage implements OnInit {
+  @Input() scrollToTutorId?: string;
 
   constructor(private modalCtrl: ModalController) { }
 

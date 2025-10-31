@@ -1,10 +1,11 @@
 // tutor-search-content.page.ts
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, Input, AfterViewChecked } from '@angular/core';
 import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } from '../services/user.service';
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
 import { ModalController } from '@ionic/angular';
+import { Router } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 
 @Component({
@@ -36,9 +37,12 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
     ])
   ]
 })
-export class TutorSearchContentPage implements OnInit, OnDestroy {
+export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewChecked {
   private destroy$ = new Subject<void>();
   private searchSubject$ = new Subject<void>();
+  
+  @Input() scrollToTutorId?: string;
+  private hasScrolledToTutor = false;
   
   showFiltersView = false;
   showLanguageDropdown = false;
@@ -67,6 +71,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     lower: 0,
     upper: 200
   };
+  
+  private readonly FILTER_STORAGE_KEY = 'tutor_search_filters';
 
   // Available languages for the dropdown
   availableLanguages = [
@@ -105,10 +111,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
 
   constructor(
     private userService: UserService,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private router: Router
   ) {}
 
   ngOnInit() {
+    // Load saved filters first
+    this.loadSavedFilters();
+    
     this.getCurrentUser();
     
     // Set up debounced search to prevent flashing
@@ -118,6 +128,71 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     ).subscribe(() => {
       this.performSearch();
     });
+  }
+  
+  private loadSavedFilters() {
+    try {
+      const savedFilters = localStorage.getItem(this.FILTER_STORAGE_KEY);
+      if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        // Restore filters while preserving defaults for missing fields
+        this.filters = {
+          ...this.filters,
+          ...parsed,
+          page: 1, // Always reset page to 1
+          limit: this.filters.limit // Preserve limit
+        };
+        
+        // Restore price range if it exists
+        if (parsed.priceMin !== undefined && parsed.priceMax !== undefined) {
+          this.priceRange = {
+            lower: parsed.priceMin,
+            upper: parsed.priceMax
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load saved filters:', error);
+    }
+  }
+  
+  private saveFilters() {
+    try {
+      // Don't save page in localStorage as we always want to start at page 1
+      const filtersToSave = {
+        ...this.filters,
+        page: 1
+      };
+      localStorage.setItem(this.FILTER_STORAGE_KEY, JSON.stringify(filtersToSave));
+    } catch (error) {
+      console.warn('Failed to save filters:', error);
+    }
+  }
+
+  ngAfterViewChecked() {
+    // Scroll to the specified tutor card if we haven't already
+    if (this.scrollToTutorId && !this.hasScrolledToTutor && !this.isLoading && this.tutors.length > 0) {
+      // Use requestAnimationFrame for immediate execution after DOM update
+      requestAnimationFrame(() => {
+        this.scrollToTutorCard(this.scrollToTutorId!);
+        this.hasScrolledToTutor = true;
+      });
+    }
+  }
+  
+  private scrollToTutorCard(tutorId: string) {
+    // Find the tutor card element
+    const tutorCard = document.querySelector(`[data-tutor-id="${tutorId}"]`);
+    if (tutorCard) {
+      tutorCard.scrollIntoView({ 
+        behavior: 'auto', // Instant scroll, no animation
+        block: 'center',
+        inline: 'nearest'
+      });
+      console.log('✅ Scrolled to tutor card:', tutorId);
+    } else {
+      console.warn('⚠️ Tutor card not found:', tutorId);
+    }
   }
 
   ngOnDestroy() {
@@ -151,13 +226,22 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   }
 
   getPreferredLanguage() {
+    // Only set preferred language if no saved filters exist
+    const savedFilters = localStorage.getItem(this.FILTER_STORAGE_KEY);
+    if (savedFilters) {
+      // Filters already loaded from localStorage, don't override
+      return;
+    }
+    
     if (this.currentUser) {
       const preferredLang = this.currentUser.onboardingData?.languages[0] || 'Spanish';
       console.log('Setting preferred language from user data:', preferredLang);
       console.log('User languages array:', this.currentUser.onboardingData?.languages);
       this.filters.language = preferredLang;
+      this.saveFilters(); // Save the initial preferred language
     } else {
       console.log('No current user found, using default language: Spanish');
+      this.saveFilters(); // Save the default
     }
   }
   
@@ -169,6 +253,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   private performSearch() {
     // Always mark loading at the start of a search to avoid empty-state flash
     this.isLoading = true;
+    // Reset scroll flag when performing a new search
+    this.hasScrolledToTutor = false;
     
     console.log('🔍 Searching tutors with filters:', this.filters);
     
@@ -206,6 +292,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     console.log('🔍 Applying filters:', this.filters);
     this.showFiltersView = false;
     this.filters.page = 1; // Reset to first page when applying new filters
+    
+    // Clear scroll target when user applies filters
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    this.saveFilters(); // Save filters when applied
     this.searchTutors();
   }
 
@@ -227,6 +319,10 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
       lower: 0,
       upper: 200
     };
+    // Clear scroll target when filters are cleared
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    this.saveFilters(); // Save cleared filters
     this.searchTutors();
   }
 
@@ -237,11 +333,24 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   selectLanguage(language: string) {
     this.filters.language = language;
     this.showLanguageDropdown = false;
+    
+    // Clear scroll target when user manually changes language filter
+    // This prevents unwanted scrolling when changing filters
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    this.saveFilters(); // Save language change
     this.searchSubject$.next();
   }
 
   updateLanguage(language: string) {
     this.filters.language = language;
+    
+    // Clear scroll target when user manually changes language filter
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    this.saveFilters(); // Save language change
     this.searchSubject$.next();
   }
 
@@ -291,12 +400,24 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
     };
     this.filters.priceMin = value.lower;
     this.filters.priceMax = value.upper;
+    
+    // Clear scroll target when user changes price range
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    this.saveFilters(); // Save price range change
     // Trigger debounced search
     this.searchSubject$.next();
   }
 
   updateSortBy(sortBy: string) {
     this.filters.sortBy = sortBy;
+    
+    // Clear scroll target when user changes sort order
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    this.saveFilters(); // Save sort order change
     this.searchTutors();
   }
 
@@ -380,6 +501,31 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
 
   openSortFilter() {
     // Open sort filter
+  }
+
+  async navigateToTutorProfile(tutorId: string) {
+    // Check if we're inside a modal (from tab1 search bar on mobile)
+    const topModal = await this.modalController.getTop();
+    const isInModal = !!topModal;
+    
+    if (isInModal) {
+      // Store scroll position before dismissing
+      const scrollPosition = window.scrollY || document.documentElement.scrollTop;
+      
+      // Dismiss modal and pass data to indicate we came from modal, including scroll position
+      await this.modalController.dismiss({ 
+        navigateToProfile: true, 
+        tutorId,
+        scrollPosition 
+      }, 'navigate');
+    }
+    
+    // Navigate to tutor profile page
+    // Only add fromModal query param if we're actually in a modal
+    const queryParams = isInModal ? { fromModal: 'true', tutorId } : {};
+    this.router.navigate(['/tutor', tutorId], {
+      queryParams: queryParams
+    });
   }
 
   async viewAvailability(tutor: Tutor) {

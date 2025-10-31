@@ -183,6 +183,7 @@
       <!-- Tutor Cards -->
       <div class="tutor-card" 
            *ngFor="let tutor of tutors; trackBy: trackByTutorId; let i = index"
+           [attr.data-tutor-id]="tutor.id"
            [@slideInUp] 
            [style.animation-delay]="(i * 0.1) + 's'">
         <div class="tutor-header">
@@ -256,7 +257,7 @@
             <ion-icon name="calendar-outline" slot="start"></ion-icon>
             Availability
           </ion-button>
-          <ion-button fill="outline" color="medium" size="small" [routerLink]="['/tutor', tutor.id]">
+          <ion-button fill="outline" color="medium" size="small" (click)="navigateToTutorProfile(tutor.id)">
             <ion-icon name="person-outline" slot="start"></ion-icon>
             Profile
           </ion-button>
