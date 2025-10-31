@@ -254,13 +254,13 @@
           </ion-button>
           <ion-button fill="outline" color="primary" size="small" (click)="viewAvailability(tutor)">
             <ion-icon name="calendar-outline" slot="start"></ion-icon>
-            View availability
+            Availability
           </ion-button>
           <ion-button fill="outline" color="medium" size="small" [routerLink]="['/tutor', tutor.id]">
             <ion-icon name="person-outline" slot="start"></ion-icon>
-            View profile
+            Profile
           </ion-button>
-          <ion-button fill="solid" color="success" size="small">
+          <ion-button class="cta" fill="solid" color="success" size="small">
             <ion-icon name="videocam-outline" slot="start"></ion-icon>
             Book lesson
           </ion-button>
@@ -286,7 +286,10 @@
     </div>
 
     <!-- Info Banner -->
-    <div class="info-banner">
+     <div *ngIf="!isLoading">
+
+    
+    <div class="info-banner"> 
       <ion-icon name="wallet-outline" class="banner-icon"></ion-icon>
       <span>Use your balance to book a trial lesson. <a href="#">Learn more</a></span>
     </div>
@@ -295,8 +298,6 @@
     <div class="results-header">
       <h2>11,664 Spanish teachers available</h2>
     </div>
-
-    <!-- Promo Banner -->
     <div class="promo-banner">
       <ion-icon name="gift-outline" class="promo-icon"></ion-icon>
       <div class="promo-text">
@@ -304,6 +305,9 @@
         <p>No code needed. Applies to tutors charging $7 or more.</p>
       </div>
     </div>
+  </div>
+    <!-- Promo Banner -->
+
 
     <!-- Tutor Results would go here -->
     <div class="tutors-list">

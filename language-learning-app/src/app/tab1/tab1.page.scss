@@ -193,9 +193,12 @@ ion-content {
 .date-strip-container {
   margin-bottom: 24px;
   overflow-x: auto;
+  overflow-y: visible; // ensure pill isn't clipped vertically
   -webkit-overflow-scrolling: touch;
   display: flex;
   justify-content: center;
+  padding: 12px 0; // extra vertical space
+  min-height: 88px; // reserve height so tallest pill never clips
   
   &::-webkit-scrollbar {
     display: none;
@@ -205,7 +208,7 @@ ion-content {
 .date-strip {
   display: flex;
   gap: 12px;
-  padding: 4px 0;
+  padding: 8px 0;
 }
 
 .date-pill {
@@ -218,6 +221,10 @@ ion-content {
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 74px;
   
   .weekday {
     font-size: 14px;
@@ -230,6 +237,7 @@ ion-content {
     font-size: 22px;
     font-weight: 700;
     color: #1f2937;
+    line-height: 1.2; // reduce text cropping
   }
   
   &.active {
@@ -246,6 +254,53 @@ ion-content {
   &:hover:not(.active) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+// Mobile adjustments so the active (today) pill isn't clipped
+@media (max-width: 480px) {
+  .date-strip-container {
+    padding: 24px 0; // maximum vertical space on mobile
+    min-height: 120px; // maximum height for mobile to prevent any clipping
+    overflow-y: visible !important;
+    overflow-x: auto;
+    justify-content: flex-start; // align to start so we can control padding
+  }
+  
+  .date-strip { 
+    padding: 20px 24px; // maximum horizontal padding to prevent edge clipping
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 100%; // ensure full width
+  }
+  
+  .date-pill { 
+    padding: 8px 10px; 
+    min-width: 56px; 
+    height: 60px; // more compact
+    border-radius: 14px; // smaller radius
+    margin-right: 8px; // space between pills
+  }
+  
+  .date-pill:first-child {
+    margin-left: 4px; // extra space for first pill
+  }
+  
+  .date-pill:last-child {
+    margin-right: 4px; // extra space for last pill
+  }
+  
+  .date-pill .weekday {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  
+  .date-pill .daynum {
+    font-size: 18px;
+  }
+  
+  .date-pill.active { 
+    transform: none; // keep size steady to prevent clipping
   }
 }
 
@@ -511,6 +566,19 @@ ion-content {
       color: #9ca3af;
     }
   }
+
+// Status badge (e.g., In progress)
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.status-badge.in-progress { background: #16a34a; color: #fff; }
+
 }
 
 .lesson-actions {
@@ -540,13 +608,23 @@ ion-content {
     --background: #22c55e;
     --color: #fff;
     box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-    
-    &:disabled {
-      --background: #d1d5db;
-      --color: #9ca3af;
-      box-shadow: none;
-    }
+    &:disabled { --background: #d1d5db; --color: #9ca3af; box-shadow: none; }
   }
+}
+
+// Join primary button with icon + label
+.join-btn {
+  --background: #22c55e;
+  --color: #fff;
+  --border-radius: 14px;
+  height: 44px;
+  padding: 0 14px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  // box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+@media (min-width: 1024px) {
+  .join-btn { height: 48px; padding: 0 18px; }
 }
 
 // Compact Lesson List

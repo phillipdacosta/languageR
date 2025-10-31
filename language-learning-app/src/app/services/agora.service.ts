@@ -26,6 +26,7 @@ export class AgoraService {
   private channelName: string = 'default';
   private lastMessageTime: string = new Date().toISOString();
   private pollingInterval: any = null;
+  private currentLessonId: string | null = null;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -292,6 +293,7 @@ export class AgoraService {
 
       // Initialize real-time messaging for the lesson
       this.channelName = agora.channelName;
+      this.currentLessonId = lesson.id;
       this.startMessagePolling();
 
       return joinResponse;
@@ -405,6 +407,17 @@ export class AgoraService {
     if (!this.client) return;
 
     try {
+      // Notify backend we left the lesson (for rejoin tracking)
+      try {
+        if (this.currentLessonId) {
+          this.lessonService.leaveLesson(this.currentLessonId).subscribe({ next: () => {}, error: () => {} });
+          // Emit event so other views can update immediately
+          try {
+            window.dispatchEvent(new CustomEvent('lesson-left' as any, { detail: { lessonId: this.currentLessonId } }));
+          } catch (_) {}
+        }
+      } catch (_) {}
+
       // Stop message polling
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
@@ -433,6 +446,7 @@ export class AgoraService {
       
       // Clean up messaging
       this.channelName = 'default';
+      this.currentLessonId = null;
 
     } catch (error) {
       console.error("Error leaving channel:", error);

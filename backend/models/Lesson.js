@@ -43,6 +43,16 @@ const LessonSchema = new mongoose.Schema({
     required: true,
     default: 60
   },
+  // Track participant join/leave history for rejoin logic
+  participants: {
+    type: Map,
+    of: new mongoose.Schema({
+      joinedAt: { type: Date },
+      leftAt: { type: Date },
+      joinCount: { type: Number, default: 0 }
+    }, { _id: false }),
+    default: undefined
+  },
   // Store booking details from checkout
   bookingData: {
     selectedDate: String,

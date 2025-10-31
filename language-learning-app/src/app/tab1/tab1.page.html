@@ -22,7 +22,7 @@
     <!-- Student Search Bar -->
     <div class="search-container" *ngIf="currentUser?.userType === 'student'" (click)="openSearchTutors()">
       <ion-icon name="search-outline" class="search-icon"></ion-icon>
-      <input type="text" placeholder="Search by tutor's name" readonly class="search-input">
+      <input type="text" placeholder="Search for a tutor" readonly class="search-input">
     </div>
 
     <!-- Tutor Insights Bar -->
@@ -57,7 +57,7 @@
     </div>
 
     <!-- Date Strip -->
-    <div class="date-strip-container">
+    <div class="date-strip-container" *ngIf="isTutor()">
       <div class="date-strip">
         <div 
           class="date-pill" 
@@ -164,17 +164,16 @@
             <div class="lesson-datetime">
               <ion-icon name="calendar-outline"></ion-icon>
               <span>{{ upcomingLesson ? formatLessonTime(upcomingLesson) : '' }}</span>
+              <span class="status-badge in-progress" *ngIf="upcomingLesson && isLessonInProgress(upcomingLesson)">In progress</span>
             </div>
           </div>
           <div class="lesson-actions">
             <ion-button fill="clear" class="action-icon-btn message">
               <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
             </ion-button>
-            <ion-button 
-              class="action-icon-btn call" 
-              [disabled]="!canJoinUpcoming()" 
-              (click)="joinUpcomingLesson()">
-              <ion-icon name="call"></ion-icon>
+            <ion-button class="join-btn" color="success" [disabled]="!canJoinUpcoming()" (click)="joinUpcomingLesson()">
+              <ion-icon name="call-outline" slot="start"></ion-icon>
+              {{ upcomingJoinLabel() }}
             </ion-button>
           </div>
         </div>

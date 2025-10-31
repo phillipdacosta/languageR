@@ -82,6 +82,10 @@ export interface LessonStatusResponse {
     endTime: string;
     status: string;
   };
+  participant?: {
+    joinedBefore: boolean;
+    leftAfterJoin: boolean;
+  };
 }
 
 @Injectable({
@@ -136,6 +140,12 @@ export class LessonService {
     const body = userId ? { userId } : {};
     const headers = this.userService.getAuthHeadersSync();
     return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/${lessonId}/end`, body, { headers });
+  }
+
+  // Record that the current user left the lesson (but did not end it)
+  leaveLesson(lessonId: string): Observable<{ success: boolean; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/${lessonId}/leave`, {}, { headers });
   }
 
   // Helper methods for UI

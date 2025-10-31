@@ -955,13 +955,68 @@
       font-size: 14px;
       font-weight: 500;
       text-transform: none;
+      --padding-start: 14px;
+      --padding-end: 14px;
+      --min-height: 40px;
+      line-height: 1; // keep contents vertically centered
+      --border-width: 1.5px;
+      
+      ion-icon {
+        font-size: 18px;
+      }
       
       @media (max-width: 768px) {
-        height: 32px;
-        font-size: 12px;
-        flex: 1;
+        height: 40px;
+        --min-height: 40px;
+        font-size: 14px;
+        flex: 1 1 auto;
         min-width: 0;
+        white-space: nowrap; // prevent awkward wraps
+        text-overflow: ellipsis;
+        overflow: hidden;
       }
+    }
+    
+    // Outline style normalization (Save, View availability, View profile)
+    ion-button[fill="outline"] {
+      --border-color: #cbd5e1; // slate-300
+      --color: #0f172a;        // slate-900 text
+      --background: #ffffff;
+      --background-activated: #f8fafc; // subtle on press
+      --background-hover: #ffffff;
+    }
+    
+    // Primary solid (Message)
+    ion-button[fill="solid"]:not([color="success"]) {
+      --background: #2563eb; // blue-600
+      --background-activated: #1d4ed8;
+      --background-hover: #1e40af;
+      --color: #ffffff;
+    }
+    
+    // Call-to-action (Book lesson)
+    ion-button[color="success"][fill="solid"] {
+      --background: #22c55e; // green-500
+      --background-activated: #16a34a;
+      --background-hover: #15803d;
+      --color: #ffffff;
+    }
+  }
+
+  // Mobile: arrange actions into a tidy grid, CTA full-width
+  @media (max-width: 768px) {
+    .tutor-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .tutor-actions ion-button.cta {
+      grid-column: 1 / -1;
+      height: 44px;
+      --min-height: 44px;
+      font-size: 15px;
+      --padding-start: 16px;
+      --padding-end: 16px;
     }
   }
 

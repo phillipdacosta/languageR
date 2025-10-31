@@ -42,7 +42,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   
   showFiltersView = false;
   showLanguageDropdown = false;
-  isLoading = false;
+  isLoading = true; // prevent initial FOUC of empty state until first load completes
   tutors: Tutor[] = [];
   searchResponse: TutorSearchResponse | null = null;
   currentUser: User | null = null;
@@ -167,10 +167,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy {
   }
 
   private performSearch() {
-    // Only show loading spinner if we have no tutors yet
-    if (this.tutors.length === 0) {
-      this.isLoading = true;
-    }
+    // Always mark loading at the start of a search to avoid empty-state flash
+    this.isLoading = true;
     
     console.log('🔍 Searching tutors with filters:', this.filters);
     

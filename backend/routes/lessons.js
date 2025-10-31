@@ -151,7 +151,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Check if user can join lesson (without generating token)
-router.get('/:id/status', async (req, res) => {
+router.get('/:id/status', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
     
@@ -173,6 +173,18 @@ router.get('/:id/status', async (req, res) => {
     const timeUntilStart = Math.max(0, Math.ceil((start.getTime() - now.getTime()) / 1000));
     const timeUntilJoin = Math.max(0, Math.ceil((earliestJoin.getTime() - now.getTime()) / 1000));
 
+    // Determine per-user join state if authenticated
+    let userJoinedBefore = false;
+    let userLeftAfterJoin = false;
+    try {
+      const user = await User.findOne({ auth0Id: req.user.sub });
+      if (user && lesson.participants) {
+        const p = lesson.participants.get(user._id.toString());
+        userJoinedBefore = !!(p && p.joinCount > 0);
+        userLeftAfterJoin = !!(p && p.joinedAt && p.leftAt && p.leftAt >= p.joinedAt);
+      }
+    } catch (_) {}
+
     res.json({
       success: true,
       canJoin,
@@ -184,6 +196,10 @@ router.get('/:id/status', async (req, res) => {
         startTime: lesson.startTime,
         endTime: lesson.endTime,
         status: lesson.status
+      },
+      participant: {
+        joinedBefore: userJoinedBefore,
+        leftAfterJoin: userLeftAfterJoin
       }
     });
   } catch (error) {
@@ -323,8 +339,18 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     // Update lesson status to in_progress if this is the first join
     if (lesson.status === 'scheduled') {
       lesson.status = 'in_progress';
-      await lesson.save();
     }
+
+    // Record participant join
+    if (!lesson.participants) lesson.participants = new Map();
+    const key = userId.toString();
+    const prev = lesson.participants.get(key) || { joinCount: 0 };
+    prev.joinedAt = now;
+    prev.leftAt = null;
+    prev.joinCount = (prev.joinCount || 0) + 1;
+    lesson.participants.set(key, prev);
+    
+    await lesson.save();
 
     console.log('📅 Generated Agora token for lesson:', { 
       lessonId: lesson._id, 
@@ -398,6 +424,15 @@ router.post('/:id/end', verifyToken, async (req, res) => {
       });
     }
 
+    // Mark participant left time
+    try {
+      if (!lesson.participants) lesson.participants = new Map();
+      const key = userId.toString();
+      const prev = lesson.participants.get(key) || { joinCount: 0 };
+      prev.leftAt = new Date();
+      lesson.participants.set(key, prev);
+    } catch (_) {}
+
     lesson.status = 'completed';
     await lesson.save();
 
@@ -413,6 +448,32 @@ router.post('/:id/end', verifyToken, async (req, res) => {
       success: false, 
       message: 'Failed to end lesson' 
     });
+  }
+});
+
+// Mark participant leaving the lesson (without completing it)
+router.post('/:id/leave', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const lesson = await Lesson.findById(req.params.id);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    if (!lesson.participants) lesson.participants = new Map();
+    const key = user._id.toString();
+    const prev = lesson.participants.get(key) || { joinCount: 0 };
+    prev.leftAt = new Date();
+    lesson.participants.set(key, prev);
+    await lesson.save();
+
+    res.json({ success: true, message: 'Left lesson recorded' });
+  } catch (error) {
+    console.error('❌ Error leaving lesson:', error);
+    res.status(500).json({ success: false, message: 'Failed to record leave' });
   }
 });
 

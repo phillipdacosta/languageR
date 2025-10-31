@@ -41,6 +41,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   upcomingLesson: Lesson | null = null;
   private countdownInterval: any;
   countdownTick = Date.now();
+  private statusInterval: any;
   
   // Tutor-specific insights
   totalStudents = 0;
@@ -106,6 +107,19 @@ export class Tab1Page implements OnInit, OnDestroy {
     };
     window.addEventListener('resize', this.resizeListener);
 
+    // Listen for lesson-left events to immediately refresh status
+    window.addEventListener('lesson-left' as any, (e: any) => {
+      const leftLessonId = e?.detail?.lessonId;
+      if (this.upcomingLesson && this.upcomingLesson._id === leftLessonId) {
+        this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
+          if (status?.success) {
+            (this.upcomingLesson as any).status = status.lesson?.status || (this.upcomingLesson as any).status;
+            (this.upcomingLesson as any).participant = status.participant;
+          }
+        });
+      }
+    });
+
     console.log('Home page - Platform detected:', this.currentPlatform);
     console.log('Home page - Platform config:', this.platformConfig);
 
@@ -117,6 +131,19 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.countdownTick = Date.now();
     }, 30000); // update every 30s
     
+    // Poll lesson status periodically to reflect In Progress/Rejoin
+    this.statusInterval = setInterval(() => {
+      if (this.upcomingLesson) {
+        this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
+          if (status?.success && this.upcomingLesson) {
+            (this.upcomingLesson as any).serverTime = status.serverTime;
+            (this.upcomingLesson as any).status = status.lesson?.status || this.upcomingLesson.status;
+            (this.upcomingLesson as any).participant = status.participant;
+          }
+        });
+      }
+    }, 30000);
+
     // Load featured tutors for students
     if (this.isStudent()) {
       this.loadFeaturedTutors();
@@ -129,6 +156,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
+    }
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
     }
     this.destroy$.next();
     this.destroy$.complete();
@@ -365,7 +395,9 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // Join helpers for Upcoming card
   canJoinUpcoming(): boolean {
-    return !!(this.upcomingLesson && this.lessonService.canJoinLesson(this.upcomingLesson));
+    if (!this.upcomingLesson) return false;
+    if (this.isLessonInProgress(this.upcomingLesson)) return true;
+    return this.lessonService.canJoinLesson(this.upcomingLesson);
   }
 
   upcomingJoinCountdown(): string {
@@ -374,6 +406,17 @@ export class Tab1Page implements OnInit, OnDestroy {
     void this.countdownTick;
     const secs = this.lessonService.getTimeUntilJoin(this.upcomingLesson);
     return this.lessonService.formatTimeUntil(secs);
+  }
+
+  upcomingJoinLabel(): string {
+    if (!this.upcomingLesson) return 'Join';
+    const participant = (this.upcomingLesson as any).participant;
+    if (this.isLessonInProgress(this.upcomingLesson) && participant?.joinedBefore && participant?.leftAfterJoin) return 'Rejoin';
+    return this.canJoinUpcoming() ? 'Join' : `Join in ${this.upcomingJoinCountdown()}`;
+  }
+
+  isLessonInProgress(lesson: Lesson): boolean {
+    return (lesson as any)?.status === 'in_progress';
   }
 
   getUserRole(lesson: Lesson): 'tutor' | 'student' {
