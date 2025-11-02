@@ -50,6 +50,64 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
+    // Check for time slot conflicts with existing lessons for this tutor
+    const requestedStart = new Date(startTime);
+    const requestedEnd = new Date(endTime);
+
+    console.log('🔍 Checking for conflicts:', {
+      tutorId,
+      requestedStart: requestedStart.toISOString(),
+      requestedEnd: requestedEnd.toISOString()
+    });
+
+    // First, let's see all existing lessons for this tutor
+    const allTutorLessons = await Lesson.find({ tutorId: tutorId });
+    console.log('📚 All lessons for tutor:', allTutorLessons.map(l => ({
+      id: l._id,
+      start: l.startTime,
+      end: l.endTime,
+      status: l.status
+    })));
+
+    // Find any existing lessons for this tutor that overlap with the requested time
+    // Overlap occurs when: existingStart < requestedEnd AND existingEnd > requestedStart
+    const conflictingLesson = await Lesson.findOne({
+      tutorId: tutorId,
+      status: { $in: ['scheduled', 'in_progress'] }, // Only check active lessons
+      // Existing lesson starts before requested end and ends after requested start
+      startTime: { $lt: requestedEnd },
+      endTime: { $gt: requestedStart }
+    });
+
+    console.log('🔍 Conflict query result:', conflictingLesson ? {
+      id: conflictingLesson._id,
+      start: conflictingLesson.startTime,
+      end: conflictingLesson.endTime,
+      status: conflictingLesson.status
+    } : 'No conflicts found');
+
+    if (conflictingLesson) {
+      console.log('⚠️ Time slot conflict detected:', {
+        tutorId,
+        requestedTime: { start: requestedStart, end: requestedEnd },
+        conflictingLesson: {
+          id: conflictingLesson._id,
+          start: conflictingLesson.startTime,
+          end: conflictingLesson.endTime
+        }
+      });
+
+      return res.status(409).json({ 
+        success: false, 
+        message: 'This time slot is no longer available. It may have been booked by another student. Please select a different time.',
+        code: 'TIME_SLOT_CONFLICT',
+        conflict: {
+          startTime: conflictingLesson.startTime,
+          endTime: conflictingLesson.endTime
+        }
+      });
+    }
+
     const lesson = await Lesson.create({
       tutorId,
       studentId,
@@ -80,6 +138,52 @@ router.post('/', verifyToken, async (req, res) => {
       success: false, 
       message: 'Failed to create lesson',
       error: error.message 
+    });
+  }
+});
+
+// Get lessons by tutor ID (public endpoint for availability checking)
+// IMPORTANT: This must come BEFORE /:id route to avoid route conflicts
+router.get('/by-tutor/:tutorId', async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    
+    if (!tutorId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tutor ID is required' 
+      });
+    }
+
+    console.log('📅 Fetching lessons for tutor:', tutorId);
+
+    // Find all scheduled or in_progress lessons for this tutor
+    const lessons = await Lesson.find({
+      tutorId: tutorId,
+      status: { $in: ['scheduled', 'in_progress'] }
+    })
+    .populate('studentId', 'name email picture')
+    .sort({ startTime: 1 });
+
+    console.log(`📅 Found ${lessons.length} active lessons for tutor ${tutorId}`);
+
+    res.json({ 
+      success: true, 
+      lessons: lessons.map(lesson => ({
+        _id: lesson._id,
+        tutorId: lesson.tutorId,
+        studentId: lesson.studentId,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        status: lesson.status,
+        subject: lesson.subject
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching lessons by tutor:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch lessons' 
     });
   }
 });
