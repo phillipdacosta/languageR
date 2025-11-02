@@ -1,5 +1,6 @@
 import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
@@ -27,6 +28,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private router: Router,
     private route: ActivatedRoute,
+    private location: Location,
     private userService: UserService,
     private lessonService: LessonService,
     private agoraService: AgoraService,
@@ -242,6 +244,16 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       });
       await alert.present();
     }
+  }
+
+  goBack() {
+    // Stop preview stream before navigating away
+    if (this.localStream) {
+      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream = null;
+    }
+    // Navigate back to previous page
+    this.location.back();
   }
 
   ngOnDestroy() {
