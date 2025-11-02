@@ -154,6 +154,11 @@
     }
 
     &.unavailable { background: #f0f2f5; }
+    
+    &.booked {
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
   }
 }
 
@@ -191,21 +196,46 @@
 .day-slots:nth-of-type(7) { border-right: none; }
 
 .slot {
-  background: #ecfdf3;
-  color: #067647;
   font-weight: 600;
   font-size: 12px;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid #ABEFC6;
   box-shadow: 0 1px 2px rgba(16,24,40,0.06);
   margin-bottom: 8px;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-.slot:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(16,24,40,0.10);
-  background: #e6fbef;
+  cursor: pointer;
+  
+  &.available {
+    background: #ecfdf3;
+    color: #067647;
+    border: 1px solid #ABEFC6;
+    
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(16,24,40,0.10);
+      background: #e6fbef;
+    }
+  }
+  
+  &.booked {
+    background: #fef3f2;
+    color: #b42318;
+    border: 1px solid #fecdca;
+    cursor: not-allowed;
+    opacity: 0.7;
+    
+    &:hover {
+      // No hover effect for booked slots
+      transform: none;
+      box-shadow: 0 1px 2px rgba(16,24,40,0.06);
+    }
+    
+    .crossed-out {
+      text-decoration: line-through;
+      text-decoration-thickness: 2px;
+      text-decoration-color: #b42318;
+    }
+  }
 }
 
 .empty {

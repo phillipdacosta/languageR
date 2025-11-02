@@ -105,6 +105,11 @@ export class LessonService {
     return this.http.post<{ success: boolean; lesson: Lesson }>(`${this.baseUrl}`, lessonData, { headers });
   }
 
+  // Get lessons by tutor ID (public endpoint)
+  getLessonsByTutor(tutorId: string): Observable<{ success: boolean; lessons: Lesson[] }> {
+    return this.http.get<{ success: boolean; lessons: Lesson[] }>(`${this.baseUrl}/by-tutor/${tutorId}`);
+  }
+
   // Get all lessons for current user
   getMyLessons(userId?: string): Observable<{ success: boolean; lessons: Lesson[] }> {
     const params: Record<string, string> = {};
@@ -173,14 +178,13 @@ export class LessonService {
     
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
     
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
+      return `${minutes}m`;
     } else {
-      return `${secs}s`;
+      return 'Less than 1m';
     }
   }
 

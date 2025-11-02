@@ -60,14 +60,19 @@
           <div class="day-name">{{ daysOfWeek[getDayIndex(date)] }}</div>
           <div class="day-number">{{ getDayNumber(date) }}</div>
         </div>
-        <div class="day-slots" *ngFor="let date of weekDates">
-          <div class="slot available" *ngFor="let slot of getAvailableTimeLabelsForDate(date)" (click)="onSelectSlot(date, slot)">
-            {{ slot.label }}
-          </div>
-          <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
-            No times
-          </div>
+      <div class="day-slots" *ngFor="let date of weekDates">
+        <div 
+          class="slot" 
+          [class.available]="!slot.booked"
+          [class.booked]="slot.booked"
+          *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
+          (click)="onSelectSlot(date, slot)">
+          <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>
         </div>
+        <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
+          No times
+        </div>
+      </div>
       </div>
 
       <!-- Loading State -->
@@ -129,6 +134,10 @@
         <span class="legend-swatch unavailable"></span>
         <span>Not available</span>
       </div>
+      <div class="legend-item">
+        <span class="legend-swatch booked"></span>
+        <span>Booked</span>
+      </div>
     </div>
 
     <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
@@ -138,8 +147,13 @@
         <div class="day-number">{{ getDayNumber(date) }}</div>
       </div>
       <div class="day-slots" *ngFor="let date of weekDates">
-        <div class="slot available" *ngFor="let slot of getAvailableTimeLabelsForDate(date)" (click)="onSelectSlot(date, slot)">
-          {{ slot.label }}
+        <div 
+          class="slot" 
+          [class.available]="!slot.booked"
+          [class.booked]="slot.booked"
+          *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
+          (click)="onSelectSlot(date, slot)">
+          <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>
         </div>
         <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
           No times

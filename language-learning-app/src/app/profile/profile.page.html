@@ -112,7 +112,7 @@
           <ion-item button>
             <ion-icon name="moon" slot="start"></ion-icon>
             <ion-label>Dark Mode</ion-label>
-            <ion-toggle slot="end"></ion-toggle>
+            <ion-toggle slot="end" [checked]="isDarkMode$ | async" (ionChange)="toggleDarkMode($event)"></ion-toggle>
           </ion-item>
           <ion-item button>
             <ion-icon name="help-circle" slot="start"></ion-icon>

@@ -129,7 +129,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Live countdown tick (updates change detection)
     this.countdownInterval = setInterval(() => {
       this.countdownTick = Date.now();
-    }, 30000); // update every 30s
+    }, 5000); // update every 5s for better responsiveness
     
     // Poll lesson status periodically to reflect In Progress/Rejoin
     this.statusInterval = setInterval(() => {
@@ -165,20 +165,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   async openSearchTutors() {
-    if (this.isWeb) {
       this.router.navigate(['/tabs/tutor-search']);
-    } else {
-      const modal = await this.modalCtrl.create({
-        component: TutorSearchPage,
-      });
-      modal.present();
-
-      const { data, role } = await modal.onWillDismiss();
-
-      if (role === 'confirm') {
-        console.log('Selected tutor:', data);
-      }
-    }
   }
 
   loadUserStats() {
@@ -244,30 +231,164 @@ export class Tab1Page implements OnInit, OnDestroy {
     ];
   }
 
+  // Helper method to get the next upcoming lesson across all dates
+  getNextLesson(): Lesson | null {
+    const now = new Date();
+    const upcoming = this.lessons
+      .filter(l => {
+        const start = new Date(l.startTime);
+        return start > now && (l.status === 'scheduled' || l.status === 'in_progress');
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    return upcoming.length > 0 ? upcoming[0] : null;
+  }
+
+  // Format lesson time for display
+  formatLessonTime(lesson: Lesson): string {
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+    
+    const dateStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    
+    return `${dateStr}, ${startTime} - ${endTime}`;
+  }
+
+  // Format subject to show language (e.g., "Spanish" -> "Spanish Student")
+  formatSubject(subject: string): string {
+    if (!subject || subject === 'Language Lesson') {
+      return 'Language Student';
+    }
+    // Extract language name from subject (remove "Lesson" if present)
+    const language = subject.replace(/ Lesson$/i, '').trim();
+    return `${language} Student`;
+  }
+
   // New method: Get students for selected date (tutor view)
   getStudentsForDate(): any[] {
     if (!this.selectedDate) return [];
     
     const lessonsForDate = this.lessonsForSelectedDate();
-    const students = lessonsForDate
-      .filter(l => l.studentId && typeof l.studentId === 'object')
-      .map(l => ({
-        id: (l.studentId as any)._id,
-        name: (l.studentId as any).name || (l.studentId as any).email,
-        profilePicture: (l.studentId as any).picture || (l.studentId as any).profilePicture || 'assets/avatar.png',
-        email: (l.studentId as any).email,
-        rating: (l.studentId as any).rating || 4.5,
-        subject: 'Language Student',
-        lessonId: l._id
-      }));
     
-    // Remove duplicates by student ID
-    const uniqueStudents = students.filter((student, index, self) =>
-      index === self.findIndex(s => s.id === student.id)
-    );
+    // Find the earliest lesson among ALL scheduled/in_progress lessons on the selected date
+    const now = new Date();
+    
+    // Get all scheduled/in_progress lessons on this date (past or future)
+    const activeLessonsOnDate = lessonsForDate
+      .filter(l => l.status === 'scheduled' || l.status === 'in_progress')
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    // Get the earliest start time from all active lessons on this date
+    const earliestStartTime = activeLessonsOnDate.length > 0 
+      ? new Date(activeLessonsOnDate[0].startTime).getTime() 
+      : null;
+    
+    // Mark all lessons that start at the earliest time as "next" (if earliest is upcoming or in progress)
+    const nextLessonIds = new Set<string>();
+    if (earliestStartTime !== null) {
+      // Check if the earliest lesson is upcoming or currently in progress (within the last hour)
+      const earliestStartDate = new Date(earliestStartTime);
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      
+      // Mark as "next" if it's upcoming or started within the last hour (still active)
+      if (earliestStartDate >= oneHourAgo) {
+        activeLessonsOnDate.forEach(l => {
+          const lessonStartTime = new Date(l.startTime).getTime();
+          // If lesson starts within 5 minutes of the earliest time, consider it "next"
+          // This handles cases where lessons are scheduled for the exact same time
+          if (Math.abs(lessonStartTime - earliestStartTime) < 5 * 60 * 1000) {
+            nextLessonIds.add(String(l._id));
+          }
+        });
+      }
+      
+      console.log('🔍 All active lessons on selected date:', activeLessonsOnDate.length);
+      console.log('🔍 Earliest start time:', earliestStartTime ? new Date(earliestStartTime).toISOString() : 'None');
+      console.log('✅ Next lesson IDs:', Array.from(nextLessonIds));
+    }
+    
+    // Group lessons by student and find the earliest lesson for each student
+    const studentLessonMap = new Map<string, { student: any; lesson: Lesson; isNext: boolean }>();
+    
+    // First pass: find the earliest lesson for each student
+    lessonsForDate
+      .filter(l => l.studentId && typeof l.studentId === 'object')
+      .forEach(l => {
+        const studentId = (l.studentId as any)._id;
+        const existing = studentLessonMap.get(studentId);
+        
+        // If no existing entry, or this lesson is earlier, use this lesson
+        if (!existing || new Date(l.startTime) < new Date(existing.lesson.startTime)) {
+          studentLessonMap.set(studentId, {
+            student: {
+              id: studentId,
+              name: (l.studentId as any).name || (l.studentId as any).email,
+              profilePicture: (l.studentId as any).picture || (l.studentId as any).profilePicture || 'assets/avatar.png',
+              email: (l.studentId as any).email,
+              rating: (l.studentId as any).rating || 4.5,
+            },
+            lesson: l,
+            isNext: false // Will be set correctly below
+          });
+        }
+      });
+    
+    // Second pass: find the earliest among displayed lessons and mark them as "next"
+    const displayedLessons = Array.from(studentLessonMap.values()).map(({ lesson }) => lesson);
+    if (displayedLessons.length > 0) {
+      displayedLessons.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      const earliestDisplayedStartTime = new Date(displayedLessons[0].startTime).getTime();
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      
+      console.log('🔍 Displayed lessons:', displayedLessons.map(l => ({ id: l._id, start: l.startTime })));
+      console.log('🔍 Earliest displayed start time:', new Date(earliestDisplayedStartTime).toISOString());
+      console.log('🔍 Current time:', now.toISOString());
+      console.log('🔍 One hour ago:', oneHourAgo.toISOString());
+      
+      // Mark as "next" if earliest is upcoming or started within the last hour
+      if (new Date(earliestDisplayedStartTime) >= oneHourAgo) {
+        displayedLessons.forEach(l => {
+          const lessonStartTime = new Date(l.startTime).getTime();
+          // If lesson starts within 5 minutes of the earliest displayed time, mark as "next"
+          if (Math.abs(lessonStartTime - earliestDisplayedStartTime) < 5 * 60 * 1000) {
+            const studentId = String((l.studentId as any)._id);
+            const entry = studentLessonMap.get(studentId);
+            if (entry && String(entry.lesson._id) === String(l._id)) {
+              entry.isNext = true;
+              console.log(`✅ Marked lesson ${l._id} as "next" for student ${entry.student.name}`);
+            }
+          }
+        });
+      } else {
+        console.log('⏭️ Earliest lesson is too far in the past, not marking as "next"');
+      }
+    }
+    
+    // Convert map to array
+    const students = Array.from(studentLessonMap.values()).map(({ student, lesson, isNext }) => {
+      const currentLessonId = String(lesson._id);
+      console.log(`🔍 Lesson ${currentLessonId} for student ${student.name}: isNext=${isNext} (lesson start: ${lesson.startTime})`);
+      return {
+        ...student,
+        lessonId: lesson._id,
+        lesson: lesson, // Include full lesson object for join functionality
+        lessonTime: this.formatLessonTime(lesson),
+        subject: this.formatSubject(lesson.subject),
+        isNextClass: isNext,
+        startTime: lesson.startTime // Keep for sorting if needed
+      };
+    });
+    
+    console.log('🔍 Students with next class flag:', students.map(s => ({ name: s.name, isNextClass: s.isNextClass, lessonId: s.lessonId })));
+    
+    // Sort by lesson time
+    students.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     // Enrich profile pictures from latest user data (fetch by email)
-    uniqueStudents.forEach(s => {
+    students.forEach(s => {
       if (!s.profilePicture || s.profilePicture === 'assets/avatar.png') {
         if (s.email) {
           this.userService.getUserByEmail(s.email).subscribe(u => {
@@ -279,7 +400,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     });
     
-    return uniqueStudents;
+    return students;
   }
 
   // New method: Get upcoming lessons (all future lessons)
@@ -367,15 +488,6 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
   }
 
-  formatLessonTime(lesson: Lesson): string {
-    const start = new Date(lesson.startTime);
-    const end = new Date(lesson.endTime);
-    const dateOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
-    const timeOptions: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
-    const dateStr = start.toLocaleDateString('en-US', dateOptions);
-    const timeStr = `${start.toLocaleTimeString('en-US', timeOptions)} - ${end.toLocaleTimeString('en-US', timeOptions)}`;
-    return `${dateStr}, ${timeStr}`;
-  }
 
   getOtherParticipantName(lesson: Lesson): string {
     if (!this.currentUser) return '';
@@ -492,5 +604,50 @@ export class Tab1Page implements OnInit, OnDestroy {
       console.log('Refreshed database user data:', user);
       this.currentUser = user;
     });
+  }
+
+  // Student lesson join helpers (for tutor view student cards)
+  canJoinStudentLesson(student: any): boolean {
+    if (!student.lesson) return false;
+    const lesson = student.lesson as Lesson;
+    if (this.isLessonInProgress(lesson)) return true;
+    // Reference countdownTick to trigger change detection updates
+    void this.countdownTick;
+    return this.lessonService.canJoinLesson(lesson);
+  }
+
+  getStudentJoinLabel(student: any): string {
+    if (!student.lesson) return 'Join';
+    const lesson = student.lesson as Lesson;
+    const participant = (lesson as any).participant;
+    if (this.isLessonInProgress(lesson) && participant?.joinedBefore && participant?.leftAfterJoin) return 'Rejoin';
+    
+    if (this.canJoinStudentLesson(student)) {
+      return 'Join';
+    }
+    
+    // Reference countdownTick to trigger change detection updates
+    void this.countdownTick;
+    const secs = this.lessonService.getTimeUntilJoin(lesson);
+    return `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+  }
+
+  async joinStudentLesson(student: any) {
+    if (!student.lesson || !this.currentUser) return;
+    const lesson = student.lesson as Lesson;
+    
+    // Navigate to pre-call page first
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: lesson._id,
+        role: 'tutor',
+        lessonMode: 'true'
+      }
+    });
+  }
+
+  messageStudent(student: any) {
+    // TODO: Implement message functionality
+    console.log('Message student:', student.name);
   }
 }

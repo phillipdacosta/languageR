@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
+import { ThemeService } from '../services/theme.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LoadingController, AlertController } from '@ionic/angular';
@@ -16,15 +17,18 @@ export class ProfilePage implements OnInit {
   isAuthenticated$: Observable<boolean>;
   currentUser: User | null = null;
   tutorIntroductionVideo = '';
+  isDarkMode$: Observable<boolean>;
 
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private themeService: ThemeService,
     private loadingController: LoadingController,
     private alertController: AlertController
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
+    this.isDarkMode$ = this.themeService.darkMode$;
   }
 
   ngOnInit() {
@@ -35,6 +39,9 @@ export class ProfilePage implements OnInit {
         this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
       }
     });
+
+    // Ensure the toggle reflects the current theme state
+    console.log('🎨 Profile page: Current dark mode state:', this.themeService.isDarkMode());
   }
 
   async logout() {
@@ -90,6 +97,15 @@ export class ProfilePage implements OnInit {
     } finally {
       await loading.dismiss();
     }
+  }
+
+  /**
+   * Toggle dark mode
+   */
+  toggleDarkMode(event: any): void {
+    console.log('🔄 Dark mode toggle clicked, current state:', this.themeService.isDarkMode());
+    this.themeService.toggleDarkMode();
+    console.log('✅ Dark mode toggled, new state:', this.themeService.isDarkMode());
   }
 
 }

@@ -25,9 +25,9 @@
       <input type="text" placeholder="Search for a tutor" readonly class="search-input">
     </div>
 
-    <!-- Tutor Insights Bar -->
-    <div class="insights-container" *ngIf="isTutor()">
-      <div class="insight-item">
+    <!-- Tutor Insights Panel -->
+    <div class="insights-panel" *ngIf="isTutor()">
+      <div class="insight-metric">
         <div class="insight-icon students">
           <ion-icon name="people"></ion-icon>
         </div>
@@ -36,7 +36,8 @@
           <div class="insight-label">Students</div>
         </div>
       </div>
-      <div class="insight-item">
+      <div class="insight-divider"></div>
+      <div class="insight-metric">
         <div class="insight-icon lessons">
           <ion-icon name="videocam"></ion-icon>
         </div>
@@ -45,7 +46,8 @@
           <div class="insight-label">This Week</div>
         </div>
       </div>
-      <div class="insight-item">
+      <div class="insight-divider"></div>
+      <div class="insight-metric">
         <div class="insight-icon rating">
           <ion-icon name="star"></ion-icon>
         </div>
@@ -54,6 +56,11 @@
           <div class="insight-label">Rating</div>
         </div>
       </div>
+    </div>
+    <!-- Upcoming Schedule Section -->
+    <div class="section-header-new">
+      <h2>{{ isTutor() ? 'Upcoming Classes' : 'Upcoming Lessons' }}</h2>
+      <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
     </div>
 
     <!-- Date Strip -->
@@ -74,6 +81,9 @@
     <div class="tutors-section" *ngIf="isTutor()">
       <div class="tutors-grid fade-in" *ngIf="getStudentsForDate().length > 0; else noStudentsForDate">
         <div class="tutor-card" *ngFor="let student of getStudentsForDate()">
+          <div class="next-class-badge" *ngIf="student.isNextClass">
+            <span>NEXT CLASS</span>
+          </div>
           <div class="tutor-card-content">
             <ion-avatar class="tutor-avatar">
               <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}">
@@ -85,7 +95,26 @@
           </div>
           <div class="tutor-info">
             <h3>{{ student.name }}</h3>
-            <p>{{ student.subject || 'Language Student' }}</p>
+            <p class="subject">{{ student.subject }}</p>
+            <p class="lesson-time" *ngIf="student.lessonTime">
+              <ion-icon name="time-outline"></ion-icon>
+              {{ student.lessonTime }}
+            </p>
+            <div class="student-card-actions" *ngIf="student.lessonId">
+              <ion-button fill="clear" size="small" class="action-icon-btn message">
+                <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+              </ion-button>
+              <ion-button 
+                size="small" 
+                class="join-btn-small" 
+                [class.is-next-class]="student.isNextClass"
+                [class.not-next-class]="!student.isNextClass"
+                [disabled]="!canJoinStudentLesson(student)"
+                (click)="joinStudentLesson(student)">
+                <ion-icon name="call-outline" slot="start"></ion-icon>
+                {{ getStudentJoinLabel(student) }}
+              </ion-button>
+            </div>
           </div>
         </div>
       </div>
@@ -145,11 +174,6 @@
       </div>
     </div>
 
-    <!-- Upcoming Schedule Section -->
-    <div class="section-header-new">
-      <h2>{{ isTutor() ? 'Upcoming Classes' : 'Upcoming Lessons' }}</h2>
-      <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
-    </div>
 
     <!-- Upcoming Lesson Card -->
     <ion-card class="upcoming-lesson-card" *ngIf="upcomingLesson">

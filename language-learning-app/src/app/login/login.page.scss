@@ -3,9 +3,11 @@
 .login-content {
     --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     
-    @media (prefers-color-scheme: dark) {
-      --background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
+  
+  // Dark mode support using Ionic's class-based approach
+  html.ion-palette-dark & {
+    --background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  }
   }
   
   .login-wrapper {

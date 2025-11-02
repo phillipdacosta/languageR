@@ -33,8 +33,100 @@
  */
 
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import "@ionic/angular/css/palettes/dark.system.css";
+@import "@ionic/angular/css/palettes/dark.class.css";
+/* @import "@ionic/angular/css/palettes/dark.system.css"; */
+
+/* Ensure dark mode applies to entire app */
+html.ion-palette-dark {
+  color-scheme: dark;
+}
+
+html.ion-palette-dark body {
+  background-color: var(--ion-background-color, #121212);
+  color: var(--ion-text-color, #ffffff);
+}
+
+/* Force dark mode styles on all ion components */
+html.ion-palette-dark ion-app {
+  background-color: var(--ion-background-color, #121212);
+  color: var(--ion-text-color, #ffffff);
+}
+
+/* Ensure all pages respect dark mode */
+html.ion-palette-dark {
+  ion-content {
+    --background: var(--ion-background-color, #121212);
+    --color: var(--ion-text-color, #ffffff);
+  }
+  
+  ion-toolbar {
+    --background: var(--ion-toolbar-background, #1f1f1f);
+    --color: var(--ion-text-color, #ffffff);
+  }
+  
+  ion-header {
+    --background: var(--ion-toolbar-background, #1f1f1f);
+  }
+  
+  /* Override any hardcoded white backgrounds */
+  .custom-header ion-toolbar,
+  .filters-container,
+  .tutor-card,
+  .student-card,
+  .lesson-card,
+  .filter-item,
+  .tutor-info-card,
+  .availability-card,
+  .booking-card,
+  .pre-call-container,
+  .video-controls,
+  .insights-panel,
+  .insight-metric,
+  .student-card-content,
+  .tutor-info {
+    background: var(--ion-item-background, #1e1e1e) !important;
+    color: var(--ion-text-color, #ffffff) !important;
+  }
+  
+  /* Darker cards for better contrast in dark mode */
+  .insights-panel,
+  .student-card,
+  .tutor-card {
+    background: #2a2a2a !important;
+    border: 1px solid #3a3a3a !important;
+  }
+  
+  /* Section headers and titles */
+  .section-header,
+  .upcoming-classes-header,
+  h2, h3, h4 {
+    color: var(--ion-text-color, #ffffff) !important;
+  }
+  
+  /* Ensure borders and dividers are visible in dark mode */
+  .border,
+  .divider,
+  hr {
+    border-color: var(--ion-color-medium, #4a4a4a) !important;
+  }
+  
+  /* Fix text colors that might be hardcoded */
+  h1, h2, h3, h4, h5, h6, p, span, div {
+    color: var(--ion-text-color, #ffffff) !important;
+  }
+  
+  /* Date strip styling for dark mode */
+  .date-strip .date-item {
+    background: #2a2a2a !important;
+    color: var(--ion-text-color, #ffffff) !important;
+    border: 1px solid #3a3a3a !important;
+    
+    &.selected {
+      background: var(--ion-color-primary, #4d8dff) !important;
+      color: #ffffff !important;
+    }
+  }
+}
 
 /* FullCalendar styles - Basic styling */
 .fc {

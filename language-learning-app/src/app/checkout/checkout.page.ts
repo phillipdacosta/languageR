@@ -6,6 +6,7 @@ import { UserService } from '../services/user.service';
 import { LessonService, LessonCreateRequest } from '../services/lesson.service';
 import { AuthService } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-checkout',
@@ -76,13 +77,18 @@ export class CheckoutPage {
       
       const endTime = new Date(startTime.getTime() + this.lessonMinutes * 60000);
 
+      // Get the primary language from tutor (first language they teach)
+      const tutorLanguages = this.tutor?.onboardingData?.languages || this.tutor?.languages || [];
+      const primaryLanguage = tutorLanguages.length > 0 ? tutorLanguages[0] : 'Language';
+      const subject = `${primaryLanguage} Lesson`;
+
       // Create lesson booking request
       const lessonData: LessonCreateRequest = {
         tutorId: this.tutorId,
         studentId: this.currentUser.id,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        subject: 'Language Lesson',
+        subject: subject,
         price: this.total,
         duration: this.lessonMinutes,
         bookingData: {
@@ -117,13 +123,32 @@ export class CheckoutPage {
     } catch (error: any) {
       console.error('❌ Error booking lesson:', error);
       
+      // Check if this is a time slot conflict (409 Conflict)
+      const isConflict = error instanceof HttpErrorResponse && error.status === 409;
+      const errorMessage = isConflict 
+        ? (error.error?.message || 'This time slot is no longer available. It may have been booked by another student.')
+        : (error.error?.message || error.message || 'Failed to book lesson. Please try again.');
+      
       const toast = await this.toastController.create({
-        message: error.message || 'Failed to book lesson. Please try again.',
-        duration: 3000,
+        message: errorMessage,
+        duration: 5000,
         color: 'danger',
         position: 'top'
       });
       await toast.present();
+
+      // If it's a conflict, navigate back to tutor page to refresh availability
+      if (isConflict && this.tutorId) {
+        // Wait a moment for toast to appear, then navigate
+        setTimeout(() => {
+          this.router.navigate(['/tutor', this.tutorId], {
+            queryParams: { 
+              conflict: 'true',
+              refreshAvailability: 'true'
+            }
+          });
+        }, 1000);
+      }
     } finally {
       this.isBooking = false;
       await loading.dismiss();

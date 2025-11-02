@@ -22,6 +22,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('introVideo', { static: false }) introVideoRef?: ElementRef<HTMLVideoElement>;
   showOverlay = true;
   cameFromModal = false;
+  availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
 
@@ -54,6 +55,19 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         this.isLoading = false;
       }
     });
+    
+    // Check for refresh trigger from query params (e.g., after booking conflict)
+    const refreshAvailability = this.route.snapshot.queryParamMap.get('refreshAvailability');
+    if (refreshAvailability === 'true') {
+      // Trigger availability refresh
+      this.availabilityRefreshTrigger = Date.now();
+      // Clear the query param to avoid repeated refreshes
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { refreshAvailability: null },
+        queryParamsHandling: 'merge'
+      });
+    }
     
     // Set up back button handler if we came from modal
     if (this.cameFromModal) {

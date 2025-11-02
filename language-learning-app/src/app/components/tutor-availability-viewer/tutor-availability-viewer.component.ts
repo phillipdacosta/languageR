@@ -1,11 +1,13 @@
-import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
 import { UserService } from '../../services/user.service';
+import { LessonService, Lesson } from '../../services/lesson.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
 interface AvailabilityBlock {
   id: string;
@@ -24,11 +26,13 @@ interface AvailabilityBlock {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
+export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnChanges {
   @Input() tutorId!: string;
   @Input() tutorName!: string;
   // When true, render as an inline section (no modal chrome)
   @Input() inline = false;
+  // Trigger refresh when this value changes
+  @Input() refreshTrigger: number = 0;
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
@@ -42,10 +46,13 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
   weekDates: Date[] = [];
   // Fast lookup: key = `${day}-${HH:mm}`
   availabilitySet: Set<string> = new Set();
-  private slotsCache: Map<string, { label: string; time: string }[]> = new Map();
+  // Fast lookup for booked slots: key = `${day}-${HH:mm}`
+  bookedSlots: Set<string> = new Set();
+  private slotsCache: Map<string, { label: string; time: string; booked: boolean }[]> = new Map();
   
   constructor(
     private userService: UserService,
+    private lessonService: LessonService,
     private modalController: ModalController,
     private loadingController: LoadingController,
     private router: Router
@@ -61,9 +68,23 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     this.recomputeWeekDates();
-    this.loadAvailability();
+    await Promise.all([
+      this.loadAvailability(),
+      this.loadBookedLessons()
+    ]);
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // Reload availability if refreshTrigger changes
+    if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
+      console.log('🔄 Refresh trigger detected, reloading availability...');
+      Promise.all([
+        this.loadAvailability(),
+        this.loadBookedLessons()
+      ]);
+    }
   }
 
   ngOnDestroy() {
@@ -139,6 +160,109 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
     return this.availabilitySet.has(`${day}-${timeSlot}`);
   }
 
+  isSlotBooked(day: number, timeSlot: string): boolean {
+    return this.bookedSlots.has(`${day}-${timeSlot}`);
+  }
+
+  async loadBookedLessons() {
+    try {
+      console.log('📅 Loading booked lessons for tutor:', this.tutorId);
+      
+      const response = await firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));
+      
+      if (response.success && response.lessons) {
+        this.buildBookedSlotsSet(response.lessons);
+      }
+    } catch (error) {
+      console.error('Error loading booked lessons:', error);
+      // Don't fail silently - set empty set if error
+      this.bookedSlots = new Set();
+    }
+  }
+
+  private buildBookedSlotsSet(lessons: Lesson[]) {
+    const set = new Set<string>();
+    
+    // Get the current week's date range
+    const weekStart = new Date(this.currentWeekStart);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    // Create a map of dates to their index in weekDates array (0-6)
+    const dateToIndexMap = new Map<string, number>();
+    for (let i = 0; i < this.weekDates.length; i++) {
+      const dateKey = this.dateKey(this.weekDates[i]);
+      dateToIndexMap.set(dateKey, i);
+    }
+    
+    console.log('📅 Building booked slots for week:', {
+      weekStart: weekStart.toISOString(),
+      weekEnd: weekEnd.toISOString(),
+      weekDates: this.weekDates.map(d => this.dateKey(d))
+    });
+    
+    for (const lesson of lessons) {
+      // Only consider scheduled or in_progress lessons
+      if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
+        continue;
+      }
+
+      const startTime = new Date(lesson.startTime);
+      const endTime = new Date(lesson.endTime);
+      
+      // Only include lessons that fall within the current week being displayed
+      if (endTime < weekStart || startTime > weekEnd) {
+        continue;
+      }
+      
+      // Get the actual date of the lesson (normalized to midnight)
+      const lessonDate = new Date(startTime);
+      lessonDate.setHours(0, 0, 0, 0);
+      const lessonDateKey = this.dateKey(lessonDate);
+      
+      // Find which column (0-6) this date corresponds to in the displayed week
+      const weekIndex = dateToIndexMap.get(lessonDateKey);
+      if (weekIndex === undefined) {
+        console.log('⚠️ Lesson date not in current week:', lessonDateKey);
+        continue;
+      }
+      
+      // Get the day index (0=Mon, 1=Tue, ..., 6=Sun) for the actual date
+      // This matches how availability is stored (by day of week, not specific date)
+      const dayIndex = this.getSetupDayIndex(lessonDate);
+      
+      console.log('📅 Processing lesson:', {
+        lessonId: lesson._id,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        lessonDate: lessonDateKey,
+        weekIndex,
+        dayIndex
+      });
+      
+      // Generate 30-minute slots between start and end
+      let currentTime = new Date(startTime);
+      while (currentTime < endTime) {
+        const hours = currentTime.getHours().toString().padStart(2, '0');
+        const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+        const timeSlot = `${hours}:${minutes}`;
+        const key = `${dayIndex}-${timeSlot}`;
+        set.add(key);
+        
+        console.log(`  ✓ Added booked slot: ${key}`);
+        
+        // Move to next 30-minute slot
+        currentTime.setMinutes(currentTime.getMinutes() + 30);
+      }
+    }
+    
+    this.bookedSlots = set;
+    console.log('📅 Booked slots for current week:', Array.from(set).sort());
+    this.slotsCache.clear();
+  }
+
   private buildAvailabilitySet() {
     const set = new Set<string>();
     console.log('📅 Building availability set from', this.availability.length, 'blocks');
@@ -205,12 +329,15 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
     const days = direction === 'next' ? 7 : -7;
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() + days);
     this.recomputeWeekDates();
-    // availability does not change across week navigation in this simple view
+    // Reload booked lessons for the new week
+    this.loadBookedLessons();
   }
 
   goToToday() {
     this.setCurrentWeekStart();
     this.recomputeWeekDates();
+    // Reload booked lessons for the current week
+    this.loadBookedLessons();
   }
 
   formatTime(time: string): string {
@@ -254,7 +381,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
   }
 
   // Return list of available slots with both label and 24h time for a given date
-  getAvailableTimeLabelsForDate(date: Date): { label: string; time: string }[] {
+  getAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean }[] {
     // Only show availability within the same calendar week as today
     const today = new Date();
     if (!this.isSameCalendarWeek(date, today)) {
@@ -271,11 +398,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
     console.log(`📅 DEBUG: Setup day index = ${dayIndex} (0=Mon, 1=Tue, ..., 6=Sun)`);
     console.log(`📅 DEBUG: Available keys in set:`, Array.from(this.availabilitySet).filter(key => key.startsWith(`${dayIndex}-`)));
     
-    const slots: { label: string; time: string }[] = [];
+    const slots: { label: string; time: string; booked: boolean }[] = [];
     for (let i = 0; i < this.timeSlots.length; i++) {
       const key = `${dayIndex}-${this.timeSlots[i]}`;
       if (this.availabilitySet.has(key)) {
-        slots.push({ label: this.timeLabels[i], time: this.timeSlots[i] });
+        const isBooked = this.bookedSlots.has(key);
+        slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked });
       }
     }
     
@@ -285,7 +413,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy {
     return slots;
   }
 
-  onSelectSlot(date: Date, slot: { label: string; time: string }) {
+  onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean }) {
+    // Don't allow booking if slot is already booked
+    if (slot.booked) {
+      return;
+    }
+    
     // Navigate to checkout with tutor/time
     const dateIso = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
     this.router.navigate(['/checkout'], {
