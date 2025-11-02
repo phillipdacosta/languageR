@@ -21,6 +21,7 @@ export class AgoraService {
   private localVideoTrack: ICameraVideoTrack | null = null;
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
   private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> = new Map();
+  private videoEnabledState: boolean = true; // Track video enabled state
 
   // Real-time messaging properties
   private channelName: string = 'default';
@@ -31,6 +32,15 @@ export class AgoraService {
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
   private readonly UID = environment.agora.uid;
+
+  // High-quality video encoder configuration
+  private readonly encoderConfig = {
+    resolution: { width: 1280, height: 720 }, // HD 720p
+    frameRate: 30, // 30 fps for smooth video
+    bitrateMax: 2000, // 2000 kbps for high quality
+    bitrateMin: 600,  // 600 kbps minimum
+    optimizationMode: 'detail' as const // Prioritize quality over latency
+  };
 
   // Callbacks for real-time messaging
   onWhiteboardMessage?: (data: any) => void;
@@ -181,10 +191,13 @@ export class AgoraService {
     }
 
     try {
-      // First, request permissions and create local tracks
+      // First, request permissions and create local tracks with high-quality encoder config
       console.log("Requesting camera and microphone permissions...");
-      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-      console.log("Successfully created local tracks");
+      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+        {},
+        { encoderConfig: this.encoderConfig }
+      );
+      console.log("Successfully created local tracks with HD quality");
 
       // Generate token for testing or use null if testing mode is enabled
       let token = this.tokenGenerator.isTestingModeEnabled() ? null : this.tokenGenerator.generateTestToken(channelName, typeof uid === 'number' ? uid : 0);
@@ -284,49 +297,42 @@ export class AgoraService {
       
       console.log("Creating local tracks:", { micEnabled, videoEnabled });
       
-      // Always create tracks enabled (required for publishing), we'll disable them after publishing if needed
-      if (micEnabled && videoEnabled) {
-        // Both enabled - create together
-        [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-      } else if (micEnabled && !videoEnabled) {
-        // Only mic enabled
-        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        this.localVideoTrack = null;
-      } else if (!micEnabled && videoEnabled) {
-        // Only video enabled
-        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-        this.localAudioTrack = null;
-      } else {
-        // Both disabled - still need to create at least one track for publishing
-        // Create both tracks enabled, we'll disable them after publishing
-        [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-      }
+      // Always create both tracks (required for toggling), we'll disable them after publishing if needed
+      // Using high-quality encoder config for better video quality
+      console.log("Creating tracks with preferences:", { micEnabled, videoEnabled });
       
-      console.log("Successfully created local tracks");
+      // Always create both tracks so we can toggle them later
+      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+        {},
+        { encoderConfig: this.encoderConfig }
+      );
+      
+      console.log("Successfully created local tracks with HD quality");
 
       // Join the RTC channel using backend-provided credentials
       await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
       console.log("Successfully joined lesson channel:", agora.channelName);
       
-      // Publish local tracks (only publish tracks that exist)
-      // Note: Tracks must be enabled when publishing
-      const tracksToPublish: any[] = [];
-      if (this.localAudioTrack) tracksToPublish.push(this.localAudioTrack);
-      if (this.localVideoTrack) tracksToPublish.push(this.localVideoTrack);
+      // Publish both tracks (they both exist now)
+      await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
+      console.log("Successfully published local tracks");
       
-      if (tracksToPublish.length > 0) {
-        await this.client.publish(tracksToPublish);
-        console.log("Successfully published local tracks");
-        
-        // Now disable tracks based on user preferences (after publishing)
-        if (this.localAudioTrack && !micEnabled) {
-          this.localAudioTrack.setEnabled(false);
-          console.log("Microphone track disabled per user preference");
-        }
-        if (this.localVideoTrack && !videoEnabled) {
-          this.localVideoTrack.setEnabled(false);
-          console.log("Video track disabled per user preference");
-        }
+      // Apply user preferences after publishing
+      // Audio: Use setMuted() (can be toggled)
+      // Video: Use setEnabled() (can be toggled since track exists and is published)
+      if (!micEnabled) {
+        this.localAudioTrack!.setMuted(true);
+        console.log("Microphone track muted per user preference");
+      }
+      
+      if (!videoEnabled) {
+        // For video tracks, use setEnabled() to disable camera
+        await this.localVideoTrack!.setEnabled(false);
+        this.videoEnabledState = false; // Track state
+        console.log("Video track disabled per user preference");
+      } else {
+        this.videoEnabledState = true; // Track state
+        console.log("Video track enabled per user preference");
       }
 
       // Initialize real-time messaging for the lesson
@@ -503,9 +509,27 @@ export class AgoraService {
   async toggleVideo(): Promise<boolean> {
     if (!this.localVideoTrack) return false;
 
-    const isVideoOff = this.localVideoTrack.muted;
-    await this.localVideoTrack.setMuted(!isVideoOff);
-    return !isVideoOff;
+    try {
+      // Use setEnabled() approach - simpler and more reliable
+      const currentlyEnabled = this.videoEnabledState;
+      const newState = !currentlyEnabled;
+      
+      console.log(`Toggling video: ${currentlyEnabled ? 'ON' : 'OFF'} -> ${newState ? 'ON' : 'OFF'}`);
+      
+      await this.localVideoTrack.setEnabled(newState);
+      this.videoEnabledState = newState;
+      
+      console.log('Video track setEnabled completed:', {
+        newState,
+        videoEnabledState: this.videoEnabledState,
+        trackExists: !!this.localVideoTrack
+      });
+      
+      return !newState; // Return true if video is now off, false if video is now on
+    } catch (error) {
+      console.error('Error toggling video:', error);
+      return !this.videoEnabledState; // Return opposite of current state on error
+    }
   }
 
   getLocalVideoTrack(): ICameraVideoTrack | null {
@@ -514,6 +538,10 @@ export class AgoraService {
 
   getLocalAudioTrack(): IMicrophoneAudioTrack | null {
     return this.localAudioTrack;
+  }
+
+  isVideoEnabled(): boolean {
+    return this.videoEnabledState;
   }
 
   getRemoteUsers(): Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> {

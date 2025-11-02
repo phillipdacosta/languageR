@@ -159,10 +159,25 @@ export class VideoCallPage implements OnInit, OnDestroy {
       if (this.agoraService.isConnected() || this.agoraService.isConnecting()) {
         console.log('✅ Already connected/connecting to lesson, skipping join');
         // Update track states if already connected
+        // Use setMuted() instead of setEnabled() so tracks can be toggled later
         const audioTrack = this.agoraService.getLocalAudioTrack();
         const videoTrack = this.agoraService.getLocalVideoTrack();
-        if (audioTrack) audioTrack.setEnabled(micEnabled);
-        if (videoTrack) videoTrack.setEnabled(videoEnabled);
+        if (audioTrack) {
+          const currentlyMuted = audioTrack.muted;
+          if (micEnabled && currentlyMuted) {
+            audioTrack.setMuted(false);
+          } else if (!micEnabled && !currentlyMuted) {
+            audioTrack.setMuted(true);
+          }
+        }
+        if (videoTrack) {
+          const currentlyMuted = videoTrack.muted;
+          if (videoEnabled && currentlyMuted) {
+            videoTrack.setMuted(false);
+          } else if (!videoEnabled && !currentlyMuted) {
+            videoTrack.setMuted(true);
+          }
+        }
       } else {
         const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id, {
           micEnabled,
@@ -174,8 +189,30 @@ export class VideoCallPage implements OnInit, OnDestroy {
       // Set up local video (slight delay to ensure DOM is ready)
       setTimeout(() => {
         const localVideoTrack = this.agoraService.getLocalVideoTrack();
+        const localAudioTrack = this.agoraService.getLocalAudioTrack();
+        
+        // Sync UI state with actual track state
+        if (localAudioTrack) {
+          this.isMuted = localAudioTrack.muted;
+        }
+        if (localVideoTrack) {
+          // Use the tracked video enabled state from Agora service for accuracy
+          this.isVideoOff = !this.agoraService.isVideoEnabled();
+        }
+        
         if (localVideoTrack && this.localVideoRef) {
+          console.log('Setting up local video display:', {
+            videoEnabled: this.agoraService.isVideoEnabled(),
+            trackExists: !!localVideoTrack,
+            elementExists: !!this.localVideoRef?.nativeElement
+          });
           localVideoTrack.play(this.localVideoRef.nativeElement);
+        } else {
+          console.warn('Local video setup failed:', {
+            videoTrack: !!localVideoTrack,
+            videoRef: !!this.localVideoRef,
+            videoEnabled: this.agoraService.isVideoEnabled()
+          });
         }
       }, 100);
 
@@ -305,6 +342,29 @@ export class VideoCallPage implements OnInit, OnDestroy {
     try {
       this.isVideoOff = await this.agoraService.toggleVideo();
       console.log('Video:', this.isVideoOff ? 'Off' : 'On');
+      
+      // Refresh video display after toggling to ensure it renders correctly
+      if (!this.isVideoOff) {
+        setTimeout(() => {
+          const localVideoTrack = this.agoraService.getLocalVideoTrack();
+          if (localVideoTrack && this.localVideoRef) {
+            // Re-play the video track to ensure it displays after enabling
+            console.log('Refreshing video display after toggle:', {
+              videoEnabled: this.agoraService.isVideoEnabled(),
+              trackExists: !!localVideoTrack,
+              elementExists: !!this.localVideoRef?.nativeElement
+            });
+            localVideoTrack.play(this.localVideoRef.nativeElement);
+            console.log('Video display refreshed after enabling camera');
+          } else {
+            console.warn('Video refresh failed:', {
+              videoTrack: !!localVideoTrack,
+              videoRef: !!this.localVideoRef,
+              videoEnabled: this.agoraService.isVideoEnabled()
+            });
+          }
+        }, 100); // Short delay for setEnabled to take effect
+      }
     } catch (error) {
       console.error('Error toggling video:', error);
     }
