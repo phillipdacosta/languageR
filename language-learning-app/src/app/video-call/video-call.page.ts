@@ -145,12 +145,29 @@ export class VideoCallPage implements OnInit, OnDestroy {
       const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
 
       // Secure join using backend-provided token/appId/uid (with connection state checking)
-      console.log('🎯 Joining lesson via secure backend:', { lessonId: qp.lessonId, role });
+      // Check for mic/video preferences from pre-call screen
+      // Query params are strings, so check explicitly
+      const micEnabled = qp.micOn === undefined || qp.micOn === 'true';
+      const videoEnabled = qp.videoOn === undefined || qp.videoOn === 'true';
+      
+      // Update UI state to match preferences
+      this.isMuted = !micEnabled;
+      this.isVideoOff = !videoEnabled;
+      
+      console.log('🎯 Joining lesson via secure backend:', { lessonId: qp.lessonId, role, micEnabled, videoEnabled });
       
       if (this.agoraService.isConnected() || this.agoraService.isConnecting()) {
         console.log('✅ Already connected/connecting to lesson, skipping join');
+        // Update track states if already connected
+        const audioTrack = this.agoraService.getLocalAudioTrack();
+        const videoTrack = this.agoraService.getLocalVideoTrack();
+        if (audioTrack) audioTrack.setEnabled(micEnabled);
+        if (videoTrack) videoTrack.setEnabled(videoEnabled);
       } else {
-        const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id);
+        const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id, {
+          micEnabled,
+          videoEnabled
+        });
         console.log('✅ Successfully joined lesson via backend');
       }
 

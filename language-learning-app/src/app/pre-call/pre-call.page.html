@@ -1,0 +1,73 @@
+<ion-content class="pre-call-content">
+  <div class="pre-call-container">
+    <!-- Left Panel: Video Preview and Controls -->
+    <div class="preview-panel">
+      <div class="preview-header">
+        <h3 class="preview-title">Join with mic {{ isMuted ? 'OFF' : 'ON' }} and camera {{ isVideoOff ? 'OFF' : 'ON' }}</h3>
+      </div>
+
+      <!-- Video Preview -->
+      <div class="video-preview-container" [class.video-off]="isVideoOff">
+        <video 
+          #videoPreview 
+          autoplay 
+          playsinline 
+          muted
+          class="video-preview"
+          [class.hidden]="isVideoOff || isLoading || !!errorMessage">
+        </video>
+        <div class="video-placeholder" *ngIf="isVideoOff || isLoading || !!errorMessage">
+          <ion-icon name="person" class="placeholder-icon"></ion-icon>
+          <p *ngIf="isVideoOff">Camera is off</p>
+          <p *ngIf="isLoading && !isVideoOff && !errorMessage">Loading camera...</p>
+        </div>
+        <div class="error-message" *ngIf="errorMessage">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          <p>{{ errorMessage }}</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="preview-controls">
+        <a class="test-devices-link" (click)="testDevices()">Test devices</a>
+        <div class="control-buttons">
+          <button 
+            class="control-btn" 
+            [class.active]="!isMuted"
+            (click)="toggleMicrophone()"
+            aria-label="Toggle microphone">
+            <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'" [class.muted]="isMuted"></ion-icon>
+          </button>
+          <button 
+            class="control-btn" 
+            [class.active]="!isVideoOff"
+            (click)="toggleCamera()"
+            aria-label="Toggle camera">
+            <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'" [class.off]="isVideoOff"></ion-icon>
+          </button>
+          <button 
+            class="control-btn" 
+            (click)="testDevices()"
+            aria-label="Settings">
+            <ion-icon name="settings-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Lesson Info -->
+    <div class="info-panel">
+      <h1 class="lesson-title">{{ lessonTitle || 'Language Lesson' }}</h1>
+      <p class="lesson-subtitle">Enter the classroom to meet your tutor</p>
+      
+      <ion-button 
+        class="enter-button" 
+        expand="block" 
+        (click)="enterClassroom()"
+        [disabled]="isLoading || !!errorMessage">
+        Enter classroom
+      </ion-button>
+    </div>
+  </div>
+</ion-content>
+

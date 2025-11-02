@@ -1,0 +1,270 @@
+.pre-call-content {
+  --background: #0a0a0a;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
+}
+
+.pre-call-container {
+  display: flex;
+  min-height: 100vh;
+  background: #0a0a0a;
+  color: #fff;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+}
+
+.preview-panel {
+  flex: 1;
+  background: linear-gradient(135deg, #6b21a8 0%, #7c3aed 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 40px;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    min-height: 60vh;
+    padding: 24px;
+  }
+}
+
+.preview-header {
+  width: 100%;
+  max-width: 600px;
+  margin-bottom: 32px;
+  text-align: center;
+
+  .preview-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+
+    @media (max-width: 768px) {
+      font-size: 16px;
+    }
+  }
+}
+
+.video-preview-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 16 / 9;
+  background: #1a1a1a;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  &.video-off {
+    background: #2d2d2d;
+  }
+
+  .video-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    
+    &.hidden {
+      display: none;
+    }
+  }
+
+  .video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.6);
+
+    .placeholder-icon {
+      font-size: 80px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    p {
+      font-size: 16px;
+      margin: 0;
+    }
+  }
+
+  .error-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 24px;
+    text-align: center;
+    color: #ef4444;
+
+    ion-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    p {
+      font-size: 14px;
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+}
+
+.preview-controls {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+
+  .test-devices-link {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+
+  .control-buttons {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+
+    .control-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      backdrop-filter: blur(10px);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: scale(1.05);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+
+      &.active {
+        border-color: #22c55e;
+        background: rgba(34, 197, 94, 0.2);
+
+        ion-icon {
+          color: #22c55e;
+        }
+      }
+
+      ion-icon {
+        font-size: 24px;
+        
+        &.muted,
+        &.off {
+          color: #ef4444;
+        }
+      }
+
+      @media (max-width: 768px) {
+        width: 48px;
+        height: 48px;
+
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+    }
+  }
+}
+
+.info-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 80px 60px;
+  background: #0a0a0a;
+
+  @media (max-width: 768px) {
+    padding: 40px 24px;
+    align-items: center;
+    text-align: center;
+    min-height: 40vh;
+  }
+
+  .lesson-title {
+    font-size: 48px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 16px 0;
+    line-height: 1.2;
+
+    @media (max-width: 768px) {
+      font-size: 32px;
+    }
+  }
+
+  .lesson-subtitle {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 48px 0;
+    line-height: 1.5;
+
+    @media (max-width: 768px) {
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+  }
+
+  .enter-button {
+    --background: #ec4899;
+    --background-activated: #db2777;
+    --background-hover: #f472b6;
+    --color: #fff;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    height: 56px;
+    font-size: 18px;
+    font-weight: 600;
+    text-transform: none;
+    min-width: 280px;
+    box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
+
+    &:hover {
+      --background: #f472b6;
+      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+    }
+
+    @media (max-width: 768px) {
+      width: 100%;
+      max-width: 320px;
+      min-width: unset;
+    }
+  }
+}
+

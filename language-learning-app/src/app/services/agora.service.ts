@@ -230,7 +230,7 @@ export class AgoraService {
    * Join a scheduled lesson using the secure backend endpoint
    * This method gets the Agora token from the lesson service only if within the allowed time window
    */
-  async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string): Promise<LessonJoinResponse> {
+  async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string, options?: { micEnabled?: boolean; videoEnabled?: boolean }): Promise<LessonJoinResponse> {
     if (!this.client) {
       throw new Error("Client not initialized");
     }
@@ -278,18 +278,56 @@ export class AgoraService {
       const { agora, lesson, userRole } = joinResponse;
       console.log('📅 Received Agora credentials for lesson:', lesson.id);
 
-      // First, request permissions and create local tracks
-      console.log("Requesting camera and microphone permissions...");
-      [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      // Create local tracks based on user preferences from pre-call screen
+      const micEnabled = options?.micEnabled !== false; // Default to true if not specified
+      const videoEnabled = options?.videoEnabled !== false; // Default to true if not specified
+      
+      console.log("Creating local tracks:", { micEnabled, videoEnabled });
+      
+      // Always create tracks enabled (required for publishing), we'll disable them after publishing if needed
+      if (micEnabled && videoEnabled) {
+        // Both enabled - create together
+        [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      } else if (micEnabled && !videoEnabled) {
+        // Only mic enabled
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        this.localVideoTrack = null;
+      } else if (!micEnabled && videoEnabled) {
+        // Only video enabled
+        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        this.localAudioTrack = null;
+      } else {
+        // Both disabled - still need to create at least one track for publishing
+        // Create both tracks enabled, we'll disable them after publishing
+        [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      }
+      
       console.log("Successfully created local tracks");
 
       // Join the RTC channel using backend-provided credentials
       await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
       console.log("Successfully joined lesson channel:", agora.channelName);
       
-      // Publish local tracks
-      await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
-      console.log("Successfully published local tracks");
+      // Publish local tracks (only publish tracks that exist)
+      // Note: Tracks must be enabled when publishing
+      const tracksToPublish: any[] = [];
+      if (this.localAudioTrack) tracksToPublish.push(this.localAudioTrack);
+      if (this.localVideoTrack) tracksToPublish.push(this.localVideoTrack);
+      
+      if (tracksToPublish.length > 0) {
+        await this.client.publish(tracksToPublish);
+        console.log("Successfully published local tracks");
+        
+        // Now disable tracks based on user preferences (after publishing)
+        if (this.localAudioTrack && !micEnabled) {
+          this.localAudioTrack.setEnabled(false);
+          console.log("Microphone track disabled per user preference");
+        }
+        if (this.localVideoTrack && !videoEnabled) {
+          this.localVideoTrack.setEnabled(false);
+          console.log("Video track disabled per user preference");
+        }
+      }
 
       // Initialize real-time messaging for the lesson
       this.channelName = agora.channelName;
@@ -472,6 +510,10 @@ export class AgoraService {
 
   getLocalVideoTrack(): ICameraVideoTrack | null {
     return this.localVideoTrack;
+  }
+
+  getLocalAudioTrack(): IMicrophoneAudioTrack | null {
+    return this.localAudioTrack;
   }
 
   getRemoteUsers(): Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> {

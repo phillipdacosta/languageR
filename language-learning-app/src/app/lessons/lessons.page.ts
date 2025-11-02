@@ -120,47 +120,17 @@ export class LessonsPage implements OnInit, OnDestroy {
     return role === 'tutor' ? lesson.studentId : lesson.tutorId;
   }
 
-  async joinLesson(lesson: Lesson) {
-    const loading = await this.loadingController.create({
-      message: 'Joining lesson...',
-      spinner: 'crescent'
-    });
-    await loading.present();
-
-    try {
-      // Initialize Agora client if not already done
-      if (!this.agoraService.getClient()) {
-        await this.agoraService.initializeClient();
+  joinLesson(lesson: Lesson) {
+    const userRole = this.getUserRole(lesson);
+    
+    // Navigate to pre-call page first
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: lesson._id,
+        role: userRole,
+        lessonMode: 'true'
       }
-
-      const userRole = this.getUserRole(lesson);
-      
-      // Join via AgoraService to use backend-provided token/appId/uid
-      const joinResponse = await this.agoraService.joinLesson(lesson._id, userRole, this.currentUser?.id);
-
-      // Navigate to video call page with lesson context
-      this.router.navigate(['/video-call'], {
-        queryParams: {
-          lessonId: lesson._id,
-          channelName: joinResponse.agora.channelName,
-          role: userRole,
-          lessonMode: true
-        }
-      });
-
-    } catch (error: any) {
-      console.error('❌ Error joining lesson:', error);
-      
-      const toast = await this.toastController.create({
-        message: error.message || 'Failed to join lesson',
-        duration: 4000,
-        color: 'danger',
-        position: 'top'
-      });
-      await toast.present();
-    } finally {
-      await loading.dismiss();
-    }
+    });
   }
 
   async cancelLesson(lesson: Lesson) {

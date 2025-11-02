@@ -52,6 +52,11 @@ const routes: Routes = [
     loadComponent: () => import('./tutor/tutor.page').then(m => m.TutorPage)
   },
   {
+    path: 'pre-call',
+    loadChildren: () => import('./pre-call/pre-call.module').then( m => m.PreCallPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'video-call',
     loadChildren: () => import('./video-call/video-call.module').then( m => m.VideoCallPageModule),
     canActivate: [AuthGuard]

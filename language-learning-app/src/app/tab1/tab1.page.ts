@@ -426,41 +426,17 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   async joinUpcomingLesson() {
     if (!this.upcomingLesson || !this.currentUser) return;
-    const loading = await this.loadingController.create({ 
-      message: 'Joining lesson...', 
-      spinner: 'crescent' 
-    });
-    await loading.present();
     
-    try {
-      if (!this.agoraService.getClient()) {
-        await this.agoraService.initializeClient();
+    const role = this.getUserRole(this.upcomingLesson);
+    
+    // Navigate to pre-call page first
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: this.upcomingLesson._id,
+        role,
+        lessonMode: 'true'
       }
-      const role = this.getUserRole(this.upcomingLesson);
-      const joinResponse = await this.agoraService.joinLesson(
-        this.upcomingLesson._id, 
-        role, 
-        this.currentUser.id
-      );
-      
-      this.router.navigate(['/video-call'], {
-        queryParams: {
-          lessonId: this.upcomingLesson._id,
-          channelName: joinResponse.agora.channelName,
-          role,
-          lessonMode: true
-        }
-      });
-    } catch (error: any) {
-      const toast = await this.toastController.create({ 
-        message: error?.message || 'Failed to join lesson', 
-        duration: 3500, 
-        color: 'danger' 
-      });
-      await toast.present();
-    } finally {
-      await loading.dismiss();
-    }
+    });
   }
 
   // Date strip helpers (tutor view)
