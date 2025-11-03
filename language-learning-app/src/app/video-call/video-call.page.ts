@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AgoraService } from '../services/agora.service';
 import { AlertController, LoadingController } from '@ionic/angular';
@@ -11,7 +11,9 @@ import { firstValueFrom } from 'rxjs';
   styleUrls: ['./video-call.page.scss'],
   standalone: false,
 })
-export class VideoCallPage implements OnInit, OnDestroy {
+export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
+
+  private initializationComplete = false;
 
   @ViewChild('whiteboardCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('localVideo', { static: false }) localVideoRef!: ElementRef<HTMLDivElement>;
@@ -24,8 +26,10 @@ export class VideoCallPage implements OnInit, OnDestroy {
   showChat = false;
   isDrawing = false;
   isConnected = false;
-  channelName = 'language-class-001'; // Default channel name
+  channelName = 'languageRoom'; // Default channel name - must match AgoraService hardcoded value
   remoteUserCount = 0;
+  userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
+  remoteUserStates: Map<any, { isMuted?: boolean; isVideoOff?: boolean }> = new Map(); // Track remote user states
 
   // Chat properties
   chatMessages: any[] = [];
@@ -90,15 +94,7 @@ export class VideoCallPage implements OnInit, OnDestroy {
   async ngOnInit() {
     const qp = this.route.snapshot.queryParams as any;
 
-    // If opened with lesson params, use secure join flow (fetch token from backend)
-    if (qp?.lessonMode === 'true' && qp?.lessonId) {
-      await this.initializeVideoCallViaLessonParams(qp);
-    } else {
-      // Initialize generic call (non-lesson)
-      await this.initializeVideoCall();
-    }
-
-    // Set up real-time messaging callbacks
+    // Set up real-time messaging callbacks first
     this.agoraService.onWhiteboardMessage = (data) => {
       this.handleRemoteWhiteboardData(data);
     };
@@ -107,11 +103,32 @@ export class VideoCallPage implements OnInit, OnDestroy {
       this.handleRemoteChatMessage(message);
     };
 
+    this.agoraService.onRemoteUserStateChange = (uid, state) => {
+      this.handleRemoteUserStateChange(uid, state);
+    };
+
     // Add global mouse event listeners for resize
     this.globalMouseMoveHandler = this.handleGlobalMouseMove.bind(this);
     this.globalMouseUpHandler = this.handleGlobalMouseUp.bind(this);
     document.addEventListener('mousemove', this.globalMouseMoveHandler);
     document.addEventListener('mouseup', this.globalMouseUpHandler);
+
+    // Store query params for later use in ngAfterViewInit
+    this.queryParams = qp;
+  }
+
+  private queryParams: any;
+
+  ngAfterViewInit() {
+    // Initialize video call after view is fully initialized
+    setTimeout(async () => {
+      if (this.queryParams?.lessonMode === 'true' && this.queryParams?.lessonId) {
+        await this.initializeVideoCallViaLessonParams(this.queryParams);
+      } else {
+        await this.initializeVideoCall();
+      }
+      this.initializationComplete = true;
+    }, 200);
   }
 
   private async initializeVideoCallViaLessonParams(qp: any) {
@@ -143,6 +160,7 @@ export class VideoCallPage implements OnInit, OnDestroy {
       // Load current user id (for backend join)
       const me = await firstValueFrom(this.userService.getCurrentUser());
       const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
+      this.userRole = role; // Store user role for participant labeling
 
       // Secure join using backend-provided token/appId/uid (with connection state checking)
       // Check for mic/video preferences from pre-call screen
@@ -183,38 +201,29 @@ export class VideoCallPage implements OnInit, OnDestroy {
           micEnabled,
           videoEnabled
         });
-        console.log('✅ Successfully joined lesson via backend');
+        
+        // Update channel name from the join response
+        if (joinResponse.agora.channelName) {
+          this.channelName = joinResponse.agora.channelName;
+        }
+        
+        console.log('✅ Successfully joined lesson via backend, channel:', this.channelName);
       }
 
-      // Set up local video (slight delay to ensure DOM is ready)
-      setTimeout(() => {
-        const localVideoTrack = this.agoraService.getLocalVideoTrack();
-        const localAudioTrack = this.agoraService.getLocalAudioTrack();
-        
-        // Sync UI state with actual track state
-        if (localAudioTrack) {
-          this.isMuted = localAudioTrack.muted;
-        }
-        if (localVideoTrack) {
-          // Use the tracked video enabled state from Agora service for accuracy
-          this.isVideoOff = !this.agoraService.isVideoEnabled();
-        }
-        
-        if (localVideoTrack && this.localVideoRef) {
-          console.log('Setting up local video display:', {
-            videoEnabled: this.agoraService.isVideoEnabled(),
-            trackExists: !!localVideoTrack,
-            elementExists: !!this.localVideoRef?.nativeElement
-          });
-          localVideoTrack.play(this.localVideoRef.nativeElement);
-        } else {
-          console.warn('Local video setup failed:', {
-            videoTrack: !!localVideoTrack,
-            videoRef: !!this.localVideoRef,
-            videoEnabled: this.agoraService.isVideoEnabled()
-          });
-        }
-      }, 100);
+      // Set up local video display - wait for tracks to be ready
+      await this.waitForTracksAndSetupVideo();
+      
+      // If still no video after waiting, try manual setup immediately
+      if (!this.agoraService.getLocalVideoTrack() && this.localVideoRef) {
+        console.log('🔄 No Agora tracks found, trying manual setup immediately...');
+        this.tryManualVideoSetup();
+      }
+      
+      // Sync audio state
+      const localAudioTrack = this.agoraService.getLocalAudioTrack();
+      if (localAudioTrack) {
+        this.isMuted = localAudioTrack.muted;
+      }
 
       // Begin monitoring remote users
       this.monitorRemoteUsers();
@@ -265,18 +274,14 @@ export class VideoCallPage implements OnInit, OnDestroy {
         this.isConnected = true;
       }
 
-      // Set up local video with a small delay to ensure DOM is ready
-      setTimeout(() => {
-        const localVideoTrack = this.agoraService.getLocalVideoTrack();
-        if (localVideoTrack && this.localVideoRef) {
-          console.log('Setting up local video display');
-          localVideoTrack.play(this.localVideoRef.nativeElement);
-        } else {
-          console.log('Local video track or element not available');
-          console.log('Local video track:', localVideoTrack);
-          console.log('Local video ref:', this.localVideoRef);
-        }
-      }, 100);
+      // Set up local video display - wait for tracks to be ready
+      await this.waitForTracksAndSetupVideo();
+      
+      // If still no video after waiting, try manual setup immediately
+      if (!this.agoraService.getLocalVideoTrack() && this.localVideoRef) {
+        console.log('🔄 No Agora tracks found, trying manual setup immediately...');
+        this.tryManualVideoSetup();
+      }
 
       // Set up remote video monitoring
       this.monitorRemoteUsers();
@@ -303,68 +308,242 @@ export class VideoCallPage implements OnInit, OnDestroy {
     }
   }
 
+  private async waitForTracksAndSetupVideo(): Promise<void> {
+    console.log('🎥 Waiting for Agora tracks to be ready...');
+    
+    return new Promise((resolve) => {
+      const checkTracks = (attempts = 0) => {
+        if (attempts > 20) {
+          console.error('❌ Failed to get video tracks after 20 attempts');
+          console.error('❌ Debug info:', {
+            isConnected: this.agoraService.isConnected(),
+            isVideoEnabled: this.agoraService.isVideoEnabled(),
+            client: !!this.agoraService.getClient(),
+            localVideoTrack: !!this.agoraService.getLocalVideoTrack(),
+            localAudioTrack: !!this.agoraService.getLocalAudioTrack()
+          });
+          
+          // Try manual fallback approach
+          console.log('🔄 Attempting manual video setup fallback...');
+          this.tryManualVideoSetup();
+          resolve();
+          return;
+        }
+
+        const localVideoTrack = this.agoraService.getLocalVideoTrack();
+        const localAudioTrack = this.agoraService.getLocalAudioTrack();
+        
+        console.log(`🔍 Track check attempt ${attempts + 1}:`, {
+          videoTrack: !!localVideoTrack,
+          audioTrack: !!localAudioTrack,
+          isConnected: this.agoraService.isConnected(),
+          isVideoEnabled: this.agoraService.isVideoEnabled()
+        });
+        
+        if (localVideoTrack) {
+          console.log('✅ Local video track is ready, setting up display...');
+          
+          // Sync audio state
+          if (localAudioTrack) {
+            this.isMuted = localAudioTrack.muted;
+          }
+          
+          this.setupLocalVideoDisplay();
+          resolve();
+        } else {
+          console.log(`⏳ Waiting for video track (attempt ${attempts + 1})`);
+          setTimeout(() => checkTracks(attempts + 1), 500); // Increased delay
+        }
+      };
+
+      checkTracks();
+    });
+  }
+
+  private tryManualVideoSetup() {
+    console.log('🔧 Trying manual video setup with getUserMedia...');
+    
+    if (!this.localVideoRef) {
+      console.error('❌ No localVideoRef available for manual setup');
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      .then(stream => {
+        console.log('✅ Got manual video stream');
+        
+        // Create video element and play the stream
+        const videoElement = document.createElement('video');
+        videoElement.srcObject = stream;
+        videoElement.autoplay = true;
+        videoElement.muted = true; // Mute to avoid feedback
+        videoElement.style.width = '100%';
+        videoElement.style.height = '100%';
+        videoElement.style.objectFit = 'cover';
+        
+        // Clear and add the video element
+        this.localVideoRef.nativeElement.innerHTML = '';
+        this.localVideoRef.nativeElement.appendChild(videoElement);
+        
+        console.log('✅ Manual video setup complete');
+        this.isVideoOff = false;
+      })
+      .catch(error => {
+        console.error('❌ Manual video setup failed:', error);
+        this.isVideoOff = true;
+      });
+  }
+
+  private setupLocalVideoDisplay() {
+    console.log('🎥 Setting up local video display...');
+    
+    // Wait for ViewChild to be available
+    const attemptSetup = (attempts = 0) => {
+      if (attempts > 10) {
+        console.error('❌ Failed to setup local video after 10 attempts');
+        return;
+      }
+
+      if (!this.localVideoRef) {
+        console.log(`⏳ Waiting for localVideoRef (attempt ${attempts + 1})`);
+        setTimeout(() => attemptSetup(attempts + 1), 100);
+        return;
+      }
+
+      const localVideoTrack = this.agoraService.getLocalVideoTrack();
+      
+      // Sync UI state with actual track state
+      if (localVideoTrack) {
+        const actualVideoState = this.agoraService.isVideoEnabled();
+        this.isVideoOff = !actualVideoState;
+        console.log('✅ Synced video state:', {
+          isVideoOff: this.isVideoOff,
+          actualVideoState: actualVideoState,
+          trackMuted: localVideoTrack.muted,
+          elementExists: !!this.localVideoRef?.nativeElement
+        });
+
+        if (!this.isVideoOff && this.localVideoRef) {
+          try {
+            console.log('🎬 Playing local video in participant tile');
+            this.localVideoRef.nativeElement.innerHTML = '';
+            localVideoTrack.play(this.localVideoRef.nativeElement);
+            console.log('✅ Local video setup complete');
+          } catch (error) {
+            console.error('❌ Error playing local video:', error);
+          }
+        }
+      } else {
+        console.log('⚠️ No local video track available yet');
+        // Retry after a short delay
+        setTimeout(() => attemptSetup(attempts + 1), 200);
+      }
+    };
+
+    attemptSetup();
+  }
+
   private monitorRemoteUsers() {
     // Check for remote users periodically
     setInterval(() => {
       const remoteUsers = this.agoraService.getRemoteUsers();
+      const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
 
-      if (remoteUsers.size > 0 && this.remoteVideoRef) {
+      // Log when remote user count changes
+      if (previousCount !== this.remoteUserCount) {
+        console.log(`👥 Remote user count changed: ${previousCount} → ${this.remoteUserCount}`);
+        console.log(`📊 Remote users details:`, Array.from(remoteUsers.entries()).map(([uid, user]) => ({
+          uid,
+          hasVideo: !!user.videoTrack,
+          hasAudio: !!user.audioTrack
+        })));
+      }
+
+      if (remoteUsers.size > 0) {
         // Get the first remote user's video
         const firstRemoteUser = Array.from(remoteUsers.values())[0];
-        if (firstRemoteUser.videoTrack) {
-          firstRemoteUser.videoTrack.play(this.remoteVideoRef.nativeElement);
+        
+        // Play remote user ONLY in main view (big screen)
+        if (firstRemoteUser.videoTrack && this.remoteVideoRef) {
+          console.log('🎬 Playing remote user video in main view (big screen)');
+          console.log('📺 Video layout: Remote user → Main screen, Local user → Small tile');
+          try {
+            firstRemoteUser.videoTrack.play(this.remoteVideoRef.nativeElement);
+          } catch (error) {
+            console.error('❌ Error playing remote video in main view:', error);
+          }
         }
+        
+        // Note: Remote user should NOT be in the small participant tile
+        // The small tile is only for the local user (yourself)
       }
     }, 1000);
   }
 
   // Method to manually refresh video display
   refreshVideoDisplay() {
-    console.log('Manually refreshing video display...');
-    const localVideoTrack = this.agoraService.getLocalVideoTrack();
-    if (localVideoTrack && this.localVideoRef) {
-      console.log('Re-setting up local video display');
-      localVideoTrack.play(this.localVideoRef.nativeElement);
-    }
+    console.log('🔄 Manually refreshing video display...');
+    this.setupLocalVideoDisplay();
+  }
+
+  // Get the label for the remote participant based on current user's role
+  getRemoteParticipantLabel(): string {
+    return this.userRole === 'tutor' ? 'Student' : 'Tutor';
+  }
+
+  // Debug method to check connection status
+  debugConnectionStatus() {
+    console.log('🔍 Connection Debug Info:', {
+      isConnected: this.isConnected,
+      agoraConnected: this.agoraService.isConnected(),
+      remoteUserCount: this.remoteUserCount,
+      userRole: this.userRole,
+      channelName: this.channelName,
+      localVideoTrack: !!this.agoraService.getLocalVideoTrack(),
+      localAudioTrack: !!this.agoraService.getLocalAudioTrack(),
+      remoteUsers: Array.from(this.agoraService.getRemoteUsers().entries()).map(([uid, user]) => ({
+        uid,
+        hasVideo: !!user.videoTrack,
+        hasAudio: !!user.audioTrack,
+        isMuted: user.isMuted,
+        isVideoOff: user.isVideoOff
+      })),
+      remoteUserStates: Array.from(this.remoteUserStates.entries())
+    });
   }
 
   async toggleMute() {
     try {
+      console.log('🎤 Toggling mute state...');
       this.isMuted = await this.agoraService.toggleMute();
-      console.log('Microphone:', this.isMuted ? 'Muted' : 'Unmuted');
+      console.log('🎤 Mute toggled successfully:', this.isMuted ? 'Muted' : 'Unmuted');
+      console.log('🎤 Should send mute state update to other users now...');
     } catch (error) {
-      console.error('Error toggling mute:', error);
+      console.error('❌ Error toggling mute:', error);
     }
   }
 
   async toggleVideo() {
     try {
+      const previousState = this.isVideoOff;
       this.isVideoOff = await this.agoraService.toggleVideo();
+      console.log('Video toggled from', previousState, 'to', this.isVideoOff);
       console.log('Video:', this.isVideoOff ? 'Off' : 'On');
       
-      // Refresh video display after toggling to ensure it renders correctly
-      if (!this.isVideoOff) {
-        setTimeout(() => {
-          const localVideoTrack = this.agoraService.getLocalVideoTrack();
-          if (localVideoTrack && this.localVideoRef) {
-            // Re-play the video track to ensure it displays after enabling
-            console.log('Refreshing video display after toggle:', {
-              videoEnabled: this.agoraService.isVideoEnabled(),
-              trackExists: !!localVideoTrack,
-              elementExists: !!this.localVideoRef?.nativeElement
-            });
-            localVideoTrack.play(this.localVideoRef.nativeElement);
-            console.log('Video display refreshed after enabling camera');
-          } else {
-            console.warn('Video refresh failed:', {
-              videoTrack: !!localVideoTrack,
-              videoRef: !!this.localVideoRef,
-              videoEnabled: this.agoraService.isVideoEnabled()
-            });
+      // Refresh video display after toggling
+      setTimeout(() => {
+        if (!this.isVideoOff) {
+          // Video was turned ON - setup display
+          this.setupLocalVideoDisplay();
+        } else {
+          // Video was turned OFF - clear the video element
+          if (this.localVideoRef) {
+            console.log('🚫 Turning video OFF - clearing display');
+            this.localVideoRef.nativeElement.innerHTML = '';
           }
-        }, 100); // Short delay for setEnabled to take effect
-      }
+        }
+      }, 200);
     } catch (error) {
       console.error('Error toggling video:', error);
     }
@@ -403,8 +582,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
         this.ctx.strokeStyle = this.currentColor;
         this.ctx.lineWidth = this.currentBrushSize;
         console.log('Whiteboard initialized successfully');
-        console.log('Canvas:', this.canvas);
-        console.log('Context:', this.ctx);
       } else {
         console.error('Failed to get 2D context');
       }
@@ -440,7 +617,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     }
   }
 
-  // Text tool methods
   setTool(tool: 'draw' | 'text' | 'move') {
     this.currentTool = tool;
     console.log('Tool changed to:', tool);
@@ -464,7 +640,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
 
     console.log('Adding text to canvas:', this.inlineTextValue);
 
-    // Create text element
     const textElement = {
       type: 'text',
       text: this.inlineTextValue,
@@ -475,15 +650,9 @@ export class VideoCallPage implements OnInit, OnDestroy {
       id: Date.now() + Math.random()
     };
 
-    // Add to elements array
     this.whiteboardElements.push(textElement);
-
-    // Redraw canvas with all elements
     this.redrawCanvas();
-
-    // Send text data to other users
     this.agoraService.sendWhiteboardData(textElement);
-
     this.cancelTextInput();
   }
 
@@ -492,21 +661,19 @@ export class VideoCallPage implements OnInit, OnDestroy {
     this.inlineTextValue = '';
   }
 
-  // Fullscreen functionality
   toggleFullscreen() {
     console.log('Toggle fullscreen called, current state:', this.isWhiteboardFullscreen);
     this.isWhiteboardFullscreen = !this.isWhiteboardFullscreen;
 
     if (this.isWhiteboardFullscreen) {
-      // Set to fullscreen dimensions and position
-      this.whiteboardWidth = window.innerWidth - 40;
+      const rightOffset = this.showChat ? 400 : 40;
+      this.whiteboardWidth = window.innerWidth - rightOffset - 40;
       this.whiteboardHeight = window.innerHeight - 100;
       this.canvasWidth = this.whiteboardWidth - 30;
       this.canvasHeight = this.whiteboardHeight - 120;
       this.whiteboardX = 20;
       this.whiteboardY = 20;
     } else {
-      // Reset to default dimensions and position
       this.whiteboardWidth = 450;
       this.whiteboardHeight = 400;
       this.canvasWidth = 400;
@@ -515,18 +682,14 @@ export class VideoCallPage implements OnInit, OnDestroy {
       this.whiteboardY = 100;
     }
 
-    // Redraw canvas with new dimensions
     setTimeout(() => {
       this.redrawCanvas();
     }, 100);
   }
 
-  // Whiteboard drag functionality
   startWhiteboardDrag(event: MouseEvent) {
-    // Only allow dragging if not in fullscreen mode
     if (this.isWhiteboardFullscreen) return;
 
-    // Don't start drag if clicking on buttons
     const target = event.target as HTMLElement;
     if (target.closest('ion-button')) return;
 
@@ -540,7 +703,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     this.whiteboardDragOffsetX = this.whiteboardX;
     this.whiteboardDragOffsetY = this.whiteboardY;
 
-    // Add dragging class to body to prevent text selection
     document.body.classList.add('whiteboard-dragging');
   }
 
@@ -552,11 +714,9 @@ export class VideoCallPage implements OnInit, OnDestroy {
     const deltaX = event.clientX - this.whiteboardDragStartX;
     const deltaY = event.clientY - this.whiteboardDragStartY;
 
-    // Calculate new position
     let newX = this.whiteboardDragOffsetX + deltaX;
     let newY = this.whiteboardDragOffsetY + deltaY;
 
-    // Keep whiteboard within screen bounds
     const maxX = window.innerWidth - this.whiteboardWidth;
     const maxY = window.innerHeight - this.whiteboardHeight;
 
@@ -571,13 +731,10 @@ export class VideoCallPage implements OnInit, OnDestroy {
     if (this.isWhiteboardDragging) {
       console.log('Stopped whiteboard drag');
       this.isWhiteboardDragging = false;
-
-      // Remove dragging class from body
       document.body.classList.remove('whiteboard-dragging');
     }
   }
 
-  // Global mouse event handlers for whiteboard dragging
   handleGlobalMouseMove(event: MouseEvent) {
     if (this.isWhiteboardDragging) {
       this.handleWhiteboardDrag(event);
@@ -590,7 +747,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     }
   }
 
-  // Drag and move functionality
   startDragging(event: MouseEvent) {
     if (!this.canvas) return;
 
@@ -598,7 +754,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Find element at click position
     this.draggedElement = this.getElementAtPosition(x, y);
 
     if (this.draggedElement) {
@@ -616,22 +771,17 @@ export class VideoCallPage implements OnInit, OnDestroy {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // Calculate movement
     const deltaX = x - this.dragStartX;
     const deltaY = y - this.dragStartY;
 
-    // Update element position
     this.draggedElement.x += deltaX;
     this.draggedElement.y += deltaY;
 
-    // Update drag start position
     this.dragStartX = x;
     this.dragStartY = y;
 
-    // Redraw canvas
     this.redrawCanvas();
 
-    // Send updated position to other users
     this.agoraService.sendWhiteboardData({
       type: 'move',
       elementId: this.draggedElement.id,
@@ -649,11 +799,9 @@ export class VideoCallPage implements OnInit, OnDestroy {
   }
 
   getElementAtPosition(x: number, y: number): any {
-    // Check text elements (reverse order to get topmost element)
     for (let i = this.whiteboardElements.length - 1; i >= 0; i--) {
       const element = this.whiteboardElements[i];
       if (element.type === 'text') {
-        // Simple bounding box check for text
         const textWidth = this.ctx?.measureText(element.text).width || 0;
         if (x >= element.x && x <= element.x + textWidth &&
           y >= element.y && y <= element.y + element.size) {
@@ -667,10 +815,8 @@ export class VideoCallPage implements OnInit, OnDestroy {
   redrawCanvas() {
     if (!this.ctx || !this.canvas) return;
 
-    // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Redraw all elements
     this.whiteboardElements.forEach(element => {
       if (this.ctx) {
         if (element.type === 'text') {
@@ -766,7 +912,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     this.ctx.lineTo(currentX, currentY);
     this.ctx.stroke();
 
-    // Create drawing stroke element
     const strokeElement = {
       type: 'draw',
       fromX: this.lastX,
@@ -778,10 +923,7 @@ export class VideoCallPage implements OnInit, OnDestroy {
       id: Date.now() + Math.random()
     };
 
-    // Add to elements array
     this.whiteboardElements.push(strokeElement);
-
-    // Send drawing data to other users
     this.agoraService.sendWhiteboardData(strokeElement);
 
     this.lastX = currentX;
@@ -792,7 +934,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
     this.isDrawingActive = false;
   }
 
-  // Chat methods
   sendMessage() {
     if (this.newMessage.trim()) {
       const message = {
@@ -804,14 +945,9 @@ export class VideoCallPage implements OnInit, OnDestroy {
 
       console.log('Sending chat message:', message);
       this.chatMessages.push(message);
-      console.log('Total chat messages after adding:', this.chatMessages.length);
-
-      // Send message to other users via messaging service
       this.agoraService.sendChatMessage(message);
-
       this.newMessage = '';
 
-      // Scroll to bottom
       setTimeout(() => {
         if (this.chatMessagesRef) {
           this.chatMessagesRef.nativeElement.scrollTop = this.chatMessagesRef.nativeElement.scrollHeight;
@@ -830,7 +966,6 @@ export class VideoCallPage implements OnInit, OnDestroy {
 
     this.chatMessages.push(message);
 
-    // Scroll to bottom
     setTimeout(() => {
       if (this.chatMessagesRef) {
         this.chatMessagesRef.nativeElement.scrollTop = this.chatMessagesRef.nativeElement.scrollHeight;
@@ -839,12 +974,10 @@ export class VideoCallPage implements OnInit, OnDestroy {
   }
 
   shareScreen() {
-    // TODO: Implement screen sharing
     console.log('Screen sharing not implemented yet');
     alert('Screen sharing feature coming soon!');
   }
 
-  // Handle remote whiteboard data
   handleRemoteWhiteboardData(data: any) {
     console.log('Received remote whiteboard data:', data);
 
@@ -852,19 +985,16 @@ export class VideoCallPage implements OnInit, OnDestroy {
 
     switch (data.type) {
       case 'draw':
-        // Add drawing stroke to local storage
         this.whiteboardElements.push(data);
         this.redrawCanvas();
         break;
 
       case 'text':
-        // Add text element to local storage
         this.whiteboardElements.push(data);
         this.redrawCanvas();
         break;
 
       case 'move':
-        // Find and update element position
         const element = this.whiteboardElements.find(el => el.id === data.elementId);
         if (element) {
           element.x = data.x;
@@ -880,17 +1010,14 @@ export class VideoCallPage implements OnInit, OnDestroy {
     }
   }
 
-  // Handle remote chat messages
   handleRemoteChatMessage(message: any) {
     console.log('Received remote chat message:', message);
 
-    // Don't add your own messages again
     if (message.isOwn) {
       console.log('Skipping own message to avoid duplication');
       return;
     }
 
-    // Add the message to chat
     const chatMessage = {
       ...message,
       isOwn: false
@@ -900,12 +1027,46 @@ export class VideoCallPage implements OnInit, OnDestroy {
     this.chatMessages.push(chatMessage);
     console.log('Total chat messages:', this.chatMessages.length);
 
-    // Scroll to bottom
     setTimeout(() => {
       if (this.chatMessagesRef) {
         this.chatMessagesRef.nativeElement.scrollTop = this.chatMessagesRef.nativeElement.scrollHeight;
       }
     }, 100);
+  }
+
+  handleRemoteUserStateChange(uid: any, state: { isMuted?: boolean; isVideoOff?: boolean }) {
+    console.log('🔄 Remote user state changed:', { uid, state });
+    console.log('🔄 Before update - remoteUserStates:', Array.from(this.remoteUserStates.entries()));
+    
+    this.remoteUserStates.set(uid, { ...this.remoteUserStates.get(uid), ...state });
+    
+    console.log('🔄 After update - remoteUserStates:', Array.from(this.remoteUserStates.entries()));
+    console.log('🔄 UI should now show mute state:', state.isMuted !== undefined ? (state.isMuted ? 'MUTED' : 'UNMUTED') : 'NO CHANGE');
+    
+    // Force change detection to update UI
+    setTimeout(() => {
+      // This will trigger Angular change detection
+      console.log('🔄 Angular change detection triggered');
+    }, 0);
+  }
+
+  // Get the mute state for the first remote user (for display in main video overlay)
+  getRemoteUserMuteState(): boolean {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    if (remoteUsers.size > 0) {
+      const firstRemoteUid = Array.from(remoteUsers.keys())[0];
+      const state = this.remoteUserStates.get(firstRemoteUid);
+      return state?.isMuted || false;
+    }
+    return false;
+  }
+
+  // Test method to manually send mute state update
+  async testMuteSync() {
+    console.log('🧪 Testing mute synchronization...');
+    const testMuteState = !this.isMuted; // Toggle current state for testing
+    await this.agoraService.sendMuteStateUpdate(testMuteState);
+    console.log('🧪 Test mute state sent:', testMuteState);
   }
 
   async endCall() {
@@ -914,22 +1075,18 @@ export class VideoCallPage implements OnInit, OnDestroy {
       await this.agoraService.leaveChannel();
       this.isConnected = false;
 
-      // Navigate back to home
       this.router.navigate(['/tabs']);
     } catch (error) {
       console.error('Error ending call:', error);
-      // Still navigate back even if there's an error
       this.router.navigate(['/tabs']);
     }
   }
 
   async ngOnDestroy() {
-    // Clean up when component is destroyed
     if (this.isConnected) {
       await this.endCall();
     }
 
-    // Remove global event listeners
     if (this.globalMouseMoveHandler) {
       document.removeEventListener('mousemove', this.globalMouseMoveHandler);
     }

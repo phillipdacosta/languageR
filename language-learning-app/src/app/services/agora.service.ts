@@ -20,7 +20,7 @@ export class AgoraService {
   private client: IAgoraRTCClient | null = null;
   private localVideoTrack: ICameraVideoTrack | null = null;
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
-  private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> = new Map();
+  private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean }> = new Map();
   private videoEnabledState: boolean = true; // Track video enabled state
 
   // Real-time messaging properties
@@ -28,6 +28,11 @@ export class AgoraService {
   private lastMessageTime: string = new Date().toISOString();
   private pollingInterval: any = null;
   private currentLessonId: string | null = null;
+
+  // Callback functions for real-time updates
+  public onWhiteboardMessage?: (data: any) => void;
+  public onChatMessage?: (message: any) => void;
+  public onRemoteUserStateChange?: (uid: UID, state: { isMuted?: boolean; isVideoOff?: boolean }) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -41,10 +46,6 @@ export class AgoraService {
     bitrateMin: 600,  // 600 kbps minimum
     optimizationMode: 'detail' as const // Prioritize quality over latency
   };
-
-  // Callbacks for real-time messaging
-  onWhiteboardMessage?: (data: any) => void;
-  onChatMessage?: (message: any) => void;
 
   constructor(
     private tokenGenerator: TokenGeneratorService,
@@ -135,24 +136,33 @@ export class AgoraService {
 
     // Listen for remote user joining
     this.client.on("user-published", async (user, mediaType) => {
-      console.log("User published:", user, mediaType);
+      console.log("🎉 User published:", user.uid, mediaType);
       
-      // Subscribe to the remote user
-      await this.client!.subscribe(user, mediaType);
-      
-      if (mediaType === "video") {
-        this.remoteUsers.set(user.uid, { 
-          ...this.remoteUsers.get(user.uid), 
-          videoTrack: user.videoTrack 
-        });
-      }
-      
-      if (mediaType === "audio") {
-        this.remoteUsers.set(user.uid, { 
-          ...this.remoteUsers.get(user.uid), 
-          audioTrack: user.audioTrack 
-        });
-        user.audioTrack?.play();
+      try {
+        // Subscribe to the remote user
+        await this.client!.subscribe(user, mediaType);
+        console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
+        
+        if (mediaType === "video") {
+          this.remoteUsers.set(user.uid, { 
+            ...this.remoteUsers.get(user.uid), 
+            videoTrack: user.videoTrack 
+          });
+          console.log("📹 Added video track for user:", user.uid);
+        }
+        
+        if (mediaType === "audio") {
+          this.remoteUsers.set(user.uid, { 
+            ...this.remoteUsers.get(user.uid), 
+            audioTrack: user.audioTrack 
+          });
+          user.audioTrack?.play();
+          console.log("🔊 Added audio track for user:", user.uid);
+        }
+        
+        console.log("👥 Total remote users:", this.remoteUsers.size);
+      } catch (error) {
+        console.error("❌ Error subscribing to user:", user.uid, error);
       }
     });
 
@@ -177,8 +187,9 @@ export class AgoraService {
 
     // Listen for remote user leaving the channel
     this.client.on("user-left", (user) => {
-      console.log("User left:", user);
+      console.log("👋 User left:", user.uid);
       this.remoteUsers.delete(user.uid);
+      console.log("👥 Total remote users after leave:", this.remoteUsers.size);
     });
 
     // Note: Real-time messaging would require Agora RTM SDK
@@ -394,6 +405,9 @@ export class AgoraService {
         const data = await response.json();
         
         if (data.success && data.messages.length > 0) {
+          console.log(`📥 Polling found ${data.messages.length} new messages:`, 
+            data.messages.map((m: any) => ({ type: m.type, timestamp: m.timestamp })));
+          
           // Process each message
           data.messages.forEach((message: any) => {
             this.handleReceivedMessage(message);
@@ -402,6 +416,8 @@ export class AgoraService {
           // Update last message time
           this.lastMessageTime = data.serverTime;
         }
+      } else {
+        console.error('❌ Message polling failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error("Error polling for messages:", error);
@@ -409,7 +425,7 @@ export class AgoraService {
   }
 
   private handleReceivedMessage(message: any): void {
-    console.log("Received message:", message);
+    console.log("📥 Received message:", message);
     
     try {
       if (message.type === 'whiteboard') {
@@ -420,9 +436,17 @@ export class AgoraService {
         if (this.onChatMessage) {
           this.onChatMessage(message.payload);
         }
+      } else if (message.type === 'muteState') {
+        console.log('🎤 Processing mute state message:', message.payload);
+        this.handleRemoteMuteStateUpdate(message.payload);
+      } else if (message.type === 'videoState') {
+        console.log('📹 Processing video state message:', message.payload);
+        this.handleRemoteVideoStateUpdate(message.payload);
+      } else {
+        console.log('⚠️ Unknown message type:', message.type);
       }
     } catch (error) {
-      console.error("Error handling received message:", error);
+      console.error("❌ Error handling received message:", error);
     }
   }
 
@@ -503,6 +527,11 @@ export class AgoraService {
 
     const isMuted = this.localAudioTrack.muted;
     await this.localAudioTrack.setMuted(!isMuted);
+    
+    // Send mute state to other users via messaging
+    await this.sendMuteStateUpdate(!isMuted);
+    
+    console.log(`🎤 Microphone ${!isMuted ? 'muted' : 'unmuted'}, notified remote users`);
     return !isMuted;
   }
 
@@ -518,6 +547,9 @@ export class AgoraService {
       
       await this.localVideoTrack.setEnabled(newState);
       this.videoEnabledState = newState;
+      
+      // Send video state to other users via messaging
+      await this.sendVideoStateUpdate(!newState);
       
       console.log('Video track setEnabled completed:', {
         newState,
@@ -544,8 +576,13 @@ export class AgoraService {
     return this.videoEnabledState;
   }
 
-  getRemoteUsers(): Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack }> {
+  getRemoteUsers(): Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean }> {
     return this.remoteUsers;
+  }
+
+  getRemoteUserState(uid: UID): { isMuted?: boolean; isVideoOff?: boolean } | null {
+    const user = this.remoteUsers.get(uid);
+    return user ? { isMuted: user.isMuted, isVideoOff: user.isVideoOff } : null;
   }
 
   async getDevices() {
@@ -599,9 +636,69 @@ export class AgoraService {
         if (this.onChatMessage) {
           this.onChatMessage(data.payload);
         }
+      } else if (data.type === 'muteState') {
+        this.handleRemoteMuteStateUpdate(data.payload);
+      } else if (data.type === 'videoState') {
+        this.handleRemoteVideoStateUpdate(data.payload);
       }
     } catch (error) {
       console.error("Error parsing message:", error);
+    }
+  }
+
+  private handleRemoteMuteStateUpdate(payload: { uid: UID; isMuted: boolean; timestamp: string }): void {
+    console.log('🎤 Received remote mute state update:', payload);
+    
+    // Try to find the remote user by UID first
+    let remoteUser = this.remoteUsers.get(payload.uid);
+    let targetUid = payload.uid;
+    
+    // If not found by UID (or UID is null), use the first available remote user
+    if (!remoteUser && this.remoteUsers.size > 0) {
+      const firstRemoteEntry = Array.from(this.remoteUsers.entries())[0];
+      targetUid = firstRemoteEntry[0];
+      remoteUser = firstRemoteEntry[1];
+      console.log(`🎤 UID ${payload.uid} not found, using first remote user: ${targetUid}`);
+    }
+    
+    if (remoteUser) {
+      remoteUser.isMuted = payload.isMuted;
+      console.log(`✅ Updated remote user ${targetUid} mute state to: ${payload.isMuted ? 'muted' : 'unmuted'}`);
+      
+      // Notify the video call component if callback is set
+      if (this.onRemoteUserStateChange) {
+        this.onRemoteUserStateChange(targetUid, { isMuted: payload.isMuted });
+      }
+    } else {
+      console.log('⚠️ No remote users found to update mute state');
+    }
+  }
+
+  private handleRemoteVideoStateUpdate(payload: { uid: UID; isVideoOff: boolean; timestamp: string }): void {
+    console.log('📹 Received remote video state update:', payload);
+    
+    // Try to find the remote user by UID first
+    let remoteUser = this.remoteUsers.get(payload.uid);
+    let targetUid = payload.uid;
+    
+    // If not found by UID (or UID is null), use the first available remote user
+    if (!remoteUser && this.remoteUsers.size > 0) {
+      const firstRemoteEntry = Array.from(this.remoteUsers.entries())[0];
+      targetUid = firstRemoteEntry[0];
+      remoteUser = firstRemoteEntry[1];
+      console.log(`📹 UID ${payload.uid} not found, using first remote user: ${targetUid}`);
+    }
+    
+    if (remoteUser) {
+      remoteUser.isVideoOff = payload.isVideoOff;
+      console.log(`✅ Updated remote user ${targetUid} video state to: ${payload.isVideoOff ? 'off' : 'on'}`);
+      
+      // Notify the video call component if callback is set
+      if (this.onRemoteUserStateChange) {
+        this.onRemoteUserStateChange(targetUid, { isVideoOff: payload.isVideoOff });
+      }
+    } else {
+      console.log('⚠️ No remote users found to update video state');
     }
   }
 
@@ -656,6 +753,82 @@ export class AgoraService {
       }
     } catch (error) {
       console.error("Error sending chat message:", error);
+    }
+  }
+
+  // Send mute state update to other users
+  async sendMuteStateUpdate(isMuted: boolean): Promise<void> {
+    console.log('📤 Attempting to send mute state update:', { 
+      isMuted, 
+      channelName: this.channelName, 
+      uid: this.UID 
+    });
+
+    if (!this.channelName || this.channelName === 'default') {
+      console.warn("❌ Cannot send mute state: no active channel");
+      return;
+    }
+
+    try {
+      const payload = {
+        type: 'muteState',
+        payload: {
+          uid: this.UID,
+          isMuted: isMuted,
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      console.log('📤 Sending mute state payload:', payload);
+
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      console.log('📤 Mute state response status:', response.status);
+
+      if (response.ok) {
+        const responseData = await response.text();
+        console.log("✅ Mute state sent successfully:", { isMuted, response: responseData });
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Failed to send mute state:", response.status, response.statusText, errorText);
+      }
+    } catch (error) {
+      console.error("❌ Error sending mute state:", error);
+    }
+  }
+
+  // Send video state update to other users
+  async sendVideoStateUpdate(isVideoOff: boolean): Promise<void> {
+    if (!this.channelName || this.channelName === 'default') {
+      console.warn("Cannot send video state: no active channel");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          type: 'videoState',
+          payload: {
+            uid: this.UID,
+            isVideoOff: isVideoOff,
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+
+      if (response.ok) {
+        console.log("Video state sent successfully:", { isVideoOff });
+      } else {
+        console.error("Failed to send video state:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error sending video state:", error);
     }
   }
 
