@@ -189,18 +189,35 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     console.log('Current events:', this.events);
     
     try {
+      // Detect if mobile
+      const isMobile = window.innerWidth <= 768;
+      
       this.calendar = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-        initialView: 'timeGridWeek',
-        headerToolbar: {
-          left: 'prev,next today',
+        initialView: isMobile ? 'timeGridWeek' : 'timeGridWeek',
+        headerToolbar: isMobile ? {
+          left: 'prev,next',
+          center: 'title',
+          right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        } : {
+          left: 'prev,next',
           center: 'title',
           right: 'dayGridMonth,timeGridWeek,timeGridDay'
         },
+        height: '100%',
+        contentHeight: 'auto',
         slotMinTime: '06:00:00',
         slotMaxTime: '22:00:00',
         slotDuration: '00:30:00',
         slotLabelInterval: '01:00:00',
+        scrollTime: '09:00:00',
+        nowIndicator: true,
+        allDaySlot: false,
+        businessHours: {
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 0],
+          startTime: '08:00',
+          endTime: '20:00'
+        },
         editable: true,
         selectable: true,
         selectMirror: true,

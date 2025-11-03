@@ -1,5 +1,5 @@
 ion-content {
-  --background: #f8f9fa;
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -10,7 +10,9 @@ ion-content {
   position: relative;
   width: 100%;
   height: 100vh;
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
 }
 
 .calendar-sidebar {
@@ -19,13 +21,15 @@ ion-content {
     top: 0;
     width: 280px;
     height: 100%;
-    background: #f8f9fa;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
     padding: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid #e9ecef;
+    border-right: 1px solid rgba(102, 126, 234, 0.1);
     overflow-y: auto;
     z-index: 1;
+    box-shadow: 4px 0 20px rgba(102, 126, 234, 0.05);
 }
 
 // Sidebar header for mobile
@@ -34,25 +38,31 @@ ion-content {
   align-items: center;
   justify-content: space-between;
   padding: 20px 31px;
-  background: #e9ecef;
-  border-bottom: 1px solid #dee2e6;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   user-select: none;
   
   h3 {
     margin: 0;
     font-size: 18px;
-    font-weight: 600;
-    color: #212529;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   
   .sidebar-expand-icon {
     font-size: 20px;
-    color: #6c757d;
-    transition: transform 0.3s ease;
+    color: rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
     
     &.expanded {
       transform: rotate(180deg);
+    }
+    
+    &:hover {
+      color: #ffffff;
+      transform: scale(1.1);
     }
   }
   
@@ -89,40 +99,73 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: 16px;
 }
 
 .schedule-lesson-btn {
-  --background: #ec4899;
+  --background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   --color: white;
-  --border-radius: 8px;
-  height: 48px;
-  font-weight: 600;
+  --border-radius: 16px;
+  height: 52px;
+  font-weight: 700;
   font-size: 16px;
-  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
-  margin-bottom: 8px;
+  box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+  margin-bottom: 12px;
+  transition: all 0.3s ease;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(240, 147, 251, 0.6);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
 }
 
 .action-btn {
-  --border-color: #ec4899;
-  --color: #ec4899;
-  --border-radius: 8px;
-  height: 44px;
-  font-weight: 500;
+  --background: rgba(255, 255, 255, 0.95);
+  --border-color: rgba(102, 126, 234, 0.2);
+  --color: #667eea;
+  --border-radius: 12px;
+  height: 46px;
+  font-weight: 600;
   font-size: 14px;
   border-width: 1px;
+  backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    --background: rgba(255, 255, 255, 1);
+    --border-color: rgba(102, 126, 234, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+  }
 }
 
 .tags-section, .lesson-status-section {
-  background: white;
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.12);
+    border-color: rgba(102, 126, 234, 0.15);
+  }
 }
 
 .tags-section h4, .lesson-status-section h4 {
   font-size: 16px;
   font-weight: 600;
-  color: #212529;
+  color: #4b5563;
   margin: 0 0 16px 0;
 }
 
@@ -167,16 +210,16 @@ ion-content {
 .tag-item {
   display: flex;
   align-items: center;
-  padding: 8px 0;
-  border-left: 3px solid;
-  padding-left: 12px;
+  padding: 10px 0;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-radius: 8px;
 }
 
 .tag-item:hover {
-  background: #f8f9fa;
-  border-radius: 6px;
+  background: rgba(102, 126, 234, 0.05);
+  padding: 10px 12px;
+  margin: 0 -12px;
 }
 
 .tag-color {
@@ -188,47 +231,50 @@ ion-content {
 
 .tag-item span {
   font-size: 14px;
-  color: #495057;
+  color: #6b7280;
   font-weight: 500;
 }
 
 .status-item {
   display: flex;
   align-items: center;
-  padding: 8px 0;
+  padding: 10px 0;
   cursor: pointer;
   transition: all 0.2s ease;
+  border-radius: 8px;
 }
 
 .status-item:hover {
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 8px 12px;
+  background: rgba(102, 126, 234, 0.05);
+  padding: 10px 12px;
   margin: 0 -12px;
 }
 
 .status-icon {
   margin-right: 12px;
-  color: #6c757d;
+  color: #6b7280;
   font-size: 18px;
 }
 
 .status-item span {
   font-size: 14px;
-  color: #495057;
+  color: #6b7280;
   font-weight: 500;
 }
 
 .main-calendar {
   position: absolute;
   left: 300px;
-  top: 20px;
-  right: 20px;
-  bottom: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 0;
+  box-shadow: none;
   z-index: 0;
+  border: none;
+  overflow: hidden;
 }
 
 #tutor-calendar-container {
@@ -237,10 +283,9 @@ ion-content {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  top: 35px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 
 .calendar-loading {
@@ -365,6 +410,37 @@ ion-content {
   }
 }
 
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+  }
+}
+
 // Smooth transitions for calendar updates
 .fc {
   transition: opacity 0.2s ease-in-out;
@@ -380,20 +456,27 @@ ion-content {
 
 .help-button {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  --background: white;
-  --color: #6c757d;
+  bottom: 24px;
+  right: 24px;
+  --background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  --color: white;
   --border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  width: 56px;
+  height: 56px;
+//   box-shadow: 0 8px 25px rgba(67, 233, 123, 0.4);
   z-index: 1000;
+  transition: all 0.3s ease;
+  
+  ion-icon {
+    font-size: 24px;
+    font-weight: bold;
+  }
 }
 
 .help-button:hover {
-  --background: #f8f9fa;
-  --color: #495057;
+  --background: linear-gradient(135deg, #38d9a9 0%, #20c997 100%);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(67, 233, 123, 0.6);
 }
 
 // FullCalendar custom styling to match the design
@@ -403,42 +486,51 @@ ion-content {
 }
 
 .fc-toolbar {
-  padding: 0 0 20px 0;
-  background: transparent;
-  border-bottom: 1px solid #e9ecef;
-  margin-bottom: 20px;
+  padding: 24px 24px 24px 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  margin-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  backdrop-filter: blur(10px);
 }
 
 .fc-toolbar-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #212529;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #667eea;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  letter-spacing: -0.5px;
 }
 
 .fc-button {
-  background: #ec4899;
-  border: 1px solid #ec4899;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
   color: white;
-  border-radius: 6px;
-  padding: 8px 16px;
+  border-radius: 12px;
+  padding: 10px 20px;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  text-transform: none;
+  letter-spacing: 0.3px;
 }
 
 .fc-button:hover {
-  background: #db2777;
-  border-color: #db2777;
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
 }
 
 .fc-button-primary:not(:disabled):active {
-  background: #db2777;
-  border-color: #db2777;
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(0);
 }
 
 .fc-button-primary:not(:disabled).fc-button-active {
-  background: #db2777;
-  border-color: #db2777;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+  transform: scale(1.05);
 }
 
 .fc-button-group .fc-button {
@@ -471,18 +563,22 @@ ion-content {
 }
 
 .fc-event {
-  background: #ec4899;
-  border: 1px solid #ec4899;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 12px;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
   color: white;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .fc-event:hover {
-  background: #db2777;
-  border-color: #db2777;
+  background: linear-gradient(135deg, #ff5252 0%, #d84315 100%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.5);
 }
 
 .fc-timegrid-event {
@@ -494,12 +590,15 @@ ion-content {
 }
 
 .fc-col-header-cell {
-  background: #f8f9fa;
-  border-color: #e9ecef;
-  color: #495057;
-  font-weight: 600;
-  padding: 12px 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #667eea;
+  font-weight: 700;
+  padding: 16px 12px;
   font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  backdrop-filter: blur(10px);
 }
 
 .fc-scrollgrid {
@@ -520,21 +619,92 @@ ion-content {
 
 // Highlight current day
 .fc-day-today {
-  background-color: rgba(236, 72, 153, 0.05) !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
+  border: 2px solid rgba(102, 126, 234, 0.3) !important;
+  border-radius: 8px !important;
 }
 
 .fc-day-today .fc-daygrid-day-number {
-  color: #ec4899;
-  font-weight: 600;
+  color: #667eea;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 // Responsive design
 @media (max-width: 768px) {
+  // Remove ion-content padding for full screen
+  ion-content {
+    --padding-start: 0;
+    --padding-end: 0;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  }
+  
   .calendar-layout {
-    position: relative;
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    z-index: 1;
+  }
+  
+  // VIBRANT TABLET TOOLBAR - Force layout improvements
+  .fc .fc-toolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    padding: 18px 20px !important;
+    gap: 14px !important;
+    min-height: 68px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3) !important;
+    flex-wrap: nowrap !important;
+    border-radius: 0 0 16px 16px !important;
+  }
+  
+  .fc .fc-toolbar-chunk {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 9px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  .fc .fc-toolbar-chunk:first-child {
+    width: auto !important;
+    min-width: 75px !important;
+  }
+  
+  .fc .fc-toolbar-chunk:last-child {
+    align-items: flex-end !important;
+    width: auto !important;
+    min-width: 110px !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    align-self: center !important;
+    margin: 0 !important;
+    padding: 0 14px !important;
+    flex: 1 !important;
+    text-align: center !important;
+    min-width: 0 !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
   }
   
   .calendar-sidebar {
@@ -543,18 +713,29 @@ ion-content {
     top: auto;
     width: 100%;
     height: auto;
+    min-height: auto;
+    max-height: none;
     padding: 0;
     border-right: none;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     overflow-y: visible;
     z-index: auto;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(20px) !important;
     
     .sidebar-header {
       display: flex;
-    }
-    
-    .sidebar-content {
-      // Content will be collapsed by default due to CSS above
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 16px 20px;
+      
+      h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #ffffff !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
     }
   }
   
@@ -566,9 +747,16 @@ ion-content {
     bottom: auto;
     margin: 0;
     border-radius: 0;
-    height: calc(100vh - 80px); // Increased height - less space for header/tabs
-    min-height: calc(100vh - 80px);
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     box-shadow: none;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border: none;
   }
   
   #tutor-calendar-container {
@@ -578,12 +766,18 @@ ion-content {
     right: auto;
     bottom: auto;
     height: 100%;
-    min-height: calc(100vh - 100px);
-    padding: 12px;
+    width: 100%;
+    min-height: 0;
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
   }
   
   .help-button {
-    bottom: 10px;
+    bottom: 80px;
     right: 10px;
     width: 40px;
     height: 40px;
@@ -609,36 +803,362 @@ ion-content {
     }
   }
   
-  // Mobile button optimizations
-  .action-buttons {
-    gap: 12px;
-    padding: 16px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        // Mobile button optimizations
+        .action-buttons {
+          gap: 12px;
+          padding: 16px;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
+          border-radius: 16px;
+          box-shadow: 0 8px 32px rgba(102, 126, 234, 0.08);
+          border: 1px solid rgba(102, 126, 234, 0.1);
+          
+          ion-button {
+            height: 36px;
+            font-size: 12px;
+            margin: 2px 0;
+            border-radius: 6px;
+            
+            ion-icon {
+              font-size: 14px;
+            }
+          }
+          
+          .schedule-lesson-btn {
+            height: 40px;
+            font-size: 13px;
+            font-weight: 600;
+            margin: 3px 0;
+          }
+        }
+  
+  // FullCalendar mobile optimizations - clean modern design
+  .fc {
+    height: 100% !important;
+    min-height: 0 !important;
+    font-size: 13px !important;
+    border: none !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    border-radius: 0 0 20px 20px !important;
+    overflow: hidden !important;
+  }
+  
+  .fc-toolbar {
+    padding: 16px 20px !important;
+    margin-bottom: 0 !important;
+    flex-wrap: nowrap !important;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%) !important;
+    backdrop-filter: blur(20px) !important;
+    border-bottom: none !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    min-height: auto !important;
+    gap: 16px !important;
+    border-radius: 0 0 20px 20px !important;
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3) !important;
     
-    ion-button {
-      height: 44px;
-      font-size: 14px;
-      margin: 4px 0;
+    .fc-toolbar-chunk {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+  }
+  
+  .fc-toolbar-title {
+    font-size: 1.2rem !important;
+    margin: 0 !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    flex: 0 0 auto !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
+    padding: 0 12px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    letter-spacing: -0.3px !important;
+  }
+  
+  // Navigation buttons group - single elongated dark grey button with chevrons
+  .fc-toolbar-chunk:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+    
+    .fc-button-group {
+      display: flex !important;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+      border: none !important;
+      border-radius: 16px !important;
+      overflow: hidden !important;
+      height: 44px !important;
+      width: 88px !important;
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.5) !important;
       
-      ion-icon {
-        font-size: 18px;
+      .fc-button {
+        background: transparent !important;
+        border: none !important;
+        color: #fff !important;
+        min-width: 44px !important;
+        width: 44px !important;
+        height: 100% !important;
+        padding: 0 !important;
+        font-size: 18px !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        
+        &:not(:last-child) {
+          border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+        }
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.2) !important;
+          transform: scale(1.05) !important;
+        }
+        
+        &:active {
+          transform: scale(0.95) !important;
+        }
       }
     }
     
-    .schedule-lesson-btn {
-      height: 48px;
-      font-size: 15px;
-      font-weight: 600;
-      margin: 6px 0;
+    // Vibrant today button - separate, colorful gradient, aligned below
+    .fc-today-button,
+    button.fc-today-button {
+      background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%) !important;
+      border: none !important;
+      color: #fff !important;
+      border-radius: 16px !important;
+      min-width: 88px !important;
+      width: 88px !important;
+      height: 38px !important;
+      padding: 0 8px !important;
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      margin: 0 !important;
+      align-self: flex-start !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-transform: lowercase !important;
+      box-shadow: 0 4px 12px rgba(254, 202, 87, 0.4) !important;
+      transition: all 0.2s ease !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+      
+      &:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(254, 202, 87, 0.5) !important;
+      }
+      
+      &:active {
+        transform: translateY(0) !important;
+      }
     }
+  }
+  
+  // View buttons (month/week/day) - segmented control on right
+  .fc-toolbar-chunk:last-child {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    flex: 0 0 auto !important;
+    
+    .fc-button-group {
+      display: flex !important;
+      background: linear-gradient(135deg, #48cae4 0%, #0077b6 100%) !important;
+      border: none !important;
+      border-radius: 16px !important;
+      overflow: hidden !important;
+      height: 44px !important;
+      width: auto !important;
+      box-shadow: 0 6px 20px rgba(72, 202, 228, 0.5) !important;
+      
+      .fc-button {
+        background: transparent !important;
+        border: none !important;
+        color: #fff !important;
+        min-width: 52px !important;
+        width: auto !important;
+        height: 100% !important;
+        padding: 0 16px !important;
+        font-size: 13px !important;
+        text-transform: lowercase !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+        
+        &:not(:last-child) {
+          border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+        }
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.2) !important;
+          transform: scale(1.05) !important;
+        }
+        
+        &.fc-button-active {
+          background: rgba(255, 255, 255, 0.3) !important;
+          transform: scale(1.1) !important;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+        
+        &:active {
+          transform: scale(0.95) !important;
+        }
+      }
+    }
+  }
+  
+  // Mobile-specific view optimizations
+  .fc-view-harness {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+  
+  .fc-scroller {
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  // Vibrant time slot labels
+  .fc-timegrid-slot-label {
+    font-size: 11px !important;
+    padding: 4px 2px !important;
+    min-width: 40px !important;
+    width: 40px !important;
+    text-align: center !important;
+    font-weight: 500 !important;
+    color: #667eea !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-right: 1px solid #e2e8f0 !important;
+  }
+  
+  // Vibrant day column headers
+  .fc-col-header-cell {
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-bottom: none !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    
+    .fc-col-header-cell-cushion {
+      padding: 0 !important;
+    }
+  }
+  
+  // Reasonable cell heights - not too tall
+  .fc-timegrid-slot {
+    height: 50px !important; // More reasonable height
+    min-height: 50px !important;
+    border-bottom: 1px solid #f3f4f6 !important;
+  }
+  
+  // Every hour gets a slightly thicker border
+  .fc-timegrid-slot[data-time$=":00:00"] {
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+  
+  // Clean day cells
+  .fc-timegrid-col {
+    min-width: 0 !important;
+    border-right: 1px solid #e5e7eb !important;
+    background: #fff !important;
+  }
+  
+  // Clean event styling
+  .fc-event {
+    font-size: 11px !important;
+    padding: 4px 6px !important;
+    min-height: 20px !important;
+    line-height: 1.2 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    touch-action: manipulation !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    
+    &:hover {
+      transform: translateY(-1px) !important;
+      box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3) !important;
+    }
+  }
+  
+  .fc-timegrid-event {
+    padding: 4px 6px !important;
+    font-size: 11px !important;
+    margin: 1px !important;
+  }
+  
+  // Clean time axis
+  .fc-timegrid-axis {
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+  }
+  
+  // Clean scrollgrid styling
+  .fc-scrollgrid {
+    border: none !important;
+    border-radius: 0 !important;
+  }
+  
+  .fc-scrollgrid-sync-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  // Clean day headers
+  .fc-col-header {
+    height: 35px !important;
+    background: #f9fafb !important;
+  }
+  
+  // Subtle today highlighting
+  .fc-day-today {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%) !important;
+  }
+  
+  .fc-timegrid-col.fc-day-today {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.03) 100%) !important;
+  }
+  
+  // Clean all-day section
+  .fc-timegrid-divider {
+    padding: 0 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+  
+  .fc-timegrid-body {
+    min-height: 0 !important;
   }
   
   // Mobile section optimizations
   .tags-section, .lesson-status-section {
     padding: 16px;
-    
+    margin-bottom: 16px;
     .section-header {
       padding: 12px 0;
       
@@ -673,52 +1193,286 @@ ion-content {
 
 @media (max-width: 480px) {
   .calendar-sidebar {
-    padding: 12px;
-    gap: 16px;
+    padding: 0;
+    
+    .sidebar-header {
+      padding: 8px 12px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      
+      h3 {
+        font-size: 13px;
+        font-weight: 600;
+      }
+    }
   }
   
   #tutor-calendar-container {
-    padding: 12px;
-    min-height: 350px;
+    padding: 0;
+    height: 100%;
+    min-height: 0;
   }
   
   // Mobile expandable sections for small screens
   .tag-list, .status-list {
     &.expanded {
-      max-height: 400px; // Slightly smaller for small screens
+      max-height: 200px;
     }
   }
   
-  // Further optimize calendar for small screens
-  .main-calendar {
-    height: calc(100vh - 60px);
-    min-height: calc(100vh - 60px);
+  // Keep reasonable cell heights on small screens
+  .fc-timegrid-slot {
+    height: 42px !important;
+    min-height: 42px !important;
   }
   
-  #tutor-calendar-container {
-    min-height: calc(100vh - 80px);
-    padding: 8px;
+  .fc-timegrid-slot-label {
+    font-size: 9px !important;
+    padding: 2px 1px !important;
+    min-width: 32px !important;
+    width: 32px !important;
+  }
+  
+  .fc-col-header-cell {
+    padding: 4px 1px !important;
+    font-size: 9px !important;
+  }
+  
+  .fc-timegrid-axis {
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
+  }
+  
+  .fc-event {
+    font-size: 9px !important;
+    padding: 2px 3px !important;
+    min-height: 16px !important;
+  }
+  
+  .fc-timegrid-event {
+    padding: 2px 3px !important;
+    font-size: 9px !important;
+  }
+  
+  // VIBRANT MOBILE TOOLBAR - Maximum specificity
+  #tutor-calendar-container .fc .fc-toolbar,
+  .fc .fc-toolbar.fc-toolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    padding: 16px 20px !important;
+    gap: 16px !important;
+    min-height: 72px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3) !important;
+    flex-wrap: nowrap !important;
+    border-radius: 0 0 20px 20px !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-chunk,
+  .fc .fc-toolbar-chunk.fc-toolbar-chunk {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    flex-shrink: 0 !important;
+    align-items: flex-start !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-chunk:first-child,
+  .fc .fc-toolbar-chunk:first-child.fc-toolbar-chunk {
+    min-width: 90px !important;
+    width: auto !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-chunk:last-child,
+  .fc .fc-toolbar-chunk:last-child.fc-toolbar-chunk {
+    align-items: flex-end !important;
+    min-width: 140px !important;
+    width: auto !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-title,
+  .fc .fc-toolbar-title.fc-toolbar-title {
+    font-size: 1.1rem !important;
+    margin: 0 !important;
+    padding: 0 16px !important;
+    font-weight: 700 !important;
+    flex: 1 !important;
+    text-align: center !important;
+    align-self: center !important;
+    color: #ffffff !important;
+    white-space: nowrap !important;
+    line-height: 1.4 !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  }
+  
+  // VIBRANT NAVIGATION BUTTONS - Left side with maximum specificity
+  #tutor-calendar-container .fc .fc-toolbar-chunk:first-child .fc-button-group,
+  .fc .fc-toolbar-chunk:first-child .fc-button-group.fc-button-group {
+    display: flex !important;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+    border: none !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    height: 48px !important;
+    width: 96px !important;
+    margin: 0 !important;
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.5) !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-chunk:first-child .fc-button-group .fc-button,
+  .fc .fc-toolbar-chunk:first-child .fc-button-group .fc-button.fc-button {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    min-width: 48px !important;
+    width: 48px !important;
+    height: 100% !important;
+    padding: 0 !important;
+    font-size: 20px !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    
+    &:not(:last-child) {
+      border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+      transform: scale(1.05) !important;
+    }
+    
+    &:active {
+      transform: scale(0.95) !important;
+    }
+  }
+  
+  // VIBRANT TODAY BUTTON - Below navigation with maximum specificity
+  #tutor-calendar-container .fc .fc-toolbar-chunk:first-child .fc-today-button,
+  #tutor-calendar-container .fc .fc-toolbar-chunk:first-child button.fc-today-button,
+  .fc .fc-toolbar-chunk:first-child .fc-today-button.fc-today-button,
+  .fc .fc-toolbar-chunk:first-child button.fc-today-button.fc-today-button {
+    background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%) !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 18px !important;
+    min-width: 96px !important;
+    width: 96px !important;
+    height: 40px !important;
+    padding: 0 8px !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    align-self: flex-start !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-transform: lowercase !important;
+    box-shadow: 0 4px 12px rgba(254, 202, 87, 0.4) !important;
+    transition: all 0.2s ease !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    
+    &:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: 0 6px 16px rgba(254, 202, 87, 0.5) !important;
+    }
+    
+    &:active {
+      transform: translateY(0) !important;
+    }
+  }
+  
+  // VIBRANT VIEW BUTTONS - Right side with maximum specificity
+  #tutor-calendar-container .fc .fc-toolbar-chunk:last-child .fc-button-group,
+  .fc .fc-toolbar-chunk:last-child .fc-button-group.fc-button-group {
+    display: flex !important;
+    background: linear-gradient(135deg, #48cae4 0%, #0077b6 100%) !important;
+    border: none !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    height: 48px !important;
+    width: auto !important;
+    margin: 0 !important;
+    box-shadow: 0 6px 20px rgba(72, 202, 228, 0.5) !important;
+  }
+  
+  #tutor-calendar-container .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button,
+  .fc .fc-toolbar-chunk:last-child .fc-button-group .fc-button.fc-button {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    min-width: 54px !important;
+    width: auto !important;
+    height: 100% !important;
+    padding: 0 18px !important;
+    font-size: 14px !important;
+    text-transform: lowercase !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    
+    &:not(:last-child) {
+      border-right: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.2) !important;
+      transform: scale(1.05) !important;
+    }
+    
+    &.fc-button-active {
+      background: rgba(255, 255, 255, 0.3) !important;
+      transform: scale(1.1) !important;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+    
+    &:active {
+      transform: scale(0.95) !important;
+    }
+  }
+  
+  .fc-col-header {
+    height: 28px !important;
   }
   
   // Smaller buttons on very small screens
   .action-buttons {
-    gap: 10px;
-    padding: 12px;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 16px;
     
     ion-button {
-      height: 40px;
-      font-size: 13px;
-      margin: 3px 0;
+      height: 32px;
+      font-size: 11px;
+      margin: 1px 0;
+      border-radius: 5px;
       
       ion-icon {
-        font-size: 16px;
+        font-size: 12px;
       }
     }
     
     .schedule-lesson-btn {
-      height: 44px;
-      font-size: 14px;
-      margin: 4px 0;
+      height: 36px;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 2px 0;
     }
   }
   
@@ -765,6 +1519,74 @@ ion-content {
     .fc-event {
       font-size: 10px;
       padding: 1px 2px;
+    }
+  }
+}
+
+// FORCE MOBILE VIBRANT STYLING - Highest Priority
+@media (max-width: 768px) {
+  ion-content.tutor-calendar-page,
+  .tutor-calendar-page {
+    ion-content {
+      --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .calendar-layout {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    .calendar-sidebar {
+      background: rgba(255, 255, 255, 0.15) !important;
+      backdrop-filter: blur(20px) !important;
+      
+      .sidebar-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        
+        h3 {
+          color: #ffffff !important;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+      }
+    }
+    
+    .main-calendar {
+      background: rgba(255, 255, 255, 0.95) !important;
+      backdrop-filter: blur(20px) !important;
+      border-radius: 20px 20px 0 0 !important;
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    .fc-toolbar {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.95) 0%, rgba(118, 75, 162, 0.95) 100%) !important;
+      backdrop-filter: blur(20px) !important;
+      border-radius: 0 0 20px 20px !important;
+      
+      .fc-toolbar-title {
+        color: #ffffff !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+      }
+    }
+    
+    .fc-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+      border: none !important;
+      color: white !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .fc-event {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+      border: none !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3) !important;
+      color: white !important;
+    }
+    
+    .fc-col-header-cell {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
+      color: #667eea !important;
+      font-weight: 700 !important;
     }
   }
 }
