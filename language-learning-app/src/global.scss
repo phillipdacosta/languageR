@@ -134,6 +134,11 @@ html.ion-palette-dark {
   height: 100% !important;
   display: flex;
   flex-direction: column;
+  
+  // Desktop: maintain height but ensure view harness can scroll
+  @media (min-width: 769px) {
+    height: 100% !important;
+  }
 }
 
 .fc-view-harness {

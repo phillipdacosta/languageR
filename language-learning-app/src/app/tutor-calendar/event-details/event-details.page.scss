@@ -1,0 +1,386 @@
+.event-details-content {
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.content-wrapper {
+  padding: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+  
+  // Desktop optimizations
+  @media (min-width: 769px) {
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: calc(100vh - 56px); // Account for header
+  }
+}
+
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  color: white;
+
+  ion-spinner {
+    margin-bottom: 20px;
+  }
+
+  ion-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: white;
+  }
+
+  p {
+    font-size: 16px;
+    margin-bottom: 20px;
+    opacity: 0.9;
+  }
+
+  ion-button {
+    --background: rgba(255, 255, 255, 0.2);
+    --color: white;
+    --border-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.lesson-details-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  margin-top: 20px;
+  width: 100%;
+  
+  // Desktop: more compact padding and layout
+  @media (min-width: 769px) {
+    padding: 20px;
+    margin-top: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px 20px;
+    
+    // Make status/action span full width
+    .status-action-container {
+      grid-column: 1 / -1;
+    }
+    
+    // Make pricing span full width
+    .pricing-section {
+      grid-column: 1 / -1;
+    }
+    
+    // Make notes span full width
+    .notes-section {
+      grid-column: 1 / -1;
+    }
+    
+    // Make booking info span full width
+    .booking-section {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+.status-action-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  
+  @media (min-width: 769px) {
+    margin-bottom: 16px;
+  }
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.join-lesson-btn {
+  --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --color: white;
+  --border-radius: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --padding-start: 20px;
+  --padding-end: 20px;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  margin: 0;
+  flex-shrink: 0;
+  white-space: nowrap;
+  
+  &[disabled] {
+    --background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+    --opacity: 0.7;
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.2);
+    cursor: not-allowed;
+  }
+  
+  &:not([disabled]):hover {
+    --background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  }
+  
+  ion-icon {
+    font-size: 18px;
+    margin-right: 6px;
+  }
+}
+
+.detail-section {
+  margin-bottom: 32px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+  }
+  
+  // Desktop: more compact
+  @media (min-width: 769px) {
+    margin-bottom: 0;
+    
+    h3 {
+      font-size: 16px;
+      margin: 0 0 12px 0;
+      padding-bottom: 8px;
+    }
+  }
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .student-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    @media (min-width: 769px) {
+      width: 56px;
+      height: 56px;
+    }
+  }
+
+  .student-details {
+    flex: 1;
+
+    .student-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 4px 0;
+      
+      @media (min-width: 769px) {
+        font-size: 18px;
+      }
+    }
+
+    .student-email {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0;
+      
+      @media (min-width: 769px) {
+        font-size: 13px;
+      }
+    }
+  }
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  
+  @media (min-width: 769px) {
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+
+  ion-icon {
+    font-size: 24px;
+    color: #667eea;
+    flex-shrink: 0;
+    margin-top: 2px;
+    
+    @media (min-width: 769px) {
+      font-size: 20px;
+    }
+  }
+
+  .info-content {
+    flex: 1;
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      
+      @media (min-width: 769px) {
+        font-size: 11px;
+        margin-bottom: 3px;
+      }
+    }
+
+    p {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0;
+      
+      @media (min-width: 769px) {
+        font-size: 14px;
+      }
+    }
+  }
+  
+  @media (min-width: 769px) {
+    padding: 12px;
+    gap: 10px;
+  }
+}
+
+.price-display {
+  text-align: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-radius: 16px;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+
+  .price-amount {
+    display: block;
+    font-size: 36px;
+    font-weight: 700;
+    color: #667eea;
+    margin-bottom: 8px;
+    
+    @media (min-width: 769px) {
+      font-size: 32px;
+      margin-bottom: 6px;
+    }
+  }
+
+  .price-label {
+    display: block;
+    font-size: 14px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    @media (min-width: 769px) {
+      font-size: 12px;
+    }
+  }
+  
+  @media (min-width: 769px) {
+    padding: 18px;
+  }
+}
+
+.notes-content {
+  padding: 16px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+
+  p {
+    font-size: 15px;
+    color: #374151;
+    line-height: 1.6;
+    margin: 0;
+    
+    @media (min-width: 769px) {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  }
+  
+  @media (min-width: 769px) {
+    padding: 12px;
+  }
+}
+
+// Mobile optimizations
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 16px;
+  }
+
+  .lesson-details-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .info-item {
+    padding: 12px;
+  }
+
+  .price-display {
+    padding: 20px;
+
+    .price-amount {
+      font-size: 28px;
+    }
+  }
+}
+

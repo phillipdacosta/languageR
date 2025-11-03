@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
 import { Router, NavigationEnd } from '@angular/router';
 import { UserService, User } from '../services/user.service';
+import { LessonService, Lesson } from '../services/lesson.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -31,6 +32,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   constructor(
     private userService: UserService,
+    private lessonService: LessonService,
     private router: Router
   ) { }
 
@@ -145,6 +147,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           // Calendar already initialized, just load data
           this.loadAndUpdateCalendarData();
         }
+        
+        // Load lessons after user is loaded
+        if (user && user.id) {
+          this.loadLessons(user.id);
+        }
       },
       error: (error) => {
         console.error('📅 Error loading current user:', error);
@@ -154,6 +161,81 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }
     });
+  }
+
+  private loadLessons(tutorId: string) {
+    console.log('📅 Loading lessons for tutor:', tutorId);
+    // Fetch all lessons (including past ones)
+    this.lessonService.getLessonsByTutor(tutorId, true).subscribe({
+      next: (response) => {
+        if (response.success && response.lessons) {
+          console.log(`📅 Loaded ${response.lessons.length} lessons`);
+          this.convertLessonsToEvents(response.lessons);
+          this.updateCalendarEvents();
+        }
+      },
+      error: (error) => {
+        console.error('📅 Error loading lessons:', error);
+      }
+    });
+  }
+
+  private convertLessonsToEvents(lessons: Lesson[]): void {
+    this.events = lessons.map(lesson => {
+      // Determine color based on status
+      let backgroundColor = '#667eea'; // Default purple
+      let borderColor = '#5568d3';
+      
+      switch (lesson.status) {
+        case 'scheduled':
+          backgroundColor = '#667eea'; // Purple - upcoming
+          borderColor = '#5568d3';
+          break;
+        case 'in_progress':
+          backgroundColor = '#10b981'; // Green - happening now
+          borderColor = '#059669';
+          break;
+        case 'completed':
+          backgroundColor = '#6b7280'; // Gray - completed
+          borderColor = '#4b5563';
+          break;
+        case 'cancelled':
+          backgroundColor = '#ef4444'; // Red - cancelled
+          borderColor = '#dc2626';
+          break;
+      }
+
+      // Format student name for display
+      const studentName = lesson.studentId?.name || 'Unknown Student';
+      const subject = lesson.subject || 'Language Lesson';
+      
+      // Format time for display
+      const startTime = new Date(lesson.startTime);
+      const endTime = new Date(lesson.endTime);
+      const timeStr = `${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      
+      return {
+        id: lesson._id,
+        title: `${studentName} - ${subject}`,
+        start: lesson.startTime,
+        end: lesson.endTime,
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        textColor: '#ffffff',
+        extendedProps: {
+          lessonId: lesson._id,
+          studentName: studentName,
+          subject: subject,
+          status: lesson.status,
+          timeStr: timeStr,
+          price: lesson.price,
+          duration: lesson.duration,
+          notes: lesson.notes
+        }
+      } as EventInput;
+    });
+    
+    console.log(`📅 Converted ${lessons.length} lessons to ${this.events.length} calendar events`);
   }
 
   private initCalendar(): boolean {
@@ -192,9 +274,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Detect if mobile
       const isMobile = window.innerWidth <= 768;
       
+      // Get saved view from localStorage, or use default
+      const savedView = localStorage.getItem('tutor-calendar-view');
+      const defaultView = isMobile ? 'timeGridDay' : 'timeGridWeek';
+      const initialView = savedView && ['dayGridMonth', 'timeGridWeek', 'timeGridDay'].includes(savedView) 
+        ? savedView 
+        : defaultView;
+      
       this.calendar = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-        initialView: isMobile ? 'timeGridWeek' : 'timeGridWeek',
+        initialView: initialView,
         headerToolbar: isMobile ? {
           left: 'prev,next',
           center: 'title',
@@ -204,10 +293,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           center: 'title',
           right: 'dayGridMonth,timeGridWeek,timeGridDay'
         },
-        height: '100%',
-        contentHeight: 'auto',
+      height: '100%', // Use 100% to fit container, scroller handles scrolling
+      contentHeight: 'auto',
         slotMinTime: '06:00:00',
-        slotMaxTime: '22:00:00',
+        slotMaxTime: '23:59:00', // Extended to allow very late lessons
         slotDuration: '00:30:00',
         slotLabelInterval: '01:00:00',
         scrollTime: '09:00:00',
@@ -227,6 +316,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         select: (arg) => this.handleSelect(arg),
         eventChange: (arg) => this.handleEventChange(arg),
         eventClick: (arg) => this.handleEventClick(arg),
+        viewDidMount: (arg) => this.handleViewChange(arg),
         dayHeaderFormat: { weekday: 'short', day: 'numeric' },
         slotLabelFormat: {
           hour: 'numeric',
@@ -333,6 +423,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Then load data and update calendar (if user exists)
     this.loadAndUpdateCalendarData();
+    
+    // Load lessons if we have a user
+    if (this.currentUser && this.currentUser.id) {
+      this.loadLessons(this.currentUser.id);
+    }
   }
 
   private loadAndUpdateCalendarData() {
@@ -594,9 +689,32 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   handleEventClick(clickInfo: any) {
-    if (confirm('Delete this availability block?')) {
-      clickInfo.event.remove();
-      this.deleteEvent(clickInfo.event.id);
+    const event = clickInfo.event;
+    const extendedProps = event.extendedProps;
+    
+    // Check if this is a lesson event (has lessonId) or an availability block
+    if (extendedProps?.lessonId) {
+      // Save current view before navigating
+      if (this.calendar) {
+        const currentView = this.calendar.view.type;
+        localStorage.setItem('tutor-calendar-view', currentView);
+      }
+      // This is a lesson - navigate to event details page
+      this.router.navigate(['/tabs/tutor-calendar/event', extendedProps.lessonId]);
+    } else {
+      // This is an availability block - keep existing delete behavior
+      if (confirm('Delete this availability block?')) {
+        clickInfo.event.remove();
+        this.deleteEvent(clickInfo.event.id);
+      }
+    }
+  }
+
+  handleViewChange(viewInfo: any) {
+    // Save the current view whenever it changes
+    if (viewInfo && viewInfo.view) {
+      const currentView = viewInfo.view.type;
+      localStorage.setItem('tutor-calendar-view', currentView);
     }
   }
 
@@ -741,6 +859,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (this.calendar && this.isInitialized) {
       console.log('📅 Calendar exists and is initialized, refreshing data...');
       this.loadAndUpdateCalendarData();
+      // Reload lessons if we have a user
+      if (this.currentUser && this.currentUser.id) {
+        this.loadLessons(this.currentUser.id);
+      }
     } else {
       console.log('📅 Calendar not ready, initializing...');
       this.forceReinitializeCalendar();

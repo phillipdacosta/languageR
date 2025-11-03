@@ -147,6 +147,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/by-tutor/:tutorId', async (req, res) => {
   try {
     const { tutorId } = req.params;
+    const { all } = req.query; // Query param to get all lessons (including past)
     
     if (!tutorId) {
       return res.status(400).json({ 
@@ -155,17 +156,20 @@ router.get('/by-tutor/:tutorId', async (req, res) => {
       });
     }
 
-    console.log('📅 Fetching lessons for tutor:', tutorId);
+    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all);
 
-    // Find all scheduled or in_progress lessons for this tutor
-    const lessons = await Lesson.find({
-      tutorId: tutorId,
-      status: { $in: ['scheduled', 'in_progress'] }
-    })
+    // Build query - if 'all' is true, get all lessons; otherwise only active ones
+    const query = { tutorId: tutorId };
+    if (!all || all !== 'true') {
+      query.status = { $in: ['scheduled', 'in_progress'] };
+    }
+
+    // Find lessons for this tutor
+    const lessons = await Lesson.find(query)
     .populate('studentId', 'name email picture')
     .sort({ startTime: 1 });
 
-    console.log(`📅 Found ${lessons.length} active lessons for tutor ${tutorId}`);
+    console.log(`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
 
     res.json({ 
       success: true, 
@@ -176,7 +180,11 @@ router.get('/by-tutor/:tutorId', async (req, res) => {
         startTime: lesson.startTime,
         endTime: lesson.endTime,
         status: lesson.status,
-        subject: lesson.subject
+        subject: lesson.subject,
+        notes: lesson.notes,
+        price: lesson.price,
+        duration: lesson.duration,
+        bookingData: lesson.bookingData
       }))
     });
   } catch (error) {

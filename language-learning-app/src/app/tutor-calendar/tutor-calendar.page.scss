@@ -13,6 +13,12 @@ ion-content {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
+  
+  // Desktop: maintain viewport height but allow calendar to scroll internally
+  @media (min-width: 769px) {
+    height: 100vh;
+    overflow: hidden;
+  }
 }
 
 .calendar-sidebar {
@@ -263,9 +269,9 @@ ion-content {
 }
 
 .main-calendar {
-  position: absolute;
-  left: 300px;
-  top: 0;
+    position: absolute; // Keep absolute for layout positioning
+    left: 285px;
+    top: 62px;
   right: 0;
   bottom: 0;
   background: rgba(255, 255, 255, 0.95);
@@ -275,6 +281,18 @@ ion-content {
   z-index: 0;
   border: none;
   overflow: hidden;
+  
+  // Desktop: allow scrolling but keep toolbar visible
+  @media (min-width: 769px) {
+    position: absolute;
+    left: 280px;
+    top: 56px; // Account for top navigation toolbar height
+    right: 0;
+    bottom: 0;
+    height: calc(100vh - 56px); // Full height minus toolbar
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
 }
 
 #tutor-calendar-container {
@@ -286,6 +304,17 @@ ion-content {
   padding: 0;
   background: transparent;
   border-radius: 0;
+  
+  // Desktop: maintain full height but allow content to expand with bottom padding
+  @media (min-width: 769px) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: 100%;
+    padding-bottom: 60px; // Extra padding to prevent events from being cut off
+  }
 }
 
 .calendar-loading {
@@ -338,6 +367,11 @@ ion-content {
   min-height: 400px !important;
   display: block !important;
   visibility: visible !important;
+  
+  // Desktop: ensure scroller can scroll to bottom with padding
+  @media (min-width: 769px) {
+    padding-bottom: 40px !important;
+  }
 }
 
 .fc-scroller-liquid-absolute {
@@ -372,6 +406,11 @@ ion-content {
 .fc-timegrid-body {
   display: block !important;
   visibility: visible !important;
+  
+  // Desktop: add bottom padding to ensure late events aren't cut off
+  @media (min-width: 769px) {
+    padding-bottom: 80px !important;
+  }
 }
 
 .fc-timegrid-slot {
@@ -455,7 +494,7 @@ ion-content {
 }
 
 .help-button {
-  position: absolute;
+  position: absolute; // Absolute position to move with page content as it scrolls
   bottom: 24px;
   right: 24px;
   --background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
@@ -470,6 +509,12 @@ ion-content {
   ion-icon {
     font-size: 24px;
     font-weight: bold;
+  }
+  
+  // Desktop: maintain position at bottom of calendar content
+  @media (min-width: 769px) {
+    right: 24px;
+    bottom: 24px;
   }
 }
 
@@ -777,10 +822,12 @@ ion-content {
   }
   
   .help-button {
-    bottom: 80px;
+    position: absolute; // Absolute position to move with page content
+    bottom: 80px; // Account for mobile tab bar
     right: 10px;
     width: 40px;
     height: 40px;
+    z-index: 1000; // Ensure it's above scrolling content
   }
   
   // Mobile expandable sections
@@ -1590,3 +1637,4 @@ ion-content {
     }
   }
 }
+

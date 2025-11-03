@@ -106,8 +106,9 @@ export class LessonService {
   }
 
   // Get lessons by tutor ID (public endpoint)
-  getLessonsByTutor(tutorId: string): Observable<{ success: boolean; lessons: Lesson[] }> {
-    return this.http.get<{ success: boolean; lessons: Lesson[] }>(`${this.baseUrl}/by-tutor/${tutorId}`);
+  getLessonsByTutor(tutorId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
+    const url = all ? `${this.baseUrl}/by-tutor/${tutorId}?all=true` : `${this.baseUrl}/by-tutor/${tutorId}`;
+    return this.http.get<{ success: boolean; lessons: Lesson[] }>(url);
   }
 
   // Get all lessons for current user
@@ -162,7 +163,11 @@ export class LessonService {
     const earliestJoin = new Date(startTime.getTime() - 15 * 60000); // 15 minutes early
     const latestJoin = new Date(endTime.getTime() + 5 * 60000); // 5 minutes after end
     
-    return now >= earliestJoin && now <= latestJoin && lesson.status === 'scheduled';
+    // Allow joining if within time window and lesson is scheduled or in progress
+    const withinTimeWindow = now >= earliestJoin && now <= latestJoin;
+    const canJoinStatus = lesson.status === 'scheduled' || lesson.status === 'in_progress';
+    
+    return withinTimeWindow && canJoinStatus;
   }
 
   getTimeUntilJoin(lesson: Lesson, serverTime?: string): number {

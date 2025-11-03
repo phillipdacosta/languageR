@@ -1,0 +1,140 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tutor-calendar"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Lesson Details</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="event-details-content">
+  <div class="content-wrapper">
+    
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading lesson details...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="error-container">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <p>{{ error }}</p>
+      <ion-button fill="outline" (click)="goBack()">Go Back</ion-button>
+    </div>
+
+    <!-- Lesson Details -->
+    <div *ngIf="lesson && !loading" class="lesson-details-card">
+      
+      <!-- Status Badge and Join Button Container -->
+      <div class="status-action-container">
+        <!-- Status Badge -->
+        <div class="status-badge" [style.background-color]="getStatusInfo().color">
+          <span>{{ getStatusInfo().label }}</span>
+        </div>
+
+        <!-- Join Button (for upcoming and in-progress lessons) -->
+        <ion-button 
+          *ngIf="shouldShowJoinButton()"
+          class="join-lesson-btn"
+          [disabled]="!canJoinLesson()"
+          (click)="joinLesson()">
+          <ion-icon name="videocam-outline" slot="start"></ion-icon>
+          {{ getJoinLabel() }}
+        </ion-button>
+      </div>
+
+      <!-- Student Info -->
+      <div class="detail-section">
+        <h3>Student</h3>
+        <div class="student-info">
+          <div class="student-avatar" *ngIf="lesson.studentId?.picture">
+            <img [src]="lesson.studentId.picture" [alt]="lesson.studentId.name">
+          </div>
+          <div class="student-details">
+            <p class="student-name">{{ lesson.studentId?.name || 'Unknown Student' }}</p>
+            <p class="student-email">{{ lesson.studentId?.email || '' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lesson Info -->
+      <div class="detail-section">
+        <h3>Lesson Information</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <ion-icon name="book-outline"></ion-icon>
+            <div class="info-content">
+              <label>Subject</label>
+              <p>{{ lesson.subject || 'Language Lesson' }}</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <div class="info-content">
+              <label>Date</label>
+              <p>{{ formatDate(lesson.startTime) }}</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <ion-icon name="time-outline"></ion-icon>
+            <div class="info-content">
+              <label>Time</label>
+              <p>{{ formatTime(lesson.startTime) }} - {{ formatTime(lesson.endTime) }}</p>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <ion-icon name="hourglass-outline"></ion-icon>
+            <div class="info-content">
+              <label>Duration</label>
+              <p>{{ lesson.duration || 60 }} minutes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="detail-section pricing-section" *ngIf="lesson.price">
+        <h3>Pricing</h3>
+        <div class="price-display">
+          <span class="price-amount">${{ lesson.price.toFixed(2) }}</span>
+          <span class="price-label">Total Lesson Price</span>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="detail-section notes-section" *ngIf="lesson.notes">
+        <h3>Notes</h3>
+        <div class="notes-content">
+          <p>{{ lesson.notes }}</p>
+        </div>
+      </div>
+
+      <!-- Booking Data (if available) -->
+      <div class="detail-section booking-section" *ngIf="lesson.bookingData">
+        <h3>Booking Information</h3>
+        <div class="info-grid">
+          <div class="info-item" *ngIf="lesson.bookingData.selectedDate">
+            <ion-icon name="calendar-number-outline"></ion-icon>
+            <div class="info-content">
+              <label>Selected Date</label>
+              <p>{{ formatDate(lesson.bookingData.selectedDate) }}</p>
+            </div>
+          </div>
+          <div class="info-item" *ngIf="lesson.bookingData.timeRange">
+            <ion-icon name="time-outline"></ion-icon>
+            <div class="info-content">
+              <label>Time Range</label>
+              <p>{{ lesson.bookingData.timeRange }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</ion-content>
+

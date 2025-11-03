@@ -7,6 +7,10 @@ const routes: Routes = [
   {
     path: '',
     component: TutorCalendarPage
+  },
+  {
+    path: 'event/:id',
+    loadComponent: () => import('./event-details/event-details.page').then(m => m.EventDetailsPage)
   }
 ];
 
