@@ -245,7 +245,7 @@ ion-content {
   display: flex;
   justify-content: center;
   padding: 16px;
-  min-height: 88px; // reserve height so tallest pill never clips
+  min-height: 96px; // reserve height so tallest pill never clips
   
   @media (min-width: 1024px) {
     padding: 24px 0;
@@ -274,8 +274,8 @@ ion-content {
 .date-pill {
   background: #fff;
   border-radius: 20px;
-  padding: 16px 18px;
-  min-width: 72px;
+  padding: 12px 16px;
+  min-width: 76px;
   text-align: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
@@ -284,26 +284,43 @@ ion-content {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  height: 74px;
+  align-items: center;
+  height: 82px;
+  gap: 2px;
+  
+  .month {
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
   
   .weekday {
-    font-size: 14px;
+    font-size: 13px;
     color: #6b7280;
-    margin-bottom: 6px;
     font-weight: 500;
+    line-height: 1.2;
   }
   
   .daynum {
     font-size: 22px;
     font-weight: 700;
     color: #1f2937;
-    line-height: 1.2; // reduce text cropping
+    line-height: 1.1;
+    margin-top: 2px;
   }
   
   &.active {
     background: #fbbf24;
     box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
     transform: scale(1.05);
+    
+    .month {
+      color: rgba(255, 255, 255, 0.9);
+    }
     
     .weekday,
     .daynum {
@@ -321,7 +338,7 @@ ion-content {
 @media (max-width: 480px) {
   .date-strip-container {
     padding: 24px 0; // maximum vertical space on mobile
-    min-height: 120px; // maximum height for mobile to prevent any clipping
+    min-height: 96px; // maximum height for mobile to prevent any clipping
     overflow-y: visible !important;
     overflow-x: auto;
     justify-content: flex-start; // align to start so we can control padding
@@ -336,10 +353,11 @@ ion-content {
   
   .date-pill { 
     padding: 8px 10px; 
-    min-width: 56px; 
-    height: 60px; // more compact
+    min-width: 58px; 
+    height: 68px; // slightly taller to fit month
     border-radius: 14px; // smaller radius
     margin-right: 8px; // space between pills
+    gap: 1px;
   }
   
   .date-pill:first-child {
@@ -350,6 +368,11 @@ ion-content {
     margin-right: 4px; // extra space for last pill
   }
   
+  .date-pill .month {
+    font-size: 9px;
+    margin-bottom: 1px;
+  }
+  
   .date-pill .weekday {
     font-size: 11px;
     margin-bottom: 2px;
@@ -357,6 +380,7 @@ ion-content {
   
   .date-pill .daynum {
     font-size: 18px;
+    margin-top: 1px;
   }
   
   .date-pill.active { 
@@ -1004,14 +1028,34 @@ ion-content {
     }
   }
   
-  .date-item {
+  .date-pill {
     background: #2a2a2a !important;
-    color: var(--ion-text-color, #ffffff) !important;
     border: 1px solid #3a3a3a !important;
     
-    &.selected {
+    .month {
+      color: #9ca3af !important;
+    }
+    
+    .weekday {
+      color: var(--ion-text-color-step-400, #cccccc) !important;
+    }
+    
+    .daynum {
+      color: var(--ion-text-color, #ffffff) !important;
+    }
+    
+    &.active {
       background: var(--ion-color-primary, #4d8dff) !important;
-      color: #ffffff !important;
+      border-color: transparent !important;
+      
+      .month {
+        color: rgba(255, 255, 255, 0.9) !important;
+      }
+      
+      .weekday,
+      .daynum {
+        color: #ffffff !important;
+      }
     }
   }
   

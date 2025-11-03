@@ -42,11 +42,18 @@ export class Tab1Page implements OnInit, OnDestroy {
   private countdownInterval: any;
   countdownTick = Date.now();
   private statusInterval: any;
+  private lastLabelUpdateTime = 0; // Track last time labels were updated
   
   // Tutor-specific insights
   totalStudents = 0;
   lessonsThisWeek = 0;
   tutorRating = '0.0';
+  
+  // Cache of current students array for efficient label updates
+  private currentStudents: any[] = [];
+  private cachedStudentsForDate: any[] = [];
+  private cachedStudentsDate: Date | null = null;
+  private cachedStudentsLessonsHash: string = '';
   
   // Featured tutors for students (mock data - replace with real data)
   featuredTutors: any[] = [];
@@ -65,12 +72,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     private toastController: ToastController
   ) {
     // Get database user data instead of Auth0 data
-      this.userService.getCurrentUser()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(user => {
+    this.userService.getCurrentUser()
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(user => {
         console.log('Tab1Page: Database user data:', user);
         console.log('Tab1Page: User type:', user?.userType);
-        this.currentUser = user;
+      this.currentUser = user;
         
         // Cache profile picture to avoid repeated evaluations
         this._currentUserPicture = user?.picture || 'assets/avatar.png';
@@ -127,9 +134,21 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.dateStrip = this.generateDateStrip(7);
 
     // Live countdown tick (updates change detection)
+    // Only update when minutes change to prevent flashing
     this.countdownInterval = setInterval(() => {
-      this.countdownTick = Date.now();
-    }, 5000); // update every 5s for better responsiveness
+      const now = Date.now();
+      const currentMinute = Math.floor(now / 60000); // Get current minute
+      const lastMinute = Math.floor(this.lastLabelUpdateTime / 60000);
+      
+      // Only update if minute has changed or it's the first update
+      if (currentMinute !== lastMinute || this.lastLabelUpdateTime === 0) {
+        this.lastLabelUpdateTime = now;
+        // Update join labels for all displayed students
+        this.updateStudentJoinLabels();
+        // Update countdownTick after labels are updated to trigger single change detection
+        this.countdownTick = now;
+      }
+    }, 5000); // Check every 5s, but only update when minute changes
     
     // Poll lesson status periodically to reflect In Progress/Rejoin
     this.statusInterval = setInterval(() => {
@@ -268,9 +287,28 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // New method: Get students for selected date (tutor view)
   getStudentsForDate(): any[] {
-    if (!this.selectedDate) return [];
+    if (!this.selectedDate) {
+      this.cachedStudentsForDate = [];
+      return [];
+    }
     
+    // Check if we can use cached result
+    const dateChanged = !this.cachedStudentsDate || 
+      this.cachedStudentsDate.getTime() !== this.selectedDate.getTime();
+    
+    // Create a simple hash of lesson IDs to detect changes
     const lessonsForDate = this.lessonsForSelectedDate();
+    const lessonsHash = lessonsForDate.map(l => String(l._id)).sort().join(',');
+    const lessonsChanged = this.cachedStudentsLessonsHash !== lessonsHash;
+    
+    // Use cached result if date and lessons haven't changed
+    if (!dateChanged && !lessonsChanged && this.cachedStudentsForDate.length > 0) {
+      return this.cachedStudentsForDate;
+    }
+    
+    // Update cache keys
+    this.cachedStudentsDate = new Date(this.selectedDate);
+    this.cachedStudentsLessonsHash = lessonsHash;
     
     // Find the earliest lesson among ALL scheduled/in_progress lessons on the selected date
     const now = new Date();
@@ -367,10 +405,14 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     }
     
-    // Convert map to array
+    // Convert map to array and calculate join labels
     const students = Array.from(studentLessonMap.values()).map(({ student, lesson, isNext }) => {
       const currentLessonId = String(lesson._id);
       console.log(`🔍 Lesson ${currentLessonId} for student ${student.name}: isNext=${isNext} (lesson start: ${lesson.startTime})`);
+      
+      // Pre-calculate join label to prevent flashing
+      const joinLabel = this.calculateJoinLabel(lesson);
+      
       return {
         ...student,
         lessonId: lesson._id,
@@ -378,7 +420,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         lessonTime: this.formatLessonTime(lesson),
         subject: this.formatSubject(lesson.subject),
         isNextClass: isNext,
-        startTime: lesson.startTime // Keep for sorting if needed
+        startTime: lesson.startTime, // Keep for sorting if needed
+        joinLabel: joinLabel // Pre-calculated label
       };
     });
     
@@ -386,6 +429,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     // Sort by lesson time
     students.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    // Cache students array for efficient label updates
+    this.currentStudents = students;
+    this.cachedStudentsForDate = students; // Cache for template reuse
     
     // Enrich profile pictures from latest user data (fetch by email)
     students.forEach(s => {
@@ -611,25 +658,60 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (!student.lesson) return false;
     const lesson = student.lesson as Lesson;
     if (this.isLessonInProgress(lesson)) return true;
-    // Reference countdownTick to trigger change detection updates
-    void this.countdownTick;
+    // No need to reference countdownTick here - we use cached joinLabel instead
     return this.lessonService.canJoinLesson(lesson);
   }
 
-  getStudentJoinLabel(student: any): string {
-    if (!student.lesson) return 'Join';
-    const lesson = student.lesson as Lesson;
+  /**
+   * Calculate join label for a lesson (used for pre-calculation)
+   */
+  private calculateJoinLabel(lesson: Lesson): string {
     const participant = (lesson as any).participant;
-    if (this.isLessonInProgress(lesson) && participant?.joinedBefore && participant?.leftAfterJoin) return 'Rejoin';
+    if (this.isLessonInProgress(lesson) && participant?.joinedBefore && participant?.leftAfterJoin) {
+      return 'Rejoin';
+    }
     
-    if (this.canJoinStudentLesson(student)) {
+    if (this.isLessonInProgress(lesson) || this.lessonService.canJoinLesson(lesson)) {
       return 'Join';
     }
     
-    // Reference countdownTick to trigger change detection updates
-    void this.countdownTick;
     const secs = this.lessonService.getTimeUntilJoin(lesson);
     return `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+  }
+
+  /**
+   * Update join labels for all displayed students
+   */
+  private updateStudentJoinLabels(): void {
+    // Update labels in place for cached students to prevent flashing
+    // Only update if the label text would actually change (e.g., minute change)
+    // Update both currentStudents and cachedStudentsForDate (they reference the same objects)
+    if (this.currentStudents && this.currentStudents.length > 0) {
+      this.currentStudents.forEach(student => {
+        if (student.lesson) {
+          const newLabel = this.calculateJoinLabel(student.lesson as Lesson);
+          // Only update if label changed to minimize DOM updates
+          if (student.joinLabel !== newLabel) {
+            student.joinLabel = newLabel;
+          }
+        }
+      });
+      // cachedStudentsForDate contains references to the same student objects,
+      // so updating currentStudents also updates cachedStudentsForDate
+      // Note: countdownTick is updated by the caller after this method
+      // to ensure a single change detection cycle
+    }
+  }
+
+  getStudentJoinLabel(student: any): string {
+    // Use pre-calculated label if available to prevent flashing
+    if (student.joinLabel !== undefined) {
+      return student.joinLabel;
+    }
+    
+    // Fallback to calculation if label not pre-calculated
+    if (!student.lesson) return 'Join';
+    return this.calculateJoinLabel(student.lesson as Lesson);
   }
 
   async joinStudentLesson(student: any) {
