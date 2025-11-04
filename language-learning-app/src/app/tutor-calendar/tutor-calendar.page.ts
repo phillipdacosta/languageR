@@ -181,7 +181,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
-    this.events = lessons.map(lesson => {
+    // Convert lessons to events but don't replace existing events (availability/classes)
+    const lessonEvents = lessons.map(lesson => {
       // Determine color based on status
       let backgroundColor = '#667eea'; // Default purple
       let borderColor = '#5568d3';
@@ -214,6 +215,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const endTime = new Date(lesson.endTime);
       const timeStr = `${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       
+      const isPast = endTime.getTime() < Date.now();
       return {
         id: lesson._id,
         title: `${studentName} - ${subject}`,
@@ -222,6 +224,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         backgroundColor: backgroundColor,
         borderColor: borderColor,
         textColor: '#ffffff',
+        classNames: [isPast ? 'is-past' : 'is-future', 'calendar-lesson-event'],
         extendedProps: {
           lessonId: lesson._id,
           studentName: studentName,
@@ -235,7 +238,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       } as EventInput;
     });
     
-    console.log(`📅 Converted ${lessons.length} lessons to ${this.events.length} calendar events`);
+    // Merge lesson events with existing events (availability/classes)
+    // Remove any existing lesson events first to avoid duplicates
+    const nonLessonEvents = this.events.filter(event => !event.extendedProps?.['lessonId']);
+    this.events = [...nonLessonEvents, ...lessonEvents];
+    
+    console.log(`📅 Converted ${lessons.length} lessons to events, total events: ${this.events.length}`);
   }
 
   private initCalendar(): boolean {
@@ -458,14 +466,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           }
           
           this.events = res.availability.map((b, index) => {
-            console.log(`📅 Processing availability block ${index + 1}:`, b);
-            const event = this.blockToEvent(b);
-            console.log(`📅 Converted block ${index + 1} to event:`, event);
-            return event;
+            return this.blockToEvent(b);
           });
-          
-          console.log('📅 Final events array:', this.events);
-          console.log('📅 Events count:', this.events.length);
+          console.log('📅 Total events loaded:', this.events.length);
           
           // Update calendar with events smoothly
           this.updateCalendarEvents();
@@ -757,34 +760,56 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Mapping helpers
   private blockToEvent(b: any): EventInput {
-    // Use current week's Monday as base
-    const today = new Date();
-    const currentDay = today.getDay();
-    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // Monday = 1, Sunday = 0
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
-    monday.setHours(0, 0, 0, 0);
+    // Process availability block
     
-    // Calculate the specific day
-    const dayDate = new Date(monday);
-    dayDate.setDate(monday.getDate() + b.day);
+    // Prefer absolute one-off dates when provided (e.g., classes)
+    let start: Date;
+    let end: Date;
+    if (b.absoluteStart && b.absoluteEnd) {
+      start = new Date(b.absoluteStart);
+      end = new Date(b.absoluteEnd);
+      // Using absolute dates for one-off events (classes)
+    } else {
+      // Weekly availability fallback: map to current week
+      const today = new Date();
+      const currentDay = today.getDay();
+      const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // Monday = 1, Sunday = 0
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + mondayOffset);
+      monday.setHours(0, 0, 0, 0);
+      const dayDate = new Date(monday);
+      dayDate.setDate(monday.getDate() + b.day);
+      start = this.withTime(dayDate, b.startTime);
+      end = this.withTime(dayDate, b.endTime);
+      // Using weekly mapping for recurring availability
+    }
     
-    const start = this.withTime(dayDate, b.startTime);
-    const end = this.withTime(dayDate, b.endTime);
-    
-    console.log(`📅 Converting block: day=${b.day}, startTime=${b.startTime}, endTime=${b.endTime}`);
-    console.log(`📅 Day date: ${dayDate.toDateString()}, Start: ${start.toISOString()}, End: ${end.toISOString()}`);
-    
-    const event = {
+    const isClass = b.type === 'class';
+    const isAvailability = b.type === 'available';
+    const baseColor = isClass
+      ? (b.color || '#8b5cf6')
+      : (isAvailability ? (b.color || '#0d9488') : (b.color || '#007bff'));
+    const borderCol = isClass ? '#6d28d9' : baseColor;
+
+    const isPast = new Date(end).getTime() < Date.now();
+    const event: EventInput = {
       id: b.id || `${Date.now()}-${Math.random()}`,
-      title: b.title || 'Available',
+      title: b.title || (isClass ? 'Class' : 'Available'),
       start: start.toISOString(),
       end: end.toISOString(),
-      backgroundColor: b.color || '#007bff',
-      borderColor: b.color || '#007bff'
+      backgroundColor: baseColor,
+      borderColor: borderCol,
+      textColor: '#ffffff',
+      classNames: [
+        isClass ? 'calendar-class-event' : (isAvailability ? 'calendar-availability-event' : 'calendar-other-event'),
+        isPast ? 'is-past' : 'is-future'
+      ]
     };
     
-    console.log(`📅 Final event object:`, event);
+    // Log class events for debugging
+    if (b.type === 'class') {
+      console.log(`🎓 Class event: ${event.title} at ${event.start}`);
+    }
     return event;
   }
 
@@ -823,7 +848,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Sidebar button handlers
   onScheduleLesson() {
     console.log('Schedule lesson clicked');
-    // TODO: Implement lesson scheduling modal
+    this.router.navigate(['/tabs/tutor-calendar/schedule-class']);
   }
 
   onAddTimeOff() {

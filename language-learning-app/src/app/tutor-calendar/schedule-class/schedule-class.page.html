@@ -1,0 +1,70 @@
+<ion-header translucent>
+  <ion-toolbar>
+    <ion-buttons slot="start" class="mobile-back-button">
+      <ion-back-button defaultHref="/tabs/tutor-calendar"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Schedule a Class</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="schedule-class">
+    <ion-button 
+      class="desktop-back-button" 
+      fill="clear" 
+      [routerLink]="['/tabs/tutor-calendar']">
+      <ion-icon name="arrow-back" slot="start"></ion-icon>
+      Back
+    </ion-button>
+    
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <ion-item>
+        <ion-label position="stacked">Class name</ion-label>
+        <ion-input formControlName="name" placeholder="e.g. Beginner Conversation"></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="form.controls.name.touched && form.controls.name.invalid">Class name is required</ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Number of students</ion-label>
+        <ion-input type="number" formControlName="maxStudents" min="1" max="50"></ion-input>
+      </ion-item>
+
+      <div class="datetime-row">
+        <ion-item>
+          <ion-label position="stacked">Date</ion-label>
+          <ion-input type="date" formControlName="date"></ion-input>
+        </ion-item>
+        <ion-item>
+          <ion-label position="stacked">Time</ion-label>
+          <ion-input type="time" formControlName="time"></ion-input>
+        </ion-item>
+      </div>
+
+      <ion-item>
+        <ion-label position="stacked">Recurrence</ion-label>
+        <ion-select interface="popover" formControlName="recurrenceType">
+          <ion-select-option value="none">None</ion-select-option>
+          <ion-select-option value="daily">Daily</ion-select-option>
+          <ion-select-option value="weekly">Weekly</ion-select-option>
+          <ion-select-option value="monthly">Monthly</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-item *ngIf="form.value.recurrenceType !== 'none'">
+        <ion-label position="stacked">Occurrences</ion-label>
+        <ion-input type="number" min="1" max="52" formControlName="recurrenceCount"></ion-input>
+      </ion-item>
+
+      <ion-item lines="none">
+        <ion-label>Public class</ion-label>
+        <ion-toggle formControlName="isPublic"></ion-toggle>
+      </ion-item>
+      <ion-note>Private by default (toggle ON to make public)</ion-note>
+
+      <ion-button type="submit" expand="block" [disabled]="submitting || form.invalid" class="create-btn">
+        Create class
+      </ion-button>
+    </form>
+  </div>
+</ion-content>
+
+

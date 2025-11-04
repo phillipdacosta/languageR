@@ -151,6 +151,21 @@ ion-content {
   }
 }
 
+// Slightly smaller action buttons on desktop
+@media (min-width: 769px) {
+  .action-buttons {
+    gap: 10px;
+  }
+  .schedule-lesson-btn {
+    height: 48px;
+    font-size: 15px;
+  }
+  .action-btn {
+    height: 42px;
+    font-size: 13px;
+  }
+}
+
 .tags-section, .lesson-status-section {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);

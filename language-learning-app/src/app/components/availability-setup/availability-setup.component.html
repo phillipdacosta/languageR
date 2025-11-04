@@ -80,14 +80,36 @@
       <p>Click and drag to select your available times. Students can only book during these slots.</p>
     </div>
 
+    <!-- Week Navigation -->
+    <div class="week-navigation">
+      <div class="nav-controls">
+        <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </ion-button>
+        <div class="week-display">
+          <span class="week-range">{{ getWeekRange() }}</span>
+          <ion-button fill="clear" size="small" (click)="goToToday()" class="today-btn">
+            Today
+          </ion-button>
+        </div>
+        <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+
     <!-- Time Slot Grid -->
     <div class="time-grid-container">
       <div class="time-grid">
         <!-- Day Headers -->
         <div class="day-headers">
           <div class="time-column-header"></div>
-          <div class="day-header" *ngFor="let day of weekDays">
-            {{ day.name }}
+          <div class="day-header" *ngFor="let day of weekDays" [class.today]="isToday(day)">
+            <div class="day-name">{{ day.name }}</div>
+            <div class="day-date">
+              <span class="day-number">{{ day.displayDate }}</span>
+              <span class="day-month">{{ day.displayMonth }}</span>
+            </div>
           </div>
         </div>
 
@@ -103,6 +125,7 @@
                    *ngFor="let day of weekDays; let dayIndex = index"
                    [class.selected]="isSlotSelected(dayIndex, i)"
                    [class.popular]="isPopularSlot(dayIndex, i)"
+                   [class.night]="isNightSlot(i)"
                    (mousedown)="startSelection(dayIndex, i, $event)"
                    (mouseenter)="continueSelection(dayIndex, i)"
                    (mouseup)="endSelection()">
@@ -113,9 +136,9 @@
         </div>
 
         <!-- Night Time Label -->
-        <div class="night-time-label">
+        <!-- <div class="night-time-label">
           <span>Night time</span>
-        </div>
+        </div> -->
       </div>
     </div>
 

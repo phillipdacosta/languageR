@@ -121,7 +121,17 @@ export class TabsPage implements OnInit, OnDestroy {
   }
 
   isCurrentRoute(route: string): boolean {
-    return this.router.url === route;
+    const currentUrl = this.router.url;
+    
+    // Special handling for calendar tab - should highlight for all calendar-related routes
+    if (route === '/tabs/tutor-calendar') {
+      return currentUrl === '/tabs/tutor-calendar' ||
+             currentUrl.startsWith('/tabs/tutor-calendar/') ||
+             currentUrl === '/tabs/availability-setup' ||
+             currentUrl.startsWith('/tabs/availability-setup');
+    }
+    
+    return currentUrl === route;
   }
 
 

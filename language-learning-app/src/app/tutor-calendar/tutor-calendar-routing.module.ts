@@ -11,6 +11,10 @@ const routes: Routes = [
   {
     path: 'event/:id',
     loadComponent: () => import('./event-details/event-details.page').then(m => m.EventDetailsPage)
+  },
+  {
+    path: 'schedule-class',
+    loadComponent: () => import('./schedule-class/schedule-class.page').then(m => m.ScheduleClassPage)
   }
 ];
 

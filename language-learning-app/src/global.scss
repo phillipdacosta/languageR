@@ -325,3 +325,47 @@ html.ion-palette-dark {
   // display: inline-block;
   padding: 2px 15px;
 }
+
+/* Distinct style for class events */
+.fc .calendar-class-event {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%) !important;
+  border: 2px solid #7c3aed !important;
+  border-radius: 10px !important;
+  box-shadow: 0 6px 18px rgba(107, 70, 193, 0.25) !important;
+  min-height: 20px !important;
+  height: auto !important;
+  padding: 4px 8px !important;
+}
+.fc .calendar-class-event .fc-event-main {
+  color: #ffffff !important;
+  font-weight: 600;
+  font-size: 0.8rem !important;
+}
+.fc .calendar-class-event .fc-event-title {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Availability blocks (subtle purple) */
+.fc .calendar-availability-event {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important; /* teal */
+  border: 1px solid rgba(13, 148, 136, 0.7) !important;
+  color: #ffffff !important;
+}
+
+/* Single lessons (blue) */
+.fc .calendar-lesson-event {
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%) !important;
+  border: 1px solid rgba(37, 99, 235, 0.7) !important;
+  color: #ffffff !important;
+}
+
+/* Past state modifier */
+.fc .is-past {
+  filter: grayscale(20%);
+  opacity: 0.85; /* slightly transparent for past items */
+}
+
+.fc .is-past:hover {
+  opacity: 0.95;
+}

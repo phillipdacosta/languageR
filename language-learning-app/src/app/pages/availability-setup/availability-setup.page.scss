@@ -5,3 +5,21 @@ ion-content {
   --padding-top: 0;
   --padding-bottom: 0;
 }
+
+// Show header on desktop
+@media (min-width: 769px) {
+  ion-header {
+    display: block;
+  }
+
+  app-availability-setup {
+    height: calc(100vh - 56px); // Account for header height
+  }
+}
+
+// Hide header on mobile since component has its own back button
+@media (max-width: 768px) {
+  ion-header {
+    display: none;
+  }
+}

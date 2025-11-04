@@ -1,6 +1,6 @@
 .availability-setup {
   display: flex;
-  height: 100vh;
+  height: 100vh; // Default for mobile/standalone
   background: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
@@ -19,15 +19,111 @@
 }
 
 .back-nav {
+  margin-bottom: 24px; // Add space above SETTINGS
+  display: block !important; // Always visible
+  width: 100%;
+  
   .back-button {
     --color: #6c757d;
     --padding-start: 0;
     --padding-end: 0;
     font-size: 14px;
     font-weight: 500;
+    width: 100%;
+    justify-content: flex-start !important; // Force left align
+    text-align: left !important;
+    margin: 0;
+    display: flex;
+    align-items: center;
     
     ion-icon {
       font-size: 18px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    
+    &::part(native) {
+      justify-content: flex-start !important;
+      text-align: left !important;
+    }
+    
+    &:hover {
+      --color: #1976d2;
+    }
+  }
+}
+
+// Make back button more prominent on desktop
+@media (min-width: 769px) {
+  .back-nav {
+    display: block !important;
+    margin-bottom: 32px;
+    margin-top: 0;
+    width: 100%;
+    
+    .back-button {
+      font-size: 15px;
+      font-weight: 600;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(25, 118, 210, 0.05);
+      transition: all 0.2s ease;
+      justify-content: flex-start !important; // Force left align
+      text-align: left !important;
+      display: flex;
+      align-items: center;
+      position: relative;
+        top: 45px;
+      &::part(native) {
+        justify-content: flex-start !important;
+        text-align: left !important;
+      }
+      
+      &:hover {
+        background: rgba(25, 118, 210, 0.1);
+        --color: #1976d2;
+      }
+      
+      ion-icon {
+        font-size: 20px;
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// Mobile: ensure left alignment
+@media (max-width: 768px) {
+  .back-nav {
+    display: block !important;
+    margin-bottom: 20px;
+    margin-top: 0;
+    width: 100%;
+    text-align: left;
+    
+    .back-button {
+      justify-content: flex-start !important; // Force left align
+      text-align: left !important;
+      width: 100%;
+      margin-left: 0 !important;
+      margin-right: auto !important;
+      --padding-start: 0 !important;
+      --padding-end: 0 !important;
+      display: flex;
+      align-items: center;
+      
+      &::part(native) {
+        justify-content: flex-start !important;
+        text-align: left !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      
+      ion-icon {
+        margin-right: 8px;
+        flex-shrink: 0;
+        margin-left: 0 !important;
+      }
     }
   }
 }
@@ -190,8 +286,7 @@
 }
 
 .content-header {
-  padding: 32px 40px 24px;
-  border-bottom: 1px solid #e9ecef;
+  padding: 73px 40px 24px;  border-bottom: 1px solid #e9ecef;
 
   h1 {
     font-size: 28px;
@@ -209,6 +304,55 @@
   }
 }
 
+.week-navigation {
+  padding: 16px 40px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+
+  .nav-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    ion-button {
+      --color: #495057;
+      --padding-start: 8px;
+      --padding-end: 8px;
+      min-width: 40px;
+      height: 40px;
+
+      &:hover {
+        --color: #1976d2;
+      }
+    }
+
+    .week-display {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 0 24px;
+      min-width: 200px;
+      justify-content: center;
+
+      .week-range {
+        font-size: 16px;
+        font-weight: 600;
+        color: #212529;
+      }
+
+      .today-btn {
+        --color: #1976d2;
+        --padding-start: 12px;
+        --padding-end: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        height: 32px;
+      }
+    }
+  }
+}
+
 .time-grid-container {
   flex: 1;
   padding: 24px 40px;
@@ -223,28 +367,119 @@
 
 .day-headers {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 0; // Remove gap between headers and time grid
+  position: sticky;
+  top: -26px;
+  z-index: 10;
+  background: white;
+  padding-top: 8px;
+  padding-bottom: 22px; // Add padding to extend header down and cover time labels
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  align-items: stretch; // Make all children same height
+  min-height: 80px; // Ensure enough height to cover time labels
 
   .time-column-header {
     width: 80px;
     flex-shrink: 0;
+    padding-right: 16px; // Match time-label padding
+    background: white; // Ensure background covers the time label area
+    padding-bottom: 0; // Padding handled by parent
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 100%; // Fill parent height
+    
+    // Add an overlay to completely block time labels
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: -22px; // Extend below to cover time labels (matches padding-bottom)
+      background: white;
+      z-index: 1;
+    }
   }
 
   .day-header {
     flex: 1;
     text-align: center;
-    font-size: 16px;
-    font-weight: 600;
-    color: #495057;
-    padding: 12px 8px;
+    padding: 12px 8px 8px 8px; // Normal padding, bottom extension via ::after
     background: #f8f9fa;
-    border-radius: 8px;
-    margin: 0 2px;
+    border-radius: 0; // No border-radius on main element, only on ::after at bottom
+    margin: 0 1px; // Reduce margin to match gap: 2px (1px on each side = 2px total)
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 0; // Ensure no margin at bottom
+    position: relative;
+    height: 100%; // Fill parent height
+    
+    // Ensure day headers extend down to cover time labels
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -22px; // Extend below to match parent padding-bottom
+      left: 0;
+      right: 0;
+      height: 22px;
+      background: #f8f9fa;
+      border-radius: 0 0 8px 8px; // Round bottom corners to match parent
+      z-index: 1;
+    }
+
+    .day-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+    }
+
+    .day-date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+
+      .day-number {
+        font-size: 18px;
+        font-weight: 700;
+        color: #212529;
+      }
+
+      .day-month {
+        font-size: 11px;
+        font-weight: 500;
+        color: #6c757d;
+        text-transform: uppercase;
+      }
+    }
+
+    &.today {
+      background: #e3f2fd;
+      border: 2px solid #1976d2;
+
+      .day-name {
+        color: #1976d2;
+      }
+
+      .day-number {
+        color: #1976d2;
+      }
+      
+      // Ensure today's extension matches the background
+      &::after {
+        background: #e3f2fd;
+        border-radius: 0 0 8px 8px; // Round bottom corners to match parent
+      }
+    }
   }
 }
 
 .time-slots {
   position: relative;
+  margin-top: 0; // Ensure no gap between headers and time slots
+  padding-top: 0; // Ensure no padding that creates gap
 }
 
 .time-slot-row {
@@ -302,6 +537,20 @@
 
       &.popular {
         background: #fff3cd;
+        border-color: #ffeaa7;
+
+        &:hover {
+          background: #ffeaa7;
+        }
+
+        &.selected {
+          background: #1976d2;
+          border-color: #1976d2;
+        }
+      }
+
+      &.night {
+        background: #fff3cd; // reuse existing yellow to denote night-time
         border-color: #ffeaa7;
 
         &:hover {
@@ -384,6 +633,12 @@
 }
 
 // Responsive design
+@media (min-width: 769px) {
+  .availability-setup {
+    height: 100%; // Use parent height instead of 100vh to respect header
+  }
+}
+
 @media (max-width: 1024px) {
   .availability-setup {
     flex-direction: column;
@@ -400,11 +655,32 @@
     border-right: none;
     border-bottom: 1px solid #e9ecef;
     flex-shrink: 0;
+    align-items: flex-start; // Ensure left alignment
+  }
+
+  .back-nav {
+    width: 100%;
+    display: block !important;
+    
+    .back-button {
+      justify-content: flex-start !important;
+      text-align: left !important;
+      width: 100%;
+      --padding-start: 0;
+      --padding-end: 0;
+      
+      &::part(native) {
+        justify-content: flex-start !important;
+        text-align: left !important;
+      }
+    }
   }
 
   .main-content {
     flex: 1;
     min-height: 60vh;
+    position: relative;
+    padding-bottom: 80px; // Space for fixed footer
   }
 
   .content-header {
@@ -418,6 +694,7 @@
   .time-grid-container {
     padding: 16px 24px;
     min-height: 500px;
+    padding-bottom: 100px; // Add padding to prevent content from being hidden behind fixed footer
   }
 
   .action-bar {
@@ -433,6 +710,84 @@
 }
 
 @media (max-width: 768px) {
+  .settings-sidebar {
+    align-items: flex-start !important; // Force left alignment on mobile
+    justify-content: flex-start !important;
+  }
+
+  .back-nav {
+    width: 100% !important;
+    display: block !important;
+    margin-bottom: 16px;
+    text-align: left !important;
+    align-self: flex-start !important;
+    
+    .back-button {
+      justify-content: flex-start !important;
+      text-align: left !important;
+      width: 100% !important;
+      margin: 0 !important;
+      margin-left: 0 !important;
+      margin-right: auto !important;
+      --padding-start: 0 !important;
+      --padding-end: 0 !important;
+      display: flex !important;
+      align-items: center;
+      
+      &::part(native) {
+        justify-content: flex-start !important;
+        text-align: left !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      
+      ion-icon {
+        margin-right: 8px;
+        flex-shrink: 0;
+        margin-left: 0 !important;
+      }
+    }
+  }
+
+  .time-grid-container {
+    padding-bottom: 120px; // Extra padding for fixed footer on mobile
+  }
+
+  .action-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #f8f9fa;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    padding: 12px 16px;
+    border-top: 1px solid #e9ecef;
+    border-bottom: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    .selected-info {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .action-buttons {
+      flex: 1;
+      justify-content: flex-end;
+      gap: 8px;
+
+      ion-button {
+        height: 40px;
+        font-size: 13px;
+        flex: 0 0 auto;
+        min-width: 100px;
+      }
+    }
+  }
+
   .time-grid {
     min-width: 600px;
   }

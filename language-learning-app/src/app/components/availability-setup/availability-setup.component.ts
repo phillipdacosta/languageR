@@ -8,19 +8,22 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
 interface TimeSlot {
-  hour: number;
-  display: string;
+  index: number; // 0..47 (30-minute increments)
+  display: string; // HH:mm
 }
 
 interface WeekDay {
   name: string;
   shortName: string;
   index: number;
+  date: Date;
+  displayDate: string;
+  displayMonth: string;
 }
 
 interface SelectedSlot {
   day: number;
-  hour: number;
+  index: number; // 30-minute slot index
 }
 
 @Component({
@@ -37,8 +40,9 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
   // UI State
   activeTab = 'availability';
-  showPopularSlots = true;
+  showPopularSlots = false;
   selectedSlotsCount = 0;
+  currentWeek: Date = new Date(); // The Monday of the current week being viewed
 
   // Selection state
   isSelecting = false;
@@ -46,20 +50,16 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   selectedSlots = new Set<string>();
 
   // Data
-  weekDays: WeekDay[] = [
-    { name: 'Monday', shortName: 'Mon', index: 0 },
-    { name: 'Tuesday', shortName: 'Tue', index: 1 },
-    { name: 'Wednesday', shortName: 'Wed', index: 2 },
-    { name: 'Thursday', shortName: 'Thu', index: 3 },
-    { name: 'Friday', shortName: 'Fri', index: 4 },
-    { name: 'Saturday', shortName: 'Sat', index: 5 },
-    { name: 'Sunday', shortName: 'Sun', index: 6 }
-  ];
+  weekDays: WeekDay[] = [];
 
   timeSlots: TimeSlot[] = [];
 
-  // Popular time slots (9 AM - 9 PM)
-  popularHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
+  // Popular time slots (9:00 AM - 9:00 PM) in 30-min indices
+  // 9:00 -> index 18, 9:30 -> 19, ..., 20:30 -> 41. We'll highlight indices in [18, 41].
+  popularStartIndex = 18;
+  popularEndIndex = 41;
+  // Night time starts at 6:00 PM local (index 36)
+  nightStartIndex = 36;
 
   constructor(
     private router: Router,
@@ -68,10 +68,88 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     private loadingController: LoadingController
   ) {
     this.initializeTimeSlots();
+    this.initializeCurrentWeek();
+    this.updateWeekDays();
   }
 
   ngOnInit() {
     this.loadExistingAvailability();
+  }
+
+  private initializeCurrentWeek() {
+    // Set currentWeek to the Monday of the current week
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday = 1, Sunday = 0
+    this.currentWeek = new Date(today);
+    this.currentWeek.setDate(today.getDate() + mondayOffset);
+    this.currentWeek.setHours(0, 0, 0, 0);
+  }
+
+  private updateWeekDays() {
+    const monday = new Date(this.currentWeek);
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const shortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    
+    this.weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      
+      const dayOfMonth = date.getDate();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthName = monthNames[date.getMonth()];
+      
+      this.weekDays.push({
+        name: dayNames[i],
+        shortName: shortNames[i],
+        index: i,
+        date: date,
+        displayDate: dayOfMonth.toString(),
+        displayMonth: monthName
+      });
+    }
+  }
+
+  getWeekRange(): string {
+    const startDate = this.weekDays[0]?.date;
+    const endDate = this.weekDays[6]?.date;
+    if (!startDate || !endDate) return '';
+    
+    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+    const year = startDate.getFullYear();
+    
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay} - ${endDay}, ${year}`;
+    } else {
+      return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
+    }
+  }
+
+  navigateWeek(direction: 'prev' | 'next') {
+    const days = direction === 'prev' ? -7 : 7;
+    this.currentWeek = new Date(this.currentWeek);
+    this.currentWeek.setDate(this.currentWeek.getDate() + days);
+    this.updateWeekDays();
+  }
+
+  navigateMonth(direction: 'prev' | 'next') {
+    const months = direction === 'prev' ? -1 : 1;
+    this.currentWeek = new Date(this.currentWeek);
+    this.currentWeek.setMonth(this.currentWeek.getMonth() + months);
+    // Ensure we're still on a Monday
+    const dayOfWeek = this.currentWeek.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    this.currentWeek.setDate(this.currentWeek.getDate() + mondayOffset);
+    this.updateWeekDays();
+  }
+
+  goToToday() {
+    this.initializeCurrentWeek();
+    this.updateWeekDays();
   }
 
   ngOnDestroy() {
@@ -81,12 +159,22 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
   private initializeTimeSlots() {
     this.timeSlots = [];
+    let idx = 0;
     for (let hour = 0; hour < 24; hour++) {
-      this.timeSlots.push({
-        hour,
-        display: `${hour.toString().padStart(2, '0')}:00`
-      });
+      for (let min of [0, 30]) {
+        this.timeSlots.push({
+          index: idx++,
+          display: this.formatTime12Hour(hour, min)
+        });
+      }
     }
+  }
+
+  private formatTime12Hour(hour: number, minute: number): string {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const displayMinute = minute === 0 ? '00' : '30';
+    return `${displayHour}:${displayMinute} ${period}`;
   }
 
   private loadExistingAvailability() {
@@ -98,12 +186,14 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
         if (res.availability && res.availability.length > 0) {
           res.availability.forEach(block => {
             console.log(`🔧 Processing existing block: day=${block.day}, time=${block.startTime}-${block.endTime}`);
-            const startHour = parseInt(block.startTime.split(':')[0]);
-            const endHour = parseInt(block.endTime.split(':')[0]);
-            
-            for (let hour = startHour; hour < endHour; hour++) {
-              const slotKey = `${block.day}-${hour}`;
-              console.log(`🔧 Adding existing slot: ${slotKey}`);
+            const [sh, sm] = block.startTime.split(':').map((v: string) => parseInt(v, 10));
+            const [eh, em] = block.endTime.split(':').map((v: string) => parseInt(v, 10));
+
+            const startIndex = sh * 2 + (sm >= 30 ? 1 : 0);
+            const endIndex = eh * 2 + (em >= 30 ? 1 : 0);
+
+            for (let idx = startIndex; idx < endIndex; idx++) {
+              const slotKey = `${block.day}-${idx}`;
               this.selectedSlots.add(slotKey);
             }
           });
@@ -128,14 +218,14 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   }
 
   // Selection logic
-  startSelection(dayIndex: number, hourIndex: number, event: MouseEvent) {
+  startSelection(dayIndex: number, slotIndex: number, event: MouseEvent) {
     event.preventDefault();
     this.isSelecting = true;
-    this.selectionStart = { day: dayIndex, hour: hourIndex };
-    this.toggleSlot(dayIndex, hourIndex);
+    this.selectionStart = { day: dayIndex, index: slotIndex };
+    this.toggleSlot(dayIndex, slotIndex);
   }
 
-  continueSelection(dayIndex: number, hourIndex: number) {
+  continueSelection(dayIndex: number, slotIndex: number) {
     if (!this.isSelecting || !this.selectionStart) return;
 
     // Clear previous selection in this drag
@@ -144,12 +234,12 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     // Select new range
     const startDay = Math.min(this.selectionStart.day, dayIndex);
     const endDay = Math.max(this.selectionStart.day, dayIndex);
-    const startHour = Math.min(this.selectionStart.hour, hourIndex);
-    const endHour = Math.max(this.selectionStart.hour, hourIndex);
+    const startIdx = Math.min(this.selectionStart.index, slotIndex);
+    const endIdx = Math.max(this.selectionStart.index, slotIndex);
 
     for (let day = startDay; day <= endDay; day++) {
-      for (let hour = startHour; hour <= endHour; hour++) {
-        this.selectedSlots.add(`${day}-${hour}`);
+      for (let idx = startIdx; idx <= endIdx; idx++) {
+        this.selectedSlots.add(`${day}-${idx}`);
       }
     }
 
@@ -161,8 +251,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     this.selectionStart = null;
   }
 
-  private toggleSlot(dayIndex: number, hourIndex: number) {
-    const slotKey = `${dayIndex}-${hourIndex}`;
+  private toggleSlot(dayIndex: number, slotIndex: number) {
+    const slotKey = `${dayIndex}-${slotIndex}`;
     if (this.selectedSlots.has(slotKey)) {
       this.selectedSlots.delete(slotKey);
     } else {
@@ -176,8 +266,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     
     const startDay = Math.min(this.selectionStart.day, this.selectionStart.day);
     const endDay = Math.max(this.selectionStart.day, this.selectionStart.day);
-    const startHour = Math.min(this.selectionStart.hour, this.selectionStart.hour);
-    const endHour = Math.max(this.selectionStart.hour, this.selectionStart.hour);
+    const startHour = Math.min(this.selectionStart.index, this.selectionStart.index);
+    const endHour = Math.max(this.selectionStart.index, this.selectionStart.index);
 
     for (let day = startDay; day <= endDay; day++) {
       for (let hour = startHour; hour <= endHour; hour++) {
@@ -186,13 +276,26 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     }
   }
 
-  isSlotSelected(dayIndex: number, hourIndex: number): boolean {
-    return this.selectedSlots.has(`${dayIndex}-${hourIndex}`);
+  isSlotSelected(dayIndex: number, slotIndex: number): boolean {
+    return this.selectedSlots.has(`${dayIndex}-${slotIndex}`);
   }
 
-  isPopularSlot(dayIndex: number, hourIndex: number): boolean {
+  isPopularSlot(dayIndex: number, slotIndex: number): boolean {
     if (!this.showPopularSlots) return false;
-    return this.popularHours.includes(hourIndex);
+    // Do not mark popular during night hours
+    if (slotIndex >= this.nightStartIndex) return false;
+    return slotIndex >= this.popularStartIndex && slotIndex <= this.popularEndIndex;
+  }
+
+  isNightSlot(slotIndex: number): boolean {
+    return slotIndex >= this.nightStartIndex;
+  }
+
+  isToday(day: WeekDay): boolean {
+    const today = new Date();
+    return day.date.getDate() === today.getDate() &&
+           day.date.getMonth() === today.getMonth() &&
+           day.date.getFullYear() === today.getFullYear();
   }
 
   private updateSelectedCount() {
@@ -201,12 +304,12 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
   // Quick actions
   setBusinessHours() {
-    // Set 9 AM - 6 PM for weekdays
+    // Set 9:00 AM - 6:00 PM for weekdays (30-min slots)
     this.selectedSlots.clear();
     for (let day = 0; day < 5; day++) { // Monday to Friday
-      for (let hour = 9; hour < 18; hour++) {
-        this.selectedSlots.add(`${day}-${hour}`);
-      }
+      const startIdx = 9 * 2; // 9:00
+      const endIdx = 18 * 2; // 18:00 (exclusive)
+      for (let idx = startIdx; idx < endIdx; idx++) this.selectedSlots.add(`${day}-${idx}`);
     }
     this.updateSelectedCount();
   }
@@ -223,8 +326,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     
     for (let day = 0; day < 7; day++) {
       mondaySlots.forEach(slot => {
-        const hour = slot.split('-')[1];
-        this.selectedSlots.add(`${day}-${hour}`);
+        const idx = slot.split('-')[1];
+        this.selectedSlots.add(`${day}-${idx}`);
       });
     }
     this.updateSelectedCount();
@@ -318,53 +421,57 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     
     // Group slots by day
     this.selectedSlots.forEach(slotKey => {
-      const [dayStr, hourStr] = slotKey.split('-');
+      const [dayStr, idxStr] = slotKey.split('-');
       const day = parseInt(dayStr);
-      const hour = parseInt(hourStr);
+      const idx = parseInt(idxStr);
       
-      console.log(`🔧 Processing slot: ${slotKey} -> day=${day}, hour=${hour}`);
+      console.log(`🔧 Processing slot: ${slotKey} -> day=${day}, index=${idx}`);
       
       if (!dayGroups.has(day)) {
         dayGroups.set(day, []);
       }
-      dayGroups.get(day)!.push(hour);
+      dayGroups.get(day)!.push(idx);
     });
     
     // Convert each day's hours to blocks
-    dayGroups.forEach((hours, day) => {
-      hours.sort((a, b) => a - b);
-      
-      let startHour = hours[0];
-      let endHour = hours[0] + 1;
-      
-      for (let i = 1; i < hours.length; i++) {
-        if (hours[i] === endHour) {
-          endHour++;
+    dayGroups.forEach((indices, day) => {
+      indices.sort((a, b) => a - b);
+
+      let startIdx = indices[0];
+      let endIdx = indices[0] + 1; // exclusive
+
+      const idxToTime = (idx: number) => {
+        const h = Math.floor(idx / 2);
+        const m = idx % 2 === 1 ? '30' : '00';
+        return `${h.toString().padStart(2, '0')}:${m}`;
+      };
+
+      for (let i = 1; i < indices.length; i++) {
+        if (indices[i] === endIdx) {
+          endIdx++;
         } else {
-          // Save current block and start new one
           const block = {
-            id: `${day}-${startHour}-${endHour}`,
+            id: `${day}-${startIdx}-${endIdx}`,
             day: day,
-            startTime: `${startHour.toString().padStart(2, '0')}:00`,
-            endTime: `${endHour.toString().padStart(2, '0')}:00`,
+            startTime: idxToTime(startIdx),
+            endTime: idxToTime(endIdx),
             type: 'available',
             title: 'Available',
             color: '#007bff'
           };
           console.log(`🔧 Created block:`, block);
           blocks.push(block);
-          
-          startHour = hours[i];
-          endHour = hours[i] + 1;
+
+          startIdx = indices[i];
+          endIdx = indices[i] + 1;
         }
       }
-      
-      // Save the last block
+
       const lastBlock = {
-        id: `${day}-${startHour}-${endHour}`,
+        id: `${day}-${startIdx}-${endIdx}`,
         day: day,
-        startTime: `${startHour.toString().padStart(2, '0')}:00`,
-        endTime: `${endHour.toString().padStart(2, '0')}:00`,
+        startTime: idxToTime(startIdx),
+        endTime: idxToTime(endIdx),
         type: 'available',
         title: 'Available',
         color: '#007bff'
