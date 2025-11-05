@@ -368,27 +368,45 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
     // Populate sender info
     const sender = await User.findOne({ auth0Id: senderId });
 
+    const messageResponse = {
+      id: savedMessage._id.toString(),
+      conversationId: savedMessage.conversationId,
+      senderId: savedMessage.senderId,
+      receiverId: savedMessage.receiverId,
+      content: savedMessage.content,
+      type: savedMessage.type,
+      fileUrl: savedMessage.fileUrl,
+      fileName: savedMessage.fileName,
+      fileType: savedMessage.fileType,
+      fileSize: savedMessage.fileSize,
+      read: savedMessage.read,
+      createdAt: savedMessage.createdAt,
+      sender: sender ? {
+        id: sender._id.toString(),
+        name: sender.name,
+        picture: sender.picture
+      } : null
+    };
+
+    // Emit via WebSocket to sender (confirmation)
+    const senderSocketId = req.connectedUsers?.get(senderId);
+    if (senderSocketId && req.io) {
+      console.log('📤 Sending file upload confirmation to sender:', senderId);
+      req.io.to(senderSocketId).emit('message_sent', messageResponse);
+    }
+
+    // Emit via WebSocket to receiver (real-time notification)
+    const receiverSocketId = req.connectedUsers?.get(receiverId);
+    if (receiverSocketId && req.io) {
+      console.log('📤 Sending file message to receiver:', receiverId);
+      req.io.to(receiverSocketId).emit('new_message', messageResponse);
+    } else {
+      console.log('📭 Receiver not online:', receiverId);
+    }
+
     res.json({
       success: true,
-      message: {
-        id: savedMessage._id.toString(),
-        conversationId: savedMessage.conversationId,
-        senderId: savedMessage.senderId,
-        receiverId: savedMessage.receiverId,
-        content: savedMessage.content,
-        type: savedMessage.type,
-        fileUrl: savedMessage.fileUrl,
-        fileName: savedMessage.fileName,
-        fileType: savedMessage.fileType,
-        fileSize: savedMessage.fileSize,
-        read: savedMessage.read,
-        createdAt: savedMessage.createdAt,
-        sender: sender ? {
-          id: sender._id.toString(),
-          name: sender.name,
-          picture: sender.picture
-        } : null
-      }
+      message: messageResponse
     });
   } catch (error) {
     console.error('❌ Error uploading file:', error);

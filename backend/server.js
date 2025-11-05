@@ -56,6 +56,16 @@ const progressRoutes = require('./routes/progress');
 const messagingRoutes = require('./routes/messaging');
 const classesRoutes = require('./routes/classes');
 
+// Store connected users: userId -> socketId (defined early for routes to access)
+const connectedUsers = new Map();
+
+// Middleware to attach io and connectedUsers to request
+app.use((req, res, next) => {
+  req.io = io;
+  req.connectedUsers = connectedUsers;
+  next();
+});
+
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -83,9 +93,6 @@ app.use((req, res) => {
 // Socket.io connection handling
 const { verifyToken } = require('./middleware/videoUploadMiddleware');
 const Message = require('./models/Message');
-
-// Store connected users: userId -> socketId
-const connectedUsers = new Map();
 
 io.use(async (socket, next) => {
   try {
@@ -254,4 +261,4 @@ process.on('SIGTERM', () => {
   });
 });
 
-module.exports = { app, io };
+module.exports = { app, io, connectedUsers };
