@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const Message = require('../models/Message');
+const User = require('../models/User');
 
 // In-memory storage for real-time messages (in production, use Redis or similar)
 const channelMessages = new Map();
@@ -98,6 +100,285 @@ router.delete('/channels/:channelName/messages', verifyToken, async (req, res) =
     res.status(500).json({
       success: false,
       message: 'Failed to clear messages'
+    });
+  }
+});
+
+// User-to-user messaging endpoints
+
+// Get all conversations for the current user
+router.get('/conversations', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    
+    // Get all unique conversations where user is sender or receiver
+    const messages = await Message.find({
+      $or: [{ senderId: userId }, { receiverId: userId }]
+    }).sort({ createdAt: -1 });
+
+    // Group by conversation and get latest message
+    const conversationMap = new Map();
+    
+    for (const message of messages) {
+      const otherUserId = message.senderId === userId ? message.receiverId : message.senderId;
+      const ids = [userId, otherUserId].sort();
+      const conversationId = `${ids[0]}_${ids[1]}`;
+      
+      if (!conversationMap.has(conversationId)) {
+        conversationMap.set(conversationId, {
+          conversationId,
+          otherUserId,
+          lastMessage: message,
+          unreadCount: 0
+        });
+      }
+      
+      // Count unread messages
+      if (message.receiverId === userId && !message.read) {
+        conversationMap.get(conversationId).unreadCount++;
+      }
+    }
+
+    // Get user details for each conversation
+    const conversations = await Promise.all(
+      Array.from(conversationMap.values()).map(async (conv) => {
+        // Try to find user by auth0Id
+        let otherUser = await User.findOne({ auth0Id: conv.otherUserId });
+        
+        // If not found and otherUserId doesn't start with 'dev-user-', try with prefix
+        if (!otherUser && !conv.otherUserId.startsWith('dev-user-')) {
+          console.log(`⚠️ User not found for auth0Id: ${conv.otherUserId}, trying with dev-user- prefix`);
+          otherUser = await User.findOne({ auth0Id: `dev-user-${conv.otherUserId}` });
+          if (otherUser) {
+            console.log(`✅ Found user with prefix: ${otherUser.auth0Id}`);
+          }
+        }
+        
+        // If still not found, try checking if it's an email and search by email
+        if (!otherUser && conv.otherUserId.includes('@')) {
+          console.log(`⚠️ Trying to find user by email: ${conv.otherUserId}`);
+          otherUser = await User.findOne({ email: conv.otherUserId });
+          if (otherUser) {
+            console.log(`✅ Found user by email: ${otherUser.auth0Id}`);
+          }
+        }
+        
+        if (!otherUser) {
+          console.error(`❌ User not found for: ${conv.otherUserId}`);
+        }
+        
+        return {
+          conversationId: conv.conversationId,
+          otherUser: otherUser ? {
+            id: otherUser._id.toString(),
+            auth0Id: otherUser.auth0Id,
+            name: otherUser.name,
+            picture: otherUser.picture,
+            userType: otherUser.userType
+          } : {
+            id: conv.otherUserId,
+            auth0Id: conv.otherUserId,
+            name: 'Unknown User',
+            picture: null,
+            userType: 'user'
+          },
+          lastMessage: {
+            content: conv.lastMessage.content,
+            senderId: conv.lastMessage.senderId,
+            createdAt: conv.lastMessage.createdAt,
+            type: conv.lastMessage.type
+          },
+          unreadCount: conv.unreadCount,
+          updatedAt: conv.lastMessage.createdAt
+        };
+      })
+    );
+
+    // Deduplicate conversations by otherUser.auth0Id (keep the most recent one)
+    const deduplicatedMap = new Map();
+    for (const conv of conversations) {
+      if (conv.otherUser && conv.otherUser.auth0Id) {
+        const existingConv = deduplicatedMap.get(conv.otherUser.auth0Id);
+        if (!existingConv || new Date(conv.updatedAt) > new Date(existingConv.updatedAt)) {
+          deduplicatedMap.set(conv.otherUser.auth0Id, conv);
+        }
+      }
+    }
+    
+    const deduplicatedConversations = Array.from(deduplicatedMap.values());
+    
+    // Sort by most recent
+    deduplicatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    res.json({
+      success: true,
+      conversations: deduplicatedConversations
+    });
+  } catch (error) {
+    console.error('Error getting conversations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get conversations',
+      conversations: []
+    });
+  }
+});
+
+// Get messages for a specific conversation
+router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { otherUserId } = req.params;
+    const { limit = 50, before } = req.query;
+    
+    console.log('📥 GET /conversations/:otherUserId/messages', { userId, otherUserId, limit, before });
+    
+    const ids = [userId, otherUserId].sort();
+    const conversationId = `${ids[0]}_${ids[1]}`;
+    
+    console.log('🔍 Looking for messages with conversationId:', conversationId);
+    
+    let query = { conversationId };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    console.log(`✅ Found ${messages.length} messages for conversationId: ${conversationId}`);
+    if (messages.length > 0) {
+      console.log('📋 Sample messages:', messages.slice(0, 3).map(m => ({
+        id: m._id,
+        senderId: m.senderId,
+        receiverId: m.receiverId,
+        content: m.content?.substring(0, 50),
+        createdAt: m.createdAt
+      })));
+    }
+
+    // Mark messages as read
+    const updateResult = await Message.updateMany(
+      { conversationId, receiverId: userId, read: false },
+      { read: true, readAt: new Date() }
+    );
+    
+    if (updateResult.modifiedCount > 0) {
+      console.log(`📖 Marked ${updateResult.modifiedCount} messages as read`);
+    }
+
+    res.json({
+      success: true,
+      messages: messages.reverse() // Return in chronological order
+    });
+  } catch (error) {
+    console.error('❌ Error getting messages:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get messages',
+      messages: []
+    });
+  }
+});
+
+// Send a message
+router.post('/conversations/:receiverId/messages', verifyToken, async (req, res) => {
+  try {
+    const senderId = req.user.sub;
+    const { receiverId } = req.params;
+    const { content, type = 'text' } = req.body;
+
+    console.log('📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type });
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message content is required'
+      });
+    }
+
+    if (!receiverId) {
+      console.error('❌ No receiverId in params');
+      return res.status(400).json({
+        success: false,
+        message: 'Receiver ID is required'
+      });
+    }
+
+    const ids = [senderId, receiverId].sort();
+    const conversationId = `${ids[0]}_${ids[1]}`;
+
+    console.log('📝 Creating message with conversationId:', conversationId);
+
+    const message = new Message({
+      conversationId,
+      senderId,
+      receiverId,
+      content: content.trim(),
+      type
+    });
+
+    console.log('💾 Saving message to database...');
+    const savedMessage = await message.save();
+    console.log('✅ Message saved successfully:', savedMessage._id.toString());
+
+    // Populate sender info for real-time response
+    const sender = await User.findOne({ auth0Id: senderId });
+
+    res.json({
+      success: true,
+      message: {
+        id: savedMessage._id.toString(),
+        conversationId: savedMessage.conversationId,
+        senderId: savedMessage.senderId,
+        receiverId: savedMessage.receiverId,
+        content: savedMessage.content,
+        type: savedMessage.type,
+        read: savedMessage.read,
+        createdAt: savedMessage.createdAt,
+        sender: sender ? {
+          id: sender._id.toString(),
+          name: sender.name,
+          picture: sender.picture
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error.message
+    });
+  }
+});
+
+// Mark messages as read
+router.put('/conversations/:otherUserId/read', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { otherUserId } = req.params;
+    const ids = [userId, otherUserId].sort();
+    const conversationId = `${ids[0]}_${ids[1]}`;
+
+    await Message.updateMany(
+      { conversationId, receiverId: userId, read: false },
+      { read: true, readAt: new Date() }
+    );
+
+    res.json({
+      success: true,
+      message: 'Messages marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking messages as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark messages as read'
     });
   }
 });

@@ -156,6 +156,7 @@ html.ion-palette-dark {
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.03) 100%);
   border-bottom: 1px solid rgba(102, 126, 234, 0.1);
   margin-bottom: 0;
+  font-size: 14.5px;
 }
 
 .fc-toolbar-title {
@@ -164,7 +165,11 @@ html.ion-palette-dark {
   color: #667eea;
   letter-spacing: -0.02em;
 }
-
+.fc-timegrid-event .fc-event-main {
+  padding: 1px 1px 0px;
+  align-items: center;
+  text-align: center;
+}
 .fc-button {
   background: transparent;
   border: 1px solid #e5e7eb;
@@ -292,7 +297,7 @@ html.ion-palette-dark {
   display: inline-flex;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(102, 126, 234, 0.2);
+  // border: 1px solid rgba(102, 126, 234, 0.2);
   
   .fc-button {
     border: none;

@@ -7,6 +7,7 @@ import { trigger, state, style, transition, animate, stagger } from '@angular/an
 import { ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { MessagingService } from '../services/messaging.service';
 
 @Component({
   selector: 'app-tutor-search-content',
@@ -112,7 +113,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   constructor(
     private userService: UserService,
     private modalController: ModalController,
-    private router: Router
+    private router: Router,
+    private messagingService: MessagingService
   ) {}
 
   ngOnInit() {
@@ -501,6 +503,18 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   openSortFilter() {
     // Open sort filter
+  }
+
+  async messageTutor(tutor: Tutor) {
+    if (!tutor) return;
+    
+    // Get the tutor's auth0Id - it should be in the tutor object
+    const tutorId = tutor.auth0Id || tutor.id;
+    
+    // Navigate to messages page with the tutor's auth0Id as a query param
+    await this.router.navigate(['/tabs/messages'], {
+      queryParams: { tutorId: tutorId }
+    });
   }
 
   async navigateToTutorProfile(tutorId: string) {

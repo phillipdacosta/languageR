@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController } from '@ionic/angular';
+import { IonicModule, ToastController, LoadingController, AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { Subject } from 'rxjs';
@@ -33,7 +33,7 @@ interface SelectedSlot {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class AvailabilitySetupComponent implements OnInit, OnDestroy {
+export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
 
   private destroy$ = new Subject<void>();
@@ -43,6 +43,15 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   showPopularSlots = false;
   selectedSlotsCount = 0;
   currentWeek: Date = new Date(); // The Monday of the current week being viewed
+  hasUnsavedChanges = false;
+
+  // Now indicator state
+  showNowIndicator = false;
+  nowIndicatorTop = 0;
+  nowIndicatorLeft = 0;
+  nowIndicatorWidth = 0;
+  private nowIntervalId: any;
+  private boundResizeHandler = () => this.updateNowIndicator();
 
   // Selection state
   isSelecting = false;
@@ -65,7 +74,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     private router: Router,
     private userService: UserService,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private alertController: AlertController
   ) {
     this.initializeTimeSlots();
     this.initializeCurrentWeek();
@@ -74,6 +84,15 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadExistingAvailability();
+  }
+
+  ngAfterViewInit() {
+    // Initial compute after view renders
+    setTimeout(() => this.updateNowIndicator());
+    // Update every minute
+    this.nowIntervalId = setInterval(() => this.updateNowIndicator(), 60_000);
+    // Recompute on resize
+    window.addEventListener('resize', this.boundResizeHandler);
   }
 
   private initializeCurrentWeek() {
@@ -134,6 +153,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     this.currentWeek = new Date(this.currentWeek);
     this.currentWeek.setDate(this.currentWeek.getDate() + days);
     this.updateWeekDays();
+    // Recompute indicator after DOM updates
+    setTimeout(() => this.updateNowIndicator());
   }
 
   navigateMonth(direction: 'prev' | 'next') {
@@ -150,11 +171,14 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   goToToday() {
     this.initializeCurrentWeek();
     this.updateWeekDays();
+    setTimeout(() => this.updateNowIndicator());
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    if (this.nowIntervalId) clearInterval(this.nowIntervalId);
+    window.removeEventListener('resize', this.boundResizeHandler);
   }
 
   private initializeTimeSlots() {
@@ -200,6 +224,8 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
           this.updateSelectedCount();
           console.log('🔧 Final selected slots after loading:', Array.from(this.selectedSlots));
         }
+        // Loaded selections reflect saved state; reset dirty flag
+        this.hasUnsavedChanges = false;
       },
       error: (error) => {
         console.error('Error loading existing availability:', error);
@@ -209,8 +235,31 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
   // Navigation
   goBack() {
-    console.log('Going back to calendar...');
+    if (this.selectedSlotsCount > 0 && this.hasUnsavedChanges) {
+      this.confirmLeaveWithUnsavedChanges();
+      return;
+    }
     this.router.navigate(['/tabs/tutor-calendar']);
+  }
+
+  private async confirmLeaveWithUnsavedChanges() {
+    const alert = await this.alertController.create({
+      header: 'Selection not saved',
+      message: 'You have selected time slots that are not saved.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save',
+          handler: async () => {
+            await this.saveAvailability();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   setActiveTab(tab: string) {
@@ -220,9 +269,11 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   // Selection logic
   startSelection(dayIndex: number, slotIndex: number, event: MouseEvent) {
     event.preventDefault();
+    if (this.isPastSlot(dayIndex, slotIndex)) return;
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
+    this.hasUnsavedChanges = true;
   }
 
   continueSelection(dayIndex: number, slotIndex: number) {
@@ -239,11 +290,13 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
 
     for (let day = startDay; day <= endDay; day++) {
       for (let idx = startIdx; idx <= endIdx; idx++) {
+        if (this.isPastSlot(day, idx)) continue;
         this.selectedSlots.add(`${day}-${idx}`);
       }
     }
 
     this.updateSelectedCount();
+    this.hasUnsavedChanges = true;
   }
 
   endSelection() {
@@ -252,6 +305,7 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
   }
 
   private toggleSlot(dayIndex: number, slotIndex: number) {
+    if (this.isPastSlot(dayIndex, slotIndex)) return;
     const slotKey = `${dayIndex}-${slotIndex}`;
     if (this.selectedSlots.has(slotKey)) {
       this.selectedSlots.delete(slotKey);
@@ -259,6 +313,7 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
       this.selectedSlots.add(slotKey);
     }
     this.updateSelectedCount();
+    this.hasUnsavedChanges = true;
   }
 
   private clearSelectionRange() {
@@ -291,11 +346,62 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
     return slotIndex >= this.nightStartIndex;
   }
 
+  // Disallow selecting time slots in the past (relative to now)
+  isPastSlot(dayIndex: number, slotIndex: number): boolean {
+    if (!this.weekDays[dayIndex]) return false;
+    const slotDate = new Date(this.weekDays[dayIndex].date);
+    const hour = Math.floor(slotIndex / 2);
+    const minute = slotIndex % 2 === 1 ? 30 : 0;
+    slotDate.setHours(hour, minute, 0, 0);
+    return slotDate.getTime() < Date.now();
+  }
+
   isToday(day: WeekDay): boolean {
     const today = new Date();
     return day.date.getDate() === today.getDate() &&
            day.date.getMonth() === today.getMonth() &&
            day.date.getFullYear() === today.getFullYear();
+  }
+
+  private isCurrentWeekInView(): boolean {
+    if (!this.weekDays || this.weekDays.length !== 7) return false;
+    const start = new Date(this.weekDays[0].date);
+    const end = new Date(this.weekDays[6].date);
+    // End of day for the last day
+    end.setHours(23, 59, 59, 999);
+    const now = new Date();
+    return now >= start && now <= end;
+  }
+
+  private updateNowIndicator() {
+    const container = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
+    if (!container) {
+      this.showNowIndicator = false;
+      return;
+    }
+
+    // Only show if viewing the week that includes today
+    if (!this.isCurrentWeekInView()) {
+      this.showNowIndicator = false;
+      return;
+    }
+
+    // Top position based on minutes since midnight across full 24h height
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const totalMinutes = 24 * 60;
+    const containerRect = container.getBoundingClientRect();
+    const height = container.clientHeight;
+    this.nowIndicatorTop = Math.max(0, Math.min(height - 1, Math.round((minutes / totalMinutes) * height)));
+
+    // Left and width: measure the first time-label width to start the line after labels
+    const firstLabel = container.querySelector('.time-slot-row .time-label') as HTMLElement | null;
+    const containerWidth = container.clientWidth;
+    const labelWidth = firstLabel ? firstLabel.offsetWidth : 80; // fallback
+    this.nowIndicatorLeft = labelWidth;
+    this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
+
+    this.showNowIndicator = true;
   }
 
   private updateSelectedCount() {
@@ -391,6 +497,7 @@ export class AvailabilitySetupComponent implements OnInit, OnDestroy {
           });
           await toast.present();
           
+          this.hasUnsavedChanges = false;
           // Navigate back to calendar
           this.router.navigate(['/tabs/tutor-calendar']);
         },

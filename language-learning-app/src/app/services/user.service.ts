@@ -60,6 +60,7 @@ export interface TutorOnboardingData {
 
 export interface Tutor {
   id: string;
+  auth0Id?: string;
   name: string;
   email: string;
   picture?: string;

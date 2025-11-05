@@ -108,8 +108,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   private initializeTimeSlots() {
-    // Generate time slots from 6 AM to 11 PM in 30-minute increments
-    for (let hour = 6; hour <= 23; hour++) {
+    // Generate time slots from 12:00 AM (midnight) to 11:30 PM in 30-minute increments
+    // This matches the tutor calendar which starts at midnight
+    for (let hour = 0; hour <= 23; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         this.timeSlots.push(time);

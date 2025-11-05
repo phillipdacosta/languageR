@@ -22,8 +22,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private calendar?: Calendar;
   events: EventInput[] = [];
   isInitialized = false;
-  private fallbackUsed = false; // Prevent infinite fallback calls
   private initializationAttempts = 0; // Track initialization attempts
+  
+  // Custom full-width now indicator state
+  customNowVisible = false;
+  customNowTop = 0;
+  customNowLeft = 0;
+  customNowWidth = 0;
+  private customNowInterval: any;
   
   // Mobile expandable sections
   sidebarExpanded = false;
@@ -58,6 +64,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           }, 100);
         }
       });
+
+    // Start updater for custom now indicator
+    setTimeout(() => this.updateCustomNowIndicator());
+    this.customNowInterval = setInterval(() => this.updateCustomNowIndicator(), 60_000);
+    window.addEventListener('resize', this.updateCustomNowIndicatorBound);
   }
 
   ngAfterViewInit() {
@@ -95,6 +106,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.calendar = undefined;
     }
     this.isInitialized = false;
+    if (this.customNowInterval) clearInterval(this.customNowInterval);
+    window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
   }
 
   ionViewWillEnter() {
@@ -210,10 +223,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const studentName = lesson.studentId?.name || 'Unknown Student';
       const subject = lesson.subject || 'Language Lesson';
       
-      // Format time for display
+      // Format time for display (12-hour format like availability-setup)
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
-      const timeStr = `${startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      const timeStr = `${this.formatTime12Hour(startTime.getHours(), startTime.getMinutes())} - ${this.formatTime12Hour(endTime.getHours(), endTime.getMinutes())}`;
       
       const isPast = endTime.getTime() < Date.now();
       return {
@@ -249,8 +262,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private initCalendar(): boolean {
     // Prevent multiple initialization attempts
     if (this.initializationAttempts > 3) {
-      console.warn('📅 Too many initialization attempts, using fallback');
-      this.fallbackCalendarInitialization();
+      console.warn('📅 Too many initialization attempts, stopping');
       return false;
     }
     
@@ -303,7 +315,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         },
       height: '100%', // Use 100% to fit container, scroller handles scrolling
       contentHeight: 'auto',
-        slotMinTime: '06:00:00',
+        slotMinTime: '00:00:00', // Start at midnight (12:00am) to match availability-setup
         slotMaxTime: '23:59:00', // Extended to allow very late lessons
         slotDuration: '00:30:00',
         slotLabelInterval: '01:00:00',
@@ -326,14 +338,48 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         eventClick: (arg) => this.handleEventClick(arg),
         viewDidMount: (arg) => this.handleViewChange(arg),
         dayHeaderFormat: { weekday: 'short', day: 'numeric' },
+        eventTimeFormat: {
+          hour: 'numeric',
+          minute: '2-digit',
+          meridiem: 'short',
+          hour12: true
+        },
+        // Compact custom time label so it fits in small mobile cells
+        eventContent: (arg) => {
+          try {
+            const start = arg.event.start as Date;
+            const end = arg.event.end as Date;
+            if (!start || !end) {
+              return undefined as any;
+            }
+            const label = this.formatCompactRange(start, end);
+            const tiny = this.formatTinyRange(start, end);
+            // Default: show normal, hide tiny via inline style; CSS toggles for tiny chips
+            return {
+              html: `<div class=\"fc-event-custom-time\"><span class=\"normal\" style=\"display:inline\">${label}</span><span class=\"tiny\" style=\"display:none\">${tiny}</span></div>`
+            } as any;
+          } catch (_) {
+            return undefined as any;
+          }
+        },
+        eventDidMount: (info) => {
+          // Mark very small chips so CSS can switch to the tiny label
+          const el = info.el as HTMLElement;
+          const h = el.offsetHeight;
+          if (h && h < 22) {
+            el.classList.add('fc-event--tiny');
+          }
+        },
         slotLabelFormat: {
           hour: 'numeric',
           minute: '2-digit',
-          hour12: false
+          hour12: true
         }
       });
 
       this.calendar.render();
+      // Compute custom now indicator after first render
+      setTimeout(() => this.updateCustomNowIndicator());
       this.isInitialized = true;
       console.log('FullCalendar initialized successfully');
       console.log('Calendar instance:', this.calendar);
@@ -424,8 +470,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const success = this.initCalendar();
     
     if (!success) {
-      console.error('📅 Calendar initialization failed, trying fallback...');
-      this.fallbackCalendarInitialization();
+      console.error('📅 Calendar initialization failed');
       return;
     }
     
@@ -522,6 +567,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.calendar.updateSize();
           this.calendar.render();
           console.log('📅 Calendar updated size and re-rendered');
+          this.updateCustomNowIndicator();
         }
       }, 0);
       
@@ -558,53 +604,45 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
   }
 
-  private fallbackCalendarInitialization() {
-    // Prevent infinite loops
-    if (this.fallbackUsed) {
-      console.log('📅 Fallback already used, skipping...');
+  private updateCustomNowIndicatorBound = () => this.updateCustomNowIndicator();
+
+  private updateCustomNowIndicator() {
+    const container = document.getElementById('tutor-calendar-container');
+    if (!container || !this.isInitialized) {
+      this.customNowVisible = false;
       return;
     }
-    
-    this.fallbackUsed = true;
-    console.log('🔄 Using fallback calendar initialization...');
-    
-    // Create a simple fallback display with basic calendar
-    const calendarEl = document.getElementById('tutor-calendar-container');
-    if (calendarEl) {
-      calendarEl.innerHTML = `
-        <div style="width: 100%; height: 500px; background: white; border-radius: 8px; padding: 20px; box-sizing: border-box;">
-          <h3 style="margin: 0 0 20px 0; color: #333;">Your Availability Calendar</h3>
-          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: #ddd; border: 1px solid #ddd;">
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Sun</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Mon</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Tue</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Wed</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Thu</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Fri</div>
-            <div style="background: #f8f9fa; padding: 10px; text-align: center; font-weight: bold;">Sat</div>
-            ${Array.from({length: 35}, (_, i) => {
-              const day = i + 1;
-              const isMonday = (i + 1) % 7 === 2; // Monday is day 2
-              const isTuesday = (i + 1) % 7 === 3; // Tuesday is day 3
-              const hasAvailability = (isMonday || isTuesday) && day <= 31;
-              return `<div style="background: ${hasAvailability ? '#e3f2fd' : 'white'}; padding: 10px; text-align: center; min-height: 40px; ${hasAvailability ? 'border: 2px solid #007bff;' : ''}">${day <= 31 ? day : ''}</div>`;
-            }).join('')}
-          </div>
-          <div style="margin-top: 20px; padding: 10px; background: #e3f2fd; border-radius: 4px;">
-            <strong>Your Availability:</strong><br>
-            Monday 6:00 AM - 7:00 AM<br>
-            Tuesday 6:00 AM - 7:00 AM
-          </div>
-          <p style="margin-top: 20px; color: #666; font-size: 14px;">
-            Calendar is loading... If this persists, please refresh the page.
-          </p>
-        </div>
-      `;
-      
-      // Don't try to initialize calendar again - just show the fallback
-      console.log('📅 Fallback calendar displayed');
+
+    // Ensure we are on a timeGrid view where vertical scale exists
+    const hasTimeGrid = !!container.querySelector('.fc-timegrid-body');
+    if (!hasTimeGrid) {
+      this.customNowVisible = false;
+      return;
     }
+
+    const body = container.querySelector('.fc-timegrid-body') as HTMLElement | null;
+    const axis = container.querySelector('.fc-timegrid-axis-chunk, .fc-timegrid-axis') as HTMLElement | null;
+    const cols = container.querySelector('.fc-timegrid-cols') as HTMLElement | null;
+    if (!body || !cols) {
+      this.customNowVisible = false;
+      return;
+    }
+
+    const bodyRect = body.getBoundingClientRect();
+    const colsRect = cols.getBoundingClientRect();
+    const axisWidth = axis ? axis.getBoundingClientRect().width : 42;
+
+    // Position from minutes since midnight (calendar configured with slotMinTime 00:00)
+    const now = new Date();
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const totalMinutes = 24 * 60;
+    const height = body.clientHeight || bodyRect.height;
+    this.customNowTop = Math.max(0, Math.min(height - 1, Math.round((minutes / totalMinutes) * height)));
+    this.customNowLeft = Math.round(axisWidth);
+    this.customNowWidth = Math.max(0, Math.round(colsRect.width));
+    this.customNowVisible = true;
   }
+
 
   private reinitializeCalendar() {
     console.log('Re-initializing calendar after navigation...');
@@ -794,7 +832,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const isPast = new Date(end).getTime() < Date.now();
     const event: EventInput = {
       id: b.id || `${Date.now()}-${Math.random()}`,
-      title: b.title || (isClass ? 'Class' : 'Available'),
+      title: isClass ? (b.title || 'Class') : '',
       start: start.toISOString(),
       end: end.toISOString(),
       backgroundColor: baseColor,
@@ -824,7 +862,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       startTime: this.timeString(startDate),
       endTime: this.timeString(endDate),
       type: 'available',
-      title: e.title || 'Available',
+      title: e.title || '',
       color: e.backgroundColor || '#007bff'
     };
   }
@@ -924,10 +962,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         height: containerRect.height
       });
       
-      // If calendar has no dimensions and we haven't used fallback yet, use it
-      if ((calendarRect.width === 0 || calendarRect.height === 0) && !this.fallbackUsed) {
-        console.warn('📅 Calendar has no dimensions, using fallback...');
-        this.fallbackCalendarInitialization();
+      // If calendar has no dimensions, log warning
+      if (calendarRect.width === 0 || calendarRect.height === 0) {
+        console.warn('📅 Calendar has no dimensions');
       }
     } else {
       console.warn('📅 Calendar or container element not found for visibility check');
@@ -991,5 +1028,46 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   toggleLessonStatus() {
     this.lessonStatusExpanded = !this.lessonStatusExpanded;
+  }
+
+  private formatTime12Hour(hour: number, minute: number): string {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const displayMinute = minute === 0 ? '00' : minute.toString().padStart(2, '0');
+    return `${displayHour}:${displayMinute} ${period}`;
+  }
+
+  // 12-hour compact range for event chip, e.g. "12:00–12:30 AM"
+  private formatCompactRange(start: Date, end: Date): string {
+    const s = this.formatTimeParts(start);
+    const e = this.formatTimeParts(end);
+    if (s.period === e.period) {
+      return `${s.time}–${e.time} ${s.period}`;
+    }
+    return `${s.time} ${s.period}–${e.time} ${e.period}`;
+  }
+
+  // Ultra-compact for tiny chips, e.g. "12–12:30a" or "12a" when 15–20px tall
+  private formatTinyRange(start: Date, end: Date): string {
+    const s = this.formatTimeParts(start);
+    const e = this.formatTimeParts(end);
+    const sp = s.period === 'AM' ? 'a' : 'p';
+    const ep = e.period === 'AM' ? 'a' : 'p';
+    // Drop minutes when :00 on start to save space
+    const sTime = s.time.endsWith(':00') ? s.time.replace(':00', '') : s.time;
+    const eTime = e.time.endsWith(':00') ? e.time.replace(':00', '') : e.time;
+    if (s.period === e.period) {
+      return `${sTime}–${eTime}${sp}`;
+    }
+    return `${sTime}${sp}–${eTime}${ep}`;
+  }
+
+  private formatTimeParts(d: Date): { time: string; period: string } {
+    const hour = d.getHours();
+    const minute = d.getMinutes();
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const displayMinute = minute.toString().padStart(2, '0');
+    return { time: `${displayHour}:${displayMinute}`, period };
   }
 }

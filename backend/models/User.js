@@ -122,6 +122,15 @@ const userSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    // Optional absolute start/end for one-off blocks (e.g., classes)
+    absoluteStart: {
+      type: Date,
+      required: false
+    },
+    absoluteEnd: {
+      type: Date,
+      required: false
+    },
     startTime: {
       type: String,
       required: true
@@ -138,7 +147,7 @@ const userSchema = new mongoose.Schema({
     },
     type: {
       type: String,
-      enum: ['available', 'unavailable', 'break'],
+      enum: ['available', 'unavailable', 'break', 'class'],
       default: 'available'
     },
     title: {

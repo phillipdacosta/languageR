@@ -115,7 +115,7 @@ ion-content {
   height: 52px;
   font-weight: 700;
   font-size: 16px;
-  box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+//   box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
   margin-bottom: 12px;
   transition: all 0.3s ease;
   text-transform: none;
@@ -319,6 +319,25 @@ ion-content {
   padding: 0;
   background: transparent;
   border-radius: 0;
+  
+  // Custom full-width now indicator overlay
+  .custom-now-indicator {
+    position: absolute;
+    height: 2px;
+    background: #e03131; // red
+    z-index: 10;
+    pointer-events: none;
+  }
+  
+  .custom-now-indicator .custom-now-dot {
+    position: absolute;
+    left: -6px;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    background: #e03131;
+    border-radius: 50%;
+  }
   
   // Desktop: maintain full height but allow content to expand with bottom padding
   @media (min-width: 769px) {
@@ -675,6 +694,20 @@ ion-content {
 
 .fc-timegrid-divider {
   border-color: #e9ecef;
+}
+
+/* Make FullCalendar's live now indicator span full width with red color */
+.fc .fc-timegrid-now-indicator-line {
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  border-top-color: #e03131 !important;
+  z-index: 5;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-top-color: #e03131 !important;
+  border-bottom-color: #e03131 !important;
 }
 
 // Highlight current day
@@ -1582,6 +1615,26 @@ ion-content {
       font-size: 10px;
       padding: 1px 2px;
     }
+
+    // Ensure availability time fits within cell
+    .fc-timegrid-event {
+      padding: 2px 3px !important;
+      line-height: 1.1 !important;
+      min-height: 16px !important;
+    }
+
+    .fc-event-time {
+      font-size: 10px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+    }
+
+    .calendar-availability-event {
+      padding: 2px 3px !important;
+      font-size: 10px !important;
+    }
   }
 }
 
@@ -1644,6 +1697,17 @@ ion-content {
       box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3) !important;
       color: white !important;
     }
+
+    /* Compact label injected by eventContent so it fits in cells */
+    .fc-event-custom-time {
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      padding: 1px 2px !important;
+      display: block !important;
+    }
     
     .fc-col-header-cell {
       background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
@@ -1652,4 +1716,23 @@ ion-content {
     }
   }
 }
+
+/* Default: show normal label, hide tiny label */
+.fc-event-custom-time .normal { display: inline; }
+.fc-event-custom-time .tiny { display: none; }
+
+/* Center the time inside chips */
+.fc-event .fc-event-custom-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+/* Tiny chip handling: show ultra-compact label */
+.fc-event--tiny .fc-event-custom-time .normal { display: none !important; }
+.fc-event--tiny .fc-event-custom-time .tiny { display: inline !important; }
+.fc-event--tiny { padding: 1px 2px !important; }
+.fc-event--tiny .fc-event-custom-time { line-height: 1 !important; font-size: 10px !important; }
 

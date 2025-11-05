@@ -1,6 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { LoadingService } from './services/loading.service';
 import { ThemeService } from './services/theme.service';
+import { WebSocketService } from './services/websocket.service';
+import { MessagingService } from './services/messaging.service';
+import { AuthService } from './services/auth.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -8,10 +12,17 @@ import { ThemeService } from './services/theme.service';
   styleUrls: ['app.component.scss'],
   standalone: false,
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+  private currentUserId: string = '';
+  private isMessageListenerSetup = false;
+
   constructor(
     private loadingService: LoadingService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private websocketService: WebSocketService,
+    private messagingService: MessagingService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -49,5 +60,63 @@ export class AppComponent implements OnInit {
         this.loadingService.hide();
       }
     }, 10000);
+    
+    // Set up global WebSocket listener for real-time badge updates
+    this.setupGlobalMessageListener();
+  }
+  
+  private setupGlobalMessageListener() {
+    console.log('🌐 AppComponent: Setting up global WebSocket message listener');
+    
+    // Wait for user to be available, then connect and listen
+    this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      if (user?.email) {
+        this.currentUserId = `dev-user-${user.email}`;
+        console.log('🌐 AppComponent: Current user ID set to:', this.currentUserId);
+        
+        // Now that we have user, connect to WebSocket
+        console.log('🌐 AppComponent: User available, connecting to WebSocket');
+        this.websocketService.connect();
+        
+        // Set up message listener (only once)
+        if (!this.isMessageListenerSetup) {
+          this.isMessageListenerSetup = true;
+          
+          // Listen for all incoming messages globally
+          this.websocketService.newMessage$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(message => {
+            console.log('🌐 AppComponent: Received WebSocket message:', message.id);
+            
+            // Check if this is a message FOR me (I'm the receiver)
+            const isMessageForMe = message.receiverId === this.currentUserId || 
+                                   `dev-user-${message.receiverId}` === this.currentUserId ||
+                                   message.receiverId === this.currentUserId.replace('dev-user-', '');
+            
+            console.log('🌐 AppComponent: Is message for me?', isMessageForMe, 
+                        'receiverId:', message.receiverId, 
+                        'currentUserId:', this.currentUserId);
+            
+            if (isMessageForMe) {
+              console.log('📬 AppComponent: Message is for me, refreshing conversations to update badge');
+              // Reload conversations which will automatically update the unread count
+              this.messagingService.getConversations().subscribe({
+                next: (response) => {
+                  console.log('✅ AppComponent: Conversations reloaded after incoming message');
+                },
+                error: (error) => {
+                  console.error('❌ AppComponent: Error reloading conversations:', error);
+                }
+              });
+            }
+          });
+        }
+      }
+    });
+  }
+  
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

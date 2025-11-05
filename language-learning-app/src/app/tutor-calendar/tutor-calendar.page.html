@@ -50,7 +50,7 @@
         <div class="tag-list" [class.expanded]="tagsExpanded">
           <div class="tag-item" [style.border-left-color]="'#10b981'">
             <div class="tag-color" style="background-color: #10b981;"></div>
-            <span>First lesson</span>
+            <span>Your availability</span>
           </div>
           <div class="tag-item" [style.border-left-color]="'#3b82f6'">
             <div class="tag-color" style="background-color: #3b82f6;"></div>
@@ -102,6 +102,16 @@
             <!-- Main Calendar Area -->
             <div class="main-calendar">
               <div id="tutor-calendar-container">
+                <!-- Custom full-width now indicator overlay -->
+                <div
+                  *ngIf="customNowVisible"
+                  class="custom-now-indicator"
+                  [style.top.px]="customNowTop"
+                  [style.left.px]="customNowLeft"
+                  [style.width.px]="customNowWidth"
+                >
+                  <span class="custom-now-dot"></span>
+                </div>
                 <!-- Loading state -->
                 <div class="calendar-loading" *ngIf="!isInitialized">
                   <ion-spinner name="crescent"></ion-spinner>

@@ -2,8 +2,9 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, takeUntil   } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap } from 'rxjs';
 import { UserService } from '../services/user.service';
+import { MessagingService } from '../services/messaging.service';
 
 @Component({
   selector: 'app-tabs',
@@ -22,24 +23,33 @@ export class TabsPage implements OnInit, OnDestroy {
   // Authentication properties
   user$: Observable<User | null>;
   isAuthenticated$: Observable<boolean>;
+  // Unread messages count
+  unreadCount$ = new BehaviorSubject<number>(0);
 
   constructor(
     private router: Router,
     public platformService: PlatformService,
     private authService: AuthService,
-    private userService: UserService
+    private userService: UserService,
+    private messagingService: MessagingService
   ) {
     this.user$ = this.authService.user$;
     console.log('user$', this.user$);
     this.user$.subscribe(user => {
       console.log('user', user);
-      this.userService.getCurrentUser()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((user: any) => {
-        console.log('Database user data:', user);
-        this.currentUser = user;
-        console.log('Current user:', this.currentUser);
-      });
+      if (user?.email) {
+        this.userService.getCurrentUser()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((user: any) => {
+          console.log('Database user data:', user);
+          this.currentUser = user;
+          console.log('Current user:', this.currentUser);
+          
+          // Load unread count once user is authenticated (important for page refresh)
+          console.log('📬 TabsPage: User authenticated, loading initial unread count');
+          this.loadUnreadCount();
+        });
+      }
     });
     this.isAuthenticated$ = this.authService.isAuthenticated$;
   }
@@ -64,11 +74,41 @@ export class TabsPage implements OnInit, OnDestroy {
     // Ensure currentUser is loaded
     this.loadCurrentUser();
     
+    // Subscribe to the centralized unread count observable
+    console.log('📬 TabsPage: Subscribing to messagingService.unreadCount$');
+    this.messagingService.unreadCount$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (count) => {
+        console.log('📬 TabsPage: Received unread count update:', count);
+        console.log('📬 TabsPage: Setting local unreadCount$ to:', count);
+        this.unreadCount$.next(count);
+      }
+    });
+    
+    // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
+    // This ensures the user is authenticated before making API calls
+    
     console.log('Platform detected:', this.currentPlatform);
     console.log('Platform config:', this.platformConfig);
     console.log('Show tabs:', this.showTabs);
     console.log('Is web:', this.isWeb());
     console.log('Is mobile viewport:', this.isMobileViewport());
+  }
+
+  private loadUnreadCount() {
+    console.log('📬 TabsPage: loadUnreadCount() called');
+    // Fetch conversations which will automatically update the unread count via the service
+    this.messagingService.getConversations().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        console.log('📬 TabsPage: Initial conversations loaded, count:', response.conversations?.length);
+      },
+      error: (error) => {
+        console.error('❌ TabsPage: Error loading conversations for unread count:', error);
+      }
+    });
   }
 
   private loadCurrentUser() {

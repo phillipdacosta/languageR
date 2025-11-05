@@ -33,6 +33,12 @@
           <span>Calendar</span>
         </button>
         
+        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/messages')" (click)="navigateTo('/tabs/messages')">
+          <ion-icon name="chatbubbles"></ion-icon>
+          <span>Messages</span>
+          <div *ngIf="(unreadCount$ | async)! > 0" class="notification-dot"></div>
+        </button>
+        
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
           <ion-icon name="trending-up"></ion-icon>
           <span>Progress</span>
@@ -66,6 +72,12 @@
     <ion-tab-button *ngIf="currentUser?.userType === 'tutor'" tab="tutor-calendar" href="/tabs/tutor-calendar" [selected]="isCurrentRoute('/tabs/tutor-calendar')">
       <ion-icon aria-hidden="true" name="calendar"></ion-icon>
       <ion-label>Calendar</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="messages" href="/tabs/messages">
+      <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
+      <ion-label>Messages</ion-label>
+      <div *ngIf="(unreadCount$ | async)! > 0" class="notification-dot tab-notification-dot"></div>
     </ion-tab-button>
 
     <ion-tab-button tab="progress" href="/tabs/progress">

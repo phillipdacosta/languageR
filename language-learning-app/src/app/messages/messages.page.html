@@ -1,0 +1,367 @@
+<ion-content [fullscreen]="true" class="messages-content">
+  <div class="messages-container" [class.desktop-layout]="isDesktop">
+    
+    <!-- Desktop Two-Column Layout -->
+    <div class="desktop-messages-wrapper" *ngIf="isDesktop">
+      <!-- Left Column: Conversation List -->
+      <div class="conversations-panel">
+        <div class="conversations-header">
+          <h2>Messages</h2>
+          <div class="header-actions">
+            <ion-button fill="clear" size="small">
+              <ion-icon name="create-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small">
+              <ion-icon name="search-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="loading-container">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+
+        <!-- Conversations List -->
+        <div class="conversations-list" *ngIf="!isLoading">
+          <div 
+            *ngFor="let conversation of conversations" 
+            class="conversation-item"
+            [class.active]="selectedConversation?.conversationId === conversation.conversationId"
+            (click)="selectConversation(conversation)">
+            <ion-avatar class="conversation-avatar">
+              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" />
+              <div class="avatar-fallback" *ngIf="!conversation.otherUser?.picture">
+                {{ conversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+            <div class="conversation-info">
+              <div class="conversation-header-row">
+                <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
+                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+              </div>
+              <div class="conversation-preview-row">
+                <p class="preview-text" 
+                   [class.sent-by-me]="conversation.lastMessage.senderId === getCurrentUserId()">
+                  <span *ngIf="conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
+                  {{ conversation.lastMessage.content }}
+                </p>
+                <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
+                  {{ conversation.unreadCount }}
+                </ion-badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && conversations.length === 0" class="empty-state">
+          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+          <p>No conversations yet</p>
+          <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
+          <p class="empty-hint" *ngIf="currentUserType === 'tutor'">Student messages will appear here.</p>
+        </div>
+      </div>
+
+      <!-- Right Column: Chat View -->
+      <div class="chat-panel" *ngIf="selectedConversation">
+        <div class="chat-header">
+          <div class="chat-header-info">
+            <ion-avatar class="chat-avatar">
+              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
+              <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
+                {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+            <div class="chat-user-info">
+              <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>
+              <p class="typing-indicator" *ngIf="otherUserTyping">Typing...</p>
+              <div class="user-details" *ngIf="!otherUserTyping && selectedConversation.otherUser">
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && selectedConversation.otherUser.languages && selectedConversation.otherUser.languages.length">
+                  <ion-icon name="language-outline"></ion-icon>
+                  {{ selectedConversation.otherUser.languages.join(', ') }}
+                  <span *ngIf="selectedConversation.otherUser.hourlyRate" class="rate">
+                    • ${{ selectedConversation.otherUser.hourlyRate }}/hr
+                  </span>
+                  <span *ngIf="selectedConversation.otherUser.rating" class="rating">
+                    • ⭐ {{ selectedConversation.otherUser.rating.toFixed(1) }}
+                  </span>
+                </p>
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && (!selectedConversation.otherUser.languages || !selectedConversation.otherUser.languages.length)">
+                  Tutor
+                </p>
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType !== 'tutor'">
+                  {{ selectedConversation.otherUser.userType || 'User' }}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="chat-header-actions">
+            <ion-button fill="clear" size="small">
+              <ion-icon name="videocam-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small">
+              <ion-icon name="call-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small">
+              <ion-icon name="ellipsis-vertical-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+
+        <div class="chat-messages" #chatContainer>
+          <!-- Loading State -->
+          <div *ngIf="isLoadingMessages" class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+          </div>
+
+          <!-- Tutor Info Card (shown when starting a new conversation with a tutor) -->
+          <ng-container *ngIf="!isLoadingMessages && messages.length === 0 && selectedConversation?.otherUser?.userType === 'tutor' && selectedConversation?.otherUser?.languages && (selectedConversation?.otherUser?.languages?.length ?? 0) > 0">
+            <div class="tutor-info-card">
+              <div class="tutor-info-header">
+                <ion-avatar class="tutor-info-avatar">
+                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
+                  <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
+                    {{ selectedConversation.otherUser!.name?.charAt(0) || '?' }}
+                  </div>
+                </ion-avatar>
+                <div class="tutor-info-main">
+                  <h4>{{ selectedConversation.otherUser!.name }}</h4>
+                  <div class="tutor-info-badges">
+                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.rating">
+                      <ion-icon name="star"></ion-icon>
+                      {{ selectedConversation.otherUser!.rating.toFixed(1) }}
+                    </span>
+                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.hourlyRate">
+                      ${{ selectedConversation.otherUser!.hourlyRate }}/hr
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="tutor-info-details">
+                <div class="info-row" *ngIf="selectedConversation.otherUser!.languages && selectedConversation.otherUser!.languages.length">
+                  <ion-icon name="language-outline"></ion-icon>
+                  <span><strong>Languages:</strong> {{ selectedConversation.otherUser!.languages.join(', ') }}</span>
+                </div>
+                <div class="info-row" *ngIf="selectedConversation.otherUser!.bio">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <span>{{ selectedConversation.otherUser!.bio }}</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- Messages -->
+          <div *ngIf="!isLoadingMessages" class="messages-list">
+            <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" class="message-wrapper">
+              <!-- Date Separator -->
+              <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
+                {{ formatDate(message.createdAt) }}
+              </div>
+
+              <!-- Message Bubble -->
+              <div class="message-bubble" 
+                   [class.sent]="message.senderId === getCurrentUserId()"
+                   [class.received]="message.senderId !== getCurrentUserId()">
+                <div class="message-content">
+                  {{ message.content }}
+                </div>
+                <div class="message-time">
+                  {{ formatTime(message.createdAt) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message Input -->
+        <div class="message-input-container">
+          <ion-button fill="clear" size="small">
+            <ion-icon name="mic-outline"></ion-icon>
+          </ion-button>
+          <ion-input
+            #messageInput
+            [(ngModel)]="newMessage"
+            placeholder="Type a message"
+            (ionInput)="onInputChange()"
+            (keydown.enter)="sendMessage()"
+            class="message-input">
+          </ion-input>
+          <ion-button fill="clear" size="small">
+            <ion-icon name="attach-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small">
+            <ion-icon name="happy-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending">
+            <ion-icon name="send-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- No Conversation Selected -->
+      <div class="chat-panel-empty" *ngIf="!selectedConversation">
+        <div class="empty-chat">
+          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+          <h2>Select a conversation</h2>
+          <p>Choose a conversation from the list to start messaging</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Single Column Layout -->
+    <div class="mobile-messages-wrapper" *ngIf="!isDesktop">
+      <!-- Conversation List View (Mobile) -->
+      <div class="conversations-panel" *ngIf="!selectedConversation">
+        <div class="conversations-header">
+          <h2>Messages</h2>
+        </div>
+
+        <div *ngIf="isLoading" class="loading-container">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+
+        <div class="conversations-list" *ngIf="!isLoading && conversations.length > 0">
+          <div 
+            *ngFor="let conversation of conversations" 
+            class="conversation-item"
+            (click)="selectConversation(conversation)">
+            <ion-avatar class="conversation-avatar">
+              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" />
+              <div class="avatar-fallback" *ngIf="!conversation.otherUser?.picture">
+                {{ conversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+            <div class="conversation-info">
+              <div class="conversation-header-row">
+                <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
+                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+              </div>
+              <div class="conversation-preview-row">
+                <p class="preview-text">{{ conversation.lastMessage.content }}</p>
+                <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
+                  {{ conversation.unreadCount }}
+                </ion-badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!isLoading && conversations.length === 0" class="empty-state">
+          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+          <h2>No messages yet</h2>
+          <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>
+          <p *ngIf="currentUserType === 'tutor'">Student messages will appear here.</p>
+        </div>
+      </div>
+
+      <!-- Chat View (Mobile) -->
+      <div class="chat-view-mobile" *ngIf="selectedConversation">
+        <div class="chat-header">
+          <ion-button fill="clear" (click)="selectedConversation = null">
+            <ion-icon name="arrow-back"></ion-icon>
+          </ion-button>
+          <div class="chat-header-info">
+            <ion-avatar class="chat-avatar">
+              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
+              <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
+                {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+            <div class="chat-user-info">
+              <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>
+              <p class="typing-indicator" *ngIf="otherUserTyping">Typing...</p>
+              <div class="user-details" *ngIf="!otherUserTyping && selectedConversation.otherUser">
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && selectedConversation.otherUser.languages && selectedConversation.otherUser.languages.length">
+                  <ion-icon name="language-outline"></ion-icon>
+                  {{ selectedConversation.otherUser.languages.join(', ') }}
+                  <span *ngIf="selectedConversation.otherUser.hourlyRate" class="rate">
+                    • ${{ selectedConversation.otherUser.hourlyRate }}/hr
+                  </span>
+                  <span *ngIf="selectedConversation.otherUser.rating" class="rating">
+                    • ⭐ {{ selectedConversation.otherUser.rating.toFixed(1) }}
+                  </span>
+                </p>
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && (!selectedConversation.otherUser.languages || !selectedConversation.otherUser.languages.length)">
+                  Tutor
+                </p>
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType !== 'tutor'">
+                  {{ selectedConversation.otherUser.userType || 'User' }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-messages" #chatContainer>
+          <div *ngIf="isLoadingMessages" class="loading-container">
+            <ion-spinner name="crescent"></ion-spinner>
+          </div>
+
+          <!-- Tutor Info Card (shown when starting a new conversation with a tutor) -->
+          <ng-container *ngIf="!isLoadingMessages && messages.length === 0 && selectedConversation?.otherUser?.userType === 'tutor' && selectedConversation?.otherUser?.languages && (selectedConversation?.otherUser?.languages?.length ?? 0) > 0">
+            <div class="tutor-info-card">
+              <div class="tutor-info-header">
+                <ion-avatar class="tutor-info-avatar">
+                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
+                  <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
+                    {{ selectedConversation.otherUser!.name?.charAt(0) || '?' }}
+                  </div>
+                </ion-avatar>
+                <div class="tutor-info-main">
+                  <h4>{{ selectedConversation.otherUser!.name }}</h4>
+                  <div class="tutor-info-badges">
+                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.rating">
+                      <ion-icon name="star"></ion-icon>
+                      {{ selectedConversation.otherUser!.rating.toFixed(1) }}
+                    </span>
+                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.hourlyRate">
+                      ${{ selectedConversation.otherUser!.hourlyRate }}/hr
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="tutor-info-details">
+                <div class="info-row" *ngIf="selectedConversation.otherUser!.languages && selectedConversation.otherUser!.languages.length">
+                  <ion-icon name="language-outline"></ion-icon>
+                  <span><strong>Languages:</strong> {{ selectedConversation.otherUser!.languages.join(', ') }}</span>
+                </div>
+                <div class="info-row" *ngIf="selectedConversation.otherUser!.bio">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <span>{{ selectedConversation.otherUser!.bio }}</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <div *ngIf="!isLoadingMessages" class="messages-list">
+            <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" class="message-wrapper">
+              <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
+                {{ formatDate(message.createdAt) }}
+              </div>
+              <div class="message-bubble" 
+                   [class.sent]="message.senderId === getCurrentUserId()"
+                   [class.received]="message.senderId !== getCurrentUserId()">
+                <div class="message-content">{{ message.content }}</div>
+                <div class="message-time">{{ formatTime(message.createdAt) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="message-input-container">
+          <ion-input
+            #messageInput
+            [(ngModel)]="newMessage"
+            placeholder="Type a message"
+            (ionInput)="onInputChange()"
+            (keydown.enter)="sendMessage()">
+          </ion-input>
+          <ion-button fill="clear" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending">
+            <ion-icon name="send"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

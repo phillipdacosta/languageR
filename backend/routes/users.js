@@ -444,6 +444,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
     // Format response
     const formattedTutors = tutors.map(tutor => ({
       id: tutor._id,
+      auth0Id: tutor.auth0Id,
       name: tutor.name,
       email: tutor.email,
       picture: tutor.picture,
@@ -610,6 +611,7 @@ router.get('/:tutorId/public', async (req, res) => {
       success: true,
       tutor: {
         id: tutor._id,
+        auth0Id: tutor.auth0Id,
         name: tutor.name,
         email: tutor.email,
         picture: tutor.picture,

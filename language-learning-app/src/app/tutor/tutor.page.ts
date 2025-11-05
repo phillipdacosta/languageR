@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink, NavigationEnd } from '@angular/rout
 import { UserService } from '../services/user.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
+import { MessagingService } from '../services/messaging.service';
 import { filter } from 'rxjs/operators';
 
 @Component({
@@ -32,7 +33,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private userService: UserService,
     private modalController: ModalController,
     private platform: Platform,
-    private location: Location
+    private location: Location,
+    private messagingService: MessagingService
   ) {}
 
   ngOnInit() {
@@ -173,5 +175,35 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  }
+
+  async messageTutor() {
+    if (!this.tutor) return;
+    
+    console.log('📤 Tutor page: messageTutor called');
+    console.log('📤 Current tutor object:', this.tutor);
+    console.log('📤 Tutor ID:', this.tutorId);
+    
+    // Get the tutor's auth0Id from the user service
+    this.userService.getTutorPublic(this.tutorId).subscribe({
+      next: async (res) => {
+        const tutor = res.tutor;
+        console.log('📤 Fetched tutor from API:', tutor);
+        console.log('📤 Using tutorId for messaging:', tutor.auth0Id || tutor.id);
+        
+        // Navigate to messages page with the tutor's auth0Id as a query param
+        await this.router.navigate(['/tabs/messages'], {
+          queryParams: { tutorId: tutor.auth0Id || tutor.id }
+        });
+      },
+      error: (error) => {
+        console.error('❌ Error getting tutor info:', error);
+        // Fallback: try to navigate with the tutor ID we have
+        console.log('⚠️ Fallback: using tutorId:', this.tutorId);
+        this.router.navigate(['/tabs/messages'], {
+          queryParams: { tutorId: this.tutorId }
+        });
+      }
+    });
   }
 }

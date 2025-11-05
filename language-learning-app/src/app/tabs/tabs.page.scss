@@ -101,6 +101,7 @@
       color: #6c757d;
       text-decoration: none;
       min-width: 60px;
+      position: relative;
       
       &:hover {
         background: #f8f9fa;
@@ -138,6 +139,32 @@
         color: inherit;
         text-align: center;
       }
+
+      .desktop-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        font-size: 10px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        font-weight: 600;
+      }
+
+      // Notification dot (red circle) for Messages tab
+      .notification-dot {
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        background-color: #ff3b30;
+        border-radius: 50%;
+        top: 5px;
+        right: 22px;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+        z-index: 999;
+      }
     }
   }
 }
@@ -152,6 +179,7 @@
     ion-tab-button {
       --color: #8e8e93;
       --color-selected: #007aff;
+      position: relative;
       
       ion-icon {
         font-size: 24px;
@@ -160,6 +188,32 @@
       ion-label {
         font-size: 10px;
         font-weight: 500;
+      }
+
+      .tab-badge {
+        position: absolute;
+        top: 4px;
+        right: 8px;
+        font-size: 10px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        z-index: 10;
+      }
+
+      // Notification dot for mobile tab
+      .tab-notification-dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background-color: #ff3b30;
+        border-radius: 50%;
+        top: 6px;
+        right: 12px;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+        z-index: 999;
       }
     }
   }

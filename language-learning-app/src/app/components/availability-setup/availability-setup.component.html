@@ -115,6 +115,16 @@
 
         <!-- Time Slots -->
         <div class="time-slots" #timeSlotsContainer>
+          <!-- Live current-time indicator -->
+          <div
+            *ngIf="showNowIndicator"
+            class="now-indicator"
+            [style.top.px]="nowIndicatorTop"
+            [style.left.px]="nowIndicatorLeft"
+            [style.width.px]="nowIndicatorWidth"
+          >
+            <span class="now-dot"></span>
+          </div>
           <div class="time-slot-row" *ngFor="let hour of timeSlots; let i = index">
             <!-- Time Label -->
             <div class="time-label">{{ hour.display }}</div>
@@ -126,6 +136,7 @@
                    [class.selected]="isSlotSelected(dayIndex, i)"
                    [class.popular]="isPopularSlot(dayIndex, i)"
                    [class.night]="isNightSlot(i)"
+                   [class.past]="isPastSlot(dayIndex, i)"
                    (mousedown)="startSelection(dayIndex, i, $event)"
                    (mouseenter)="continueSelection(dayIndex, i)"
                    (mouseup)="endSelection()">

@@ -301,6 +301,7 @@
     color: #6c757d;
     margin: 0;
     line-height: 1.5;
+    padding-top: 22px;
   }
 }
 
@@ -363,6 +364,17 @@
 .time-grid {
   position: relative;
   min-width: 800px;
+}
+
+// Disable past slots visually
+.time-grid .day-columns .day-column.past {
+  background: #f1f3f5; // light gray
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.time-grid .day-columns .day-column.past.selected {
+  // Prevent selected styling from overpowering disabled look
+  background: #e9ecef;
 }
 
 .day-headers {
@@ -480,6 +492,24 @@
   position: relative;
   margin-top: 0; // Ensure no gap between headers and time slots
   padding-top: 0; // Ensure no padding that creates gap
+}
+
+// Live current-time indicator line
+.time-slots .now-indicator {
+  position: absolute;
+  height: 2px;
+  background: #e03131; // red
+  z-index: 5;
+}
+
+.time-slots .now-indicator .now-dot {
+  position: absolute;
+  left: -6px; // sit just before the line
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  background: #e03131;
+  border-radius: 50%;
 }
 
 .time-slot-row {
@@ -636,6 +666,131 @@
 @media (min-width: 769px) {
   .availability-setup {
     height: 100%; // Use parent height instead of 100vh to respect header
+  }
+
+  // Optimize desktop layout for maximum grid visibility
+  .settings-sidebar {
+    width: 240px; // Reduce from 280px to give more space to grid
+    padding: 20px 16px; // Reduce padding
+  }
+
+  .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .content-header {
+    padding: 24px 24px 16px; // Reduce padding significantly (was 73px 40px 24px)
+    border-bottom: 1px solid #e9ecef;
+    flex-shrink: 0;
+
+    h1 {
+      font-size: 24px; // Slightly smaller (was 28px)
+      margin: 0 0 6px 0;
+    }
+
+    p {
+      font-size: 14px; // Smaller (was 16px)
+    }
+  }
+
+  .week-navigation {
+    padding: 1px 24px; // Reduce padding (was 16px 40px)
+    border-bottom: 1px solid #e9ecef;
+    background: #f8f9fa;
+    flex-shrink: 0;
+
+    .week-display {
+      margin: 0 16px; // Reduce margin (was 24px)
+    }
+  }
+
+  .time-grid-container {
+    flex: 1;
+    padding: 16px 24px; // Reduce padding significantly (was 24px 40px)
+    overflow: auto;
+    min-height: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .time-grid {
+    min-width: 900px; // Increase from 800px
+    width: 100%;
+    max-width: 1400px; // Allow grid to grow larger
+  }
+
+  // Make time slots more visible on desktop
+  .time-slot-row {
+    height: 40px; // Increase from default (likely 36px or less) for better visibility
+
+    .time-label {
+      width: 80px;
+      font-size: 13px;
+      padding-right: 12px;
+    }
+
+    .day-columns .day-column {
+      height: 40px; // Match row height
+      min-height: 40px;
+    }
+  }
+
+  .day-headers {
+    min-height: 60px; // Reduce from 80px
+    padding-top: 6px; // Reduce from 8px
+    padding-bottom: 16px; // Reduce from 22px
+
+    .time-column-header::after {
+      bottom: -16px; // Match new padding-bottom
+    }
+
+    .day-header {
+      min-height: 60px; // Reduce from 80px
+      padding: 8px 6px; // Reduce from 12px 8px
+
+      &::after {
+        bottom: -16px; // Match new padding-bottom
+        height: 16px; // Reduce from 22px
+      }
+
+      .day-name {
+        font-size: 13px; // Slightly smaller (was 14px)
+      }
+
+      .day-date .day-number {
+        font-size: 16px; // Reduce from 18px
+      }
+
+      .day-date .day-month {
+        font-size: 10px; // Slightly smaller (was 11px)
+      }
+    }
+  }
+
+  .action-bar {
+    padding: 12px 24px; // Reduce padding significantly (was 20px 40px)
+    flex-shrink: 0;
+    border-top: 1px solid #e9ecef;
+    background: white;
+
+    .selected-info {
+      font-size: 13px; // Slightly smaller
+    }
+
+    .action-buttons {
+      gap: 8px; // Reduce gap between buttons
+
+      ion-button {
+        height: 36px; // Reduce from 44px
+        font-size: 13px; // Slightly smaller
+        --padding-start: 16px;
+        --padding-end: 16px;
+      }
+    }
   }
 }
 
@@ -804,6 +959,7 @@
       width: 60px;
       font-size: 12px;
       padding-right: 8px;
+      white-space: nowrap;
     }
 
     .day-columns .day-column {
