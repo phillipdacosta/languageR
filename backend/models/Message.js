@@ -18,13 +18,38 @@ const messageSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true,
+    required: false,  // Not required for file/image/voice messages
     trim: true
   },
   type: {
     type: String,
     enum: ['text', 'image', 'file', 'voice'],
     default: 'text'
+  },
+  // File attachment fields
+  fileUrl: {
+    type: String,
+    required: false
+  },
+  fileName: {
+    type: String,
+    required: false
+  },
+  fileType: {
+    type: String,  // MIME type (e.g., 'image/jpeg', 'application/pdf', 'audio/webm')
+    required: false
+  },
+  fileSize: {
+    type: Number,  // Size in bytes
+    required: false
+  },
+  thumbnailUrl: {
+    type: String,  // For images/videos
+    required: false
+  },
+  duration: {
+    type: Number,  // For voice notes/audio (in seconds)
+    required: false
   },
   read: {
     type: Boolean,

@@ -36,9 +36,16 @@ export interface Message {
   senderId: string;
   receiverId: string;
   content: string;
-  type: string;
+  type: string;  // 'text', 'image', 'file', 'voice'
   read: boolean;
   createdAt: string;
+  // File attachment fields
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  thumbnailUrl?: string;
+  duration?: number;  // For voice notes (in seconds)
   sender?: {
     id: string;
     name: string;
@@ -142,6 +149,30 @@ export class MessagingService {
       `${this.apiUrl}/conversations/${otherUserId}/read`,
       {},
       { headers: this.getHeaders() }
+    );
+  }
+
+  // Upload file (image, document, or voice note)
+  uploadFile(receiverId: string, file: File, messageType: 'image' | 'file' | 'voice', caption?: string): Observable<{ success: boolean; message: Message }> {
+    console.log('📤 MessagingService.uploadFile called:', { receiverId, fileName: file.name, messageType });
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('messageType', messageType);
+    if (caption) {
+      formData.append('caption', caption);
+    }
+
+    const headers = this.userService.getAuthHeadersSync();
+    // Remove Content-Type header - let browser set it with boundary for multipart
+    const uploadHeaders = new HttpHeaders({
+      'Authorization': headers.get('Authorization') || ''
+    });
+
+    return this.http.post<{ success: boolean; message: Message }>(
+      `${this.apiUrl}/conversations/${receiverId}/upload`,
+      formData,
+      { headers: uploadHeaders }
     );
   }
 

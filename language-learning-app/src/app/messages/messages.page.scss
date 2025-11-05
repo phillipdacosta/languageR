@@ -608,3 +608,170 @@
     background: var(--ion-color-dark);
   }
 }
+
+// New message type styles
+.message-image {
+  img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: block;
+    
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+  
+  .image-caption {
+    margin-top: 8px;
+    margin-bottom: 0;
+    font-size: 14px;
+  }
+}
+
+.message-file {
+  .file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    
+    .file-icon {
+      font-size: 32px;
+      color: #1976d2;
+      flex-shrink: 0;
+    }
+    
+    .file-details {
+      flex: 1;
+      min-width: 0;
+      
+      .file-name {
+        margin: 0 0 4px;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .file-size {
+        margin: 0;
+        font-size: 12px;
+        opacity: 0.7;
+      }
+    }
+    
+    .download-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+  }
+  
+  .file-caption {
+    margin-top: 8px;
+    margin-bottom: 0;
+    font-size: 14px;
+  }
+}
+
+.message-voice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  .voice-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  
+  .voice-player {
+    flex: 1;
+    max-width: 250px;
+    height: 32px;
+  }
+  
+  .voice-duration {
+    font-size: 12px;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+}
+
+// Sent messages - adjust colors for file types
+.message-bubble.sent {
+  .message-file .file-info {
+    background: rgba(255, 255, 255, 0.15);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    
+    .file-icon {
+      color: white;
+    }
+  }
+}
+
+// Upload progress indicator
+.upload-progress,
+.upload-progress-mobile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #e3f2fd;
+  border-radius: 8px;
+  margin-top: 8px;
+  
+  ion-spinner {
+    --color: #1976d2;
+  }
+  
+  span {
+    font-size: 14px;
+    color: #1976d2;
+    font-weight: 500;
+  }
+}
+
+// Recording indicator
+.recording-indicator,
+.recording-indicator-mobile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ffebee;
+  border-radius: 8px;
+  margin-top: 8px;
+  animation: pulse 1.5s ease-in-out infinite;
+  
+  ion-icon {
+    font-size: 20px;
+  }
+  
+  span {
+    font-size: 14px;
+    color: #d32f2f;
+    font-weight: 500;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

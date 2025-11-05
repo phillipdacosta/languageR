@@ -1,8 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
 const User = require('../models/User');
+
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+});
 
 // In-memory storage for real-time messages (in production, use Redis or similar)
 const channelMessages = new Map();
@@ -280,6 +290,111 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       success: false,
       message: 'Failed to get messages',
       messages: []
+    });
+  }
+});
+
+// Upload file and send as message
+router.post('/conversations/:receiverId/upload', verifyToken, upload.single('file'), async (req, res) => {
+  try {
+    const senderId = req.user.sub;
+    const { receiverId } = req.params;
+    const { messageType, caption } = req.body; // messageType: 'image', 'file', or 'voice'
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    console.log('📤 File upload request:', {
+      senderId,
+      receiverId,
+      messageType,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      mimeType: req.file.mimetype
+    });
+
+    // Initialize GCS
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({
+        success: false,
+        message: 'File storage not configured'
+      });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const sanitizedFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const gcsFilename = `messages/${messageType}s/${senderId}/${timestamp}_${sanitizedFilename}`;
+
+    console.log('☁️ Uploading to GCS:', gcsFilename);
+
+    // Upload to GCS
+    const file = bucket.file(gcsFilename);
+    await file.save(req.file.buffer, {
+      metadata: {
+        contentType: req.file.mimetype,
+      },
+      public: true
+    });
+
+    // Get public URL
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${gcsFilename}`;
+    console.log('✅ File uploaded successfully:', fileUrl);
+
+    // Create message with file
+    const ids = [senderId, receiverId].sort();
+    const conversationId = `${ids[0]}_${ids[1]}`;
+
+    const message = new Message({
+      conversationId,
+      senderId,
+      receiverId,
+      content: caption || '', // Optional caption
+      type: messageType,
+      fileUrl,
+      fileName: req.file.originalname,
+      fileType: req.file.mimetype,
+      fileSize: req.file.size
+    });
+
+    const savedMessage = await message.save();
+    console.log('💾 Message with file saved:', savedMessage._id.toString());
+
+    // Populate sender info
+    const sender = await User.findOne({ auth0Id: senderId });
+
+    res.json({
+      success: true,
+      message: {
+        id: savedMessage._id.toString(),
+        conversationId: savedMessage.conversationId,
+        senderId: savedMessage.senderId,
+        receiverId: savedMessage.receiverId,
+        content: savedMessage.content,
+        type: savedMessage.type,
+        fileUrl: savedMessage.fileUrl,
+        fileName: savedMessage.fileName,
+        fileType: savedMessage.fileType,
+        fileSize: savedMessage.fileSize,
+        read: savedMessage.read,
+        createdAt: savedMessage.createdAt,
+        sender: sender ? {
+          id: sender._id.toString(),
+          name: sender.name,
+          picture: sender.picture
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error uploading file:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload file'
     });
   }
 });

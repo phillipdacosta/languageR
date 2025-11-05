@@ -36,6 +36,14 @@ export class MessagesPage implements OnInit, OnDestroy {
   typingTimeout: any;
   messageSendTimeout: any;
 
+  // File upload and voice recording
+  isUploading = false;
+  isRecording = false;
+  recordingDuration = 0;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private recordingTimer: any;
+
   // Platform detection
   isDesktop = false;
   currentUserId$ = new BehaviorSubject<string>('');
@@ -630,5 +638,146 @@ export class MessagesPage implements OnInit, OnDestroy {
   // TrackBy function for messages to prevent duplicate rendering
   trackByMessageId(index: number, message: Message): string {
     return message.id;
+  }
+
+  // Handle file selection
+  onFileSelected(event: Event, messageType: 'image' | 'file') {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    console.log('📎 File selected:', file.name, file.type, file.size);
+    
+    this.uploadFile(file, messageType);
+    
+    // Reset input
+    input.value = '';
+  }
+
+  // Upload file to server
+  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
+    if (!this.selectedConversation?.otherUser) {
+      console.error('No conversation selected');
+      return;
+    }
+
+    this.isUploading = true;
+    const receiverId = this.selectedConversation.otherUser.auth0Id;
+
+    console.log('📤 Uploading file:', { receiverId, fileName: file.name, messageType });
+
+    this.messagingService.uploadFile(receiverId, file, messageType, caption).subscribe({
+      next: (response) => {
+        console.log('✅ File uploaded successfully:', response.message);
+        
+        // Add message to local messages array
+        this.messages.push(response.message);
+        this.scrollToBottom();
+        
+        // Reload conversations to update last message
+        this.loadConversations();
+        
+        this.isUploading = false;
+      },
+      error: (error) => {
+        console.error('❌ Error uploading file:', error);
+        this.isUploading = false;
+        // TODO: Show error toast to user
+      }
+    });
+  }
+
+  // Toggle voice recording
+  async toggleVoiceRecording() {
+    if (this.isRecording) {
+      this.stopRecording();
+    } else {
+      await this.startRecording();
+    }
+  }
+
+  // Start voice recording
+  private async startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      this.mediaRecorder = new MediaRecorder(stream);
+      this.audioChunks = [];
+      this.recordingDuration = 0;
+      
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+      
+      this.mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+        
+        // Upload the voice note
+        this.uploadFile(audioFile, 'voice');
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      
+      // Start timer
+      this.recordingTimer = setInterval(() => {
+        this.recordingDuration++;
+        
+        // Auto-stop after 60 seconds
+        if (this.recordingDuration >= 60) {
+          this.stopRecording();
+        }
+      }, 1000);
+      
+      console.log('🎤 Recording started');
+    } catch (error) {
+      console.error('❌ Error starting recording:', error);
+      // TODO: Show error toast to user
+    }
+  }
+
+  // Stop voice recording
+  private stopRecording() {
+    if (this.mediaRecorder && this.isRecording) {
+      this.mediaRecorder.stop();
+      this.isRecording = false;
+      
+      if (this.recordingTimer) {
+        clearInterval(this.recordingTimer);
+        this.recordingTimer = null;
+      }
+      
+      console.log('🎤 Recording stopped');
+    }
+  }
+
+  // Format file size for display
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Get file icon based on type
+  getFileIcon(fileType: string): string {
+    if (fileType.startsWith('image/')) return 'image';
+    if (fileType.startsWith('audio/')) return 'musical-note';
+    if (fileType.startsWith('video/')) return 'videocam';
+    if (fileType.includes('pdf')) return 'document-text';
+    if (fileType.includes('word') || fileType.includes('doc')) return 'document';
+    if (fileType.includes('excel') || fileType.includes('sheet')) return 'grid';
+    if (fileType.includes('powerpoint') || fileType.includes('presentation')) return 'easel';
+    return 'attach';
+  }
+
+  // Open file in new tab
+  openFile(fileUrl: string) {
+    window.open(fileUrl, '_blank');
   }
 }

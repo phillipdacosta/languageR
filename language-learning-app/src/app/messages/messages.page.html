@@ -163,9 +163,38 @@
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()">
-                <div class="message-content">
+                
+                <!-- Text message -->
+                <div *ngIf="message.type === 'text'" class="message-content">
                   {{ message.content }}
                 </div>
+                
+                <!-- Image message -->
+                <div *ngIf="message.type === 'image'" class="message-image">
+                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!)" />
+                  <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+                </div>
+                
+                <!-- Document message -->
+                <div *ngIf="message.type === 'file'" class="message-file">
+                  <div class="file-info" (click)="openFile(message.fileUrl!)">
+                    <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
+                    <div class="file-details">
+                      <p class="file-name">{{ message.fileName }}</p>
+                      <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
+                    </div>
+                    <ion-icon name="download-outline" class="download-icon"></ion-icon>
+                  </div>
+                  <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
+                </div>
+                
+                <!-- Voice note message -->
+                <div *ngIf="message.type === 'voice'" class="message-voice">
+                  <ion-icon name="play-circle" class="voice-icon"></ion-icon>
+                  <audio [src]="message.fileUrl" controls class="voice-player"></audio>
+                  <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
+                </div>
+                
                 <div class="message-time">
                   {{ formatTime(message.createdAt) }}
                 </div>
@@ -176,8 +205,18 @@
 
         <!-- Message Input -->
         <div class="message-input-container">
-          <ion-button fill="clear" size="small">
-            <ion-icon name="mic-outline"></ion-icon>
+          <!-- Hidden file inputs -->
+          <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
+          <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
+          
+          <ion-button fill="clear" size="small" (click)="imageInput.click()" [disabled]="isUploading">
+            <ion-icon name="image-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="documentInput.click()" [disabled]="isUploading">
+            <ion-icon name="attach-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
+            <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
           </ion-button>
           <ion-input
             #messageInput
@@ -185,17 +224,24 @@
             placeholder="Type a message"
             (ionInput)="onInputChange()"
             (keydown.enter)="sendMessage()"
-            class="message-input">
+            class="message-input"
+            [disabled]="isUploading || isRecording">
           </ion-input>
-          <ion-button fill="clear" size="small">
-            <ion-icon name="attach-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small">
-            <ion-icon name="happy-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending">
+          <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
             <ion-icon name="send-outline"></ion-icon>
           </ion-button>
+          
+          <!-- Upload progress indicator -->
+          <div *ngIf="isUploading" class="upload-progress">
+            <ion-spinner name="crescent"></ion-spinner>
+            <span>Uploading...</span>
+          </div>
+          
+          <!-- Recording indicator -->
+          <div *ngIf="isRecording" class="recording-indicator">
+            <ion-icon name="radio-button-on" color="danger"></ion-icon>
+            <span>Recording... {{ recordingDuration }}s</span>
+          </div>
         </div>
       </div>
 
@@ -342,7 +388,34 @@
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()">
-                <div class="message-content">{{ message.content }}</div>
+                
+                <!-- Text message -->
+                <div *ngIf="message.type === 'text'" class="message-content">{{ message.content }}</div>
+                
+                <!-- Image message -->
+                <div *ngIf="message.type === 'image'" class="message-image">
+                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!)" />
+                  <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+                </div>
+                
+                <!-- Document message -->
+                <div *ngIf="message.type === 'file'" class="message-file">
+                  <div class="file-info" (click)="openFile(message.fileUrl!)">
+                    <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
+                    <div class="file-details">
+                      <p class="file-name">{{ message.fileName }}</p>
+                      <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
+                    </div>
+                    <ion-icon name="download-outline" class="download-icon"></ion-icon>
+                  </div>
+                  <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
+                </div>
+                
+                <!-- Voice note message -->
+                <div *ngIf="message.type === 'voice'" class="message-voice">
+                  <audio [src]="message.fileUrl" controls class="voice-player"></audio>
+                </div>
+                
                 <div class="message-time">{{ formatTime(message.createdAt) }}</div>
               </div>
             </div>
@@ -350,16 +423,40 @@
         </div>
 
         <div class="message-input-container">
+          <!-- Hidden file inputs -->
+          <input type="file" #imageInputMobile accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
+          <input type="file" #documentInputMobile accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
+          
+          <ion-button fill="clear" size="small" (click)="imageInputMobile.click()" [disabled]="isUploading">
+            <ion-icon name="image-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="documentInputMobile.click()" [disabled]="isUploading">
+            <ion-icon name="attach-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
+            <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
+          </ion-button>
           <ion-input
             #messageInput
             [(ngModel)]="newMessage"
             placeholder="Type a message"
             (ionInput)="onInputChange()"
-            (keydown.enter)="sendMessage()">
+            (keydown.enter)="sendMessage()"
+            [disabled]="isUploading || isRecording">
           </ion-input>
-          <ion-button fill="clear" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending">
+          <ion-button fill="clear" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
             <ion-icon name="send"></ion-icon>
           </ion-button>
+          
+          <!-- Upload/Recording indicators -->
+          <div *ngIf="isUploading" class="upload-progress-mobile">
+            <ion-spinner name="crescent"></ion-spinner>
+            <span>Uploading...</span>
+          </div>
+          <div *ngIf="isRecording" class="recording-indicator-mobile">
+            <ion-icon name="radio-button-on" color="danger"></ion-icon>
+            <span>{{ recordingDuration }}s</span>
+          </div>
         </div>
       </div>
     </div>
