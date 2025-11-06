@@ -243,9 +243,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isConnected = true;
       console.log('Successfully connected to lesson video call');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing video call via lesson params:', error);
-      await this.showError('Failed to connect to video call.');
+      
+      // Extract error message from Error object
+      let errorMessage = 'Failed to connect to video call.';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      }
+      
+      await this.showError(errorMessage);
     } finally {
       await loading.dismiss();
     }
@@ -301,11 +310,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       console.log('Successfully connected to video call');
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error initializing video call:', error);
 
       let errorMessage = 'Failed to connect to video call.';
-      if (error instanceof Error) {
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      } else if (error instanceof Error) {
         if (error.message.includes('permission')) {
           errorMessage = 'Camera and microphone permissions are required. Please allow access and try again.';
         } else if (error.message.includes('NotAllowedError')) {

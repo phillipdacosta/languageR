@@ -366,16 +366,31 @@ export class AgoraService {
         this.localAudioTrack = null;
       }
       
-      // Provide user-friendly error messages
-      if (error.message?.includes('Too early')) {
-        throw new Error('You can join the lesson 15 minutes before it starts.');
-      } else if (error.message?.includes('ended')) {
-        throw new Error('This lesson has ended.');
-      } else if (error.message?.includes('not authorized')) {
-        throw new Error('You are not authorized to join this lesson.');
-      } else {
-        throw new Error(error.message || 'Failed to join lesson');
+      // Extract error message from HttpErrorResponse or regular Error
+      let errorMessage = 'Failed to join lesson';
+      
+      if (error?.error?.message) {
+        // HttpErrorResponse from backend
+        errorMessage = error.error.message;
+      } else if (error?.message) {
+        // Regular Error object
+        errorMessage = error.message;
       }
+      
+      // Provide user-friendly error messages based on backend response
+      if (errorMessage.toLowerCase().includes('too early') || errorMessage.toLowerCase().includes('not started')) {
+        errorMessage = 'You can join the lesson 15 minutes before it starts.';
+      } else if (errorMessage.toLowerCase().includes('ended') || errorMessage.toLowerCase().includes('has end')) {
+        errorMessage = 'This lesson has ended.';
+      } else if (errorMessage.toLowerCase().includes('not authorized') || errorMessage.toLowerCase().includes('unauthorized')) {
+        errorMessage = 'You are not authorized to join this lesson.';
+      } else if (errorMessage.toLowerCase().includes('not found')) {
+        errorMessage = 'Lesson not found.';
+      } else if (errorMessage.toLowerCase().includes('cancelled')) {
+        errorMessage = 'This lesson has been cancelled.';
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 

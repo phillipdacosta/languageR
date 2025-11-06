@@ -321,9 +321,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       });
     } catch (error: any) {
       await loading.dismiss();
+      
+      // Extract error message from Error object
+      let errorMessage = 'Failed to enter classroom';
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error?.message) {
+        errorMessage = error.error.message;
+      }
+      
       const alert = await this.alertController.create({
-        header: 'Error',
-        message: error?.message || 'Failed to enter classroom',
+        header: 'Unable to Join Lesson',
+        message: errorMessage,
         buttons: ['OK']
       });
       await alert.present();
