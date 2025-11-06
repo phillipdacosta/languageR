@@ -139,16 +139,15 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     });
 
-    // Load unread notification count
-    this.loadUnreadNotificationCount();
-
     // Listen for WebSocket notifications
     this.websocketService.connect();
     this.websocketService.newNotification$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      // Reload notification count when a new notification arrives
-      this.loadUnreadNotificationCount();
+      // Reload notification count when a new notification arrives (only if user is authenticated)
+      if (this.currentUser) {
+        this.loadUnreadNotificationCount();
+      }
     });
 
 

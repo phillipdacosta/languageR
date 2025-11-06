@@ -111,14 +111,14 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe((notificationData) => {
       console.log('🔔 Received new notification via WebSocket:', notificationData);
-      // Reload notifications when a new one arrives
-      this.loadNotifications();
-      // Also update unread count immediately
-      this.loadUnreadNotificationCount();
+      // Only reload if user is authenticated
+      if (this.currentUser) {
+        // Reload notifications when a new one arrives
+        this.loadNotifications();
+        // Also update unread count immediately
+        this.loadUnreadNotificationCount();
+      }
     });
-
-    // Load initial unread notification count
-    this.loadUnreadNotificationCount();
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
@@ -321,6 +321,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   loadUnreadNotificationCount() {
+    // Only load if user is authenticated
+    if (!this.currentUser) {
+      return;
+    }
+
     this.notificationService.getUnreadCount().pipe(
       takeUntil(this.destroy$)
     ).subscribe({
@@ -330,7 +335,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         }
       },
       error: (error) => {
-        console.error('Error loading unread notification count:', error);
+        // Only log errors if it's not a 404 (which means user might not be authenticated yet)
+        if (error.status !== 404) {
+          console.error('Error loading unread notification count:', error);
+        }
       }
     });
   }
