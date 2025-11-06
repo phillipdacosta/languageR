@@ -620,6 +620,17 @@
   background: rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   opacity: 0.95;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.12);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
   
   .reply-to-line {
     width: 4px;

@@ -1044,26 +1044,20 @@ export class MessagesPage implements OnInit, OnDestroy {
     return '';
   }
 
-  // Scroll to and highlight the message being replied to
-  scrollToRepliedMessage(event?: Event) {
-    console.log('🖱️ Click detected on reply preview');
+  // Scroll to a specific message by ID and highlight it
+  scrollToMessageById(messageId: string, event?: Event) {
+    console.log('🖱️ Click detected on reply preview in bubble');
     
     if (event) {
       event.stopPropagation();
     }
     
-    if (!this.replyingToMessage) {
-      console.warn('⚠️ No replyingToMessage set');
-      return;
-    }
-    
-    const messageId = this.replyingToMessage.id;
-    console.log('🔍 Scrolling to message ID:', messageId);
-    
     if (!messageId) {
       console.warn('⚠️ Message ID is undefined');
       return;
     }
+    
+    console.log('🔍 Scrolling to message ID:', messageId);
     
     // Small delay to ensure DOM is ready
     setTimeout(() => {
@@ -1116,5 +1110,22 @@ export class MessagesPage implements OnInit, OnDestroy {
       }, 2000);
       
     }, 100);
+  }
+
+  // Scroll to and highlight the message being replied to (for the input preview button)
+  scrollToRepliedMessage(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!this.replyingToMessage) {
+      console.warn('⚠️ No replyingToMessage set');
+      return;
+    }
+    
+    const messageId = this.replyingToMessage.id;
+    if (messageId) {
+      this.scrollToMessageById(messageId, event);
+    }
   }
 }

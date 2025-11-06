@@ -194,7 +194,9 @@
                    (dblclick)="onMessageDoubleClick(message)">
                 
                 <!-- Replied-to message preview (if this is a reply) -->
-                <div *ngIf="message.replyTo" class="reply-to-preview">
+                <div *ngIf="message.replyTo" 
+                     class="reply-to-preview" 
+                     (click)="scrollToMessageById(message.replyTo.messageId, $event)">
                   <div class="reply-to-line"></div>
                   <div class="reply-to-content">
                     <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
@@ -472,7 +474,9 @@
                    (press)="onMessageTap(message, $event)">
                 
                 <!-- Replied-to message preview (if this is a reply) -->
-                <div *ngIf="message.replyTo" class="reply-to-preview">
+                <div *ngIf="message.replyTo" 
+                     class="reply-to-preview" 
+                     (click)="scrollToMessageById(message.replyTo.messageId, $event)">
                   <div class="reply-to-line"></div>
                   <div class="reply-to-content">
                     <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
