@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AgoraService } from '../services/agora.service';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
+import { LessonService } from '../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -82,11 +83,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private globalMouseMoveHandler: any;
   private globalMouseUpHandler: any;
 
+  lessonId: string = '';
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
     private agoraService: AgoraService,
     private userService: UserService,
+    private lessonService: LessonService,
     private alertController: AlertController,
     private loadingController: LoadingController
   ) { }
@@ -112,9 +116,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.globalMouseUpHandler = this.handleGlobalMouseUp.bind(this);
     document.addEventListener('mousemove', this.globalMouseMoveHandler);
     document.addEventListener('mouseup', this.globalMouseUpHandler);
+    
+    // Add beforeunload listener to handle browser close/refresh
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
 
     // Store query params for later use in ngAfterViewInit
     this.queryParams = qp;
+    
+    // Store lessonId if available
+    if (qp?.lessonId) {
+      this.lessonId = qp.lessonId;
+      console.log('📚 VideoCall: Stored lessonId:', this.lessonId);
+    }
   }
 
   private queryParams: any;
@@ -1071,7 +1084,22 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async endCall() {
     try {
-      console.log('Ending video call...');
+      console.log('🚪 VideoCall: Ending video call...');
+      
+      // Call leave endpoint if we have a lessonId
+      if (this.lessonId) {
+        console.log('🚪 VideoCall: Calling leave endpoint for lesson:', this.lessonId);
+        try {
+          const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+          console.log('🚪 VideoCall: Leave endpoint response:', leaveResponse);
+        } catch (leaveError) {
+          console.error('🚪 VideoCall: Error calling leave endpoint:', leaveError);
+          // Continue with call ending even if leave fails
+        }
+      } else {
+        console.log('🚪 VideoCall: No lessonId, skipping leave endpoint');
+      }
+      
       await this.agoraService.leaveChannel();
       this.isConnected = false;
 
@@ -1083,8 +1111,20 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async ngOnDestroy() {
+    console.log('🚪 VideoCall: ngOnDestroy called');
+    
     if (this.isConnected) {
+      console.log('🚪 VideoCall: Still connected, calling endCall from ngOnDestroy');
       await this.endCall();
+    } else if (this.lessonId) {
+      // Even if not connected to Agora, still call leave endpoint
+      console.log('🚪 VideoCall: Not connected but have lessonId, calling leave endpoint');
+      try {
+        const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+        console.log('🚪 VideoCall: Leave endpoint response from ngOnDestroy:', leaveResponse);
+      } catch (leaveError) {
+        console.error('🚪 VideoCall: Error calling leave endpoint from ngOnDestroy:', leaveError);
+      }
     }
 
     if (this.globalMouseMoveHandler) {
@@ -1092,6 +1132,27 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.globalMouseUpHandler) {
       document.removeEventListener('mouseup', this.globalMouseUpHandler);
+    }
+    
+    // Remove beforeunload listener
+    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+  }
+
+  private handleBeforeUnload(event: BeforeUnloadEvent) {
+    console.log('🚪 VideoCall: Browser beforeunload event');
+    // Call leave endpoint synchronously (best effort)
+    if (this.lessonId) {
+      // Use navigator.sendBeacon for reliable delivery during page unload
+      const leaveUrl = `http://localhost:3000/api/lessons/${this.lessonId}/leave`;
+      const leaveData = JSON.stringify({});
+      
+      // Try to send leave request
+      try {
+        const success = navigator.sendBeacon(leaveUrl, leaveData);
+        console.log('🚪 VideoCall: Sent leave beacon, success:', success);
+      } catch (error) {
+        console.error('🚪 VideoCall: Error sending leave beacon:', error);
+      }
     }
   }
 
