@@ -34,10 +34,9 @@
     justify-content: center;
     align-items: center;
     
-    .app-logo-text {
-      max-width: 200px;
-      width: 100%;
-      height: auto;
+    .app-logo {
+      width: 80px;
+      height: 80px;
       object-fit: contain;
     }
   }
