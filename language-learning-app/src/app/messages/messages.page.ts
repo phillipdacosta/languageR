@@ -43,6 +43,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private recordingTimer: any;
+  private conversationReloadTimeout: any;
 
   // Platform detection
   isDesktop = false;
@@ -117,13 +118,13 @@ export class MessagesPage implements OnInit, OnDestroy {
                 next: () => {
                   console.log('✅ Incoming message marked as read, now reloading conversations');
                   // Reload conversations AFTER marking as read, so unread count is correct
-                  this.loadConversations();
+                  this.reloadConversationsDebounced();
                 }
               });
             } else {
               // For outgoing messages or when not actively viewing conversation, just reload conversations
               console.log('📬 Not auto-marking as read (isPageVisible:', this.isPageVisible, ')');
-              this.loadConversations();
+              this.reloadConversationsDebounced();
             }
           }
           
@@ -303,6 +304,22 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (this.messageSendTimeout) {
       clearTimeout(this.messageSendTimeout);
     }
+    if (this.conversationReloadTimeout) {
+      clearTimeout(this.conversationReloadTimeout);
+    }
+  }
+
+  // Debounced conversation reload to prevent rapid flashing
+  private reloadConversationsDebounced() {
+    // Clear any pending reload
+    if (this.conversationReloadTimeout) {
+      clearTimeout(this.conversationReloadTimeout);
+    }
+    
+    // Schedule reload after 500ms of inactivity
+    this.conversationReloadTimeout = setTimeout(() => {
+      this.loadConversations();
+    }, 500);
   }
 
   loadConversations(): Promise<void> {
@@ -314,7 +331,37 @@ export class MessagesPage implements OnInit, OnDestroy {
           console.log('✅ MessagesPage: Received conversations response:', response);
           console.log('✅ Number of conversations:', response.conversations?.length || 0);
           
-          this.conversations = response.conversations;
+          // Update conversations in-place to prevent flash/re-render
+          if (this.conversations.length === 0) {
+            // First load - just assign
+            this.conversations = response.conversations;
+          } else {
+            // Update existing conversations in place
+            const newConversations = response.conversations;
+            
+            // Update or add conversations
+            newConversations.forEach(newConv => {
+              const existingIndex = this.conversations.findIndex(
+                c => c.conversationId === newConv.conversationId
+              );
+              
+              if (existingIndex !== -1) {
+                // Update existing conversation properties (preserves reference)
+                Object.assign(this.conversations[existingIndex], newConv);
+              } else {
+                // New conversation - add it
+                this.conversations.push(newConv);
+              }
+            });
+            
+            // Remove conversations that no longer exist in the new data
+            const newConvIds = new Set(newConversations.map(c => c.conversationId));
+            for (let i = this.conversations.length - 1; i >= 0; i--) {
+              if (!newConvIds.has(this.conversations[i].conversationId)) {
+                this.conversations.splice(i, 1);
+              }
+            }
+          }
           console.log('🔍 Conversations loaded:', this.conversations.length);
           console.log('🔍 Selected conversation before auto-select:', this.selectedConversation?.conversationId || 'none');
           console.log('🔍 isPageVisible:', this.isPageVisible);
@@ -540,7 +587,7 @@ export class MessagesPage implements OnInit, OnDestroy {
           });
         } else {
           // Refresh conversations to update the list with the new message
-          this.loadConversations();
+          this.reloadConversationsDebounced();
         }
         
         this.isSending = false;
@@ -680,7 +727,7 @@ export class MessagesPage implements OnInit, OnDestroy {
         this.scrollToBottom();
         
         // Reload conversations to update last message
-        this.loadConversations();
+        this.reloadConversationsDebounced();
         
         this.isUploading = false;
       },
