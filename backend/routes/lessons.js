@@ -249,9 +249,26 @@ router.get('/:id', async (req, res) => {
       });
     }
 
+    // Convert participants Map to plain object for JSON serialization
+    let participantsObj = {};
+    if (lesson.participants && lesson.participants instanceof Map) {
+      lesson.participants.forEach((value, key) => {
+        participantsObj[key] = {
+          joinedAt: value.joinedAt,
+          leftAt: value.leftAt,
+          joinCount: value.joinCount
+        };
+      });
+    } else if (lesson.participants && typeof lesson.participants === 'object') {
+      participantsObj = lesson.participants;
+    }
+
+    const lessonObj = lesson.toObject();
+    lessonObj.participants = participantsObj;
+
     res.json({ 
       success: true, 
-      lesson 
+      lesson: lessonObj
     });
   } catch (error) {
     console.error('❌ Error fetching lesson:', error);

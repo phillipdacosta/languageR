@@ -84,11 +84,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('📚 PreCall: Comparing IDs - Event:', normalizedEventId, 'Current:', normalizedCurrentId);
         if (normalizedEventId === normalizedCurrentId) {
           console.log('✅ PreCall: Lesson IDs match, setting presence');
+          console.log('✅ PreCall: Setting otherParticipantJoined to true');
+          console.log('✅ PreCall: Participant name:', presence.participantName);
+          console.log('✅ PreCall: Participant picture:', presence.participantPicture);
           this.otherParticipantJoined = true;
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
+          // Force change detection
+          setTimeout(() => {
+            console.log('✅ PreCall: After setTimeout - otherParticipantJoined:', this.otherParticipantJoined);
+          }, 0);
         } else {
           console.log('⚠️ PreCall: Lesson IDs do not match');
+          console.log('⚠️ PreCall: Event ID:', normalizedEventId, 'Current ID:', normalizedCurrentId);
         }
       });
     
@@ -137,6 +145,40 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         } else {
           this.participantName = this.tutorName;
           this.lessonTitle = `${this.tutorName}'s Lesson`;
+        }
+        
+        // Check if the other participant has already joined
+        // The lesson.participants Map contains join/leave info
+        if (lesson.participants && typeof lesson.participants === 'object') {
+          const otherParticipantId = this.isTutor 
+            ? (lesson.studentId?._id || lesson.studentId?.id) 
+            : (lesson.tutorId?._id || lesson.tutorId?.id);
+          
+          if (otherParticipantId) {
+            const otherParticipantKey = String(otherParticipantId);
+            const participantData = lesson.participants[otherParticipantKey] || 
+                                   (lesson.participants instanceof Map ? lesson.participants.get(otherParticipantKey) : null);
+            
+            console.log('📚 PreCall: Checking existing participant data:', {
+              otherParticipantId,
+              otherParticipantKey,
+              participantData,
+              participants: lesson.participants
+            });
+            
+            // If the other participant has joined (has joinedAt) and hasn't left (no leftAt or leftAt is null)
+            if (participantData && participantData.joinedAt && !participantData.leftAt) {
+              console.log('✅ PreCall: Other participant has already joined!');
+              this.otherParticipantJoined = true;
+              if (this.isTutor) {
+                this.otherParticipantName = this.studentName;
+                this.otherParticipantPicture = lesson.studentId?.picture || '';
+              } else {
+                this.otherParticipantName = this.tutorName;
+                this.otherParticipantPicture = lesson.tutorId?.picture || '';
+              }
+            }
+          }
         }
       }
     } catch (error) {
@@ -331,6 +373,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async goBack() {
+    console.log('🚪 PreCall: goBack() called');
+    
     // Stop preview stream before navigating away
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
@@ -339,16 +383,16 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Call leave endpoint if we have a lessonId
     if (this.lessonId) {
+      console.log('🚪 PreCall: Calling leave endpoint for lesson:', this.lessonId);
       try {
-        const currentUser = await firstValueFrom(this.userService.getCurrentUser());
-        const params = this.route.snapshot.queryParams;
-        const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
-        await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
-        console.log('🚪 PreCall: Successfully called leave endpoint');
+        const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+        console.log('🚪 PreCall: Leave endpoint response:', leaveResponse);
       } catch (error) {
         console.error('🚪 PreCall: Error calling leave endpoint:', error);
         // Continue with navigation even if leave fails
       }
+    } else {
+      console.log('🚪 PreCall: No lessonId, skipping leave endpoint');
     }
     
     // Navigate back to previous page
