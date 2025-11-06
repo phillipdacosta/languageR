@@ -113,34 +113,35 @@
         </div>
       </div>
       
-      <!-- More Notifications Section (Read Notifications) -->
-      <div class="notification-section" *ngIf="!isLoadingNotifications">
+      <!-- More Notifications Section (All Notifications - Read and Unread) -->
+      <div class="notification-section" *ngIf="!isLoadingNotifications && notifications.length > 0">
         <h4 class="notification-section-title">More notifications</h4>
-        <div *ngIf="getReadNotifications().length > 0">
-          <div class="notification-item" 
-               *ngFor="let notification of getReadNotifications()"
-               (click)="onNotificationClick(notification)">
-            <div class="notification-item-left">
-              <ion-icon 
-                [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'" 
-                class="notification-item-icon"
-                [class.lesson-icon]="notification.type === 'lesson_created'">
-              </ion-icon>
-            </div>
-            <div class="notification-item-content">
-              <p class="notification-text">{{ notification.message }}</p>
-              <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
-            </div>
-            <div class="notification-item-right">
-              <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                <ion-icon name="ellipsis-vertical"></ion-icon>
-              </button>
-            </div>
+        <div class="notification-item" 
+             *ngFor="let notification of notifications"
+             [class.unread]="!notification.read"
+             (click)="onNotificationClick(notification)">
+          <div class="notification-item-left">
+            <ion-icon 
+              [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'" 
+              class="notification-item-icon"
+              [class.lesson-icon]="notification.type === 'lesson_created'">
+            </ion-icon>
+          </div>
+          <div class="notification-item-content">
+            <p class="notification-text">{{ notification.message }}</p>
+            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+          </div>
+          <div class="notification-item-right">
+            <button class="notification-options-btn" (click)="$event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
           </div>
         </div>
-        <div class="notification-empty" *ngIf="getReadNotifications().length === 0 && getUnreadNotifications().length === 0">
-          <p>No notifications</p>
-        </div>
+      </div>
+      
+      <!-- Empty State -->
+      <div class="notification-empty" *ngIf="!isLoadingNotifications && notifications.length === 0">
+        <p>No notifications</p>
       </div>
     </div>
   </div>

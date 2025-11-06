@@ -251,6 +251,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         if (response.success) {
           this.notifications = response.notifications;
           console.log('✅ Loaded', response.notifications.length, 'notifications');
+          console.log('📊 Unread:', this.getUnreadNotifications().length, 'Read:', this.getReadNotifications().length);
         }
         this.isLoadingNotifications = false;
       },
@@ -309,6 +310,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onNotificationClick(notification: Notification) {
+    // Mark as read if unread (but keep it visible)
     if (!notification.read) {
       this.notificationService.markAsRead(notification._id).pipe(
         takeUntil(this.destroy$)
@@ -316,6 +318,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         next: () => {
           notification.read = true;
           notification.readAt = new Date();
+          // Reload notifications to update the list
+          this.loadNotifications();
+        },
+        error: (error) => {
+          console.error('Error marking notification as read:', error);
         }
       });
     }
@@ -323,10 +330,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Navigate based on notification type
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
       this.router.navigate(['/tabs/tutor-calendar']);
-      this.closeNotificationDropdown();
+      // Don't close dropdown - let user see the notification was marked as read
     } else if (notification.type === 'message') {
       this.router.navigate(['/tabs/messages']);
-      this.closeNotificationDropdown();
+      // Don't close dropdown - let user see the notification was marked as read
     }
   }
 
