@@ -154,9 +154,9 @@ io.on('connection', (socket) => {
   // Handle sending messages
   socket.on('send_message', async (data) => {
     try {
-      const { receiverId, content, type = 'text' } = data;
+      const { receiverId, content, type = 'text', replyTo } = data;
       
-      console.log('📨 Received send_message event:', { userId, receiverId, content, type });
+      console.log('📨 Received send_message event:', { userId, receiverId, content, type, replyTo });
       
       if (!content || !content.trim()) {
         socket.emit('message_error', { message: 'Message content is required' });
@@ -174,20 +174,27 @@ io.on('connection', (socket) => {
       
       console.log('📝 Creating message with conversationId:', conversationId);
       
-      const message = new Message({
+      const messageData = {
         conversationId,
         senderId: userId,
         receiverId,
         content: content.trim(),
         type
-      });
+      };
+
+      // Add replyTo if provided
+      if (replyTo) {
+        messageData.replyTo = replyTo;
+        console.log('💬 Message is a reply to:', replyTo.messageId);
+      }
+
+      const message = new Message(messageData);
 
       console.log('💾 Saving message to database...');
       const savedMessage = await message.save();
       console.log('✅ Message saved successfully:', savedMessage._id.toString());
 
-      // Emit to sender (confirmation)
-      socket.emit('message_sent', {
+      const messagePayload = {
         id: savedMessage._id.toString(),
         conversationId: savedMessage.conversationId,
         senderId: savedMessage.senderId,
@@ -196,22 +203,21 @@ io.on('connection', (socket) => {
         type: savedMessage.type,
         read: savedMessage.read,
         createdAt: savedMessage.createdAt
-      });
+      };
+
+      // Include replyTo in payload if present
+      if (savedMessage.replyTo) {
+        messagePayload.replyTo = savedMessage.replyTo;
+      }
+
+      // Emit to sender (confirmation)
+      socket.emit('message_sent', messagePayload);
 
       // Emit to receiver if online
       const receiverSocketId = connectedUsers.get(receiverId);
       if (receiverSocketId) {
         console.log('📤 Sending message to receiver:', receiverId);
-        io.to(receiverSocketId).emit('new_message', {
-          id: savedMessage._id.toString(),
-          conversationId: savedMessage.conversationId,
-          senderId: savedMessage.senderId,
-          receiverId: savedMessage.receiverId,
-          content: savedMessage.content,
-          type: savedMessage.type,
-          read: savedMessage.read,
-          createdAt: savedMessage.createdAt
-        });
+        io.to(receiverSocketId).emit('new_message', messagePayload);
       } else {
         console.log('⚠️ Receiver not online:', receiverId);
       }

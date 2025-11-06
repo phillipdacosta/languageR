@@ -580,6 +580,139 @@
   }
 }
 
+// Reply UI Styles
+
+// Replied-to message preview inside message bubble
+.reply-to-preview {
+  display: flex;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0.85;
+  
+  .reply-to-line {
+    width: 3px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 2px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  
+  .reply-to-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    
+    .reply-to-sender {
+      font-weight: 600;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .reply-to-text {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.75);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 250px;
+    }
+  }
+}
+
+// Adjust styles for received messages
+.message-bubble.received {
+  .reply-to-preview {
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+    
+    .reply-to-line {
+      background: #1976d2;
+    }
+    
+    .reply-to-content {
+      .reply-to-sender {
+        color: #1976d2;
+      }
+      
+      .reply-to-text {
+        color: rgba(0, 0, 0, 0.6);
+      }
+    }
+  }
+}
+
+// Replying to container above input
+.replying-to-container {
+  background: #f0f8ff;
+  border-top: 1px solid #d0e8ff;
+  padding: 10px 16px;
+  animation: slideDown 0.2s ease-out;
+  
+  .replying-to-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    
+    .reply-icon {
+      font-size: 18px;
+      color: #1976d2;
+    }
+    
+    .replying-to-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1976d2;
+      flex: 1;
+    }
+    
+    .close-reply-icon {
+      font-size: 20px;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #666;
+      }
+    }
+  }
+  
+  .replying-to-preview {
+    font-size: 14px;
+    color: #666;
+    padding-left: 26px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Add cursor pointer and user-select none for desktop messages
+@media (min-width: 769px) {
+  .message-bubble {
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s ease;
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
 .message-input-container {
   display: flex;
   align-items: center;

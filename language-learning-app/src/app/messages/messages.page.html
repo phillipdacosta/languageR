@@ -184,7 +184,23 @@
               <!-- Message Bubble -->
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
-                   [class.received]="message.senderId !== getCurrentUserId()">
+                   [class.received]="message.senderId !== getCurrentUserId()"
+                   (mousedown)="onMessageMouseDown(message, $event)"
+                   (mouseup)="onMessageMouseUp()"
+                   (mouseleave)="onMessageMouseUp()"
+                   (dblclick)="onMessageDoubleClick(message)">
+                
+                <!-- Replied-to message preview (if this is a reply) -->
+                <div *ngIf="message.replyTo" class="reply-to-preview">
+                  <div class="reply-to-line"></div>
+                  <div class="reply-to-content">
+                    <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
+                  </div>
+                </div>
                 
                 <!-- Text message -->
                 <div *ngIf="message.type === 'text'" class="message-content">
@@ -222,6 +238,18 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Reply Preview -->
+        <div *ngIf="replyingToMessage" class="replying-to-container">
+          <div class="replying-to-header">
+            <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
+            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
+            <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
+          </div>
+          <div class="replying-to-preview">
+            {{ getReplyPreviewContent() }}
           </div>
         </div>
 
@@ -431,7 +459,20 @@
               </div>
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
-                   [class.received]="message.senderId !== getCurrentUserId()">
+                   [class.received]="message.senderId !== getCurrentUserId()"
+                   (press)="onMessageTap(message, $event)">
+                
+                <!-- Replied-to message preview (if this is a reply) -->
+                <div *ngIf="message.replyTo" class="reply-to-preview">
+                  <div class="reply-to-line"></div>
+                  <div class="reply-to-content">
+                    <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
+                    <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
+                  </div>
+                </div>
                 
                 <!-- Text message -->
                 <div *ngIf="message.type === 'text'" class="message-content">{{ message.content }}</div>
@@ -463,6 +504,18 @@
                 <div class="message-time">{{ formatTime(message.createdAt) }}</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Reply Preview (Mobile) -->
+        <div *ngIf="replyingToMessage" class="replying-to-container">
+          <div class="replying-to-header">
+            <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
+            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
+            <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
+          </div>
+          <div class="replying-to-preview">
+            {{ getReplyPreviewContent() }}
           </div>
         </div>
 

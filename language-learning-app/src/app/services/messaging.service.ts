@@ -51,6 +51,16 @@ export interface Message {
     name: string;
     picture?: string;
   };
+  // Reply-to message field
+  replyTo?: {
+    messageId: string;
+    content?: string;
+    senderId?: string;
+    senderName?: string;
+    type?: string;
+    fileUrl?: string;
+    fileName?: string;
+  };
 }
 
 @Injectable({
@@ -131,14 +141,32 @@ export class MessagingService {
   }
 
   // Send a message
-  sendMessage(receiverId: string, content: string, type: string = 'text'): Observable<{ success: boolean; message: Message }> {
-    console.log('📤 MessagingService.sendMessage called:', { receiverId, content, type });
+  sendMessage(
+    receiverId: string, 
+    content: string, 
+    type: string = 'text',
+    replyTo?: {
+      messageId: string;
+      content?: string;
+      senderId?: string;
+      senderName?: string;
+      type?: string;
+      fileUrl?: string;
+      fileName?: string;
+    }
+  ): Observable<{ success: boolean; message: Message }> {
+    console.log('📤 MessagingService.sendMessage called:', { receiverId, content, type, replyTo });
     console.log('📤 API URL:', `${this.apiUrl}/conversations/${receiverId}/messages`);
     console.log('📤 Headers:', this.getHeaders());
     
+    const body: any = { content, type };
+    if (replyTo) {
+      body.replyTo = replyTo;
+    }
+    
     return this.http.post<{ success: boolean; message: Message }>(
       `${this.apiUrl}/conversations/${receiverId}/messages`,
-      { content, type },
+      body,
       { headers: this.getHeaders() }
     );
   }

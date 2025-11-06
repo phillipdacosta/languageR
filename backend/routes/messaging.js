@@ -422,9 +422,9 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
   try {
     const senderId = req.user.sub;
     const { receiverId } = req.params;
-    const { content, type = 'text' } = req.body;
+    const { content, type = 'text', replyTo } = req.body;
 
-    console.log('📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type });
+    console.log('📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type, replyTo });
 
     if (!content || !content.trim()) {
       return res.status(400).json({
@@ -446,13 +446,21 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
 
     console.log('📝 Creating message with conversationId:', conversationId);
 
-    const message = new Message({
+    const messageData = {
       conversationId,
       senderId,
       receiverId,
       content: content.trim(),
       type
-    });
+    };
+
+    // Add replyTo if provided
+    if (replyTo) {
+      messageData.replyTo = replyTo;
+      console.log('💬 Message is a reply to:', replyTo.messageId);
+    }
+
+    const message = new Message(messageData);
 
     console.log('💾 Saving message to database...');
     const savedMessage = await message.save();
@@ -461,23 +469,30 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Populate sender info for real-time response
     const sender = await User.findOne({ auth0Id: senderId });
 
+    const messageResponse = {
+      id: savedMessage._id.toString(),
+      conversationId: savedMessage.conversationId,
+      senderId: savedMessage.senderId,
+      receiverId: savedMessage.receiverId,
+      content: savedMessage.content,
+      type: savedMessage.type,
+      read: savedMessage.read,
+      createdAt: savedMessage.createdAt,
+      sender: sender ? {
+        id: sender._id.toString(),
+        name: sender.name,
+        picture: sender.picture
+      } : null
+    };
+
+    // Include replyTo in response if present
+    if (savedMessage.replyTo) {
+      messageResponse.replyTo = savedMessage.replyTo;
+    }
+
     res.json({
       success: true,
-      message: {
-        id: savedMessage._id.toString(),
-        conversationId: savedMessage.conversationId,
-        senderId: savedMessage.senderId,
-        receiverId: savedMessage.receiverId,
-        content: savedMessage.content,
-        type: savedMessage.type,
-        read: savedMessage.read,
-        createdAt: savedMessage.createdAt,
-        sender: sender ? {
-          id: sender._id.toString(),
-          name: sender.name,
-          picture: sender.picture
-        } : null
-      }
+      message: messageResponse
     });
   } catch (error) {
     console.error('❌ Error sending message:', error);

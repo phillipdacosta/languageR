@@ -53,6 +53,11 @@ export class MessagesPage implements OnInit, OnDestroy {
   // Conversations search
   searchTerm = '';
   private searchInput$ = new Subject<string>();
+  
+  // Reply functionality
+  replyingToMessage: Message | null = null;
+  private longPressTimeout: any;
+  private readonly LONG_PRESS_DURATION = 500; // ms
 
   constructor(
     private messagingService: MessagingService,
@@ -554,10 +559,37 @@ export class MessagesPage implements OnInit, OnDestroy {
         }
         
         console.log('📤 Sending message via WebSocket to:', receiverId, 'Content:', messageContent);
+        
+        // Prepare replyTo data if replying
+        let replyTo = undefined;
+        if (this.replyingToMessage) {
+          let senderName = 'Unknown';
+          if (this.isMyMessage(this.replyingToMessage)) {
+            senderName = 'You';
+          } else {
+            senderName = this.selectedConversation.otherUser.name;
+          }
+          
+          replyTo = {
+            messageId: this.replyingToMessage.id,
+            content: this.replyingToMessage.content,
+            senderId: this.replyingToMessage.senderId,
+            senderName: senderName,
+            type: this.replyingToMessage.type,
+            fileUrl: this.replyingToMessage.fileUrl,
+            fileName: this.replyingToMessage.fileName
+          };
+        }
+        
         this.websocketService.sendMessage(
           receiverId,
-          messageContent
+          messageContent,
+          'text',
+          replyTo
         );
+        
+        // Clear reply after sending
+        this.clearReply();
         
         // Set a timeout to fallback to HTTP if WebSocket doesn't respond
         console.log('⏱️ Setting 2-second timeout for HTTP fallback');
@@ -601,9 +633,32 @@ export class MessagesPage implements OnInit, OnDestroy {
 
     console.log('📤 Sending message via HTTP to:', receiverId, 'Content:', content);
 
+    // Prepare replyTo data if replying
+    let replyTo = undefined;
+    if (this.replyingToMessage) {
+      let senderName = 'Unknown';
+      if (this.isMyMessage(this.replyingToMessage)) {
+        senderName = 'You';
+      } else {
+        senderName = this.selectedConversation.otherUser?.name || 'Unknown';
+      }
+      
+      replyTo = {
+        messageId: this.replyingToMessage.id,
+        content: this.replyingToMessage.content,
+        senderId: this.replyingToMessage.senderId,
+        senderName: senderName,
+        type: this.replyingToMessage.type,
+        fileUrl: this.replyingToMessage.fileUrl,
+        fileName: this.replyingToMessage.fileName
+      };
+    }
+
     this.messagingService.sendMessage(
       receiverId,
-      content
+      content,
+      'text',
+      replyTo
     ).subscribe({
       next: (response) => {
         console.log('✅ Message sent successfully via HTTP:', response);
@@ -627,6 +682,9 @@ export class MessagesPage implements OnInit, OnDestroy {
           this.messages.push(message);
           this.scrollToBottom();
         }
+        
+        // Clear reply after successful send
+        this.clearReply();
         
         // If this was a placeholder conversation, update it with the real conversationId
         if (this.selectedConversation && !this.selectedConversation.conversationId) {
@@ -734,6 +792,14 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   getCurrentUserId(): string {
     return this.currentUserId$.value;
+  }
+
+  // Check if a message was sent by the current user
+  isMyMessage(message: Message): boolean {
+    const currentUserId = this.getCurrentUserId();
+    return message.senderId === currentUserId || 
+           message.senderId === currentUserId.replace('dev-user-', '') ||
+           `dev-user-${message.senderId}` === currentUserId;
   }
 
   // Navigate to the other user's public profile
@@ -900,5 +966,80 @@ export class MessagesPage implements OnInit, OnDestroy {
   // Open file in new tab
   openFile(fileUrl: string) {
     window.open(fileUrl, '_blank');
+  }
+
+  // Reply functionality handlers
+  onMessageMouseDown(message: Message, event: MouseEvent | TouchEvent) {
+    // Only on desktop (long-press)
+    if (!this.isDesktop) return;
+    
+    this.longPressTimeout = setTimeout(() => {
+      this.setReplyTo(message);
+    }, this.LONG_PRESS_DURATION);
+  }
+
+  onMessageMouseUp() {
+    if (this.longPressTimeout) {
+      clearTimeout(this.longPressTimeout);
+      this.longPressTimeout = null;
+    }
+  }
+
+  onMessageDoubleClick(message: Message) {
+    // Desktop only
+    if (this.isDesktop) {
+      this.setReplyTo(message);
+    }
+  }
+
+  onMessageTap(message: Message, event: any) {
+    // Mobile only - check for long press via Ionic gesture
+    // For now, we'll use a simple approach
+    if (!this.isDesktop) {
+      // On mobile, we can use a long press gesture
+      // This will be handled via the HTML template with press event
+      this.setReplyTo(message);
+    }
+  }
+
+  setReplyTo(message: Message) {
+    console.log('💬 Setting reply to message:', message.id);
+    
+    // Get sender name
+    let senderName = 'Unknown';
+    if (this.isMyMessage(message)) {
+      senderName = 'You';
+    } else {
+      senderName = this.selectedConversation?.otherUser?.name || 'Unknown';
+    }
+    
+    this.replyingToMessage = message;
+    
+    // Focus the input
+    setTimeout(() => {
+      this.messageInput?.nativeElement?.focus();
+    }, 100);
+  }
+
+  clearReply() {
+    console.log('❌ Clearing reply');
+    this.replyingToMessage = null;
+  }
+
+  getReplyPreviewContent(): string {
+    if (!this.replyingToMessage) return '';
+    
+    if (this.replyingToMessage.type === 'text') {
+      const maxLength = 50;
+      const content = this.replyingToMessage.content || '';
+      return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+    } else if (this.replyingToMessage.type === 'image') {
+      return '📷 Photo';
+    } else if (this.replyingToMessage.type === 'file') {
+      return `📄 ${this.replyingToMessage.fileName || 'File'}`;
+    } else if (this.replyingToMessage.type === 'voice') {
+      return '🎤 Voice message';
+    }
+    return '';
   }
 }

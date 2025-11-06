@@ -51,6 +51,38 @@ const messageSchema = new mongoose.Schema({
     type: Number,  // For voice notes/audio (in seconds)
     required: false
   },
+  // Reply-to message field
+  replyTo: {
+    messageId: {
+      type: String,
+      required: false
+    },
+    content: {
+      type: String,
+      required: false
+    },
+    senderId: {
+      type: String,
+      required: false
+    },
+    senderName: {
+      type: String,
+      required: false
+    },
+    type: {
+      type: String,
+      enum: ['text', 'image', 'file', 'voice'],
+      required: false
+    },
+    fileUrl: {
+      type: String,
+      required: false
+    },
+    fileName: {
+      type: String,
+      required: false
+    }
+  },
   read: {
     type: Boolean,
     default: false

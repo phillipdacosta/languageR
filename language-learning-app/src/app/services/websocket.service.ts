@@ -106,19 +106,33 @@ export class WebSocketService {
     }
   }
 
-  sendMessage(receiverId: string, content: string, type: string = 'text'): void {
+  sendMessage(
+    receiverId: string, 
+    content: string, 
+    type: string = 'text',
+    replyTo?: {
+      messageId: string;
+      content?: string;
+      senderId?: string;
+      senderName?: string;
+      type?: string;
+      fileUrl?: string;
+      fileName?: string;
+    }
+  ): void {
     if (!this.socket?.connected) {
       console.error('❌ WebSocket: Socket not connected');
       return;
     }
 
-    console.log('📤 WebSocket: Emitting send_message event', { receiverId, content, type });
+    console.log('📤 WebSocket: Emitting send_message event', { receiverId, content, type, replyTo });
     
-    this.socket.emit('send_message', {
-      receiverId,
-      content,
-      type
-    });
+    const data: any = { receiverId, content, type };
+    if (replyTo) {
+      data.replyTo = replyTo;
+    }
+    
+    this.socket.emit('send_message', data);
     
     console.log('✅ WebSocket: send_message event emitted');
   }
