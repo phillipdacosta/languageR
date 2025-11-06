@@ -252,8 +252,9 @@
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
           <div class="replying-to-preview" 
-               (click)="scrollToRepliedMessage($event)"
-               (tap)="scrollToRepliedMessage($event)">
+               (click)="scrollToRepliedMessage($event); console.log('HTML click fired')"
+               (tap)="scrollToRepliedMessage($event); console.log('HTML tap fired')"
+               onclick="console.log('Native onclick fired')">
             {{ getReplyPreviewContent() }}
           </div>
         </div>
