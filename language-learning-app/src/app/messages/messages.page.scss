@@ -1,5 +1,6 @@
 .messages-content {
   --background: #f5f5f5;
+  --padding-top: 0; /* flush under toolbar */
 }
 
 .messages-container {
@@ -7,6 +8,8 @@
   display: flex;
   flex-direction: column;
   background: #f5f5f5;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .desktop-layout {
@@ -18,6 +21,8 @@
   height: 100vh;
   max-width: 100%;
   background: #f5f5f5;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 // Left Column: Conversations Panel
@@ -30,6 +35,8 @@
   background: #f5f5f5;
   height: 100vh;
   overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .conversations-header {
@@ -70,10 +77,12 @@
   background: white;
   min-height: 80px; // match chat-header height
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  margin-top: 0; /* sit flush under toolbar */
 
   .search-icon {
     font-size: 20px;
     color: #757575;
+    flex-shrink: 0;
   }
 
   .search-input {
@@ -85,6 +94,18 @@
     background: #fafafa;
     font-size: 14px;
     outline: none;
+  }
+
+  .clear-icon {
+    font-size: 20px;
+    color: #757575;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+    
+    &:hover {
+      color: #212121;
+    }
   }
 }
 
@@ -162,6 +183,10 @@
     flex-shrink: 0;
     margin-left: 8px;
     font-weight: 400;
+    .timestamp-day {
+      margin-left: 6px;
+      color: #9e9e9e;
+    }
   }
 }
 
@@ -652,18 +677,64 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .chat-view-mobile {
   display: flex;
   flex-direction: column;
   height: 100%;
+  margin-top: 0;
+  padding-top: 0;
 
   .chat-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    position: relative;
+    z-index: 10;
+    margin-top: 0;
+    min-height: 60px;
+  }
+}
+
+// Mobile overrides to use full width for the conversations list
+@media (max-width: 768px) {
+  .mobile-messages-wrapper {
+    width: 100%;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .mobile-messages-wrapper .conversations-panel {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    background: #fff;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .mobile-messages-wrapper .conversations-list {
+    background: #fff;
+  }
+
+  .chat-view-mobile {
+    margin-top: 0;
+    padding-top: 0;
+    
+    .chat-header {
+      margin-top: 0;
+      padding-top: 12px;
+      position: relative;
+      top: 0;
+    }
   }
 }
 

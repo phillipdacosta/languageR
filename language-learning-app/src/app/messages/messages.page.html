@@ -32,6 +32,12 @@
             [value]="searchTerm"
             (input)="onSearchChange($any($event.target).value)"
           />
+          <ion-icon 
+            *ngIf="searchTerm" 
+            name="close-circle" 
+            class="clear-icon"
+            (click)="clearSearch()">
+          </ion-icon>
         </div>
 
         <!-- Conversations List (stays visible after first load) -->
@@ -50,7 +56,10 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
-                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+                <span class="timestamp">
+                  {{ formatTime(conversation.lastMessage.createdAt) }}
+                  <span class="timestamp-day">• {{ formatRelativeDay(conversation.lastMessage.createdAt) }}</span>
+                </span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text" 
@@ -276,6 +285,24 @@
           <h2>Messages</h2>
         </div>
 
+        <!-- Mobile: Conversations Search Header -->
+        <div class="conversations-search-header">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search by name"
+            [value]="searchTerm"
+            (input)="onSearchChange($any($event.target).value)"
+          />
+          <ion-icon 
+            *ngIf="searchTerm" 
+            name="close-circle" 
+            class="clear-icon"
+            (click)="clearSearch()">
+          </ion-icon>
+        </div>
+
         <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
@@ -294,7 +321,10 @@
             <div class="conversation-info">
               <div class="conversation-header-row">
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
-                <span class="timestamp">{{ formatTime(conversation.lastMessage.createdAt) }}</span>
+                <span class="timestamp">
+                  {{ formatTime(conversation.lastMessage.createdAt) }}
+                  <span class="timestamp-day">• {{ formatRelativeDay(conversation.lastMessage.createdAt) }}</span>
+                </span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text">{{ conversation.lastMessage.content }}</p>

@@ -197,7 +197,7 @@ export class MessagesPage implements OnInit, OnDestroy {
 
       // Debounce search input updates for smoother filtering
       this.searchInput$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(term => {
-        this.searchTerm = (term || '').trim().toLowerCase();
+        this.searchTerm = (term || '').trim();
       });
     }
 
@@ -208,11 +208,36 @@ export class MessagesPage implements OnInit, OnDestroy {
   // Computed list filtered by search term (matches other user's name)
   get filteredConversations(): Conversation[] {
     if (!this.searchTerm) return this.conversations;
-    return this.conversations.filter(c => (c.otherUser?.name || '').toLowerCase().includes(this.searchTerm));
+    const searchLower = this.searchTerm.toLowerCase();
+    return this.conversations.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
   }
 
   onSearchChange(value: string) {
     this.searchInput$.next(value);
+  }
+
+  clearSearch() {
+    this.searchTerm = '';
+    this.searchInput$.next('');
+  }
+
+  // Returns a human-friendly day label for a given date: Today, Yesterday, or short date
+  formatRelativeDay(dateStr: string | Date): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const today = new Date();
+    const toStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffMs = toStart(today).getTime() - toStart(date).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const diffDays = Math.round(diffMs / oneDay);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    // Within the last week, show weekday name
+    if (diffDays > 1 && diffDays < 7) {
+      return date.toLocaleDateString(undefined, { weekday: 'short' });
+    }
+    // Otherwise show locale short date
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
   // Ionic lifecycle hook - called every time the view enters
