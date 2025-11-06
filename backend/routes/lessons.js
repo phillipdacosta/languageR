@@ -325,10 +325,16 @@ router.get('/:id/status', verifyToken, async (req, res) => {
 
 // Secure join: returns Agora params only within time window
 router.post('/:id/join', verifyToken, async (req, res) => {
+  console.log('🚀🚀🚀 LESSON JOIN ENDPOINT CALLED 🚀🚀🚀');
+  console.log('🚀 Request params:', req.params);
+  console.log('🚀 Request body:', req.body);
+  console.log('🚀 Request user:', req.user);
+  
   try {
     // Get user ID from auth token
     const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
     if (!user) {
+      console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 

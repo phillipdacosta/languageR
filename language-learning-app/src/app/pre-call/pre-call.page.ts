@@ -256,6 +256,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       const params = this.route.snapshot.queryParams;
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       
+      console.log('🚀 PreCall: About to call agoraService.joinLesson');
+      console.log('🚀 PreCall: lessonId:', this.lessonId);
+      console.log('🚀 PreCall: role:', role);
+      console.log('🚀 PreCall: userId:', currentUser?.id);
+      
       const joinResponse = await this.agoraService.joinLesson(
         this.lessonId,
         role,
@@ -265,6 +270,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
           videoEnabled: !this.isVideoOff
         }
       );
+      
+      console.log('🚀 PreCall: joinLesson response received:', joinResponse);
 
       await loading.dismiss();
 

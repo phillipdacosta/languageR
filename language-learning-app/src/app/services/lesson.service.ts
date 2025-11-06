@@ -136,9 +136,13 @@ export class LessonService {
   // Join lesson (generates Agora token if within time window)
   joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string): Observable<LessonJoinResponse> {
     const body = { role, userId };
-    console.log('📅 Attempting to join lesson:', { lessonId, role, userId });
     const headers = this.userService.getAuthHeadersSync();
-    return this.http.post<LessonJoinResponse>(`${this.baseUrl}/${lessonId}/join`, body, { headers });
+    const url = `${this.baseUrl}/${lessonId}/join`;
+    console.log('🚀🚀🚀 LessonService.joinLesson called 🚀🚀🚀');
+    console.log('🚀 URL:', url);
+    console.log('🚀 Body:', body);
+    console.log('🚀 Headers:', headers);
+    return this.http.post<LessonJoinResponse>(url, body, { headers });
   }
 
   // End lesson
