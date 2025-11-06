@@ -85,16 +85,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.userService.getCurrentUser()
     .pipe(takeUntil(this.destroy$))
     .subscribe(user => {
-        console.log('Tab1Page: Database user data:', user);
-        console.log('Tab1Page: User type:', user?.userType);
       this.currentUser = user;
         
         // Cache profile picture to avoid repeated evaluations
         this._currentUserPicture = user?.picture || 'assets/avatar.png';
-        
-        console.log('Tab1Page: Current user set to:', this.currentUser);
-        console.log('Tab1Page: Is student?', this.isStudent());
-        console.log('Tab1Page: Is tutor?', this.isTutor());
         
         // Load lessons as soon as we have the current user
         this.loadLessons();
@@ -120,7 +114,6 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.resizeListener = () => {
       this.isWeb = this.platformService.isWeb();
       this.isMobile = this.platformService.isMobile();
-      console.log('Home page - Window resized - Is web:', this.isWeb, 'Is mobile:', this.isMobile);
     };
     window.addEventListener('resize', this.resizeListener);
 
@@ -137,8 +130,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     });
 
-    console.log('Home page - Platform detected:', this.currentPlatform);
-    console.log('Home page - Platform config:', this.platformConfig);
 
     // Prepare date strip (next 7 days)
     this.dateStrip = this.generateDateStrip(7);
@@ -179,31 +170,18 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
 
     // Connect to WebSocket and listen for lesson presence
-    console.log('📚 Tab1: Connecting to WebSocket...');
     this.websocketService.connect();
-    
-    // Check WebSocket connection status
-    this.websocketService.connection$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(isConnected => {
-        console.log('📚 Tab1: WebSocket connection status:', isConnected);
-      });
     
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
-        console.log('📚 Tab1: ✅✅✅ Received lesson presence event', presence);
-        // Normalize lessonId to string
         const normalizedLessonId = String(presence.lessonId);
-        console.log('📚 Tab1: Setting presence for lessonId:', normalizedLessonId);
         this.lessonPresence.set(normalizedLessonId, {
           participantName: presence.participantName,
           participantPicture: presence.participantPicture,
           participantRole: presence.participantRole,
           joinedAt: presence.joinedAt
         });
-        console.log('📚 Tab1: Current lessonPresence Map keys:', Array.from(this.lessonPresence.keys()));
-        console.log('📚 Tab1: All lessons:', this.lessons.map(l => ({ id: String(l._id), idType: typeof l._id })));
         // Force change detection
         this.countdownTick = Date.now();
       });
@@ -212,19 +190,14 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.websocketService.lessonPresenceLeft$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
-        console.log('📚 Tab1: ❌❌❌ Received lesson presence left event', presence);
         const normalizedLessonId = String(presence.lessonId);
-        console.log('📚 Tab1: Removing presence for lessonId:', normalizedLessonId);
         this.lessonPresence.delete(normalizedLessonId);
         // Force change detection
         this.countdownTick = Date.now();
       });
-    
-    console.log('📚 Tab1: WebSocket subscription set up. Current connection status:', this.websocketService.getConnectionStatus());
   }
 
   ionViewWillEnter() {
-    console.log('📚 Tab1: ionViewWillEnter - Refreshing presence data');
     // Refresh presence data when returning to the home page
     // This ensures we see updated presence if someone joined while we were away
     if (this.lessons.length > 0) {
@@ -252,8 +225,6 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   loadUserStats() {
     this.userService.getCurrentUser().subscribe(user => {
-      console.log('Loading user stats for:', user?.name);
-      console.log('User stats:', user?.['stats']);
     });
   }
 
@@ -405,9 +376,6 @@ export class Tab1Page implements OnInit, OnDestroy {
         });
       }
       
-      console.log('🔍 All active lessons on selected date:', activeLessonsOnDate.length);
-      console.log('🔍 Earliest start time:', earliestStartTime ? new Date(earliestStartTime).toISOString() : 'None');
-      console.log('✅ Next lesson IDs:', Array.from(nextLessonIds));
     }
     
     // Group lessons by student and find the earliest lesson for each student
@@ -444,10 +412,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       
-      console.log('🔍 Displayed lessons:', displayedLessons.map(l => ({ id: l._id, start: l.startTime })));
-      console.log('🔍 Earliest displayed start time:', new Date(earliestDisplayedStartTime).toISOString());
-      console.log('🔍 Current time:', now.toISOString());
-      console.log('🔍 One hour ago:', oneHourAgo.toISOString());
       
       // Mark as "next" if earliest is upcoming or started within the last hour
       if (new Date(earliestDisplayedStartTime) >= oneHourAgo) {
@@ -459,19 +423,16 @@ export class Tab1Page implements OnInit, OnDestroy {
             const entry = studentLessonMap.get(studentId);
             if (entry && String(entry.lesson._id) === String(l._id)) {
               entry.isNext = true;
-              console.log(`✅ Marked lesson ${l._id} as "next" for student ${entry.student.name}`);
             }
           }
         });
       } else {
-        console.log('⏭️ Earliest lesson is too far in the past, not marking as "next"');
       }
     }
     
     // Convert map to array and calculate join labels
     const students = Array.from(studentLessonMap.values()).map(({ student, lesson, isNext }) => {
       const currentLessonId = String(lesson._id);
-      console.log(`🔍 Lesson ${currentLessonId} for student ${student.name}: isNext=${isNext} (lesson start: ${lesson.startTime})`);
       
       // Pre-calculate join label to prevent flashing
       const joinLabel = this.calculateJoinLabel(lesson);
@@ -488,7 +449,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       };
     });
     
-    console.log('🔍 Students with next class flag:', students.map(s => ({ name: s.name, isNextClass: s.isNextClass, lessonId: s.lessonId })));
     
     // Sort by lesson time
     students.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
@@ -538,7 +498,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       const allKeys = Array.from(this.lessonPresence.keys());
       const matchingKey = allKeys.find(key => String(key) === normalizedId);
       if (matchingKey) {
-        console.log('🔍 Found matching key:', { lessonId: normalizedId, matchingKey });
         return true;
       }
     }
@@ -633,7 +592,6 @@ export class Tab1Page implements OnInit, OnDestroy {
         this.lessons = [...resp.lessons]
           .filter(l => new Date(l.endTime).getTime() >= now)
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-        console.log('Tab1Page: Loaded lessons for home tab:', this.lessons);
 
         // Clear avatar cache when lessons reload to get fresh images
         this._avatarCache.clear();
@@ -663,7 +621,6 @@ export class Tab1Page implements OnInit, OnDestroy {
   async checkExistingPresence() {
     if (!this.currentUser) return;
     
-    console.log('📚 Tab1: Checking existing presence for', this.lessons.length, 'lessons');
     
     // Check each lesson for existing participants
     for (const lesson of this.lessons) {
@@ -685,7 +642,6 @@ export class Tab1Page implements OnInit, OnDestroy {
             
             // If the other participant has joined and hasn't left
             if (participantData && participantData.joinedAt && !participantData.leftAt) {
-              console.log('📚 Tab1: Found existing presence for lesson', lesson._id, 'participant:', otherParticipantKey);
               
               // Set presence in our map
               const normalizedLessonId = String(lesson._id);
@@ -710,7 +666,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     }
     
-    console.log('📚 Tab1: Presence check complete. Found presence for lessons:', Array.from(this.lessonPresence.keys()));
   }
 
   getOtherParticipantName(lesson: Lesson): string {
@@ -825,7 +780,6 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Method to refresh user data from database
   refreshUserData() {
     this.userService.getCurrentUser().subscribe(user => {
-      console.log('Refreshed database user data:', user);
       this.currentUser = user;
     });
   }
@@ -907,6 +861,5 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   messageStudent(student: any) {
     // TODO: Implement message functionality
-    console.log('Message student:', student.name);
   }
 }

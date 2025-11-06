@@ -78,7 +78,6 @@ export class MessagesPage implements OnInit, OnDestroy {
     
     // Check if we're actually on the messages page
     const isOnMessagesPage = this.router.url.includes('/messages');
-    console.log('📱 ngOnInit: Current URL:', this.router.url, 'isOnMessagesPage:', isOnMessagesPage);
     this.isPageVisible = isOnMessagesPage;
     
     // Only set up subscriptions once
@@ -92,9 +91,7 @@ export class MessagesPage implements OnInit, OnDestroy {
       this.websocketService.newMessage$.pipe(
         takeUntil(this.destroy$)
       ).subscribe(message => {
-        console.log('📬 Received message from WebSocket:', message.id, 'Content:', message.content?.substring(0, 20));
         const currentUserId = this.getCurrentUserId();
-        console.log('🔍 CurrentUserId:', currentUserId, 'Message senderId:', message.senderId);
         const otherUserId = this.selectedConversation?.otherUser?.auth0Id;
         
         // Check if message belongs to current conversation
@@ -117,44 +114,34 @@ export class MessagesPage implements OnInit, OnDestroy {
           );
           
           if (existingMessage) {
-            console.log('⚠️ Duplicate message detected, skipping:', message.id);
+            // Duplicate message detected, skipping
           } else {
-            console.log('✅ Adding message to array:', message.id);
             this.messages.push(message);
             this.scrollToBottom();
             
             // If this is an incoming message (not sent by us) and we're actively viewing the conversation,
             // automatically mark it as read, then update conversations
             if (!isMyMessage && this.selectedConversation?.otherUser && this.isPageVisible) {
-              console.log('📖 Auto-marking incoming message as read since we are ACTIVELY viewing the conversation');
               this.messagingService.markAsRead(this.selectedConversation.otherUser.auth0Id).subscribe({
                 next: () => {
-                  console.log('✅ Incoming message marked as read, now reloading conversations');
                   // Reload conversations AFTER marking as read, so unread count is correct
                   this.reloadConversationsDebounced();
                 }
               });
             } else {
               // For outgoing messages or when not actively viewing conversation, just reload conversations
-              console.log('📬 Not auto-marking as read (isPageVisible:', this.isPageVisible, ')');
               this.reloadConversationsDebounced();
             }
           }
           
           // If this is a message we sent, mark sending as complete
           if (isMyMessage && this.isSending) {
-            console.log('✅ Message send confirmed via WebSocket, clearing timeout and setting isSending = false');
             this.isSending = false;
             // Clear the HTTP fallback timeout since WebSocket succeeded
             if (this.messageSendTimeout) {
-              console.log('🗑️ Clearing HTTP fallback timeout');
               clearTimeout(this.messageSendTimeout);
               this.messageSendTimeout = null;
-            } else {
-              console.log('⚠️ No timeout to clear (already cleared or never set)');
             }
-          } else {
-            console.log('🔍 Received message - isMyMessage:', isMyMessage, 'isSending:', this.isSending);
           }
         }
       });
@@ -173,12 +160,10 @@ export class MessagesPage implements OnInit, OnDestroy {
       this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
         const email = user?.email || '';
         const userId = email ? `dev-user-${email}` : user?.sub || '';
-        console.log('🔑 AuthService user updated - email:', email, 'setting currentUserId to:', userId);
         this.currentUserId$.next(userId);
         
         // Load conversations once user is authenticated (important for page refresh)
         if (email && !this.conversations.length) {
-          console.log('✅ User authenticated, loading conversations');
           this.loadConversations();
         }
       });
@@ -253,30 +238,25 @@ export class MessagesPage implements OnInit, OnDestroy {
   async ionViewWillEnter() {
     // Double-check we're actually on the messages page to avoid false triggers on refresh
     const isOnMessagesPage = this.router.url.includes('/messages');
-    console.log('📱 ionViewWillEnter: Current URL:', this.router.url, 'isOnMessagesPage:', isOnMessagesPage);
     
     this.isPageVisible = isOnMessagesPage;
     
     // Only load conversations if user is authenticated
     const currentUserId = this.getCurrentUserId();
     if (currentUserId) {
-      console.log('📱 ionViewWillEnter: User authenticated, loading conversations');
       await this.loadConversations();
     } else {
-      console.log('📱 ionViewWillEnter: User not yet authenticated, skipping loadConversations');
     }
     
   }
 
   // Ionic lifecycle hook - called every time the view leaves
   ionViewWillLeave() {
-    console.log('📱 ionViewWillLeave: Page is no longer visible');
     this.isPageVisible = false;
     
     // On mobile, clear selected conversation when leaving so it auto-selects again on return
     // On desktop, keep it selected so the user returns to the same conversation
     if (!this.isDesktop) {
-      console.log('📱 Mobile: Clearing selected conversation');
       this.selectedConversation = null;
     }
   }
@@ -377,12 +357,9 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   loadConversations(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('📥 MessagesPage: loadConversations called');
       this.isLoading = true;
       this.messagingService.getConversations().subscribe({
         next: (response) => {
-          console.log('✅ MessagesPage: Received conversations response:', response);
-          console.log('✅ Number of conversations:', response.conversations?.length || 0);
           
           // Update conversations in-place to prevent flash/re-render
           if (this.conversations.length === 0) {
@@ -415,9 +392,6 @@ export class MessagesPage implements OnInit, OnDestroy {
               }
             }
           }
-          console.log('🔍 Conversations loaded:', this.conversations.length);
-          console.log('🔍 Selected conversation before auto-select:', this.selectedConversation?.conversationId || 'none');
-          console.log('🔍 isPageVisible:', this.isPageVisible);
           
           // If there's only 1 conversation, auto-select it when page becomes visible
           // Only select if it's NOT already the selected conversation (avoid infinite loop)
@@ -427,21 +401,16 @@ export class MessagesPage implements OnInit, OnDestroy {
                                       (this.selectedConversation?.otherUser?.auth0Id === conv.otherUser?.auth0Id);
             
             if (!isAlreadySelected) {
-              console.log('📱 Auto-selecting the only conversation (badge should disappear)');
               this.selectConversation(conv);
             } else {
-              console.log('📱 Single conversation already selected, but checking if it needs to be marked as read');
               // If already selected but has unread messages, mark as read
               if (conv.unreadCount > 0 && conv.otherUser) {
-                console.log('📱 Marking already-selected conversation as read (unreadCount:', conv.unreadCount, ')');
                 this.messagingService.markAsRead(conv.otherUser.auth0Id).subscribe({
                   next: () => {
-                    console.log('✅ Marked as read, badge should now disappear');
                     // Update the local unread count
                     conv.unreadCount = 0;
                     // Manually update the MessagingService's unreadCount to update the tab badge
                     const totalUnread = this.conversations.reduce((sum, c) => sum + c.unreadCount, 0);
-                    console.log('📊 Updating badge count to:', totalUnread);
                     this.messagingService.updateUnreadCount(totalUnread);
                   }
                 });
@@ -450,7 +419,6 @@ export class MessagesPage implements OnInit, OnDestroy {
           }
           // On desktop, always auto-select first conversation if none selected
           else if (this.isDesktop && !this.selectedConversation && this.conversations.length > 0 && this.isPageVisible) {
-            console.log('📱 Desktop: Auto-selecting first conversation');
             this.selectConversation(this.conversations[0]);
           }
           // If we have a selected conversation, update it with the latest data
@@ -502,16 +470,13 @@ export class MessagesPage implements OnInit, OnDestroy {
     // Mark as read and reload conversations to update unread count
     // Only mark as read if the page is actually visible to the user
     if (conversation.otherUser && this.isPageVisible) {
-      console.log('✅ Marking conversation as read (page is visible)');
       this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
         next: () => {
-          console.log('✅ Messages marked as read, reloading conversations to update badge');
           // Reload conversations to update the unread count in the sidebar and badge
           this.loadConversations();
         }
       });
     } else if (conversation.otherUser && !this.isPageVisible) {
-      console.log('⏸️ Not marking as read yet - page is not visible');
     }
   }
 
@@ -562,7 +527,6 @@ export class MessagesPage implements OnInit, OnDestroy {
           return;
         }
         
-        console.log('📤 Sending message via WebSocket to:', receiverId, 'Content:', messageContent);
         
         // Prepare replyTo data if replying
         let replyTo = undefined;
@@ -596,31 +560,24 @@ export class MessagesPage implements OnInit, OnDestroy {
         this.clearReply();
         
         // Set a timeout to fallback to HTTP if WebSocket doesn't respond
-        console.log('⏱️ Setting 2-second timeout for HTTP fallback');
         this.messageSendTimeout = setTimeout(() => {
-          console.log('⏰ Timeout fired! isSending:', this.isSending);
           if (this.isSending) {
-            console.log('⚠️ WebSocket timeout, falling back to HTTP');
             // WebSocket didn't respond, use HTTP fallback
             this.sendMessageViaHTTP(messageContent);
           } else {
-            console.log('✅ Timeout fired but message already sent via WebSocket, skipping HTTP');
           }
         }, 2000);
       } else {
         // WebSocket not connected, use HTTP
-        console.log('⚠️ WebSocket not connected, using HTTP');
         this.sendMessageViaHTTP(messageContent);
       }
     }
   }
 
   private sendMessageViaHTTP(content: string) {
-    console.log('🌐 sendMessageViaHTTP called (isSending:', this.isSending, ')');
     
     // If not sending anymore, WebSocket already succeeded - don't send via HTTP
     if (!this.isSending) {
-      console.log('⚠️ Not sending via HTTP - WebSocket already succeeded');
       return;
     }
     
@@ -635,7 +592,6 @@ export class MessagesPage implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('📤 Sending message via HTTP to:', receiverId, 'Content:', content);
 
     // Prepare replyTo data if replying
     let replyTo = undefined;
@@ -665,11 +621,7 @@ export class MessagesPage implements OnInit, OnDestroy {
       replyTo
     ).subscribe({
       next: (response) => {
-        console.log('✅ Message sent successfully via HTTP:', response);
         const message = response.message;
-        console.log('🔍 Checking for duplicate - message ID:', message.id, 'Content:', message.content?.substring(0, 20));
-        console.log('🔍 Current messages in array:', this.messages.length);
-        console.log('🔍 Existing message IDs:', this.messages.map(m => m.id));
         
         // Enhanced duplicate check - check by ID, or by content+timestamp if no ID match
         const existingMessage = this.messages.find(m => 
@@ -680,9 +632,7 @@ export class MessagesPage implements OnInit, OnDestroy {
         );
         
         if (existingMessage) {
-          console.log('⚠️ Duplicate message detected in HTTP response, skipping:', message.id);
         } else {
-          console.log('✅ Adding message from HTTP to array:', message.id);
           this.messages.push(message);
           this.scrollToBottom();
         }
@@ -837,7 +787,6 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (!input.files || input.files.length === 0) return;
     
     const file = input.files[0];
-    console.log('📎 File selected:', file.name, file.type, file.size);
     
     this.uploadFile(file, messageType);
     
@@ -855,11 +804,9 @@ export class MessagesPage implements OnInit, OnDestroy {
     this.isUploading = true;
     const receiverId = this.selectedConversation.otherUser.auth0Id;
 
-    console.log('📤 Uploading file:', { receiverId, fileName: file.name, messageType });
 
     this.messagingService.uploadFile(receiverId, file, messageType, caption).subscribe({
       next: (response) => {
-        console.log('✅ File uploaded successfully:', response.message);
         
         // Add message to local messages array
         this.messages.push(response.message);
@@ -926,7 +873,6 @@ export class MessagesPage implements OnInit, OnDestroy {
         }
       }, 1000);
       
-      console.log('🎤 Recording started');
     } catch (error) {
       console.error('❌ Error starting recording:', error);
       // TODO: Show error toast to user
@@ -944,7 +890,6 @@ export class MessagesPage implements OnInit, OnDestroy {
         this.recordingTimer = null;
       }
       
-      console.log('🎤 Recording stopped');
     }
   }
 
@@ -1031,7 +976,6 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   setReplyTo(message: Message) {
-    console.log('💬 Setting reply to message:', message.id);
     
     // Get sender name
     let senderName = 'Unknown';
@@ -1050,7 +994,6 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   clearReply() {
-    console.log('❌ Clearing reply');
     this.replyingToMessage = null;
   }
 
@@ -1073,7 +1016,6 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   // Scroll to a specific message by ID and highlight it
   scrollToMessageById(messageId: string, event?: Event) {
-    console.log('🖱️ Click detected on reply preview in bubble');
     
     if (event) {
       event.stopPropagation();
@@ -1084,13 +1026,11 @@ export class MessagesPage implements OnInit, OnDestroy {
       return;
     }
     
-    console.log('🔍 Scrolling to message ID:', messageId);
     
     // Small delay to ensure DOM is ready
     setTimeout(() => {
       const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
       
-      console.log('🔍 Found message element:', messageElement ? 'Yes' : 'No');
       
       if (!messageElement) {
         const allMessages = document.querySelectorAll('[data-message-id]');
@@ -1118,14 +1058,12 @@ export class MessagesPage implements OnInit, OnDestroy {
           behavior: 'smooth'
         });
         
-        console.log('✅ Scrolled to message');
       } else {
         // Fallback
         messageElement.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'center' 
         });
-        console.log('✅ Used scrollIntoView');
       }
       
       // Highlight the message

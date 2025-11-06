@@ -56,21 +56,17 @@ export class WebSocketService {
       return;
     }
 
-    console.log('📚 WebSocket: Setting up event listeners');
-    
     // Remove any existing listeners first to prevent duplicates
     this.socket.off('lesson_participant_joined');
     this.socket.off('lesson_participant_left');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
-      console.log('📨 WebSocket: Received new_message event', message);
       this.newMessageSubject.next(message);
     });
 
     // Listen for message sent confirmation (outgoing)
     this.socket.on('message_sent', (message: Message) => {
-      console.log('✅ WebSocket: Received message_sent event', message);
       this.newMessageSubject.next(message);
     });
 
@@ -81,44 +77,25 @@ export class WebSocketService {
 
     // Listen for message errors
     this.socket.on('message_error', (error: any) => {
-      console.error('Message error:', error);
+      console.error('WebSocket message error:', error);
     });
 
-    // Listen for lesson presence events - register BEFORE onAny to catch it
+    // Listen for lesson presence events
     this.socket.on('lesson_participant_joined', (data: any) => {
-      console.log('📚 WebSocket: ✅✅✅✅✅ RECEIVED lesson_participant_joined event!', data);
-      console.log('📚 WebSocket: Event data type:', typeof data);
-      console.log('📚 WebSocket: Event data:', JSON.stringify(data, null, 2));
-      console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
       this.lessonPresenceSubject.next(data);
     });
 
     // Listen for lesson participant left events
     this.socket.on('lesson_participant_left', (data: any) => {
-      console.log('📚 WebSocket: ❌❌❌❌❌ RECEIVED lesson_participant_left event!', data);
-      console.log('📚 WebSocket: Emitting to lessonPresenceLeftSubject');
       this.lessonPresenceLeftSubject.next(data);
-    });
-    
-    // Log ALL socket events for debugging (register this AFTER specific handlers)
-    this.socket.onAny((eventName, ...args) => {
-      console.log('📚 WebSocket: onAny - Received ANY event:', eventName, 'with args:', args);
-      if (eventName === 'lesson_participant_joined') {
-        console.log('📚 WebSocket: ⚠️⚠️⚠️ onAny ALSO caught lesson_participant_joined!', args);
-      }
-      if (eventName === 'lesson_participant_left') {
-        console.log('📚 WebSocket: ⚠️⚠️⚠️ onAny ALSO caught lesson_participant_left!', args);
-      }
     });
 
     this.listenersSetup = true;
-    console.log('📚 WebSocket: Event listeners set up');
   }
 
   connect(): void {
     // If already connected, just ensure listeners are set up
     if (this.socket?.connected) {
-      console.log('📚 WebSocket: Already connected, ensuring listeners are set up');
       this.setupEventListeners();
       return;
     }
@@ -136,7 +113,6 @@ export class WebSocketService {
       
       const socketUrl = environment.backendUrl;
       
-      console.log('📚 WebSocket: Creating new connection to', socketUrl);
       this.socket = io(socketUrl, {
         auth: {
           token: token
@@ -145,7 +121,6 @@ export class WebSocketService {
       });
 
       this.socket.on('connect', () => {
-        console.log('WebSocket connected');
         this.isConnected = true;
         this.connectionSubject.next(true);
         // Set up listeners after connection is established
@@ -153,7 +128,6 @@ export class WebSocketService {
       });
 
       this.socket.on('disconnect', () => {
-        console.log('WebSocket disconnected');
         this.isConnected = false;
         this.connectionSubject.next(false);
         this.listenersSetup = false; // Reset so listeners are set up again on reconnect
@@ -191,11 +165,9 @@ export class WebSocketService {
     }
   ): void {
     if (!this.socket?.connected) {
-      console.error('❌ WebSocket: Socket not connected');
+      console.error('WebSocket: Socket not connected');
       return;
     }
-
-    console.log('📤 WebSocket: Emitting send_message event', { receiverId, content, type, replyTo });
     
     const data: any = { receiverId, content, type };
     if (replyTo) {
@@ -203,8 +175,6 @@ export class WebSocketService {
     }
     
     this.socket.emit('send_message', data);
-    
-    console.log('✅ WebSocket: send_message event emitted');
   }
 
   sendTypingIndicator(receiverId: string, isTyping: boolean): void {

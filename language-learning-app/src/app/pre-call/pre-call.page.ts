@@ -60,43 +60,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     await this.loadLessonDetails();
 
     // Connect to WebSocket and listen for lesson presence
-    console.log('📚 PreCall: Setting up WebSocket connection and listeners');
-    console.log('📚 PreCall: Current lessonId:', this.lessonId);
     this.websocketService.connect();
-    
-    // Check connection status
-    console.log('📚 PreCall: WebSocket connection status:', this.websocketService.getConnectionStatus());
-    this.websocketService.connection$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(isConnected => {
-        console.log('📚 PreCall: WebSocket connection status changed:', isConnected);
-      });
     
     // Listen for participant joined events
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
-        console.log('📚 PreCall: ✅✅✅✅✅ RECEIVED lesson presence event!', presence);
-        console.log('📚 PreCall: Current lessonId:', this.lessonId, 'Event lessonId:', presence.lessonId);
-        // Normalize both IDs to strings for comparison
         const normalizedEventId = String(presence.lessonId);
         const normalizedCurrentId = String(this.lessonId);
-        console.log('📚 PreCall: Comparing IDs - Event:', normalizedEventId, 'Current:', normalizedCurrentId);
         if (normalizedEventId === normalizedCurrentId) {
-          console.log('✅ PreCall: Lesson IDs match, setting presence');
-          console.log('✅ PreCall: Setting otherParticipantJoined to true');
-          console.log('✅ PreCall: Participant name:', presence.participantName);
-          console.log('✅ PreCall: Participant picture:', presence.participantPicture);
           this.otherParticipantJoined = true;
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
-          // Force change detection
-          setTimeout(() => {
-            console.log('✅ PreCall: After setTimeout - otherParticipantJoined:', this.otherParticipantJoined);
-          }, 0);
-        } else {
-          console.log('⚠️ PreCall: Lesson IDs do not match');
-          console.log('⚠️ PreCall: Event ID:', normalizedEventId, 'Current ID:', normalizedCurrentId);
         }
       });
     
@@ -104,18 +79,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.websocketService.lessonPresenceLeft$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
-        console.log('📚 PreCall: ❌❌❌ Participant left event!', presence);
         const normalizedEventId = String(presence.lessonId);
         const normalizedCurrentId = String(this.lessonId);
         if (normalizedEventId === normalizedCurrentId) {
-          console.log('✅ PreCall: Lesson IDs match, clearing presence');
           this.otherParticipantJoined = false;
           this.otherParticipantName = '';
           this.otherParticipantPicture = '';
         }
       });
-    
-    console.log('📚 PreCall: WebSocket subscription set up');
   }
 
   async ngAfterViewInit() {
@@ -158,16 +129,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
             const otherParticipantKey = String(otherParticipantId);
             const participantData = lesson.participants[otherParticipantKey];
             
-            console.log('📚 PreCall: Checking existing participant data:', {
-              otherParticipantId,
-              otherParticipantKey,
-              participantData,
-              participants: lesson.participants
-            });
-            
             // If the other participant has joined (has joinedAt) and hasn't left (no leftAt or leftAt is null)
             if (participantData && participantData.joinedAt && !participantData.leftAt) {
-              console.log('✅ PreCall: Other participant has already joined!');
+              // Other participant has already joined
               this.otherParticipantJoined = true;
               if (this.isTutor) {
                 this.otherParticipantName = this.studentName;
@@ -330,10 +294,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       const params = this.route.snapshot.queryParams;
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       
-      console.log('🚀 PreCall: About to call agoraService.joinLesson');
-      console.log('🚀 PreCall: lessonId:', this.lessonId);
-      console.log('🚀 PreCall: role:', role);
-      console.log('🚀 PreCall: userId:', currentUser?.id);
       
       const joinResponse = await this.agoraService.joinLesson(
         this.lessonId,
@@ -345,7 +305,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       );
       
-      console.log('🚀 PreCall: joinLesson response received:', joinResponse);
 
       await loading.dismiss();
 
@@ -372,7 +331,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async goBack() {
-    console.log('🚪 PreCall: goBack() called');
     
     // Stop preview stream before navigating away
     if (this.localStream) {
@@ -382,16 +340,13 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Call leave endpoint if we have a lessonId
     if (this.lessonId) {
-      console.log('🚪 PreCall: Calling leave endpoint for lesson:', this.lessonId);
       try {
         const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
-        console.log('🚪 PreCall: Leave endpoint response:', leaveResponse);
       } catch (error) {
         console.error('🚪 PreCall: Error calling leave endpoint:', error);
         // Continue with navigation even if leave fails
       }
     } else {
-      console.log('🚪 PreCall: No lessonId, skipping leave endpoint');
     }
     
     // Navigate back to previous page
@@ -414,7 +369,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.lessonId) {
       firstValueFrom(this.lessonService.leaveLesson(this.lessonId))
         .then(() => {
-          console.log('🚪 PreCall: Successfully called leave endpoint in ngOnDestroy');
         })
         .catch((error) => {
           console.error('🚪 PreCall: Error calling leave endpoint in ngOnDestroy:', error);
