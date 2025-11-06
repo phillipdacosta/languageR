@@ -71,7 +71,7 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   constructor(
     private modalCtrl: ModalController, 
-    private router: Router,
+    public router: Router,
     public platformService: PlatformService,
     private authService: AuthService,
     private userService: UserService,
