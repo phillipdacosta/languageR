@@ -153,11 +153,12 @@
     // Notification Dropdown Container
     .notification-container {
       position: relative;
+      z-index: 10001;
       
       .notification-dropdown {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
+        position: fixed;
+        top: 60px; // Adjust based on toolbar height
+        right: 16px; // Adjust based on your layout
         width: 400px;
         max-height: 600px;
         background: white;

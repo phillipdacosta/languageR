@@ -207,6 +207,16 @@ export class TabsPage implements OnInit, OnDestroy {
     console.log('showTabs:', this.showTabs);
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
     console.log('New state:', this.isNotificationDropdownOpen);
+    
+    // Debug: Check if dropdown element exists in DOM
+    setTimeout(() => {
+      const dropdown = document.querySelector('.notification-dropdown');
+      console.log('Dropdown element in DOM:', dropdown);
+      if (dropdown) {
+        console.log('Dropdown computed styles:', window.getComputedStyle(dropdown));
+        console.log('Dropdown position:', dropdown.getBoundingClientRect());
+      }
+    }, 100);
   }
 
   closeNotificationDropdown() {
