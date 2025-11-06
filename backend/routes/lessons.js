@@ -475,31 +475,46 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     });
 
     // Emit WebSocket event for lesson presence
+    console.log('📡 Attempting to emit lesson presence event...');
+    console.log('📡 req.io exists:', !!req.io);
+    console.log('📡 req.connectedUsers exists:', !!req.connectedUsers);
+    
     if (req.io && req.connectedUsers) {
       // Get the other participant's User document to get their auth0Id
       const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
+      console.log('📡 Looking for other participant with MongoDB ID:', otherUserMongoId);
+      
       const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
+      console.log('📡 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
       
       if (otherUser && otherUser.auth0Id) {
         const otherUserAuth0Id = otherUser.auth0Id;
+        console.log('📡 Looking for socket connection for auth0Id:', otherUserAuth0Id);
+        console.log('📡 All connected users:', Array.from(req.connectedUsers.entries()));
+        
         const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
         
         if (otherUserSocketId) {
-          req.io.to(otherUserSocketId).emit('lesson_participant_joined', {
+          const presenceEvent = {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
             participantName: user.name,
             participantPicture: user.picture,
             joinedAt: now.toISOString()
-          });
-          console.log('📡 Emitted lesson_participant_joined to:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+          };
+          console.log('📡 Emitting lesson_participant_joined event:', presenceEvent);
+          req.io.to(otherUserSocketId).emit('lesson_participant_joined', presenceEvent);
+          console.log('✅ Successfully emitted lesson_participant_joined to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
         } else {
-          console.log('⚠️ Other participant not connected, cannot emit presence event. Auth0Id:', otherUserAuth0Id);
+          console.log('⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
+          console.log('⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
         }
       } else {
-        console.log('⚠️ Could not find other participant user document');
+        console.log('⚠️ Could not find other participant user document or auth0Id');
       }
+    } else {
+      console.log('⚠️ req.io or req.connectedUsers is missing');
     }
 
     res.json({

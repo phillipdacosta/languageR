@@ -179,11 +179,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
 
     // Connect to WebSocket and listen for lesson presence
+    console.log('📚 Tab1: Connecting to WebSocket...');
     this.websocketService.connect();
+    
+    // Check WebSocket connection status
+    this.websocketService.connection$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(isConnected => {
+        console.log('📚 Tab1: WebSocket connection status:', isConnected);
+      });
+    
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
-        console.log('📚 Tab1: Received lesson presence event', presence);
+        console.log('📚 Tab1: ✅✅✅ Received lesson presence event', presence);
         // Normalize lessonId to string
         const normalizedLessonId = String(presence.lessonId);
         console.log('📚 Tab1: Setting presence for lessonId:', normalizedLessonId);
@@ -198,6 +207,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Force change detection
         this.countdownTick = Date.now();
       });
+    
+    console.log('📚 Tab1: WebSocket subscription set up. Current connection status:', this.websocketService.getConnectionStatus());
   }
 
   ngOnDestroy() {

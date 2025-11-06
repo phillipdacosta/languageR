@@ -114,8 +114,16 @@ export class WebSocketService {
         participantPicture?: string;
         joinedAt: string;
       }) => {
-        console.log('📚 WebSocket: Received lesson_participant_joined event', data);
+        console.log('📚 WebSocket: ✅✅✅ Received lesson_participant_joined event', data);
+        console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
         this.lessonPresenceSubject.next(data);
+      });
+      
+      // Log all socket events for debugging
+      this.socket.onAny((eventName, ...args) => {
+        if (eventName === 'lesson_participant_joined') {
+          console.log('📚 WebSocket: Received event:', eventName, args);
+        }
       });
     });
   }
