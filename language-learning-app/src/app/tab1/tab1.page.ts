@@ -10,6 +10,7 @@ import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
+import { NotificationService } from '../services/notification.service';
 
 @Component({
   selector: 'app-tab1',
@@ -31,6 +32,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   
   // UI state
   hasNotifications = false;
+  unreadNotificationCount = 0;
   
   // Cached profile picture to avoid repeated evaluations
   private _currentUserPicture: string = 'assets/avatar.png';
@@ -79,13 +81,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     private agoraService: AgoraService,
     private loadingController: LoadingController,
     private toastController: ToastController,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private notificationService: NotificationService
   ) {
     // Get database user data instead of Auth0 data
     this.userService.getCurrentUser()
     .pipe(takeUntil(this.destroy$))
     .subscribe(user => {
       this.currentUser = user;
+      // Load notification count when user is available
+      if (user) {
+        setTimeout(() => {
+          this.loadUnreadNotificationCount();
+        }, 500);
+      }
         
         // Cache profile picture to avoid repeated evaluations
         this._currentUserPicture = user?.picture || 'assets/avatar.png';
@@ -128,6 +137,18 @@ export class Tab1Page implements OnInit, OnDestroy {
           }
         });
       }
+    });
+
+    // Load unread notification count
+    this.loadUnreadNotificationCount();
+
+    // Listen for WebSocket notifications
+    this.websocketService.connect();
+    this.websocketService.newNotification$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      // Reload notification count when a new notification arrives
+      this.loadUnreadNotificationCount();
     });
 
 
@@ -203,6 +224,29 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (this.lessons.length > 0) {
       this.checkExistingPresence();
     }
+    // Reload notification count when returning to the page
+    this.loadUnreadNotificationCount();
+  }
+
+  loadUnreadNotificationCount() {
+    // Only load if user is authenticated
+    if (!this.currentUser) {
+      return;
+    }
+
+    this.notificationService.getUnreadCount().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.unreadNotificationCount = response.count;
+          this.hasNotifications = this.unreadNotificationCount > 0;
+        }
+      },
+      error: (error) => {
+        console.error('Error loading unread notification count:', error);
+      }
+    });
   }
 
   ngOnDestroy() {

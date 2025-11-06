@@ -27,6 +27,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   isAuthenticated$: Observable<boolean>;
   // Unread messages count
   unreadCount$ = new BehaviorSubject<number>(0);
+  // Unread notifications count
+  unreadNotificationCount$ = new BehaviorSubject<number>(0);
   // Notification dropdown state
   isNotificationDropdownOpen = false;
   // Dropdown positioning
@@ -98,6 +100,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         // Small delay to ensure currentUser is set in UserService
         setTimeout(() => {
           this.loadNotifications();
+          this.loadUnreadNotificationCount();
         }, 500);
       }
     });
@@ -106,10 +109,16 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.websocketService.connect();
     this.websocketService.newNotification$.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(() => {
+    ).subscribe((notificationData) => {
+      console.log('🔔 Received new notification via WebSocket:', notificationData);
       // Reload notifications when a new one arrives
       this.loadNotifications();
+      // Also update unread count immediately
+      this.loadUnreadNotificationCount();
     });
+
+    // Load initial unread notification count
+    this.loadUnreadNotificationCount();
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
@@ -250,8 +259,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       next: (response) => {
         if (response.success) {
           this.notifications = response.notifications;
+          const unreadCount = this.getUnreadNotifications().length;
+          this.unreadNotificationCount$.next(unreadCount);
           console.log('✅ Loaded', response.notifications.length, 'notifications');
-          console.log('📊 Unread:', this.getUnreadNotifications().length, 'Read:', this.getReadNotifications().length);
+          console.log('📊 Unread:', unreadCount, 'Read:', this.getReadNotifications().length);
         }
         this.isLoadingNotifications = false;
       },
@@ -309,6 +320,21 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     return date.toLocaleDateString();
   }
 
+  loadUnreadNotificationCount() {
+    this.notificationService.getUnreadCount().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.unreadNotificationCount$.next(response.count);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading unread notification count:', error);
+      }
+    });
+  }
+
   onNotificationClick(notification: Notification) {
     // Mark as read if unread (but keep it visible)
     if (!notification.read) {
@@ -318,6 +344,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         next: () => {
           notification.read = true;
           notification.readAt = new Date();
+          // Update unread count
+          this.loadUnreadNotificationCount();
           // Reload notifications to update the list
           this.loadNotifications();
         },
