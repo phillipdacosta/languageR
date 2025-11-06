@@ -213,8 +213,21 @@ export class TabsPage implements OnInit, OnDestroy {
       const dropdown = document.querySelector('.notification-dropdown');
       console.log('Dropdown element in DOM:', dropdown);
       if (dropdown) {
-        console.log('Dropdown computed styles:', window.getComputedStyle(dropdown));
-        console.log('Dropdown position:', dropdown.getBoundingClientRect());
+        const styles = window.getComputedStyle(dropdown);
+        const rect = dropdown.getBoundingClientRect();
+        console.log('Dropdown computed styles:', {
+          display: styles.display,
+          visibility: styles.visibility,
+          opacity: styles.opacity,
+          zIndex: styles.zIndex,
+          position: styles.position,
+          top: styles.top,
+          right: styles.right
+        });
+        console.log('Dropdown position:', rect);
+        console.log('Dropdown is visible:', rect.width > 0 && rect.height > 0);
+      } else {
+        console.error('❌ Dropdown element NOT found in DOM!');
       }
     }, 100);
   }

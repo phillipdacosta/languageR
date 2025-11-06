@@ -156,18 +156,20 @@
       z-index: 10001;
       
       .notification-dropdown {
-        position: fixed;
-        top: 60px; // Adjust based on toolbar height
-        right: 16px; // Adjust based on your layout
-        width: 400px;
-        max-height: 600px;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        z-index: 10000;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
+        position: fixed !important;
+        top: 60px !important; // Adjust based on toolbar height
+        right: 16px !important; // Adjust based on your layout
+        width: 400px !important;
+        max-height: 600px !important;
+        background: red !important; // TEMP: Make it obvious if it renders
+        border-radius: 12px !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+        z-index: 99999 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         
         .notification-dropdown-header {
           display: flex;
