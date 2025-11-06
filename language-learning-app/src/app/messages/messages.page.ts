@@ -1045,31 +1045,115 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   // Scroll to and highlight the message being replied to
-  scrollToRepliedMessage() {
-    if (!this.replyingToMessage) return;
-    
-    const messageId = this.replyingToMessage.id;
-    if (!messageId) return;
-    
-    // Find the message element in the DOM
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-    
-    if (messageElement) {
-      // Scroll to the message with smooth behavior
-      messageElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-      
-      // Highlight the message
-      this.highlightedMessageId = messageId;
-      
-      // Remove highlight after 2 seconds
-      setTimeout(() => {
-        this.highlightedMessageId = null;
-      }, 2000);
-    } else {
-      console.warn('Message element not found:', messageId);
+  scrollToRepliedMessage(event?: Event) {
+    if (event) {
+      event.stopPropagation();
     }
+    
+    if (!this.replyingToMessage) {
+      console.warn('No message to scroll to');
+      return;
+    }
+    
+    // Try both id and _id (in case of MongoDB format)
+    const messageId = this.replyingToMessage.id || (this.replyingToMessage as any)._id;
+    console.log('🔍 scrollToRepliedMessage called');
+    console.log('🔍 replyingToMessage:', this.replyingToMessage);
+    console.log('🔍 messageId:', messageId);
+    
+    if (!messageId) {
+      console.warn('Message ID is undefined. Message object:', this.replyingToMessage);
+      return;
+    }
+    
+    // Convert to string if it's an object
+    const messageIdStr = typeof messageId === 'string' ? messageId : String(messageId);
+    
+    // Use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      // Try multiple selectors in case of different ID formats
+      let messageElement = document.querySelector(`[data-message-id="${messageIdStr}"]`) as HTMLElement;
+      
+      // If not found, try without quotes (in case of special characters)
+      if (!messageElement) {
+        const allMessages = document.querySelectorAll('[data-message-id]');
+        console.log('📋 Searching through', allMessages.length, 'message elements');
+        for (let i = 0; i < allMessages.length; i++) {
+          const attr = allMessages[i].getAttribute('data-message-id');
+          if (attr === messageIdStr || attr === String(messageId)) {
+            messageElement = allMessages[i] as HTMLElement;
+            console.log('✅ Found message by iterating, index:', i);
+            break;
+          }
+        }
+      }
+      
+      console.log('🔍 Looking for element with data-message-id:', messageIdStr);
+      console.log('🔍 Found element:', messageElement);
+      
+      if (messageElement) {
+        // Get the scrollable container (chat-messages)
+        const container = this.chatContainer?.nativeElement || 
+                         document.querySelector('.chat-messages') ||
+                         document.querySelector('.messages-list');
+        
+        console.log('📦 Scroll container:', container);
+        console.log('📦 Container scrollTop:', container?.scrollTop);
+        console.log('📦 Container scrollHeight:', container?.scrollHeight);
+        
+        if (container) {
+          // Calculate position relative to container
+          const containerRect = container.getBoundingClientRect();
+          const elementRect = messageElement.getBoundingClientRect();
+          const scrollTop = container.scrollTop;
+          const elementTop = elementRect.top - containerRect.top + scrollTop;
+          const centerOffset = container.clientHeight / 2 - elementRect.height / 2;
+          
+          const targetScroll = Math.max(0, elementTop - centerOffset);
+          
+          console.log('📊 Scroll calculation:', {
+            elementTop,
+            centerOffset,
+            targetScroll,
+            containerHeight: container.clientHeight,
+            elementHeight: elementRect.height
+          });
+          
+          // Scroll to center the message in the container
+          container.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
+          
+          console.log('✅ Scrolled to message');
+        } else {
+          // Fallback: use scrollIntoView
+          messageElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          console.log('✅ Used scrollIntoView fallback');
+        }
+        
+        // Highlight the message
+        this.highlightedMessageId = messageIdStr;
+        console.log('✨ Highlighted message:', messageIdStr);
+        
+        // Remove highlight after 2 seconds
+        setTimeout(() => {
+          this.highlightedMessageId = null;
+          console.log('⏰ Removed highlight');
+        }, 2000);
+      } else {
+        console.warn('❌ Message element not found for ID:', messageIdStr);
+        // Try to find all message elements for debugging
+        const allMessages = document.querySelectorAll('[data-message-id]');
+        console.log('📋 All message elements found:', allMessages.length);
+        if (allMessages.length > 0) {
+          console.log('📋 First message ID:', allMessages[0].getAttribute('data-message-id'));
+          console.log('📋 Sample message IDs:', Array.from(allMessages).slice(0, 3).map(el => el.getAttribute('data-message-id')));
+        }
+      }
+    }, 100); // Small delay to ensure DOM is ready
   }
 }
