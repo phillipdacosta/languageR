@@ -223,6 +223,15 @@ export class Tab1Page implements OnInit, OnDestroy {
     console.log('📚 Tab1: WebSocket subscription set up. Current connection status:', this.websocketService.getConnectionStatus());
   }
 
+  ionViewWillEnter() {
+    console.log('📚 Tab1: ionViewWillEnter - Refreshing presence data');
+    // Refresh presence data when returning to the home page
+    // This ensures we see updated presence if someone joined while we were away
+    if (this.lessons.length > 0) {
+      this.checkExistingPresence();
+    }
+  }
+
   ngOnDestroy() {
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
