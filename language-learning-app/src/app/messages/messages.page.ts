@@ -58,6 +58,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   replyingToMessage: Message | null = null;
   private longPressTimeout: any;
   private readonly LONG_PRESS_DURATION = 500; // ms
+  highlightedMessageId: string | null = null; // Track which message is highlighted
 
   constructor(
     private messagingService: MessagingService,
@@ -1041,5 +1042,34 @@ export class MessagesPage implements OnInit, OnDestroy {
       return '🎤 Voice message';
     }
     return '';
+  }
+
+  // Scroll to and highlight the message being replied to
+  scrollToRepliedMessage() {
+    if (!this.replyingToMessage) return;
+    
+    const messageId = this.replyingToMessage.id;
+    if (!messageId) return;
+    
+    // Find the message element in the DOM
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    
+    if (messageElement) {
+      // Scroll to the message with smooth behavior
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Highlight the message
+      this.highlightedMessageId = messageId;
+      
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        this.highlightedMessageId = null;
+      }, 2000);
+    } else {
+      console.warn('Message element not found:', messageId);
+    }
   }
 }
