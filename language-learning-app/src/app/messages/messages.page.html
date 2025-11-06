@@ -22,10 +22,22 @@
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
+        <!-- Conversations Search Header -->
+        <div class="conversations-search-header">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search by name"
+            [value]="searchTerm"
+            (input)="onSearchChange(($event.target as HTMLInputElement).value)"
+          />
+        </div>
+
         <!-- Conversations List (stays visible after first load) -->
         <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading">
           <div 
-            *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
+            *ngFor="let conversation of filteredConversations; trackBy: trackByConversationId" 
             class="conversation-item"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
             (click)="selectConversation(conversation)">
@@ -268,9 +280,9 @@
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
-        <div class="conversations-list" *ngIf="(!isInitialLoad || !isLoading) && conversations.length > 0">
+        <div class="conversations-list" *ngIf="(!isInitialLoad || !isLoading) && filteredConversations.length > 0">
           <div 
-            *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
+            *ngFor="let conversation of filteredConversations; trackBy: trackByConversationId" 
             class="conversation-item"
             (click)="selectConversation(conversation)">
             <ion-avatar class="conversation-avatar">

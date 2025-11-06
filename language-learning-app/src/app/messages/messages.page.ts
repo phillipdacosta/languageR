@@ -50,6 +50,9 @@ export class MessagesPage implements OnInit, OnDestroy {
   isDesktop = false;
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
+  // Conversations search
+  searchTerm = '';
+  private searchInput$ = new Subject<string>();
 
   constructor(
     private messagingService: MessagingService,
@@ -191,10 +194,25 @@ export class MessagesPage implements OnInit, OnDestroy {
           });
         }
       });
+
+      // Debounce search input updates for smoother filtering
+      this.searchInput$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(term => {
+        this.searchTerm = (term || '').trim().toLowerCase();
+      });
     }
 
     // Note: loadConversations() is now called in the authService.user$ subscription above
     // This ensures the user is authenticated before making API calls
+  }
+
+  // Computed list filtered by search term (matches other user's name)
+  get filteredConversations(): Conversation[] {
+    if (!this.searchTerm) return this.conversations;
+    return this.conversations.filter(c => (c.otherUser?.name || '').toLowerCase().includes(this.searchTerm));
+  }
+
+  onSearchChange(value: string) {
+    this.searchInput$.next(value);
   }
 
   // Ionic lifecycle hook - called every time the view enters
