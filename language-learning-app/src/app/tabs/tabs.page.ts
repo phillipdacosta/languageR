@@ -15,6 +15,12 @@ import { WebSocketService } from '../services/websocket.service';
   standalone: false,
 })
 export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
+  ionViewWillEnter() {
+    // Reload notification count when tabs page becomes active (important for page refresh)
+    if (this.currentUser) {
+      this.loadUnreadNotificationCount();
+    }
+  }
 
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -58,6 +64,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
           
           // Load unread count once user is authenticated (important for page refresh)
           this.loadUnreadCount();
+          // Also load notification count
+          this.loadUnreadNotificationCount();
         });
       }
     });
@@ -265,6 +273,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
           console.log('📊 Unread:', unreadCount, 'Read:', this.getReadNotifications().length);
         }
         this.isLoadingNotifications = false;
+        // Also explicitly load unread count from API to ensure accuracy
+        this.loadUnreadNotificationCount();
       },
       error: (error) => {
         console.error('❌ Error loading notifications:', error);

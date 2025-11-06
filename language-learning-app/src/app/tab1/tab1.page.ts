@@ -223,8 +223,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (this.lessons.length > 0) {
       this.checkExistingPresence();
     }
-    // Reload notification count when returning to the page
-    this.loadUnreadNotificationCount();
+    // Reload notification count when returning to the page (important for page refresh)
+    if (this.currentUser) {
+      this.loadUnreadNotificationCount();
+    }
   }
 
   loadUnreadNotificationCount() {
