@@ -1093,9 +1093,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         try {
           const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
           console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
-        } catch (leaveError) {
+        } catch (leaveError: any) {
           console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
-          console.error('🚪 VideoCall: Error details:', leaveError.error || leaveError.message);
+          console.error('🚪 VideoCall: Error details:', leaveError?.error || leaveError?.message || 'Unknown error');
           // Continue with call ending even if leave fails
         }
       } else {
@@ -1125,7 +1125,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       try {
         const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
         console.log('🚪 VideoCall: Leave endpoint response from ngOnDestroy:', leaveResponse);
-      } catch (leaveError) {
+      } catch (leaveError: any) {
         console.error('🚪 VideoCall: Error calling leave endpoint from ngOnDestroy:', leaveError);
       }
     }
