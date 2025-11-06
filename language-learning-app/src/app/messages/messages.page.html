@@ -250,7 +250,7 @@
         <div *ngIf="replyingToMessage" class="replying-to-container">
           <div class="replying-to-header">
             <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser.name }}</span>
+            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : (selectedConversation?.otherUser?.name || 'Unknown') }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
           <button 
@@ -524,7 +524,7 @@
         <div *ngIf="replyingToMessage" class="replying-to-container">
           <div class="replying-to-header">
             <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser.name }}</span>
+            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : (selectedConversation?.otherUser?.name || 'Unknown') }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
           <button 
