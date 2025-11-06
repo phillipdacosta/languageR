@@ -157,11 +157,11 @@
       
       .notification-dropdown {
         position: fixed !important;
-        top: 60px !important; // Adjust based on toolbar height
-        right: 16px !important; // Adjust based on your layout
+        top: 60px !important;
+        right: 20px !important;
         width: 400px !important;
         max-height: 600px !important;
-        background: red !important; // TEMP: Make it obvious if it renders
+        background: white !important;
         border-radius: 12px !important;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
         z-index: 99999 !important;
@@ -170,6 +170,7 @@
         overflow: hidden !important;
         visibility: visible !important;
         opacity: 1 !important;
+        transform: none !important;
         
         .notification-dropdown-header {
           display: flex;

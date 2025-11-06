@@ -226,6 +226,14 @@ export class TabsPage implements OnInit, OnDestroy {
         });
         console.log('Dropdown position:', rect);
         console.log('Dropdown is visible:', rect.width > 0 && rect.height > 0);
+        console.log('Viewport width:', window.innerWidth);
+        console.log('Viewport height:', window.innerHeight);
+        console.log('Is dropdown on screen?', rect.left >= 0 && rect.top >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight);
+        
+        // Try to scroll it into view if needed
+        if (dropdown) {
+          (dropdown as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       } else {
         console.error('❌ Dropdown element NOT found in DOM!');
       }
