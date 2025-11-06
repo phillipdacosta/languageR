@@ -7,17 +7,22 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 // Get all notifications for current user
 router.get('/', verifyToken, async (req, res) => {
   try {
+    console.log('📬 Fetching notifications for user:', req.user?.sub);
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) {
+      console.error('❌ User not found for auth0Id:', req.user?.sub);
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
       });
     }
 
+    console.log('📬 Found user:', user._id, 'Fetching notifications...');
     const notifications = await Notification.find({ userId: user._id })
       .sort({ createdAt: -1 })
       .limit(50);
+
+    console.log('📬 Found', notifications.length, 'notifications for user:', user._id);
 
     res.json({
       success: true,

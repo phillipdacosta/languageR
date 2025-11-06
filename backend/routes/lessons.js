@@ -155,38 +155,48 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     // Create notification for tutor
-    await Notification.create({
-      userId: tutor._id,
-      type: 'lesson_created',
-      title: 'New Lesson Scheduled',
-      message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
-      data: {
-        lessonId: lesson._id,
-        studentId: student._id,
-        studentName: student.name,
-        language: language,
-        date: formattedDate,
-        time: formattedTime,
-        startTime: lesson.startTime
-      }
-    });
+    try {
+      await Notification.create({
+        userId: tutor._id,
+        type: 'lesson_created',
+        title: 'New Lesson Scheduled',
+        message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
+        data: {
+          lessonId: lesson._id,
+          studentId: student._id,
+          studentName: student.name,
+          language: language,
+          date: formattedDate,
+          time: formattedTime,
+          startTime: lesson.startTime
+        }
+      });
+      console.log('✅ Notification created for tutor:', tutor._id);
+    } catch (notifError) {
+      console.error('❌ Error creating notification for tutor:', notifError);
+    }
 
     // Create notification for student
-    await Notification.create({
-      userId: student._id,
-      type: 'lesson_created',
-      title: 'Lesson Scheduled',
-      message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`,
-      data: {
-        lessonId: lesson._id,
-        tutorId: tutor._id,
-        tutorName: tutor.name,
-        language: language,
-        date: formattedDate,
-        time: formattedTime,
-        startTime: lesson.startTime
-      }
-    });
+    try {
+      await Notification.create({
+        userId: student._id,
+        type: 'lesson_created',
+        title: 'Lesson Scheduled',
+        message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`,
+        data: {
+          lessonId: lesson._id,
+          tutorId: tutor._id,
+          tutorName: tutor.name,
+          language: language,
+          date: formattedDate,
+          time: formattedTime,
+          startTime: lesson.startTime
+        }
+      });
+      console.log('✅ Notification created for student:', student._id);
+    } catch (notifError) {
+      console.error('❌ Error creating notification for student:', notifError);
+    }
 
     // Emit WebSocket notifications if users are connected
     if (req.io && req.connectedUsers) {
