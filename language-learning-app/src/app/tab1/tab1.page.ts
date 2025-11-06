@@ -632,6 +632,9 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Set upcoming lesson (first future lesson)
         this.upcomingLesson = this.lessons.length > 0 ? this.lessons[0] : null;
         
+        // Check for existing presence in lessons
+        await this.checkExistingPresence();
+        
         // Update tutor insights if tutor
         if (this.isTutor()) {
           this.loadTutorInsights();
@@ -647,6 +650,59 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
   }
 
+  // Check for existing presence in loaded lessons
+  async checkExistingPresence() {
+    if (!this.currentUser) return;
+    
+    console.log('📚 Tab1: Checking existing presence for', this.lessons.length, 'lessons');
+    
+    // Check each lesson for existing participants
+    for (const lesson of this.lessons) {
+      try {
+        // Get detailed lesson info with participants
+        const lessonResponse = await this.lessonService.getLesson(lesson._id).toPromise();
+        if (lessonResponse?.success && lessonResponse.lesson?.participants) {
+          const detailedLesson = lessonResponse.lesson;
+          
+          // Determine who the other participant is
+          const isTutor = this.currentUser.userType === 'tutor';
+          const otherParticipantId = isTutor 
+            ? detailedLesson.studentId?._id 
+            : detailedLesson.tutorId?._id;
+          
+          if (otherParticipantId && detailedLesson.participants) {
+            const otherParticipantKey = String(otherParticipantId);
+            const participantData = detailedLesson.participants[otherParticipantKey];
+            
+            // If the other participant has joined and hasn't left
+            if (participantData && participantData.joinedAt && !participantData.leftAt) {
+              console.log('📚 Tab1: Found existing presence for lesson', lesson._id, 'participant:', otherParticipantKey);
+              
+              // Set presence in our map
+              const normalizedLessonId = String(lesson._id);
+              this.lessonPresence.set(normalizedLessonId, {
+                participantName: isTutor 
+                  ? (detailedLesson.studentId?.name || 'Student')
+                  : (detailedLesson.tutorId?.name || 'Tutor'),
+                participantPicture: isTutor 
+                  ? detailedLesson.studentId?.picture 
+                  : detailedLesson.tutorId?.picture,
+                participantRole: isTutor ? 'student' : 'tutor',
+                joinedAt: typeof participantData.joinedAt === 'string' 
+                  ? participantData.joinedAt 
+                  : participantData.joinedAt?.toISOString() || new Date().toISOString()
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('📚 Tab1: Error checking presence for lesson', lesson._id, error);
+        // Continue with other lessons even if one fails
+      }
+    }
+    
+    console.log('📚 Tab1: Presence check complete. Found presence for lessons:', Array.from(this.lessonPresence.keys()));
+  }
 
   getOtherParticipantName(lesson: Lesson): string {
     if (!this.currentUser) return '';
