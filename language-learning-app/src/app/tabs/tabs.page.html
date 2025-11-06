@@ -40,15 +40,18 @@
           <span>Profile</span>
         </button>
         
+        <!-- Notification Bell Icon -->
+        <button class="nav-button notification-btn" [class.has-notifications]="(unreadCount$ | async)! > 0">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <span class="notification-badge" *ngIf="(unreadCount$ | async)! > 0">{{ (unreadCount$ | async)! }}</span>
+        </button>
+        
         <!-- User Profile Section (moved beside Profile button) -->
         <div class="user-profile" *ngIf="user$ | async as user">
           <ion-avatar class="user-avatar">
             <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture" (error)="onImageError($event)">
             <div class="user-initials" *ngIf="!user.picture" [style.display]="user.picture ? 'none' : 'block'">{{ getUserInitials(user) }}</div>
           </ion-avatar>
-          <div class="user-info">
-            <span class="user-name">{{ user.name }}</span>
-          </div>
         </div>
         
         <button class="nav-button logout-button" (click)="logout()">
