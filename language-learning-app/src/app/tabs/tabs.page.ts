@@ -5,6 +5,8 @@ import { AuthService, User } from '../services/auth.service';
 import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService } from '../services/messaging.service';
+import { NotificationService, Notification } from '../services/notification.service';
+import { WebSocketService } from '../services/websocket.service';
 
 @Component({
   selector: 'app-tabs',
@@ -31,13 +33,18 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   dropdownTop = 60;
   dropdownRight = 20;
   @ViewChild('notificationBtn', { read: ElementRef }) notificationBtn!: ElementRef;
+  // Notifications
+  notifications: Notification[] = [];
+  isLoadingNotifications = false;
 
   constructor(
     private router: Router,
     public platformService: PlatformService,
     private authService: AuthService,
     private userService: UserService,
-    private messagingService: MessagingService
+    private messagingService: MessagingService,
+    private notificationService: NotificationService,
+    private websocketService: WebSocketService
   ) {
     this.user$ = this.authService.user$;
     this.user$.subscribe(user => {
@@ -82,6 +89,19 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.unreadCount$.next(count);
       }
     });
+    
+    // Load notifications when user is authenticated
+    this.user$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(user => {
+      if (user?.email) {
+        this.loadNotifications();
+      }
+    });
+
+    // Listen for WebSocket notifications
+    this.websocketService.connect();
+    // Note: WebSocket listener setup happens in websocketService
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
@@ -208,10 +228,31 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // ViewChild is available after view init
   }
 
+  loadNotifications() {
+    this.isLoadingNotifications = true;
+    this.notificationService.getNotifications().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.notifications = response.notifications;
+        }
+        this.isLoadingNotifications = false;
+      },
+      error: (error) => {
+        console.error('Error loading notifications:', error);
+        this.isLoadingNotifications = false;
+      }
+    });
+  }
+
   toggleNotificationDropdown() {
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
     
     if (this.isNotificationDropdownOpen && this.notificationBtn) {
+      // Reload notifications when opening dropdown
+      this.loadNotifications();
+      
       // Calculate position based on button location
       setTimeout(() => {
         const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
@@ -223,6 +264,51 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.dropdownTop = buttonRect.bottom + spacing;
         this.dropdownRight = window.innerWidth - buttonRect.right;
       }, 0);
+    }
+  }
+
+  getUnreadNotifications(): Notification[] {
+    return this.notifications.filter(n => !n.read);
+  }
+
+  getReadNotifications(): Notification[] {
+    return this.notifications.filter(n => n.read);
+  }
+
+  formatNotificationTime(createdAt: Date | string): string {
+    const date = new Date(createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  }
+
+  onNotificationClick(notification: Notification) {
+    if (!notification.read) {
+      this.notificationService.markAsRead(notification._id).pipe(
+        takeUntil(this.destroy$)
+      ).subscribe({
+        next: () => {
+          notification.read = true;
+          notification.readAt = new Date();
+        }
+      });
+    }
+
+    // Navigate based on notification type
+    if (notification.type === 'lesson_created' && notification.data?.lessonId) {
+      this.router.navigate(['/tabs/tutor-calendar']);
+      this.closeNotificationDropdown();
+    } else if (notification.type === 'message') {
+      this.router.navigate(['/tabs/messages']);
+      this.closeNotificationDropdown();
     }
   }
 

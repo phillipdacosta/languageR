@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 
@@ -127,6 +128,85 @@ router.post('/', verifyToken, async (req, res) => {
     ]);
 
     console.log('📅 Lesson created successfully:', lesson._id);
+
+    // Format date and time for notifications
+    const lessonDate = new Date(lesson.startTime);
+    const formattedDate = lessonDate.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    const formattedTime = lessonDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+
+    // Get language from bookingData, subject, or tutor's languages
+    let language = 'language';
+    if (lesson.bookingData?.selectedLanguage) {
+      language = lesson.bookingData.selectedLanguage;
+    } else if (lesson.subject && lesson.subject !== 'Language Lesson') {
+      // Extract language from subject (e.g., "Spanish Lesson" -> "Spanish")
+      language = lesson.subject.replace(/\s+Lesson$/i, '').trim();
+    } else if (tutor.onboardingData?.languages && tutor.onboardingData.languages.length > 0) {
+      language = tutor.onboardingData.languages[0];
+    }
+
+    // Create notification for tutor
+    await Notification.create({
+      userId: tutor._id,
+      type: 'lesson_created',
+      title: 'New Lesson Scheduled',
+      message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
+      data: {
+        lessonId: lesson._id,
+        studentId: student._id,
+        studentName: student.name,
+        language: language,
+        date: formattedDate,
+        time: formattedTime,
+        startTime: lesson.startTime
+      }
+    });
+
+    // Create notification for student
+    await Notification.create({
+      userId: student._id,
+      type: 'lesson_created',
+      title: 'Lesson Scheduled',
+      message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`,
+      data: {
+        lessonId: lesson._id,
+        tutorId: tutor._id,
+        tutorName: tutor.name,
+        language: language,
+        date: formattedDate,
+        time: formattedTime,
+        startTime: lesson.startTime
+      }
+    });
+
+    // Emit WebSocket notifications if users are connected
+    if (req.io && req.connectedUsers) {
+      const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+      const studentSocketId = req.connectedUsers.get(student.auth0Id);
+
+      if (tutorSocketId) {
+        req.io.to(tutorSocketId).emit('new_notification', {
+          type: 'lesson_created',
+          message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
+        });
+      }
+
+      if (studentSocketId) {
+        req.io.to(studentSocketId).emit('new_notification', {
+          type: 'lesson_created',
+          message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`
+        });
+      }
+    }
 
     res.json({ 
       success: true, 

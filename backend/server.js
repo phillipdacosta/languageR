@@ -55,6 +55,7 @@ const lessonRoutes = require('./routes/lessons');
 const progressRoutes = require('./routes/progress');
 const messagingRoutes = require('./routes/messaging');
 const classesRoutes = require('./routes/classes');
+const notificationRoutes = require('./routes/notifications');
 
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
@@ -73,6 +74,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/messaging', messagingRoutes);
 app.use('/api/classes', classesRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
