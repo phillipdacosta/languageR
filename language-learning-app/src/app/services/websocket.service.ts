@@ -57,6 +57,10 @@ export class WebSocketService {
     }
 
     console.log('📚 WebSocket: Setting up event listeners');
+    
+    // Remove any existing listeners first to prevent duplicates
+    this.socket.off('lesson_participant_joined');
+    this.socket.off('lesson_participant_left');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {

@@ -530,9 +530,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
           console.log('📡 Emitting to socket:', otherUserSocketId);
           console.log('📡 Using req.io.to().emit() method');
           
-          // Try multiple emission methods to ensure it works
+          // Emit to socket ID only (room emission causes duplicates)
           req.io.to(otherUserSocketId).emit('lesson_participant_joined', presenceEvent);
-          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_joined', presenceEvent);
           
           console.log('✅ Successfully emitted lesson_participant_joined to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
           console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
@@ -705,9 +704,8 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
           console.log('🚪 Emitting lesson_participant_left event:', JSON.stringify(leaveEvent, null, 2));
           console.log('🚪 Emitting to socket:', otherUserSocketId);
           
-          // Try multiple emission methods to ensure it works
+          // Emit to socket ID only (room emission causes duplicates)
           req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
-          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_left', leaveEvent);
           
           console.log('✅ Successfully emitted lesson_participant_left to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
           console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
@@ -825,7 +823,6 @@ router.post('/:id/leave-beacon', async (req, res) => {
           
           console.log('🚪 Emitting lesson_participant_left event from beacon:', JSON.stringify(leaveEvent, null, 2));
           req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
-          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_left', leaveEvent);
           console.log('✅ Successfully emitted lesson_participant_left from beacon');
         } else {
           console.log('⚠️ Other participant not connected for beacon leave');
