@@ -4,7 +4,7 @@
   <ion-header *ngIf="isWeb() && !showTabs">
     <ion-toolbar class="desktop-nav-toolbar">
       <!-- App Icon -->
-      <div class="app-icon-container" slot="start">
+      <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
         <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
       </div>
       
