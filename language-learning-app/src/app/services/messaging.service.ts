@@ -81,14 +81,12 @@ export class MessagingService {
   
   // Method to update unread count from outside
   updateUnreadCount(count: number) {
-    console.log('📊 MessagingService: Updating unread count to:', count);
     this.unreadCountSubject.next(count);
   }
   
   // Method to increment unread count when a new message arrives
   incrementUnreadCount() {
     const currentCount = this.unreadCountSubject.value;
-    console.log('📈 MessagingService: Incrementing unread count from', currentCount, 'to', currentCount + 1);
     this.unreadCountSubject.next(currentCount + 1);
   }
 
@@ -98,15 +96,10 @@ export class MessagingService {
 
   // Get all conversations
   getConversations(): Observable<{ success: boolean; conversations: Conversation[] }> {
-    console.log('📥 MessagingService: getConversations called');
-    console.log('📥 API URL:', `${this.apiUrl}/conversations`);
-    
     // Add cache-busting headers to ensure fresh data
     const headers = this.getHeaders()
       .set('Cache-Control', 'no-cache')
       .set('Pragma', 'no-cache');
-    
-    console.log('📥 Headers:', headers);
     
     return this.http.get<{ success: boolean; conversations: Conversation[] }>(
       `${this.apiUrl}/conversations`,
@@ -114,9 +107,7 @@ export class MessagingService {
     ).pipe(
       tap(response => {
         // Update the unread count whenever conversations are fetched
-        console.log('📊 MessagingService: getConversations response received:', response);
         const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
-        console.log('📊 MessagingService: Calculated total unread:', totalUnread);
         this.updateUnreadCount(totalUnread);
       })
     );
@@ -155,9 +146,6 @@ export class MessagingService {
       fileName?: string;
     }
   ): Observable<{ success: boolean; message: Message }> {
-    console.log('📤 MessagingService.sendMessage called:', { receiverId, content, type, replyTo });
-    console.log('📤 API URL:', `${this.apiUrl}/conversations/${receiverId}/messages`);
-    console.log('📤 Headers:', this.getHeaders());
     
     const body: any = { content, type };
     if (replyTo) {
@@ -182,7 +170,6 @@ export class MessagingService {
 
   // Upload file (image, document, or voice note)
   uploadFile(receiverId: string, file: File, messageType: 'image' | 'file' | 'voice', caption?: string): Observable<{ success: boolean; message: Message }> {
-    console.log('📤 MessagingService.uploadFile called:', { receiverId, fileName: file.name, messageType });
     
     const formData = new FormData();
     formData.append('file', file);

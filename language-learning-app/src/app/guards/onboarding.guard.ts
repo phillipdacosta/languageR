@@ -22,11 +22,8 @@ export class OnboardingGuard implements CanActivate {
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot
   ): Observable<boolean> {
-    console.log('🚀 OnboardingGuard: Starting guard for route:', state.url);
-    
     // Show loading immediately to prevent any flash
     this.loadingService.show();
-    console.log('🚀 OnboardingGuard: Loading shown');
     
     // Add a small delay to ensure loading overlay is rendered
     return new Observable(observer => {
@@ -39,10 +36,7 @@ export class OnboardingGuard implements CanActivate {
           filter(([isAuthenticated, isLoading]) => !isLoading),
           take(1),
           switchMap(([isAuthenticated, isLoading]) => {
-            console.log('🚀 OnboardingGuard: isAuthenticated =', isAuthenticated, 'isLoading =', isLoading, 'for route:', state.url);
-            
             if (!isAuthenticated) {
-              console.log('🚀 OnboardingGuard: not authenticated, redirecting to login');
               this.loadingService.hide();
               this.router.navigate(['/login']);
               observer.next(false);
@@ -75,7 +69,6 @@ export class OnboardingGuard implements CanActivate {
       take(1),
       switchMap(user => {
         if (!user || !user.email) {
-          console.log('OnboardingGuard: no user data, redirecting to onboarding');
           this.loadingService.hide();
           this.router.navigate(['/onboarding']);
           return of(false);
@@ -96,7 +89,6 @@ export class OnboardingGuard implements CanActivate {
 
   private checkUserOnboardingStatus(email: string): Observable<boolean> {
     return new Observable(observer => {
-      console.log('OnboardingGuard: Checking onboarding status for:', email);
       
       // Make API call to check user's onboarding status
       fetch(`${environment.backendUrl}/api/users/check-email`, {
@@ -119,23 +111,16 @@ export class OnboardingGuard implements CanActivate {
           })
           .then(response => response.json())
           .then(userResult => {
-            console.log('🚀 OnboardingGuard: User result from database:', userResult);
             if (userResult.user && userResult.user.onboardingCompleted) {
-              console.log('🚀 OnboardingGuard: user has completed onboarding, allowing access');
               this.loadingService.hide();
               observer.next(true);
               observer.complete();
             } else {
-              console.log('🚀 OnboardingGuard: user has not completed onboarding, redirecting to appropriate onboarding');
               this.loadingService.hide();
               
               // Route to appropriate onboarding based on user type
               const userType = userResult.user?.userType || 'student';
               const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
-              
-              console.log('🚀 OnboardingGuard: User data:', userResult.user);
-              console.log('🚀 OnboardingGuard: Detected userType:', userType);
-              console.log('🚀 OnboardingGuard: routing to', onboardingRoute, 'for user type:', userType);
               this.router.navigate([onboardingRoute]);
               observer.next(false);
               observer.complete();
@@ -149,15 +134,11 @@ export class OnboardingGuard implements CanActivate {
             observer.complete();
           });
         } else {
-          console.log('🚀 OnboardingGuard: user does not exist, routing to appropriate onboarding');
           this.loadingService.hide();
           
           // Route to appropriate onboarding based on user type from localStorage
           const userType = localStorage.getItem('selectedUserType') || 'student';
           const onboardingRoute = userType === 'tutor' ? '/tutor-onboarding' : '/onboarding';
-          
-          console.log('🚀 OnboardingGuard: No user in database, userType from localStorage:', userType);
-          console.log('🚀 OnboardingGuard: routing to', onboardingRoute);
           this.router.navigate([onboardingRoute]);
           observer.next(false);
           observer.complete();

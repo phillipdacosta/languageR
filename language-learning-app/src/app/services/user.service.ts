@@ -124,9 +124,6 @@ export class UserService {
     const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
     const mockToken = `dev-token-${tokenEmail}`;
     
-    console.log('🔍 UserService: Using dev token for user:', userEmail);
-    console.log('🔍 UserService: Generated token:', mockToken);
-    
     return new HttpHeaders({
       'Authorization': `Bearer ${mockToken}`,
       'Content-Type': 'application/json'
@@ -155,29 +152,22 @@ export class UserService {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
-        console.log('🔍 UserService getCurrentUser: Auth0 user data:', user);
-        console.log('🔍 UserService getCurrentUser: Auth0 user keys:', user ? Object.keys(user) : 'no user');
         const userEmail = user?.email || 'unknown';
-        console.log('🔍 UserService getCurrentUser: Using email:', userEmail);
         
         if (userEmail === 'unknown') {
-          console.error('🔍 UserService getCurrentUser: No email found in Auth0 user data!');
-          console.error('🔍 UserService getCurrentUser: Available user properties:', user);
+          console.error('UserService getCurrentUser: No email found in Auth0 user data!');
         }
         
         const headers = this.getAuthHeaders(userEmail);
-        console.log('🔍 UserService getCurrentUser: Making request with headers:', headers);
         
         return this.http.get<{success: boolean, user: User}>(`${this.apiUrl}/users/me`, {
           headers: headers
         });
       }),
       map(response => {
-        console.log('🔍 UserService getCurrentUser: Response:', response);
         return response.user;
       }),
       tap(user => {
-        console.log('🔍 UserService getCurrentUser: Setting current user:', user);
         this.currentUserSubject.next(user);
       })
     );
@@ -191,18 +181,14 @@ export class UserService {
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
-        console.log('🔍 Making POST request to:', `${this.apiUrl}/users`);
-        console.log('🔍 Request headers:', this.getAuthHeaders(userEmail));
         return this.http.post<{success: boolean, user: User}>(`${this.apiUrl}/users`, userData, {
           headers: this.getAuthHeaders(userEmail)
         });
       }),
       map(response => {
-        console.log('🔍 POST response received:', response);
         return response.user;
       }),
       tap(user => {
-        console.log('🔍 User stored in service:', user);
         this.currentUserSubject.next(user);
       }),
       catchError(error => {
@@ -269,7 +255,6 @@ export class UserService {
   checkUserExists(): Observable<boolean> {
     return this.getCurrentUser().pipe(
       map(user => !!user),
-      tap(exists => console.log('User exists in database:', exists))
     );
   }
 
@@ -321,10 +306,6 @@ export class UserService {
     // Get user type from localStorage (set during login)
     const userType = localStorage.getItem('selectedUserType') || 'student';
     
-    console.log('🔍 UserService initializeUser: Initializing user with userType:', userType);
-    console.log('🔍 UserService initializeUser: Auth0User data:', auth0User);
-    console.log('🔍 UserService initializeUser: Auth0User email:', auth0User?.email);
-    console.log('🔍 UserService initializeUser: Auth0User sub:', auth0User?.sub);
     
     if (!auth0User?.email) {
       console.error('🔍 UserService initializeUser: No email in Auth0 user data!');
@@ -338,7 +319,6 @@ export class UserService {
       userType: userType as 'student' | 'tutor'
     };
 
-    console.log('🔍 UserService initializeUser: User data being sent:', userData);
     return this.createOrUpdateUser(userData);
   }
 
@@ -364,15 +344,12 @@ export class UserService {
           }
         });
 
-        console.log('🔍 Searching tutors with filters:', filters);
-        console.log('🔍 Query params:', params.toString());
 
         return this.http.get<TutorSearchResponse>(`${this.apiUrl}/users/tutors?${params.toString()}`, {
           headers: this.getAuthHeaders(userEmail)
         });
       }),
       tap(response => {
-        console.log('🔍 Tutor search response:', response);
       }),
       catchError(error => {
         console.error('🔍 Error searching tutors:', error);
@@ -397,7 +374,6 @@ export class UserService {
         );
       }),
       tap(response => {
-        console.log('📹 Tutor video updated:', response);
       }),
       catchError(error => {
         console.error('📹 Error updating tutor video:', error);
@@ -422,7 +398,6 @@ export class UserService {
         );
       }),
       tap(response => {
-        console.log('📅 Availability updated:', response);
       }),
       catchError(error => {
         console.error('📅 Error updating availability:', error);
@@ -446,7 +421,6 @@ export class UserService {
         );
       }),
       tap(response => {
-        console.log('📅 Availability fetched:', response);
       }),
       catchError(error => {
         console.error('📅 Error fetching availability:', error);
@@ -463,7 +437,6 @@ export class UserService {
       `${this.apiUrl}/users/${tutorId}/availability`
     ).pipe(
       tap(response => {
-        console.log('📅 Tutor availability fetched:', response);
       }),
       catchError(error => {
         console.error('📅 Error fetching tutor availability:', error);
@@ -481,7 +454,6 @@ export class UserService {
     ).pipe(
       map(res => res as any),
       tap(response => {
-        console.log('👤 Tutor public profile fetched:', response);
       }),
       catchError(error => {
         console.error('👤 Error fetching tutor public profile:', error);

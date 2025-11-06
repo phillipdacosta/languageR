@@ -34,19 +34,14 @@ export class TabsPage implements OnInit, OnDestroy {
     private messagingService: MessagingService
   ) {
     this.user$ = this.authService.user$;
-    console.log('user$', this.user$);
     this.user$.subscribe(user => {
-      console.log('user', user);
       if (user?.email) {
         this.userService.getCurrentUser()
         .pipe(takeUntil(this.destroy$))
         .subscribe((user: any) => {
-          console.log('Database user data:', user);
           this.currentUser = user;
-          console.log('Current user:', this.currentUser);
           
           // Load unread count once user is authenticated (important for page refresh)
-          console.log('📬 TabsPage: User authenticated, loading initial unread count');
           this.loadUnreadCount();
         });
       }
@@ -67,7 +62,6 @@ export class TabsPage implements OnInit, OnDestroy {
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
       this.showTabs = this.shouldShowTabs();
-      console.log('Window resized - Show tabs:', this.showTabs);
     };
     window.addEventListener('resize', this.resizeListener);
     
@@ -75,35 +69,24 @@ export class TabsPage implements OnInit, OnDestroy {
     this.loadCurrentUser();
     
     // Subscribe to the centralized unread count observable
-    console.log('📬 TabsPage: Subscribing to messagingService.unreadCount$');
     this.messagingService.unreadCount$.pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (count) => {
-        console.log('📬 TabsPage: Received unread count update:', count);
-        console.log('📬 TabsPage: Setting local unreadCount$ to:', count);
         this.unreadCount$.next(count);
       }
     });
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
-    
-    console.log('Platform detected:', this.currentPlatform);
-    console.log('Platform config:', this.platformConfig);
-    console.log('Show tabs:', this.showTabs);
-    console.log('Is web:', this.isWeb());
-    console.log('Is mobile viewport:', this.isMobileViewport());
   }
 
   private loadUnreadCount() {
-    console.log('📬 TabsPage: loadUnreadCount() called');
     // Fetch conversations which will automatically update the unread count via the service
     this.messagingService.getConversations().pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
-        console.log('📬 TabsPage: Initial conversations loaded, count:', response.conversations?.length);
       },
       error: (error) => {
         console.error('❌ TabsPage: Error loading conversations for unread count:', error);
@@ -115,10 +98,7 @@ export class TabsPage implements OnInit, OnDestroy {
     this.userService.getCurrentUser()
       .pipe(takeUntil(this.destroy$))
       .subscribe((user: any) => {
-        console.log('TabsPage: Database user data:', user);
         this.currentUser = user;
-        console.log('TabsPage: Current user loaded:', this.currentUser);
-        console.log('TabsPage: User type:', this.currentUser?.userType);
       });
   }
 
@@ -150,13 +130,11 @@ export class TabsPage implements OnInit, OnDestroy {
   }
 
   openSearchTutors() {
-    console.log('openSearchTutors');
     this.router.navigate(['/tabs/tutor-search']);
   }
 
   // Navigation methods for desktop web
   navigateTo(route: string) {
-    console.log('Navigating to:', route);
     this.router.navigate([route]);
   }
 
