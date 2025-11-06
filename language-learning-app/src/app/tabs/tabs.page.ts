@@ -180,14 +180,11 @@ export class TabsPage implements OnInit, OnDestroy {
   }
 
   getUserInitials(user: User | null): string {
-    console.log('getUserInitials', user);
     if (!user || !user.name) return '?';
     return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   }
 
   onImageError(event: any) {
-    console.log('Image failed to load:', event);
-    console.log('Image src was:', event.target.src);
     
     // Hide the image and show initials instead
     const img = event.target;
