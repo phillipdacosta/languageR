@@ -116,12 +116,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Reset initialization attempts when entering the page
     this.initializationAttempts = 0;
   }
-  
-  ionViewWillLeave() {
-    console.log('Tutor calendar page will leave');
-    // Reset counter when leaving
-    this.initializationAttempts = 0;
-  }
 
   ionViewDidEnter() {
     console.log('Tutor calendar page did enter');
@@ -148,6 +142,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   ionViewWillLeave() {
     console.log('Tutor calendar page will leave');
+    // Reset counter when leaving
+    this.initializationAttempts = 0;
     // Clean up when leaving the page
     if (this.calendar) {
       this.calendar.destroy();
