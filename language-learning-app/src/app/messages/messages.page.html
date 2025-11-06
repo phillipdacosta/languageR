@@ -214,13 +214,13 @@
                 
                 <!-- Image message -->
                 <div *ngIf="message.type === 'image'" class="message-image">
-                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!)" />
+                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)" />
                   <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
                 </div>
                 
                 <!-- Document message -->
                 <div *ngIf="message.type === 'file'" class="message-file">
-                  <div class="file-info" (click)="openFile(message.fileUrl!)">
+                  <div class="file-info" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)">
                     <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
                     <div class="file-details">
                       <p class="file-name">{{ message.fileName }}</p>
@@ -492,13 +492,13 @@
                 
                 <!-- Image message -->
                 <div *ngIf="message.type === 'image'" class="message-image">
-                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!)" />
+                  <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)" />
                   <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
                 </div>
                 
                 <!-- Document message -->
                 <div *ngIf="message.type === 'file'" class="message-file">
-                  <div class="file-info" (click)="openFile(message.fileUrl!)">
+                  <div class="file-info" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)">
                     <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
                     <div class="file-details">
                       <p class="file-name">{{ message.fileName }}</p>

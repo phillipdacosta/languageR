@@ -3,6 +3,7 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MessagesPage } from './messages.page';
+import { ImageViewerModal } from './image-viewer-modal.component';
 
 import { MessagesPageRoutingModule } from './messages-routing.module';
 
@@ -14,7 +15,7 @@ import { MessagesPageRoutingModule } from './messages-routing.module';
     ReactiveFormsModule,
     MessagesPageRoutingModule
   ],
-  declarations: [MessagesPage]
+  declarations: [MessagesPage, ImageViewerModal]
 })
 export class MessagesPageModule {}
 

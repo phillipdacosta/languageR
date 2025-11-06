@@ -1,10 +1,12 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ModalController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { MessagingService, Conversation, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
+import { ImageViewerModal } from './image-viewer-modal.component';
 import { Subject, BehaviorSubject } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 
@@ -67,7 +69,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     private platformService: PlatformService,
     private userService: UserService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
@@ -964,9 +967,33 @@ export class MessagesPage implements OnInit, OnDestroy {
     return 'attach';
   }
 
-  // Open file in new tab
-  openFile(fileUrl: string) {
-    window.open(fileUrl, '_blank');
+  // Open file - images in modal viewer, other files for download
+  async openFile(fileUrl: string, fileType?: string, fileName?: string) {
+    // Check if it's an image
+    const isImage = fileType?.startsWith('image/') || 
+                    fileUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i);
+    
+    if (isImage) {
+      // Open image in modal viewer
+      await this.openImageViewer(fileUrl, fileName);
+    } else {
+      // For non-images, open in new tab for download
+      window.open(fileUrl, '_blank');
+    }
+  }
+
+  // Open image viewer modal
+  async openImageViewer(imageUrl: string, imageName?: string) {
+    const modal = await this.modalController.create({
+      component: ImageViewerModal,
+      componentProps: {
+        imageUrl,
+        imageName
+      },
+      cssClass: 'image-viewer-modal'
+    });
+    
+    await modal.present();
   }
 
   // Reply functionality handlers
