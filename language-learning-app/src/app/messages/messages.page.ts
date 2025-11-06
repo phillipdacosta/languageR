@@ -26,6 +26,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   selectedConversation: Conversation | null = null;
   messages: Message[] = [];
   isLoading = false;
+  isInitialLoad = true; // Only show spinner on first load
   isLoadingMessages = false;
   isSending = false;
   newMessage = '';
@@ -418,6 +419,7 @@ export class MessagesPage implements OnInit, OnDestroy {
           }
           
           this.isLoading = false;
+          this.isInitialLoad = false; // Mark that we've loaded at least once
           
           resolve();
         },
@@ -425,6 +427,7 @@ export class MessagesPage implements OnInit, OnDestroy {
           console.error('❌ MessagesPage: Error loading conversations:', error);
           console.error('❌ Error details:', error.error);
           this.isLoading = false;
+          this.isInitialLoad = false;
           reject(error);
         }
       });

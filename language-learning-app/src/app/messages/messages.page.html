@@ -17,13 +17,13 @@
           </div>
         </div>
 
-        <!-- Loading State -->
-        <div *ngIf="isLoading" class="loading-container">
+        <!-- Loading State (only on initial load) -->
+        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
-        <!-- Conversations List -->
-        <div class="conversations-list" *ngIf="!isLoading">
+        <!-- Conversations List (stays visible after first load) -->
+        <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading">
           <div 
             *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
             class="conversation-item"
@@ -55,7 +55,7 @@
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!isLoading && conversations.length === 0" class="empty-state">
+        <div *ngIf="!isInitialLoad && conversations.length === 0" class="empty-state">
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <p>No conversations yet</p>
           <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
@@ -263,11 +263,11 @@
           <h2>Messages</h2>
         </div>
 
-        <div *ngIf="isLoading" class="loading-container">
+        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
-        <div class="conversations-list" *ngIf="!isLoading && conversations.length > 0">
+        <div class="conversations-list" *ngIf="(!isInitialLoad || !isLoading) && conversations.length > 0">
           <div 
             *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
             class="conversation-item"
@@ -293,7 +293,7 @@
           </div>
         </div>
 
-        <div *ngIf="!isLoading && conversations.length === 0" class="empty-state">
+        <div *ngIf="!isInitialLoad && conversations.length === 0" class="empty-state">
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <h2>No messages yet</h2>
           <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>
