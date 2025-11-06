@@ -144,7 +144,7 @@
                 <ion-avatar class="tutor-info-avatar">
                   <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
                   <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
-                    {{ selectedConversation.otherUser!.name?.charAt(0) || '?' }}
+                    {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
                   </div>
                 </ion-avatar>
                 <div class="tutor-info-main">
@@ -431,7 +431,7 @@
                 <ion-avatar class="tutor-info-avatar">
                   <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
                   <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
-                    {{ selectedConversation.otherUser!.name?.charAt(0) || '?' }}
+                    {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
                   </div>
                 </ion-avatar>
                 <div class="tutor-info-main">
