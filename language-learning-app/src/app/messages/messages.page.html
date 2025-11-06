@@ -251,10 +251,12 @@
             <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
-          <div class="replying-to-preview" 
-               (click)="scrollToRepliedMessage($event)">
+          <button 
+            class="replying-to-preview-button" 
+            (click)="scrollToRepliedMessage($event)"
+            type="button">
             {{ getReplyPreviewContent() }}
-          </div>
+          </button>
         </div>
 
         <!-- Message Input -->
@@ -521,10 +523,12 @@
             <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
-          <div class="replying-to-preview" 
-               (click)="scrollToRepliedMessage($event)">
+          <button 
+            class="replying-to-preview-button" 
+            (click)="scrollToRepliedMessage($event)"
+            type="button">
             {{ getReplyPreviewContent() }}
-          </div>
+          </button>
         </div>
 
         <div class="message-input-container">
