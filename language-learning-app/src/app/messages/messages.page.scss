@@ -219,21 +219,34 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid #e0e0e0;
   background: white;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  min-height: 80px;
 
   .chat-header-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex: 1;
+    transition: background-color 0.2s ease;
+    padding: 8px;
+    border-radius: 12px;
+    margin: -8px;
+
+    &:hover {
+      background-color: #f5f5f5;
+    }
   }
 
   .chat-avatar {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
 
     .avatar-fallback {
       display: flex;
@@ -244,7 +257,7 @@
       background: var(--ion-color-primary);
       color: white;
       font-weight: 600;
-      font-size: 16px;
+      font-size: 20px;
     }
   }
 
@@ -253,43 +266,47 @@
     min-width: 0;
 
     h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
+      margin: 0 0 4px 0;
+      font-size: 18px;
+      font-weight: 700;
       color: #212121;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      letter-spacing: -0.3px;
     }
 
     .typing-indicator {
       margin: 0;
-      font-size: 12px;
+      font-size: 13px;
       color: #1976d2;
       font-style: italic;
+      font-weight: 500;
     }
 
     .user-details {
       .user-status {
-        margin: 4px 0 0;
-        font-size: 12px;
-        color: #757575;
+        margin: 2px 0 0;
+        font-size: 13px;
+        color: #666;
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         flex-wrap: wrap;
+        font-weight: 400;
 
         ion-icon {
-          font-size: 14px;
+          font-size: 16px;
         }
 
         .rate {
           color: #4caf50;
-          font-weight: 500;
+          font-weight: 600;
         }
 
         .rating {
           color: #ff9800;
+          font-weight: 600;
         }
       }
     }
@@ -297,7 +314,16 @@
 
   .chat-header-actions {
     display: flex;
-    gap: 4px;
+    gap: 8px;
+
+    ion-button {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      
+      ion-icon {
+        font-size: 22px;
+      }
+    }
   }
 }
 
