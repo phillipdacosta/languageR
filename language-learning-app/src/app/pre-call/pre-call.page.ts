@@ -58,14 +58,24 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     await this.loadLessonDetails();
 
     // Connect to WebSocket and listen for lesson presence
+    console.log('📚 PreCall: Setting up WebSocket connection and listeners');
+    console.log('📚 PreCall: Current lessonId:', this.lessonId);
     this.websocketService.connect();
+    
+    // Check connection status
+    console.log('📚 PreCall: WebSocket connection status:', this.websocketService.getConnectionStatus());
+    this.websocketService.connection$.subscribe(isConnected => {
+      console.log('📚 PreCall: WebSocket connection status changed:', isConnected);
+    });
+    
     this.websocketService.lessonPresence$
       .subscribe(presence => {
-        console.log('📚 PreCall: Received lesson presence event', presence);
+        console.log('📚 PreCall: ✅✅✅✅✅ RECEIVED lesson presence event!', presence);
         console.log('📚 PreCall: Current lessonId:', this.lessonId, 'Event lessonId:', presence.lessonId);
         // Normalize both IDs to strings for comparison
         const normalizedEventId = String(presence.lessonId);
         const normalizedCurrentId = String(this.lessonId);
+        console.log('📚 PreCall: Comparing IDs - Event:', normalizedEventId, 'Current:', normalizedCurrentId);
         if (normalizedEventId === normalizedCurrentId) {
           console.log('✅ PreCall: Lesson IDs match, setting presence');
           this.otherParticipantJoined = true;
@@ -75,6 +85,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
           console.log('⚠️ PreCall: Lesson IDs do not match');
         }
       });
+    
+    console.log('📚 PreCall: WebSocket subscription set up');
   }
 
   async ngAfterViewInit() {
