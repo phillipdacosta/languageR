@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
@@ -25,6 +25,8 @@ export class TabsPage implements OnInit, OnDestroy {
   isAuthenticated$: Observable<boolean>;
   // Unread messages count
   unreadCount$ = new BehaviorSubject<number>(0);
+  // Notification dropdown state
+  isNotificationDropdownOpen = false;
 
   constructor(
     private router: Router,
@@ -194,6 +196,28 @@ export class TabsPage implements OnInit, OnDestroy {
       const initialsDiv = avatar.querySelector('.user-initials');
       if (initialsDiv) {
         initialsDiv.style.display = 'block';
+      }
+    }
+  }
+
+  toggleNotificationDropdown() {
+    this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
+  }
+
+  closeNotificationDropdown() {
+    this.isNotificationDropdownOpen = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    // Close dropdown if clicking outside of it (only on desktop)
+    if (this.isNotificationDropdownOpen && this.isWeb() && !this.showTabs) {
+      const target = event.target as HTMLElement;
+      const dropdown = document.querySelector('.notification-dropdown');
+      const button = document.querySelector('.notification-btn');
+      
+      if (dropdown && button && !dropdown.contains(target) && !button.contains(target)) {
+        this.closeNotificationDropdown();
       }
     }
   }
