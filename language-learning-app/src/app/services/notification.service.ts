@@ -21,7 +21,7 @@ export interface Notification {
   providedIn: 'root'
 })
 export class NotificationService {
-  private baseUrl = `${environment.apiUrl}/notifications`;
+  private baseUrl = `${environment.backendUrl}/api/notifications`;
 
   constructor(
     private http: HttpClient,
