@@ -685,6 +685,21 @@ export class MessagesPage implements OnInit, OnDestroy {
     return this.currentUserId$.value;
   }
 
+  // Navigate to the other user's public profile
+  openOtherUserProfile() {
+    const other = this.selectedConversation?.otherUser;
+    if (!other) return;
+
+    if (other.userType === 'tutor' && other.id) {
+      this.router.navigate([`/tutor/${other.id}`]);
+      return;
+    }
+
+    const queryParams: any = {};
+    if (other.auth0Id) queryParams.userId = other.auth0Id;
+    this.router.navigate(['/profile'], { queryParams });
+  }
+
   // TrackBy function for messages to prevent duplicate rendering
   trackByMessageId(index: number, message: Message): string {
     return message.id;

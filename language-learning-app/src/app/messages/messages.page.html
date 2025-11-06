@@ -66,7 +66,7 @@
       <!-- Right Column: Chat View -->
       <div class="chat-panel" *ngIf="selectedConversation">
         <div class="chat-header">
-          <div class="chat-header-info">
+          <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
             <ion-avatar class="chat-avatar">
               <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
@@ -307,7 +307,7 @@
           <ion-button fill="clear" (click)="selectedConversation = null">
             <ion-icon name="arrow-back"></ion-icon>
           </ion-button>
-          <div class="chat-header-info">
+          <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
             <ion-avatar class="chat-avatar">
               <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
