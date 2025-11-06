@@ -101,7 +101,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
     // Listen for WebSocket notifications
     this.websocketService.connect();
-    // Note: WebSocket listener setup happens in websocketService
+    this.websocketService.newNotification$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      // Reload notifications when a new one arrives
+      this.loadNotifications();
+    });
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls

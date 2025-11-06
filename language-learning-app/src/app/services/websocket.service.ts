@@ -90,6 +90,11 @@ export class WebSocketService {
       this.lessonPresenceLeftSubject.next(data);
     });
 
+    // Listen for new notifications
+    this.socket.on('new_notification', (data: any) => {
+      this.newNotificationSubject.next(data);
+    });
+
     this.listenersSetup = true;
   }
 
