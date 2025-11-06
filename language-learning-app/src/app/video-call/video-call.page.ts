@@ -1089,15 +1089,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Call leave endpoint if we have a lessonId
       if (this.lessonId) {
         console.log('🚪 VideoCall: Calling leave endpoint for lesson:', this.lessonId);
+        console.log('🚪 VideoCall: Current user info:', await firstValueFrom(this.userService.getCurrentUser()));
         try {
           const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
-          console.log('🚪 VideoCall: Leave endpoint response:', leaveResponse);
+          console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
         } catch (leaveError) {
-          console.error('🚪 VideoCall: Error calling leave endpoint:', leaveError);
+          console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
+          console.error('🚪 VideoCall: Error details:', leaveError.error || leaveError.message);
           // Continue with call ending even if leave fails
         }
       } else {
-        console.log('🚪 VideoCall: No lessonId, skipping leave endpoint');
+        console.log('🚪 VideoCall: ⚠️ No lessonId available, skipping leave endpoint');
+        console.log('🚪 VideoCall: Query params were:', this.queryParams);
       }
       
       await this.agoraService.leaveChannel();
