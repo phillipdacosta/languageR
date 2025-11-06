@@ -106,12 +106,21 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.calendar = undefined;
     }
     this.isInitialized = false;
+    this.initializationAttempts = 0; // Reset counter
     if (this.customNowInterval) clearInterval(this.customNowInterval);
     window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
   }
 
   ionViewWillEnter() {
     console.log('Tutor calendar page will enter');
+    // Reset initialization attempts when entering the page
+    this.initializationAttempts = 0;
+  }
+  
+  ionViewWillLeave() {
+    console.log('Tutor calendar page will leave');
+    // Reset counter when leaving
+    this.initializationAttempts = 0;
   }
 
   ionViewDidEnter() {
@@ -381,6 +390,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Compute custom now indicator after first render
       setTimeout(() => this.updateCustomNowIndicator());
       this.isInitialized = true;
+      this.initializationAttempts = 0; // Reset counter on success
       console.log('FullCalendar initialized successfully');
       console.log('Calendar instance:', this.calendar);
       
