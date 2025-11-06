@@ -1142,16 +1142,25 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🚪 VideoCall: Browser beforeunload event');
     // Call leave endpoint synchronously (best effort)
     if (this.lessonId) {
-      // Use navigator.sendBeacon for reliable delivery during page unload
-      const leaveUrl = `http://localhost:3000/api/lessons/${this.lessonId}/leave`;
-      const leaveData = JSON.stringify({});
+      // Get auth headers for the request
+      const headers = this.userService.getAuthHeadersSync();
+      const authToken = headers.get('Authorization');
       
-      // Try to send leave request
-      try {
-        const success = navigator.sendBeacon(leaveUrl, leaveData);
-        console.log('🚪 VideoCall: Sent leave beacon, success:', success);
-      } catch (error) {
-        console.error('🚪 VideoCall: Error sending leave beacon:', error);
+      if (authToken) {
+        // Create a FormData with the auth token since sendBeacon doesn't support custom headers
+        const formData = new FormData();
+        formData.append('authToken', authToken);
+        
+        const leaveUrl = `http://localhost:3000/api/lessons/${this.lessonId}/leave-beacon`;
+        
+        try {
+          const success = navigator.sendBeacon(leaveUrl, formData);
+          console.log('🚪 VideoCall: Sent leave beacon with auth, success:', success);
+        } catch (error) {
+          console.error('🚪 VideoCall: Error sending leave beacon:', error);
+        }
+      } else {
+        console.log('🚪 VideoCall: No auth token available for beacon');
       }
     }
   }

@@ -729,4 +729,115 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
   }
 });
 
+// Special endpoint for navigator.sendBeacon (doesn't support custom headers)
+router.post('/:id/leave-beacon', async (req, res) => {
+  console.log('🚪🚪🚪 LESSON LEAVE BEACON ENDPOINT CALLED 🚪🚪🚪');
+  console.log('🚪 Request params:', req.params);
+  console.log('🚪 Request body:', req.body);
+  
+  try {
+    // Extract auth token from form data
+    const authToken = req.body.authToken;
+    if (!authToken) {
+      console.log('❌ No auth token in beacon request');
+      return res.status(401).json({ success: false, message: 'No auth token' });
+    }
+    
+    // Manually verify the token (same logic as verifyToken middleware)
+    let userInfo;
+    const token = authToken.replace('Bearer ', '');
+    
+    if (token.startsWith('dev-token-')) {
+      console.log('🚪 Processing dev token from beacon');
+      const emailPart = token.replace('dev-token-', '');
+      const parts = emailPart.split('-');
+      if (parts.length >= 2) {
+        const domainParts = parts.slice(-2);
+        const usernameParts = parts.slice(0, -2);
+        const username = usernameParts.join('.');
+        const domain = domainParts.join('.');
+        const email = `${username}@${domain}`;
+        userInfo = {
+          sub: `dev-user-${email}`,
+          email: email,
+          name: username
+        };
+      }
+    }
+    
+    if (!userInfo) {
+      console.log('❌ Invalid token in beacon request');
+      return res.status(401).json({ success: false, message: 'Invalid token' });
+    }
+    
+    // Find user and lesson (same logic as regular leave endpoint)
+    const user = await User.findOne({ auth0Id: userInfo.sub }).select('name email picture auth0Id');
+    if (!user) {
+      console.log('❌ User not found for auth0Id:', userInfo.sub);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const userId = user._id;
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name email picture auth0Id')
+      .populate('studentId', 'name email picture auth0Id');
+    
+    if (!lesson) {
+      console.log('❌ Lesson not found:', req.params.id);
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+    
+    // Determine if user is tutor or student
+    const isTutor = lesson.tutorId._id.toString() === userId.toString();
+    const isStudent = lesson.studentId._id.toString() === userId.toString();
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ success: false, message: 'User is not a participant in this lesson' });
+    }
+    
+    console.log('🚪 User leaving lesson via beacon:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
+    
+    // Update participants data
+    if (!lesson.participants) lesson.participants = new Map();
+    const key = user._id.toString();
+    const prev = lesson.participants.get(key) || { joinCount: 0 };
+    prev.leftAt = new Date();
+    lesson.participants.set(key, prev);
+    await lesson.save();
+    
+    // Emit WebSocket event (same as regular leave endpoint)
+    if (req.io && req.connectedUsers) {
+      const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
+      const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
+      
+      if (otherUser && otherUser.auth0Id) {
+        const otherUserAuth0Id = otherUser.auth0Id;
+        const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
+        
+        if (otherUserSocketId) {
+          const leaveEvent = {
+            lessonId: lesson._id.toString(),
+            participantId: userId.toString(),
+            participantRole: isTutor ? 'tutor' : 'student',
+            participantName: user.name,
+            leftAt: new Date().toISOString()
+          };
+          
+          console.log('🚪 Emitting lesson_participant_left event from beacon:', JSON.stringify(leaveEvent, null, 2));
+          req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
+          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_left', leaveEvent);
+          console.log('✅ Successfully emitted lesson_participant_left from beacon');
+        } else {
+          console.log('⚠️ Other participant not connected for beacon leave');
+        }
+      }
+    }
+    
+    res.json({ success: true, message: 'Left lesson recorded via beacon' });
+  } catch (error) {
+    console.error('❌ Error in beacon leave endpoint:', error);
+    res.status(500).json({ success: false, message: 'Failed to record leave via beacon' });
+  }
+});
+
 module.exports = router;
