@@ -435,9 +435,17 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   selectConversation(conversation: Conversation) {
-    this.selectedConversation = conversation;
+    // Set loading state immediately to prevent flash of old messages
+    this.isLoadingMessages = true;
+    
+    // Clear old messages and set new conversation
     this.messages = [];
-    this.loadMessages();
+    this.selectedConversation = conversation;
+    
+    // Small delay to ensure UI updates before loading new messages
+    setTimeout(() => {
+      this.loadMessages();
+    }, 50);
     
     // Mark as read and reload conversations to update unread count
     // Only mark as read if the page is actually visible to the user

@@ -226,6 +226,7 @@
   position: relative;
   z-index: 10;
   min-height: 80px;
+  top: 55px;
 
   .chat-header-info {
     display: flex;
@@ -435,6 +436,18 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .date-separator {
@@ -545,13 +558,27 @@
 // Loading and Empty States
 .loading-container {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 40px 20px;
+  padding: 60px 20px;
   text-align: center;
+  min-height: 200px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin: 20px;
 
   ion-spinner {
+    --color: #1976d2;
+    transform: scale(1.2);
     margin-bottom: 16px;
+  }
+  
+  p {
+    margin: 8px 0 0;
+    color: #757575;
+    font-size: 14px;
+    font-weight: 500;
   }
 }
 
