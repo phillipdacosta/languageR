@@ -30,7 +30,7 @@
             class="search-input"
             placeholder="Search by name"
             [value]="searchTerm"
-            (input)="onSearchChange(($event.target as HTMLInputElement).value)"
+            (input)="onSearchChange($any($event.target).value)"
           />
         </div>
 
