@@ -503,9 +503,16 @@ router.post('/:id/join', verifyToken, async (req, res) => {
             participantPicture: user.picture,
             joinedAt: now.toISOString()
           };
-          console.log('📡 Emitting lesson_participant_joined event:', presenceEvent);
+          console.log('📡 Emitting lesson_participant_joined event:', JSON.stringify(presenceEvent, null, 2));
+          console.log('📡 Emitting to socket:', otherUserSocketId);
+          console.log('📡 Using req.io.to().emit() method');
+          
+          // Try multiple emission methods to ensure it works
           req.io.to(otherUserSocketId).emit('lesson_participant_joined', presenceEvent);
+          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_joined', presenceEvent);
+          
           console.log('✅ Successfully emitted lesson_participant_joined to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+          console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
         } else {
           console.log('⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
           console.log('⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));

@@ -145,11 +145,14 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   const userId = socket.userId;
-  console.log(`User connected: ${userId}`);
+  console.log(`✅ User connected: ${userId}, socket.id: ${socket.id}`);
   
   // Store user connection
   connectedUsers.set(userId, socket.id);
   socket.join(`user:${userId}`);
+  
+  console.log(`📊 Total connected users: ${connectedUsers.size}`);
+  console.log(`📊 Connected users list:`, Array.from(connectedUsers.keys()));
 
   // Handle sending messages
   socket.on('send_message', async (data) => {
@@ -242,8 +245,12 @@ io.on('connection', (socket) => {
 
   // Handle disconnect
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${userId}`);
-    connectedUsers.delete(userId);
+    const userId = socket.userId;
+    console.log(`❌ User disconnected: ${userId}`);
+    if (userId) {
+      connectedUsers.delete(userId);
+      console.log(`📊 Remaining connected users: ${connectedUsers.size}`);
+    }
   });
 });
 

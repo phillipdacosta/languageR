@@ -71,24 +71,20 @@ export class WebSocketService {
       console.error('Message error:', error);
     });
 
-    // Listen for lesson presence events
-    this.socket.on('lesson_participant_joined', (data: {
-      lessonId: string;
-      participantId: string;
-      participantRole: 'tutor' | 'student';
-      participantName: string;
-      participantPicture?: string;
-      joinedAt: string;
-    }) => {
-      console.log('📚 WebSocket: ✅✅✅ Received lesson_participant_joined event', data);
+    // Listen for lesson presence events - register BEFORE onAny to catch it
+    this.socket.on('lesson_participant_joined', (data: any) => {
+      console.log('📚 WebSocket: ✅✅✅✅✅ RECEIVED lesson_participant_joined event!', data);
+      console.log('📚 WebSocket: Event data type:', typeof data);
+      console.log('📚 WebSocket: Event data:', JSON.stringify(data, null, 2));
       console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
       this.lessonPresenceSubject.next(data);
     });
     
-    // Log all socket events for debugging
+    // Log ALL socket events for debugging (register this AFTER specific handlers)
     this.socket.onAny((eventName, ...args) => {
+      console.log('📚 WebSocket: onAny - Received ANY event:', eventName, 'with args:', args);
       if (eventName === 'lesson_participant_joined') {
-        console.log('📚 WebSocket: onAny caught event:', eventName, args);
+        console.log('📚 WebSocket: ⚠️⚠️⚠️ onAny ALSO caught lesson_participant_joined!', args);
       }
     });
 
