@@ -208,6 +208,18 @@ export class Tab1Page implements OnInit, OnDestroy {
         this.countdownTick = Date.now();
       });
     
+    // Listen for participant left events
+    this.websocketService.lessonPresenceLeft$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(presence => {
+        console.log('📚 Tab1: ❌❌❌ Received lesson presence left event', presence);
+        const normalizedLessonId = String(presence.lessonId);
+        console.log('📚 Tab1: Removing presence for lessonId:', normalizedLessonId);
+        this.lessonPresence.delete(normalizedLessonId);
+        // Force change detection
+        this.countdownTick = Date.now();
+      });
+    
     console.log('📚 Tab1: WebSocket subscription set up. Current connection status:', this.websocketService.getConnectionStatus());
   }
 

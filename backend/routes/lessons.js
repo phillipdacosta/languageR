@@ -621,15 +621,34 @@ router.post('/:id/end', verifyToken, async (req, res) => {
 
 // Mark participant leaving the lesson (without completing it)
 router.post('/:id/leave', verifyToken, async (req, res) => {
+  console.log('🚪🚪🚪 LESSON LEAVE ENDPOINT CALLED 🚪🚪🚪');
+  console.log('🚪 Request params:', req.params);
+  console.log('🚪 Request user:', req.user);
+  
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
     if (!user) {
+      console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    const lesson = await Lesson.findById(req.params.id);
+    const userId = user._id;
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name email picture auth0Id')
+      .populate('studentId', 'name email picture auth0Id');
     if (!lesson) {
+      console.log('❌ Lesson not found:', req.params.id);
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
+    
+    // Determine if user is tutor or student
+    const isTutor = lesson.tutorId._id.toString() === userId.toString();
+    const isStudent = lesson.studentId._id.toString() === userId.toString();
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ success: false, message: 'User is not a participant in this lesson' });
+    }
+    
+    console.log('🚪 User leaving lesson:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
 
     if (!lesson.participants) lesson.participants = new Map();
     const key = user._id.toString();
@@ -637,6 +656,54 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
     prev.leftAt = new Date();
     lesson.participants.set(key, prev);
     await lesson.save();
+
+    // Emit WebSocket event for lesson presence left
+    console.log('🚪 Attempting to emit lesson presence left event...');
+    console.log('🚪 req.io exists:', !!req.io);
+    console.log('🚪 req.connectedUsers exists:', !!req.connectedUsers);
+    
+    if (req.io && req.connectedUsers) {
+      // Get the other participant's User document to get their auth0Id
+      const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
+      console.log('🚪 Looking for other participant with MongoDB ID:', otherUserMongoId);
+      
+      const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
+      console.log('🚪 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
+      
+      if (otherUser && otherUser.auth0Id) {
+        const otherUserAuth0Id = otherUser.auth0Id;
+        console.log('🚪 Looking for socket connection for auth0Id:', otherUserAuth0Id);
+        console.log('🚪 All connected users:', Array.from(req.connectedUsers.entries()));
+        
+        const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
+        
+        if (otherUserSocketId) {
+          const leaveEvent = {
+            lessonId: lesson._id.toString(),
+            participantId: userId.toString(),
+            participantRole: isTutor ? 'tutor' : 'student',
+            participantName: user.name,
+            leftAt: new Date().toISOString()
+          };
+          console.log('🚪 Emitting lesson_participant_left event:', JSON.stringify(leaveEvent, null, 2));
+          console.log('🚪 Emitting to socket:', otherUserSocketId);
+          
+          // Try multiple emission methods to ensure it works
+          req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
+          req.io.to(`user:${otherUserAuth0Id}`).emit('lesson_participant_left', leaveEvent);
+          
+          console.log('✅ Successfully emitted lesson_participant_left to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+          console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
+        } else {
+          console.log('⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
+          console.log('⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
+        }
+      } else {
+        console.log('⚠️ Could not find other participant user document or auth0Id');
+      }
+    } else {
+      console.log('⚠️ req.io or req.connectedUsers is missing');
+    }
 
     res.json({ success: true, message: 'Left lesson recorded' });
   } catch (error) {

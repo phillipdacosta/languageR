@@ -32,6 +32,15 @@ export class WebSocketService {
   }>();
   public lessonPresence$ = this.lessonPresenceSubject.asObservable();
 
+  private lessonPresenceLeftSubject = new Subject<{
+    lessonId: string;
+    participantId: string;
+    participantRole: 'tutor' | 'student';
+    participantName: string;
+    leftAt: string;
+  }>();
+  public lessonPresenceLeft$ = this.lessonPresenceLeftSubject.asObservable();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
@@ -79,12 +88,22 @@ export class WebSocketService {
       console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
       this.lessonPresenceSubject.next(data);
     });
+
+    // Listen for lesson participant left events
+    this.socket.on('lesson_participant_left', (data: any) => {
+      console.log('📚 WebSocket: ❌❌❌❌❌ RECEIVED lesson_participant_left event!', data);
+      console.log('📚 WebSocket: Emitting to lessonPresenceLeftSubject');
+      this.lessonPresenceLeftSubject.next(data);
+    });
     
     // Log ALL socket events for debugging (register this AFTER specific handlers)
     this.socket.onAny((eventName, ...args) => {
       console.log('📚 WebSocket: onAny - Received ANY event:', eventName, 'with args:', args);
       if (eventName === 'lesson_participant_joined') {
         console.log('📚 WebSocket: ⚠️⚠️⚠️ onAny ALSO caught lesson_participant_joined!', args);
+      }
+      if (eventName === 'lesson_participant_left') {
+        console.log('📚 WebSocket: ⚠️⚠️⚠️ onAny ALSO caught lesson_participant_left!', args);
       }
     });
 
