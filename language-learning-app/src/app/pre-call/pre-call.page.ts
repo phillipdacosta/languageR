@@ -19,11 +19,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   lessonId: string = '';
   lessonTitle: string = '';
   tutorName: string = '';
+  studentName: string = '';
+  participantName: string = ''; // The other participant (student for tutors, tutor for students)
   isMuted = false; // Default to unmuted (users can toggle off)
   isVideoOff = false; // Default to video on (users can toggle off)
   localStream: MediaStream | null = null;
   isLoading = true;
   errorMessage: string = '';
+  isTutor: boolean = false;
 
   constructor(
     private router: Router,
@@ -58,16 +61,33 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async loadLessonDetails() {
     try {
+      // Get current user to determine role
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      const params = this.route.snapshot.queryParams;
+      const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
+      this.isTutor = role === 'tutor';
+      
       const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
       if (response?.success && response.lesson) {
         const lesson = response.lesson;
         this.tutorName = lesson.tutorId?.name || 'Tutor';
-        this.lessonTitle = `${this.tutorName}'s Lesson`;
+        this.studentName = lesson.studentId?.name || 'Student';
+        
+        // For tutors, show student info. For students, show tutor info.
+        if (this.isTutor) {
+          this.participantName = this.studentName;
+          this.lessonTitle = `Class with ${this.studentName}`;
+        } else {
+          this.participantName = this.tutorName;
+          this.lessonTitle = `${this.tutorName}'s Lesson`;
+        }
       }
     } catch (error) {
       console.error('Error loading lesson details:', error);
       this.lessonTitle = 'Language Lesson';
       this.tutorName = 'Tutor';
+      this.studentName = 'Student';
+      this.participantName = this.isTutor ? this.studentName : this.tutorName;
     }
   }
 

@@ -71,7 +71,12 @@
     <!-- Right Panel: Lesson Info -->
     <div class="info-panel">
       <h1 class="lesson-title">{{ lessonTitle || 'Language Lesson' }}</h1>
-      <p class="lesson-subtitle">Enter the classroom to meet your tutor</p>
+      <p class="lesson-subtitle" *ngIf="isTutor">
+        Enter the classroom to join {{ studentName || 'your student' }}
+      </p>
+      <p class="lesson-subtitle" *ngIf="!isTutor">
+        Enter the classroom to meet your tutor
+      </p>
       
       <ion-button 
         class="enter-button" 
