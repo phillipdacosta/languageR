@@ -40,8 +40,67 @@ export class WebSocketService {
     // Will use a workaround to update unread count
   }
 
+  private listenersSetup = false;
+
+  private setupEventListeners(): void {
+    if (!this.socket || this.listenersSetup) {
+      return;
+    }
+
+    console.log('📚 WebSocket: Setting up event listeners');
+
+    // Listen for new messages (incoming)
+    this.socket.on('new_message', (message: Message) => {
+      console.log('📨 WebSocket: Received new_message event', message);
+      this.newMessageSubject.next(message);
+    });
+
+    // Listen for message sent confirmation (outgoing)
+    this.socket.on('message_sent', (message: Message) => {
+      console.log('✅ WebSocket: Received message_sent event', message);
+      this.newMessageSubject.next(message);
+    });
+
+    // Listen for typing indicators
+    this.socket.on('user_typing', (data: { userId: string; isTyping: boolean }) => {
+      this.typingSubject.next(data);
+    });
+
+    // Listen for message errors
+    this.socket.on('message_error', (error: any) => {
+      console.error('Message error:', error);
+    });
+
+    // Listen for lesson presence events
+    this.socket.on('lesson_participant_joined', (data: {
+      lessonId: string;
+      participantId: string;
+      participantRole: 'tutor' | 'student';
+      participantName: string;
+      participantPicture?: string;
+      joinedAt: string;
+    }) => {
+      console.log('📚 WebSocket: ✅✅✅ Received lesson_participant_joined event', data);
+      console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
+      this.lessonPresenceSubject.next(data);
+    });
+    
+    // Log all socket events for debugging
+    this.socket.onAny((eventName, ...args) => {
+      if (eventName === 'lesson_participant_joined') {
+        console.log('📚 WebSocket: onAny caught event:', eventName, args);
+      }
+    });
+
+    this.listenersSetup = true;
+    console.log('📚 WebSocket: Event listeners set up');
+  }
+
   connect(): void {
+    // If already connected, just ensure listeners are set up
     if (this.socket?.connected) {
+      console.log('📚 WebSocket: Already connected, ensuring listeners are set up');
+      this.setupEventListeners();
       return;
     }
 
@@ -58,6 +117,7 @@ export class WebSocketService {
       
       const socketUrl = environment.backendUrl;
       
+      console.log('📚 WebSocket: Creating new connection to', socketUrl);
       this.socket = io(socketUrl, {
         auth: {
           token: token
@@ -69,61 +129,21 @@ export class WebSocketService {
         console.log('WebSocket connected');
         this.isConnected = true;
         this.connectionSubject.next(true);
+        // Set up listeners after connection is established
+        this.setupEventListeners();
       });
 
       this.socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
         this.isConnected = false;
         this.connectionSubject.next(false);
+        this.listenersSetup = false; // Reset so listeners are set up again on reconnect
       });
 
       this.socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
         this.isConnected = false;
         this.connectionSubject.next(false);
-      });
-
-      // Listen for new messages (incoming)
-      this.socket.on('new_message', (message: Message) => {
-        console.log('📨 WebSocket: Received new_message event', message);
-        this.newMessageSubject.next(message);
-      });
-
-      // Listen for message sent confirmation (outgoing)
-      this.socket.on('message_sent', (message: Message) => {
-        console.log('✅ WebSocket: Received message_sent event', message);
-        this.newMessageSubject.next(message);
-      });
-
-      // Listen for typing indicators
-      this.socket.on('user_typing', (data: { userId: string; isTyping: boolean }) => {
-        this.typingSubject.next(data);
-      });
-
-      // Listen for message errors
-      this.socket.on('message_error', (error: any) => {
-        console.error('Message error:', error);
-      });
-
-      // Listen for lesson presence events
-      this.socket.on('lesson_participant_joined', (data: {
-        lessonId: string;
-        participantId: string;
-        participantRole: 'tutor' | 'student';
-        participantName: string;
-        participantPicture?: string;
-        joinedAt: string;
-      }) => {
-        console.log('📚 WebSocket: ✅✅✅ Received lesson_participant_joined event', data);
-        console.log('📚 WebSocket: Emitting to lessonPresenceSubject');
-        this.lessonPresenceSubject.next(data);
-      });
-      
-      // Log all socket events for debugging
-      this.socket.onAny((eventName, ...args) => {
-        if (eventName === 'lesson_participant_joined') {
-          console.log('📚 WebSocket: Received event:', eventName, args);
-        }
       });
     });
   }
