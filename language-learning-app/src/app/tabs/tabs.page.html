@@ -42,55 +42,10 @@
         
         <!-- Notification Bell Icon -->
         <div class="notification-container">
-          <button type="button" class="nav-button notification-btn" (click)="toggleNotificationDropdown(); $event.stopPropagation()">
+          <button type="button" #notificationBtn class="nav-button notification-btn" (click)="toggleNotificationDropdown(); $event.stopPropagation()">
             <ion-icon name="notifications-outline"></ion-icon>
             <span class="notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
           </button>
-          
-          <!-- Notification Dropdown (Desktop Only) -->
-          <div class="notification-dropdown" *ngIf="isNotificationDropdownOpen && isWeb() && !showTabs" (click)="$event.stopPropagation()">
-            <div class="notification-dropdown-header">
-              <div class="notification-header-left">
-                <h3 class="notification-title">Notifications</h3>
-                <ion-icon name="settings-outline" class="notification-settings-icon"></ion-icon>
-              </div>
-              <button class="notification-close-btn" (click)="closeNotificationDropdown()">
-                <ion-icon name="close"></ion-icon>
-              </button>
-            </div>
-            
-            <div class="notification-dropdown-content">
-              <!-- Important Section -->
-              <div class="notification-section" *ngIf="(unreadCount$ | async)! > 0">
-                <h4 class="notification-section-title">Important</h4>
-                <div class="notification-item" (click)="navigateTo('/tabs/messages'); closeNotificationDropdown();">
-                  <div class="notification-item-left">
-                    <ion-icon name="chatbubbles" class="notification-item-icon"></ion-icon>
-                  </div>
-                  <div class="notification-item-content">
-                    <p class="notification-text">
-                      <span class="notification-emoji">💬</span>
-                      You have {{ (unreadCount$ | async)! }} unread message{{ (unreadCount$ | async)! > 1 ? 's' : '' }}
-                    </p>
-                    <p class="notification-time">Just now</p>
-                  </div>
-                  <div class="notification-item-right">
-                    <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                      <ion-icon name="ellipsis-vertical"></ion-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- More Notifications Section -->
-              <div class="notification-section">
-                <h4 class="notification-section-title">More notifications</h4>
-                <div class="notification-empty">
-                  <p>No other notifications</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
         
         <!-- User Profile Section (moved beside Profile button) -->
@@ -108,6 +63,55 @@
       </div>
     </ion-toolbar>
   </ion-header>
+
+  <!-- Notification Dropdown (Desktop Only) - Outside toolbar for proper positioning -->
+  <div class="notification-dropdown" 
+       *ngIf="isNotificationDropdownOpen && isWeb() && !showTabs" 
+       [style.top.px]="dropdownTop"
+       [style.right.px]="dropdownRight"
+       (click)="$event.stopPropagation()">
+    <div class="notification-dropdown-header">
+      <div class="notification-header-left">
+        <h3 class="notification-title">Notifications</h3>
+        <ion-icon name="settings-outline" class="notification-settings-icon"></ion-icon>
+      </div>
+      <button class="notification-close-btn" (click)="closeNotificationDropdown()">
+        <ion-icon name="close"></ion-icon>
+      </button>
+    </div>
+    
+    <div class="notification-dropdown-content">
+      <!-- Important Section -->
+      <div class="notification-section" *ngIf="(unreadCount$ | async)! > 0">
+        <h4 class="notification-section-title">Important</h4>
+        <div class="notification-item" (click)="navigateTo('/tabs/messages'); closeNotificationDropdown();">
+          <div class="notification-item-left">
+            <ion-icon name="chatbubbles" class="notification-item-icon"></ion-icon>
+          </div>
+          <div class="notification-item-content">
+            <p class="notification-text">
+              <span class="notification-emoji">💬</span>
+              You have {{ (unreadCount$ | async)! }} unread message{{ (unreadCount$ | async)! > 1 ? 's' : '' }}
+            </p>
+            <p class="notification-time">Just now</p>
+          </div>
+          <div class="notification-item-right">
+            <button class="notification-options-btn" (click)="$event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- More Notifications Section -->
+      <div class="notification-section">
+        <h4 class="notification-section-title">More notifications</h4>
+        <div class="notification-empty">
+          <p>No other notifications</p>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
   <ion-tab-bar slot="bottom" *ngIf="showTabs">

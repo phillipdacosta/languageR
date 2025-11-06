@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
@@ -12,7 +12,7 @@ import { MessagingService } from '../services/messaging.service';
   styleUrls: ['tabs.page.scss'],
   standalone: false,
 })
-export class TabsPage implements OnInit, OnDestroy {
+export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -27,6 +27,10 @@ export class TabsPage implements OnInit, OnDestroy {
   unreadCount$ = new BehaviorSubject<number>(0);
   // Notification dropdown state
   isNotificationDropdownOpen = false;
+  // Dropdown positioning
+  dropdownTop = 60;
+  dropdownRight = 20;
+  @ViewChild('notificationBtn', { read: ElementRef }) notificationBtn!: ElementRef;
 
   constructor(
     private router: Router,
@@ -200,44 +204,26 @@ export class TabsPage implements OnInit, OnDestroy {
     }
   }
 
+  ngAfterViewInit() {
+    // ViewChild is available after view init
+  }
+
   toggleNotificationDropdown() {
-    console.log('🔔 Toggle notification dropdown clicked');
-    console.log('Current state:', this.isNotificationDropdownOpen);
-    console.log('isWeb():', this.isWeb());
-    console.log('showTabs:', this.showTabs);
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
-    console.log('New state:', this.isNotificationDropdownOpen);
     
-    // Debug: Check if dropdown element exists in DOM
-    setTimeout(() => {
-      const dropdown = document.querySelector('.notification-dropdown');
-      console.log('Dropdown element in DOM:', dropdown);
-      if (dropdown) {
-        const styles = window.getComputedStyle(dropdown);
-        const rect = dropdown.getBoundingClientRect();
-        console.log('Dropdown computed styles:', {
-          display: styles.display,
-          visibility: styles.visibility,
-          opacity: styles.opacity,
-          zIndex: styles.zIndex,
-          position: styles.position,
-          top: styles.top,
-          right: styles.right
-        });
-        console.log('Dropdown position:', rect);
-        console.log('Dropdown is visible:', rect.width > 0 && rect.height > 0);
-        console.log('Viewport width:', window.innerWidth);
-        console.log('Viewport height:', window.innerHeight);
-        console.log('Is dropdown on screen?', rect.left >= 0 && rect.top >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight);
+    if (this.isNotificationDropdownOpen && this.notificationBtn) {
+      // Calculate position based on button location
+      setTimeout(() => {
+        const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
+        const toolbarHeight = 60; // Height of the toolbar
+        const dropdownWidth = 400;
+        const spacing = 8; // Space between button and dropdown
         
-        // Try to scroll it into view if needed
-        if (dropdown) {
-          (dropdown as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      } else {
-        console.error('❌ Dropdown element NOT found in DOM!');
-      }
-    }, 100);
+        // Position dropdown below the button, aligned to the right
+        this.dropdownTop = buttonRect.bottom + spacing;
+        this.dropdownRight = window.innerWidth - buttonRect.right;
+      }, 0);
+    }
   }
 
   closeNotificationDropdown() {
