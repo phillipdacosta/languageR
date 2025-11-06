@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule, ModalController, Platform } from '@ionic/angular';
-import { ActivatedRoute, Router, RouterLink, NavigationEnd } from '@angular/router';
+import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
@@ -13,7 +13,7 @@ import { filter } from 'rxjs/operators';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, TutorAvailabilityViewerComponent, RouterLink]
+  imports: [CommonModule, IonicModule, TutorAvailabilityViewerComponent]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';

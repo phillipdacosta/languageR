@@ -52,8 +52,8 @@
             <img [src]="lesson.studentId.picture" [alt]="lesson.studentId.name">
           </div>
           <div class="student-details">
-            <p class="student-name">{{ lesson.studentId?.name || 'Unknown Student' }}</p>
-            <p class="student-email">{{ lesson.studentId?.email || '' }}</p>
+            <p class="student-name">{{ lesson.studentId.name || 'Unknown Student' }}</p>
+            <p class="student-email">{{ lesson.studentId.email || '' }}</p>
           </div>
         </div>
       </div>
