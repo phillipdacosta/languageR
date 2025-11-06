@@ -184,12 +184,19 @@ export class Tab1Page implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
         console.log('📚 Tab1: Received lesson presence event', presence);
-        this.lessonPresence.set(presence.lessonId, {
+        // Normalize lessonId to string
+        const normalizedLessonId = String(presence.lessonId);
+        console.log('📚 Tab1: Setting presence for lessonId:', normalizedLessonId);
+        this.lessonPresence.set(normalizedLessonId, {
           participantName: presence.participantName,
           participantPicture: presence.participantPicture,
           participantRole: presence.participantRole,
           joinedAt: presence.joinedAt
         });
+        console.log('📚 Tab1: Current lessonPresence Map keys:', Array.from(this.lessonPresence.keys()));
+        console.log('📚 Tab1: All lessons:', this.lessons.map(l => ({ id: String(l._id), idType: typeof l._id })));
+        // Force change detection
+        this.countdownTick = Date.now();
       });
   }
 
@@ -439,7 +446,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       
       return {
         ...student,
-        lessonId: lesson._id,
+        lessonId: String(lesson._id), // Convert to string to match backend format
         lesson: lesson, // Include full lesson object for join functionality
         lessonTime: this.formatLessonTime(lesson),
         subject: this.formatSubject(lesson.subject),
@@ -488,8 +495,22 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // Check if lesson has participant joined by lessonId string
   hasParticipantJoinedById(lessonId: string | null | undefined): boolean {
-    if (!lessonId) return false;
-    return this.lessonPresence.has(lessonId);
+    if (!lessonId) {
+      return false;
+    }
+    // Normalize lessonId to string
+    const normalizedId = String(lessonId);
+    const hasPresence = this.lessonPresence.has(normalizedId);
+    if (!hasPresence) {
+      // Try to find by any key that matches (case-insensitive or partial match)
+      const allKeys = Array.from(this.lessonPresence.keys());
+      const matchingKey = allKeys.find(key => String(key) === normalizedId);
+      if (matchingKey) {
+        console.log('🔍 Found matching key:', { lessonId: normalizedId, matchingKey });
+        return true;
+      }
+    }
+    return hasPresence;
   }
 
   // Get presence data for a lesson

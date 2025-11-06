@@ -62,10 +62,17 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.websocketService.lessonPresence$
       .subscribe(presence => {
         console.log('📚 PreCall: Received lesson presence event', presence);
-        if (presence.lessonId === this.lessonId) {
+        console.log('📚 PreCall: Current lessonId:', this.lessonId, 'Event lessonId:', presence.lessonId);
+        // Normalize both IDs to strings for comparison
+        const normalizedEventId = String(presence.lessonId);
+        const normalizedCurrentId = String(this.lessonId);
+        if (normalizedEventId === normalizedCurrentId) {
+          console.log('✅ PreCall: Lesson IDs match, setting presence');
           this.otherParticipantJoined = true;
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
+        } else {
+          console.log('⚠️ PreCall: Lesson IDs do not match');
         }
       });
   }
