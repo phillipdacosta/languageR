@@ -640,6 +640,11 @@ export class MessagesPage implements OnInit, OnDestroy {
     return message.id;
   }
 
+  // TrackBy function for conversations to prevent re-rendering
+  trackByConversationId(index: number, conversation: Conversation): string {
+    return conversation.conversationId;
+  }
+
   // Handle file selection
   onFileSelected(event: Event, messageType: 'image' | 'file') {
     const input = event.target as HTMLInputElement;

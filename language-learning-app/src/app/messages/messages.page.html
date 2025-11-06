@@ -25,7 +25,7 @@
         <!-- Conversations List -->
         <div class="conversations-list" *ngIf="!isLoading">
           <div 
-            *ngFor="let conversation of conversations" 
+            *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
             class="conversation-item"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
             (click)="selectConversation(conversation)">
@@ -269,7 +269,7 @@
 
         <div class="conversations-list" *ngIf="!isLoading && conversations.length > 0">
           <div 
-            *ngFor="let conversation of conversations" 
+            *ngFor="let conversation of conversations; trackBy: trackByConversationId" 
             class="conversation-item"
             (click)="selectConversation(conversation)">
             <ion-avatar class="conversation-avatar">

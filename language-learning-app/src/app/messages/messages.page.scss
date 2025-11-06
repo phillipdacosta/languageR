@@ -775,3 +775,27 @@
     opacity: 0.7;
   }
 }
+
+// Performance optimizations to reduce flashing
+.conversations-list {
+  // Use hardware acceleration to prevent repaints
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: auto;
+}
+
+.conversation-item {
+  // Smooth transitions for hover/active states
+  transition: background-color 0.15s ease;
+  
+  &:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+}
+
+.message-wrapper {
+  // Use hardware acceleration for smoother scrolling
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
