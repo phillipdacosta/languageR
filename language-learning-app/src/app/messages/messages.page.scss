@@ -719,15 +719,19 @@
   .replying-to-preview {
     font-size: 14px;
     color: #666;
-    padding-left: 26px;
+    padding: 6px 12px 6px 26px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     cursor: pointer;
     transition: background-color 0.2s;
-    padding: 6px 12px;
     margin: -6px -12px;
     border-radius: 6px;
+    pointer-events: auto;
+    position: relative;
+    z-index: 1;
+    user-select: none;
+    -webkit-user-select: none;
     
     &:hover {
       background-color: rgba(25, 118, 210, 0.1);

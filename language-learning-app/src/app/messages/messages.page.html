@@ -251,7 +251,9 @@
             <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
-          <div class="replying-to-preview" (click)="scrollToRepliedMessage($event)">
+          <div class="replying-to-preview" 
+               (click)="scrollToRepliedMessage($event)"
+               (tap)="scrollToRepliedMessage($event)">
             {{ getReplyPreviewContent() }}
           </div>
         </div>
@@ -520,7 +522,10 @@
             <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : selectedConversation?.otherUser?.name }}</span>
             <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
           </div>
-          <div class="replying-to-preview" (click)="scrollToRepliedMessage($event)">
+          <div class="replying-to-preview" 
+               (click)="scrollToRepliedMessage($event); console.log('HTML click fired')"
+               (tap)="scrollToRepliedMessage($event); console.log('HTML tap fired')"
+               onclick="console.log('Native onclick fired')">
             {{ getReplyPreviewContent() }}
           </div>
         </div>

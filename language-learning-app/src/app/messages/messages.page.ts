@@ -1046,8 +1046,11 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   // Scroll to and highlight the message being replied to
   scrollToRepliedMessage(event?: Event) {
+    console.log('🖱️ scrollToRepliedMessage CLICKED!', event);
+    
     if (event) {
       event.stopPropagation();
+      event.preventDefault();
     }
     
     if (!this.replyingToMessage) {
