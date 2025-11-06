@@ -327,7 +327,7 @@ router.get('/:id/status', verifyToken, async (req, res) => {
 router.post('/:id/join', verifyToken, async (req, res) => {
   try {
     // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
     if (!user) {
       return res.status(404).json({ 
         success: false, 
@@ -340,8 +340,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     console.log('📅 User attempting to join lesson:', { userId, lessonId: req.params.id, role: userRole });
 
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email')
-      .populate('studentId', 'name email');
+      .populate('tutorId', 'name email picture')
+      .populate('studentId', 'name email picture');
 
     if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
       return res.status(404).json({ 
@@ -473,6 +473,34 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       appId: AGORA_APP_ID,
       certExists: !!AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here'
     });
+
+    // Emit WebSocket event for lesson presence
+    if (req.io && req.connectedUsers) {
+      // Get the other participant's User document to get their auth0Id
+      const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
+      const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
+      
+      if (otherUser && otherUser.auth0Id) {
+        const otherUserAuth0Id = otherUser.auth0Id;
+        const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
+        
+        if (otherUserSocketId) {
+          req.io.to(otherUserSocketId).emit('lesson_participant_joined', {
+            lessonId: lesson._id.toString(),
+            participantId: userId.toString(),
+            participantRole: isTutor ? 'tutor' : 'student',
+            participantName: user.name,
+            participantPicture: user.picture,
+            joinedAt: now.toISOString()
+          });
+          console.log('📡 Emitted lesson_participant_joined to:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+        } else {
+          console.log('⚠️ Other participant not connected, cannot emit presence event. Auth0Id:', otherUserAuth0Id);
+        }
+      } else {
+        console.log('⚠️ Could not find other participant user document');
+      }
+    }
 
     res.json({
       success: true,

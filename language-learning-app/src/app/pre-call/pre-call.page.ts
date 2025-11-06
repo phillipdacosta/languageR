@@ -5,6 +5,7 @@ import { AlertController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
+import { WebSocketService } from '../services/websocket.service';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -27,6 +28,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   isLoading = true;
   errorMessage: string = '';
   isTutor: boolean = false;
+  otherParticipantJoined: boolean = false;
+  otherParticipantName: string = '';
+  otherParticipantPicture: string = '';
 
   constructor(
     private router: Router,
@@ -36,7 +40,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private lessonService: LessonService,
     private agoraService: AgoraService,
     private alertController: AlertController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private websocketService: WebSocketService
   ) {}
 
   async ngOnInit() {
@@ -51,6 +56,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Load lesson details
     await this.loadLessonDetails();
+
+    // Connect to WebSocket and listen for lesson presence
+    this.websocketService.connect();
+    this.websocketService.lessonPresence$
+      .subscribe(presence => {
+        console.log('📚 PreCall: Received lesson presence event', presence);
+        if (presence.lessonId === this.lessonId) {
+          this.otherParticipantJoined = true;
+          this.otherParticipantName = presence.participantName;
+          this.otherParticipantPicture = presence.participantPicture || '';
+        }
+      });
   }
 
   async ngAfterViewInit() {

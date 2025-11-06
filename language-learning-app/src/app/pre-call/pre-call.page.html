@@ -78,6 +78,23 @@
         Enter the classroom to meet your tutor
       </p>
       
+      <!-- Presence indicator -->
+      <div class="presence-indicator-card" *ngIf="otherParticipantJoined">
+        <ion-avatar class="presence-avatar">
+          <img [src]="otherParticipantPicture || 'assets/avatar.png'" [alt]="otherParticipantName" />
+          <div class="presence-badge">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+        </ion-avatar>
+        <div class="presence-info">
+          <p class="presence-text">
+            <ion-icon name="person-circle-outline"></ion-icon>
+            <span *ngIf="isTutor">{{ otherParticipantName || 'Student' }} has joined lesson</span>
+            <span *ngIf="!isTutor">{{ otherParticipantName || 'Tutor' }} has joined lesson</span>
+          </p>
+        </div>
+      </div>
+      
       <ion-button 
         class="enter-button" 
         expand="block" 

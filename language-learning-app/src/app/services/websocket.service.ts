@@ -22,6 +22,16 @@ export class WebSocketService {
   private typingSubject = new Subject<{ userId: string; isTyping: boolean }>();
   public typing$ = this.typingSubject.asObservable();
 
+  private lessonPresenceSubject = new Subject<{
+    lessonId: string;
+    participantId: string;
+    participantRole: 'tutor' | 'student';
+    participantName: string;
+    participantPicture?: string;
+    joinedAt: string;
+  }>();
+  public lessonPresence$ = this.lessonPresenceSubject.asObservable();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
@@ -93,6 +103,19 @@ export class WebSocketService {
       // Listen for message errors
       this.socket.on('message_error', (error: any) => {
         console.error('Message error:', error);
+      });
+
+      // Listen for lesson presence events
+      this.socket.on('lesson_participant_joined', (data: {
+        lessonId: string;
+        participantId: string;
+        participantRole: 'tutor' | 'student';
+        participantName: string;
+        participantPicture?: string;
+        joinedAt: string;
+      }) => {
+        console.log('📚 WebSocket: Received lesson_participant_joined event', data);
+        this.lessonPresenceSubject.next(data);
       });
     });
   }

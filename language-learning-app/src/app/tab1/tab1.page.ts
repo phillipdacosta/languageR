@@ -9,6 +9,7 @@ import { Observable, takeUntil } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
+import { WebSocketService } from '../services/websocket.service';
 
 @Component({
   selector: 'app-tab1',
@@ -58,6 +59,14 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Featured tutors for students (mock data - replace with real data)
   featuredTutors: any[] = [];
 
+  // Lesson presence tracking: lessonId -> presence data
+  lessonPresence: Map<string, {
+    participantName: string;
+    participantPicture?: string;
+    participantRole: 'tutor' | 'student';
+    joinedAt: string;
+  }> = new Map();
+
   private resizeListener: any;
 
   constructor(
@@ -69,7 +78,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private lessonService: LessonService,
     private agoraService: AgoraService,
     private loadingController: LoadingController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private websocketService: WebSocketService
   ) {
     // Get database user data instead of Auth0 data
     this.userService.getCurrentUser()
@@ -167,6 +177,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (this.isStudent()) {
       this.loadFeaturedTutors();
     }
+
+    // Connect to WebSocket and listen for lesson presence
+    this.websocketService.connect();
+    this.websocketService.lessonPresence$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(presence => {
+        console.log('📚 Tab1: Received lesson presence event', presence);
+        this.lessonPresence.set(presence.lessonId, {
+          participantName: presence.participantName,
+          participantPicture: presence.participantPicture,
+          participantRole: presence.participantRole,
+          joinedAt: presence.joinedAt
+        });
+      });
   }
 
   ngOnDestroy() {
@@ -456,6 +480,33 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   // New method: Get other participant's avatar (with caching)
+  // Check if lesson has participant joined (presence)
+  hasParticipantJoined(lesson: Lesson | null): boolean {
+    if (!lesson) return false;
+    return this.lessonPresence.has(lesson._id);
+  }
+
+  // Get presence data for a lesson
+  getPresenceData(lesson: Lesson | null): {
+    participantName: string;
+    participantPicture?: string;
+    participantRole: 'tutor' | 'student';
+    joinedAt: string;
+  } | null {
+    if (!lesson) return null;
+    return this.lessonPresence.get(lesson._id) || null;
+  }
+
+  // Get presence avatar (uses presence data if available, otherwise falls back to lesson data)
+  getPresenceAvatar(lesson: Lesson | null): string {
+    if (!lesson) return 'assets/avatar.png';
+    const presence = this.getPresenceData(lesson);
+    if (presence?.participantPicture) {
+      return presence.participantPicture;
+    }
+    return this.getOtherParticipantAvatar(lesson);
+  }
+
   getOtherParticipantAvatar(lesson: Lesson): string {
     if (!this.currentUser || !lesson) return 'assets/avatar.png';
     
