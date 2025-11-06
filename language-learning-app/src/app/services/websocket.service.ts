@@ -41,6 +41,9 @@ export class WebSocketService {
   }>();
   public lessonPresenceLeft$ = this.lessonPresenceLeftSubject.asObservable();
 
+  private newNotificationSubject = new Subject<any>();
+  public newNotification$ = this.newNotificationSubject.asObservable();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
