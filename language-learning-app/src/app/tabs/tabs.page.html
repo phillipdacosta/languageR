@@ -3,18 +3,9 @@
   <!-- Desktop Web Navigation (Top Toolbar) -->
   <ion-header *ngIf="isWeb() && !showTabs">
     <ion-toolbar class="desktop-nav-toolbar">
-      <!-- <ion-title>Language Learning App</ion-title> -->
-      
-      <!-- User Profile Section -->
-      <div class="user-profile" slot="start" *ngIf="user$ | async as user">
-        <ion-avatar class="user-avatar">
-          <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture" (error)="onImageError($event)">
-          <div class="user-initials" *ngIf="!user.picture" [style.display]="user.picture ? 'none' : 'block'">{{ getUserInitials(user) }}</div>
-        </ion-avatar>
-        <div class="user-info">
-          <span class="user-name">{{ user.name }}</span>
-          <!-- <span class="user-email">{{ user.email }}</span> -->
-        </div>
+      <!-- App Icon -->
+      <div class="app-icon-container" slot="start">
+        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
       </div>
       
       <div class="desktop-nav-buttons" slot="end">
@@ -48,6 +39,17 @@
           <ion-icon name="person"></ion-icon>
           <span>Profile</span>
         </button>
+        
+        <!-- User Profile Section (moved beside Profile button) -->
+        <div class="user-profile" *ngIf="user$ | async as user">
+          <ion-avatar class="user-avatar">
+            <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture" (error)="onImageError($event)">
+            <div class="user-initials" *ngIf="!user.picture" [style.display]="user.picture ? 'none' : 'block'">{{ getUserInitials(user) }}</div>
+          </ion-avatar>
+          <div class="user-info">
+            <span class="user-name">{{ user.name }}</span>
+          </div>
+        </div>
         
         <button class="nav-button logout-button" (click)="logout()">
           <ion-icon name="log-out"></ion-icon>
