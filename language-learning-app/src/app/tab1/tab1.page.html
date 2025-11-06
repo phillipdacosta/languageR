@@ -87,7 +87,7 @@
           <div class="tutor-card-content">
             <ion-avatar class="tutor-avatar">
               <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}">
-              <div class="presence-indicator" *ngIf="student.lessonId && hasParticipantJoined({_id: student.lessonId} as any)">
+              <div class="presence-indicator" *ngIf="hasParticipantJoinedById(student.lessonId)">
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
             </ion-avatar>
@@ -104,9 +104,9 @@
               {{ student.lessonTime }}
             </p>
             <!-- Presence indicator text for student card -->
-            <div class="presence-text" *ngIf="student.lessonId && hasParticipantJoined({_id: student.lessonId} as any)">
+            <div class="presence-text" *ngIf="hasParticipantJoinedById(student.lessonId)">
               <ion-icon name="person-circle-outline" class="presence-icon-small"></ion-icon>
-              <span>{{ getPresenceData({_id: student.lessonId} as any)?.participantName || 'Student' }} has joined lesson</span>
+              <span>{{ getPresenceDataById(student.lessonId)?.participantName || 'Student' }} has joined lesson</span>
             </div>
             <div class="student-card-actions" *ngIf="student.lessonId">
               <ion-button fill="clear" size="small" class="action-icon-btn message">

@@ -486,6 +486,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this.lessonPresence.has(lesson._id);
   }
 
+  // Check if lesson has participant joined by lessonId string
+  hasParticipantJoinedById(lessonId: string | null | undefined): boolean {
+    if (!lessonId) return false;
+    return this.lessonPresence.has(lessonId);
+  }
+
   // Get presence data for a lesson
   getPresenceData(lesson: Lesson | null): {
     participantName: string;
@@ -495,6 +501,17 @@ export class Tab1Page implements OnInit, OnDestroy {
   } | null {
     if (!lesson) return null;
     return this.lessonPresence.get(lesson._id) || null;
+  }
+
+  // Get presence data by lessonId string
+  getPresenceDataById(lessonId: string | null | undefined): {
+    participantName: string;
+    participantPicture?: string;
+    participantRole: 'tutor' | 'student';
+    joinedAt: string;
+  } | null {
+    if (!lessonId) return null;
+    return this.lessonPresence.get(lessonId) || null;
   }
 
   // Get presence avatar (uses presence data if available, otherwise falls back to lesson data)
