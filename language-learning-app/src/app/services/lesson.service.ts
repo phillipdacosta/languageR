@@ -31,6 +31,13 @@ export interface Lesson {
     selectedTime: string;
     timeRange: string;
   };
+  participants?: {
+    [userId: string]: {
+      joinedAt?: Date | string;
+      leftAt?: Date | string;
+      joinCount?: number;
+    };
+  };
   createdAt: string;
   updatedAt: string;
 }

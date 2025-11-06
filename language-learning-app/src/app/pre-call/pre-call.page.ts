@@ -148,16 +148,15 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
         
         // Check if the other participant has already joined
-        // The lesson.participants Map contains join/leave info
+        // The lesson.participants object contains join/leave info
         if (lesson.participants && typeof lesson.participants === 'object') {
           const otherParticipantId = this.isTutor 
-            ? (lesson.studentId?._id || lesson.studentId?.id) 
-            : (lesson.tutorId?._id || lesson.tutorId?.id);
+            ? lesson.studentId?._id 
+            : lesson.tutorId?._id;
           
           if (otherParticipantId) {
             const otherParticipantKey = String(otherParticipantId);
-            const participantData = lesson.participants[otherParticipantKey] || 
-                                   (lesson.participants instanceof Map ? lesson.participants.get(otherParticipantKey) : null);
+            const participantData = lesson.participants[otherParticipantKey];
             
             console.log('📚 PreCall: Checking existing participant data:', {
               otherParticipantId,
