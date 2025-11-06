@@ -90,12 +90,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
     
-    // Load notifications when user is authenticated
+    // Load notifications when user is authenticated and currentUser is loaded
     this.user$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(user => {
-      if (user?.email) {
-        this.loadNotifications();
+      if (user?.email && this.currentUser) {
+        // Small delay to ensure currentUser is set in UserService
+        setTimeout(() => {
+          this.loadNotifications();
+        }, 500);
       }
     });
 
@@ -234,6 +237,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   loadNotifications() {
+    // Only load if user is authenticated
+    if (!this.currentUser) {
+      console.warn('⚠️ Cannot load notifications: user not loaded yet');
+      return;
+    }
+
     this.isLoadingNotifications = true;
     this.notificationService.getNotifications().pipe(
       takeUntil(this.destroy$)
@@ -241,11 +250,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       next: (response) => {
         if (response.success) {
           this.notifications = response.notifications;
+          console.log('✅ Loaded', response.notifications.length, 'notifications');
         }
         this.isLoadingNotifications = false;
       },
       error: (error) => {
-        console.error('Error loading notifications:', error);
+        console.error('❌ Error loading notifications:', error);
+        console.error('❌ Error status:', error.status);
+        console.error('❌ Error message:', error.message);
+        console.error('❌ Error URL:', error.url);
         this.isLoadingNotifications = false;
       }
     });
