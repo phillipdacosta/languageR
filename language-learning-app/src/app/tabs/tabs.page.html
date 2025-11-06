@@ -41,9 +41,9 @@
         </button>
         
         <!-- Notification Bell Icon -->
-        <button class="nav-button notification-btn" [class.has-notifications]="(unreadCount$ | async)! > 0">
+        <button class="nav-button notification-btn">
           <ion-icon name="notifications-outline"></ion-icon>
-          <span class="notification-badge" *ngIf="(unreadCount$ | async)! > 0">{{ (unreadCount$ | async)! }}</span>
+          <span class="notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
         <!-- User Profile Section (moved beside Profile button) -->

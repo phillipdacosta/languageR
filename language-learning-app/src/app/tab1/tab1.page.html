@@ -9,7 +9,7 @@
     <ion-buttons slot="end">
       <ion-button fill="clear" class="notification-btn">
         <ion-icon name="notifications-outline"></ion-icon>
-        <span class="notification-badge" *ngIf="hasNotifications">1</span>
+        <span class="notification-dot" *ngIf="hasNotifications"></span>
       </ion-button>
       <ion-avatar class="header-avatar">
         <img [src]="currentUserPicture" alt="User Avatar">
