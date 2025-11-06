@@ -3,6 +3,7 @@ import { ModalController } from '@ionic/angular';
 
 @Component({
   selector: 'app-image-viewer-modal',
+  standalone: false,
   template: `
     <div class="image-viewer-container" (click)="dismiss()">
       <div class="image-viewer-header">
