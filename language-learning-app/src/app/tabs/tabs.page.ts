@@ -201,7 +201,12 @@ export class TabsPage implements OnInit, OnDestroy {
   }
 
   toggleNotificationDropdown() {
+    console.log('🔔 Toggle notification dropdown clicked');
+    console.log('Current state:', this.isNotificationDropdownOpen);
+    console.log('isWeb():', this.isWeb());
+    console.log('showTabs:', this.showTabs);
     this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
+    console.log('New state:', this.isNotificationDropdownOpen);
   }
 
   closeNotificationDropdown() {
@@ -214,9 +219,10 @@ export class TabsPage implements OnInit, OnDestroy {
     if (this.isNotificationDropdownOpen && this.isWeb() && !this.showTabs) {
       const target = event.target as HTMLElement;
       const dropdown = document.querySelector('.notification-dropdown');
-      const button = document.querySelector('.notification-btn');
+      const container = document.querySelector('.notification-container');
       
-      if (dropdown && button && !dropdown.contains(target) && !button.contains(target)) {
+      // Check if click is outside both dropdown and container
+      if (dropdown && container && !dropdown.contains(target) && !container.contains(target)) {
         this.closeNotificationDropdown();
       }
     }

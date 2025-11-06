@@ -42,7 +42,7 @@
         
         <!-- Notification Bell Icon -->
         <div class="notification-container">
-          <button class="nav-button notification-btn" (click)="toggleNotificationDropdown()">
+          <button type="button" class="nav-button notification-btn" (click)="toggleNotificationDropdown(); $event.stopPropagation()">
             <ion-icon name="notifications-outline"></ion-icon>
             <span class="notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
           </button>
