@@ -279,9 +279,16 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       console.log(`📖 Marked ${updateResult.modifiedCount} messages as read`);
     }
 
+    // Map _id to id for frontend compatibility
+    const formattedMessages = messages.map(msg => ({
+      ...msg,
+      id: msg._id.toString(),
+      _id: undefined // Remove _id to avoid confusion
+    }));
+
     res.json({
       success: true,
-      messages: messages.reverse() // Return in chronological order
+      messages: formattedMessages.reverse() // Return in chronological order
     });
   } catch (error) {
     console.error('❌ Error getting messages:', error);
