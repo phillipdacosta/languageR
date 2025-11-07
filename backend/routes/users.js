@@ -41,6 +41,30 @@ router.get('/me', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    // Sync picture from Auth0 if it's different (handles Google profile picture updates)
+    const auth0Picture = req.user.picture || req.user.picture_url || null;
+    if (auth0Picture && auth0Picture !== user.picture) {
+      console.log('🖼️ Picture changed in Auth0, updating database:', {
+        old: user.picture,
+        new: auth0Picture
+      });
+      user.picture = auth0Picture;
+      await user.save();
+    }
+    
+    // Also sync name and emailVerified if they changed
+    if (req.user.name && req.user.name !== user.name) {
+      console.log('📝 Name changed in Auth0, updating database');
+      user.name = req.user.name;
+      await user.save();
+    }
+    
+    if (req.user.email_verified !== undefined && req.user.email_verified !== user.emailVerified) {
+      console.log('✅ Email verification status changed in Auth0, updating database');
+      user.emailVerified = req.user.email_verified;
+      await user.save();
+    }
+    
     res.json({
       success: true,
       user: {
@@ -92,7 +116,11 @@ router.post('/', verifyToken, async (req, res) => {
       console.log('🔍 Updating existing user. Current userType:', user.userType, 'New userType:', userType);
       user.email = email || user.email;
       user.name = name || user.name;
-      user.picture = picture || user.picture;
+      
+      // Sync picture from Auth0 if available, otherwise use provided picture, otherwise keep existing
+      const auth0Picture = req.user.picture || req.user.picture_url || null;
+      user.picture = picture || auth0Picture || user.picture;
+      
       user.emailVerified = emailVerified !== undefined ? emailVerified : user.emailVerified;
       user.userType = userType || user.userType; // Update user type
       user.updatedAt = new Date();
@@ -106,12 +134,15 @@ router.post('/', verifyToken, async (req, res) => {
       console.log('🔍 Request body data:', req.body);
       
       try {
+        // Get picture from Auth0 if available
+        const auth0Picture = req.user.picture || req.user.picture_url || picture || null;
+        
         user = new User({
           auth0Id: req.user.sub,
           email: email || req.user.email,
           name: name || req.user.name,
-          picture: picture || null,
-          emailVerified: emailVerified || false,
+          picture: auth0Picture,
+          emailVerified: emailVerified !== undefined ? emailVerified : (req.user.email_verified || false),
           userType: userType || 'student', // Default to student
           onboardingCompleted: false
         });
@@ -224,7 +255,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture } = req.body;
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -242,6 +273,11 @@ router.put('/profile', verifyToken, async (req, res) => {
     // Update userType if provided
     if (userType) {
       user.userType = userType;
+    }
+    
+    // Update picture if provided (for in-app uploads)
+    if (picture !== undefined) {
+      user.picture = picture;
     }
     
     await user.save();
@@ -651,6 +687,50 @@ router.get('/availability', verifyToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching availability:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PUT /api/users/picture - Update user profile picture
+router.put('/picture', verifyToken, async (req, res) => {
+  try {
+    const { picture } = req.body;
+    
+    if (!picture) {
+      return res.status(400).json({ error: 'Picture URL is required' });
+    }
+    
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update picture
+    user.picture = picture;
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      user: {
+        id: user._id,
+        auth0Id: user.auth0Id,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        emailVerified: user.emailVerified,
+        userType: user.userType,
+        onboardingCompleted: user.onboardingCompleted,
+        onboardingData: user.onboardingData,
+        profile: user.profile,
+        stats: user.stats,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error updating profile picture:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
