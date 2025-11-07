@@ -159,6 +159,12 @@ html.ion-palette-dark {
   font-size: 14.5px;
 }
 
+@media (max-width: 768px) {
+  .fc-toolbar {
+    font-size: inherit;
+  }
+}
+
 .fc-toolbar-title {
   font-size: 1.1rem;
   font-weight: 600;

@@ -65,13 +65,27 @@
       <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
     </div>
 
+    <div class="week-navigation" *ngIf="isTutor()">
+      <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+      </ion-button>
+      <div class="week-display">
+        <span class="week-range">{{ weekRangeLabel }}</span>
+        <ion-button fill="clear" size="small" (click)="goToToday()" [disabled]="isCurrentWeek()" class="today-btn">Today</ion-button>
+      </div>
+      <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
+        <ion-icon name="chevron-forward-outline"></ion-icon>
+      </ion-button>
+    </div>
+
     <!-- Date Strip -->
     <div class="date-strip-container" *ngIf="isTutor()">
       <div class="date-strip">
         <div 
           class="date-pill" 
           *ngFor="let d of dateStrip" 
-          [class.active]="selectedDate && d.date.toDateString() === selectedDate.toDateString()" 
+          [class.active]="d.isToday" 
+          [class.selected]="selectedDate && d.date.toDateString() === selectedDate.toDateString()"
           (click)="selectDate(d.date)">
           <div class="weekday">{{ d.label }}</div>
           <div class="daynum">{{ d.dayNum }}</div>
@@ -133,8 +147,8 @@
           <ion-card-content>
             <div class="empty-inline">
               <ion-icon name="calendar-outline" class="empty-inline-icon"></ion-icon>
-              <div>
-                <h3>No lessons for selected date</h3>
+              <div class="empty-inline-text">
+                <h3>No lessons for <span>{{ isToday(selectedDate) ? 'Today' : (selectedDate | date:'MMM d, y') }}</span></h3>
                 <p>Pick another date, or invite a student.</p>
               </div>
             </div>

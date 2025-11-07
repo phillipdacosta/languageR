@@ -22,9 +22,32 @@
   .empty-inline {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    padding: 8px 0;
+
+    .empty-inline-text {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+
+      h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 6px;
+
+        span {
+          font-weight: 700;
+        }
+      }
+
+      p {
+        font-size: 15px;
+        color: #6b7280;
+      }
+    }
   }
-  .empty-inline-icon { font-size: 22px; color: #6b7280; }
+  .empty-inline-icon { font-size: 48px; color: #93c5fd; }
 // tab1.page.scss
 
 ion-content {
@@ -83,8 +106,8 @@ ion-content {
     height: 11px;
     background-color: #ff3b30;
     border-radius: 50%;
-    top: 6px;
-    right: 6px;
+    top: 0px;
+    right: 1px;
     border: 2px solid white;
     box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
     z-index: 10;
@@ -255,6 +278,56 @@ ion-content {
 }
 
 // Date Strip
+.week-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px;
+  margin-bottom: 8px;
+
+  ion-button {
+    --padding-start: 8px;
+    --padding-end: 8px;
+    --border-radius: 10px;
+    margin: 0;
+  }
+
+  .week-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: #111827;
+    text-transform: none;
+  }
+
+  .week-range {
+    font-size: 16px;
+    letter-spacing: 0.3px;
+  }
+
+  .today-btn {
+    font-weight: 600;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+
+    &[disabled] {
+      opacity: 0.5;
+    }
+  }
+
+  @media (max-width: 600px) {
+    justify-content: space-between;
+    padding: 0 12px;
+
+    .week-range {
+      font-size: 14px;
+    }
+  }
+}
+
 .date-strip-container {
   margin-bottom: 28px;
   overflow-x: auto;
@@ -276,7 +349,7 @@ ion-content {
 
 .date-strip {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 0;
   align-items: center;
   
@@ -305,6 +378,7 @@ ion-content {
   align-items: center;
   height: 82px;
   gap: 2px;
+  border: 1px solid transparent;
   
   .month {
     font-size: 10px;
@@ -335,6 +409,7 @@ ion-content {
     background: #fbbf24;
     box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
     transform: scale(1.05);
+    border-color: transparent;
     
     .month {
       color: rgba(255, 255, 255, 0.9);
@@ -345,7 +420,12 @@ ion-content {
       color: #fff;
     }
   }
-  
+
+  &.selected:not(.active) {
+    border-color: #2563eb;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.18);
+  }
+
   &:hover:not(.active) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -355,35 +435,31 @@ ion-content {
 // Mobile adjustments so the active (today) pill isn't clipped
 @media (max-width: 480px) {
   .date-strip-container {
-    padding: 24px 0; // maximum vertical space on mobile
-    min-height: 96px; // maximum height for mobile to prevent any clipping
+    padding: 20px 24px;
+    min-height: 96px;
     overflow-y: visible !important;
     overflow-x: auto;
-    justify-content: flex-start; // align to start so we can control padding
+    justify-content: center;
   }
-  
-  .date-strip { 
-    padding: 20px 24px; // maximum horizontal padding to prevent edge clipping
+
+  .date-strip {
+    padding: 0 16px 0 24px;
     align-items: center;
-    justify-content: flex-start;
-    min-width: 100%; // ensure full width
+    justify-content: center;
   }
-  
-  .date-pill { 
-    padding: 8px 10px; 
-    min-width: 58px; 
-    height: 68px; // slightly taller to fit month
-    border-radius: 14px; // smaller radius
-    margin-right: 8px; // space between pills
+
+  .date-pill {
+    padding: 8px 10px;
+    min-width: 58px;
+    height: 68px;
+    border-radius: 14px;
+    margin: 0 8px;
     gap: 1px;
+    border-width: 1px;
   }
   
   .date-pill:first-child {
-    margin-left: 4px; // extra space for first pill
-  }
-  
-  .date-pill:last-child {
-    margin-right: 4px; // extra space for last pill
+    margin-left: 0;
   }
   
   .date-pill .month {
@@ -1114,6 +1190,11 @@ ion-content {
       .daynum {
         color: #ffffff !important;
       }
+    }
+
+    &.selected:not(.active) {
+      border-color: var(--ion-color-primary, #4d8dff) !important;
+      box-shadow: 0 4px 10px rgba(77, 141, 255, 0.25) !important;
     }
   }
   

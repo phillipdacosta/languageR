@@ -41,6 +41,8 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
   selectedDate: Date | null = null;
+  weekStartDate: Date = new Date();
+  weekRangeLabel = '';
   upcomingLesson: Lesson | null = null;
   private countdownInterval: any;
   countdownTick = Date.now();
@@ -127,16 +129,28 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Load user data and stats
     this.loadUserStats();
 
+    const today = this.startOfDay(new Date());
+    this.selectedDate = today;
+    this.weekStartDate = this.getStartOfWeek(today);
+
     // Get platform information
     this.currentPlatform = this.platformService.getPlatform();
     this.platformConfig = this.platformService.getPlatformConfig();
     this.isWeb = this.platformService.isWeb();
     this.isMobile = this.platformService.isMobile();
+    const initialStart = this.getStripStartForDate(today);
+    this.updateDateStrip(initialStart, false);
 
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
+      const prevIsMobile = this.isMobile;
       this.isWeb = this.platformService.isWeb();
       this.isMobile = this.platformService.isMobile();
+      if (prevIsMobile !== this.isMobile) {
+        const referenceDate = this.selectedDate ?? this.startOfDay(new Date());
+        const newStart = this.getStripStartForDate(referenceDate);
+        this.updateDateStrip(newStart, false);
+      }
     };
     window.addEventListener('resize', this.resizeListener);
 
@@ -164,9 +178,6 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
     });
 
-
-    // Prepare date strip (next 7 days)
-    this.dateStrip = this.generateDateStrip(7);
 
     // Live countdown tick (updates change detection)
     // Only update when minutes change to prevent flashing
@@ -790,25 +801,135 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   // Date strip helpers (tutor view)
-  generateDateStrip(days: number): { label: string; dayNum: number; date: Date; isToday: boolean }[] {
+  generateDateStrip(days: number, startDate: Date): { label: string; dayNum: number; date: Date; isToday: boolean }[] {
     const result: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
-    const now = new Date();
+    const today = this.startOfDay(new Date());
     for (let i = 0; i < days; i++) {
-      const d = new Date(now);
-      d.setDate(now.getDate() + i);
+      const d = this.startOfDay(new Date(startDate));
+      d.setDate(d.getDate() + i);
       result.push({
         label: d.toLocaleDateString('en-US', { weekday: 'short' }),
         dayNum: d.getDate(),
         date: d,
-        isToday: i === 0
+        isToday: this.isSameDay(d, today)
       });
     }
-    this.selectedDate = result[0]?.date ?? null;
+    this.weekRangeLabel = this.getWeekRangeLabel(startDate);
     return result;
   }
-
+ 
   selectDate(d: Date) {
-    this.selectedDate = d;
+    this.selectedDate = this.startOfDay(new Date(d));
+  }
+
+  navigateWeek(direction: 'prev' | 'next') {
+    const days = this.getDateStripDaysCount();
+    const delta = direction === 'prev' ? -days : days;
+    const newStart = this.startOfDay(new Date(this.weekStartDate));
+    newStart.setDate(newStart.getDate() + delta);
+    this.updateDateStrip(newStart, true);
+  }
+
+  goToToday() {
+    const today = this.startOfDay(new Date());
+    this.selectedDate = today;
+    const start = this.getStripStartForDate(today);
+    this.updateDateStrip(start, false);
+  }
+
+  isCurrentWeek(): boolean {
+    const todayStart = this.getStripStartForDate(new Date());
+    return this.weekStartDate.getTime() === todayStart.getTime();
+  }
+
+  private updateDateStrip(startDate: Date, forceSelectStart = false) {
+    const start = this.startOfDay(new Date(startDate));
+    this.weekStartDate = start;
+    const days = this.getDateStripDaysCount();
+    this.dateStrip = this.generateDateStrip(days, start);
+    if (forceSelectStart || !this.selectedDate || !this.isDateInWeek(this.selectedDate, start)) {
+      this.selectedDate = this.dateStrip[0]?.date ?? null;
+    }
+  }
+ 
+  private startOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+ 
+  private getStartOfWeek(date: Date): Date {
+    const d = this.startOfDay(date);
+    const day = d.getDay();
+    d.setDate(d.getDate() - day);
+    return d;
+  }
+ 
+  private getDateStripDaysCount(): number {
+    return this.isMobile ? 5 : 7;
+  }
+ 
+  isToday(date: Date | null): boolean {
+    if (!date) {
+      return false;
+    }
+    return this.isSameDay(date, new Date());
+  }
+
+  private getStripStartForDate(target: Date): Date {
+    const days = this.getDateStripDaysCount();
+    const start = this.getStartOfWeek(target);
+    if (days >= 7) {
+      return start;
+    }
+
+    const adjustedStart = this.startOfDay(new Date(start));
+    const end = this.startOfDay(new Date(adjustedStart));
+    end.setDate(end.getDate() + (days - 1));
+
+    const normalizedTarget = this.startOfDay(target);
+    while (normalizedTarget.getTime() > end.getTime()) {
+      adjustedStart.setDate(adjustedStart.getDate() + 1);
+      end.setDate(end.getDate() + 1);
+    }
+
+    return adjustedStart;
+  }
+
+  private isSameDay(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  }
+
+  private isDateInWeek(date: Date, weekStart: Date): boolean {
+    const start = this.startOfDay(weekStart);
+    const end = this.startOfDay(new Date(weekStart));
+    end.setDate(end.getDate() + (this.getDateStripDaysCount() - 1));
+    const target = this.startOfDay(date);
+    return target >= start && target <= end;
+  }
+
+  private getWeekRangeLabel(start: Date): string {
+    const startOfWeek = this.startOfDay(new Date(start));
+    const endOfWeek = this.startOfDay(new Date(start));
+    endOfWeek.setDate(endOfWeek.getDate() + (this.getDateStripDaysCount() - 1));
+
+    const sameMonth = startOfWeek.getMonth() === endOfWeek.getMonth();
+    const sameYear = startOfWeek.getFullYear() === endOfWeek.getFullYear();
+
+    if (sameMonth && sameYear) {
+      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${startLabel} - ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
+    }
+
+    if (sameYear) {
+      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${startLabel} - ${endLabel}, ${startOfWeek.getFullYear()}`;
+    }
+
+    const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${startLabel} - ${endLabel}`;
   }
 
   lessonsForSelectedDate(): Lesson[] {

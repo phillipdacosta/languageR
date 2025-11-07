@@ -25,6 +25,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private initializationAttempts = 0; // Track initialization attempts
   
   // Custom full-width now indicator state
+  enableCustomNowIndicator = false;
   customNowVisible = false;
   customNowTop = 0;
   customNowLeft = 0;
@@ -291,10 +292,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       
       // Get saved view from localStorage, or use default
       const savedView = localStorage.getItem('tutor-calendar-view');
-      const defaultView = isMobile ? 'timeGridDay' : 'timeGridWeek';
-      const initialView = savedView && ['dayGridMonth', 'timeGridWeek', 'timeGridDay'].includes(savedView) 
-        ? savedView 
-        : defaultView;
+      let initialView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay';
+      if (isMobile) {
+        initialView = 'timeGridDay';
+      } else {
+        initialView = savedView === 'timeGridDay' || savedView === 'dayGridMonth'
+          ? savedView
+          : 'timeGridWeek';
+      }
       
       this.calendar = new Calendar(calendarEl, {
         plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -603,6 +608,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private updateCustomNowIndicatorBound = () => this.updateCustomNowIndicator();
 
   private updateCustomNowIndicator() {
+    if (!this.enableCustomNowIndicator) {
+      this.customNowVisible = false;
+      return;
+    }
     const container = document.getElementById('tutor-calendar-container');
     if (!container || !this.isInitialized) {
       this.customNowVisible = false;

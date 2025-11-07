@@ -419,8 +419,8 @@
         height: 10px !important;
         background-color: #ff3b30 !important;
         border-radius: 50% !important;
-        top: 2px !important;
-        right: 2px !important;
+        top: 5px !important;
+        right: 25px !important;
         border: 2px solid white !important;
         box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
         z-index: 9999 !important;
@@ -558,6 +558,11 @@ ion-tab-button {
         font-size: 11px;
       }
     }
+  }
+
+  ion-tab-bar ion-tab-button .message-tab-notification-dot {
+    top: 6px !important;
+    right: 25px !important;
   }
 }
 
