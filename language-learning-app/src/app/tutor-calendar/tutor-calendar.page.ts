@@ -84,16 +84,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       clientHeight: calendarEl?.clientHeight
     });
     
-    // Show a simple test div to confirm container is working
-    if (calendarEl) {
-      calendarEl.innerHTML = `
-        <div style="background: red; color: white; padding: 40px; font-size: 24px; text-align: center;">
-          TEST: If you can see this RED box, the container is working!<br>
-          Container dimensions: ${calendarEl.offsetWidth}x${calendarEl.offsetHeight}
-        </div>
-      `;
-    }
-    
     // Then try to initialize calendar after delay
     setTimeout(() => {
       this.initCalendar();

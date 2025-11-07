@@ -49,10 +49,10 @@
         </div>
         
         <!-- User Profile Section (moved beside Profile button) -->
-        <div class="user-profile" *ngIf="user$ | async as user">
+        <div class="user-profile" *ngIf="currentUser">
           <ion-avatar class="user-avatar">
-            <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture" (error)="onImageError($event)">
-            <div class="user-initials" *ngIf="!user.picture" [style.display]="user.picture ? 'none' : 'block'">{{ getUserInitials(user) }}</div>
+            <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture" (error)="onImageError($event)">
+            <div class="user-initials" *ngIf="!currentUser.picture" [style.display]="currentUser.picture ? 'none' : 'block'">{{ getUserInitials(currentUser) }}</div>
           </ion-avatar>
         </div>
         

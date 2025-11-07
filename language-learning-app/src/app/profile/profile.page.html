@@ -5,30 +5,30 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
-  <div class="profile-container" *ngIf="user$ | async as user">
-    <!-- User Profile Card -->
-    <ion-card class="profile-card">
-      <ion-card-content>
-        <div class="profile-header">
-          <ion-avatar class="profile-avatar">
-            <img [src]="user.picture" [alt]="user.name" *ngIf="user.picture">
-            <div class="profile-initials" *ngIf="!user.picture">{{ getUserInitials(user) }}</div>
-          </ion-avatar>
-          <div class="profile-info">
-            <h2 class="profile-name">{{ user.name }}</h2>
-            <p class="profile-email">{{ user.email }}</p>
-            <ion-chip *ngIf="user.email_verified" color="success">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              <ion-label>Verified</ion-label>
-            </ion-chip>
-            <ion-chip *ngIf="!user.email_verified" color="warning">
-              <ion-icon name="warning"></ion-icon>
-              <ion-label>Unverified</ion-label>
-            </ion-chip>
-          </div>
-        </div>
-      </ion-card-content>
-    </ion-card>
+      <div class="profile-container" *ngIf="currentUser">
+        <!-- User Profile Card -->
+        <ion-card class="profile-card">
+          <ion-card-content>
+            <div class="profile-header">
+              <ion-avatar class="profile-avatar">
+                <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture">
+                <div class="profile-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
+              </ion-avatar>
+              <div class="profile-info">
+                <h2 class="profile-name">{{ currentUser.name }}</h2>
+                <p class="profile-email">{{ currentUser.email }}</p>
+                <ion-chip *ngIf="currentUser.emailVerified" color="success">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <ion-label>Verified</ion-label>
+                </ion-chip>
+                <ion-chip *ngIf="!currentUser.emailVerified" color="warning">
+                  <ion-icon name="warning"></ion-icon>
+                  <ion-label>Unverified</ion-label>
+                </ion-chip>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
 
     <!-- User Stats -->
     <ion-card class="stats-card">
@@ -135,7 +135,7 @@
   </div>
 
   <!-- Loading State -->
-  <div class="loading-container" *ngIf="!(user$ | async)">
+  <div class="loading-container" *ngIf="!currentUser">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Loading profile...</p>
   </div>
