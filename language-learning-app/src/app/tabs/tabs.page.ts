@@ -274,6 +274,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     return this.platformService.isWeb();
   }
 
+  // Getter for unread count (for debugging)
+  get unreadMessageCount(): number {
+    return this.unreadCount$.value;
+  }
+
   isMobile() {
     return this.platformService.isMobile();
   }
