@@ -241,20 +241,65 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   loadMessages() {
-    if (!this.tutor?.auth0Id) return;
+    if (!this.tutor) {
+      console.error('❌ Cannot load messages: no tutor object');
+      return;
+    }
+    
+    // Ensure we have auth0Id - if not, fetch tutor again
+    if (!this.tutor.auth0Id) {
+      console.log('🔄 Tutor missing auth0Id, fetching tutor data...');
+      this.userService.getTutorPublic(this.tutorId).subscribe({
+        next: (res) => {
+          this.tutor = res.tutor;
+          this.loadMessagesWithAuth0Id();
+        },
+        error: (error) => {
+          console.error('❌ Error fetching tutor:', error);
+          this.isLoadingMessages = false;
+        }
+      });
+      return;
+    }
+    
+    this.loadMessagesWithAuth0Id();
+  }
+  
+  private loadMessagesWithAuth0Id() {
+    if (!this.tutor?.auth0Id) {
+      console.error('❌ Cannot load messages: no auth0Id in tutor object', this.tutor);
+      this.isLoadingMessages = false;
+      return;
+    }
+    
+    console.log('💬 Loading messages for tutor:', {
+      tutorId: this.tutorId,
+      auth0Id: this.tutor.auth0Id,
+      name: this.tutor.name
+    });
     
     this.isLoadingMessages = true;
     this.messagingService.getMessages(this.tutor.auth0Id).subscribe({
       next: (response) => {
-        this.messages = response.messages;
+        console.log('✅ Messages loaded:', {
+          count: response.messages?.length || 0,
+          messages: response.messages
+        });
+        this.messages = response.messages || [];
         this.isLoadingMessages = false;
         this.scrollToBottom();
       },
       error: (error) => {
-        console.error('Error loading messages:', error);
+        console.error('❌ Error loading messages:', error);
+        console.error('Error details:', {
+          status: error.status,
+          message: error.message,
+          error: error.error
+        });
         this.isLoadingMessages = false;
         // If error is 404 (no messages yet), that's fine for new conversations
         if (error.status === 404) {
+          console.log('ℹ️ No messages found (404) - this is normal for new conversations');
           this.messages = [];
         }
       }
