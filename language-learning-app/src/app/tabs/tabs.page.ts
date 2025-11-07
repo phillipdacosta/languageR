@@ -447,7 +447,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
     // Navigate based on notification type
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      this.router.navigate(['/tabs/tutor-calendar']);
+      this.router.navigate(['/tabs/tutor-calendar/event', notification.data.lessonId]);
       // Don't close dropdown - let user see the notification was marked as read
     } else if (notification.type === 'message') {
       this.router.navigate(['/tabs/messages']);

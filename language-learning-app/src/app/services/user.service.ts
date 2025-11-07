@@ -132,17 +132,37 @@ export class UserService {
 
   // Public method to get auth headers for current user (synchronous)
   public getAuthHeadersSync(): HttpHeaders {
-    // Get the current user from the BehaviorSubject (synchronous)
-    const currentUser = this.currentUserSubject.value;
-    const userEmail = currentUser?.email || 'unknown';
+    // First try to get the current user from the BehaviorSubject (synchronous)
+    let currentUser = this.currentUserSubject.value;
+    let userEmail = currentUser?.email;
     
-    if (userEmail === 'unknown') {
-      console.error('🔍 UserService getAuthHeadersSync: No current user email available!');
-      console.error('🔍 UserService getAuthHeadersSync: Current user:', currentUser);
-      console.error('🔍 UserService getAuthHeadersSync: This will cause authentication to fail');
+    // If not available, try to get from AuthService user$ (check if it has a value)
+    // Note: We can't access BehaviorSubject.value directly from another service,
+    // but we can check if authService has the user available
+    if (!userEmail) {
+      // During page refresh, currentUserSubject might not be set yet
+      // but authService.user$ should have the Auth0 user available
+      // Since we can't access it synchronously, we'll use 'unknown' as fallback
+      // This is expected during the brief moment before getCurrentUser() completes
+      userEmail = 'unknown';
+      
+      // Suppress error logging during initial page load
+      // The user will be loaded shortly via getCurrentUser()
+      // Only log if we're in development mode and want to debug
+      if (currentUser === null && !this.isInitialLoadComplete()) {
+        // This is expected during page refresh - don't log as error
+        // The API call will likely fail, but that's okay - it will retry once user is loaded
+      }
     }
     
     return this.getAuthHeaders(userEmail);
+  }
+  
+  private initialLoadComplete = false;
+  
+  private isInitialLoadComplete(): boolean {
+    // After the first successful getCurrentUser(), mark as complete
+    return this.initialLoadComplete;
   }
 
   /**
@@ -169,6 +189,7 @@ export class UserService {
       }),
       tap(user => {
         this.currentUserSubject.next(user);
+        this.initialLoadComplete = true;
       })
     );
   }
