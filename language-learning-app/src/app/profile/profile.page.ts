@@ -64,6 +64,17 @@ export class ProfilePage implements OnInit {
         this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
       }
     });
+    
+    // Subscribe to currentUser$ to get updates when picture changes
+    this.userService.currentUser$.subscribe((updatedUser: any) => {
+      if (updatedUser && updatedUser.id === this.currentUser?.id) {
+        console.log('🔄 ProfilePage: Received currentUser$ update:', {
+          picture: updatedUser?.picture,
+          hasPicture: !!updatedUser?.picture
+        });
+        this.currentUser = updatedUser;
+      }
+    });
 
     // Ensure the toggle reflects the current theme state
     console.log('🎨 Profile page: Current dark mode state:', this.themeService.isDarkMode());

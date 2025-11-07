@@ -60,6 +60,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.user$ = this.authService.user$;
     this.user$.subscribe(user => {
       if (user?.email) {
+        // Load user initially
         this.userService.getCurrentUser()
         .pipe(takeUntil(this.destroy$))
         .subscribe((user: any) => {
@@ -94,6 +95,20 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
           this.loadUnreadCount();
           // Also load notification count
           this.loadUnreadNotificationCount();
+        });
+        
+        // Subscribe to currentUser$ to get updates when picture changes
+        this.userService.currentUser$.pipe(
+          takeUntil(this.destroy$)
+        ).subscribe((updatedUser: any) => {
+          if (updatedUser && updatedUser.id === this.currentUser?.id) {
+            console.log('🔄 TabsPage: Received currentUser$ update:', {
+              picture: updatedUser?.picture,
+              hasPicture: !!updatedUser?.picture
+            });
+            this.currentUser = updatedUser;
+            this.cdr.detectChanges();
+          }
         });
       }
     });

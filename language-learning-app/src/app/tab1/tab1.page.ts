@@ -107,6 +107,20 @@ export class Tab1Page implements OnInit, OnDestroy {
           this.loadTutorInsights();
         }
       });
+    
+    // Subscribe to currentUser$ to get updates when picture changes
+    this.userService.currentUser$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((updatedUser: any) => {
+      if (updatedUser && updatedUser.id === this.currentUser?.id) {
+        console.log('🔄 Tab1Page: Received currentUser$ update:', {
+          picture: updatedUser?.picture,
+          hasPicture: !!updatedUser?.picture
+        });
+        this.currentUser = updatedUser;
+        this._currentUserPicture = updatedUser?.picture || 'assets/avatar.png';
+      }
+    });
   }
 
   ngOnInit() {
