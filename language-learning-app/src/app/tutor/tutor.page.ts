@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
@@ -16,7 +17,7 @@ import { Subject } from 'rxjs';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, TutorAvailabilityViewerComponent]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
