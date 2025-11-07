@@ -92,9 +92,12 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       this.setupBackButtonHandler();
     }
     
-    // Get current user ID for messaging
+    // Get current user ID for messaging - use same format as messages page
     this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
-      this.currentUserId = user?.email || '';
+      const email = user?.email || '';
+      // Use email-based ID to match backend format (dev-user-{email}) or use sub if available
+      this.currentUserId = email ? `dev-user-${email}` : user?.sub || '';
+      console.log('👤 Tutor page: Current user ID set to:', this.currentUserId);
     });
     
     // Connect to WebSocket for real-time messaging
@@ -275,15 +278,25 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     console.log('💬 Loading messages for tutor:', {
       tutorId: this.tutorId,
       auth0Id: this.tutor.auth0Id,
-      name: this.tutor.name
+      name: this.tutor.name,
+      currentUserId: this.currentUserId,
+      tutorEmail: this.tutor.email
     });
     
+    // The backend expects the otherUserId to be the auth0Id
+    // It will create conversationId by sorting: [currentUser.sub, otherUserId].sort()
     this.isLoadingMessages = true;
     this.messagingService.getMessages(this.tutor.auth0Id).subscribe({
       next: (response) => {
-        console.log('✅ Messages loaded:', {
+        console.log('✅ Messages loaded successfully:', {
           count: response.messages?.length || 0,
-          messages: response.messages
+          hasMessages: (response.messages?.length || 0) > 0,
+          firstMessage: response.messages?.[0] ? {
+            id: response.messages[0].id,
+            senderId: response.messages[0].senderId,
+            receiverId: response.messages[0].receiverId,
+            content: response.messages[0].content?.substring(0, 50)
+          } : null
         });
         this.messages = response.messages || [];
         this.isLoadingMessages = false;
@@ -293,13 +306,19 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         console.error('❌ Error loading messages:', error);
         console.error('Error details:', {
           status: error.status,
+          statusText: error.statusText,
           message: error.message,
-          error: error.error
+          error: error.error,
+          url: error.url
         });
         this.isLoadingMessages = false;
         // If error is 404 (no messages yet), that's fine for new conversations
         if (error.status === 404) {
           console.log('ℹ️ No messages found (404) - this is normal for new conversations');
+          this.messages = [];
+        } else {
+          // For other errors, still show empty state but log the issue
+          console.warn('⚠️ Failed to load messages, showing empty state');
           this.messages = [];
         }
       }
