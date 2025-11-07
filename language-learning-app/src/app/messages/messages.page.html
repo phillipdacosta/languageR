@@ -84,8 +84,8 @@
         </div>
       </div>
 
-      <!-- Right Column: Chat View -->
-      <div class="chat-panel" *ngIf="selectedConversation">
+      <!-- Right Column: Chat View or Empty State -->
+      <div class="chat-panel" *ngIf="selectedConversation; else noConversationSelected">
         <div class="chat-header">
           <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
             <ion-avatar class="chat-avatar">
@@ -131,22 +131,32 @@
         </div>
 
         <div class="chat-messages" #chatContainer>
-          <!-- Loading State -->
-          <div *ngIf="isLoadingMessages" class="loading-container">
-            <ion-spinner name="crescent"></ion-spinner>
-            <p>Loading messages...</p>
+          <!-- Loading Overlay - covers entire messages area with smooth fade -->
+          <div *ngIf="isLoadingMessages" class="loading-overlay">
+            <div class="loading-content">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>Loading messages...</p>
+            </div>
           </div>
 
-
-          <!-- Messages -->
-          <div *ngIf="!isLoadingMessages" class="messages-list">
-            <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
-                 class="message-wrapper"
-                 [attr.data-message-id]="message.id">
-              <!-- Date Separator -->
-              <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
-                {{ formatDate(message.createdAt) }}
-              </div>
+          <!-- Messages List - hidden when loading to prevent flash -->
+          <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Empty State -->
+            <div *ngIf="messages.length === 0" class="empty-state">
+              <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+              <h2>No messages yet</h2>
+              <p>Start the conversation!</p>
+            </div>
+            
+            <!-- Messages -->
+            <div *ngIf="messages.length > 0">
+              <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
+                   class="message-wrapper"
+                   [attr.data-message-id]="message.id">
+                <!-- Date Separator -->
+                <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
+                  {{ formatDate(message.createdAt) }}
+                </div>
 
               <!-- Message Bubble -->
               <div class="message-bubble" 
@@ -208,8 +218,9 @@
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+            </div> <!-- Close messages wrapper -->
+          </div> <!-- Close messages-list -->
+        </div> <!-- Close chat-messages -->
 
         <!-- Reply Preview -->
         <div *ngIf="replyingToMessage" class="replying-to-container">
@@ -268,15 +279,18 @@
         </div>
       </div>
 
-      <!-- No Conversation Selected -->
-      <div class="chat-panel-empty" *ngIf="!selectedConversation">
-        <div class="empty-chat">
-          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <h2>Select a conversation</h2>
-          <p>Choose a conversation from the list to start messaging</p>
-        </div>
       </div>
-    </div>
+
+      <!-- Desktop: Empty State when no conversation selected -->
+      <ng-template #noConversationSelected>
+        <div class="chat-panel-empty">
+          <div class="empty-chat-state">
+            <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
+            <h2>Select a conversation</h2>
+            <p>Choose a conversation from the list to start messaging</p>
+          </div>
+        </div>
+      </ng-template>
 
     <!-- Mobile Single Column Layout -->
     <div class="mobile-messages-wrapper" *ngIf="!isDesktop">
@@ -384,19 +398,31 @@
         </div>
 
         <div class="chat-messages" #chatContainer>
-          <div *ngIf="isLoadingMessages" class="loading-container">
-            <ion-spinner name="crescent"></ion-spinner>
-            <p>Loading messages...</p>
+          <!-- Loading Overlay - covers entire messages area with smooth fade -->
+          <div *ngIf="isLoadingMessages" class="loading-overlay">
+            <div class="loading-content">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>Loading messages...</p>
+            </div>
           </div>
 
-
-          <div *ngIf="!isLoadingMessages" class="messages-list">
-            <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
-                 class="message-wrapper"
-                 [attr.data-message-id]="message.id">
-              <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
-                {{ formatDate(message.createdAt) }}
-              </div>
+          <!-- Messages List - hidden when loading to prevent flash -->
+          <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Empty State -->
+            <div *ngIf="messages.length === 0" class="empty-state">
+              <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+              <h2>No messages yet</h2>
+              <p>Start the conversation!</p>
+            </div>
+            
+            <!-- Messages -->
+            <div *ngIf="messages.length > 0">
+              <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
+                   class="message-wrapper"
+                   [attr.data-message-id]="message.id">
+                <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
+                  {{ formatDate(message.createdAt) }}
+                </div>
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()"
@@ -447,8 +473,9 @@
                 <div class="message-time">{{ formatTime(message.createdAt) }}</div>
               </div>
             </div>
-          </div>
-        </div>
+            </div> <!-- Close messages wrapper -->
+          </div> <!-- Close messages-list -->
+        </div> <!-- Close chat-messages -->
 
         <!-- Reply Preview (Mobile) -->
         <div *ngIf="replyingToMessage" class="replying-to-container">

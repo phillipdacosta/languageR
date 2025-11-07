@@ -52,6 +52,10 @@ const routes: Routes = [
     loadComponent: () => import('./tutor/tutor.page').then(m => m.TutorPage)
   },
   {
+    path: 'student/:id',
+    loadComponent: () => import('./student/student.page').then(m => m.StudentPage)
+  },
+  {
     path: 'pre-call',
     loadChildren: () => import('./pre-call/pre-call.module').then( m => m.PreCallPageModule),
     canActivate: [AuthGuard]

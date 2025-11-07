@@ -1,0 +1,269 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Student Profile</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="page-wrapper" *ngIf="!isLoading && student; else loadingTpl">
+    
+    <!-- Hero Section with Profile -->
+    <div class="hero-section">
+      <div class="profile-header">
+        <div class="avatar-wrapper">
+          <div class="avatar" *ngIf="!student.picture">
+            {{ getInitials(student.name) }}
+          </div>
+          <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name" class="avatar-img">
+          <div class="online-badge"></div>
+        </div>
+        <div class="profile-info">
+          <h1 class="student-name">{{ student.name }}</h1>
+          <div class="languages" *ngIf="student.languagesLearning && student.languagesLearning.length">
+            <ion-icon name="school-outline"></ion-icon>
+            <span>Learning: {{ student.languagesLearning.join(', ') }}</span>
+          </div>
+          
+          <!-- Secondary Actions -->
+          <div class="secondary-actions">
+            <ion-button fill="outline" size="small" class="secondary-btn" (click)="messageStudent()">
+              <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
+              Message
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <ion-icon name="book-outline"></ion-icon>
+          <div class="stat-content">
+            <div class="stat-value">{{ student.stats?.totalLessons || 0 }}</div>
+            <div class="stat-label">Lessons</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <ion-icon name="time-outline"></ion-icon>
+          <div class="stat-content">
+            <div class="stat-value">{{ student.stats?.totalHours || 0 }}</div>
+            <div class="stat-label">Hours</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <ion-icon name="trophy-outline"></ion-icon>
+          <div class="stat-content">
+            <div class="stat-value">{{ student.stats?.streak || 0 }}</div>
+            <div class="stat-label">Day Streak</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Section -->
+    <div class="content-section" *ngIf="student.bio">
+      <div class="section-header">
+        <ion-icon name="person-outline"></ion-icon>
+        <h2>About Me</h2>
+      </div>
+      <p class="section-text">{{ student.bio }}</p>
+    </div>
+
+    <!-- Experience Level -->
+    <div class="content-section" *ngIf="student.experienceLevel">
+      <div class="section-header">
+        <ion-icon name="school-outline"></ion-icon>
+        <h2>Experience Level</h2>
+      </div>
+      <ion-chip color="primary">
+        <ion-label>{{ student.experienceLevel }}</ion-label>
+      </ion-chip>
+    </div>
+
+    <!-- Bottom spacing -->
+    <div style="height: 20px;"></div>
+  </div>
+
+  <ng-template #loadingTpl>
+    <div class="loading">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+  </ng-template>
+  
+  <!-- Messaging Sidebar -->
+  <div class="messaging-sidebar" *ngIf="showMessagingSidebar">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <ion-avatar class="chat-avatar">
+          <img [src]="student?.picture" *ngIf="student?.picture" />
+          <div class="avatar-fallback" *ngIf="!student?.picture">
+            {{ getInitials(student?.name || '') }}
+          </div>
+        </ion-avatar>
+        <div class="chat-user-info">
+          <h3>{{ student?.name || 'Student' }}</h3>
+          <div class="typing-indicator" *ngIf="otherUserTyping">
+            {{ student?.name || 'Student' }} is typing...
+          </div>
+          <div class="user-details" *ngIf="!otherUserTyping && student">
+            <p class="user-status" *ngIf="student.languagesLearning && student.languagesLearning.length">
+              <ion-icon name="school-outline"></ion-icon>
+              Learning: {{ student.languagesLearning.join(', ') }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <ion-button (click)="toggleMessagingSidebar()" fill="clear" size="small">
+          <ion-icon name="close-outline"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+
+    <div class="chat-messages" #chatMessagesContainer>
+      <!-- Loading State -->
+      <div *ngIf="isLoadingMessages" class="loading-container">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading messages...</p>
+      </div>
+
+      <!-- Messages -->
+      <div *ngIf="!isLoadingMessages" class="messages-list">
+        <div *ngIf="messages.length === 0" class="empty-state">
+          <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+          <h2>No messages yet</h2>
+          <p>Start the conversation!</p>
+        </div>
+        
+        <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
+             class="message-wrapper"
+             [attr.data-message-id]="message.id">
+          <!-- Date Separator -->
+          <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
+            {{ formatDate(message.createdAt) }}
+          </div>
+
+          <!-- Message Bubble -->
+          <div class="message-bubble" 
+               [class.sent]="isMyMessage(message)"
+               [class.received]="!isMyMessage(message)"
+               [class.highlighted]="highlightedMessageId === message.id"
+               (mousedown)="onMessageMouseDown(message, $event)"
+               (mouseup)="onMessageMouseUp()"
+               (mouseleave)="onMessageMouseUp()"
+               (dblclick)="onMessageDoubleClick(message)">
+            
+            <!-- Replied-to message preview (if this is a reply) -->
+            <div *ngIf="message.replyTo && message.replyTo.messageId" 
+                 class="reply-to-preview" 
+                 (click)="scrollToMessageById(message.replyTo.messageId, $event)">
+              <div class="reply-to-line"></div>
+              <div class="reply-to-content">
+                <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
+              </div>
+            </div>
+            
+            <!-- Text message -->
+            <div *ngIf="message.type === 'text'" class="message-content">
+              {{ message.content }}
+            </div>
+            
+            <!-- Image message -->
+            <div *ngIf="message.type === 'image'" class="message-image">
+              <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)" />
+              <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+            </div>
+            
+            <!-- Document message -->
+            <div *ngIf="message.type === 'file'" class="message-file">
+              <div class="file-info" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)">
+                <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
+                <div class="file-details">
+                  <p class="file-name">{{ message.fileName }}</p>
+                  <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
+                </div>
+                <ion-icon name="download-outline" class="download-icon"></ion-icon>
+              </div>
+              <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
+            </div>
+            
+            <!-- Voice note message -->
+            <div *ngIf="message.type === 'voice'" class="message-voice">
+              <ion-icon name="play-circle" class="voice-icon"></ion-icon>
+              <audio [src]="message.fileUrl" controls class="voice-player"></audio>
+              <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
+            </div>
+            
+            <div class="message-time">
+              {{ formatTime(message.createdAt) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reply Preview -->
+    <div *ngIf="replyingToMessage" class="replying-to-container">
+      <div class="replying-to-header">
+        <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
+        <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : (student?.name || 'Unknown') }}</span>
+        <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
+      </div>
+      <button 
+        class="replying-to-preview-button" 
+        (click)="scrollToRepliedMessage($event)"
+        type="button">
+        {{ getReplyPreviewContent() }}
+      </button>
+    </div>
+
+    <!-- Message Input -->
+    <div class="message-input-container">
+      <!-- Hidden file inputs -->
+      <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
+      <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
+      
+      <ion-button fill="clear" size="small" (click)="imageInput.click()" [disabled]="isUploading">
+        <ion-icon name="image-outline"></ion-icon>
+      </ion-button>
+      <ion-button fill="clear" size="small" (click)="documentInput.click()" [disabled]="isUploading">
+        <ion-icon name="attach-outline"></ion-icon>
+      </ion-button>
+      <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
+        <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
+      </ion-button>
+      <ion-input
+        #messageInput
+        [(ngModel)]="newMessage"
+        placeholder="Type a message"
+        (ionInput)="onInputChange()"
+        (keydown.enter)="sendMessage()"
+        class="message-input"
+        [disabled]="isUploading || isRecording">
+      </ion-input>
+      <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
+        <ion-icon name="send-outline"></ion-icon>
+      </ion-button>
+      
+      <!-- Upload progress indicator -->
+      <div *ngIf="isUploading" class="upload-progress">
+        <ion-spinner name="crescent"></ion-spinner>
+        <span>Uploading...</span>
+      </div>
+      
+      <!-- Recording indicator -->
+      <div *ngIf="isRecording" class="recording-indicator">
+        <ion-icon name="radio-button-on" color="danger"></ion-icon>
+        <span>Recording... {{ recordingDuration }}s</span>
+      </div>
+    </div>
+  </div>
+</ion-content>
+

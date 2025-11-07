@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ModalController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
@@ -7,7 +7,7 @@ import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
-import { Subject, BehaviorSubject } from 'rxjs';
+import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime } from 'rxjs/operators';
 
 @Component({
@@ -47,7 +47,9 @@ export class MessagesPage implements OnInit, OnDestroy {
   private audioChunks: Blob[] = [];
   private recordingTimer: any;
   private conversationReloadTimeout: any;
-
+  private messagesSubscription?: Subscription;
+  private messageLoadRequestId = 0;
+ 
   // Platform detection
   isDesktop = false;
   currentUserId$ = new BehaviorSubject<string>('');
@@ -70,7 +72,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     private userService: UserService,
     private route: ActivatedRoute,
     private router: Router,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -254,11 +257,11 @@ export class MessagesPage implements OnInit, OnDestroy {
   ionViewWillLeave() {
     this.isPageVisible = false;
     
-    // On mobile, clear selected conversation when leaving so it auto-selects again on return
-    // On desktop, keep it selected so the user returns to the same conversation
-    if (!this.isDesktop) {
-      this.selectedConversation = null;
-    }
+    // Clear selected conversation when leaving the page
+    // This ensures users see the empty state when returning and can choose which conversation to view
+    // This prevents showing messages they're not ready to read
+    this.selectedConversation = null;
+    this.messages = []; // Also clear messages to prevent showing stale data
   }
 
   private openConversationWithTutor(tutorId: string) {
@@ -351,6 +354,10 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (this.typingTimeout) {
       clearTimeout(this.typingTimeout);
     }
+    if (this.messagesSubscription) {
+      this.messagesSubscription.unsubscribe();
+      this.messagesSubscription = undefined;
+    }
     if (this.messageSendTimeout) {
       clearTimeout(this.messageSendTimeout);
     }
@@ -410,9 +417,10 @@ export class MessagesPage implements OnInit, OnDestroy {
             }
           }
           
-          // If there's only 1 conversation, auto-select it when page becomes visible
+          // On mobile only: If there's only 1 conversation, auto-select it when page becomes visible
+          // On desktop, user must explicitly click to select (prevents showing messages they're not ready to read)
           // Only select if it's NOT already the selected conversation (avoid infinite loop)
-          if (this.conversations.length === 1 && this.isPageVisible) {
+          if (!this.isDesktop && this.conversations.length === 1 && this.isPageVisible) {
             const conv = this.conversations[0];
             const isAlreadySelected = this.selectedConversation?.conversationId === conv.conversationId ||
                                       (this.selectedConversation?.otherUser?.auth0Id === conv.otherUser?.auth0Id);
@@ -434,10 +442,8 @@ export class MessagesPage implements OnInit, OnDestroy {
               }
             }
           }
-          // On desktop, always auto-select first conversation if none selected
-          else if (this.isDesktop && !this.selectedConversation && this.conversations.length > 0 && this.isPageVisible) {
-            this.selectConversation(this.conversations[0]);
-          }
+          // On desktop, do NOT auto-select - let user choose which conversation to view
+          // This prevents showing messages they're not ready to read
           // If we have a selected conversation, update it with the latest data
           if (this.selectedConversation) {
             const updatedConv = this.conversations.find(
@@ -472,17 +478,30 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   selectConversation(conversation: Conversation) {
-    // Set loading state immediately to prevent flash of old messages
-    this.isLoadingMessages = true;
+    // Store unread count BEFORE loading messages (since backend marks as read when fetching)
+    const unreadCount = conversation.unreadCount || 0;
     
-    // Clear old messages and set new conversation
+    // Cancel any in-flight message requests to avoid stale updates
+    if (this.messagesSubscription) {
+      this.messagesSubscription.unsubscribe();
+      this.messagesSubscription = undefined;
+    }
+    const requestId = ++this.messageLoadRequestId;
+    
+    // CRITICAL: Clear old messages and set loading state SYNCHRONOUSLY
+    // This must happen before any async operations to prevent flash
     this.messages = [];
+    this.isLoadingMessages = true;
+    this.cdr.detectChanges();
+    
+    // Set new conversation
     this.selectedConversation = conversation;
     
-    // Small delay to ensure UI updates before loading new messages
+    // Small delay to ensure DOM has updated with loading state before fetching
+    // This prevents any flash of old content
     setTimeout(() => {
-      this.loadMessages();
-    }, 50);
+      this.loadMessages(unreadCount, requestId);
+    }, 0);
     
     // Mark as read and reload conversations to update unread count
     // Only mark as read if the page is actually visible to the user
@@ -497,36 +516,83 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
   }
 
-  loadMessages() {
+  loadMessages(unreadCount?: number, requestId?: number) {
     if (!this.selectedConversation?.otherUser) return;
+    
+    const activeRequestId = requestId ?? ++this.messageLoadRequestId;
+    
+    // Cancel any previous message load subscription before starting a new one
+    if (this.messagesSubscription) {
+      this.messagesSubscription.unsubscribe();
+      this.messagesSubscription = undefined;
+    }
     
     // If this is a placeholder conversation (no conversationId), don't try to load messages
     if (!this.selectedConversation.conversationId) {
       this.messages = [];
       this.isLoadingMessages = false;
+      this.cdr.detectChanges();
       return;
     }
     
     this.isLoadingMessages = true;
+    this.cdr.detectChanges();
     const receiverId = this.selectedConversation.otherUser.auth0Id;
     if (!receiverId) {
       console.error('❌ Cannot load messages: no auth0Id in otherUser');
       this.isLoadingMessages = false;
+      this.cdr.detectChanges();
       return;
     }
     
-    this.messagingService.getMessages(receiverId).subscribe({
+    // Store unread count for scrolling (use provided value or get from conversation)
+    const storedUnreadCount = unreadCount !== undefined ? unreadCount : (this.selectedConversation.unreadCount || 0);
+    
+    this.messagesSubscription = this.messagingService.getMessages(receiverId).subscribe({
       next: (response) => {
-        this.messages = response.messages;
-        this.isLoadingMessages = false;
-        this.scrollToBottom();
+        if (activeRequestId !== this.messageLoadRequestId) {
+          return; // Ignore stale response
+        }
+        
+        // Ensure loading state is still true before setting messages
+        // This prevents any flash during the brief moment messages are being set
+        if (!this.isLoadingMessages) {
+          this.isLoadingMessages = true;
+        }
+        
+        // Set messages
+        this.messages = response.messages || [];
+        
+        // Force change detection to update DOM
+        this.cdr.detectChanges();
+        
+        setTimeout(async () => {
+          if (activeRequestId !== this.messageLoadRequestId) {
+            return; // Another request has started; do not update state
+          }
+          // Scroll to first unread message based on stored unread count
+          // Note: Backend marks messages as read when fetching, so we use the stored count
+          await this.scrollToFirstUnreadMessage(storedUnreadCount);
+
+          this.isLoadingMessages = false;
+          this.cdr.detectChanges();
+        }, 40);
       },
       error: (error) => {
+        if (activeRequestId !== this.messageLoadRequestId) {
+          return; // Ignore stale error
+        }
         console.error('Error loading messages:', error);
         this.isLoadingMessages = false;
+        this.cdr.detectChanges();
         // If error is 404 (no messages yet), that's fine for new conversations
         if (error.status === 404) {
           this.messages = [];
+        }
+      },
+      complete: () => {
+        if (activeRequestId === this.messageLoadRequestId) {
+          this.messagesSubscription = undefined;
         }
       }
     });
@@ -738,6 +804,148 @@ export class MessagesPage implements OnInit, OnDestroy {
     }, 100);
   }
 
+  /**
+   * Find the first unread message based on unread count
+   * Since backend marks messages as read when fetching, we use the unread count
+   * to determine which message to scroll to
+   */
+  private findFirstUnreadMessageByCount(unreadCount: number): string | null {
+    if (!this.messages || this.messages.length === 0 || unreadCount <= 0) {
+      console.log('📍 findFirstUnreadMessageByCount: No messages or unreadCount is 0', {
+        messagesLength: this.messages?.length || 0,
+        unreadCount
+      });
+      return null;
+    }
+
+    const currentUserId = this.getCurrentUserId();
+    
+    // Find messages sent by the other user (not by current user)
+    // Messages are in chronological order (oldest first), so unread messages are at the end
+    const otherUserMessages = this.messages.filter(message => {
+      const isMyMessage = message.senderId === currentUserId || 
+                         message.senderId === currentUserId.replace('dev-user-', '') ||
+                         `dev-user-${message.senderId}` === currentUserId;
+      return !isMyMessage;
+    });
+    
+    console.log('📍 findFirstUnreadMessageByCount:', {
+      totalMessages: this.messages.length,
+      otherUserMessagesCount: otherUserMessages.length,
+      unreadCount,
+      currentUserId
+    });
+    
+    // If we have unread messages, scroll to the first unread message
+    // Since messages are in chronological order and unread messages are at the end,
+    // the first unread message is at position (total - unreadCount)
+    if (otherUserMessages.length >= unreadCount) {
+      // Get the message at position (total - unreadCount) from the start
+      // This gives us the first unread message
+      const firstUnreadIndex = otherUserMessages.length - unreadCount;
+      const firstUnreadMessage = otherUserMessages[firstUnreadIndex];
+      
+      console.log('📍 Found first unread message:', {
+        firstUnreadIndex,
+        messageId: firstUnreadMessage?.id,
+        messageContent: firstUnreadMessage?.content?.substring(0, 50)
+      });
+      
+      return firstUnreadMessage?.id || null;
+    }
+    
+    console.log('📍 Not enough other user messages to find unread message');
+    return null;
+  }
+
+  /**
+   * Scroll to the first unread message, or to bottom if all messages are read
+   * @param unreadCount - The number of unread messages (from conversation before loading)
+   */
+  async scrollToFirstUnreadMessage(unreadCount?: number) {
+    await this.waitForMessagesRender();
+
+    // Use provided unread count, or try to find unread messages by checking read status
+    const count = unreadCount !== undefined ? unreadCount : 0;
+    
+    let firstUnreadId: string | null = null;
+    
+    if (count > 0) {
+      // Use unread count to find the message position
+      firstUnreadId = this.findFirstUnreadMessageByCount(count);
+    } else {
+      // Fallback: try to find unread messages by checking read status
+      // (in case some messages weren't marked as read yet)
+      firstUnreadId = this.findFirstUnreadMessageByReadStatus();
+    }
+    
+    if (firstUnreadId) {
+      console.log('📍 Scrolling to first unread message:', firstUnreadId, 'unreadCount:', count);
+      // Scroll to the first unread message
+      this.scrollToMessageById(firstUnreadId);
+    } else {
+      console.log('📍 No unread messages found, scrolling to bottom');
+      // All messages are read, scroll to bottom
+      this.scrollToBottom();
+    }
+  }
+
+  private waitForMessagesRender(maxAttempts = 10): Promise<void> {
+    return new Promise(resolve => {
+      // If there are no messages to render, resolve immediately
+      if (!this.messages || this.messages.length === 0) {
+        resolve();
+        return;
+      }
+
+      let attempts = 0;
+
+      const check = () => {
+        const container = this.chatContainer?.nativeElement;
+        if (!container) {
+          resolve();
+          return;
+        }
+
+        const firstMessage = container.querySelector('[data-message-id]');
+        if (firstMessage || attempts >= maxAttempts) {
+          requestAnimationFrame(() => resolve());
+          return;
+        }
+
+        attempts += 1;
+        requestAnimationFrame(check);
+      };
+
+      requestAnimationFrame(check);
+    });
+  }
+
+  /**
+   * Find unread message by checking read status (fallback method)
+   */
+  private findFirstUnreadMessageByReadStatus(): string | null {
+    if (!this.messages || this.messages.length === 0) {
+      return null;
+    }
+
+    const currentUserId = this.getCurrentUserId();
+    
+    // Find the first unread message that was sent by the other user (not by us)
+    for (const message of this.messages) {
+      const isMyMessage = message.senderId === currentUserId || 
+                         message.senderId === currentUserId.replace('dev-user-', '') ||
+                         `dev-user-${message.senderId}` === currentUserId;
+      
+      if (!message.read && !isMyMessage) {
+        return message.id;
+      }
+    }
+    
+    return null;
+  }
+
+
   formatTime(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
@@ -801,9 +1009,16 @@ export class MessagesPage implements OnInit, OnDestroy {
       return;
     }
 
+    if (other.userType === 'student' && other.id) {
+      this.router.navigate([`/student/${other.id}`]);
+      return;
+    }
+
+    // Fallback to profile page with query params
     const queryParams: any = {};
     if (other.auth0Id) queryParams.userId = other.auth0Id;
-    this.router.navigate(['/profile'], { queryParams });
+    if (!queryParams.userId && other.id) queryParams.userId = other.id;
+    this.router.navigate(['/tabs/profile'], { queryParams });
   }
 
   // TrackBy function for messages to prevent duplicate rendering
@@ -1058,6 +1273,7 @@ export class MessagesPage implements OnInit, OnDestroy {
     
     if (!messageId) {
       console.warn('⚠️ Message ID is undefined');
+      this.scrollToBottom();
       return;
     }
     
@@ -1070,6 +1286,8 @@ export class MessagesPage implements OnInit, OnDestroy {
       if (!messageElement) {
         const allMessages = document.querySelectorAll('[data-message-id]');
         console.warn(`❌ Message ${messageId} not found. Total messages: ${allMessages.length}`);
+        // Fallback to scrolling to bottom if message not found
+        this.scrollToBottom();
         return;
       }
       
