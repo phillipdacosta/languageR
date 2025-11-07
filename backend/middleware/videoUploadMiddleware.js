@@ -291,7 +291,8 @@ const verifyToken = async (req, res, next) => {
           sub: decodedPayload.sub,
           email: decodedPayload.email,
           name: decodedPayload.name || decodedPayload.nickname || decodedPayload.email?.split('@')[0],
-          email_verified: decodedPayload.email_verified
+          email_verified: decodedPayload.email_verified,
+          picture: decodedPayload.picture || decodedPayload.picture_url || null
         };
         console.log('🔍 Backend: Auth0 token processed, user:', userInfo.email);
       } catch (jwtError) {
