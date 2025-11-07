@@ -19,6 +19,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Reload notification count when tabs page becomes active (important for page refresh)
     if (this.currentUser) {
       this.loadUnreadNotificationCount();
+      // Also reload message count
+      this.loadUnreadCount();
     }
   }
 
