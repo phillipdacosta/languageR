@@ -101,7 +101,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.userService.currentUser$.pipe(
           takeUntil(this.destroy$)
         ).subscribe((updatedUser: any) => {
-          if (updatedUser && updatedUser.id === this.currentUser?.id) {
+          if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
             console.log('🔄 TabsPage: Received currentUser$ update:', {
               picture: updatedUser?.picture,
               hasPicture: !!updatedUser?.picture

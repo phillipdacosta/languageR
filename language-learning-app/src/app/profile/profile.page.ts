@@ -67,7 +67,7 @@ export class ProfilePage implements OnInit {
     
     // Subscribe to currentUser$ to get updates when picture changes
     this.userService.currentUser$.subscribe((updatedUser: any) => {
-      if (updatedUser && updatedUser.id === this.currentUser?.id) {
+      if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
         console.log('🔄 ProfilePage: Received currentUser$ update:', {
           picture: updatedUser?.picture,
           hasPicture: !!updatedUser?.picture
