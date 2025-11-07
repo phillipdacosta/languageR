@@ -243,6 +243,7 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     
     console.log('📥 GET /conversations/:otherUserId/messages', { userId, otherUserId, limit, before });
     
+    // Try to find messages with the exact conversationId first
     const ids = [userId, otherUserId].sort();
     const conversationId = `${ids[0]}_${ids[1]}`;
     
@@ -253,15 +254,67 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       query.createdAt = { $lt: new Date(before) };
     }
 
-    const messages = await Message.find(query)
+    let messages = await Message.find(query)
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .lean();
 
     console.log(`✅ Found ${messages.length} messages for conversationId: ${conversationId}`);
+    
+    // If no messages found, try alternative conversationId formats
+    // This handles cases where messages might have been stored with different ID formats
+    if (messages.length === 0) {
+      console.log('⚠️ No messages found with primary conversationId, trying alternative formats...');
+      
+      // Try reverse order (in case IDs were stored in different order)
+      const reverseIds = [otherUserId, userId].sort();
+      const reverseConversationId = `${reverseIds[0]}_${reverseIds[1]}`;
+      
+      if (reverseConversationId !== conversationId) {
+        console.log('🔍 Trying reverse conversationId:', reverseConversationId);
+        let altQuery = { conversationId: reverseConversationId };
+        if (before) {
+          altQuery.createdAt = { $lt: new Date(before) };
+        }
+        messages = await Message.find(altQuery)
+          .sort({ createdAt: -1 })
+          .limit(parseInt(limit))
+          .lean();
+        console.log(`✅ Found ${messages.length} messages with reverse conversationId`);
+      }
+      
+      // If still no messages, try finding by senderId/receiverId directly
+      if (messages.length === 0) {
+        console.log('🔍 Trying to find messages by senderId/receiverId directly...');
+        let directQuery = {
+          $or: [
+            { senderId: userId, receiverId: otherUserId },
+            { senderId: otherUserId, receiverId: userId }
+          ]
+        };
+        if (before) {
+          directQuery.createdAt = { $lt: new Date(before) };
+        }
+        messages = await Message.find(directQuery)
+          .sort({ createdAt: -1 })
+          .limit(parseInt(limit))
+          .lean();
+        console.log(`✅ Found ${messages.length} messages by direct senderId/receiverId match`);
+        
+        if (messages.length > 0) {
+          console.log('📋 Sample messages found:', messages.slice(0, 2).map(m => ({
+            conversationId: m.conversationId,
+            senderId: m.senderId,
+            receiverId: m.receiverId
+          })));
+        }
+      }
+    }
+    
     if (messages.length > 0) {
       console.log('📋 Sample messages:', messages.slice(0, 3).map(m => ({
         id: m._id,
+        conversationId: m.conversationId,
         senderId: m.senderId,
         receiverId: m.receiverId,
         content: m.content?.substring(0, 50),
