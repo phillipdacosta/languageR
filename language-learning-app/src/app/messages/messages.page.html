@@ -48,7 +48,7 @@
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
             (click)="selectConversation(conversation)">
             <ion-avatar class="conversation-avatar">
-              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" (error)="onImageError($event)" />
+              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!conversation.otherUser?.picture">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
@@ -89,7 +89,7 @@
         <div class="chat-header">
           <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
             <ion-avatar class="chat-avatar">
-              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" (error)="onImageError($event)" />
+              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
                 {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
@@ -142,7 +142,7 @@
             <div class="tutor-info-card">
               <div class="tutor-info-header">
                 <ion-avatar class="tutor-info-avatar">
-                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" (error)="onImageError($event)" />
+                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
                   <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
                     {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
                   </div>
@@ -349,7 +349,7 @@
             class="conversation-item"
             (click)="selectConversation(conversation)">
             <ion-avatar class="conversation-avatar">
-              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" (error)="onImageError($event)" />
+              <img [src]="conversation.otherUser?.picture" *ngIf="conversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!conversation.otherUser?.picture">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
@@ -388,7 +388,7 @@
           </ion-button>
           <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
             <ion-avatar class="chat-avatar">
-              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" (error)="onImageError($event)" />
+              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
               <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
                 {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
@@ -429,7 +429,7 @@
             <div class="tutor-info-card">
               <div class="tutor-info-header">
                 <ion-avatar class="tutor-info-avatar">
-                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" (error)="onImageError($event)" />
+                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
                   <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
                     {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
                   </div>
