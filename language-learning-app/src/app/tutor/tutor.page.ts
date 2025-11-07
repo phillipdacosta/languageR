@@ -225,21 +225,51 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Open messaging sidebar instead of navigating
     this.showMessagingSidebar = true;
-    this.loadMessages();
     
-    // Scroll to bottom after a short delay to ensure messages are loaded
-    setTimeout(() => {
-      this.scrollToBottom();
-    }, 300);
+    // Ensure user is fully loaded (including getCurrentUser) before loading messages
+    // This ensures auth headers are set correctly with the actual user email
+    this.userService.getCurrentUser().subscribe({
+      next: (user) => {
+        if (user?.email) {
+          console.log('👤 User loaded, now loading messages:', user.email);
+          // User is fully loaded, now we can load messages
+          this.loadMessages();
+          
+          // Scroll to bottom after a short delay to ensure messages are loaded
+          setTimeout(() => {
+            this.scrollToBottom();
+          }, 300);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading user:', error);
+        // Still try to load messages even if user load fails
+        this.loadMessages();
+      }
+    });
   }
   
   toggleMessagingSidebar() {
     this.showMessagingSidebar = !this.showMessagingSidebar;
     if (this.showMessagingSidebar) {
-      this.loadMessages();
-      setTimeout(() => {
-        this.scrollToBottom();
-      }, 300);
+      // Ensure user is fully loaded before loading messages
+      this.userService.getCurrentUser().subscribe({
+        next: (user) => {
+          if (user?.email) {
+            console.log('👤 User loaded, now loading messages:', user.email);
+            // User is fully loaded, now we can load messages
+            this.loadMessages();
+            setTimeout(() => {
+              this.scrollToBottom();
+            }, 300);
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error loading user:', error);
+          // Still try to load messages even if user load fails
+          this.loadMessages();
+        }
+      });
     }
   }
   
