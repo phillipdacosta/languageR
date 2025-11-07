@@ -109,12 +109,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe((message) => {
       // When a new message arrives, reload conversations to update unread count
-      // Only reload if user is authenticated and it's not our own message
-      if (this.currentUser) {
-        const currentUserId = this.currentUser.auth0Id || `dev-user-${this.currentUser.email}`;
-        const isMyMessage = message.senderId === currentUserId || 
-                           message.senderId === currentUserId.replace('dev-user-', '') ||
-                           `dev-user-${message.senderId}` === currentUserId;
+        // Only reload if user is authenticated and it's not our own message
+        if (this.currentUser) {
+          const currentUserId = this.currentUser['auth0Id'] || `dev-user-${this.currentUser.email}`;
+          const isMyMessage = message.senderId === currentUserId || 
+                             message.senderId === currentUserId.replace('dev-user-', '') ||
+                             `dev-user-${message.senderId}` === currentUserId;
         
         // Only reload if it's an incoming message (not sent by us)
         if (!isMyMessage) {
