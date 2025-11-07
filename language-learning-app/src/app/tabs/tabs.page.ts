@@ -70,6 +70,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
     this.isAuthenticated$ = this.authService.isAuthenticated$;
+    
+    // Connect to WebSocket early to receive messages
+    this.websocketService.connect();
   }
 
   private resizeListener: any;
@@ -97,6 +100,40 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe({
       next: (count) => {
         this.unreadCount$.next(count);
+      }
+    });
+
+    // Listen for WebSocket messages to update unread count in real-time
+    // This ensures the red dot appears even when not on the messages page
+    this.websocketService.newMessage$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((message) => {
+      // When a new message arrives, reload conversations to update unread count
+      // Only reload if user is authenticated and it's not our own message
+      if (this.currentUser) {
+        const currentUserId = this.currentUser.auth0Id || `dev-user-${this.currentUser.email}`;
+        const isMyMessage = message.senderId === currentUserId || 
+                           message.senderId === currentUserId.replace('dev-user-', '') ||
+                           `dev-user-${message.senderId}` === currentUserId;
+        
+        // Only reload if it's an incoming message (not sent by us)
+        if (!isMyMessage) {
+          // Reload conversations to update unread count
+          this.messagingService.getConversations().pipe(
+            takeUntil(this.destroy$)
+          ).subscribe({
+            next: (response) => {
+              if (response.success) {
+                const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+                this.messagingService.updateUnreadCount(totalUnread);
+              }
+            },
+            error: (error) => {
+              // Silently fail - unread count will update on next page visit
+              console.error('Error reloading conversations for unread count:', error);
+            }
+          });
+        }
       }
     });
     

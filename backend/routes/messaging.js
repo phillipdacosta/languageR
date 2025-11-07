@@ -497,6 +497,52 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       messageResponse.replyTo = savedMessage.replyTo;
     }
 
+    // Get receiver user to create notification
+    const receiver = await User.findOne({ auth0Id: receiverId });
+    
+    // Create notification for receiver if they exist
+    if (receiver) {
+      try {
+        const Notification = require('../models/Notification');
+        await Notification.create({
+          userId: receiver._id,
+          type: 'message',
+          title: 'New Message',
+          message: sender ? `${sender.name} sent you a message` : 'You have a new message',
+          data: {
+            messageId: savedMessage._id.toString(),
+            conversationId: savedMessage.conversationId,
+            senderId: sender?._id?.toString(),
+            senderName: sender?.name,
+            content: savedMessage.content.substring(0, 100) // Preview first 100 chars
+          }
+        });
+        console.log('✅ Notification created for message to receiver:', receiver._id);
+      } catch (notifError) {
+        console.error('❌ Error creating notification for message:', notifError);
+      }
+    }
+
+    // Emit WebSocket notification to receiver
+    const receiverSocketId = req.connectedUsers?.get(receiverId);
+    if (receiverSocketId && req.io) {
+      req.io.to(receiverSocketId).emit('new_notification', {
+        type: 'message',
+        message: sender ? `${sender.name} sent you a message` : 'You have a new message'
+      });
+    }
+
+    // Emit WebSocket message to receiver (for real-time message display)
+    if (receiverSocketId && req.io) {
+      req.io.to(receiverSocketId).emit('new_message', messageResponse);
+    }
+
+    // Emit confirmation to sender
+    const senderSocketId = req.connectedUsers?.get(senderId);
+    if (senderSocketId && req.io) {
+      req.io.to(senderSocketId).emit('message_sent', messageResponse);
+    }
+
     res.json({
       success: true,
       message: messageResponse
