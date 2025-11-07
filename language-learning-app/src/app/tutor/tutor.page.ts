@@ -104,6 +104,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (this.showMessagingSidebar && this.tutor && 
           (message.senderId === this.tutor.auth0Id || message.receiverId === this.tutor.auth0Id)) {
+        // If we sent the message, mark as no longer sending
+        if (message.senderId === this.currentUserId) {
+          this.isSending = false;
+        }
         this.loadMessages();
       }
     });
