@@ -188,11 +188,12 @@ io.on('connection', (socket) => {
       };
 
       // Add replyTo if provided and valid (must have messageId)
-      if (replyTo && replyTo.messageId) {
+      if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
         messageData.replyTo = replyTo;
         console.log('💬 Message is a reply to:', replyTo.messageId);
       } else if (replyTo) {
         console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
+        // Don't add invalid replyTo to messageData
       }
 
       const message = new Message(messageData);
@@ -213,7 +214,7 @@ io.on('connection', (socket) => {
       };
 
       // Include replyTo in payload only if it's valid (has messageId)
-      if (savedMessage.replyTo && savedMessage.replyTo.messageId) {
+      if (savedMessage.replyTo && typeof savedMessage.replyTo === 'object' && savedMessage.replyTo.messageId) {
         messagePayload.replyTo = savedMessage.replyTo;
       }
 

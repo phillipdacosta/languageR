@@ -613,23 +613,23 @@ router.put('/availability', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/users/:tutorId/availability - Get tutor availability by tutor ID (public)
+// GET /api/users/:userId/availability - Get tutor availability by tutor ID (public)
 // NOTE: This route MUST come before /availability to avoid route conflicts
-router.get('/:tutorId/availability', async (req, res) => {
+router.get('/:userId/availability', async (req, res) => {
   try {
-    const { tutorId } = req.params;
-    console.log('📅 Fetching availability for tutor ID:', tutorId);
+    const { userId } = req.params;
+    console.log('📅 Fetching availability for tutor ID:', userId);
     
     // Validate MongoDB ObjectId format
-    if (!/^[0-9a-fA-F]{24}$/.test(tutorId)) {
-      console.log('📅 Invalid tutor ID format:', tutorId);
+    if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
+      console.log('📅 Invalid tutor ID format:', userId);
       return res.status(400).json({ message: 'Invalid tutor ID format' });
     }
     
-    const tutor = await User.findOne({ _id: tutorId, userType: 'tutor' });
+    const tutor = await User.findOne({ _id: userId, userType: 'tutor' });
     
     if (!tutor) {
-      console.log('📅 Tutor not found:', tutorId);
+      console.log('📅 Tutor not found:', userId);
       return res.status(404).json({ message: 'Tutor not found' });
     }
 
@@ -648,39 +648,64 @@ router.get('/:tutorId/availability', async (req, res) => {
   }
 });
 
-// GET /api/users/:tutorId/public - Public tutor profile summary
-router.get('/:tutorId/public', async (req, res) => {
+// GET /api/users/:userId/public - Public user profile summary (tutor or student)
+router.get('/:userId/public', async (req, res) => {
   try {
-    const { tutorId } = req.params;
-    if (!/^[0-9a-fA-F]{24}$/.test(tutorId)) {
-      return res.status(400).json({ message: 'Invalid tutor ID format' });
+    const { userId } = req.params;
+    
+    // Support both MongoDB ObjectId and auth0Id
+    let user;
+    if (/^[0-9a-fA-F]{24}$/.test(userId)) {
+      // MongoDB ObjectId
+      user = await User.findById(userId);
+    } else {
+      // Try auth0Id
+      user = await User.findOne({ auth0Id: userId });
+    }
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const tutor = await User.findOne({ _id: tutorId, userType: 'tutor' });
-    if (!tutor) {
-      return res.status(404).json({ message: 'Tutor not found' });
+    if (user.userType === 'tutor') {
+      res.json({
+        success: true,
+        tutor: {
+          id: user._id,
+          auth0Id: user.auth0Id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture,
+          languages: user.onboardingData?.languages || [],
+          hourlyRate: user.onboardingData?.hourlyRate || 25,
+          experience: user.onboardingData?.experience || '',
+          schedule: user.onboardingData?.schedule || '',
+          bio: user.onboardingData?.bio || '',
+          introductionVideo: user.onboardingData?.introductionVideo || '',
+          stats: user.stats || {},
+          profile: user.profile || {}
+        }
+      });
+    } else {
+      // Student profile
+      res.json({
+        success: true,
+        student: {
+          id: user._id,
+          auth0Id: user.auth0Id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture,
+          languagesLearning: user.onboardingData?.languages || [],
+          bio: user.onboardingData?.bio || user.profile?.bio || '',
+          experienceLevel: user.onboardingData?.experienceLevel || 'Beginner',
+          stats: user.stats || {},
+          profile: user.profile || {}
+        }
+      });
     }
-
-    res.json({
-      success: true,
-      tutor: {
-        id: tutor._id,
-        auth0Id: tutor.auth0Id,
-        name: tutor.name,
-        email: tutor.email,
-        picture: tutor.picture,
-        languages: tutor.onboardingData?.languages || [],
-        hourlyRate: tutor.onboardingData?.hourlyRate || 25,
-        experience: tutor.onboardingData?.experience || '',
-        schedule: tutor.onboardingData?.schedule || '',
-        bio: tutor.onboardingData?.bio || '',
-        introductionVideo: tutor.onboardingData?.introductionVideo || '',
-        stats: tutor.stats || {},
-        profile: tutor.profile || {}
-      }
-    });
   } catch (error) {
-    console.error('Error fetching tutor public profile:', error);
+    console.error('Error fetching user public profile:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

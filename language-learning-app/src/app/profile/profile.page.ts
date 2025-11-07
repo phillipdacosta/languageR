@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
@@ -17,6 +18,8 @@ export class ProfilePage implements OnInit {
   user$: Observable<any>;
   isAuthenticated$: Observable<boolean>;
   currentUser: User | null = null;
+  viewingUser: any = null; // User being viewed (if different from current user)
+  isViewingOtherUser = false;
   tutorIntroductionVideo = '';
   isDarkMode$: Observable<boolean>;
 
@@ -26,7 +29,9 @@ export class ProfilePage implements OnInit {
     private themeService: ThemeService,
     private fileUploadService: FileUploadService,
     private loadingController: LoadingController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -34,6 +39,22 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    // Check if viewing another user's profile
+    this.route.queryParams.subscribe(params => {
+      const userId = params['userId'];
+      if (userId) {
+        // Viewing another user's profile
+        this.isViewingOtherUser = true;
+        this.loadOtherUserProfile(userId);
+      } else {
+        // Viewing own profile
+        this.isViewingOtherUser = false;
+        this.loadCurrentUserProfile();
+      }
+    });
+  }
+
+  loadCurrentUserProfile() {
     // Get current user data from database
     this.userService.getCurrentUser().subscribe(user => {
       console.log('👤 ProfilePage: Loaded currentUser:', {
@@ -80,18 +101,51 @@ export class ProfilePage implements OnInit {
     console.log('🎨 Profile page: Current dark mode state:', this.themeService.isDarkMode());
   }
 
+  loadOtherUserProfile(userId: string) {
+    this.userService.getUserPublic(userId).subscribe({
+      next: (response) => {
+        if (response.tutor) {
+          this.viewingUser = {
+            ...response.tutor,
+            userType: 'tutor'
+          };
+        } else if (response.student) {
+          this.viewingUser = {
+            ...response.student,
+            userType: 'student'
+          };
+        }
+      },
+      error: (error) => {
+        console.error('Error loading user profile:', error);
+        // Navigate back or show error
+        this.router.navigate(['/tabs/profile']);
+      }
+    });
+  }
+
   async logout() {
     await this.authService.logout();
   }
 
-  getUserInitials(user: User | null): string {
+  getUserInitials(user: User | null | any): string {
     if (!user || !user.name) return '?';
-    return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    return user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   }
 
-  // Tutor-specific methods
+  // User type methods
   isTutor(): boolean {
-    return this.currentUser?.userType === 'tutor';
+    const user = this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+    return user?.userType === 'tutor';
+  }
+
+  isStudent(): boolean {
+    const user = this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+    return user?.userType === 'student';
+  }
+
+  getDisplayUser(): any {
+    return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
   }
 
   onVideoUploaded(videoUrl: string) {

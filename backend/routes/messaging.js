@@ -350,7 +350,7 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       };
       
       // Only include replyTo if it's valid (has messageId)
-      if (formatted.replyTo && !formatted.replyTo.messageId) {
+      if (formatted.replyTo && (typeof formatted.replyTo !== 'object' || !formatted.replyTo.messageId)) {
         delete formatted.replyTo;
       }
       
@@ -533,11 +533,12 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     };
 
     // Add replyTo if provided and valid (must have messageId)
-    if (replyTo && replyTo.messageId) {
+    if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
       messageData.replyTo = replyTo;
       console.log('💬 Message is a reply to:', replyTo.messageId);
     } else if (replyTo) {
       console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
+      // Don't add invalid replyTo to messageData
     }
 
     const message = new Message(messageData);
@@ -566,7 +567,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     };
 
     // Include replyTo in response only if it's valid (has messageId)
-    if (savedMessage.replyTo && savedMessage.replyTo.messageId) {
+    if (savedMessage.replyTo && typeof savedMessage.replyTo === 'object' && savedMessage.replyTo.messageId) {
       messageResponse.replyTo = savedMessage.replyTo;
     }
 

@@ -514,4 +514,18 @@ export class UserService {
       })
     );
   }
+
+  /**
+   * Get user public profile (tutor or student)
+   */
+  getUserPublic(userId: string): Observable<{ success: boolean; tutor?: any; student?: any }> {
+    return this.http.get<{ success: boolean; tutor?: any; student?: any }>(
+      `${this.apiUrl}/users/${userId}/public`
+    ).pipe(
+      catchError(error => {
+        console.error('👤 Error fetching user public profile:', error);
+        throw error;
+      })
+    );
+  }
 }

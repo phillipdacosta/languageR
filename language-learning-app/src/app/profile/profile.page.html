@@ -1,21 +1,24 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>Profile</ion-title>
+    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || 'Profile') : 'Profile' }}</ion-title>
+    <ion-buttons slot="start" *ngIf="isViewingOtherUser">
+      <ion-back-button defaultHref="/tabs"></ion-back-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
-      <div class="profile-container" *ngIf="currentUser">
+      <div class="profile-container" *ngIf="getDisplayUser()">
         <!-- User Profile Card -->
         <ion-card class="profile-card">
           <ion-card-content>
             <div class="profile-header">
-              <div class="avatar-container" (click)="triggerPictureUpload()">
+              <div class="avatar-container" (click)="!isViewingOtherUser && triggerPictureUpload()" [class.clickable]="!isViewingOtherUser">
                 <ion-avatar class="profile-avatar">
-                  <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture">
-                  <div class="profile-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
+                  <img [src]="getDisplayUser()?.picture" [alt]="getDisplayUser()?.name" *ngIf="getDisplayUser()?.picture">
+                  <div class="profile-initials" *ngIf="!getDisplayUser()?.picture">{{ getUserInitials(getDisplayUser()) }}</div>
                 </ion-avatar>
-                <div class="avatar-overlay">
+                <div class="avatar-overlay" *ngIf="!isViewingOtherUser">
                   <ion-icon name="camera"></ion-icon>
                   <span>Change Photo</span>
                 </div>
@@ -24,16 +27,30 @@
                   id="profile-picture-input" 
                   accept="image/*" 
                   style="display: none;"
-                  (change)="onPictureSelected($event)">
+                  (change)="onPictureSelected($event)"
+                  *ngIf="!isViewingOtherUser">
               </div>
               <div class="profile-info">
-                <h2 class="profile-name">{{ currentUser.name }}</h2>
-                <p class="profile-email">{{ currentUser.email }}</p>
-                <ion-chip *ngIf="currentUser.emailVerified" color="success">
+                <h2 class="profile-name">{{ getDisplayUser()?.name }}</h2>
+                <p class="profile-email" *ngIf="!isViewingOtherUser">{{ getDisplayUser()?.email }}</p>
+                <p class="profile-email" *ngIf="isViewingOtherUser && isTutor()">{{ getDisplayUser()?.email }}</p>
+                
+                <!-- Languages Section -->
+                <div class="languages-section" *ngIf="isTutor() && getDisplayUser()?.languages?.length">
+                  <ion-icon name="language-outline"></ion-icon>
+                  <span>{{ getDisplayUser()?.languages?.join(', ') }}</span>
+                </div>
+                
+                <div class="languages-section" *ngIf="isStudent() && getDisplayUser()?.languagesLearning?.length">
+                  <ion-icon name="school-outline"></ion-icon>
+                  <span>Learning: {{ getDisplayUser()?.languagesLearning?.join(', ') }}</span>
+                </div>
+                
+                <ion-chip *ngIf="!isViewingOtherUser && getDisplayUser()?.emailVerified" color="success">
                   <ion-icon name="checkmark-circle"></ion-icon>
                   <ion-label>Verified</ion-label>
                 </ion-chip>
-                <ion-chip *ngIf="!currentUser.emailVerified" color="warning">
+                <ion-chip *ngIf="!isViewingOtherUser && !getDisplayUser()?.emailVerified" color="warning">
                   <ion-icon name="warning"></ion-icon>
                   <ion-label>Unverified</ion-label>
                 </ion-chip>
@@ -42,70 +59,127 @@
           </ion-card-content>
         </ion-card>
 
-    <!-- User Stats -->
-    <ion-card class="stats-card">
+    <!-- User Stats - Only show for own profile -->
+    <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
-        <ion-card-title>Learning Progress</ion-card-title>
+        <ion-card-title>{{ isTutor() ? 'Teaching Stats' : 'Learning Progress' }}</ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <div class="stats-grid">
           <div class="stat-item">
             <ion-icon name="book" color="primary"></ion-icon>
             <div class="stat-info">
-              <span class="stat-number">12</span>
-              <span class="stat-label">Lessons Completed</span>
+              <span class="stat-number">{{ getDisplayUser()?.stats?.totalLessons || 0 }}</span>
+              <span class="stat-label">{{ isTutor() ? 'Lessons Taught' : 'Lessons Completed' }}</span>
             </div>
           </div>
           <div class="stat-item">
             <ion-icon name="time" color="secondary"></ion-icon>
             <div class="stat-info">
-              <span class="stat-number">24h</span>
-              <span class="stat-label">Total Study Time</span>
+              <span class="stat-number">{{ getDisplayUser()?.stats?.totalHours || 0 }}h</span>
+              <span class="stat-label">{{ isTutor() ? 'Hours Taught' : 'Total Study Time' }}</span>
             </div>
           </div>
-          <div class="stat-item">
+          <div class="stat-item" *ngIf="isTutor()">
+            <ion-icon name="star" color="warning"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-number">{{ getDisplayUser()?.stats?.rating || '5.0' }}</span>
+              <span class="stat-label">Rating</span>
+            </div>
+          </div>
+          <div class="stat-item" *ngIf="isStudent()">
             <ion-icon name="trophy" color="warning"></ion-icon>
             <div class="stat-info">
-              <span class="stat-number">5</span>
-              <span class="stat-label">Achievements</span>
-            </div>
-          </div>
-          <div class="stat-item">
-            <ion-icon name="people" color="success"></ion-icon>
-            <div class="stat-info">
-              <span class="stat-number">3</span>
-              <span class="stat-label">Active Tutors</span>
+              <span class="stat-number">{{ getDisplayUser()?.stats?.streak || 0 }}</span>
+              <span class="stat-label">Day Streak</span>
             </div>
           </div>
         </div>
       </ion-card-content>
     </ion-card>
 
-    <!-- Tutor Video Section -->
-    <ion-card class="tutor-video-card" *ngIf="isTutor()">
-      <ion-card-header>
-        <ion-card-title>Introduction Video</ion-card-title>
-        <ion-card-subtitle>Help students get to know you better</ion-card-subtitle>
-      </ion-card-header>
-      <ion-card-content>
-        <div class="video-section">
-          <p class="video-description">
-            Upload a short video introducing yourself and explaining your teaching style. 
-            This video will be shown to students when they're browsing tutors.
-          </p>
-          
-          <app-video-upload
-            [videoUrl]="tutorIntroductionVideo"
-            (videoUploaded)="onVideoUploaded($event)"
-            (videoRemoved)="onVideoRemoved()">
-          </app-video-upload>
-        </div>
-      </ion-card-content>
-    </ion-card>
+    <!-- Tutor-specific sections (only for tutors) -->
+    <ng-container *ngIf="isTutor()">
+      <!-- Tutor Video Section - Only show for own profile -->
+      <ion-card class="tutor-video-card" *ngIf="!isViewingOtherUser">
+        <ion-card-header>
+          <ion-card-title>Introduction Video</ion-card-title>
+          <ion-card-subtitle>Help students get to know you better</ion-card-subtitle>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="video-section">
+            <p class="video-description">
+              Upload a short video introducing yourself and explaining your teaching style. 
+              This video will be shown to students when they're browsing tutors.
+            </p>
+            
+            <app-video-upload
+              [videoUrl]="tutorIntroductionVideo"
+              (videoUploaded)="onVideoUploaded($event)"
+              (videoRemoved)="onVideoRemoved()">
+            </app-video-upload>
+          </div>
+        </ion-card-content>
+      </ion-card>
 
+      <!-- About Section -->
+      <ion-card class="content-card" *ngIf="getDisplayUser()?.bio">
+        <ion-card-header>
+          <ion-card-title>About Me</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>{{ getDisplayUser()?.bio }}</p>
+        </ion-card-content>
+      </ion-card>
 
-    <!-- Settings -->
-    <ion-card class="settings-card">
+      <!-- Experience Section -->
+      <ion-card class="content-card" *ngIf="getDisplayUser()?.experience">
+        <ion-card-header>
+          <ion-card-title>Experience</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>{{ getDisplayUser()?.experience }}</p>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Schedule Section -->
+      <ion-card class="content-card" *ngIf="getDisplayUser()?.schedule">
+        <ion-card-header>
+          <ion-card-title>Schedule</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>{{ getDisplayUser()?.schedule }}</p>
+        </ion-card-content>
+      </ion-card>
+    </ng-container>
+
+    <!-- Student-specific sections -->
+    <ng-container *ngIf="isStudent()">
+      <!-- About Section -->
+      <ion-card class="content-card" *ngIf="getDisplayUser()?.bio">
+        <ion-card-header>
+          <ion-card-title>About Me</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>{{ getDisplayUser()?.bio }}</p>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Experience Level -->
+      <ion-card class="content-card" *ngIf="getDisplayUser()?.experienceLevel">
+        <ion-card-header>
+          <ion-card-title>Experience Level</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-chip color="primary">
+            <ion-label>{{ getDisplayUser()?.experienceLevel }}</ion-label>
+          </ion-chip>
+        </ion-card-content>
+      </ion-card>
+    </ng-container>
+
+    <!-- Settings - Only show for own profile -->
+    <ion-card class="settings-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
         <ion-card-title>Settings</ion-card-title>
       </ion-card-header>
@@ -134,20 +208,21 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- Logout Button -->
+    <!-- Logout Button - Only show for own profile -->
     <ion-button 
       expand="block" 
       fill="outline" 
       color="danger" 
       (click)="logout()"
-      class="logout-button">
+      class="logout-button"
+      *ngIf="!isViewingOtherUser">
       <ion-icon name="log-out" slot="start"></ion-icon>
       Sign Out
     </ion-button>
   </div>
 
   <!-- Loading State -->
-  <div class="loading-container" *ngIf="!currentUser">
+  <div class="loading-container" *ngIf="!getDisplayUser()">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Loading profile...</p>
   </div>
