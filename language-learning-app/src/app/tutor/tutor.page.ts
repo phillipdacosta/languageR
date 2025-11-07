@@ -5,8 +5,11 @@ import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
-import { MessagingService } from '../services/messaging.service';
-import { filter } from 'rxjs/operators';
+import { MessagingService, Message } from '../services/messaging.service';
+import { WebSocketService } from '../services/websocket.service';
+import { AuthService } from '../services/auth.service';
+import { filter, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-tutor-page',
@@ -21,11 +24,21 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   isLoading = true;
   showVideo = false;
   @ViewChild('introVideo', { static: false }) introVideoRef?: ElementRef<HTMLVideoElement>;
+  @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef?: ElementRef<HTMLDivElement>;
   showOverlay = true;
   cameFromModal = false;
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
+  
+  // Messaging sidebar
+  showMessagingSidebar = false;
+  messages: Message[] = [];
+  newMessage = '';
+  isLoadingMessages = false;
+  isSending = false;
+  currentUserId = '';
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
@@ -34,7 +47,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private modalController: ModalController,
     private platform: Platform,
     private location: Location,
-    private messagingService: MessagingService
+    private messagingService: MessagingService,
+    private websocketService: WebSocketService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {
@@ -75,6 +90,22 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.cameFromModal) {
       this.setupBackButtonHandler();
     }
+    
+    // Get current user ID for messaging
+    this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      this.currentUserId = user?.email || '';
+    });
+    
+    // Connect to WebSocket for real-time messaging
+    this.websocketService.connect();
+    
+    // Listen for new messages
+    this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
+      if (this.showMessagingSidebar && this.tutor && 
+          (message.senderId === this.tutor.auth0Id || message.receiverId === this.tutor.auth0Id)) {
+        this.loadMessages();
+      }
+    });
   }
   
   private setupBackButtonHandler() {
@@ -139,6 +170,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+    
+    // Clean up messaging subscriptions
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   toggleIntroVideo() {
@@ -180,14 +215,123 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   async messageTutor() {
     if (!this.tutor) return;
     
-    console.log('📤 Tutor page: messageTutor called');
-    console.log('📤 Current tutor object:', this.tutor);
-    console.log('📤 Tutor ID:', this.tutorId);
+    // Open messaging sidebar instead of navigating
+    this.showMessagingSidebar = true;
+    this.loadMessages();
     
-    // Navigate to messages page with the tutor's MongoDB _id (tutorId from route)
-    // The messages page will handle fetching the tutor and creating/opening the conversation
-    await this.router.navigate(['/tabs/messages'], {
-      queryParams: { tutorId: this.tutorId }
+    // Scroll to bottom after a short delay to ensure messages are loaded
+    setTimeout(() => {
+      this.scrollToBottom();
+    }, 300);
+  }
+  
+  toggleMessagingSidebar() {
+    this.showMessagingSidebar = !this.showMessagingSidebar;
+    if (this.showMessagingSidebar) {
+      this.loadMessages();
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, 300);
+    }
+  }
+  
+  loadMessages() {
+    if (!this.tutor?.auth0Id) return;
+    
+    this.isLoadingMessages = true;
+    this.messagingService.getMessages(this.tutor.auth0Id).subscribe({
+      next: (response) => {
+        this.messages = response.messages;
+        this.isLoadingMessages = false;
+        this.scrollToBottom();
+      },
+      error: (error) => {
+        console.error('Error loading messages:', error);
+        this.isLoadingMessages = false;
+        // If error is 404 (no messages yet), that's fine for new conversations
+        if (error.status === 404) {
+          this.messages = [];
+        }
+      }
     });
+  }
+  
+  sendMessage() {
+    if (!this.newMessage.trim() || !this.tutor?.auth0Id || this.isSending) {
+      return;
+    }
+
+    const content = this.newMessage.trim();
+    const messageContent = content;
+    this.newMessage = '';
+    this.isSending = true;
+
+    const receiverId = this.tutor.auth0Id;
+    
+    // Try WebSocket first (preferred for real-time)
+    if (this.websocketService.getConnectionStatus()) {
+      this.websocketService.sendMessage(receiverId, messageContent, 'text');
+      
+      // Set a timeout to fallback to HTTP if WebSocket doesn't respond
+      setTimeout(() => {
+        if (this.isSending) {
+          // WebSocket didn't respond, use HTTP fallback
+          this.sendMessageViaHTTP(messageContent);
+        }
+      }, 2000);
+    } else {
+      // WebSocket not connected, use HTTP
+      this.sendMessageViaHTTP(messageContent);
+    }
+  }
+  
+  private sendMessageViaHTTP(content: string) {
+    if (!this.tutor?.auth0Id) {
+      console.error('❌ Cannot send message: no tutor auth0Id');
+      this.isSending = false;
+      return;
+    }
+
+    this.messagingService.sendMessage(this.tutor.auth0Id, content).subscribe({
+      next: () => {
+        this.isSending = false;
+        this.loadMessages(); // Reload to get the new message
+      },
+      error: (error) => {
+        console.error('Error sending message:', error);
+        this.isSending = false;
+      }
+    });
+  }
+  
+  scrollToBottom() {
+    setTimeout(() => {
+      if (this.chatMessagesRef?.nativeElement) {
+        const container = this.chatMessagesRef.nativeElement;
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 100);
+  }
+  
+  isMyMessage(message: Message): boolean {
+    return message.senderId === this.currentUserId;
+  }
+  
+  formatTime(timestamp: string): string {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString();
   }
 }

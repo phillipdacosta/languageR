@@ -169,4 +169,65 @@
       <ion-spinner name="crescent"></ion-spinner>
     </div>
   </ng-template>
+  
+  <!-- Messaging Sidebar -->
+  <div class="messaging-sidebar" *ngIf="showMessagingSidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-header-info">
+        <ion-avatar class="sidebar-avatar">
+          <img [src]="tutor?.picture" *ngIf="tutor?.picture" />
+          <div class="avatar-fallback" *ngIf="!tutor?.picture">
+            {{ getInitials(tutor?.name || '') }}
+          </div>
+        </ion-avatar>
+        <div class="sidebar-user-info">
+          <h3>{{ tutor?.name || 'Tutor' }}</h3>
+          <p *ngIf="tutor?.languages && tutor.languages.length" class="user-status">
+            <ion-icon name="language-outline"></ion-icon>
+            {{ tutor.languages.join(', ') }}
+          </p>
+        </div>
+      </div>
+      <ion-button (click)="toggleMessagingSidebar()" size="small" fill="clear">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </div>
+    
+    <div class="sidebar-messages" #chatMessagesContainer>
+      <div *ngIf="isLoadingMessages" class="loading-container">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading messages...</p>
+      </div>
+      
+      <div *ngIf="!isLoadingMessages && messages.length === 0" class="empty-state">
+        <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
+        <p>No messages yet</p>
+        <p class="empty-hint">Start the conversation!</p>
+      </div>
+      
+      <div *ngFor="let message of messages" class="sidebar-message" [class.own-message]="isMyMessage(message)">
+        <div class="message-avatar">
+          <span>{{ isMyMessage(message) ? 'You' : (tutor?.name?.charAt(0) || '?') }}</span>
+        </div>
+        <div class="message-content">
+          <span class="sender-name">{{ isMyMessage(message) ? 'You' : (tutor?.name || 'Tutor') }}</span>
+          <p class="message-text">{{ message.content }}</p>
+          <span class="message-time">{{ formatTime(message.createdAt) }}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="sidebar-input">
+      <ion-input 
+        [(ngModel)]="newMessage" 
+        placeholder="Write your message..."
+        (keyup.enter)="sendMessage()"
+        [disabled]="isSending"
+        class="message-input">
+      </ion-input>
+      <ion-button (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending" class="send-button" fill="solid">
+        <ion-icon name="send"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
 </ion-content>
