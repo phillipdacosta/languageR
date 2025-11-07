@@ -149,15 +149,15 @@
         }
       }
       
-      // Messages button with unread indicator
-      .notification-dot {
+      // Messages button notification dot - positioned closer to icon
+      .message-notification-dot {
         position: absolute !important;
         width: 10px !important;
         height: 10px !important;
         background-color: #ff3b30 !important;
         border-radius: 50% !important;
-        top: 6px !important;
-        right: 8px !important;
+        top: 4px !important;
+        right: 6px !important;
         border: 2px solid white !important;
         box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
         z-index: 9999 !important;
@@ -412,9 +412,27 @@
         z-index: 10;
       }
 
-      // Notification dot for mobile tab
+      // Message tab notification dot - positioned very close to icon
+      .message-tab-notification-dot {
+        position: absolute !important;
+        width: 10px !important;
+        height: 10px !important;
+        background-color: #ff3b30 !important;
+        border-radius: 50% !important;
+        top: 2px !important;
+        right: 2px !important;
+        border: 2px solid white !important;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+        z-index: 9999 !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: none !important;
+      }
+      
+      // Generic tab notification dot (for other uses)
       .notification-dot.tab-notification-dot,
-      .tab-notification-dot {
+      .tab-notification-dot:not(.message-tab-notification-dot) {
         position: absolute !important;
         width: 10px !important;
         height: 10px !important;
@@ -444,8 +462,27 @@
         position: relative !important;
       }
       
-      .notification-dot.tab-notification-dot,
-      .tab-notification-dot {
+      // Message tab notification dot - positioned very close to icon (desktop)
+      .message-tab-notification-dot {
+        position: absolute !important;
+        width: 10px !important;
+        height: 10px !important;
+        background-color: #ff3b30 !important;
+        border-radius: 50% !important;
+        top: 2px !important;
+        right: 2px !important;
+        border: 2px solid white !important;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+        z-index: 9999 !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: none !important;
+      }
+      
+      // Generic tab notification dot (for other uses)
+      .notification-dot.tab-notification-dot:not(.message-tab-notification-dot),
+      .tab-notification-dot:not(.message-tab-notification-dot) {
         position: absolute !important;
         width: 10px !important;
         height: 10px !important;
@@ -465,12 +502,31 @@
   }
 }
 
-// Global styles for tab notification dot (fallback)
+// Global styles for tab notification dots (fallback)
 ion-tab-button {
   position: relative !important;
   
-  .notification-dot.tab-notification-dot,
-  .tab-notification-dot {
+  // Message tab notification dot - very close to icon
+  .message-tab-notification-dot {
+    position: absolute !important;
+    width: 10px !important;
+    height: 10px !important;
+    background-color: #ff3b30 !important;
+    border-radius: 50% !important;
+    top: 2px !important;
+    right: 2px !important;
+    border: 2px solid white !important;
+    box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+    z-index: 9999 !important;
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+  }
+  
+  // Generic tab notification dot
+  .notification-dot.tab-notification-dot:not(.message-tab-notification-dot),
+  .tab-notification-dot:not(.message-tab-notification-dot) {
     position: absolute !important;
     width: 10px !important;
     height: 10px !important;

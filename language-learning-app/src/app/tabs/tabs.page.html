@@ -27,7 +27,7 @@
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/messages')" (click)="navigateTo('/tabs/messages')">
           <ion-icon name="chatbubbles"></ion-icon>
           <span>Messages</span>
-          <span class="notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
+          <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
@@ -166,8 +166,8 @@
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
       <ion-label>Messages</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 
-            class="notification-dot tab-notification-dot"
-            style="position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
+            class="notification-dot message-tab-notification-dot"
+            style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
     </ion-tab-button>
 
     <ion-tab-button tab="progress" href="/tabs/progress">
