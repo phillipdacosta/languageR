@@ -675,6 +675,44 @@
   }
 }
 
+// Voice note preview
+.voice-preview {
+  background: rgba(25, 118, 210, 0.08);
+  border: 1px solid rgba(25, 118, 210, 0.15);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  audio {
+    width: 100%;
+  }
+
+  .voice-preview-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #1976d2;
+
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+
+  .voice-preview-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    ion-button {
+      margin: 0;
+    }
+  }
+}
+
 // Adjust styles for received messages
 .message-bubble.received {
   .reply-to-preview {

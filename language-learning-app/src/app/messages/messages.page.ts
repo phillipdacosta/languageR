@@ -49,6 +49,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   private conversationReloadTimeout: any;
   private messagesSubscription?: Subscription;
   private messageLoadRequestId = 0;
+  pendingVoiceNote: { file: File; url: string; duration: number } | null = null;
  
   // Platform detection
   isDesktop = false;
@@ -360,10 +361,13 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
     if (this.messageSendTimeout) {
       clearTimeout(this.messageSendTimeout);
+      this.messageSendTimeout = null;
     }
     if (this.conversationReloadTimeout) {
       clearTimeout(this.conversationReloadTimeout);
+      this.conversationReloadTimeout = null;
     }
+    this.clearPendingVoiceNote(false);
   }
 
   // Debounced conversation reload to prevent rapid flashing
@@ -488,6 +492,9 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
     const requestId = ++this.messageLoadRequestId;
     
+    // Clear any pending voice note preview
+    this.clearPendingVoiceNote();
+
     // CRITICAL: Clear old messages and set loading state SYNCHRONOUSLY
     // This must happen before any async operations to prevent flash
     this.messages = [];
@@ -1080,6 +1087,7 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (this.isRecording) {
       this.stopRecording();
     } else {
+      this.clearPendingVoiceNote();
       await this.startRecording();
     }
   }
@@ -1102,12 +1110,13 @@ export class MessagesPage implements OnInit, OnDestroy {
       this.mediaRecorder.onstop = () => {
         const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
-        
-        // Upload the voice note
-        this.uploadFile(audioFile, 'voice');
-        
+
+        this.setPendingVoiceNote(audioFile, this.recordingDuration);
+
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
+        this.recordingDuration = 0;
+        this.cdr.detectChanges();
       };
       
       this.mediaRecorder.start();
@@ -1345,5 +1354,38 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (messageId) {
       this.scrollToMessageById(messageId, event);
     }
+  }
+
+  private setPendingVoiceNote(file: File, duration: number) {
+    this.clearPendingVoiceNote(false);
+    const url = URL.createObjectURL(file);
+    this.pendingVoiceNote = {
+      file,
+      url,
+      duration
+    };
+  }
+
+  clearPendingVoiceNote(triggerChange: boolean = true) {
+    if (this.pendingVoiceNote) {
+      URL.revokeObjectURL(this.pendingVoiceNote.url);
+      this.pendingVoiceNote = null;
+      if (triggerChange) {
+        this.cdr.detectChanges();
+      }
+    }
+  }
+
+  sendPendingVoiceNote() {
+    if (!this.pendingVoiceNote || !this.selectedConversation?.otherUser || this.isUploading) {
+      return;
+    }
+
+    const voiceNote = this.pendingVoiceNote;
+    this.pendingVoiceNote = null;
+    URL.revokeObjectURL(voiceNote.url);
+    this.cdr.detectChanges();
+
+    this.uploadFile(voiceNote.file, 'voice');
   }
 }

@@ -237,6 +237,25 @@
           </button>
         </div>
 
+        <!-- Pending Voice Note Preview -->
+        <div *ngIf="pendingVoiceNote" class="voice-preview">
+          <div class="voice-preview-header">
+            <ion-icon name="mic-circle"></ion-icon>
+            <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+          </div>
+          <audio [src]="pendingVoiceNote.url" controls></audio>
+          <div class="voice-preview-actions">
+            <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
+              <ion-icon slot="start" name="trash-outline"></ion-icon>
+              Discard
+            </ion-button>
+            <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
+              <ion-icon slot="start" name="send"></ion-icon>
+              Send
+            </ion-button>
+          </div>
+        </div>
+
         <!-- Message Input -->
         <div class="message-input-container">
           <!-- Hidden file inputs -->
@@ -492,6 +511,25 @@
           </button>
         </div>
 
+        <!-- Pending Voice Note Preview (Mobile) -->
+        <div *ngIf="pendingVoiceNote" class="voice-preview">
+          <div class="voice-preview-header">
+            <ion-icon name="mic-circle"></ion-icon>
+            <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+          </div>
+          <audio [src]="pendingVoiceNote.url" controls></audio>
+          <div class="voice-preview-actions">
+            <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
+              <ion-icon slot="start" name="trash-outline"></ion-icon>
+              Discard
+            </ion-button>
+            <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
+              <ion-icon slot="start" name="send"></ion-icon>
+              Send
+            </ion-button>
+          </div>
+        </div>
+ 
         <div class="message-input-container">
           <!-- Hidden file inputs -->
           <input type="file" #imageInputMobile accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
