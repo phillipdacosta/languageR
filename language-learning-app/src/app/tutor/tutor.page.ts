@@ -275,18 +275,22 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     
-    console.log('💬 Loading messages for tutor:', {
+    const receiverId = this.tutor.auth0Id;
+    if (!receiverId) {
+      console.error('❌ Cannot load messages: no auth0Id in tutor');
+      this.isLoadingMessages = false;
+      return;
+    }
+    
+    console.log('💬 Loading messages for tutor (same as messages page):', {
       tutorId: this.tutorId,
-      auth0Id: this.tutor.auth0Id,
-      name: this.tutor.name,
-      currentUserId: this.currentUserId,
-      tutorEmail: this.tutor.email
+      auth0Id: receiverId,
+      name: this.tutor.name
     });
     
-    // The backend expects the otherUserId to be the auth0Id
-    // It will create conversationId by sorting: [currentUser.sub, otherUserId].sort()
+    // Use exact same approach as messages page
     this.isLoadingMessages = true;
-    this.messagingService.getMessages(this.tutor.auth0Id).subscribe({
+    this.messagingService.getMessages(receiverId).subscribe({
       next: (response) => {
         console.log('✅ Messages loaded successfully:', {
           count: response.messages?.length || 0,
