@@ -523,25 +523,42 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       }
     }
 
-    // Emit WebSocket notification to receiver
-    const receiverSocketId = req.connectedUsers?.get(receiverId);
-    if (receiverSocketId && req.io) {
-      req.io.to(receiverSocketId).emit('new_notification', {
-        type: 'message',
-        message: sender ? `${sender.name} sent you a message` : 'You have a new message'
-      });
-    }
-
     // Emit WebSocket message to receiver (for real-time message display)
+    const receiverSocketId = req.connectedUsers?.get(receiverId);
+    console.log('📤 Checking WebSocket for message:', {
+      receiverId,
+      receiverSocketId,
+      hasIo: !!req.io,
+      hasConnectedUsers: !!req.connectedUsers,
+      connectedUsersCount: req.connectedUsers?.size || 0
+    });
+    
     if (receiverSocketId && req.io) {
+      console.log('✅ Emitting new_message to receiver:', receiverId, 'socket:', receiverSocketId);
       req.io.to(receiverSocketId).emit('new_message', messageResponse);
+    } else {
+      console.log('⚠️ Receiver not online or WebSocket not available:', {
+        receiverId,
+        receiverSocketId,
+        hasIo: !!req.io
+      });
     }
 
     // Emit confirmation to sender
     const senderSocketId = req.connectedUsers?.get(senderId);
     if (senderSocketId && req.io) {
+      console.log('✅ Emitting message_sent to sender:', senderId, 'socket:', senderSocketId);
       req.io.to(senderSocketId).emit('message_sent', messageResponse);
     }
+
+    // Emit WebSocket notification to receiver (for notification dropdown - but user said messages shouldn't appear there)
+    // Commenting this out since user said messages should not appear in notification dropdown
+    // if (receiverSocketId && req.io) {
+    //   req.io.to(receiverSocketId).emit('new_notification', {
+    //     type: 'message',
+    //     message: sender ? `${sender.name} sent you a message` : 'You have a new message'
+    //   });
+    // }
 
     res.json({
       success: true,

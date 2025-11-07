@@ -62,14 +62,29 @@ export class WebSocketService {
     // Remove any existing listeners first to prevent duplicates
     this.socket.off('lesson_participant_joined');
     this.socket.off('lesson_participant_left');
+    this.socket.off('new_message');
+    this.socket.off('message_sent');
+    this.socket.off('user_typing');
+    this.socket.off('message_error');
+    this.socket.off('new_notification');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
+      console.log('📨 WebSocket received new_message:', {
+        id: message.id,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        content: message.content?.substring(0, 50)
+      });
       this.newMessageSubject.next(message);
     });
 
     // Listen for message sent confirmation (outgoing)
     this.socket.on('message_sent', (message: Message) => {
+      console.log('📤 WebSocket received message_sent confirmation:', {
+        id: message.id,
+        senderId: message.senderId
+      });
       this.newMessageSubject.next(message);
     });
 
@@ -80,7 +95,7 @@ export class WebSocketService {
 
     // Listen for message errors
     this.socket.on('message_error', (error: any) => {
-      console.error('WebSocket message error:', error);
+      console.error('❌ WebSocket message error:', error);
     });
 
     // Listen for lesson presence events
@@ -95,6 +110,7 @@ export class WebSocketService {
 
     // Listen for new notifications
     this.socket.on('new_notification', (data: any) => {
+      console.log('🔔 WebSocket received new_notification:', data);
       this.newNotificationSubject.next(data);
     });
 

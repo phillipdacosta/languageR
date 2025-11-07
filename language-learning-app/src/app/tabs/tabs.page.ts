@@ -108,16 +108,30 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.websocketService.newMessage$.pipe(
       takeUntil(this.destroy$)
     ).subscribe((message) => {
+      console.log('📨 Tabs page received WebSocket message:', {
+        messageId: message.id,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        content: message.content?.substring(0, 50)
+      });
+      
       // When a new message arrives, reload conversations to update unread count
-        // Only reload if user is authenticated and it's not our own message
-        if (this.currentUser) {
-          const currentUserId = this.currentUser['auth0Id'] || `dev-user-${this.currentUser.email}`;
-          const isMyMessage = message.senderId === currentUserId || 
-                             message.senderId === currentUserId.replace('dev-user-', '') ||
-                             `dev-user-${message.senderId}` === currentUserId;
+      // Only reload if user is authenticated and it's not our own message
+      if (this.currentUser) {
+        const currentUserId = this.currentUser['auth0Id'] || `dev-user-${this.currentUser.email}`;
+        const isMyMessage = message.senderId === currentUserId || 
+                           message.senderId === currentUserId.replace('dev-user-', '') ||
+                           `dev-user-${message.senderId}` === currentUserId;
+        
+        console.log('📊 Message ownership check:', {
+          currentUserId,
+          messageSenderId: message.senderId,
+          isMyMessage
+        });
         
         // Only reload if it's an incoming message (not sent by us)
         if (!isMyMessage) {
+          console.log('🔄 Reloading conversations to update unread count...');
           // Reload conversations to update unread count
           this.messagingService.getConversations().pipe(
             takeUntil(this.destroy$)
@@ -125,15 +139,19 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
             next: (response) => {
               if (response.success) {
                 const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+                console.log('✅ Updated unread count:', totalUnread, 'conversations:', response.conversations.length);
                 this.messagingService.updateUnreadCount(totalUnread);
               }
             },
             error: (error) => {
-              // Silently fail - unread count will update on next page visit
-              console.error('Error reloading conversations for unread count:', error);
+              console.error('❌ Error reloading conversations for unread count:', error);
             }
           });
+        } else {
+          console.log('ℹ️ Message was sent by current user, skipping unread count update');
         }
+      } else {
+        console.log('⚠️ Current user not available, skipping unread count update');
       }
     });
     
