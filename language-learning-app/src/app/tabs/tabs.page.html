@@ -27,7 +27,7 @@
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/messages')" (click)="navigateTo('/tabs/messages')">
           <ion-icon name="chatbubbles"></ion-icon>
           <span>Messages</span>
-          <div *ngIf="(unreadCount$ | async)! > 0" class="notification-dot"></div>
+          <span class="notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
