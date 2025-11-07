@@ -184,26 +184,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     console.log('📤 Current tutor object:', this.tutor);
     console.log('📤 Tutor ID:', this.tutorId);
     
-    // Get the tutor's auth0Id from the user service
-    this.userService.getTutorPublic(this.tutorId).subscribe({
-      next: async (res) => {
-        const tutor = res.tutor;
-        console.log('📤 Fetched tutor from API:', tutor);
-        console.log('📤 Using tutorId for messaging:', tutor.auth0Id || tutor.id);
-        
-        // Navigate to messages page with the tutor's auth0Id as a query param
-        await this.router.navigate(['/tabs/messages'], {
-          queryParams: { tutorId: tutor.auth0Id || tutor.id }
-        });
-      },
-      error: (error) => {
-        console.error('❌ Error getting tutor info:', error);
-        // Fallback: try to navigate with the tutor ID we have
-        console.log('⚠️ Fallback: using tutorId:', this.tutorId);
-        this.router.navigate(['/tabs/messages'], {
-          queryParams: { tutorId: this.tutorId }
-        });
-      }
+    // Navigate to messages page with the tutor's MongoDB _id (tutorId from route)
+    // The messages page will handle fetching the tutor and creating/opening the conversation
+    await this.router.navigate(['/tabs/messages'], {
+      queryParams: { tutorId: this.tutorId }
     });
   }
 }

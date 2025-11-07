@@ -262,26 +262,38 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   private openConversationWithTutor(tutorId: string) {
+    console.log('💬 Opening conversation with tutor:', tutorId);
+    
     // First, ensure conversations are loaded
     this.messagingService.getConversations().subscribe({
       next: (response) => {
         this.conversations = response.conversations;
         
-        // Find conversation with this tutor
-        const conversation = this.conversations.find(
-          conv => conv.otherUser?.auth0Id === tutorId || conv.otherUser?.id === tutorId
-        );
+        // Fetch tutor info first to get both MongoDB _id and auth0Id
+        this.userService.getTutorPublic(tutorId).subscribe({
+          next: (tutorRes) => {
+            const tutor = tutorRes.tutor;
+            console.log('💬 Fetched tutor info:', {
+              id: tutor.id,
+              auth0Id: tutor.auth0Id,
+              name: tutor.name
+            });
+            
+            // Find conversation with this tutor by matching both id and auth0Id
+            const conversation = this.conversations.find(
+              conv => conv.otherUser?.auth0Id === tutor.auth0Id || 
+                      conv.otherUser?.id === tutor.id ||
+                      conv.otherUser?.id === tutorId ||
+                      conv.otherUser?.auth0Id === tutorId
+            );
 
-        if (conversation) {
-          // Conversation exists, select it
-          this.selectConversation(conversation);
-        } else {
-          // No conversation exists yet - we need to create a placeholder
-          // Fetch tutor info to create a conversation entry
-          this.userService.getTutorPublic(tutorId).subscribe({
-            next: (tutorRes) => {
-              const tutor = tutorRes.tutor;
-              // Create a placeholder conversation object with tutor details
+            if (conversation) {
+              // Conversation exists, select it
+              console.log('💬 Found existing conversation, selecting it');
+              this.selectConversation(conversation);
+            } else {
+              // No conversation exists yet - create a placeholder
+              console.log('💬 No existing conversation, creating placeholder');
               const placeholderConversation: Conversation = {
                 conversationId: '', // Will be created when first message is sent
                 otherUser: {
@@ -308,22 +320,24 @@ export class MessagesPage implements OnInit, OnDestroy {
               // Select this placeholder conversation
               this.selectedConversation = placeholderConversation;
               this.messages = [];
+              this.isLoadingMessages = false; // Don't show loading for new conversations
               
-              // On desktop, scroll to show the conversation
-              if (this.isDesktop) {
-                setTimeout(() => {
-                  this.scrollToBottom();
-                }, 100);
-              }
-            },
-            error: (error) => {
-              console.error('Error fetching tutor info:', error);
+              // Focus the message input
+              setTimeout(() => {
+                if (this.messageInput) {
+                  this.messageInput.setFocus();
+                }
+                this.scrollToBottom();
+              }, 100);
             }
-          });
-        }
+          },
+          error: (error) => {
+            console.error('❌ Error fetching tutor info:', error);
+          }
+        });
       },
       error: (error) => {
-        console.error('Error loading conversations:', error);
+        console.error('❌ Error loading conversations:', error);
       }
     });
   }
@@ -483,8 +497,22 @@ export class MessagesPage implements OnInit, OnDestroy {
   loadMessages() {
     if (!this.selectedConversation?.otherUser) return;
     
+    // If this is a placeholder conversation (no conversationId), don't try to load messages
+    if (!this.selectedConversation.conversationId) {
+      this.messages = [];
+      this.isLoadingMessages = false;
+      return;
+    }
+    
     this.isLoadingMessages = true;
-    this.messagingService.getMessages(this.selectedConversation.otherUser.auth0Id).subscribe({
+    const receiverId = this.selectedConversation.otherUser.auth0Id;
+    if (!receiverId) {
+      console.error('❌ Cannot load messages: no auth0Id in otherUser');
+      this.isLoadingMessages = false;
+      return;
+    }
+    
+    this.messagingService.getMessages(receiverId).subscribe({
       next: (response) => {
         this.messages = response.messages;
         this.isLoadingMessages = false;
@@ -493,6 +521,10 @@ export class MessagesPage implements OnInit, OnDestroy {
       error: (error) => {
         console.error('Error loading messages:', error);
         this.isLoadingMessages = false;
+        // If error is 404 (no messages yet), that's fine for new conversations
+        if (error.status === 404) {
+          this.messages = [];
+        }
       }
     });
   }
