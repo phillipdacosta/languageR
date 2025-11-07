@@ -63,7 +63,32 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.userService.getCurrentUser()
         .pipe(takeUntil(this.destroy$))
         .subscribe((user: any) => {
+          console.log('👤 TabsPage: Loaded currentUser:', {
+            id: user?.id,
+            name: user?.name,
+            email: user?.email,
+            picture: user?.picture,
+            hasPicture: !!user?.picture
+          });
           this.currentUser = user;
+          
+          // If user doesn't have a picture but Auth0 user does, reload after a short delay
+          // This ensures the picture sync from Auth0 has completed
+          if (!user?.picture && user?.email) {
+            console.log('🔄 TabsPage: User has no picture, reloading after sync delay...');
+            setTimeout(() => {
+              this.userService.getCurrentUser()
+                .pipe(takeUntil(this.destroy$))
+                .subscribe((updatedUser: any) => {
+                  console.log('👤 TabsPage: Reloaded user after sync:', {
+                    picture: updatedUser?.picture,
+                    hasPicture: !!updatedUser?.picture
+                  });
+                  this.currentUser = updatedUser;
+                  this.cdr.detectChanges();
+                });
+            }, 1000);
+          }
           
           // Load unread count once user is authenticated (important for page refresh)
           this.loadUnreadCount();

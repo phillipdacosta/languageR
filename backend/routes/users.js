@@ -43,6 +43,14 @@ router.get('/me', verifyToken, async (req, res) => {
     
     // Sync picture from Auth0 if it's different (handles Google profile picture updates)
     const auth0Picture = req.user.picture || req.user.picture_url || null;
+    console.log('🖼️ Checking picture sync:', {
+      auth0Picture,
+      dbPicture: user.picture,
+      hasAuth0Picture: !!auth0Picture,
+      hasDbPicture: !!user.picture,
+      areDifferent: auth0Picture !== user.picture
+    });
+    
     if (auth0Picture && auth0Picture !== user.picture) {
       console.log('🖼️ Picture changed in Auth0, updating database:', {
         old: user.picture,
@@ -50,6 +58,13 @@ router.get('/me', verifyToken, async (req, res) => {
       });
       user.picture = auth0Picture;
       await user.save();
+      console.log('✅ Picture updated in database');
+    } else if (auth0Picture && !user.picture) {
+      // If Auth0 has a picture but database doesn't, sync it
+      console.log('🖼️ Auth0 has picture but database doesn\'t, syncing...');
+      user.picture = auth0Picture;
+      await user.save();
+      console.log('✅ Picture synced to database');
     }
     
     // Also sync name and emailVerified if they changed

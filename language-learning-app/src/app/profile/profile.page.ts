@@ -34,7 +34,30 @@ export class ProfilePage implements OnInit {
   ngOnInit() {
     // Get current user data from database
     this.userService.getCurrentUser().subscribe(user => {
+      console.log('👤 ProfilePage: Loaded currentUser:', {
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        picture: user?.picture,
+        hasPicture: !!user?.picture
+      });
       this.currentUser = user;
+      
+      // If user doesn't have a picture but Auth0 user does, reload after a short delay
+      // This ensures the picture sync from Auth0 has completed
+      if (!user?.picture && user?.email) {
+        console.log('🔄 ProfilePage: User has no picture, reloading after sync delay...');
+        setTimeout(() => {
+          this.userService.getCurrentUser().subscribe((updatedUser: any) => {
+            console.log('👤 ProfilePage: Reloaded user after sync:', {
+              picture: updatedUser?.picture,
+              hasPicture: !!updatedUser?.picture
+            });
+            this.currentUser = updatedUser;
+          });
+        }, 1000);
+      }
+      
       if (user?.userType === 'tutor' && (user.onboardingData as any)?.introductionVideo) {
         this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
       }
