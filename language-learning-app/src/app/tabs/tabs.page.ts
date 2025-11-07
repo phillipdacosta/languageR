@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
@@ -52,7 +52,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private userService: UserService,
     private messagingService: MessagingService,
     private notificationService: NotificationService,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
     this.user$.subscribe(user => {
@@ -99,12 +100,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe({
       next: (count) => {
-        console.log('🔴 Unread count changed in tabs page:', count);
+        console.log('🔴 Unread count changed in tabs page:', count, 'Previous value:', this.unreadCount$.value);
         this.unreadCount$.next(count);
-        // Force change detection
-        if (typeof ngZone !== 'undefined') {
-          // This will be handled by Angular's change detection
-        }
+        // Force change detection to ensure UI updates
+        this.cdr.detectChanges();
       }
     });
 
@@ -150,6 +149,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
                 // Also directly update our observable to ensure it updates
                 this.unreadCount$.next(totalUnread);
                 console.log('🔴 Directly set unreadCount$ to:', totalUnread, 'Current value:', this.unreadCount$.value);
+                // Force change detection
+                this.cdr.detectChanges();
               }
             },
             error: (error) => {
