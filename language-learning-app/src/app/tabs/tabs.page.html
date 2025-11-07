@@ -165,7 +165,7 @@
     <ion-tab-button tab="messages" href="/tabs/messages">
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
       <ion-label>Messages</ion-label>
-      <div *ngIf="(unreadCount$ | async)! > 0" class="notification-dot tab-notification-dot"></div>
+      <span *ngIf="(unreadCount$ | async)! > 0" class="notification-dot tab-notification-dot"></span>
     </ion-tab-button>
 
     <ion-tab-button tab="progress" href="/tabs/progress">
