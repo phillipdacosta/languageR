@@ -395,13 +395,41 @@
         position: absolute;
         width: 8px;
         height: 8px;
-        background-color: #ff3b30;
+        background-color: #ff3b30 !important;
         border-radius: 50%;
         top: 6px;
         right: 12px;
         border: 2px solid white;
         box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
         z-index: 999;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+    }
+  }
+}
+
+// Desktop tab notification dot
+.platform-web {
+  ion-tab-bar {
+    ion-tab-button {
+      position: relative;
+      
+      .tab-notification-dot {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background-color: #ff3b30 !important;
+        border-radius: 50%;
+        top: 8px;
+        right: 8px;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+        z-index: 999;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
       }
     }
   }

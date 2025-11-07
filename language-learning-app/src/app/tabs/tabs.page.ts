@@ -99,7 +99,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe({
       next: (count) => {
+        console.log('🔴 Unread count changed in tabs page:', count);
         this.unreadCount$.next(count);
+        // Force change detection
+        if (typeof ngZone !== 'undefined') {
+          // This will be handled by Angular's change detection
+        }
       }
     });
 
@@ -140,7 +145,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
               if (response.success) {
                 const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
                 console.log('✅ Updated unread count:', totalUnread, 'conversations:', response.conversations.length);
+                console.log('🔴 Calling messagingService.updateUnreadCount with:', totalUnread);
                 this.messagingService.updateUnreadCount(totalUnread);
+                // Also directly update our observable to ensure it updates
+                this.unreadCount$.next(totalUnread);
+                console.log('🔴 Directly set unreadCount$ to:', totalUnread, 'Current value:', this.unreadCount$.value);
               }
             },
             error: (error) => {
