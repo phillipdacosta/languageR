@@ -187,10 +187,12 @@ io.on('connection', (socket) => {
         type
       };
 
-      // Add replyTo if provided
-      if (replyTo) {
+      // Add replyTo if provided and valid (must have messageId)
+      if (replyTo && replyTo.messageId) {
         messageData.replyTo = replyTo;
         console.log('💬 Message is a reply to:', replyTo.messageId);
+      } else if (replyTo) {
+        console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
       }
 
       const message = new Message(messageData);
@@ -210,8 +212,8 @@ io.on('connection', (socket) => {
         createdAt: savedMessage.createdAt
       };
 
-      // Include replyTo in payload if present
-      if (savedMessage.replyTo) {
+      // Include replyTo in payload only if it's valid (has messageId)
+      if (savedMessage.replyTo && savedMessage.replyTo.messageId) {
         messagePayload.replyTo = savedMessage.replyTo;
       }
 

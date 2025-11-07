@@ -341,12 +341,21 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       console.log(`📖 Marked ${updateResult.modifiedCount} messages as read`);
     }
 
-    // Map _id to id for frontend compatibility
-    const formattedMessages = messages.map(msg => ({
-      ...msg,
-      id: msg._id.toString(),
-      _id: undefined // Remove _id to avoid confusion
-    }));
+    // Map _id to id for frontend compatibility and filter invalid replyTo
+    const formattedMessages = messages.map(msg => {
+      const formatted = {
+        ...msg,
+        id: msg._id.toString(),
+        _id: undefined // Remove _id to avoid confusion
+      };
+      
+      // Only include replyTo if it's valid (has messageId)
+      if (formatted.replyTo && !formatted.replyTo.messageId) {
+        delete formatted.replyTo;
+      }
+      
+      return formatted;
+    });
 
     res.json({
       success: true,
@@ -523,10 +532,12 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       type
     };
 
-    // Add replyTo if provided
-    if (replyTo) {
+    // Add replyTo if provided and valid (must have messageId)
+    if (replyTo && replyTo.messageId) {
       messageData.replyTo = replyTo;
       console.log('💬 Message is a reply to:', replyTo.messageId);
+    } else if (replyTo) {
+      console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
     }
 
     const message = new Message(messageData);
@@ -554,8 +565,8 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       } : null
     };
 
-    // Include replyTo in response if present
-    if (savedMessage.replyTo) {
+    // Include replyTo in response only if it's valid (has messageId)
+    if (savedMessage.replyTo && savedMessage.replyTo.messageId) {
       messageResponse.replyTo = savedMessage.replyTo;
     }
 
