@@ -322,9 +322,18 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       })));
     }
 
-    // Mark messages as read
+    // Mark messages as read - use the conversationId from found messages if available
+    // Otherwise use the calculated conversationId
+    const actualConversationId = messages.length > 0 ? messages[0].conversationId : conversationId;
+    
     const updateResult = await Message.updateMany(
-      { conversationId, receiverId: userId, read: false },
+      { 
+        $or: [
+          { conversationId: actualConversationId, receiverId: userId, read: false },
+          { senderId: userId, receiverId: otherUserId, read: false },
+          { senderId: otherUserId, receiverId: userId, read: false }
+        ]
+      },
       { read: true, readAt: new Date() }
     );
     
