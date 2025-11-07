@@ -10,10 +10,22 @@
         <ion-card class="profile-card">
           <ion-card-content>
             <div class="profile-header">
-              <ion-avatar class="profile-avatar">
-                <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture">
-                <div class="profile-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
-              </ion-avatar>
+              <div class="avatar-container" (click)="triggerPictureUpload()">
+                <ion-avatar class="profile-avatar">
+                  <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture">
+                  <div class="profile-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
+                </ion-avatar>
+                <div class="avatar-overlay">
+                  <ion-icon name="camera"></ion-icon>
+                  <span>Change Photo</span>
+                </div>
+                <input 
+                  type="file" 
+                  id="profile-picture-input" 
+                  accept="image/*" 
+                  style="display: none;"
+                  (change)="onPictureSelected($event)">
+              </div>
               <div class="profile-info">
                 <h2 class="profile-name">{{ currentUser.name }}</h2>
                 <p class="profile-email">{{ currentUser.email }}</p>

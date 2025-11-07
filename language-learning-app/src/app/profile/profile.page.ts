@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
+import { FileUploadService } from '../services/file-upload.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LoadingController, AlertController } from '@ionic/angular';
@@ -23,6 +24,7 @@ export class ProfilePage implements OnInit {
     private authService: AuthService,
     private userService: UserService,
     private themeService: ThemeService,
+    private fileUploadService: FileUploadService,
     private loadingController: LoadingController,
     private alertController: AlertController
   ) {
@@ -129,6 +131,88 @@ export class ProfilePage implements OnInit {
     console.log('🔄 Dark mode toggle clicked, current state:', this.themeService.isDarkMode());
     this.themeService.toggleDarkMode();
     console.log('✅ Dark mode toggled, new state:', this.themeService.isDarkMode());
+  }
+
+  /**
+   * Handle profile picture upload
+   */
+  async onPictureSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate image
+    const validation = this.fileUploadService.validateImage(file);
+    if (!validation.valid) {
+      const alert = await this.alertController.create({
+        header: 'Invalid Image',
+        message: validation.error,
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    const loading = await this.loadingController.create({
+      message: 'Uploading image...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Upload image
+      const uploadResult = await this.fileUploadService.uploadImage(file).pipe(take(1)).toPromise();
+      
+      if (uploadResult?.success && uploadResult?.imageUrl) {
+        // Update user picture in database
+        const updateResult = await this.userService.updatePicture(uploadResult.imageUrl).pipe(take(1)).toPromise();
+        
+        if (updateResult?.success) {
+          // Update current user with new picture immediately
+          if (this.currentUser) {
+            this.currentUser.picture = uploadResult.imageUrl;
+          }
+          
+          // Also reload from server to ensure consistency
+          this.userService.getCurrentUser().subscribe(user => {
+            this.currentUser = user;
+          });
+
+          const alert = await this.alertController.create({
+            header: 'Success',
+            message: 'Profile picture updated successfully! It will appear everywhere in the app.',
+            buttons: ['OK']
+          });
+          await alert.present();
+        } else {
+          throw new Error('Failed to update profile picture');
+        }
+      } else {
+        throw new Error('Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'Failed to upload profile picture. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    } finally {
+      await loading.dismiss();
+      // Reset file input
+      event.target.value = '';
+    }
+  }
+
+  /**
+   * Trigger file input click
+   */
+  triggerPictureUpload() {
+    const fileInput = document.getElementById('profile-picture-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
   }
 
 }

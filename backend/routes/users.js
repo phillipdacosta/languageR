@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
-const { upload, uploadVideoWithCompression, verifyToken } = require('../middleware/videoUploadMiddleware');
+const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
 
 
 // GET /api/users/debug - Debug what we're receiving
@@ -574,6 +574,9 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
 // POST /api/users/tutor-video-upload - Upload video file with compression
 router.post('/tutor-video-upload', verifyToken, upload.single('video'), uploadVideoWithCompression);
 
+// POST /api/users/profile-picture-upload - Upload profile picture
+router.post('/profile-picture-upload', verifyToken, uploadImage.single('image'), uploadImageToGCS);
+
 // PUT /api/users/availability - Update tutor availability
 router.put('/availability', verifyToken, async (req, res) => {
   try {
@@ -722,8 +725,15 @@ router.put('/picture', verifyToken, async (req, res) => {
     }
     
     // Update picture
+    console.log('🖼️ Updating user profile picture:', {
+      userId: user._id,
+      oldPicture: user.picture,
+      newPicture: picture
+    });
     user.picture = picture;
     await user.save();
+    
+    console.log('✅ Profile picture updated successfully');
     
     res.json({
       success: true,

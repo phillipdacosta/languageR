@@ -6,7 +6,7 @@ const { promisify } = require('util');
 
 const pipelineAsync = promisify(pipeline);
 
-// Configure multer for streaming uploads
+// Configure multer for streaming uploads (videos)
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -27,6 +27,31 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only video files are allowed'), false);
+    }
+  },
+});
+
+// Configure multer for image uploads (profile pictures)
+const uploadImage = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for images
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('🖼️ Image file details:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      encoding: file.encoding,
+      size: file.size
+    });
+    
+    // Accept image files
+    if (file.mimetype.startsWith('image/') || 
+        file.originalname.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|bmp)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
     }
   },
 });
@@ -328,8 +353,72 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+// Image upload handler
+async function uploadImageToGCS(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const { storage, bucket } = initializeGCS();
+    if (!storage || !bucket) {
+      return res.status(500).json({ error: 'Google Cloud Storage not configured' });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = req.file.originalname.split('.').pop();
+    const fileName = `profile-pictures/${req.user.sub}/${timestamp}-${randomString}.${fileExtension}`;
+
+    // Create file in bucket
+    const file = bucket.file(fileName);
+    const stream = file.createWriteStream({
+      metadata: {
+        contentType: req.file.mimetype,
+        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+      },
+    });
+
+    // Upload file
+    stream.on('error', (error) => {
+      console.error('❌ Error uploading image:', error);
+      res.status(500).json({ error: 'Failed to upload image' });
+    });
+
+    stream.on('finish', async () => {
+      try {
+        // Make file publicly accessible
+        await file.makePublic();
+        
+        // Get public URL
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        
+        console.log('✅ Image uploaded successfully:', publicUrl);
+        
+        res.json({
+          success: true,
+          imageUrl: publicUrl,
+          fileName: fileName
+        });
+      } catch (error) {
+        console.error('❌ Error making file public:', error);
+        res.status(500).json({ error: 'Failed to make image public' });
+      }
+    });
+
+    stream.end(req.file.buffer);
+  } catch (error) {
+    console.error('❌ Error in uploadImageToGCS:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 module.exports = {
   upload,
+  uploadImage,
   uploadVideoWithCompression,
-  verifyToken
+  uploadImageToGCS,
+  verifyToken,
+  getUserFromRequest
 };

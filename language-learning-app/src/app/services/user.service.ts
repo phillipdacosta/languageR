@@ -404,6 +404,38 @@ export class UserService {
   }
 
   /**
+   * Update user profile picture
+   */
+  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; user: User }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        
+        return this.http.put<{ success: boolean; message: string; user: User }>(
+          `${this.apiUrl}/users/picture`,
+          { picture: pictureUrl },
+          { headers: this.getAuthHeaders(userEmail) }
+        );
+      }),
+      tap(response => {
+        // Update the current user subject with the new picture
+        if (response.user) {
+          const currentUser = this.currentUserSubject.value;
+          if (currentUser) {
+            currentUser.picture = response.user.picture;
+            this.currentUserSubject.next(currentUser);
+          }
+        }
+      }),
+      catchError(error => {
+        console.error('🖼️ Error updating profile picture:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
    * Update tutor availability
    */
   updateAvailability(availabilityBlocks: any[]): Observable<{ success: boolean; message: string; availability: any[] }> {
