@@ -324,8 +324,11 @@ export class MessagesPage implements OnInit, OnDestroy {
               
               // Focus the message input
               setTimeout(() => {
-                if (this.messageInput) {
-                  this.messageInput.setFocus();
+                if (this.messageInput?.nativeElement) {
+                  const inputElement = this.messageInput.nativeElement.querySelector('input');
+                  if (inputElement) {
+                    inputElement.focus();
+                  }
                 }
                 this.scrollToBottom();
               }, 100);
