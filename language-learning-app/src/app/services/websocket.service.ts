@@ -194,8 +194,12 @@ export class WebSocketService {
     }
     
     const data: any = { receiverId, content, type };
-    if (replyTo) {
+    // Only add replyTo if it's a valid object with messageId
+    if (replyTo && replyTo.messageId) {
       data.replyTo = replyTo;
+      console.log('📤 WebSocket: Adding replyTo to message:', replyTo);
+    } else {
+      console.log('📤 WebSocket: No replyTo (replyTo:', replyTo, ')');
     }
     
     this.socket.emit('send_message', data);

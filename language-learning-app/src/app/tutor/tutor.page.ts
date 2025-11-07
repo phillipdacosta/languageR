@@ -9,6 +9,7 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
+import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
@@ -26,6 +27,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   showVideo = false;
   @ViewChild('introVideo', { static: false }) introVideoRef?: ElementRef<HTMLVideoElement>;
   @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef?: ElementRef<HTMLDivElement>;
+  @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   showOverlay = true;
   cameFromModal = false;
   availabilityRefreshTrigger = 0;
@@ -40,6 +42,26 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   isSending = false;
   currentUserId = '';
   private destroy$ = new Subject<void>();
+  
+  // File upload and voice recording
+  isUploading = false;
+  isRecording = false;
+  recordingDuration = 0;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private recordingTimer: any;
+  private messageSendTimeout: any;
+  
+  // Typing indicator
+  isTyping = false;
+  otherUserTyping = false;
+  typingTimeout: any;
+  
+  // Reply functionality
+  replyingToMessage: Message | null = null;
+  private longPressTimeout: any;
+  private readonly LONG_PRESS_DURATION = 500; // ms
+  highlightedMessageId: string | null = null; // Track which message is highlighted
 
   constructor(
     private route: ActivatedRoute,
@@ -107,11 +129,39 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (this.showMessagingSidebar && this.tutor && 
           (message.senderId === this.tutor.auth0Id || message.receiverId === this.tutor.auth0Id)) {
-        // If we sent the message, mark as no longer sending
-        if (message.senderId === this.currentUserId) {
-          this.isSending = false;
+        // Check if this is my message (sent by me)
+        const isMyMessage = message.senderId === this.currentUserId || 
+                            message.senderId === this.currentUserId.replace('dev-user-', '') ||
+                            `dev-user-${message.senderId}` === this.currentUserId;
+        
+        // Enhanced duplicate check
+        const existingMessage = this.messages.find(m => 
+          m.id === message.id || 
+          (m.content === message.content && 
+           m.senderId === message.senderId && 
+           Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 1000)
+        );
+        
+        if (!existingMessage) {
+          this.messages.push(message);
+          this.scrollToBottom();
         }
-        this.loadMessages();
+        
+        // If we sent the message, mark as no longer sending
+        if (isMyMessage && this.isSending) {
+          this.isSending = false;
+          if (this.messageSendTimeout) {
+            clearTimeout(this.messageSendTimeout);
+            this.messageSendTimeout = null;
+          }
+        }
+      }
+    });
+    
+    // Listen for typing indicators
+    this.websocketService.typing$.pipe(takeUntil(this.destroy$)).subscribe(data => {
+      if (this.showMessagingSidebar && this.tutor && data.userId === this.tutor.auth0Id) {
+        this.otherUserTyping = data.isTyping;
       }
     });
   }
@@ -360,7 +410,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   sendMessage() {
-    if (!this.newMessage.trim() || !this.tutor?.auth0Id || this.isSending) {
+    if (!this.newMessage.trim() || !this.tutor?.auth0Id || this.isSending || this.isUploading || this.isRecording) {
       return;
     }
 
@@ -369,42 +419,443 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.newMessage = '';
     this.isSending = true;
 
+    // Stop typing indicator
+    this.sendTypingIndicator(false);
+
+    // Prepare replyTo data if replying - store it before clearing
+    let replyTo: any = undefined;
+    if (this.replyingToMessage && this.replyingToMessage.id) {
+      let senderName = 'Unknown';
+      if (this.isMyMessage(this.replyingToMessage)) {
+        senderName = 'You';
+      } else {
+        senderName = this.tutor?.name || 'Unknown';
+      }
+      
+      replyTo = {
+        messageId: this.replyingToMessage.id,
+        content: this.replyingToMessage.content,
+        senderId: this.replyingToMessage.senderId,
+        senderName: senderName,
+        type: this.replyingToMessage.type,
+        fileUrl: this.replyingToMessage.fileUrl,
+        fileName: this.replyingToMessage.fileName
+      };
+      
+      console.log('💬 Sending message WITH reply:', replyTo);
+      // Clear reply state after storing the data
+      this.clearReply();
+    } else {
+      console.log('💬 Sending message WITHOUT reply (replyingToMessage:', this.replyingToMessage, ')');
+    }
+
     const receiverId = this.tutor.auth0Id;
     
     // Try WebSocket first (preferred for real-time)
     if (this.websocketService.getConnectionStatus()) {
-      this.websocketService.sendMessage(receiverId, messageContent, 'text');
+      // Only send replyTo if it was actually set (user was replying)
+      // Explicitly pass undefined if not replying
+      const replyToToSend = replyTo ? replyTo : undefined;
+      console.log('📤 Sending via WebSocket with replyTo:', replyToToSend);
+      this.websocketService.sendMessage(receiverId, messageContent, 'text', replyToToSend);
       
       // Set a timeout to fallback to HTTP if WebSocket doesn't respond
-      setTimeout(() => {
+      this.messageSendTimeout = setTimeout(() => {
         if (this.isSending) {
           // WebSocket didn't respond, use HTTP fallback
-          this.sendMessageViaHTTP(messageContent);
+          const replyToToSend = replyTo ? replyTo : undefined;
+          this.sendMessageViaHTTP(messageContent, replyToToSend);
         }
       }, 2000);
     } else {
       // WebSocket not connected, use HTTP
-      this.sendMessageViaHTTP(messageContent);
+      const replyToToSend = replyTo ? replyTo : undefined;
+      this.sendMessageViaHTTP(messageContent, replyToToSend);
     }
   }
   
-  private sendMessageViaHTTP(content: string) {
+  private sendMessageViaHTTP(content: string, replyTo?: any) {
     if (!this.tutor?.auth0Id) {
       console.error('❌ Cannot send message: no tutor auth0Id');
       this.isSending = false;
       return;
     }
 
-    this.messagingService.sendMessage(this.tutor.auth0Id, content).subscribe({
-      next: () => {
+    // If not sending anymore, WebSocket already succeeded - don't send via HTTP
+    if (!this.isSending) {
+      return;
+    }
+
+    // Only include replyTo if it was provided and is a valid object (user was actually replying)
+    const replyToToSend = replyTo && replyTo.messageId ? replyTo : undefined;
+    console.log('📤 Sending via HTTP with replyTo:', replyToToSend);
+    this.messagingService.sendMessage(this.tutor.auth0Id, content, 'text', replyToToSend).subscribe({
+      next: (response) => {
+        const message = response.message;
+        
+        // Enhanced duplicate check
+        const existingMessage = this.messages.find(m => 
+          m.id === message.id || 
+          (m.content === message.content && 
+           m.senderId === message.senderId && 
+           Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 1000)
+        );
+        
+        if (!existingMessage) {
+          this.messages.push(message);
+          this.scrollToBottom();
+        }
+        
         this.isSending = false;
-        this.loadMessages(); // Reload to get the new message
       },
       error: (error) => {
         console.error('Error sending message:', error);
         this.isSending = false;
       }
     });
+  }
+  
+  onInputChange() {
+    if (!this.isTyping) {
+      this.isTyping = true;
+      this.sendTypingIndicator(true);
+    }
+
+    // Clear existing timeout
+    if (this.typingTimeout) {
+      clearTimeout(this.typingTimeout);
+    }
+
+    // Set new timeout to stop typing indicator
+    this.typingTimeout = setTimeout(() => {
+      this.isTyping = false;
+      this.sendTypingIndicator(false);
+    }, 1000);
+  }
+
+  sendTypingIndicator(isTyping: boolean) {
+    if (!this.tutor?.auth0Id) return;
+    
+    this.websocketService.sendTypingIndicator(
+      this.tutor.auth0Id,
+      isTyping
+    );
+  }
+  
+  // Handle file selection
+  onFileSelected(event: Event, messageType: 'image' | 'file') {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    
+    const file = input.files[0];
+    
+    this.uploadFile(file, messageType);
+    
+    // Reset input
+    input.value = '';
+  }
+
+  // Upload file to server
+  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
+    if (!this.tutor?.auth0Id) {
+      console.error('No tutor selected');
+      return;
+    }
+
+    this.isUploading = true;
+    const receiverId = this.tutor.auth0Id;
+
+    this.messagingService.uploadFile(receiverId, file, messageType, caption).subscribe({
+      next: (response) => {
+        // Add message to local messages array
+        this.messages.push(response.message);
+        this.scrollToBottom();
+        this.isUploading = false;
+      },
+      error: (error) => {
+        console.error('❌ Error uploading file:', error);
+        this.isUploading = false;
+      }
+    });
+  }
+
+  // Toggle voice recording
+  async toggleVoiceRecording() {
+    if (this.isRecording) {
+      this.stopRecording();
+    } else {
+      await this.startRecording();
+    }
+  }
+
+  // Start voice recording
+  private async startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      this.mediaRecorder = new MediaRecorder(stream);
+      this.audioChunks = [];
+      this.recordingDuration = 0;
+      
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+      
+      this.mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: 'audio/webm' });
+        
+        // Upload the voice note
+        this.uploadFile(audioFile, 'voice');
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      this.mediaRecorder.start();
+      this.isRecording = true;
+      
+      // Start timer
+      this.recordingTimer = setInterval(() => {
+        this.recordingDuration++;
+        
+        // Auto-stop after 60 seconds
+        if (this.recordingDuration >= 60) {
+          this.stopRecording();
+        }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('❌ Error starting recording:', error);
+    }
+  }
+
+  // Stop voice recording
+  private stopRecording() {
+    if (this.mediaRecorder && this.isRecording) {
+      this.mediaRecorder.stop();
+      this.isRecording = false;
+      
+      if (this.recordingTimer) {
+        clearInterval(this.recordingTimer);
+        this.recordingTimer = null;
+      }
+    }
+  }
+
+  // Format file size for display
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // Get file icon based on type
+  getFileIcon(fileType: string): string {
+    if (fileType.startsWith('image/')) return 'image';
+    if (fileType.startsWith('audio/')) return 'musical-note';
+    if (fileType.startsWith('video/')) return 'videocam';
+    if (fileType.includes('pdf')) return 'document-text';
+    if (fileType.includes('word') || fileType.includes('doc')) return 'document';
+    if (fileType.includes('excel') || fileType.includes('sheet')) return 'grid';
+    if (fileType.includes('powerpoint') || fileType.includes('presentation')) return 'easel';
+    return 'attach';
+  }
+
+  // Open file - images in modal viewer, other files for download
+  async openFile(fileUrl: string, fileType?: string, fileName?: string) {
+    // Check if it's an image
+    const isImage = fileType?.startsWith('image/') || 
+                    fileUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i);
+    
+    if (isImage) {
+      // Open image in modal viewer
+      await this.openImageViewer(fileUrl, fileName);
+    } else {
+      // For non-images, open in new tab for download
+      window.open(fileUrl, '_blank');
+    }
+  }
+
+  // Open image viewer modal
+  async openImageViewer(imageUrl: string, imageName?: string) {
+    const modal = await this.modalController.create({
+      component: ImageViewerModal,
+      componentProps: {
+        imageUrl,
+        imageName
+      },
+      cssClass: 'image-viewer-modal'
+    });
+    
+    await modal.present();
+  }
+
+  // Reply functionality handlers
+  onMessageMouseDown(message: Message, event: MouseEvent | TouchEvent) {
+    // Only on desktop (long-press)
+    if (window.innerWidth >= 769) {
+      this.longPressTimeout = setTimeout(() => {
+        this.setReplyTo(message);
+      }, this.LONG_PRESS_DURATION);
+    }
+  }
+
+  onMessageMouseUp() {
+    if (this.longPressTimeout) {
+      clearTimeout(this.longPressTimeout);
+      this.longPressTimeout = null;
+    }
+  }
+
+  onMessageDoubleClick(message: Message) {
+    // Desktop only
+    if (window.innerWidth >= 769) {
+      this.setReplyTo(message);
+    }
+  }
+
+  setReplyTo(message: Message) {
+    // Get sender name
+    let senderName = 'Unknown';
+    if (this.isMyMessage(message)) {
+      senderName = 'You';
+    } else {
+      senderName = this.tutor?.name || 'Unknown';
+    }
+    
+    this.replyingToMessage = message;
+    
+    // Focus the input
+    setTimeout(() => {
+      if (this.messageInput?.nativeElement) {
+        const inputElement = this.messageInput.nativeElement.querySelector('input');
+        if (inputElement) {
+          inputElement.focus();
+        }
+      }
+    }, 100);
+  }
+
+  clearReply() {
+    this.replyingToMessage = null;
+  }
+
+  getReplyPreviewContent(): string {
+    if (!this.replyingToMessage) return '';
+    
+    if (this.replyingToMessage.type === 'text') {
+      const maxLength = 50;
+      const content = this.replyingToMessage.content || '';
+      return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+    } else if (this.replyingToMessage.type === 'image') {
+      return '📷 Photo';
+    } else if (this.replyingToMessage.type === 'file') {
+      return `📄 ${this.replyingToMessage.fileName || 'File'}`;
+    } else if (this.replyingToMessage.type === 'voice') {
+      return '🎤 Voice message';
+    }
+    return '';
+  }
+
+  // Scroll to a specific message by ID and highlight it
+  scrollToMessageById(messageId: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!messageId) {
+      return;
+    }
+    
+    // Small delay to ensure DOM is ready
+    setTimeout(() => {
+      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
+      
+      if (!messageElement) {
+        return;
+      }
+      
+      // Get the scrollable container
+      const container = this.chatMessagesRef?.nativeElement;
+      
+      if (container) {
+        // Calculate position
+        const containerRect = container.getBoundingClientRect();
+        const elementRect = messageElement.getBoundingClientRect();
+        const scrollTop = container.scrollTop;
+        const elementTop = elementRect.top - containerRect.top + scrollTop;
+        const centerOffset = container.clientHeight / 2 - elementRect.height / 2;
+        const targetScroll = Math.max(0, elementTop - centerOffset);
+        
+        // Scroll smoothly
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth'
+        });
+      } else {
+        // Fallback
+        messageElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+      
+      // Highlight the message
+      this.highlightedMessageId = messageId;
+      
+      // Remove highlight after 2 seconds
+      setTimeout(() => {
+        this.highlightedMessageId = null;
+      }, 2000);
+      
+    }, 100);
+  }
+
+  // Scroll to and highlight the message being replied to (for the input preview button)
+  scrollToRepliedMessage(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!this.replyingToMessage) {
+      return;
+    }
+    
+    const messageId = this.replyingToMessage.id;
+    if (messageId) {
+      this.scrollToMessageById(messageId, event);
+    }
+  }
+  
+  formatDate(timestamp: string): string {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+    }
+  }
+
+  shouldShowDateSeparator(currentMessage: Message, previousMessage: Message | undefined): boolean {
+    if (!previousMessage) return true;
+    
+    const currentDate = new Date(currentMessage.createdAt).toDateString();
+    const previousDate = new Date(previousMessage.createdAt).toDateString();
+    
+    return currentDate !== previousDate;
+  }
+  
+  trackByMessageId(index: number, message: Message): string {
+    return message.id;
   }
   
   scrollToBottom() {
@@ -417,24 +868,26 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   isMyMessage(message: Message): boolean {
-    return message.senderId === this.currentUserId;
+    const currentUserId = this.currentUserId;
+    return message.senderId === currentUserId || 
+           message.senderId === currentUserId.replace('dev-user-', '') ||
+           `dev-user-${message.senderId}` === currentUserId;
   }
   
   formatTime(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString();
+    const diff = now.getTime() - date.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } else if (days === 1) {
+      return 'Yesterday';
+    } else if (days < 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
   }
 }
