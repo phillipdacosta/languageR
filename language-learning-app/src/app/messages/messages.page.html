@@ -137,41 +137,6 @@
             <p>Loading messages...</p>
           </div>
 
-          <!-- Tutor Info Card (shown when starting a new conversation with a tutor) -->
-          <ng-container *ngIf="!isLoadingMessages && messages.length === 0 && selectedConversation?.otherUser?.userType === 'tutor' && selectedConversation?.otherUser?.languages && (selectedConversation?.otherUser?.languages?.length ?? 0) > 0">
-            <div class="tutor-info-card">
-              <div class="tutor-info-header">
-                <ion-avatar class="tutor-info-avatar">
-                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
-                  <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
-                    {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
-                  </div>
-                </ion-avatar>
-                <div class="tutor-info-main">
-                  <h4>{{ selectedConversation.otherUser!.name }}</h4>
-                  <div class="tutor-info-badges">
-                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.rating">
-                      <ion-icon name="star"></ion-icon>
-                      {{ selectedConversation.otherUser!.rating.toFixed(1) }}
-                    </span>
-                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.hourlyRate">
-                      ${{ selectedConversation.otherUser!.hourlyRate }}/hr
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="tutor-info-details">
-                <div class="info-row" *ngIf="selectedConversation.otherUser!.languages && selectedConversation.otherUser!.languages.length">
-                  <ion-icon name="language-outline"></ion-icon>
-                  <span><strong>Languages:</strong> {{ selectedConversation.otherUser!.languages.join(', ') }}</span>
-                </div>
-                <div class="info-row" *ngIf="selectedConversation.otherUser!.bio">
-                  <ion-icon name="information-circle-outline"></ion-icon>
-                  <span>{{ selectedConversation.otherUser!.bio }}</span>
-                </div>
-              </div>
-            </div>
-          </ng-container>
 
           <!-- Messages -->
           <div *ngIf="!isLoadingMessages" class="messages-list">
@@ -424,41 +389,6 @@
             <p>Loading messages...</p>
           </div>
 
-          <!-- Tutor Info Card (shown when starting a new conversation with a tutor) -->
-          <ng-container *ngIf="!isLoadingMessages && messages.length === 0 && selectedConversation?.otherUser?.userType === 'tutor' && selectedConversation?.otherUser?.languages && (selectedConversation?.otherUser?.languages?.length ?? 0) > 0">
-            <div class="tutor-info-card">
-              <div class="tutor-info-header">
-                <ion-avatar class="tutor-info-avatar">
-                  <img [src]="selectedConversation.otherUser!.picture" *ngIf="selectedConversation.otherUser!.picture" />
-                  <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser!.picture">
-                    {{ selectedConversation.otherUser!.name.charAt(0) || '?' }}
-                  </div>
-                </ion-avatar>
-                <div class="tutor-info-main">
-                  <h4>{{ selectedConversation.otherUser!.name }}</h4>
-                  <div class="tutor-info-badges">
-                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.rating">
-                      <ion-icon name="star"></ion-icon>
-                      {{ selectedConversation.otherUser!.rating.toFixed(1) }}
-                    </span>
-                    <span class="info-badge" *ngIf="selectedConversation.otherUser!.hourlyRate">
-                      ${{ selectedConversation.otherUser!.hourlyRate }}/hr
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="tutor-info-details">
-                <div class="info-row" *ngIf="selectedConversation.otherUser!.languages && selectedConversation.otherUser!.languages.length">
-                  <ion-icon name="language-outline"></ion-icon>
-                  <span><strong>Languages:</strong> {{ selectedConversation.otherUser!.languages.join(', ') }}</span>
-                </div>
-                <div class="info-row" *ngIf="selectedConversation.otherUser!.bio">
-                  <ion-icon name="information-circle-outline"></ion-icon>
-                  <span>{{ selectedConversation.otherUser!.bio }}</span>
-                </div>
-              </div>
-            </div>
-          </ng-container>
 
           <div *ngIf="!isLoadingMessages" class="messages-list">
             <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
