@@ -1093,4 +1093,18 @@ export class MessagesPage implements OnInit, OnDestroy {
       this.scrollToMessageById(messageId, event);
     }
   }
+
+  onImageError(event: any) {
+    // Hide the image and show initials fallback instead
+    // This handles cases where the image fails to load (CORS, network issues, etc.)
+    const img = event.target;
+    const avatar = img.closest('ion-avatar');
+    if (avatar) {
+      img.style.display = 'none';
+      const fallbackDiv = avatar.querySelector('.avatar-fallback');
+      if (fallbackDiv) {
+        (fallbackDiv as HTMLElement).style.display = 'flex';
+      }
+    }
+  }
 }
