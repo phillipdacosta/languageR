@@ -23,10 +23,10 @@
     <div class="hero-section">
       <div class="profile-header">
         <div class="avatar-wrapper">
-          <div class="avatar" *ngIf="!tutor.profilePhoto">
+          <div class="avatar" *ngIf="!tutor.picture">
             {{ getInitials(tutor.name) }}
           </div>
-          <img *ngIf="tutor.profilePhoto" [src]="tutor.profilePhoto" [alt]="tutor.name" class="avatar-img">
+          <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="tutor.name" class="avatar-img">
           <div class="online-badge"></div>
         </div>
         <div class="profile-info">

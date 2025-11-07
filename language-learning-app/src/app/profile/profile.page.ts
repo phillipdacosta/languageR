@@ -190,7 +190,7 @@ export class ProfilePage implements OnInit {
 
           const alert = await this.alertController.create({
             header: 'Success',
-            message: 'Profile picture updated successfully! It will appear everywhere in the app.',
+            message: 'Profile picture updated successfully!',
             buttons: ['OK']
           });
           await alert.present();
