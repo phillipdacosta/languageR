@@ -334,11 +334,26 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async goBack() {
+    console.log('🚪 PreCall: goBack() called - cleaning up resources...');
     
     // Stop preview stream before navigating away
     if (this.localStream) {
+      console.log('🛑 Stopping preview MediaStream tracks...');
       this.localStream.getTracks().forEach(track => track.stop());
       this.localStream = null;
+    }
+    
+    // Clean up Agora tracks if they were created for virtual background
+    try {
+      const videoTrack = this.agoraService.getLocalVideoTrack();
+      const audioTrack = this.agoraService.getLocalAudioTrack();
+      if (videoTrack || audioTrack) {
+        console.log('🧹 Cleaning up Agora tracks created for virtual background...');
+        await this.agoraService.cleanupLocalTracks();
+      }
+    } catch (error) {
+      console.error('❌ Error cleaning up Agora tracks:', error);
+      // Continue with navigation even if cleanup fails
     }
     
     // Call leave endpoint if we have a lessonId
@@ -349,7 +364,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.error('🚪 PreCall: Error calling leave endpoint:', error);
         // Continue with navigation even if leave fails
       }
-    } else {
     }
     
     // Navigate back to previous page
@@ -357,16 +371,33 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    console.log('🚪 PreCall: ngOnDestroy() called - cleaning up resources...');
+    
     // Clean up subscriptions
     this.destroy$.next();
     this.destroy$.complete();
     
     // Clean up media stream
     if (this.localStream) {
+      console.log('🛑 Stopping preview MediaStream tracks in ngOnDestroy...');
       this.localStream.getTracks().forEach(track => track.stop());
       this.localStream = null;
     }
     
+    // Clean up Agora tracks if they were created for virtual background
+    // Note: We can't use async/await in ngOnDestroy, so we fire and forget
+    const videoTrack = this.agoraService.getLocalVideoTrack();
+    const audioTrack = this.agoraService.getLocalAudioTrack();
+    if (videoTrack || audioTrack) {
+      console.log('🧹 Cleaning up Agora tracks in ngOnDestroy (fire and forget)...');
+      this.agoraService.cleanupLocalTracks()
+        .then(() => {
+          console.log('✅ Agora tracks cleaned up successfully in ngOnDestroy');
+        })
+        .catch((error) => {
+          console.error('❌ Error cleaning up Agora tracks in ngOnDestroy:', error);
+        });
+    }
     
     // Call leave endpoint when leaving the pre-call page (if not already called via goBack)
     // Note: We can't use async/await in ngOnDestroy, so we fire and forget

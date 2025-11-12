@@ -1076,6 +1076,60 @@ export class AgoraService {
     return user ? { isMuted: user.isMuted, isVideoOff: user.isVideoOff } : null;
   }
 
+  // Clean up local tracks without leaving channel (useful for pre-call cleanup)
+  async cleanupLocalTracks(): Promise<void> {
+    console.log('🧹 Cleaning up local Agora tracks...');
+    
+    // Disable virtual background before cleanup
+    if (this.virtualBackgroundEnabled && this.processor) {
+      try {
+        await this.disableVirtualBackground();
+      } catch (error) {
+        console.warn('⚠️ Error disabling virtual background during cleanup:', error);
+      }
+    }
+
+    // Clean up virtual background processor
+    if (this.processor) {
+      try {
+        console.log('🔧 Unpiping processor during track cleanup...');
+        this.processor.unpipe();
+        console.log('✅ Processor unpiped during track cleanup');
+      } catch (unpipeError) {
+        console.warn('⚠️ Error unpiping processor during track cleanup:', unpipeError);
+      }
+      this.processor = null;
+    }
+
+    // Stop and close video track
+    if (this.localVideoTrack) {
+      try {
+        console.log('🛑 Stopping and closing local video track...');
+        this.localVideoTrack.stop();
+        this.localVideoTrack.close();
+        console.log('✅ Local video track cleaned up');
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up video track:', error);
+      }
+      this.localVideoTrack = null;
+    }
+
+    // Stop and close audio track
+    if (this.localAudioTrack) {
+      try {
+        console.log('🛑 Stopping and closing local audio track...');
+        this.localAudioTrack.stop();
+        this.localAudioTrack.close();
+        console.log('✅ Local audio track cleaned up');
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up audio track:', error);
+      }
+      this.localAudioTrack = null;
+    }
+
+    console.log('✅ Local tracks cleanup complete');
+  }
+
   // Create Agora tracks for pre-call (similar to joinLesson but without joining)
   async createMicrophoneAndCameraTracks(): Promise<[IMicrophoneAudioTrack, ICameraVideoTrack]> {
     try {

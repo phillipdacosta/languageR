@@ -468,8 +468,11 @@ export class UserService {
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
+        // Add cache-busting parameter to force fresh data
+        const cacheBuster = `?t=${Date.now()}`;
+        
         return this.http.get<{ success: boolean; availability: any[] }>(
-          `${this.apiUrl}/users/availability`,
+          `${this.apiUrl}/users/availability${cacheBuster}`,
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),

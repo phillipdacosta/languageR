@@ -1292,7 +1292,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     if (this.isConnected) {
       console.log('🚪 VideoCall: Still connected, calling endCall from ngOnDestroy');
-      await this.endCall();
+      try {
+        await this.endCall();
+      } catch (error) {
+        console.error('🚪 VideoCall: Error in endCall during ngOnDestroy, attempting cleanup fallback:', error);
+        // Fallback: ensure tracks are cleaned up even if endCall fails
+        try {
+          await this.agoraService.cleanupLocalTracks();
+        } catch (cleanupError) {
+          console.error('🚪 VideoCall: Error in cleanup fallback:', cleanupError);
+        }
+      }
     } else if (this.lessonId) {
       // Even if not connected to Agora, still call leave endpoint
       console.log('🚪 VideoCall: Not connected but have lessonId, calling leave endpoint');
@@ -1301,6 +1311,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 VideoCall: Leave endpoint response from ngOnDestroy:', leaveResponse);
       } catch (leaveError: any) {
         console.error('🚪 VideoCall: Error calling leave endpoint from ngOnDestroy:', leaveError);
+      }
+      
+      // Safety: Clean up tracks even if not connected (in case tracks were created but channel join failed)
+      try {
+        const videoTrack = this.agoraService.getLocalVideoTrack();
+        const audioTrack = this.agoraService.getLocalAudioTrack();
+        if (videoTrack || audioTrack) {
+          console.log('🧹 VideoCall: Cleaning up tracks that may have been created but not joined...');
+          await this.agoraService.cleanupLocalTracks();
+        }
+      } catch (cleanupError) {
+        console.error('🚪 VideoCall: Error cleaning up tracks in ngOnDestroy:', cleanupError);
       }
     }
 

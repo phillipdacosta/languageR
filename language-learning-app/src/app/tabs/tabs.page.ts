@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
@@ -39,6 +39,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   unreadNotificationCount$ = new BehaviorSubject<number>(0);
   // Notification dropdown state
   isNotificationDropdownOpen = false;
+  // Current route for tab highlighting
+  currentRoute = '';
   // Dropdown positioning
   dropdownTop = 60;
   dropdownRight = 20;
@@ -136,6 +138,20 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Ensure currentUser is loaded
     this.loadCurrentUser();
+    
+    // Subscribe to router events to update tab highlighting on route changes
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      takeUntil(this.destroy$)
+    ).subscribe((event: NavigationEnd) => {
+      // Update current route for tab highlighting
+      this.currentRoute = event.url;
+      // Trigger change detection when route changes so isCurrentRoute is re-evaluated
+      this.cdr.detectChanges();
+    });
+    
+    // Initialize current route
+    this.currentRoute = this.router.url;
     
     // Subscribe to the centralized unread count observable from MessagingService
     // This is the SINGLE source of truth for unread count
@@ -251,7 +267,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isCurrentRoute(route: string): boolean {
-    const currentUrl = this.router.url;
+    // Use cached currentRoute for better reactivity, fallback to router.url
+    const currentUrl = this.currentRoute || this.router.url;
     
     // Special handling for calendar tab - should highlight for all calendar-related routes
     if (route === '/tabs/tutor-calendar') {
