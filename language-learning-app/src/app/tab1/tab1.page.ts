@@ -28,7 +28,13 @@ export class Tab1Page implements OnInit, OnDestroy {
   isMobile = false;
   currentUser: User | null = null;
   lessons: Lesson[] = [];
+  pastLessons: Lesson[] = [];
+  pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
   isLoadingLessons = false;
+  availabilityBlocks: any[] = [];
+  availabilityHeadline = '';
+  availabilityDetail = '';
+  isSelectedDatePast = false;
   
   // UI state
   hasNotifications = false;
@@ -107,6 +113,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Load tutor-specific data
         if (this.isTutor()) {
           this.loadTutorInsights();
+          this.loadAvailability();
         }
       });
     
@@ -291,6 +298,20 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   async openSearchTutors() {
       this.router.navigate(['/tabs/tutor-search']);
+  }
+
+  openAvailabilitySetup() {
+    if (!this.isTutor()) {
+      return;
+    }
+    // Navigate to single day availability setup with the selected date
+    if (this.selectedDate) {
+      const dateStr = this.selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      this.router.navigate(['/tabs/availability-setup', dateStr]);
+    } else {
+      // Fallback to regular availability setup if no date selected
+      this.router.navigate(['/tabs/availability-setup']);
+    }
   }
 
   loadUserStats() {
@@ -548,6 +569,11 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this.lessons;
   }
 
+  // Track by function for tutors
+  trackByTutorId(index: number, tutor: { id: string; name: string; picture?: string }): string {
+    return tutor.id;
+  }
+
   // New method: Get other participant's avatar (with caching)
   // Check if lesson has participant joined (presence)
   hasParticipantJoined(lesson: Lesson | null): boolean {
@@ -659,9 +685,52 @@ export class Tab1Page implements OnInit, OnDestroy {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
         const now = Date.now();
+        // Filter for upcoming lessons
         this.lessons = [...resp.lessons]
           .filter(l => new Date(l.endTime).getTime() >= now)
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+        // Filter for past/completed lessons (for students to show past tutors)
+        // Include lessons that have ended and are not cancelled
+        this.pastLessons = [...resp.lessons]
+          .filter(l => {
+            const endTime = new Date(l.endTime).getTime();
+            return endTime < now && l.status !== 'cancelled';
+          })
+          .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+
+        console.log('📚 Tab1Page: Past lessons found:', this.pastLessons.length);
+        console.log('📚 Tab1Page: Is tutor?', this.isTutor());
+        console.log('📚 Tab1Page: Past lessons:', this.pastLessons.map(l => ({
+          id: l._id,
+          tutorId: l.tutorId?._id || l.tutorId,
+          tutorName: l.tutorId?.name,
+          status: l.status,
+          endTime: l.endTime
+        })));
+
+        // Extract unique tutors from past lessons (for students only)
+        if (!this.isTutor()) {
+          const tutorMap = new Map<string, { id: string; name: string; picture?: string }>();
+          this.pastLessons.forEach(lesson => {
+            // Handle both populated and non-populated tutorId
+            const tutor = lesson.tutorId;
+            if (tutor) {
+              const tutorId = (tutor as any)._id?.toString() || (tutor as any).id?.toString() || tutor.toString();
+              if (!tutorMap.has(tutorId)) {
+                tutorMap.set(tutorId, {
+                  id: tutorId,
+                  name: (tutor as any).name || 'Unknown Tutor',
+                  picture: (tutor as any).picture
+                });
+              }
+            }
+          });
+          this.pastTutors = Array.from(tutorMap.values());
+          console.log('👥 Tab1Page: Past tutors extracted:', this.pastTutors.length, this.pastTutors);
+        } else {
+          this.pastTutors = [];
+        }
 
         // Clear avatar cache when lessons reload to get fresh images
         this._avatarCache.clear();
@@ -671,6 +740,9 @@ export class Tab1Page implements OnInit, OnDestroy {
         
         // Check for existing presence in lessons
         await this.checkExistingPresence();
+        
+        // Refresh availability summary with the latest lessons
+        this.updateAvailabilitySummary();
         
         // Update tutor insights if tutor
         if (this.isTutor()) {
@@ -685,6 +757,203 @@ export class Tab1Page implements OnInit, OnDestroy {
     } finally {
       this.isLoadingLessons = false;
     }
+  }
+
+  private loadAvailability() {
+    if (!this.isTutor()) {
+      return;
+    }
+    this.userService.getAvailability()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.availabilityBlocks = response?.availability || [];
+          this.updateAvailabilitySummary();
+        },
+        error: (error) => {
+          console.error('Tab1Page: Failed to load availability', error);
+          this.availabilityBlocks = [];
+          this.updateAvailabilitySummary();
+        }
+      });
+  }
+
+  private updateAvailabilitySummary() {
+    if (!this.isTutor() || !this.selectedDate) {
+      this.availabilityHeadline = '';
+      this.availabilityDetail = '';
+      this.isSelectedDatePast = false;
+      return;
+    }
+
+    // Check if selected date is in the past, today, or future
+    const today = this.startOfDay(new Date());
+    const selectedDay = this.startOfDay(this.selectedDate);
+    this.isSelectedDatePast = selectedDay.getTime() < today.getTime();
+    const isToday = this.isSameDay(this.selectedDate, new Date());
+    const isFuture = selectedDay.getTime() > today.getTime();
+    
+    // Format date for messages
+    const dateLabel = isToday ? 'today' : this.selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    if (!Array.isArray(this.availabilityBlocks) || this.availabilityBlocks.length === 0) {
+      if (this.isSelectedDatePast) {
+        this.availabilityHeadline = 'You hadn\'t set any availability for ' + dateLabel + '.';
+      } else if (isFuture) {
+        this.availabilityHeadline = 'You haven\'t set any availability for ' + dateLabel + ' yet.';
+      } else {
+        this.availabilityHeadline = 'You haven\'t set any availability for today yet.';
+      }
+      this.availabilityDetail = 'Add some time slots so students can book you.';
+      return;
+    }
+
+    const dayIndex = this.getAvailabilityDayIndex(this.selectedDate);
+    const dayBlocks = this.availabilityBlocks.filter(block => block.day === dayIndex);
+
+    if (dayBlocks.length === 0) {
+      if (this.isSelectedDatePast) {
+        this.availabilityHeadline = 'You hadn\'t set any availability for ' + dateLabel + '.';
+      } else if (isFuture) {
+        this.availabilityHeadline = 'You haven\'t set any availability for ' + dateLabel + ' yet.';
+      } else {
+        this.availabilityHeadline = 'You haven\'t set any availability for today yet.';
+      }
+      this.availabilityDetail = 'Add some time slots so students can book you.';
+      return;
+    }
+
+    const slots = dayBlocks.map(block => {
+      const start = this.parseTimeToMinutes(block.startTime);
+      const end = this.parseTimeToMinutes(block.endTime);
+      return {
+        start,
+        end,
+        duration: Math.max(end - start, 0),
+        booked: 0
+      };
+    });
+
+    const totalAvailabilityMinutes = slots.reduce((sum, slot) => sum + slot.duration, 0);
+
+    const dayStart = this.startOfDay(this.selectedDate).getTime();
+    const dayLessons = this.lessons.filter(lesson => {
+      const lessonDate = new Date(lesson.startTime);
+      return lessonDate.getTime() >= dayStart && lessonDate.getTime() < dayStart + 24 * 60 * 60 * 1000;
+    });
+
+    let bookedMinutes = 0;
+    for (const lesson of dayLessons) {
+      const lessonStart = new Date(lesson.startTime);
+      const lessonEnd = new Date(lesson.endTime);
+      const lessonStartMinutes = this.minutesSinceStartOfDay(lessonStart, dayStart);
+      const lessonEndMinutes = this.minutesSinceStartOfDay(lessonEnd, dayStart);
+
+      for (const slot of slots) {
+        const overlapStart = Math.max(slot.start, lessonStartMinutes);
+        const overlapEnd = Math.min(slot.end, lessonEndMinutes);
+        if (overlapEnd > overlapStart) {
+          const overlap = overlapEnd - overlapStart;
+          slot.booked += overlap;
+          bookedMinutes += overlap;
+        }
+      }
+    }
+
+    const openMinutes = slots.reduce((sum, slot) => {
+      const free = Math.max(slot.duration - Math.min(slot.duration, slot.booked), 0);
+      return sum + free;
+    }, 0);
+
+    const openSlots = slots.filter(slot => slot.duration - Math.min(slot.duration, slot.booked) > 0).length;
+    const totalSlots = slots.length;
+
+    if (totalAvailabilityMinutes <= 0) {
+      if (this.isSelectedDatePast) {
+        this.availabilityHeadline = 'You hadn\'t set any availability for ' + dateLabel + '.';
+      } else if (isFuture) {
+        this.availabilityHeadline = 'You haven\'t set any availability for ' + dateLabel + ' yet.';
+      } else {
+        this.availabilityHeadline = 'You haven\'t set any availability for today yet.';
+      }
+      this.availabilityDetail = 'Add some time slots so students can book you.';
+      return;
+    }
+
+    if (openMinutes <= 0) {
+      if (this.isSelectedDatePast) {
+        this.availabilityHeadline = dateLabel + '\'s ' + this.pluralize(totalSlots, 'availability block') + ' (' + this.formatMinutes(totalAvailabilityMinutes) + ') were fully booked.';
+        this.availabilityDetail = '';
+      } else if (isFuture) {
+        this.availabilityHeadline = dateLabel + '\'s ' + this.pluralize(totalSlots, 'availability block') + ' (' + this.formatMinutes(totalAvailabilityMinutes) + ') are fully booked.';
+        this.availabilityDetail = 'Add more availability to accept new students.';
+      } else {
+        this.availabilityHeadline = 'Great news—today\'s ' + this.pluralize(totalSlots, 'availability block') + ' (' + this.formatMinutes(totalAvailabilityMinutes) + ') are fully booked.';
+        this.availabilityDetail = 'Add more availability to accept new students.';
+      }
+      return;
+    }
+
+    if (bookedMinutes <= 0) {
+      if (this.isSelectedDatePast) {
+        this.availabilityHeadline = 'You had ' + this.formatMinutes(openMinutes) + ' of availability open for ' + dateLabel + '.';
+        this.availabilityDetail = 'That was spread across ' + this.pluralize(totalSlots, 'availability block') + '.';
+      } else if (isFuture) {
+        this.availabilityHeadline = 'You have ' + this.formatMinutes(openMinutes) + ' of availability open for ' + dateLabel + '.';
+        this.availabilityDetail = 'That\'s spread across ' + this.pluralize(totalSlots, 'availability block') + '. Add or adjust times to fill your schedule.';
+      } else {
+        this.availabilityHeadline = 'You have ' + this.formatMinutes(openMinutes) + ' of availability open today.';
+        this.availabilityDetail = 'That\'s spread across ' + this.pluralize(totalSlots, 'availability block') + '. Add or adjust times to fill your schedule.';
+      }
+      return;
+    }
+
+    if (this.isSelectedDatePast) {
+      this.availabilityHeadline = 'You had ' + this.formatMinutes(openMinutes) + ' open for ' + dateLabel + '.';
+      this.availabilityDetail = this.pluralize(openSlots, 'availability block') + ' were partially open (' + this.formatMinutes(totalAvailabilityMinutes) + ' total, ' + this.formatMinutes(Math.min(bookedMinutes, totalAvailabilityMinutes)) + ' already booked).';
+    } else if (isFuture) {
+      this.availabilityHeadline = 'You have ' + this.formatMinutes(openMinutes) + ' open for ' + dateLabel + '.';
+      this.availabilityDetail = this.pluralize(openSlots, 'availability block') + ' are partially open (' + this.formatMinutes(totalAvailabilityMinutes) + ' total, ' + this.formatMinutes(Math.min(bookedMinutes, totalAvailabilityMinutes)) + ' already booked). Add or adjust availability to fill the gaps.';
+    } else {
+      this.availabilityHeadline = 'You still have ' + this.formatMinutes(openMinutes) + ' open today.';
+      this.availabilityDetail = this.pluralize(openSlots, 'availability block') + ' are partially open (' + this.formatMinutes(totalAvailabilityMinutes) + ' total, ' + this.formatMinutes(Math.min(bookedMinutes, totalAvailabilityMinutes)) + ' already booked). Add or adjust availability to fill the gaps.';
+    }
+  }
+
+  private getAvailabilityDayIndex(date: Date): number {
+    const day = date.getDay(); // 0 (Sun) - 6 (Sat)
+    return day === 0 ? 6 : day - 1; // Convert to Monday=0
+  }
+
+  private parseTimeToMinutes(time: string): number {
+    if (!time) return 0;
+    const [hoursStr, minutesStr] = time.split(':');
+    const hours = parseInt(hoursStr, 10) || 0;
+    const minutes = parseInt(minutesStr, 10) || 0;
+    return hours * 60 + minutes;
+  }
+
+  private minutesSinceStartOfDay(date: Date, dayStart: number): number {
+    return Math.max(0, Math.min(24 * 60, Math.round((date.getTime() - dayStart) / 60000)));
+  }
+
+  private formatMinutes(totalMinutes: number): string {
+    const minutes = Math.max(0, Math.round(totalMinutes));
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    }
+    if (mins > 0 || parts.length === 0) {
+      parts.push(`${mins} ${mins === 1 ? 'minute' : 'minutes'}`);
+    }
+    return parts.join(' ');
+  }
+
+  private pluralize(count: number, singular: string, plural?: string): string {
+    const resolvedPlural = plural || `${singular}s`;
+    return count === 1 ? `1 ${singular}` : `${count} ${resolvedPlural}`;
   }
 
   // Check for existing presence in loaded lessons
@@ -800,6 +1069,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
   }
 
+  openNotifications() {
+    this.router.navigate(['/tabs/notifications']);
+  }
+
   // Date strip helpers (tutor view)
   generateDateStrip(days: number, startDate: Date): { label: string; dayNum: number; date: Date; isToday: boolean }[] {
     const result: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -820,6 +1093,7 @@ export class Tab1Page implements OnInit, OnDestroy {
  
   selectDate(d: Date) {
     this.selectedDate = this.startOfDay(new Date(d));
+    this.updateAvailabilitySummary();
   }
 
   navigateWeek(direction: 'prev' | 'next') {
@@ -835,6 +1109,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.selectedDate = today;
     const start = this.getStripStartForDate(today);
     this.updateDateStrip(start, false);
+    this.updateAvailabilitySummary();
   }
 
   isCurrentWeek(): boolean {
@@ -850,6 +1125,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (forceSelectStart || !this.selectedDate || !this.isDateInWeek(this.selectedDate, start)) {
       this.selectedDate = this.dateStrip[0]?.date ?? null;
     }
+    this.updateAvailabilitySummary();
   }
  
   private startOfDay(date: Date): Date {

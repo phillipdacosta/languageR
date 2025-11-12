@@ -82,6 +82,10 @@
         <ion-icon name="desktop"></ion-icon>
       </ion-button>
       
+      <ion-button (click)="toggleVirtualBackgroundControls()" [color]="showVirtualBackgroundControls ? 'primary' : 'medium'" fill="clear" title="Virtual Background">
+        <ion-icon name="color-filter-outline"></ion-icon>
+      </ion-button>
+      
       <ion-button (click)="toggleWhiteboard()" [color]="showWhiteboard ? 'primary' : 'medium'" fill="clear" title="Whiteboard">
         <ion-icon name="create"></ion-icon>
       </ion-button>
@@ -93,6 +97,68 @@
       <ion-button (click)="endCall()" color="danger" fill="solid" title="End Call">
         <ion-icon name="call"></ion-icon>
       </ion-button>
+    </div>
+
+    <!-- Virtual Background Controls Panel -->
+    <div class="virtual-bg-controls" *ngIf="showVirtualBackgroundControls">
+      <div class="controls-header">
+        <h3>Virtual Background</h3>
+        <ion-button fill="clear" size="small" (click)="toggleVirtualBackgroundControls()">
+          <ion-icon name="close"></ion-icon>
+        </ion-button>
+      </div>
+      
+      <div class="bg-options">
+        <ion-button 
+          fill="outline" 
+          size="small"
+          color="primary"
+          (click)="setBackgroundBlur()">
+          <ion-icon name="blur" slot="start"></ion-icon>
+          Enable Blur
+        </ion-button>
+        
+        <ion-button 
+          fill="outline" 
+          size="small"
+          color="success"
+          (click)="setBackgroundColor('#00ff00')">
+          <ion-icon name="square-outline" slot="start"></ion-icon>
+          Green Background
+        </ion-button>
+        
+        <ion-button 
+          fill="outline" 
+          size="small"
+          color="danger"
+          (click)="setBackgroundColor('#ff0000')">
+          <ion-icon name="square-outline" slot="start"></ion-icon>
+          Red Background
+        </ion-button>
+        
+        <ion-button 
+          fill="outline" 
+          size="small"
+          color="medium"
+          (click)="disableVirtualBackground()">
+          <ion-icon name="videocam-outline" slot="start"></ion-icon>
+          Normal
+        </ion-button>
+        
+        <ion-button 
+          fill="outline" 
+          size="small"
+          color="warning"
+          (click)="debugForceRestore()">
+          <ion-icon name="refresh-outline" slot="start"></ion-icon>
+          Force Restore
+        </ion-button>
+      </div>
+      
+      <div class="status-info" *ngIf="isVirtualBackgroundEnabled">
+        <ion-icon name="checkmark-circle" color="success"></ion-icon>
+        <span>Virtual background active</span>
+      </div>
     </div>
 
     <!-- Chat Panel -->

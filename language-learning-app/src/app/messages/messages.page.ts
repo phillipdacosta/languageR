@@ -7,8 +7,9 @@ import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
+import { MessageContextMenuComponent } from './message-context-menu.component';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
-import { takeUntil, debounceTime } from 'rxjs/operators';
+import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'app-messages',
@@ -61,9 +62,13 @@ export class MessagesPage implements OnInit, OnDestroy {
   
   // Reply functionality
   replyingToMessage: Message | null = null;
-  private longPressTimeout: any;
-  private readonly LONG_PRESS_DURATION = 500; // ms
   highlightedMessageId: string | null = null; // Track which message is highlighted
+  private longPressTimer: any = null;
+  
+  // Context menu state
+  showContextMenu = false;
+  contextMenuPosition: any = null;
+  contextMenuMessage: Message | null = null;
 
   constructor(
     private messagingService: MessagingService,
@@ -96,19 +101,45 @@ export class MessagesPage implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       ).subscribe(message => {
         const currentUserId = this.getCurrentUserId();
-        const otherUserId = this.selectedConversation?.otherUser?.auth0Id;
-        
-        // Check if message belongs to current conversation
-        if (this.selectedConversation && otherUserId &&
-            (message.senderId === otherUserId || message.receiverId === otherUserId ||
-             message.senderId === currentUserId || message.receiverId === currentUserId)) {
-          
-          // Check if this is my message (sent by me)
-          // Handle both formats: with and without 'dev-user-' prefix
-          const isMyMessage = message.senderId === currentUserId || 
-                              message.senderId === currentUserId.replace('dev-user-', '') ||
-                              `dev-user-${message.senderId}` === currentUserId;
-          
+        const normalizedCurrentUserId = this.normalizeUserId(currentUserId);
+        const normalizedSenderId = this.normalizeUserId(message.senderId);
+        const normalizedReceiverId = this.normalizeUserId(message.receiverId);
+        const participatesInMessage = normalizedSenderId === normalizedCurrentUserId || normalizedReceiverId === normalizedCurrentUserId;
+
+        if (!participatesInMessage) {
+          return; // Ignore messages unrelated to current user
+        }
+
+        // Determine if this message applies to the currently open conversation
+        const isForSelectedConversation = !!(this.selectedConversation &&
+          (
+            (this.selectedConversation.conversationId &&
+              this.selectedConversation.conversationId === message.conversationId) ||
+            (this.selectedConversation.otherUser &&
+              (this.normalizeUserId(this.selectedConversation.otherUser.auth0Id) === normalizedSenderId ||
+               this.normalizeUserId(this.selectedConversation.otherUser.auth0Id) === normalizedReceiverId))
+          ));
+
+        // Check if this is my message (sent by current user)
+        const isMyMessage = normalizedSenderId === normalizedCurrentUserId;
+
+        console.log('[MessagesPage] newMessage$ received', {
+          messageId: message.id,
+          contentPreview: message.content?.slice(0, 50),
+          senderId: message.senderId,
+          receiverId: message.receiverId,
+          normalizedSenderId,
+          normalizedReceiverId,
+          currentUserId,
+          normalizedCurrentUserId,
+          isMyMessage,
+          isForSelectedConversation,
+          selectedConversationId: this.selectedConversation?.conversationId,
+          selectedOtherUserId: this.selectedConversation?.otherUser?.auth0Id,
+          isPageVisible: this.isPageVisible
+        });
+
+        if (isForSelectedConversation) {
           // Enhanced duplicate check - check by ID, or by content+timestamp if no ID match
           const existingMessage = this.messages.find(m => 
             m.id === message.id || 
@@ -117,25 +148,27 @@ export class MessagesPage implements OnInit, OnDestroy {
              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 1000)
           );
           
-          if (existingMessage) {
-            // Duplicate message detected, skipping
-          } else {
+          if (!existingMessage) {
             this.messages.push(message);
             this.scrollToBottom();
-            
-            // If this is an incoming message (not sent by us) and we're actively viewing the conversation,
-            // automatically mark it as read, then update conversations
-            if (!isMyMessage && this.selectedConversation?.otherUser && this.isPageVisible) {
-              this.messagingService.markAsRead(this.selectedConversation.otherUser.auth0Id).subscribe({
-                next: () => {
-                  // Reload conversations AFTER marking as read, so unread count is correct
-                  this.reloadConversationsDebounced();
-                }
-              });
-            } else {
-              // For outgoing messages or when not actively viewing conversation, just reload conversations
-              this.reloadConversationsDebounced();
-            }
+          }
+
+          const isActiveConversation = isForSelectedConversation && this.isPageVisible;
+
+          this.updateConversationPreviewFromMessage(message, isMyMessage, isActiveConversation);
+          
+          // If this is an incoming message (not sent by us) and we're actively viewing the conversation,
+          // automatically mark it as read, then update conversations
+          if (!isMyMessage && this.selectedConversation?.otherUser && this.isPageVisible) {
+            this.messagingService.markAsRead(this.selectedConversation.otherUser.auth0Id).subscribe({
+              next: () => {
+                // Reload conversations AFTER marking as read, so unread count is correct
+                this.reloadConversationsDebounced();
+              }
+            });
+          } else {
+            // For outgoing messages or when not actively viewing conversation, just reload conversations
+            this.reloadConversationsDebounced();
           }
           
           // If this is a message we sent, mark sending as complete
@@ -147,6 +180,10 @@ export class MessagesPage implements OnInit, OnDestroy {
               this.messageSendTimeout = null;
             }
           }
+        } else {
+          // Message is for another conversation belonging to the user.
+          this.updateConversationPreviewFromMessage(message, isMyMessage, false);
+          this.reloadConversationsDebounced();
         }
       });
 
@@ -166,10 +203,7 @@ export class MessagesPage implements OnInit, OnDestroy {
         const userId = email ? `dev-user-${email}` : user?.sub || '';
         this.currentUserId$.next(userId);
         
-        // Load conversations once user is authenticated (important for page refresh)
-        if (email && !this.conversations.length) {
-          this.loadConversations();
-        }
+        // Note: Conversations are loaded in ionViewWillEnter to ensure they load on every page visit/refresh
       });
 
       // Get current user type from UserService
@@ -210,6 +244,113 @@ export class MessagesPage implements OnInit, OnDestroy {
     return this.conversations.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
   }
 
+  private normalizeUserId(id: string | undefined | null): string {
+    if (!id) {
+      return '';
+    }
+    return id.replace(/^dev-user-/, '');
+  }
+
+  private findConversationForMessage(message: Message): Conversation | undefined {
+    if (message.conversationId) {
+      const byId = this.conversations.find(c => c.conversationId === message.conversationId);
+      if (byId) {
+        return byId;
+      }
+    }
+    const senderId = this.normalizeUserId(message.senderId);
+    const receiverId = this.normalizeUserId(message.receiverId);
+
+    return this.conversations.find(c => {
+      const otherId = this.normalizeUserId(c.otherUser?.auth0Id);
+      return otherId === senderId || otherId === receiverId;
+    });
+  }
+
+  private getMessagePreviewText(message: Message): string {
+    if (message.type === 'text') {
+      return message.content;
+    }
+    if (message.type === 'image') {
+      return message.content ? message.content : '📷 Photo';
+    }
+    if (message.type === 'file') {
+      return message.content ? message.content : `📄 ${message.fileName || 'File'}`;
+    }
+    if (message.type === 'voice') {
+      return message.content ? message.content : '🎤 Voice message';
+    }
+    return message.content;
+  }
+
+  private updateConversationPreviewFromMessage(message: Message, isMyMessage: boolean, isActiveConversation: boolean) {
+    let conversation = this.findConversationForMessage(message);
+    console.log('[MessagesPage] updateConversationPreviewFromMessage', {
+      messageId: message.id,
+      conversationId: message.conversationId,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      isMyMessage,
+      isActiveConversation,
+      matchedConversationId: conversation?.conversationId
+    });
+    if (!conversation) {
+      // Conversation not found locally, fallback to reload
+      console.warn('[MessagesPage] conversation not found locally; scheduling reload');
+      this.reloadConversationsDebounced();
+      return;
+    }
+
+    conversation.lastMessage = {
+      content: this.getMessagePreviewText(message),
+      senderId: message.senderId,
+      createdAt: message.createdAt,
+      type: message.type
+    };
+    conversation.updatedAt = message.createdAt;
+
+    const normalizedSenderId = this.normalizeUserId(message.senderId);
+    const conversationOtherUserId = this.normalizeUserId(conversation.otherUser?.auth0Id);
+    const isFromOtherUser = conversationOtherUserId === normalizedSenderId;
+
+    const previousUnreadCount = conversation.unreadCount || 0;
+
+    // Update unread count logic:
+    // - If this is an incoming message (not from me) AND I'm actively viewing this conversation, mark as read (unreadCount = 0)
+    // - If this is an incoming message (not from me) AND I'm NOT viewing it, increment unread count
+    // - If this is my own message, DON'T change the unread count (leave existing unreads untouched)
+    if (!isMyMessage) {
+      // Incoming message from other user
+      if (isActiveConversation && isFromOtherUser) {
+        // I'm actively viewing this conversation, so mark as read
+        conversation.unreadCount = 0;
+      } else {
+        // I'm not viewing this conversation, so increment unread count
+        conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+      }
+    }
+    // If isMyMessage is true, we don't change unreadCount at all - preserve existing unreads
+
+    console.log('[MessagesPage] Unread count decision:', {
+      conversationId: conversation.conversationId,
+      isMyMessage,
+      isActiveConversation,
+      isFromOtherUser,
+      previousUnreadCount,
+      newUnreadCount: conversation.unreadCount,
+      action: isMyMessage ? 'NO_CHANGE (my message)' : (isActiveConversation && isFromOtherUser ? 'MARK_READ' : 'INCREMENT')
+    });
+
+    this.conversations = [...this.conversations];
+    const totalUnread = this.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+    console.log('[MessagesPage] Updating unread count via MessagingService:', {
+      totalUnread,
+      conversationUnreadCounts: this.conversations.map(c => ({ id: c.conversationId, unread: c.unreadCount }))
+    });
+    this.messagingService.updateUnreadCount(totalUnread);
+    this.cdr.detectChanges();
+  }
+
   onSearchChange(value: string) {
     this.searchInput$.next(value);
   }
@@ -240,18 +381,38 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   // Ionic lifecycle hook - called every time the view enters
   async ionViewWillEnter() {
+    console.log('[MessagesPage] ionViewWillEnter called');
     // Double-check we're actually on the messages page to avoid false triggers on refresh
     const isOnMessagesPage = this.router.url.includes('/messages');
     
     this.isPageVisible = isOnMessagesPage;
     
-    // Only load conversations if user is authenticated
-    const currentUserId = this.getCurrentUserId();
-    if (currentUserId) {
-      await this.loadConversations();
-    } else {
+    // Clear selected conversation on mobile to always show conversation list first
+    // This ensures users can choose which conversation to view
+    if (!this.isDesktop) {
+      this.selectedConversation = null;
+      this.messages = [];
     }
     
+    // Always try to load conversations - getCurrentUserId() waits for authentication internally
+    console.log('[MessagesPage] ionViewWillEnter - attempting to load conversations');
+    try {
+      await this.loadConversations();
+      console.log('[MessagesPage] ionViewWillEnter - conversations loaded successfully');
+    } catch (error) {
+      console.error('[MessagesPage] ionViewWillEnter - error loading conversations:', error);
+      
+      // If loading failed (possibly due to auth not ready), retry after a short delay
+      console.log('[MessagesPage] ionViewWillEnter - retrying in 500ms');
+      setTimeout(async () => {
+        try {
+          await this.loadConversations();
+          console.log('[MessagesPage] ionViewWillEnter - retry successful');
+        } catch (retryError) {
+          console.error('[MessagesPage] ionViewWillEnter - retry failed:', retryError);
+        }
+      }, 500);
+    }
   }
 
   // Ionic lifecycle hook - called every time the view leaves
@@ -384,10 +545,29 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   loadConversations(): Promise<void> {
+    console.log('[MessagesPage] loadConversations: starting');
     return new Promise((resolve, reject) => {
       this.isLoading = true;
-      this.messagingService.getConversations().subscribe({
+      
+      // Ensure user is authenticated before making API call
+      this.authService.user$.pipe(
+        take(1),
+        switchMap(user => {
+          if (!user || !user.email) {
+            console.warn('[MessagesPage] loadConversations: no authenticated user yet');
+            throw new Error('No authenticated user');
+          }
+          console.log('[MessagesPage] loadConversations: user authenticated, fetching conversations');
+          return this.messagingService.getConversations();
+        })
+      ).subscribe({
         next: (response) => {
+          console.log('📋 Loaded conversations:', response.conversations.length, response.conversations.map(c => ({
+            conversationId: c.conversationId,
+            otherUser: c.otherUser?.name || 'Unknown',
+            lastMessageType: c.lastMessage?.type,
+            isSystemMessage: (c.lastMessage as any)?.isSystemMessage
+          })));
           
           // Update conversations in-place to prevent flash/re-render
           if (this.conversations.length === 0) {
@@ -404,8 +584,37 @@ export class MessagesPage implements OnInit, OnDestroy {
               );
               
               if (existingIndex !== -1) {
+                // Smart unread count merging:
+                // - If this is the SELECTED conversation and we just marked it as read, trust the server (likely 0)
+                // - Otherwise, preserve local count if higher (prevents race condition when receiving new messages)
+                const existingConv = this.conversations[existingIndex];
+                const localUnread = existingConv.unreadCount || 0;
+                const serverUnread = newConv.unreadCount || 0;
+                const isSelectedConv = this.selectedConversation?.conversationId === existingConv.conversationId;
+                
                 // Update existing conversation properties (preserves reference)
                 Object.assign(this.conversations[existingIndex], newConv);
+                
+                // Only preserve higher local count if:
+                // 1. Local count is higher AND
+                // 2. This is NOT the selected conversation (selected conversation always trusts server for mark-as-read)
+                if (localUnread > serverUnread && !isSelectedConv) {
+                  console.log('[MessagesPage] loadConversations: Preserving higher local unread count', {
+                    conversationId: newConv.conversationId,
+                    localUnread,
+                    serverUnread,
+                    isSelectedConv,
+                    using: localUnread
+                  });
+                  this.conversations[existingIndex].unreadCount = localUnread;
+                } else if (isSelectedConv && serverUnread !== localUnread) {
+                  console.log('[MessagesPage] loadConversations: Accepting server unread count for selected conversation', {
+                    conversationId: newConv.conversationId,
+                    localUnread,
+                    serverUnread,
+                    using: serverUnread
+                  });
+                }
               } else {
                 // New conversation - add it
                 this.conversations.push(newConv);
@@ -419,36 +628,19 @@ export class MessagesPage implements OnInit, OnDestroy {
                 this.conversations.splice(i, 1);
               }
             }
-          }
-          
-          // On mobile only: If there's only 1 conversation, auto-select it when page becomes visible
-          // On desktop, user must explicitly click to select (prevents showing messages they're not ready to read)
-          // Only select if it's NOT already the selected conversation (avoid infinite loop)
-          if (!this.isDesktop && this.conversations.length === 1 && this.isPageVisible) {
-            const conv = this.conversations[0];
-            const isAlreadySelected = this.selectedConversation?.conversationId === conv.conversationId ||
-                                      (this.selectedConversation?.otherUser?.auth0Id === conv.otherUser?.auth0Id);
             
-            if (!isAlreadySelected) {
-              this.selectConversation(conv);
-            } else {
-              // If already selected but has unread messages, mark as read
-              if (conv.unreadCount > 0 && conv.otherUser) {
-                this.messagingService.markAsRead(conv.otherUser.auth0Id).subscribe({
-                  next: () => {
-                    // Update the local unread count
-                    conv.unreadCount = 0;
-                    // Manually update the MessagingService's unreadCount to update the tab badge
-                    const totalUnread = this.conversations.reduce((sum, c) => sum + c.unreadCount, 0);
-                    this.messagingService.updateUnreadCount(totalUnread);
-                  }
-                });
-              }
-            }
-          }
-          // On desktop, do NOT auto-select - let user choose which conversation to view
-          // This prevents showing messages they're not ready to read
-          // If we have a selected conversation, update it with the latest data
+          // After merging conversations, recalculate total unread and update service
+          const totalUnread = this.conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+          console.log('[MessagesPage] loadConversations: Recalculated total unread after merge:', {
+            totalUnread,
+            conversationUnreads: this.conversations.map(c => ({ id: c.conversationId, unread: c.unreadCount }))
+          });
+          this.messagingService.updateUnreadCount(totalUnread);
+        }
+        
+        // Do NOT auto-select conversations - let user choose which conversation to view
+        // This applies to both mobile and desktop to prevent showing messages they're not ready to read
+        // If we have a selected conversation, update it with the latest data
           if (this.selectedConversation) {
             const updatedConv = this.conversations.find(
               c => c.conversationId === this.selectedConversation?.conversationId ||
@@ -1201,36 +1393,155 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   // Reply functionality handlers
-  onMessageMouseDown(message: Message, event: MouseEvent | TouchEvent) {
-    // Only on desktop (long-press)
-    if (!this.isDesktop) return;
+  async onMessageTap(message: Message, event: any) {
+    console.log('📱 onMessageTap called', event.type);
+    // Show context menu on long press (both mobile and desktop)
+    await this.showMessageContextMenu(message, event);
+  }
+
+  onMessagePressStart(message: Message, event: any) {
+    console.log('👇 Press start', event);
     
-    this.longPressTimeout = setTimeout(() => {
-      this.setReplyTo(message);
-    }, this.LONG_PRESS_DURATION);
+    // Store the event target for later use
+    const pressedElement = event.target.closest('.message-bubble');
+    
+    this.longPressTimer = setTimeout(async () => {
+      console.log('⏰ Long press triggered');
+      // Create a new event-like object with the stored element
+      const eventData = {
+        target: pressedElement,
+        type: 'longpress'
+      };
+      await this.showMessageContextMenu(message, eventData);
+    }, 500);
   }
 
-  onMessageMouseUp() {
-    if (this.longPressTimeout) {
-      clearTimeout(this.longPressTimeout);
-      this.longPressTimeout = null;
+  onMessagePressEnd(event: any) {
+    console.log('👆 Press end');
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
     }
   }
 
-  onMessageDoubleClick(message: Message) {
-    // Desktop only
-    if (this.isDesktop) {
-      this.setReplyTo(message);
+  showMessageContextMenu(message: Message, event: any) {
+    console.log('🎯 showMessageContextMenu called');
+    
+    // Get the position of the tapped message
+    const target = event.target;
+    if (!target) {
+      console.log('❌ No message bubble found');
+      return;
     }
+
+    const rect = target.getBoundingClientRect();
+    const screenHeight = window.innerHeight;
+    const screenWidth = window.innerWidth;
+    const menuWidth = 260;
+    const menuHeight = this.isMyMessage(message) ? 300 : 350; // Different height with/without emojis
+    
+    console.log('📏 Message bubble rect:', {
+      left: rect.left.toFixed(1),
+      right: rect.right.toFixed(1),
+      top: rect.top.toFixed(1),
+      bottom: rect.bottom.toFixed(1),
+      width: rect.width.toFixed(1),
+      centerX: (rect.left + rect.width / 2).toFixed(1)
+    });
+    console.log('📱 Screen:', { width: screenWidth, height: screenHeight });
+    
+    // Determine if menu should show above or below the message
+    const spaceBelow = screenHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const showBelow = spaceBelow > menuHeight || spaceBelow > spaceAbove;
+    
+    console.log('📊 Space analysis:', { 
+      spaceBelow, 
+      spaceAbove, 
+      menuHeight,
+      showBelow 
+    });
+    
+    // Calculate the center of the message bubble
+    const messageCenterX = rect.left + (rect.width / 2);
+    
+    // Position menu centered on the message bubble
+    let menuLeft = messageCenterX - (menuWidth / 2);
+    
+    // Keep menu on screen (with 16px padding on sides)
+    const minLeft = 16;
+    const maxLeft = screenWidth - menuWidth - 16;
+    
+    const originalMenuLeft = menuLeft;
+    if (menuLeft < minLeft) {
+      menuLeft = minLeft;
+    } else if (menuLeft > maxLeft) {
+      menuLeft = maxLeft;
+    }
+    
+    // Calculate where the arrow should point (relative to menu position)
+    // Arrow should point to the center of the message bubble
+    const arrowOffset = messageCenterX - menuLeft;
+    
+    // Clamp arrow offset to keep it within the menu bounds (with some padding)
+    const clampedArrowOffset = Math.max(20, Math.min(arrowOffset, menuWidth - 20));
+    
+    this.contextMenuPosition = {
+      top: showBelow ? rect.bottom + 12 : rect.top - menuHeight - 12,
+      left: menuLeft,
+      showBelow,
+      arrowOffset: clampedArrowOffset
+    };
+
+    console.log('📍 Final position:', {
+      ...this.contextMenuPosition,
+      messageCenterX: messageCenterX.toFixed(1),
+      originalMenuLeft: originalMenuLeft.toFixed(1),
+      adjustedMenuLeft: menuLeft.toFixed(1),
+      arrowWillPointAt: (menuLeft + clampedArrowOffset).toFixed(1)
+    });
+
+    this.contextMenuMessage = message;
+    this.showContextMenu = true;
   }
 
-  onMessageTap(message: Message, event: any) {
-    // Mobile only - check for long press via Ionic gesture
-    // For now, we'll use a simple approach
-    if (!this.isDesktop) {
-      // On mobile, we can use a long press gesture
-      // This will be handled via the HTML template with press event
-      this.setReplyTo(message);
+  closeContextMenu() {
+    this.showContextMenu = false;
+    this.contextMenuMessage = null;
+    this.contextMenuPosition = null;
+  }
+
+  onContextMenuAction(action: string) {
+    if (!this.contextMenuMessage) return;
+    
+    this.handleContextMenuAction(action, this.contextMenuMessage);
+    this.closeContextMenu();
+  }
+
+  handleContextMenuAction(action: string, message: Message, data?: any) {
+    switch (action) {
+      case 'reply':
+        this.setReplyTo(message);
+        break;
+      case 'emoji':
+        // Handle emoji reaction (you can implement this later)
+        console.log('React with:', data?.emoji, 'to message:', message.id);
+        break;
+      case 'copy':
+        // Already handled in the component
+        break;
+      case 'forward':
+        // Implement forward functionality
+        console.log('Forward message:', message.id);
+        break;
+      case 'delete':
+        // Implement delete functionality
+        console.log('Delete message:', message.id);
+        break;
+      case 'more':
+        // Show more options
+        console.log('More options for message:', message.id);
+        break;
     }
   }
 

@@ -24,7 +24,14 @@
           <h1 class="student-name">{{ student.name }}</h1>
           <div class="languages" *ngIf="student.languagesLearning && student.languagesLearning.length">
             <ion-icon name="school-outline"></ion-icon>
-            <span>Learning: {{ student.languagesLearning.join(', ') }}</span>
+            <div class="languages-list">
+              <span>Learning: </span>
+              <span *ngFor="let lang of student.languagesLearning; let last = last" class="language-item">
+                <span>{{ lang }}</span>
+                <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+                <span *ngIf="!last">, </span>
+              </span>
+            </div>
           </div>
           
           <!-- Secondary Actions -->
@@ -111,7 +118,12 @@
           <div class="user-details" *ngIf="!otherUserTyping && student">
             <p class="user-status" *ngIf="student.languagesLearning && student.languagesLearning.length">
               <ion-icon name="school-outline"></ion-icon>
-              Learning: {{ student.languagesLearning.join(', ') }}
+              <span>Learning: </span>
+              <span *ngFor="let lang of student.languagesLearning; let last = last" class="language-item">
+                <span>{{ lang }}</span>
+                <app-flag-icon [language]="lang" [size]="14" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+                <span *ngIf="!last">, </span>
+              </span>
             </p>
           </div>
         </div>

@@ -137,75 +137,21 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Ensure currentUser is loaded
     this.loadCurrentUser();
     
-    // Subscribe to the centralized unread count observable
+    // Subscribe to the centralized unread count observable from MessagingService
+    // This is the SINGLE source of truth for unread count
     this.messagingService.unreadCount$.pipe(
       takeUntil(this.destroy$)
     ).subscribe({
       next: (count) => {
         console.log('🔴 Unread count changed in tabs page:', count, 'Previous value:', this.unreadCount$.value);
         this.unreadCount$.next(count);
-        // Force change detection to ensure UI updates
         this.cdr.detectChanges();
       }
     });
 
-    // Listen for WebSocket messages to update unread count in real-time
-    // This ensures the red dot appears even when not on the messages page
-    this.websocketService.newMessage$.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe((message) => {
-      console.log('📨 Tabs page received WebSocket message:', {
-        messageId: message.id,
-        senderId: message.senderId,
-        receiverId: message.receiverId,
-        content: message.content?.substring(0, 50)
-      });
-      
-      // When a new message arrives, reload conversations to update unread count
-      // Only reload if user is authenticated and it's not our own message
-      if (this.currentUser) {
-        const currentUserId = this.currentUser['auth0Id'] || `dev-user-${this.currentUser.email}`;
-        const isMyMessage = message.senderId === currentUserId || 
-                           message.senderId === currentUserId.replace('dev-user-', '') ||
-                           `dev-user-${message.senderId}` === currentUserId;
-        
-        console.log('📊 Message ownership check:', {
-          currentUserId,
-          messageSenderId: message.senderId,
-          isMyMessage
-        });
-        
-        // Only reload if it's an incoming message (not sent by us)
-        if (!isMyMessage) {
-          console.log('🔄 Reloading conversations to update unread count...');
-          // Reload conversations to update unread count
-          this.messagingService.getConversations().pipe(
-            takeUntil(this.destroy$)
-          ).subscribe({
-            next: (response) => {
-              if (response.success) {
-                const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
-                console.log('✅ Updated unread count:', totalUnread, 'conversations:', response.conversations.length);
-                console.log('🔴 Calling messagingService.updateUnreadCount with:', totalUnread);
-                this.messagingService.updateUnreadCount(totalUnread);
-                // Also directly update our observable to ensure it updates
-                this.unreadCount$.next(totalUnread);
-                console.log('🔴 Directly set unreadCount$ to:', totalUnread, 'Current value:', this.unreadCount$.value);
-                // Force change detection
-                this.cdr.detectChanges();
-              }
-            },
-            error: (error) => {
-              console.error('❌ Error reloading conversations for unread count:', error);
-            }
-          });
-        } else {
-          console.log('ℹ️ Message was sent by current user, skipping unread count update');
-        }
-      } else {
-        console.log('⚠️ Current user not available, skipping unread count update');
-      }
-    });
+    // NO WebSocket handling for unread counts in tabs page!
+    // The messages.page.ts will handle ALL unread count updates via MessagingService
+    // This ensures consistent behavior regardless of where messages are sent from
     
     // Load notifications when user is authenticated and currentUser is loaded
     this.user$.pipe(
@@ -288,11 +234,19 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   openSearchTutors() {
-    this.router.navigate(['/tabs/tutor-search']);
+    if (this.router.url === '/tabs/tutor-search') {
+      this.router.navigateByUrl('/tabs/tutor-search', { replaceUrl: false });
+    } else {
+      this.router.navigate(['/tabs/tutor-search']);
+    }
   }
 
   // Navigation methods for desktop web
   navigateTo(route: string) {
+    if (route === '/tabs/tutor-calendar') {
+      this.router.navigateByUrl('/tabs/tutor-calendar');
+      return;
+    }
     this.router.navigate([route]);
   }
 
@@ -399,24 +353,24 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   toggleNotificationDropdown() {
-    this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
-    
-    if (this.isNotificationDropdownOpen && this.notificationBtn) {
-      // Reload notifications when opening dropdown
-      this.loadNotifications();
-      
-      // Calculate position based on button location
-      setTimeout(() => {
-        const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
-        const toolbarHeight = 60; // Height of the toolbar
-        const dropdownWidth = 400;
-        const spacing = 8; // Space between button and dropdown
-        
-        // Position dropdown below the button, aligned to the right
-        this.dropdownTop = buttonRect.bottom + spacing;
-        this.dropdownRight = window.innerWidth - buttonRect.right;
-      }, 0);
+    if (this.isMobile() || this.isMobileViewport()) {
+      this.router.navigate(['/tabs/notifications']);
+      return;
     }
+    this.isNotificationDropdownOpen = !this.isNotificationDropdownOpen;
+    if (this.isNotificationDropdownOpen) {
+      this.loadNotifications();
+      this.calculateDropdownPosition();
+    }
+  }
+
+  private calculateDropdownPosition() {
+    if (!this.notificationBtn) {
+      return;
+    }
+    const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
+    this.dropdownTop = buttonRect.bottom + window.scrollY + 12;
+    this.dropdownRight = window.innerWidth - buttonRect.right - window.scrollX;
   }
 
   getUnreadNotifications(): Notification[] {
@@ -487,7 +441,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
     // Navigate based on notification type
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      this.router.navigate(['/tabs/tutor-calendar/event', notification.data.lessonId]);
+      const queryParams = this.isMobile() || this.isMobileViewport() ? { from: 'notifications' } : {};
+      this.router.navigate(['/tabs/tutor-calendar/event', notification.data.lessonId], {
+        queryParams
+      });
       // Don't close dropdown - let user see the notification was marked as read
     } else if (notification.type === 'message') {
       this.router.navigate(['/tabs/messages']);

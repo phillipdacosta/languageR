@@ -1,0 +1,84 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Notifications</ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear">
+        <ion-icon name="settings-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="notifications-content">
+  <div class="notification-page-container">
+    <div class="notification-section" *ngIf="isLoading">
+      <div class="notification-loading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading notifications...</p>
+      </div>
+    </div>
+
+    <ng-container *ngIf="!isLoading">
+      <div class="notification-section" *ngIf="getUnreadNotifications().length > 0">
+        <h2 class="notification-section-title">Important</h2>
+        <div
+          class="notification-item"
+          *ngFor="let notification of getUnreadNotifications(); trackBy: trackByNotificationId"
+          [class.unread]="!notification.read"
+          (click)="onNotificationClick(notification)">
+          <div class="notification-item-left">
+            <ion-icon
+              [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'"
+              class="notification-item-icon"
+              [class.lesson-icon]="notification.type === 'lesson_created'">
+            </ion-icon>
+          </div>
+          <div class="notification-item-content">
+            <p class="notification-text">{{ notification.message }}</p>
+            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+          </div>
+          <div class="notification-item-right">
+            <ion-button fill="clear" class="notification-options-btn" (click)="$event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-section" *ngIf="getReadNotifications().length > 0">
+        <h2 class="notification-section-title">More notifications</h2>
+        <div
+          class="notification-item"
+          *ngFor="let notification of getReadNotifications(); trackBy: trackByNotificationId"
+          (click)="onNotificationClick(notification)">
+          <div class="notification-item-left">
+            <ion-icon
+              [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'"
+              class="notification-item-icon"
+              [class.lesson-icon]="notification.type === 'lesson_created'">
+            </ion-icon>
+          </div>
+          <div class="notification-item-content">
+            <p class="notification-text">{{ notification.message }}</p>
+            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+          </div>
+          <div class="notification-item-right">
+            <ion-button fill="clear" class="notification-options-btn" (click)="$event.stopPropagation()">
+              <ion-icon name="ellipsis-vertical"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-empty" *ngIf="getReadNotifications().length === 0 && getUnreadNotifications().length === 0">
+        <ion-icon name="notifications-off-outline"></ion-icon>
+        <p>No notifications yet</p>
+        <small>Stay tuned! We'll let you know when there's something new.</small>
+      </div>
+    </ng-container>
+  </div>
+</ion-content>
+

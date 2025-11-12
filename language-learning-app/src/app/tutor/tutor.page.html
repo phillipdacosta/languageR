@@ -32,8 +32,12 @@
         <div class="profile-info">
           <h1 class="tutor-name">{{ tutor.name }}</h1>
           <div class="languages">
-            <!-- <ion-icon name="language-outline"></ion-icon> -->
-            <span>{{ tutor?.languages?.join(', ') }}</span>
+            <span>Teaches </span>
+            <span *ngFor="let lang of tutor?.languages; let last = last" class="language-item">
+              <span>{{ lang }}</span>
+              <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+              <span *ngIf="!last">, </span>
+            </span>
           </div>
           
           <!-- Secondary Actions -->
@@ -83,7 +87,7 @@
           <span class="price-label">Trial Lesson</span>
           <span class="price-amount">${{ tutor.hourlyRate || 25 }}/hr</span>
         </div>
-        <ion-button expand="block" color="success" size="default">
+        <ion-button expand="block" color="success" size="default" (click)="bookLesson()">
           <ion-icon name="calendar-outline" slot="start"></ion-icon>
           Book Now
         </ion-button>
@@ -188,7 +192,12 @@
           <div class="user-details" *ngIf="!otherUserTyping && tutor">
             <p class="user-status" *ngIf="tutor.languages && tutor.languages.length">
               <ion-icon name="language-outline"></ion-icon>
-              {{ tutor.languages.join(', ') }}
+              <span>Teaches </span>
+              <span *ngFor="let lang of tutor.languages; let last = last" class="language-item">
+                <span>{{ lang }}</span>
+                <app-flag-icon [language]="lang" [size]="14" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+                <span *ngIf="!last">, </span>
+              </span>
               <span *ngIf="tutor.hourlyRate" class="rate">
                 • ${{ tutor.hourlyRate }}/hr
               </span>

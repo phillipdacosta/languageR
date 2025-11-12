@@ -25,6 +25,7 @@ export interface Conversation {
     senderId: string;
     createdAt: string;
     type: string;
+    isSystemMessage?: boolean;
   };
   unreadCount: number;
   updatedAt: string;
@@ -36,7 +37,7 @@ export interface Message {
   senderId: string;
   receiverId: string;
   content: string;
-  type: string;  // 'text', 'image', 'file', 'voice'
+  type: string;  // 'text', 'image', 'file', 'voice', 'system'
   read: boolean;
   createdAt: string;
   // File attachment fields
@@ -61,6 +62,10 @@ export interface Message {
     fileUrl?: string;
     fileName?: string;
   };
+  // System message fields
+  isSystemMessage?: boolean;
+  visibleToTutorOnly?: boolean;
+  triggerType?: 'favorite' | 'book_lesson';
 }
 
 @Injectable({
@@ -88,6 +93,16 @@ export class MessagingService {
   incrementUnreadCount() {
     const currentCount = this.unreadCountSubject.value;
     this.unreadCountSubject.next(currentCount + 1);
+  }
+
+  // Create potential student conversation
+  createPotentialStudent(tutorId: string, triggerType: 'favorite' | 'book_lesson'): Observable<{ success: boolean; conversationId?: string; alreadyExists?: boolean }> {
+    const headers = this.getHeaders();
+    return this.http.post<{ success: boolean; conversationId?: string; alreadyExists?: boolean }>(
+      `${this.apiUrl}/potential-student`,
+      { tutorId, triggerType },
+      { headers }
+    );
   }
 
   private getHeaders(): HttpHeaders {

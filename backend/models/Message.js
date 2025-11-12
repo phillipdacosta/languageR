@@ -23,8 +23,22 @@ const messageSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['text', 'image', 'file', 'voice'],
+    enum: ['text', 'image', 'file', 'voice', 'system'],
     default: 'text'
+  },
+  // System message fields
+  isSystemMessage: {
+    type: Boolean,
+    default: false
+  },
+  visibleToTutorOnly: {
+    type: Boolean,
+    default: false
+  },
+  triggerType: {
+    type: String,
+    enum: ['favorite', 'book_lesson'],
+    required: false
   },
   // File attachment fields
   fileUrl: {

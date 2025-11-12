@@ -487,7 +487,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
       .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('name email picture onboardingData profile stats createdAt');
+      .select('name email picture auth0Id onboardingData profile stats createdAt');
 
     // Get total count for pagination
     const totalCount = await User.countDocuments(filterQuery);

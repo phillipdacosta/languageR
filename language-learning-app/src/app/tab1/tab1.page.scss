@@ -15,12 +15,17 @@
   .empty-inline-card {
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    height: 160px; /* keep visual height similar to a grid row */
+    min-height: 160px; /* allow card to grow if needed */
     display: flex;
     align-items: center;
+    
+    ion-card-content {
+      padding: 16px 20px;
+      width: 100%;
+    }
   }
   .empty-inline {
-    display: flex;
+    // display: flex;
     align-items: center;
     gap: 16px;
     padding: 8px 0;
@@ -32,9 +37,10 @@
       text-align: center;
 
       h3 {
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 600;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        line-height: 1.3;
 
         span {
           font-weight: 700;
@@ -42,12 +48,97 @@
       }
 
       p {
-        font-size: 15px;
+        font-size: 14px;
         color: #6b7280;
+        margin: 0;
+        line-height: 1.4;
+      }
+
+      .availability-feedback {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgb(194 86 255 / 5%));        border: 1px solid rgba(59, 130, 246, 0.12);
+        border-radius: 12px;
+        padding: 12px 14px;
+
+        .availability-summary {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+        }
+
+        .availability-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: rgba(59, 130, 246, 0.12);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #2563eb;
+          flex-shrink: 0;
+
+          ion-icon {
+            font-size: 20px;
+          }
+        }
+
+        .availability-text {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          flex: 1;
+          min-width: 0;
+
+          .availability-headline {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
+            line-height: 1.3;
+          }
+
+          .availability-detail {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.4;
+            margin: 0;
+          }
+        }
+
+        .availability-cta {
+          align-self: center;
+          --background: rgba(37, 99, 235, 0.12);
+          --background-hover: rgba(37, 99, 235, 0.18);
+          --background-focused: rgba(37, 99, 235, 0.22);
+          --border-color: transparent;
+          --color: #1d4ed8;
+          font-weight: 600;
+          font-size: 13px;
+          padding: 0 14px;
+          height: 34px;
+          margin-top: 2px;
+
+          ion-icon {
+            margin-right: 4px;
+            font-size: 16px;
+          }
+
+          &[disabled] {
+            --background: rgba(156, 163, 175, 0.1);
+            --color: #9ca3af;
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+        }
       }
     }
   }
   .empty-inline-icon { font-size: 48px; color: #93c5fd; }
+  .empty-inline-icon.hidden { display: none; }
 // tab1.page.scss
 
 ion-content {
@@ -742,6 +833,7 @@ ion-content {
 .category-tabs {
   display: flex;
   gap: 12px;
+  margin-top: 28px;
   margin-bottom: 28px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -753,6 +845,8 @@ ion-content {
   @media (min-width: 1024px) {
     justify-content: center;
     padding: 4px 0;
+    margin-top: 0;
+    margin-bottom: 28px;
   }
   
   &::-webkit-scrollbar {
@@ -1092,7 +1186,7 @@ ion-content {
   background: #fff;
   
   ion-card-content {
-    padding: 50px 20px;
+    padding: 30px 20px;  
   }
 }
 
@@ -1126,7 +1220,88 @@ ion-content {
   font-weight: 600;
   font-size: 16px;
   text-transform: none;
+  margin-top: 24px;
   // box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+}
+
+// Past Tutors Section with Stacked Avatars
+.past-tutors-section {
+  margin-top: 24px;
+  margin-bottom: 0;
+  text-align: center;
+  
+  .continue-working-text {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 16px 0;
+    font-weight: 500;
+  }
+  
+  .past-tutors-label {
+    font-size: 14px;
+    color: #9ca3af;
+    font-weight: 500;
+    margin: 24px 0 0 0;
+  }
+}
+
+.stacked-avatars {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.stacked-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: #ffffff;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-left: -12px; // Overlap by 12px
+  position: relative;
+  transition: transform 0.2s ease, z-index 0.2s ease;
+  
+  &:first-child {
+    margin-left: 0; // First avatar doesn't need negative margin
+    z-index: 5;
+  }
+  
+  &:nth-child(2) {
+    z-index: 4;
+  }
+  
+  &:nth-child(3) {
+    z-index: 3;
+  }
+  
+  &:nth-child(4) {
+    z-index: 2;
+  }
+  
+  &:nth-child(5) {
+    z-index: 1;
+  }
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+  }
+  
+  // Hover effect for better interactivity
+  &:hover {
+    transform: scale(1.15);
+    z-index: 10 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
 }
 
 // Dark mode specific overrides for tab1
@@ -1159,6 +1334,29 @@ ion-content {
     
     h3, p {
       color: var(--ion-text-color, #ffffff) !important;
+    }
+
+    .availability-feedback {
+      background: rgba(77, 141, 255, 0.12);
+      border-color: rgba(77, 141, 255, 0.32);
+
+      .availability-icon {
+        background: rgba(77, 141, 255, 0.18);
+        color: var(--ion-color-primary, #4d8dff);
+      }
+
+      .availability-headline {
+        color: var(--ion-text-color, #ffffff) !important;
+      }
+
+      .availability-detail {
+        color: var(--ion-text-color-step-350, #d1d5db) !important;
+      }
+
+      .availability-cta {
+        --border-color: transparent;
+        --color: var(--ion-color-primary, #4d8dff);
+      }
     }
   }
   

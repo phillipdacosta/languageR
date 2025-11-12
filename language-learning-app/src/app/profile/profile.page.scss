@@ -93,6 +93,23 @@
         gap: 6px;
         margin-top: 8px;
         color: var(--ion-color-primary);
+
+        .languages-list {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px;
+
+          .language-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+
+            .language-flag {
+              flex-shrink: 0;
+            }
+          }
+        }
         font-size: 14px;
         font-weight: 500;
         
