@@ -517,6 +517,86 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     });
   }
 
+  async saveTutor(tutor: Tutor, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!tutor || !this.currentUser) return;
+    
+    // Check if user is a student
+    if (this.currentUser.userType !== 'student') {
+      console.log('Only students can save tutors');
+      return;
+    }
+    
+    // Get the tutor's auth0Id
+    const tutorId = tutor.auth0Id || tutor.id;
+    
+    console.log('🔍 Tutor object:', { 
+      tutorId, 
+      auth0Id: tutor.auth0Id, 
+      id: tutor.id,
+      name: tutor.name,
+      fullTutor: tutor 
+    });
+    
+    try {
+      // Create potential student conversation
+      const response = await this.messagingService.createPotentialStudent(tutorId, 'favorite').pipe(takeUntil(this.destroy$)).toPromise();
+      
+      if (response?.success) {
+        console.log('Potential student conversation created:', response.conversationId);
+        // Optionally show a toast or update UI
+      } else {
+        console.error('Failed to create potential student conversation');
+      }
+    } catch (error) {
+      console.error('Error creating potential student conversation:', error);
+    }
+  }
+
+  async bookLesson(tutor: Tutor, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (!tutor || !this.currentUser) return;
+    
+    // Check if user is a student
+    if (this.currentUser.userType !== 'student') {
+      console.log('Only students can book lessons');
+      return;
+    }
+    
+    // Get the tutor's auth0Id
+    const tutorId = tutor.auth0Id || tutor.id;
+    
+    console.log('🔍 Tutor object (book lesson):', { 
+      tutorId, 
+      auth0Id: tutor.auth0Id, 
+      id: tutor.id,
+      name: tutor.name,
+      fullTutor: tutor 
+    });
+    
+    try {
+      // Create potential student conversation
+      const response = await this.messagingService.createPotentialStudent(tutorId, 'book_lesson').pipe(takeUntil(this.destroy$)).toPromise();
+      
+      if (response?.success) {
+        console.log('Potential student conversation created:', response.conversationId);
+        // Navigate to checkout or booking page
+        // For now, we'll just create the conversation
+        // TODO: Navigate to booking/checkout page
+      } else {
+        console.error('Failed to create potential student conversation');
+      }
+    } catch (error) {
+      console.error('Error creating potential student conversation:', error);
+    }
+  }
+
   async navigateToTutorProfile(tutorId: string) {
     // Check if we're inside a modal (from tab1 search bar on mobile)
     const topModal = await this.modalController.getTop();

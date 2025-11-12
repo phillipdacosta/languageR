@@ -2,12 +2,13 @@ import { Injectable } from '@angular/core';
 import AgoraRTC, {
   IAgoraRTCClient,
   ICameraVideoTrack,
+  ILocalVideoTrack,
   IMicrophoneAudioTrack,
   IRemoteVideoTrack,
   IRemoteAudioTrack,
   UID
 } from 'agora-rtc-sdk-ng';
-// import AgoraRTM from 'agora-rtm-sdk'; // Disabled due to compilation issues
+import VirtualBackgroundExtension from 'agora-extension-virtual-background';
 import { environment } from '../../environments/environment';
 import { TokenGeneratorService } from './token-generator.service';
 import { LessonService, LessonJoinResponse } from './lesson.service';
@@ -18,10 +19,25 @@ import { UserService } from './user.service';
 })
 export class AgoraService {
   private client: IAgoraRTCClient | null = null;
-  private localVideoTrack: ICameraVideoTrack | null = null;
+  private localVideoTrack: ICameraVideoTrack | ILocalVideoTrack | null = null;
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
   private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean }> = new Map();
   private videoEnabledState: boolean = true; // Track video enabled state
+
+  // Virtual background properties (following official example)
+  private extension: any = null;
+  private processor: any = null;
+  private virtualBackgroundEnabled = false;
+  
+  // Virtual background state preservation
+  private virtualBackgroundState: {
+    enabled: boolean;
+    type: 'blur' | 'color' | 'image' | null;
+    value?: string | number; // blur degree, color, or image URL
+  } = {
+    enabled: false,
+    type: null
+  };
 
   // Real-time messaging properties
   private channelName: string = 'default';
@@ -122,13 +138,344 @@ export class AgoraService {
     // Create Agora client
     this.client = AgoraRTC.createClient({ 
       mode: "rtc", 
-      codec: "vp8" 
+      codec: "vp9" // Using vp9 as in the example
     });
+
+    // Initialize virtual background extension
+    await this.initializeVirtualBackgroundExtension();
 
     // Set up event listeners
     this.setupEventListeners();
 
     return this.client;
+  }
+
+  // Initialize virtual background extension (following official example)
+  private async initializeVirtualBackgroundExtension(): Promise<void> {
+    try {
+      if (!this.extension) {
+        console.log('🔧 Creating VirtualBackgroundExtension instance...');
+        
+        // Create a VirtualBackgroundExtension instance
+        this.extension = new VirtualBackgroundExtension();
+        console.log('🔧 Extension created:', !!this.extension);
+        
+        if (!this.extension) {
+          throw new Error('Failed to create VirtualBackgroundExtension instance');
+        }
+        
+        // Register the extension
+        console.log('🔧 Registering extension with Agora...');
+        AgoraRTC.registerExtensions([this.extension]);
+        
+        console.log('✅ Virtual background extension initialized and registered');
+      } else {
+        console.log('🔄 Virtual background extension already exists');
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize virtual background extension:', error);
+      this.extension = null;
+      throw error;
+    }
+  }
+
+  // Get processor instance (following official example)
+  private async getProcessorInstance(): Promise<any> {
+    console.log('🔍 DEBUG: getProcessorInstance called');
+    console.log('🔍 DEBUG: Current processor exists:', !!this.processor);
+    console.log('🔍 DEBUG: Local video track exists:', !!this.localVideoTrack);
+    console.log('🔍 DEBUG: Extension exists:', !!this.extension);
+
+    // If we have a processor but no local video track, or the processor is tied to an old track, recreate it
+    if (!this.processor || !this.localVideoTrack) {
+      if (!this.localVideoTrack) {
+        console.warn('❌ Cannot create processor - no local video track available');
+        return null;
+      }
+
+      if (!this.extension) {
+        console.error('❌ Cannot create processor - no extension available');
+        return null;
+      }
+
+      try {
+        console.log('🔧 Creating new virtual background processor...');
+        
+        // Create a VirtualBackgroundProcessor instance
+        console.log('🔧 Calling extension.createProcessor()...');
+        this.processor = this.extension.createProcessor();
+        console.log('🔧 Processor created:', !!this.processor);
+
+        if (!this.processor) {
+          throw new Error('extension.createProcessor() returned null/undefined');
+        }
+
+        // Initialize the extension - try different approaches for WASM loading
+        console.log('🔧 Initializing processor...');
+        try {
+          // First try with assets path
+          console.log('🔧 Trying init with assets path...');
+          await this.processor.init("./assets/wasms");
+          console.log('✅ WASM loaded from assets path');
+        } catch (wasmError) {
+          console.warn('Failed to load WASM from assets, trying alternative methods...', wasmError);
+          try {
+            // Try without path (may use CDN or embedded WASM)
+            console.log('🔧 Trying init without path...');
+            await this.processor.init();
+            console.log('✅ WASM loaded without path');
+          } catch (fallbackError) {
+            console.warn('Failed to load WASM without path, trying empty string...', fallbackError);
+            // Try with empty string
+            console.log('🔧 Trying init with empty string...');
+            await this.processor.init("");
+            console.log('✅ WASM loaded with empty string');
+          }
+        }
+        
+        // Inject the extension into the video processing pipeline in the SDK
+        console.log('🔧 Injecting processor into video pipeline...');
+        
+        // Check track state before pipeline injection
+        console.log('🔍 DEBUG: Track state before pipeline injection:', {
+          enabled: this.localVideoTrack.enabled,
+          muted: this.localVideoTrack.muted
+        });
+        
+        this.localVideoTrack.pipe(this.processor).pipe(this.localVideoTrack.processorDestination);
+        
+        // Check track state after pipeline injection
+        console.log('🔍 DEBUG: Track state after pipeline injection:', {
+          enabled: this.localVideoTrack.enabled,
+          muted: this.localVideoTrack.muted
+        });
+        
+        // Ensure track remains enabled after pipeline injection
+        if (!this.localVideoTrack.enabled) {
+          console.log('⚠️ Track was disabled by pipeline injection, re-enabling...');
+          await this.localVideoTrack.setEnabled(true);
+          console.log('✅ Track re-enabled after pipeline injection');
+        }
+        
+        console.log('✅ Virtual background processor created and initialized');
+        console.log('🎥 IMPORTANT: Virtual background is now applied to the PUBLISHED video track that other participants will see');
+      } catch (error) {
+        console.error('❌ Failed to load WASM resource or create processor:', error);
+        console.error('❌ Error details:', error);
+        this.processor = null;
+        return null;
+      }
+    } else {
+      console.log('🔄 Using existing processor instance');
+    }
+    return this.processor;
+  }
+
+  // Set background blur (following official example)
+  async setBackgroundBlur(blurDegree: number = 2): Promise<void> {
+    if (!this.localVideoTrack) {
+      throw new Error('No local video track available');
+    }
+
+    console.log('🌀 Setting background blur...');
+    
+    try {
+      const processor = await this.getProcessorInstance();
+      if (!processor) {
+        throw new Error('Failed to get processor instance');
+      }
+
+      // Set blur options
+      processor.setOptions({ type: 'blur', blurDegree: blurDegree });
+      await processor.enable();
+      
+      this.virtualBackgroundEnabled = true;
+      // Store state for preservation
+      this.virtualBackgroundState = {
+        enabled: true,
+        type: 'blur',
+        value: blurDegree
+      };
+      console.log('✅ Background blur enabled successfully');
+      console.log('👥 Other participants will now see your blurred background');
+    } catch (error) {
+      console.error('❌ Failed to set background blur:', error);
+      throw error;
+    }
+  }
+
+  // Set background color (following official example)
+  async setBackgroundColor(color: string = '#00ff00'): Promise<void> {
+    if (!this.localVideoTrack) {
+      throw new Error('No local video track available');
+    }
+
+    console.log('🎨 Setting background color:', color);
+    
+    try {
+      const processor = await this.getProcessorInstance();
+      if (!processor) {
+        throw new Error('Failed to get processor instance');
+      }
+
+      // Set color options
+      processor.setOptions({ type: 'color', color: color });
+      await processor.enable();
+      
+      this.virtualBackgroundEnabled = true;
+      // Store state for preservation
+      this.virtualBackgroundState = {
+        enabled: true,
+        type: 'color',
+        value: color
+      };
+      console.log('✅ Background color set successfully');
+      console.log('👥 Other participants will now see your colored background');
+    } catch (error) {
+      console.error('❌ Failed to set background color:', error);
+      throw error;
+    }
+  }
+
+  // Set background image (following official example)
+  async setBackgroundImage(imageUrl: string): Promise<void> {
+    if (!this.localVideoTrack) {
+      throw new Error('No local video track available');
+    }
+
+    console.log('🖼️ Setting background image:', imageUrl);
+    
+    return new Promise((resolve, reject) => {
+      const imgElement = document.createElement('img');
+      
+      imgElement.onload = async () => {
+        try {
+          const processor = await this.getProcessorInstance();
+          if (!processor) {
+            throw new Error('Failed to get processor instance');
+          }
+
+          // Set image options
+          processor.setOptions({ type: 'img', source: imgElement });
+          await processor.enable();
+          
+          this.virtualBackgroundEnabled = true;
+          // Store state for preservation
+          this.virtualBackgroundState = {
+            enabled: true,
+            type: 'image',
+            value: imageUrl
+          };
+          console.log('✅ Background image set successfully');
+          resolve();
+        } catch (error) {
+          console.error('❌ Failed to set background image:', error);
+          reject(error);
+        }
+      };
+
+      imgElement.onerror = () => {
+        reject(new Error('Failed to load background image'));
+      };
+
+      imgElement.src = imageUrl;
+    });
+  }
+
+  // Disable virtual background
+  async disableVirtualBackground(): Promise<void> {
+    if (this.processor) {
+      try {
+        await this.processor.disable();
+        this.virtualBackgroundEnabled = false;
+        // Clear state
+        this.virtualBackgroundState = {
+          enabled: false,
+          type: null
+        };
+        console.log('✅ Virtual background disabled');
+      } catch (error) {
+        console.error('❌ Failed to disable virtual background:', error);
+        throw error;
+      }
+    }
+  }
+
+  // Check if virtual background is enabled
+  isVirtualBackgroundEnabled(): boolean {
+    return this.virtualBackgroundEnabled;
+  }
+
+  // Get virtual background state for preservation
+  getVirtualBackgroundState(): { enabled: boolean; type: 'blur' | 'color' | 'image' | null; value?: string | number } {
+    return { ...this.virtualBackgroundState };
+  }
+
+  // Force restore virtual background (can be called manually if automatic restoration fails)
+  async forceRestoreVirtualBackground(): Promise<boolean> {
+    console.log('🔧 Force restoring virtual background...');
+    try {
+      // Reset processor to ensure clean state
+      if (this.processor) {
+        try {
+          console.log('🔧 Unpiping processor for force restore...');
+          this.processor.unpipe();
+          console.log('✅ Processor unpiped for force restore');
+        } catch (unpipeError) {
+          console.warn('⚠️ Error unpiping processor for force restore:', unpipeError);
+        }
+      }
+      this.processor = null;
+      await this.restoreVirtualBackgroundState();
+      return true;
+    } catch (error) {
+      console.error('❌ Force restore failed:', error);
+      return false;
+    }
+  }
+
+  // Restore virtual background state (used when joining lesson)
+  async restoreVirtualBackgroundState(): Promise<void> {
+    console.log('🔍 DEBUG: Checking virtual background state for restoration...');
+    console.log('🔍 DEBUG: Current virtualBackgroundState:', JSON.stringify(this.virtualBackgroundState, null, 2));
+    console.log('🔍 DEBUG: Local video track exists:', !!this.localVideoTrack);
+    console.log('🔍 DEBUG: Extension exists:', !!this.extension);
+    console.log('🔍 DEBUG: Processor exists:', !!this.processor);
+
+    if (!this.virtualBackgroundState.enabled || !this.virtualBackgroundState.type) {
+      console.log('❌ No virtual background state to restore - state not enabled or no type');
+      return;
+    }
+
+    if (!this.localVideoTrack) {
+      console.log('❌ Cannot restore virtual background - no local video track available');
+      return;
+    }
+
+    try {
+      console.log('🔄 Restoring virtual background state:', this.virtualBackgroundState);
+      
+      switch (this.virtualBackgroundState.type) {
+        case 'blur':
+          console.log('🌀 Restoring blur with degree:', this.virtualBackgroundState.value);
+          await this.setBackgroundBlur(this.virtualBackgroundState.value as number || 2);
+          break;
+        case 'color':
+          console.log('🎨 Restoring color background:', this.virtualBackgroundState.value);
+          await this.setBackgroundColor(this.virtualBackgroundState.value as string || '#00ff00');
+          break;
+        case 'image':
+          console.log('🖼️ Restoring image background:', this.virtualBackgroundState.value);
+          await this.setBackgroundImage(this.virtualBackgroundState.value as string);
+          break;
+      }
+      
+      console.log('✅ Virtual background state restored successfully');
+    } catch (error) {
+      console.error('❌ Failed to restore virtual background state:', error);
+      console.error('❌ Error details:', error);
+      // Don't throw error - just log it so the call can continue
+    }
   }
 
   private setupEventListeners() {
@@ -191,9 +538,6 @@ export class AgoraService {
       this.remoteUsers.delete(user.uid);
       console.log("👥 Total remote users after leave:", this.remoteUsers.size);
     });
-
-    // Note: Real-time messaging would require Agora RTM SDK
-    // For now, we'll use localStorage + storage events for cross-window sync
   }
 
   async joinChannel(channelName: string, uid?: UID): Promise<void> {
@@ -204,11 +548,66 @@ export class AgoraService {
     try {
       // First, request permissions and create local tracks with high-quality encoder config
       console.log("Requesting camera and microphone permissions...");
+      
+      // Store virtual background state before creating new tracks
+      const savedVBState = { ...this.virtualBackgroundState };
+      
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
         { encoderConfig: this.encoderConfig }
       );
       console.log("Successfully created local tracks with HD quality");
+
+      // CRITICAL: Reset processor since we have new tracks
+      if (this.processor) {
+        console.log('🔄 Resetting processor for new tracks (joinChannel)...');
+        try {
+          // Properly unpipe the processor before resetting
+          console.log('🔧 Unpiping existing processor (joinChannel)...');
+          this.processor.unpipe();
+          console.log('✅ Processor unpiped successfully (joinChannel)');
+        } catch (unpipeError) {
+          console.warn('⚠️ Error unpiping processor (joinChannel, continuing anyway):', unpipeError);
+        }
+        this.processor = null;
+      }
+
+      // Restore virtual background state
+      this.virtualBackgroundState = savedVBState;
+
+      // Apply virtual background to the NEW tracks BEFORE joining channel
+      if (savedVBState.enabled && savedVBState.type) {
+        console.log('🔄 Applying virtual background to NEW tracks BEFORE joining (joinChannel)...');
+        
+        // Check video track state before applying VB
+        console.log('🔍 DEBUG: Video track state BEFORE VB (joinChannel):', {
+          exists: !!this.localVideoTrack,
+          enabled: this.localVideoTrack?.enabled,
+          muted: this.localVideoTrack?.muted
+        });
+        
+        try {
+          await this.restoreVirtualBackgroundState();
+          
+          // Check video track state after applying VB
+          console.log('🔍 DEBUG: Video track state AFTER VB (joinChannel):', {
+            exists: !!this.localVideoTrack,
+            enabled: this.localVideoTrack?.enabled,
+            muted: this.localVideoTrack?.muted
+          });
+          
+          // Ensure video track is enabled after VB processing
+          if (this.localVideoTrack && !this.localVideoTrack.enabled) {
+            console.log('⚠️ Video track was disabled by VB processing, re-enabling (joinChannel)...');
+            await this.localVideoTrack.setEnabled(true);
+            console.log('✅ Video track re-enabled after VB processing (joinChannel)');
+          }
+          
+          console.log('✅ Virtual background applied to NEW tracks before joining (joinChannel)');
+        } catch (error) {
+          console.error('❌ Failed to apply virtual background to NEW tracks (joinChannel):', error);
+        }
+      }
 
       // Generate token for testing or use null if testing mode is enabled
       let token = this.tokenGenerator.isTestingModeEnabled() ? null : this.tokenGenerator.generateTestToken(channelName, typeof uid === 'number' ? uid : 0);
@@ -312,6 +711,10 @@ export class AgoraService {
       // Using high-quality encoder config for better video quality
       console.log("Creating tracks with preferences:", { micEnabled, videoEnabled });
       
+      // Store virtual background state before creating new tracks
+      const savedVBState = { ...this.virtualBackgroundState };
+      console.log('🔍 DEBUG: Saving virtual background state before creating new tracks:', JSON.stringify(savedVBState, null, 2));
+
       // Always create both tracks so we can toggle them later
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
         {},
@@ -320,10 +723,63 @@ export class AgoraService {
       
       console.log("Successfully created local tracks with HD quality");
 
+      // CRITICAL: Reset processor since we have new tracks - the old processor is tied to old tracks
+      if (this.processor) {
+        console.log('🔄 Resetting processor for new tracks...');
+        try {
+          // Properly unpipe the processor before resetting
+          console.log('🔧 Unpiping existing processor...');
+          this.processor.unpipe();
+          console.log('✅ Processor unpiped successfully');
+        } catch (unpipeError) {
+          console.warn('⚠️ Error unpiping processor (continuing anyway):', unpipeError);
+        }
+        this.processor = null;
+      }
+
+      // Restore virtual background state after creating new tracks
+      this.virtualBackgroundState = savedVBState;
+      console.log('🔍 DEBUG: Restored virtual background state after creating new tracks:', JSON.stringify(this.virtualBackgroundState, null, 2));
+
+      // Apply virtual background to the NEW tracks BEFORE joining channel
+      if (savedVBState.enabled && savedVBState.type) {
+        console.log('🔄 Applying virtual background to NEW tracks BEFORE joining channel...');
+        
+        // Check video track state before applying VB
+        console.log('🔍 DEBUG: Video track state BEFORE VB:', {
+          exists: !!this.localVideoTrack,
+          enabled: this.localVideoTrack?.enabled,
+          muted: this.localVideoTrack?.muted
+        });
+        
+        try {
+          await this.restoreVirtualBackgroundState();
+          
+          // Check video track state after applying VB
+          console.log('🔍 DEBUG: Video track state AFTER VB:', {
+            exists: !!this.localVideoTrack,
+            enabled: this.localVideoTrack?.enabled,
+            muted: this.localVideoTrack?.muted
+          });
+          
+          // Ensure video track is enabled after VB processing
+          if (this.localVideoTrack && !this.localVideoTrack.enabled) {
+            console.log('⚠️ Video track was disabled by VB processing, re-enabling...');
+            await this.localVideoTrack.setEnabled(true);
+            console.log('✅ Video track re-enabled after VB processing');
+          }
+          
+          console.log('✅ Virtual background applied to NEW tracks before joining');
+        } catch (error) {
+          console.error('❌ Failed to apply virtual background to NEW tracks:', error);
+          // Continue without virtual background rather than failing the join
+        }
+      }
+
       // Join the RTC channel using backend-provided credentials
       await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
       console.log("Successfully joined lesson channel:", agora.channelName);
-      
+
       // Publish both tracks (they both exist now)
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
       console.log("Successfully published local tracks");
@@ -350,6 +806,9 @@ export class AgoraService {
       this.channelName = agora.channelName;
       this.currentLessonId = lesson.id;
       this.startMessagePolling();
+
+      // Virtual background was already applied before publishing tracks above
+      // No need for delayed restoration
 
       return joinResponse;
 
@@ -507,6 +966,11 @@ export class AgoraService {
         this.pollingInterval = null;
       }
 
+      // Disable virtual background before cleanup
+      if (this.virtualBackgroundEnabled) {
+        await this.disableVirtualBackground();
+      }
+
       // Stop local tracks
       if (this.localVideoTrack) {
         this.localVideoTrack.stop();
@@ -518,6 +982,18 @@ export class AgoraService {
         this.localAudioTrack.stop();
         this.localAudioTrack.close();
         this.localAudioTrack = null;
+      }
+
+      // Clean up virtual background processor
+      if (this.processor) {
+        try {
+          console.log('🔧 Unpiping processor during cleanup...');
+          this.processor.unpipe();
+          console.log('✅ Processor unpiped during cleanup');
+        } catch (unpipeError) {
+          console.warn('⚠️ Error unpiping processor during cleanup:', unpipeError);
+        }
+        this.processor = null;
       }
 
       // Leave the channel
@@ -579,7 +1055,7 @@ export class AgoraService {
     }
   }
 
-  getLocalVideoTrack(): ICameraVideoTrack | null {
+  getLocalVideoTrack(): ICameraVideoTrack | ILocalVideoTrack | null {
     return this.localVideoTrack;
   }
 
@@ -600,6 +1076,27 @@ export class AgoraService {
     return user ? { isMuted: user.isMuted, isVideoOff: user.isVideoOff } : null;
   }
 
+  // Create Agora tracks for pre-call (similar to joinLesson but without joining)
+  async createMicrophoneAndCameraTracks(): Promise<[IMicrophoneAudioTrack, ICameraVideoTrack]> {
+    try {
+      // Create tracks with high-quality encoder config
+      const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+        {},
+        { encoderConfig: this.encoderConfig }
+      );
+
+      // Store references
+      this.localAudioTrack = audioTrack;
+      this.localVideoTrack = videoTrack;
+      
+      console.log('Created Agora microphone and camera tracks for pre-call');
+      return [audioTrack, videoTrack];
+    } catch (error) {
+      console.error('Error creating Agora tracks for pre-call:', error);
+      throw error;
+    }
+  }
+
   async getDevices() {
     try {
       const devices = await AgoraRTC.getDevices();
@@ -611,53 +1108,6 @@ export class AgoraService {
     } catch (error) {
       console.error("Error getting devices:", error);
       return { cameras: [], microphones: [], speakers: [] };
-    }
-  }
-
-  // Simple real-time messaging using localStorage events and custom events
-  private async initializeRTM(channelName: string): Promise<void> {
-    try {
-      console.log("Initializing simple real-time messaging...");
-      
-      // Use localStorage events for cross-tab sync
-      window.addEventListener('storage', (e) => {
-        if (e.key === `agora-message-${channelName}` && e.newValue) {
-          this.handleIncomingMessage(e.newValue);
-        }
-      });
-      
-      // Use custom events for same-tab sync
-      window.addEventListener('agora-message', (e: any) => {
-        if (e.detail && e.detail.channel === channelName) {
-          this.handleIncomingMessage(JSON.stringify(e.detail.data));
-        }
-      });
-      
-      console.log("Simple real-time messaging initialized");
-      
-    } catch (error) {
-      console.error("Error initializing messaging:", error);
-    }
-  }
-
-  private handleIncomingMessage(messageData: string): void {
-    try {
-      const data = JSON.parse(messageData);
-      if (data.type === 'whiteboard') {
-        if (this.onWhiteboardMessage) {
-          this.onWhiteboardMessage(data.payload);
-        }
-      } else if (data.type === 'chat') {
-        if (this.onChatMessage) {
-          this.onChatMessage(data.payload);
-        }
-      } else if (data.type === 'muteState') {
-        this.handleRemoteMuteStateUpdate(data.payload);
-      } else if (data.type === 'videoState') {
-        this.handleRemoteVideoStateUpdate(data.payload);
-      }
-    } catch (error) {
-      console.error("Error parsing message:", error);
     }
   }
 
@@ -846,5 +1296,4 @@ export class AgoraService {
       console.error("Error sending video state:", error);
     }
   }
-
 }

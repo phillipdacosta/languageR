@@ -1,130 +1,366 @@
-<ion-content [fullscreen]="true" class="tutor-calendar-page">
-  <div class="calendar-layout">
-    <!-- Left Sidebar -->
-    <div class="calendar-sidebar">
-      <!-- Mobile Sidebar Header -->
-      <div class="sidebar-header" (click)="toggleSidebar()">
-        <h3>Calendar Tools</h3>
-        <ion-icon 
-          name="chevron-down-outline" 
-          class="sidebar-expand-icon"
-          [class.expanded]="sidebarExpanded">
-        </ion-icon>
-      </div>
-      
-      <!-- Sidebar Content -->
-      <div class="sidebar-content" [class.expanded]="sidebarExpanded">
-        <!-- Action Buttons -->
-        <div class="action-buttons">
-        <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson()">
-          <ion-icon name="add-outline" slot="start"></ion-icon>
-          Schedule lesson
-        </ion-button>
-        
-        <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()">
-          <ion-icon name="time-outline" slot="start"></ion-icon>
-          Add time off
-        </ion-button>
-        
-        <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddExtraSlots()">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add extra slots
-        </ion-button>
-        
-        <ion-button expand="block" fill="outline" class="action-btn" (click)="onSetUpAvailability()">
-          <ion-icon name="settings-outline" slot="start"></ion-icon>
-          Set up availability
+<ion-content [fullscreen]="true" class="tutor-calendar-page" [class.disable-scroll]="isScreenLocked()">
+  <ng-container *ngIf="isMobileView; else desktopCalendar">
+    <div class="mobile-header">
+      <!-- <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">
+        <ion-icon name="chevron-back-outline" slot="start"></ion-icon>
+        Calendar
+      </ion-button> -->
+      <div class="mobile-header-actions">
+        <ion-button fill="clear" class="mobile-settings-button" (click)="toggleMobileSettings()">
+          <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
         </ion-button>
       </div>
-
-      <!-- Tags Section -->
-      <div class="tags-section">
-        <div class="section-header" (click)="toggleTags()">
-          <h4>Tags</h4>
-          <ion-icon 
-            name="chevron-down-outline" 
-            class="expand-icon"
-            [class.expanded]="tagsExpanded">
-          </ion-icon>
-        </div>
-        <div class="tag-list" [class.expanded]="tagsExpanded">
-          <div class="tag-item" [style.border-left-color]="'#10b981'">
-            <div class="tag-color" style="background-color: #10b981;"></div>
-            <span>Your availability</span>
-          </div>
-          <div class="tag-item" [style.border-left-color]="'#3b82f6'">
-            <div class="tag-color" style="background-color: #3b82f6;"></div>
-            <span>Single lesson</span>
-          </div>
-          <div class="tag-item" [style.border-left-color]="'#ec4899'">
-            <div class="tag-color" style="background-color: #ec4899;"></div>
-            <span>Weekly lesson</span>
-          </div>
-          <div class="tag-item" [style.border-left-color]="'#f59e0b'">
-            <div class="tag-color" style="background-color: #f59e0b;"></div>
-            <span>Time off</span>
-          </div>
-          <div class="tag-item" [style.border-left-color]="'#6b7280'">
-            <div class="tag-color" style="background-color: #6b7280;"></div>
-            <span>Google Calendar</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Lesson Status Section -->
-      <div class="lesson-status-section">
-        <div class="section-header" (click)="toggleLessonStatus()">
-          <h4>Lesson status</h4>
-          <ion-icon 
-            name="chevron-down-outline" 
-            class="expand-icon"
-            [class.expanded]="lessonStatusExpanded">
-          </ion-icon>
-        </div>
-        <div class="status-list" [class.expanded]="lessonStatusExpanded">
-          <div class="status-item">
-            <ion-icon name="time-outline" class="status-icon"></ion-icon>
-            <span>Awaiting confirmation</span>
-          </div>
-          <div class="status-item">
-            <ion-icon name="checkmark-circle-outline" class="status-icon"></ion-icon>
-            <span>Confirmed lesson</span>
-          </div>
-          <div class="status-item">
-            <ion-icon name="calendar-outline" class="status-icon"></ion-icon>
-            <span>Requested time</span>
-          </div>
-        </div>
-      </div>
-      </div> <!-- Close sidebar-content -->
     </div>
 
-            <!-- Main Calendar Area -->
-            <div class="main-calendar">
-              <div id="tutor-calendar-container">
-                <!-- Custom full-width now indicator overlay -->
-                <div
-                  *ngIf="customNowVisible"
-                  class="custom-now-indicator"
-                  [style.top.px]="customNowTop"
-                  [style.left.px]="customNowLeft"
-                  [style.width.px]="customNowWidth"
-                >
-                  <span class="custom-now-dot"></span>
-                </div>
-                <!-- Loading state -->
-                <div class="calendar-loading" *ngIf="!isInitialized">
-                  <ion-spinner name="crescent"></ion-spinner>
-                  <p>Loading calendar...</p>
-                </div>
-                
-                <!-- FullCalendar will render here -->
-              </div>
-              
-              <!-- Help Button -->
-              <ion-button class="help-button" fill="clear" size="small" (click)="onHelpClick()">
-                <ion-icon name="help-circle-outline"></ion-icon>
-              </ion-button>
+    <div class="mobile-settings-wrapper" [class.open]="showMobileSettings">
+      <div class="mobile-settings-panel" *ngIf="showMobileSettings || panelAnimating">
+        <div class="panel-section">
+          <h3>Settings</h3>
+          <ion-list lines="none">
+            <ion-item button detail="false" (click)="setActiveTab('availability'); toggleMobileSettings()">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              <ion-label>Availability</ion-label>
+            </ion-item>
+            <ion-item button detail="false" (click)="setActiveTab('booking'); toggleMobileSettings()">
+              <ion-icon name="calendar-outline" slot="start"></ion-icon>
+              <ion-label>Lesson booking settings</ion-label>
+            </ion-item>
+            <ion-item button detail="false" (click)="setActiveTab('calendar'); toggleMobileSettings()">
+              <ion-icon name="settings-outline" slot="start"></ion-icon>
+              <ion-label>Calendar settings</ion-label>
+            </ion-item>
+            <ion-item button detail="false" (click)="setActiveTab('google'); toggleMobileSettings()">
+              <ion-icon name="logo-google" slot="start"></ion-icon>
+              <ion-label>Google Calendar settings</ion-label>
+            </ion-item>
+          </ion-list>
+        </div>
+
+        <div class="panel-section">
+          <h3>View Options</h3>
+          <div class="option-item">
+            <ion-checkbox [(ngModel)]="showPopularSlots" (ionChange)="togglePopularSlots()"></ion-checkbox>
+            <label>Popular slots</label>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h3>Quick Actions</h3>
+            <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              Add time off
+            </ion-button>
+            <ion-button expand="block" fill="outline" (click)="onAddExtraSlots(); toggleMobileSettings()">
+              <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+              Add extra slots
+            </ion-button>
+            <ion-button expand="block" fill="outline" (click)="onSetUpAvailability(); toggleMobileSettings()">
+              <ion-icon name="settings-outline" slot="start"></ion-icon>
+              Set up availability
+            </ion-button>
+          </div>
+
+          <div class="panel-section">
+            <ion-button expand="block" class="google-btn" (click)="connectGoogleCalendar(); toggleMobileSettings()">
+              <ion-icon name="logo-google" slot="start"></ion-icon>
+              Connect calendar
+            </ion-button>
+          </div>
+        </div>
+    </div>
+
+    <div class="mobile-calendar-wrapper">
+      <div class="mobile-view-toggle">
+        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
+        <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">Day</button>
+      </div>
+
+      <div class="schedule-legend">
+        <h4>Your Schedule</h4>
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-dot available"></span>
+            <span>Available for booking</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot open"></span>
+            <span>Open time slot</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot booked"></span>
+            <span>Booked lesson</span>
+          </div>
+        </div>
+      </div>
+
+      <ng-container [ngSwitch]="mobileViewMode">
+        <ng-container *ngSwitchCase="'day'">
+          <div class="mobile-day-strip">
+            <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(-4)" [disabled]="isScreenLocked()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </ion-button>
+            <div class="day-chip-list">
+              <button
+                type="button"
+                *ngFor="let day of mobileDays; let i = index"
+                class="day-chip"
+                [class.active]="i === selectedMobileDayIndex"
+                (click)="selectMobileDay(i)"
+                [disabled]="isScreenLocked()">
+                <span class="chip-short">{{ day.shortDay }}</span>
+                <span class="chip-number">{{ day.dayNumber }}</span>
+              </button>
             </div>
-  </div>
+            <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(4)" [disabled]="isScreenLocked()">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Today</ion-button>
+          </div>
+
+          <div class="mobile-date-header" *ngIf="selectedMobileDay as activeDay">
+            <div class="date-day">{{ activeDay.isToday ? 'Today' : activeDay.dayName }}</div>
+            <div class="date-month">{{ activeDay.monthLabel }} {{ activeDay.dayNumber }}</div>
+          </div>
+
+          <div class="mobile-timeline" *ngIf="mobileTimeline.length > 0; else emptyTimeline">
+            <div *ngFor="let item of mobileTimeline" class="timeline-entry" [class.free]="item.type === 'free'">
+              <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
+              <div class="timeline-card" [class.free]="item.type === 'free'">
+                <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
+                <ng-container *ngIf="item.type === 'event'; else freeBlock">
+                  <div class="card-header" [class.has-avatar]="item.avatarUrl">
+                    <ng-container *ngIf="item.avatarUrl">
+                      <img [src]="item.avatarUrl" alt="" class="card-avatar" />
+                    </ng-container>
+                    <div class="card-text">
+                      <div class="title">{{ item.title }}</div>
+                      <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                    </div>
+                  </div>
+                  <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
+                  <div class="location" *ngIf="item.location">{{ item.location }}</div>
+                </ng-container>
+                <ng-template #freeBlock>
+                  <div class="free-slot-content" (click)="onSetUpAvailability()">
+                    <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} free</span>
+                    <button type="button" class="free-add-icon" aria-label="Add availability">
+                      <ion-icon name="add-outline"></ion-icon>
+                    </button>
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+          <ng-template #emptyTimeline>
+            <div class="timeline-empty">
+              <ion-icon name="sunny-outline"></ion-icon>
+              <p>No events scheduled for this day.</p>
+            </div>
+          </ng-template>
+
+          <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+            <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
+              <ion-icon name="add-outline"></ion-icon>
+            </ion-fab-button>
+          </ion-fab>
+        </ng-container>
+
+        <ng-container *ngSwitchCase="'agenda'">
+          <div class="mobile-day-strip agenda-strip">
+            <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(-agendaDaysToShow)" [disabled]="isScreenLocked()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </ion-button>
+            <div class="agenda-range-label">{{ agendaRangeLabel }}</div>
+            <ion-button fill="clear" size="small" class="day-nav-btn" (click)="shiftMobileDays(agendaDaysToShow)" [disabled]="isScreenLocked()">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </ion-button>
+            <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Current Week</ion-button>
+          </div>
+          <div class="mobile-agenda" *ngIf="mobileAgendaSections.length > 0; else agendaEmpty">
+            <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
+              <div class="agenda-header">
+                <div class="agenda-label-group">
+                  <div class="agenda-label">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
+                  <div class="agenda-date">{{ section.dateLabel }}</div>
+                </div>
+                <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
+              </div>
+              <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
+                <div class="agenda-item" *ngFor="let item of section.events">
+                  <div class="timeline-entry" [class.free]="item.type === 'free'">
+                    <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
+                    <div class="timeline-card" [class.free]="item.type === 'free'">
+                      <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
+                      <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
+                        <div class="card-header" [class.has-avatar]="item.avatarUrl">
+                          <ng-container *ngIf="item.avatarUrl">
+                            <img [src]="item.avatarUrl" alt="" class="card-avatar" />
+                          </ng-container>
+                          <div class="card-text">
+                            <div class="title">{{ item.title }}</div>
+                            <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                          </div>
+                        </div>
+                        <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
+                        <div class="location" *ngIf="item.location">{{ item.location }}</div>
+                      </ng-container>
+                      <ng-template #agendaFreeBlock>
+                        <div class="free-slot-content" (click)="onSetUpAvailability()">
+                          <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} free</span>
+                          <button type="button" class="free-add-icon" aria-label="Add availability">
+                            <ion-icon name="add-outline"></ion-icon>
+                          </button>
+                        </div>
+                      </ng-template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noAgendaEvents>
+                <div class="agenda-empty">No events scheduled.</div>
+              </ng-template>
+            </div>
+          </div>
+          <ng-template #agendaEmpty>
+            <div class="timeline-empty">
+              <ion-icon name="sunny-outline"></ion-icon>
+              <p>No upcoming events.</p>
+            </div>
+          </ng-template>
+        </ng-container>
+      </ng-container>
+    </div>
+
+  </ng-container>
+
+  <ng-template #desktopCalendar>
+    <div class="calendar-layout">
+      <!-- Left Sidebar -->
+      <div class="calendar-sidebar">
+        <!-- Mobile Sidebar Header -->
+        <div class="sidebar-header" (click)="toggleSidebar()">
+          <h3>Calendar Tools</h3>
+          <ion-icon
+            name="chevron-down-outline"
+            class="sidebar-expand-icon"
+            [class.expanded]="sidebarExpanded">
+          </ion-icon>
+        </div>
+
+        <!-- Sidebar Content -->
+        <div class="sidebar-content" [class.expanded]="sidebarExpanded">
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson()">
+              <ion-icon name="add-outline" slot="start"></ion-icon>
+              Schedule lesson
+            </ion-button>
+
+            <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()" [disabled]="isScreenLocked()">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              Add time off
+            </ion-button>
+
+            <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddExtraSlots()" [disabled]="isScreenLocked()">
+              <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+              Add extra slots
+            </ion-button>
+
+            <ion-button expand="block" fill="outline" class="action-btn" (click)="onSetUpAvailability()" [disabled]="isScreenLocked()">
+              <ion-icon name="settings-outline" slot="start"></ion-icon>
+              Set up availability
+            </ion-button>
+          </div>
+
+          <!-- Tags Section -->
+          <div class="tags-section">
+            <div class="section-header" (click)="toggleTags()">
+              <h4>Tags</h4>
+              <ion-icon
+                name="chevron-down-outline"
+                class="expand-icon"
+                [class.expanded]="tagsExpanded">
+              </ion-icon>
+            </div>
+            <div class="tag-list" [class.expanded]="tagsExpanded">
+              <div class="tag-item" [style.border-left-color]="'#10b981'">
+                <div class="tag-color" style="background-color: #10b981;"></div>
+                <span>Your availability</span>
+              </div>
+              <div class="tag-item" [style.border-left-color]="'#3b82f6'">
+                <div class="tag-color" style="background-color: #3b82f6;"></div>
+                <span>Single lesson</span>
+              </div>
+              <div class="tag-item" [style.border-left-color]="'#ec4899'">
+                <div class="tag-color" style="background-color: #ec4899;"></div>
+                <span>Weekly lesson</span>
+              </div>
+              <div class="tag-item" [style.border-left-color]="'#f59e0b'">
+                <div class="tag-color" style="background-color: #f59e0b;"></div>
+                <span>Time off</span>
+              </div>
+              <div class="tag-item" [style.border-left-color]="'#6b7280'">
+                <div class="tag-color" style="background-color: #6b7280;"></div>
+                <span>Google Calendar</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lesson Status Section -->
+          <div class="lesson-status-section">
+            <div class="section-header" (click)="toggleLessonStatus()">
+              <h4>Lesson status</h4>
+              <ion-icon
+                name="chevron-down-outline"
+                class="expand-icon"
+                [class.expanded]="lessonStatusExpanded">
+              </ion-icon>
+            </div>
+            <div class="status-list" [class.expanded]="lessonStatusExpanded">
+              <div class="status-item">
+                <ion-icon name="time-outline" class="status-icon"></ion-icon>
+                <span>Awaiting confirmation</span>
+              </div>
+              <div class="status-item">
+                <ion-icon name="checkmark-circle-outline" class="status-icon"></ion-icon>
+                <span>Confirmed lesson</span>
+              </div>
+              <div class="status-item">
+                <ion-icon name="calendar-outline" class="status-icon"></ion-icon>
+                <span>Requested time</span>
+              </div>
+            </div>
+          </div>
+        </div> <!-- Close sidebar-content -->
+      </div>
+
+      <!-- Main Calendar Area -->
+      <div class="main-calendar">
+        <div id="tutor-calendar-container">
+          <!-- Custom full-width now indicator overlay -->
+          <div
+            *ngIf="customNowVisible"
+            class="custom-now-indicator"
+            [style.top.px]="customNowTop"
+            [style.left.px]="customNowLeft"
+            [style.width.px]="customNowWidth"
+          >
+            <span class="custom-now-dot"></span>
+          </div>
+          <!-- Loading state -->
+          <div class="calendar-loading" *ngIf="!isInitialized">
+            <ion-spinner name="crescent"></ion-spinner>
+            <p>Loading calendar...</p>
+          </div>
+
+          <!-- FullCalendar will render here -->
+        </div>
+
+        <!-- Help Button -->
+        <ion-button class="help-button" fill="clear" size="small" (click)="onHelpClick()">
+          <ion-icon name="help-circle-outline"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </ng-template>
 </ion-content>

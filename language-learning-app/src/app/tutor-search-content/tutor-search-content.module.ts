@@ -7,13 +7,15 @@ import { IonicModule } from '@ionic/angular';
 import { TutorSearchContentPageRoutingModule } from './tutor-search-content-routing.module';
 
 import { TutorSearchContentPage } from './tutor-search-content.page';
+import { SharedModule } from '../shared/shared.module';
 
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    TutorSearchContentPageRoutingModule
+    TutorSearchContentPageRoutingModule,
+    SharedModule
   ],
   declarations: [TutorSearchContentPage],
   exports: [TutorSearchContentPage]

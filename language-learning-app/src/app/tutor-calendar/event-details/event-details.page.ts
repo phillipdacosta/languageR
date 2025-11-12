@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { UserService, User } from '../../services/user.service';
+import { PlatformService } from '../../services/platform.service';
 
 @Component({
   selector: 'app-event-details',
@@ -20,16 +21,21 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   error: string | null = null;
   countdownTick = Date.now();
   private countdownInterval: any;
+  private returnUrl: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private lessonService: LessonService,
-    private userService: UserService
+    private userService: UserService,
+    private platformService: PlatformService
   ) { }
 
   ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id');
+    const fromParam = this.route.snapshot.queryParamMap.get('from');
+    const shouldReturnToNotifications = (this.platformService.isMobile() || this.platformService.isSmallScreen()) && fromParam === 'notifications';
+    this.returnUrl = shouldReturnToNotifications ? '/tabs/notifications' : '/tabs/tutor-calendar';
     
     // Load current user first
     this.userService.getCurrentUser().subscribe({
@@ -91,7 +97,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   }
 
   goBack() {
-    this.router.navigate(['/tabs/tutor-calendar']);
+    if (this.returnUrl) {
+      this.router.navigateByUrl(this.returnUrl);
+    } else {
+      this.router.navigate(['/tabs/tutor-calendar']);
+    }
   }
 
   getStatusInfo(): { label: string; color: string } {

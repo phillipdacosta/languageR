@@ -19,18 +19,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 
   <!-- Content Security Policy to allow images from Google and other sources -->
+  <!-- Relaxed CSP for virtual background WebAssembly support -->
   <meta http-equiv="Content-Security-Policy" 
-        content="default-src 'self' http: https: data: blob: ws: wss:;
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob: ws: wss:;
                  img-src 'self' data: https: http: blob: 
                  https://*.googleusercontent.com;
                  font-src 'self' data: https: http:;
-                 connect-src 'self' ws: wss: http: https:;
+                 connect-src 'self' ws: wss: http: https: data: blob:;
                  media-src 'self' data: https: http: blob:;
-                 worker-src 'self' blob:;
+                 worker-src 'self' blob: data:;
                  frame-src 'self' http: https:;
-                 object-src 'none';
+                 object-src 'self' data: blob:;
                  style-src 'self' 'unsafe-inline';
-                 script-src 'self' 'unsafe-inline' 'unsafe-eval';">
+                 script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;
+                 child-src 'self' blob: data:;">
 </head>
 
 <body>

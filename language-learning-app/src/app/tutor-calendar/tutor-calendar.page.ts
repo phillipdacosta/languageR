@@ -9,13 +9,48 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { filter } from 'rxjs/operators';
+import { FormsModule } from '@angular/forms';
+import { PlatformService } from '../services/platform.service';
+
+interface MobileDayContext {
+  date: Date;
+  dayName: string;
+  shortDay: string;
+  dayNumber: string;
+  monthLabel: string;
+  isToday: boolean;
+}
+
+type TimelineEntryType = 'event' | 'free';
+
+interface TimelineEntry {
+  type: TimelineEntryType;
+  start: Date;
+  end: Date;
+  durationMinutes: number;
+  title?: string;
+  subtitle?: string;
+  meta?: string;
+  color?: string;
+  location?: string;
+  avatarUrl?: string;
+}
+
+interface AgendaSection {
+  date: Date;
+  dayLabel: string;
+  dateLabel: string;
+  isToday: boolean;
+  relativeLabel?: string;
+  events: TimelineEntry[];
+}
 
 @Component({
   selector: 'app-tutor-calendar-page',
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, FormsModule]
 })
 export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   currentUser: User | null = null;
@@ -37,13 +72,399 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   tagsExpanded = false;
   lessonStatusExpanded = false;
 
+  // Mobile timeline state
+  isMobileView = false;
+  showMobileSettings = false;
+  panelAnimating = false;
+  activeSettingsTab = 'availability';
+  showPopularSlots = false;
+  mobileViewMode: 'day' | 'agenda' = 'day';
+  readonly mobileDaysToShow = 4;
+  readonly agendaDaysToShow = 7;
+  private mobileWeekStart: Date = new Date();
+  mobileDays: MobileDayContext[] = [];
+  mobileAgendaSections: AgendaSection[] = [];
+  selectedMobileDayIndex = 0;
+  mobileTimeline: TimelineEntry[] = [];
+
+  private viewportResizeHandler = () => this.evaluateViewport();
+
+  get agendaRangeLabel(): string {
+    const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
+    const end = this.addDays(start, this.agendaDaysToShow - 1);
+    return "".concat(
+      start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      ' – ',
+      end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    );
+  }
+
+  get selectedMobileDay(): MobileDayContext | null {
+    return this.mobileDays[this.selectedMobileDayIndex] ?? null;
+  }
+
+  toggleMobileSettings() {
+    if (this.showMobileSettings) {
+      this.panelAnimating = true;
+      this.showMobileSettings = false;
+      setTimeout(() => {
+        this.panelAnimating = false;
+      }, 250);
+    } else {
+      this.panelAnimating = true;
+      this.showMobileSettings = true;
+      setTimeout(() => {
+        this.panelAnimating = false;
+      }, 0);
+    }
+  }
+
+  setMobileViewMode(mode: 'day' | 'agenda') {
+    if (this.mobileViewMode === mode) {
+      return;
+    }
+    this.mobileViewMode = mode;
+    if (mode === 'day') {
+      this.showMobileSettings = false;
+      this.setupDayMode(new Date());
+    } else {
+      this.showMobileSettings = false;
+      this.setupAgendaMode(new Date());
+    }
+  }
+
+  setActiveTab(tab: string) {
+    this.activeSettingsTab = tab;
+  }
+
+  togglePopularSlots() {
+    this.showPopularSlots = !this.showPopularSlots;
+  }
+
+  shiftMobileDays(offset: number) {
+    if (!this.isMobileView || !this.mobileWeekStart) {
+      return;
+    }
+    const newAnchor = this.addDays(this.mobileWeekStart, offset);
+    if (this.mobileViewMode === 'day') {
+      this.setupDayMode(newAnchor);
+    } else {
+      this.setupAgendaMode(newAnchor);
+    }
+    this.showMobileSettings = false;
+  }
+
+  selectMobileDay(index: number) {
+    if (!this.isMobileView) {
+      return;
+    }
+    if (index < 0 || index >= this.mobileDays.length) {
+      return;
+    }
+    this.selectedMobileDayIndex = index;
+    this.showMobileSettings = false;
+    this.buildMobileTimeline();
+  }
+
+  goToMobileToday() {
+    const today = new Date();
+    if (this.mobileViewMode === 'day') {
+      this.setupDayMode(today);
+    } else {
+      this.setupAgendaMode(today);
+    }
+    this.showMobileSettings = false;
+  }
+
+  formatTime(date: Date): string {
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  formatDuration(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const parts: string[] = [];
+    if (hours) {
+      parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    }
+    if (mins) {
+      parts.push(`${mins} ${mins === 1 ? 'minute' : 'minutes'}`);
+    }
+    if (!parts.length) {
+      return 'less than a minute';
+    }
+    return parts.join(' ');
+  }
+
+  formatDurationShort(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    const parts: string[] = [];
+    if (hours) {
+      parts.push(`${hours}h`);
+    }
+    if (mins) {
+      parts.push(`${mins}m`);
+    }
+    if (!parts.length) {
+      return '<1m';
+    }
+    return parts.join(' ');
+  }
+
   constructor(
     private userService: UserService,
     private lessonService: LessonService,
-    private router: Router
+    private router: Router,
+    private platformService: PlatformService
   ) { }
 
+  private evaluateViewport() {
+    if (typeof window === 'undefined') {
+      this.isMobileView = false;
+      return;
+    }
+    const wasMobile = this.isMobileView;
+    this.isMobileView = window.innerWidth <= 768;
+    if (this.isMobileView) {
+      const today = new Date();
+      if (this.mobileViewMode === 'day') {
+        this.setupDayMode(today);
+      } else {
+        this.setupAgendaMode(today);
+      }
+    } else if (wasMobile) {
+      this.showMobileSettings = false;
+    }
+  }
+
+  private setupDayMode(reference: Date) {
+    this.setupMobileDays(reference, reference);
+    this.buildMobileTimeline();
+  }
+
+  private setupAgendaMode(reference: Date) {
+    this.setupMobileDays(reference, reference);
+    this.buildMobileAgenda();
+  }
+
+  private setupMobileDays(anchor: Date, focus: Date = anchor) {
+    const start = this.getStartOfDay(anchor);
+    this.mobileWeekStart = start;
+    const days: MobileDayContext[] = [];
+    const count = this.mobileViewMode === 'agenda' ? this.agendaDaysToShow : this.mobileDaysToShow;
+    for (let i = 0; i < count; i++) {
+      const current = this.addDays(start, i);
+      days.push({
+        date: current,
+        dayName: current.toLocaleDateString('en-US', { weekday: 'long' }),
+        shortDay: current.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNumber: current.getDate().toString(),
+        monthLabel: current.toLocaleDateString('en-US', { month: 'long' }),
+        isToday: this.isSameDay(current, new Date())
+      });
+    }
+    this.mobileDays = days;
+    const focusIndex = days.findIndex(day => this.isSameDay(day.date, focus));
+    this.selectedMobileDayIndex = focusIndex >= 0 ? focusIndex : 0;
+  }
+
+  private addDays(date: Date, amount: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() + amount);
+    return result;
+  }
+
+  private getStartOfDay(date: Date): Date {
+    const result = new Date(date);
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  isSameDay(a: Date, b: Date): boolean {
+    return a.getFullYear() === b.getFullYear() &&
+           a.getMonth() === b.getMonth() &&
+           a.getDate() === b.getDate();
+  }
+
+  private buildDayEntries(dayStart: Date, dayEnd: Date): TimelineEntry[] {
+    const eventEntries = this.collectEventsForDay(dayStart, dayEnd);
+    const entries: TimelineEntry[] = [];
+    let cursor = new Date(dayStart.getTime());
+
+    const pushFreeBlock = (start: Date, end: Date) => {
+      const diffMs = end.getTime() - start.getTime();
+      const minutes = Math.round(diffMs / 60000);
+      if (minutes <= 0) {
+        return;
+      }
+      entries.push({
+        type: 'free',
+        start: new Date(start.getTime()),
+        end: new Date(end.getTime()),
+        durationMinutes: minutes,
+        title: 'Open time slot',
+        meta: `+ Add Availability (${this.formatDurationShort(minutes)})`
+      });
+    };
+
+    for (const entry of eventEntries) {
+      if (entry.start.getTime() > cursor.getTime()) {
+        pushFreeBlock(cursor, entry.start);
+      }
+      entries.push(entry);
+      if (entry.end.getTime() > cursor.getTime()) {
+        cursor = new Date(entry.end.getTime());
+      }
+    }
+
+    if (cursor.getTime() < dayEnd.getTime()) {
+      pushFreeBlock(cursor, dayEnd);
+    }
+
+    return entries;
+  }
+
+  private buildMobileTimeline() {
+    if (!this.isMobileView) {
+      this.mobileTimeline = [];
+      return;
+    }
+    const activeDay = this.selectedMobileDay;
+    if (!activeDay) {
+      this.mobileTimeline = [];
+      return;
+    }
+    const dayStart = this.getStartOfDay(activeDay.date);
+    const dayEnd = this.addDays(dayStart, 1);
+    this.mobileTimeline = this.buildDayEntries(dayStart, dayEnd);
+  }
+
+  private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
+    const results: TimelineEntry[] = [];
+    for (const event of this.events || []) {
+      if (!event.start || !event.end) {
+        continue;
+      }
+      const rawStart = new Date(event.start as string | number | Date);
+      const rawEnd = new Date(event.end as string | number | Date);
+      if (isNaN(rawStart.getTime()) || isNaN(rawEnd.getTime())) {
+        continue;
+      }
+      if (rawStart >= dayEnd || rawEnd <= dayStart) {
+        continue;
+      }
+      const clampedStart = rawStart.getTime() < dayStart.getTime() ? new Date(dayStart.getTime()) : rawStart;
+      const clampedEnd = rawEnd.getTime() > dayEnd.getTime() ? new Date(dayEnd.getTime()) : rawEnd;
+      
+      // Debug logging for 12:00 PM events
+      const eventStartTime = rawStart.toLocaleTimeString();
+      if (eventStartTime.includes('12:00')) {
+        console.log('🔍 collectEventsForDay - Processing 12:00 PM event:', {
+          eventTitle: event.title,
+          eventId: event.id,
+          backgroundColor: event.backgroundColor,
+          extendedProps: event.extendedProps,
+          hasExtendedProps: !!event.extendedProps,
+          extendedPropsKeys: event.extendedProps ? Object.keys(event.extendedProps) : []
+        });
+      }
+      
+      results.push(this.buildTimelineEvent(event, clampedStart, clampedEnd));
+    }
+    return results.sort((a, b) => a.start.getTime() - b.start.getTime());
+  }
+
+  private buildTimelineEvent(event: EventInput, start: Date, end: Date): TimelineEntry {
+    const extended = (event.extendedProps as any) || {};
+    const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+    const isLesson = Boolean(extended.lessonId);
+    
+    // Debug logging for the 12:00-1:00 PM slot
+    const debugStartTimeStr = start.toLocaleTimeString();
+    const debugEndTimeStr = end.toLocaleTimeString();
+    if (debugStartTimeStr.includes('12:00') || debugEndTimeStr.includes('1:00')) {
+      console.log('🔍 Building timeline event for 12:00-1:00 PM slot:', {
+        eventTitle: event.title,
+        isLesson,
+        lessonId: extended.lessonId,
+        studentName: extended.studentName,
+        studentDisplayName: extended.studentDisplayName,
+        backgroundColor: event.backgroundColor,
+        extendedProps: extended
+      });
+    }
+    
+    const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
+    const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
+    const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
+    const color = (event.backgroundColor as string) || '#667eea';
+    const location = extended.location || extended.platform;
+    const avatarUrl = isLesson ? extended.studentAvatar : undefined;
+
+    return {
+      type: 'event',
+      start: new Date(start.getTime()),
+      end: new Date(end.getTime()),
+      durationMinutes,
+      title,
+      subtitle,
+      meta,
+      color,
+      location,
+      avatarUrl
+    };
+  }
+
+  private buildMobileAgenda() {
+    if (!this.isMobileView) {
+      this.mobileAgendaSections = [];
+      return;
+    }
+
+    const sections: AgendaSection[] = [];
+    const anchor = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
+    for (let i = 0; i < this.agendaDaysToShow; i++) {
+      const dayDate = this.addDays(anchor, i);
+      const dayStart = this.getStartOfDay(dayDate);
+      const dayEnd = this.addDays(dayStart, 1);
+      const events = this.buildDayEntries(dayStart, dayEnd);
+      const isToday = this.isSameDay(dayDate, new Date());
+      const { dayLabel, dateLabel, relative } = this.getAgendaLabels(dayDate, i);
+      sections.push({
+        date: dayDate,
+        dayLabel,
+        dateLabel,
+        isToday,
+        relativeLabel: relative,
+        events
+      });
+    }
+    this.mobileAgendaSections = sections;
+  }
+
+  private getAgendaLabels(date: Date, offset: number): { dayLabel: string; dateLabel: string; relative?: string } {
+    const dateLabel = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'long' });
+    let relative: string | undefined;
+    if (offset === 1) {
+      relative = 'Tomorrow';
+    }
+    return {
+      dayLabel,
+      dateLabel,
+      relative
+    };
+  }
   ngOnInit() {
+    this.evaluateViewport();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', this.viewportResizeHandler);
+    }
+    if (this.isMobileView) {
+      this.setupMobileDays(new Date());
+      this.buildMobileTimeline();
+    }
     this.loadCurrentUser();
     
     // Fallback: Initialize calendar after 2 seconds if user loading fails
@@ -70,10 +491,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     setTimeout(() => this.updateCustomNowIndicator());
     this.customNowInterval = setInterval(() => this.updateCustomNowIndicator(), 60_000);
     window.addEventListener('resize', this.updateCustomNowIndicatorBound);
+    
   }
+  
 
   ngAfterViewInit() {
     console.log('📅 ngAfterViewInit called');
+    if (this.isMobileView) {
+      console.log('📅 Mobile view detected - skipping FullCalendar initialization');
+      this.buildMobileTimeline();
+      return;
+    }
     
     // Immediate simple test
     const calendarEl = document.getElementById('tutor-calendar-container');
@@ -92,6 +520,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   ngOnDestroy() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this.viewportResizeHandler);
+    }
     if (this.calendar) {
       this.calendar.destroy();
       this.calendar = undefined;
@@ -100,6 +531,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.initializationAttempts = 0; // Reset counter
     if (this.customNowInterval) clearInterval(this.customNowInterval);
     window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
+    
+    // Clean up session storage
   }
 
   ionViewWillEnter() {
@@ -191,15 +624,39 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
     // Convert lessons to events but don't replace existing events (availability/classes)
+    console.log('🔍 Converting lessons to events:', lessons.length, 'lessons');
+    
     const lessonEvents = lessons.map(lesson => {
+      const student = lesson.studentId as any;
+      const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
+      const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
+      const studentFullName = [studentFirst, studentLast].filter(Boolean).join(' ');
+      const studentName = studentFullName || student?.name || student?.displayName || student?.email || 'Student';
+      const subject = lesson.subject || 'Language Lesson';
+      
+      // Debug logging for 12:00 PM lesson
+      const debugStartTime = new Date(lesson.startTime);
+      if (debugStartTime.getHours() === 12 && debugStartTime.getMinutes() === 0) {
+        console.log('🔍 Converting 12:00 PM lesson:', {
+          id: lesson._id,
+          lessonId: lesson._id,
+          startTime: lesson.startTime,
+          endTime: lesson.endTime,
+          status: lesson.status,
+          studentId: lesson.studentId,
+          student: lesson.studentId,
+          studentName: studentName
+        });
+      }
+      
       // Determine color based on status
       let backgroundColor = '#667eea'; // Default purple
       let borderColor = '#5568d3';
       
       switch (lesson.status) {
         case 'scheduled':
-          backgroundColor = '#667eea'; // Purple - upcoming
-          borderColor = '#5568d3';
+          backgroundColor = '#10b981'; // Green - booked lesson
+          borderColor = '#059669';
           break;
         case 'in_progress':
           backgroundColor = '#10b981'; // Green - happening now
@@ -213,11 +670,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           backgroundColor = '#ef4444'; // Red - cancelled
           borderColor = '#dc2626';
           break;
+        default:
+          backgroundColor = '#10b981';
+          borderColor = '#059669';
+          break;
       }
-
-      // Format student name for display
-      const studentName = lesson.studentId?.name || 'Unknown Student';
-      const subject = lesson.subject || 'Language Lesson';
       
       // Format time for display (12-hour format like availability-setup)
       const startTime = new Date(lesson.startTime);
@@ -225,7 +682,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const timeStr = `${this.formatTime12Hour(startTime.getHours(), startTime.getMinutes())} - ${this.formatTime12Hour(endTime.getHours(), endTime.getMinutes())}`;
       
       const isPast = endTime.getTime() < Date.now();
-      return {
+      const eventData = {
         id: lesson._id,
         title: `${studentName} - ${subject}`,
         start: lesson.startTime,
@@ -237,6 +694,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         extendedProps: {
           lessonId: lesson._id,
           studentName: studentName,
+          studentDisplayName: studentName,
+          studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
           subject: subject,
           status: lesson.status,
           timeStr: timeStr,
@@ -245,6 +704,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           notes: lesson.notes
         }
       } as EventInput;
+      
+      // Debug logging for 12:00 PM lesson event creation
+      if (debugStartTime.getHours() === 12 && debugStartTime.getMinutes() === 0) {
+        console.log('🔍 Created event for 12:00 PM lesson:', {
+          eventId: eventData.id,
+          eventTitle: eventData.title,
+          lessonIdInProps: eventData.extendedProps?.['lessonId'],
+          studentNameInProps: eventData.extendedProps?.['studentName'],
+          backgroundColor: eventData.backgroundColor
+        });
+      }
+      
+      return eventData;
     });
     
     // Merge lesson events with existing events (availability/classes)
@@ -253,9 +725,29 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.events = [...nonLessonEvents, ...lessonEvents];
     
     console.log(`📅 Converted ${lessons.length} lessons to events, total events: ${this.events.length}`);
+    
+    // Debug: Check what 12:00 PM events exist in this.events
+    const noon12Events = this.events.filter(event => {
+      if (!event.start) return false;
+      const eventStart = new Date(event.start as string | number | Date);
+      return eventStart.getHours() === 12 && eventStart.getMinutes() === 0;
+    });
+    
+    console.log('🔍 12:00 PM events in this.events array:', noon12Events.map(event => ({
+      title: event.title,
+      id: event.id,
+      backgroundColor: event.backgroundColor,
+      extendedProps: event.extendedProps,
+      hasLessonId: !!event.extendedProps?.['lessonId']
+    })));
   }
 
   private initCalendar(): boolean {
+    if (this.isMobileView) {
+      console.log('📅 Skipping FullCalendar init on mobile view');
+      this.isInitialized = false;
+      return false;
+    }
     // Prevent multiple initialization attempts
     if (this.initializationAttempts > 3) {
       console.warn('📅 Too many initialization attempts, stopping');
@@ -296,8 +788,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (isMobile) {
         initialView = 'timeGridDay';
       } else {
-        initialView = savedView === 'timeGridDay' || savedView === 'dayGridMonth'
-          ? savedView
+        initialView = savedView === 'dayGridMonth'
+          ? 'dayGridMonth'
           : 'timeGridWeek';
       }
       
@@ -322,11 +814,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         scrollTime: '09:00:00',
         nowIndicator: true,
         allDaySlot: false,
-        businessHours: {
-          daysOfWeek: [1, 2, 3, 4, 5, 6, 0],
-          startTime: '08:00',
-          endTime: '20:00'
-        },
         editable: true,
         selectable: true,
         selectMirror: true,
@@ -378,7 +865,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       });
 
       this.calendar.render();
-      // Compute custom now indicator after first render
       setTimeout(() => this.updateCustomNowIndicator());
       this.isInitialized = true;
       this.initializationAttempts = 0; // Reset counter on success
@@ -467,10 +953,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private initializeCalendarWithData() {
     console.log('🔄 Initializing calendar with data...');
     
-    // First try to initialize calendar
-    const success = this.initCalendar();
+    // First try to initialize calendar (skip when mobile)
+    const success = this.isMobileView ? true : this.initCalendar();
     
-    if (!success) {
+    if (!success && !this.isMobileView) {
       console.error('📅 Calendar initialization failed');
       return;
     }
@@ -481,6 +967,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Load lessons if we have a user
     if (this.currentUser && this.currentUser.id) {
       this.loadLessons(this.currentUser.id);
+    }
+    
+    if (this.isMobileView) {
+      this.buildMobileTimeline();
     }
   }
 
@@ -602,6 +1092,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.updateCalendarEvents();
         }
       }, 100);
+    }
+
+    if (this.isMobileView) {
+      this.buildMobileTimeline();
     }
   }
 
@@ -761,6 +1255,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (viewInfo && viewInfo.view) {
       const currentView = viewInfo.view.type;
       localStorage.setItem('tutor-calendar-view', currentView);
+      this.updateCustomNowIndicator();
     }
   }
 
@@ -888,6 +1383,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     return d;
   }
 
+  goBack() {
+    this.showMobileSettings = false;
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back();
+    } else {
+      this.router.navigate(['/tabs']);
+    }
+  }
+
   // Sidebar button handlers
   onScheduleLesson() {
     console.log('Schedule lesson clicked');
@@ -907,6 +1411,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   onSetUpAvailability() {
     console.log('Set up availability clicked');
     this.router.navigate(['/tabs/availability-setup']);
+  }
+
+  connectGoogleCalendar() {
+    console.log('Connect Google Calendar clicked');
+    // TODO: Implement Google Calendar integration
   }
 
   // Method to refresh calendar when returning from availability setup
@@ -1075,4 +1584,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const displayMinute = minute.toString().padStart(2, '0');
     return { time: `${displayHour}:${displayMinute}`, period };
   }
+
+  isScreenLocked(): boolean {
+    return this.showMobileSettings || this.panelAnimating;
+  }
 }
+

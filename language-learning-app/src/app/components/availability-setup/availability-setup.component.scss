@@ -6,6 +6,26 @@
   overflow: hidden;
 }
 
+.mobile-header,
+.mobile-settings-panel {
+  display: none;
+}
+
+// Mobile settings wrapper for smooth animations
+.mobile-settings-wrapper {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: max-height 250ms ease, opacity 250ms ease, transform 250ms ease;
+}
+
+.mobile-settings-wrapper.open {
+  max-height: 600px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
 // Left Sidebar
 .settings-sidebar {
   width: 280px;
@@ -87,6 +107,148 @@
       ion-icon {
         font-size: 20px;
         margin-right: 8px;
+      }
+    }
+  }
+}
+
+// Single day header styling
+.single-day-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 57px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 0 0 24px 24px;
+  margin: -24px -32px 32px -32px;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  // Overlay buttons (Airbnb-style) - only on mobile
+  .header-overlay-buttons {
+    display: none; // Hidden on desktop
+
+    @media (max-width: 768px) {
+      display: flex;
+      position: absolute;
+      top: 85px;
+      left: 20px;
+      right: 20px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 12px;
+      pointer-events: none;
+      z-index: 101;
+
+      ion-button {
+        pointer-events: auto;
+        --background: rgba(255, 255, 255, 0.95);
+        --color: #1a1a1a;
+        --border-radius: 50%;
+        --padding-start: 0;
+        --padding-end: 0;
+        width: 50px;
+        height: 36px;
+        margin: 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        transition: all 0.2s ease;
+
+        &:active {
+          transform: scale(0.95);
+          --background: rgba(255, 255, 255, 1);
+        }
+
+        ion-icon {
+          font-size: 18px;
+        }
+      }
+    }
+  }
+
+  .date-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    min-width: 120px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+    .day-name {
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0.9;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .date-number {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .month-name {
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.8;
+      letter-spacing: 1px;
+    }
+  }
+
+  .date-info {
+    flex: 1;
+
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    p {
+      margin: 0;
+      font-size: 16px;
+      opacity: 0.9;
+      line-height: 1.4;
+    }
+  }
+
+  // Mobile responsive
+  @media (max-width: 768px) {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+    padding: 56px 16px 20px 16px; // Add top padding for overlay buttons
+    margin: -16px -16px 24px -16px;
+    top: 0;
+    position: relative; // Ensure absolute positioning works
+
+    .date-card {
+      min-width: auto;
+      padding: 16px 24px;
+
+      .date-number {
+        font-size: 32px;
+      }
+    }
+
+    .date-info {
+      h2 {
+        font-size: 24px;
+      }
+
+      p {
+        font-size: 14px;
       }
     }
   }
@@ -286,22 +448,123 @@
 }
 
 .content-header {
-  padding: 73px 40px 24px;  border-bottom: 1px solid #e9ecef;
+  padding: 73px 40px 24px;
+  border-bottom: none;
 
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: #212529;
-    margin: 0 0 8px 0;
-    line-height: 1.2;
-  }
+  .header-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 3px 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 24px;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+    position: relative; // For absolute positioning of overlay buttons
 
-  p {
-    font-size: 16px;
-    color: #6c757d;
-    margin: 0;
-    line-height: 1.5;
-    padding-top: 22px;
+    // Overlay buttons (Airbnb-style) - only on mobile
+    .header-overlay-buttons {
+      display: none; // Hidden on desktop
+
+      @media (max-width: 768px) {
+        display: flex;
+        position: absolute;
+        top: 40px;
+        left: 20px;
+        right: 20px;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+        z-index: 101;
+
+        ion-button {
+          pointer-events: auto;
+          --background: rgba(255, 255, 255, 0.95);
+          --color: #1a1a1a;
+          --border-radius: 50%;
+          --padding-start: 0;
+          --padding-end: 0;
+          width: 50px;
+          height: 36px;
+          margin: 0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+
+          &:active {
+            transform: scale(0.95);
+            --background: rgba(255, 255, 255, 1);
+          }
+
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+      }
+    }
+
+    .header-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 16px;
+      min-width: 64px;
+      height: 64px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+      ion-icon {
+        font-size: 28px;
+        color: white;
+      }
+    }
+
+    .header-info {
+      flex: 1;
+
+      h1 {
+        font-size: 23px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        line-height: 1.2;
+      }
+
+      p {
+        font-size: 14px;
+        opacity: 0.9;
+        margin: 0;
+        line-height: 1.4;
+      }
+    }
+
+    // Mobile responsive
+    @media (max-width: 768px) {
+      flex-direction: column;
+      text-align: center;
+      gap: 16px;
+      padding: 96px 16px 20px 16px; // Add top padding for overlay buttons
+
+      .header-icon {
+        min-width: auto;
+        width: 64px;
+
+        ion-icon {
+          font-size: 24px;
+        }
+      }
+
+      .header-info {
+        h1 {
+          font-size: 24px;
+        }
+
+        p {
+          font-size: 14px;
+        }
+      }
+    }
   }
 }
 
@@ -368,13 +631,29 @@
 
 // Disable past slots visually
 .time-grid .day-columns .day-column.past {
-  background: #f1f3f5; // light gray
-  opacity: 0.6;
+  background: linear-gradient(135deg, #f1f3f5 0%, #e9ecef 100%);
+  opacity: 0.5;
   cursor: not-allowed;
+  border-color: #dee2e6;
+  
+  &:hover {
+    background: linear-gradient(135deg, #f1f3f5 0%, #e9ecef 100%);
+    border-color: #dee2e6;
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+  
+  &::before {
+    display: none; // Disable shine effect on past slots
+  }
 }
+
 .time-grid .day-columns .day-column.past.selected {
   // Prevent selected styling from overpowering disabled look
-  background: #e9ecef;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  border-color: #ced4da;
+  transform: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .day-headers {
@@ -409,7 +688,7 @@
       left: 0;
       right: 0;
       bottom: -22px; // Extend below to cover time labels (matches padding-bottom)
-      background: white;
+      background: #f8f9fa;
       z-index: 1;
     }
   }
@@ -417,34 +696,53 @@
   .day-header {
     flex: 1;
     text-align: center;
-    padding: 12px 8px 8px 8px; // Normal padding, bottom extension via ::after
-    background: #f8f9fa;
-    border-radius: 0; // No border-radius on main element, only on ::after at bottom
-    margin: 0 1px; // Reduce margin to match gap: 2px (1px on each side = 2px total)
+    padding: 16px 8px 12px 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px 12px 0 0;
+    margin: 0 1px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    margin-bottom: 0; // Ensure no margin at bottom
+    gap: 6px;
+    margin-bottom: 0;
     position: relative;
-    height: 100%; // Fill parent height
+    height: 100%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
     
     // Ensure day headers extend down to cover time labels
     &::after {
       content: '';
       position: absolute;
-      bottom: -22px; // Extend below to match parent padding-bottom
+      bottom: -22px;
       left: 0;
       right: 0;
       height: 22px;
-      background: #f8f9fa;
-      border-radius: 0 0 8px 8px; // Round bottom corners to match parent
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 0 0 8px 8px;
       z-index: 1;
+      border-left: 1px solid rgba(102, 126, 234, 0.1);
+      border-right: 1px solid rgba(102, 126, 234, 0.1);
+      border-bottom: 1px solid rgba(102, 126, 234, 0.1);
     }
 
     .day-name {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      color: #495057;
+      color: #667eea;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .day-date {
@@ -454,35 +752,51 @@
       gap: 2px;
 
       .day-number {
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 700;
-        color: #212529;
+        color: #2d3748;
       }
 
       .day-month {
         font-size: 11px;
         font-weight: 500;
-        color: #6c757d;
+        color: #718096;
         text-transform: uppercase;
+        letter-spacing: 0.3px;
       }
     }
 
     &.today {
-      background: #e3f2fd;
-      border: 2px solid #1976d2;
-
+      background: transparent;
+      box-shadow: none;
+      border-color: rgba(102, 126, 234, 0.1);
+      
       .day-name {
-        color: #1976d2;
-      }
-
-      .day-number {
-        color: #1976d2;
+        color: #fbbf24;
+        font-weight: 600;
       }
       
-      // Ensure today's extension matches the background
+      .day-date {
+        .day-number {
+          color: #2d3748; // Use default dark color
+        }
+        
+        .day-month {
+          color: #718096; // Use default gray color
+        }
+      }
+      
+      // Today header also extends down
       &::after {
-        background: #e3f2fd;
-        border-radius: 0 0 8px 8px; // Round bottom corners to match parent
+        background: transparent;
+        border-color: rgba(102, 126, 234, 0.1);
+      }
+
+      // Hover effect for today header - match default hover
+      &:hover {
+        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       }
     }
   }
@@ -490,8 +804,8 @@
 
 .time-slots {
   position: relative;
-  margin-top: 0; // Ensure no gap between headers and time slots
-  padding-top: 0; // Ensure no padding that creates gap
+  margin-top: 12px;
+  padding-top: 0;
 }
 
 // Live current-time indicator line
@@ -499,7 +813,8 @@
   position: absolute;
   height: 2px;
   background: #e03131; // red
-  z-index: 5;
+  z-index: 100; // Increased to ensure visibility above other elements
+  pointer-events: none; // Allow clicks to pass through
 }
 
 .time-slots .now-indicator .now-dot {
@@ -521,11 +836,12 @@
   .time-label {
     width: 80px;
     flex-shrink: 0;
-    font-size: 14px;
-    color: #6c757d;
-    font-weight: 500;
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
     text-align: right;
     padding-right: 16px;
+    letter-spacing: 0.3px;
   }
 
   .day-columns {
@@ -535,47 +851,94 @@
 
     .day-column {
       flex: 1;
-      height: 40px;
-      background: #f8f9fa;
-      border-radius: 4px;
+      height: 42px;
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 10px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      border: 2px solid transparent;
+      border: 2px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      
+      // In single day mode, make the column wider
+      .single-day-mode & {
+        min-width: 200px;
+        max-width: 400px;
+      }
+
+      // Subtle shine effect
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        transition: left 0.5s ease;
+      }
 
       &:hover {
-        background: #e9ecef;
-        border-color: #dee2e6;
+        background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+        border-color: #667eea;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        
+        &::before {
+          left: 100%;
+        }
       }
 
       &.selected {
-        background: #1976d2;
-        border-color: #1976d2;
-        box-shadow: 0 2px 4px rgba(25, 118, 210, 0.3);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
 
         .slot-indicator {
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           background: white;
           border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+      }
+
+      &.existing {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border-color: #10b981;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+
+        .slot-indicator {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 10px;
+          height: 10px;
+          background: white;
+          border-radius: 50%;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
       }
 
       &.popular {
-        background: #fff3cd;
-        border-color: #ffeaa7;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-color: #f59e0b;
 
         &:hover {
-          background: #ffeaa7;
+          background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+          border-color: #d97706;
         }
 
         &.selected {
-          background: #1976d2;
-          border-color: #1976d2;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-color: #667eea;
         }
       }
 
@@ -679,6 +1042,8 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    position: relative;
+        top: 55px;
   }
 
   .content-header {
@@ -737,6 +1102,10 @@
       height: 40px; // Match row height
       min-height: 40px;
     }
+  }
+
+  .time-slots {
+    margin-top: 8px;
   }
 
   .day-headers {
@@ -866,46 +1235,129 @@
 
 @media (max-width: 768px) {
   .settings-sidebar {
-    align-items: flex-start !important; // Force left alignment on mobile
-    justify-content: flex-start !important;
+    display: none;
   }
 
-  .back-nav {
-    width: 100% !important;
-    display: block !important;
-    margin-bottom: 16px;
-    text-align: left !important;
-    align-self: flex-start !important;
-    
-    .back-button {
-      justify-content: flex-start !important;
-      text-align: left !important;
-      width: 100% !important;
-      margin: 0 !important;
-      margin-left: 0 !important;
-      margin-right: auto !important;
-      --padding-start: 0 !important;
-      --padding-end: 0 !important;
-      display: flex !important;
-      align-items: center;
-      
-      &::part(native) {
-        justify-content: flex-start !important;
-        text-align: left !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-      }
-      
+  .mobile-header {
+    display: none; // Hidden since we now have overlay buttons in header-card
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 0;
+    gap: 12px;
+
+    .mobile-back-button {
+      flex: 1;
+      --color: #495057;
+      --padding-start: 0;
+      --padding-end: 0;
+      justify-content: flex-start;
+
       ion-icon {
         margin-right: 8px;
-        flex-shrink: 0;
-        margin-left: 0 !important;
+      }
+    }
+
+    .mobile-settings-button {
+      flex: 0 0 auto;
+      --color: #495057;
+      --padding-start: 6px;
+      --padding-end: 6px;
+
+      ion-icon {
+        font-size: 22px;
       }
     }
   }
 
+  .mobile-settings-wrapper {
+    display: block;
+  }
+
+  .mobile-settings-panel {
+    display: block;
+    padding: 0 16px 16px;
+
+    .panel-section {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 12px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+
+      h3 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+
+      ion-item {
+        --padding-start: 0;
+        --inner-padding-end: 0;
+        --min-height: 40px;
+        font-size: 14px;
+
+        ion-icon {
+          margin-right: 12px;
+          color: #6c757d;
+        }
+      }
+
+      .option-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        label {
+          font-size: 14px;
+          color: #495057;
+          font-weight: 500;
+        }
+      }
+
+      ion-button {
+        margin-top: 8px;
+      }
+    }
+  }
+
+  .back-nav {
+    display: none !important;
+  }
+
+  .availability-setup {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .main-content {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+  }
+
+  .content-header {
+    padding: 24px 16px 16px;
+
+    h1 {
+      font-size: 20px;
+    }
+
+    p {
+      font-size: 14px;
+      padding-top: 8px;
+    }
+  }
+
   .time-grid-container {
-    padding-bottom: 120px; // Extra padding for fixed footer on mobile
+    padding: 12px 12px 140px;
+    display: block;
+    overflow: visible;
   }
 
   .action-bar {
@@ -944,7 +1396,8 @@
   }
 
   .time-grid {
-    min-width: 600px;
+    min-width: 0;
+    width: 100%;
   }
 
   .day-headers .day-header {
@@ -956,7 +1409,7 @@
     height: 32px;
 
     .time-label {
-      width: 60px;
+      width: 63px;
       font-size: 12px;
       padding-right: 8px;
       white-space: nowrap;
@@ -964,6 +1417,70 @@
 
     .day-columns .day-column {
       height: 32px;
+    }
+
+    .day-columns {
+      gap: 4px;
+    }
+  }
+
+  .day-headers {
+    padding: 6px 0 12px;
+    box-shadow: none;
+    border-bottom: 1px solid #e9ecef;
+    position: sticky;
+    top: 56px;
+    z-index: 25;
+    background: #f8f9fa;
+
+    .time-column-header {
+      width: 56px;
+      padding-right: 8px;
+      background: #f8f9fa;
+    }
+
+    .day-header {
+      background: transparent;
+      box-shadow: none;
+
+      &::after {
+        display: none;
+      }
+
+      &.today {
+        background: transparent;
+        box-shadow: none;
+      }
+    }
+  }
+
+  .week-navigation {
+    padding: 12px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: #f8f9fa;
+
+    .nav-controls {
+      gap: 4px;
+
+      ion-button {
+        min-width: 36px;
+        height: 36px;
+      }
+
+      .week-display {
+        gap: 12px;
+        margin: 0 12px;
+
+        .week-range {
+          font-size: 14px;
+        }
+      }
     }
   }
 }

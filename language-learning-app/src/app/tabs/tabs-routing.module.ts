@@ -36,6 +36,14 @@ const routes: Routes = [
         loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage)
       },
       {
+        path: 'availability-setup/:date',
+        loadComponent: () => import('../pages/availability-setup/availability-setup.page').then(m => m.AvailabilitySetupPage)
+      },
+      {
+        path: 'notifications',
+        loadChildren: () => import('../notifications/notifications.module').then(m => m.NotificationsPageModule)
+      },
+      {
         path: '',
         redirectTo: 'home',
         pathMatch: 'full'

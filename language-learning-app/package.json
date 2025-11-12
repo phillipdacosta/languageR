@@ -39,6 +39,7 @@
     "@ionic/angular": "^8.0.0",
     "@ionic/storage-angular": "^4.0.0",
     "@mobiscroll/angular-lite": "^4.10.9",
+    "agora-extension-virtual-background": "^2.1.0",
     "agora-rtc-sdk-ng": "^4.23.0",
     "agora-rtm-sdk": "^2.2.2",
     "ionicons": "^7.0.0",

@@ -64,12 +64,18 @@
     .filter-value-wrapper {
       display: flex;
       align-items: center;
+      gap: 8px;
       justify-content: space-between;
+  
+      .filter-flag {
+        flex-shrink: 0;
+      }
   
       .filter-value {
         font-size: 15px;
         color: #000;
         font-weight: 500;
+        flex: 1;
       }
   
       ion-icon {
@@ -160,6 +166,17 @@
     border-bottom: 1px solid #f0f0f0;
     font-size: 14px;
     color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .dropdown-flag {
+      flex-shrink: 0;
+    }
+
+    span {
+      flex: 1;
+    }
 
     &:last-child {
       border-bottom: none;
@@ -804,6 +821,13 @@
         border-radius: 12px;
         font-size: 12px;
         font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+
+        .tag-flag {
+          flex-shrink: 0;
+        }
       }
     }
     

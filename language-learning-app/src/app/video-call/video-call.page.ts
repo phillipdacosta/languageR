@@ -32,6 +32,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
   remoteUserStates: Map<any, { isMuted?: boolean; isVideoOff?: boolean }> = new Map(); // Track remote user states
 
+  // Virtual background properties
+  showVirtualBackgroundControls = false;
+  isVirtualBackgroundEnabled = false;
+
   // Chat properties
   chatMessages: any[] = [];
   newMessage = '';
@@ -141,6 +145,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.initializeVideoCall();
       }
       this.initializationComplete = true;
+      
+      // Sync virtual background state after initialization
+      setTimeout(() => {
+        this.syncVirtualBackgroundState();
+      }, 1500); // Give time for Agora to fully initialize
     }, 200);
   }
 
@@ -455,6 +464,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.localVideoRef.nativeElement.innerHTML = '';
             localVideoTrack.play(this.localVideoRef.nativeElement);
             console.log('✅ Local video setup complete');
+            
+            // Apply virtual background after video display is ready
+            setTimeout(() => {
+              this.applyVirtualBackgroundAfterVideoSetup();
+            }, 500);
           } catch (error) {
             console.error('❌ Error playing local video:', error);
           }
@@ -1003,6 +1017,153 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('Screen sharing not implemented yet');
     alert('Screen sharing feature coming soon!');
   }
+
+  // Virtual Background Methods (following official Agora example)
+  toggleVirtualBackgroundControls(): void {
+    this.showVirtualBackgroundControls = !this.showVirtualBackgroundControls;
+  }
+
+  async setBackgroundBlur(): Promise<void> {
+    try {
+      console.log('🌀 Setting background blur in video call...');
+      await this.agoraService.setBackgroundBlur(2); // Medium blur
+      this.isVirtualBackgroundEnabled = true;
+      console.log('✅ Background blur enabled successfully in video call');
+    } catch (error) {
+      console.error('❌ Failed to set background blur in video call:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Background Blur Error',
+        message: 'Failed to enable background blur. Make sure your browser supports this feature.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  async setBackgroundColor(color: string = '#00ff00'): Promise<void> {
+    try {
+      console.log('🎨 Setting background color in video call:', color);
+      await this.agoraService.setBackgroundColor(color);
+      this.isVirtualBackgroundEnabled = true;
+      console.log('✅ Background color set successfully in video call');
+    } catch (error) {
+      console.error('❌ Failed to set background color in video call:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Background Color Error',
+        message: 'Failed to set background color. Make sure your browser supports this feature.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  async disableVirtualBackground(): Promise<void> {
+    try {
+      console.log('🚫 Disabling virtual background in video call...');
+      await this.agoraService.disableVirtualBackground();
+      this.isVirtualBackgroundEnabled = false;
+      console.log('✅ Virtual background disabled successfully in video call');
+    } catch (error) {
+      console.error('❌ Failed to disable virtual background in video call:', error);
+    }
+  }
+
+  // Sync virtual background state from Agora service (for preserving pre-call settings)
+  private syncVirtualBackgroundState(): void {
+    try {
+      const vbState = this.agoraService.getVirtualBackgroundState();
+      console.log('🔍 DEBUG: Syncing virtual background state in video-call:', JSON.stringify(vbState, null, 2));
+      
+      this.isVirtualBackgroundEnabled = vbState.enabled;
+      
+      if (vbState.enabled) {
+        console.log('🔄 Virtual background state synced from pre-call:', vbState);
+        
+        // If state shows enabled but Agora service says not enabled, try force restore
+        if (!this.agoraService.isVirtualBackgroundEnabled()) {
+          console.log('🔧 State mismatch detected, attempting force restore...');
+          setTimeout(async () => {
+            const restored = await this.agoraService.forceRestoreVirtualBackground();
+            if (restored) {
+              console.log('✅ Force restore successful');
+              this.isVirtualBackgroundEnabled = true;
+            } else {
+              console.log('❌ Force restore failed');
+              this.isVirtualBackgroundEnabled = false;
+            }
+          }, 500);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to sync virtual background state:', error);
+    }
+  }
+
+  // Apply virtual background after video display is set up (fixes timing issues)
+  private async applyVirtualBackgroundAfterVideoSetup(): Promise<void> {
+    try {
+      console.log('🎯 Applying virtual background after video setup...');
+      
+      const vbState = this.agoraService.getVirtualBackgroundState();
+      console.log('🔍 Virtual background state to apply:', JSON.stringify(vbState, null, 2));
+      
+      if (vbState.enabled && vbState.type) {
+        console.log('🔄 Restoring virtual background now that video is ready...');
+        
+        const restored = await this.agoraService.forceRestoreVirtualBackground();
+        if (restored) {
+          this.isVirtualBackgroundEnabled = true;
+          console.log('✅ Virtual background applied successfully after video setup');
+          console.log('👥 Other participants should now see your virtual background');
+        } else {
+          console.log('❌ Failed to apply virtual background after video setup');
+        }
+      } else {
+        console.log('ℹ️ No virtual background state to apply');
+      }
+    } catch (error) {
+      console.error('❌ Error applying virtual background after video setup:', error);
+    }
+  }
+
+  // Debug method to manually force restore virtual background
+  async debugForceRestore(): Promise<void> {
+    console.log('🔧 DEBUG: Manually forcing virtual background restore...');
+    
+    const vbState = this.agoraService.getVirtualBackgroundState();
+    console.log('🔍 DEBUG: Current VB state:', JSON.stringify(vbState, null, 2));
+    console.log('🔍 DEBUG: Agora VB enabled:', this.agoraService.isVirtualBackgroundEnabled());
+    console.log('🔍 DEBUG: UI VB enabled:', this.isVirtualBackgroundEnabled);
+    
+    const restored = await this.agoraService.forceRestoreVirtualBackground();
+    
+    if (restored) {
+      this.isVirtualBackgroundEnabled = true;
+      console.log('✅ DEBUG: Force restore successful');
+      
+      const alert = await this.alertController.create({
+        header: 'Debug: Force Restore',
+        message: 'Virtual background force restore successful!',
+        buttons: ['OK']
+      });
+      await alert.present();
+    } else {
+      console.log('❌ DEBUG: Force restore failed');
+      
+      const alert = await this.alertController.create({
+        header: 'Debug: Force Restore',
+        message: 'Virtual background force restore failed. Check console for details.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+
+
+
 
   handleRemoteWhiteboardData(data: any) {
     console.log('Received remote whiteboard data:', data);

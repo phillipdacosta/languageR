@@ -38,12 +38,25 @@
                 <!-- Languages Section -->
                 <div class="languages-section" *ngIf="isTutor() && getDisplayUser()?.languages?.length">
                   <ion-icon name="language-outline"></ion-icon>
-                  <span>{{ getDisplayUser()?.languages?.join(', ') }}</span>
+                  <div class="languages-list">
+                    <span *ngFor="let lang of getDisplayUser()?.languages; let last = last" class="language-item">
+                      <span>{{ lang }}</span>
+                      <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+                      <span *ngIf="!last">, </span>
+                    </span>
+                  </div>
                 </div>
                 
                 <div class="languages-section" *ngIf="isStudent() && getDisplayUser()?.languagesLearning?.length">
                   <ion-icon name="school-outline"></ion-icon>
-                  <span>Learning: {{ getDisplayUser()?.languagesLearning?.join(', ') }}</span>
+                  <div class="languages-list">
+                    <span>Learning: </span>
+                    <span *ngFor="let lang of getDisplayUser()?.languagesLearning; let last = last" class="language-item">
+                      <span>{{ lang }}</span>
+                      <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
+                      <span *ngIf="!last">, </span>
+                    </span>
+                  </div>
                 </div>
                 
                 <ion-chip *ngIf="!isViewingOtherUser && getDisplayUser()?.emailVerified" color="success">

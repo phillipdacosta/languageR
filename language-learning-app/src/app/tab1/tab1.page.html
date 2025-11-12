@@ -7,7 +7,7 @@
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
-      <ion-button fill="clear" class="notification-btn">
+      <ion-button fill="clear" class="notification-btn" (click)="openNotifications()">
         <ion-icon name="notifications-outline"></ion-icon>
         <span class="notification-dot" *ngIf="hasNotifications"></span>
       </ion-button>
@@ -146,10 +146,34 @@
         <ion-card class="empty-inline-card fade-in">
           <ion-card-content>
             <div class="empty-inline">
-              <ion-icon name="calendar-outline" class="empty-inline-icon"></ion-icon>
+              <ion-icon name="calendar-outline" class="empty-inline-icon" [class.hidden]="availabilityHeadline"></ion-icon>
               <div class="empty-inline-text">
                 <h3>No lessons for <span>{{ isToday(selectedDate) ? 'Today' : (selectedDate | date:'MMM d, y') }}</span></h3>
-                <p>Pick another date, or invite a student.</p>
+                  <ng-container *ngIf="availabilityHeadline; else defaultNoLessonsCta">
+                    <div class="availability-feedback">
+                      <div class="availability-summary">
+                        <div class="availability-icon">
+                          <ion-icon name="calendar-outline"></ion-icon>
+                        </div>
+                        <div class="availability-text">
+                          <p class="availability-headline">{{ availabilityHeadline }}</p>
+                          <p class="availability-detail" *ngIf="availabilityDetail">{{ availabilityDetail }}</p>
+                        </div>
+                      </div>
+                      <ion-button 
+                        fill="outline" 
+                        size="small" 
+                        class="availability-cta" 
+                        [disabled]="isSelectedDatePast"
+                        (click)="openAvailabilitySetup()">
+                        <ion-icon slot="start" name="settings-outline"></ion-icon>
+                        Set up availability
+                      </ion-button>
+                    </div>
+                  </ng-container>
+                  <ng-template #defaultNoLessonsCta>
+                    <p>Pick another date, or invite a student.</p>
+                  </ng-template>
               </div>
             </div>
           </ion-card-content>
@@ -175,29 +199,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Category Tabs -->
-    <div class="category-tabs">
-      <div class="tab-item active">
-        <div class="tab-icon hospital">
-          <ion-icon name="briefcase"></ion-icon>
-        </div>
-        <span>Business</span>
-      </div>
-      <div class="tab-item">
-        <div class="tab-icon consultant">
-          <ion-icon name="people"></ion-icon>
-        </div>
-        <span>Conversation</span>
-      </div>
-      <div class="tab-item">
-        <div class="tab-icon kids">
-          <ion-icon name="create"></ion-icon>
-        </div>
-        <span>Create Material</span>
-      </div>
-    </div>
-
 
     <!-- Upcoming Lesson Card -->
     <ion-card class="upcoming-lesson-card" *ngIf="upcomingLesson">
@@ -268,13 +269,31 @@
       </div>
 
       <!-- No Lessons State -->
-      <ion-card class="empty-state-card" *ngIf="getUpcomingLessons().length === 0">
+      <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && getUpcomingLessons().length === 0">
         <ion-card-content>
           <div class="empty-state">
             <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
             <h3>No upcoming lessons</h3>
             <p *ngIf="!isTutor()">Find a tutor to start learning</p>
             <p *ngIf="isTutor()">Your schedule is clear</p>
+            
+            <!-- Past Tutors Section (Student only, only if past tutors exist) - Now at top -->
+            <div *ngIf="!isTutor() && pastTutors && pastTutors.length > 0" class="past-tutors-section">
+              <p class="continue-working-text">Continue working with</p>
+              <div class="stacked-avatars">
+                <div 
+                  class="stacked-avatar" 
+                  *ngFor="let tutor of pastTutors.slice(0, 5); trackBy: trackByTutorId">
+                  <img 
+                    [src]="tutor.picture || 'assets/avatar.png'" 
+                    [alt]="tutor.name"
+                    (error)="$event.target.src='assets/avatar.png'">
+                </div>
+              </div>
+              <p class="past-tutors-label">Or</p>
+            </div>
+            
+            <!-- Find a Tutor Button - Now at bottom -->
             <ion-button 
               *ngIf="!isTutor()" 
               (click)="openSearchTutors()"
@@ -285,6 +304,28 @@
         </ion-card-content>
       </ion-card>
     </ng-container>
+
+    <!-- Category Tabs (moved below lessons for mobile student view) -->
+    <div class="category-tabs" *ngIf="!isTutor()">
+      <div class="tab-item active">
+        <div class="tab-icon hospital">
+          <ion-icon name="briefcase"></ion-icon>
+        </div>
+        <span>Business</span>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon consultant">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <span>Conversation</span>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon kids">
+          <ion-icon name="create"></ion-icon>
+        </div>
+        <span>Create Material</span>
+      </div>
+    </div>
 
   </div>
 </ion-content>

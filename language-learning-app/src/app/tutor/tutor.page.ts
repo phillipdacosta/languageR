@@ -10,15 +10,16 @@ import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
+import { SharedModule } from '../shared/shared.module';
 import { filter, takeUntil } from 'rxjs/operators';
-import { Subject } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-tutor-page',
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
@@ -888,6 +889,44 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       return date.toLocaleDateString('en-US', { weekday: 'short' });
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  }
+
+  async bookLesson() {
+    if (!this.tutor) {
+      return;
+    }
+
+    try {
+      const currentUser = await firstValueFrom(this.authService.user$);
+      
+      if (!currentUser) {
+        console.log('User not authenticated');
+        return;
+      }
+      
+      // Check if user is a student
+      if (currentUser.userType !== 'student') {
+        console.log('Only students can book lessons');
+        return;
+      }
+
+      // Get the tutor's auth0Id
+      const tutorId = this.tutor.auth0Id || this.tutor.id;
+
+      // Create potential student conversation
+      const response = await firstValueFrom(this.messagingService.createPotentialStudent(tutorId, 'book_lesson'));
+
+      if (response?.success) {
+        console.log('Potential student conversation created:', response.conversationId);
+        // Navigate to checkout or booking page
+        // For now, we'll just create the conversation
+        // TODO: Navigate to booking/checkout page
+      } else {
+        console.error('Failed to create potential student conversation');
+      }
+    } catch (error) {
+      console.error('Error creating potential student conversation:', error);
     }
   }
 }

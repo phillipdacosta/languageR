@@ -147,22 +147,22 @@
 
   <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
   <ion-tab-bar slot="bottom" *ngIf="showTabs">
-    <ion-tab-button tab="home" href="/tabs/home">
+    <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root">
       <ion-icon aria-hidden="true" name="home"></ion-icon>
       <ion-label>Home</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" href="/tabs/tutor-search">
+    <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" [routerLink]="['/tabs/tutor-search']" routerDirection="root">
       <ion-icon aria-hidden="true" name="search"></ion-icon>
       <ion-label>Search</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button *ngIf="currentUser?.userType === 'tutor'" tab="tutor-calendar" href="/tabs/tutor-calendar" [selected]="isCurrentRoute('/tabs/tutor-calendar')">
+    <ion-tab-button *ngIf="currentUser?.userType === 'tutor'" tab="tutor-calendar" [routerLink]="['/tabs/tutor-calendar']" routerDirection="root" [selected]="isCurrentRoute('/tabs/tutor-calendar')">
       <ion-icon aria-hidden="true" name="calendar"></ion-icon>
       <ion-label>Calendar</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="messages" href="/tabs/messages" style="position: relative;">
+    <ion-tab-button tab="messages" [routerLink]="['/tabs/messages']" routerDirection="root" style="position: relative;">
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
       <ion-label>Messages</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 
@@ -170,12 +170,12 @@
             style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
     </ion-tab-button>
 
-    <ion-tab-button tab="progress" href="/tabs/progress">
+    <ion-tab-button tab="progress" [routerLink]="['/tabs/progress']" routerDirection="root">
       <ion-icon aria-hidden="true" name="trending-up"></ion-icon>
       <ion-label>Progress</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="profile" href="/tabs/profile">
+    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root">
       <ion-icon aria-hidden="true" name="person"></ion-icon>
       <ion-label>Profile</ion-label>
     </ion-tab-button>

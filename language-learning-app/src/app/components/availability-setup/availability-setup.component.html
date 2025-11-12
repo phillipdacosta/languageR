@@ -1,11 +1,80 @@
-<div class="availability-setup">
+<div class="availability-setup" [class.single-day-mode]="isSingleDayMode">
+  <!-- Mobile Header -->
+  <div class="mobile-header" *ngIf="!isSingleDayMode">
+    <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">
+      <ion-icon name="chevron-back-outline" slot="start"></ion-icon>
+      Calendar
+    </ion-button>
+    <ion-button fill="clear" class="mobile-settings-button" (click)="toggleMobileSettings()">
+      <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
+    </ion-button>
+  </div>
+
+  <div class="mobile-settings-wrapper" [class.open]="showMobileSettings">
+    <div class="mobile-settings-panel" *ngIf="showMobileSettings || panelAnimating">
+    <div class="panel-section">
+      <h3>Settings</h3>
+      <ion-list lines="none">
+        <ion-item button detail="false" (click)="setActiveTab('availability'); toggleMobileSettings()">
+          <ion-icon name="time-outline" slot="start"></ion-icon>
+          <ion-label>Availability</ion-label>
+        </ion-item>
+        <ion-item button detail="false" (click)="setActiveTab('booking'); toggleMobileSettings()">
+          <ion-icon name="calendar-outline" slot="start"></ion-icon>
+          <ion-label>Lesson booking settings</ion-label>
+        </ion-item>
+        <ion-item button detail="false" (click)="setActiveTab('calendar'); toggleMobileSettings()">
+          <ion-icon name="settings-outline" slot="start"></ion-icon>
+          <ion-label>Calendar settings</ion-label>
+        </ion-item>
+        <ion-item button detail="false" (click)="setActiveTab('google'); toggleMobileSettings()">
+          <ion-icon name="logo-google" slot="start"></ion-icon>
+          <ion-label>Google Calendar settings</ion-label>
+        </ion-item>
+      </ion-list>
+    </div>
+
+    <div class="panel-section">
+      <h3>View Options</h3>
+      <div class="option-item">
+        <ion-checkbox [(ngModel)]="showPopularSlots" (ionChange)="togglePopularSlots()"></ion-checkbox>
+        <label>Popular slots</label>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <h3>Quick Actions</h3>
+      <ion-button expand="block" fill="outline" (click)="setBusinessHours(); toggleMobileSettings()">
+        <ion-icon name="business-outline" slot="start"></ion-icon>
+        Set business hours
+      </ion-button>
+      <ion-button expand="block" fill="outline" (click)="clearAll(); toggleMobileSettings()">
+        <ion-icon name="trash-outline" slot="start"></ion-icon>
+        Clear all
+      </ion-button>
+      <ion-button expand="block" fill="outline" (click)="copyWeek(); toggleMobileSettings()">
+        <ion-icon name="copy-outline" slot="start"></ion-icon>
+        Copy to all days
+      </ion-button>
+    </div>
+
+    <div class="panel-section">
+      <ion-button expand="block" class="google-btn" (click)="connectGoogleCalendar(); toggleMobileSettings()">
+        <ion-icon name="logo-google" slot="start"></ion-icon>
+        Connect calendar
+      </ion-button>
+    </div>
+    </div>
+  </div>
+
   <!-- Left Sidebar -->
   <div class="settings-sidebar">
     <!-- Back Navigation -->
     <div class="back-nav">
       <ion-button fill="clear" class="back-button" (click)="goBack()">
         <ion-icon name="chevron-back-outline" slot="start"></ion-icon>
-        Calendar
+        <span *ngIf="!isSingleDayMode">Calendar</span>
+        <span *ngIf="isSingleDayMode">Availability Setup</span>
       </ion-button>
     </div>
 
@@ -75,13 +144,30 @@
   <!-- Main Content Area -->
   <div class="main-content">
     <!-- Header -->
-    <div class="content-header">
-      <h1>Select time slots when you're available for booking</h1>
-      <p>Click and drag to select your available times. Students can only book during these slots.</p>
+    <div class="content-header" *ngIf="!isSingleDayMode">
+      <div class="header-card">
+        <!-- Mobile Header Buttons Overlay -->
+        <div class="header-overlay-buttons">
+          <ion-button fill="clear" class="overlay-back-button" (click)="goBack()">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" class="overlay-settings-button" (click)="toggleMobileSettings()">
+            <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
+          </ion-button>
+        </div>
+        
+        <div class="header-icon">
+          <ion-icon name="calendar-outline"></ion-icon>
+        </div>
+        <div class="header-info">
+          <h1>Set your weekly availability</h1>
+          <p>Click and drag to select your available times. Students can only book during these slots.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Week Navigation -->
-    <div class="week-navigation">
+    <div class="week-navigation" *ngIf="!isSingleDayMode">
       <div class="nav-controls">
         <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
           <ion-icon name="chevron-back-outline"></ion-icon>
@@ -97,14 +183,37 @@
         </ion-button>
       </div>
     </div>
+    
+    <!-- Single Day Header -->
+    <div class="single-day-header" *ngIf="isSingleDayMode">
+      <!-- Mobile Header Buttons Overlay -->
+      <div class="header-overlay-buttons">
+        <ion-button fill="clear" class="overlay-back-button" (click)="goBack()" >
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" class="overlay-settings-button" (click)="toggleMobileSettings()">
+          <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
+        </ion-button>
+      </div>
+      
+      <div class="date-card">
+        <div class="day-name">{{ displayedWeekDays[0]?.name }}</div>
+        <div class="date-number">{{ displayedWeekDays[0]?.displayDate }}</div>
+        <div class="month-name">{{ displayedWeekDays[0]?.displayMonth?.toUpperCase() }}</div>
+      </div>
+      <div class="date-info">
+        <h2>Set your availability</h2>
+        <p>Select time slots when you're available for booking on this day</p>
+      </div>
+    </div>
 
     <!-- Time Slot Grid -->
     <div class="time-grid-container">
       <div class="time-grid">
         <!-- Day Headers -->
-        <div class="day-headers">
+        <div class="day-headers" *ngIf="!isSingleDayMode">
           <div class="time-column-header"></div>
-          <div class="day-header" *ngFor="let day of weekDays" [class.today]="isToday(day)">
+          <div class="day-header" *ngFor="let day of displayedWeekDays" [class.today]="isToday(day)" (click)="selectDate(day)">
             <div class="day-name">{{ day.name }}</div>
             <div class="day-date">
               <span class="day-number">{{ day.displayDate }}</span>
@@ -132,15 +241,15 @@
             <!-- Day Columns -->
             <div class="day-columns">
               <div class="day-column" 
-                   *ngFor="let day of weekDays; let dayIndex = index"
-                   [class.selected]="isSlotSelected(dayIndex, i)"
-                   [class.popular]="isPopularSlot(dayIndex, i)"
+                   *ngFor="let day of displayedWeekDays"
+                   [class.selected]="isSlotSelected(day.index, i)"
+                   [class.popular]="isPopularSlot(day.index, i)"
                    [class.night]="isNightSlot(i)"
-                   [class.past]="isPastSlot(dayIndex, i)"
-                   (mousedown)="startSelection(dayIndex, i, $event)"
-                   (mouseenter)="continueSelection(dayIndex, i)"
+                   [class.past]="isPastSlot(day.index, i)"
+                   (mousedown)="startSelection(day.index, i, $event)"
+                   (mouseenter)="continueSelection(day.index, i)"
                    (mouseup)="endSelection()">
-                <div class="slot-indicator" *ngIf="isSlotSelected(dayIndex, i)"></div>
+                <div class="slot-indicator" *ngIf="isSlotSelected(day.index, i)"></div>
               </div>
             </div>
           </div>
@@ -154,7 +263,7 @@
     </div>
 
     <!-- Action Bar -->
-    <div class="action-bar">
+    <div class="action-bar" >
       <div class="selected-info">
         <span *ngIf="selectedSlotsCount > 0">{{ selectedSlotsCount }} slots selected</span>
       </div>
@@ -163,7 +272,7 @@
           <ion-icon name="eye-outline" slot="start"></ion-icon>
           Preview
         </ion-button>
-        <ion-button (click)="saveAvailability()" [disabled]="selectedSlotsCount === 0">
+        <ion-button (click)="saveAvailability()" [disabled]="!hasUnsavedChanges">
           <ion-icon name="checkmark-outline" slot="start"></ion-icon>
           Save availability
         </ion-button>

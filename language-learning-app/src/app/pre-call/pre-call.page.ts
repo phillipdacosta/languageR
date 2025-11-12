@@ -34,6 +34,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   otherParticipantPicture: string = '';
   private destroy$ = new Subject<void>();
 
+  // Virtual background properties
+  showVirtualBackgroundControls = false;
+  isVirtualBackgroundEnabled = false;
+
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -153,19 +158,6 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  updateVideoPreview() {
-    if (this.videoPreviewRef?.nativeElement) {
-      if (this.localStream && !this.isVideoOff) {
-        this.videoPreviewRef.nativeElement.srcObject = this.localStream;
-        // Ensure video plays
-        this.videoPreviewRef.nativeElement.play().catch(err => {
-          console.error('Error playing video:', err);
-        });
-      } else if (this.isVideoOff) {
-        this.videoPreviewRef.nativeElement.srcObject = null;
-      }
-    }
-  }
 
   async setupPreview() {
     try {
@@ -185,6 +177,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Use setTimeout to ensure Angular change detection has run
       setTimeout(() => {
         this.updateVideoPreview();
+        // Initialize Agora client for virtual background support
+        this.initializeAgoraForVirtualBackground();
       }, 0);
     } catch (error: any) {
       console.error('Error setting up preview:', error);
@@ -373,6 +367,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.localStream = null;
     }
     
+    
     // Call leave endpoint when leaving the pre-call page (if not already called via goBack)
     // Note: We can't use async/await in ngOnDestroy, so we fire and forget
     if (this.lessonId) {
@@ -382,6 +377,188 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         .catch((error) => {
           console.error('🚪 PreCall: Error calling leave endpoint in ngOnDestroy:', error);
         });
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // Update the video preview (simple MediaStream only)
+  updateVideoPreview() {
+    const videoElement = this.videoPreviewRef?.nativeElement;
+    if (!videoElement) return;
+
+    if (this.isVideoOff) {
+      videoElement.srcObject = null;
+      return;
+    }
+
+    // Use MediaStream for video preview
+    if (this.localStream) {
+      videoElement.srcObject = this.localStream;
+      videoElement.play().catch(err => {
+        console.error('Error playing video:', err);
+      });
+    }
+  }
+
+  // Initialize Agora client for virtual background support
+  async initializeAgoraForVirtualBackground(): Promise<void> {
+    try {
+      console.log('🎯 Initializing Agora client for virtual background...');
+      
+      // Initialize Agora client (this will also initialize the virtual background extension)
+      await this.agoraService.initializeClient();
+      
+      // Create Agora tracks - this is essential for virtual background to work
+      console.log('🎯 Creating Agora video and audio tracks...');
+      await this.agoraService.createMicrophoneAndCameraTracks();
+      
+      // Verify tracks were created
+      const videoTrack = this.agoraService.getLocalVideoTrack();
+      const audioTrack = this.agoraService.getLocalAudioTrack();
+      
+      console.log('🔍 DEBUG: Agora tracks created:', {
+        videoTrack: !!videoTrack,
+        audioTrack: !!audioTrack
+      });
+      
+      if (!videoTrack) {
+        throw new Error('Failed to create Agora video track');
+      }
+      
+      console.log('✅ Agora tracks created successfully for virtual background support');
+    } catch (error) {
+      console.error('❌ Failed to initialize Agora for virtual background:', error);
+      throw error; // Re-throw so calling code knows it failed
+    }
+  }
+
+  // Virtual Background Methods (following official Agora example)
+  toggleVirtualBackgroundControls(): void {
+    this.showVirtualBackgroundControls = !this.showVirtualBackgroundControls;
+  }
+
+  async setBackgroundBlur(): Promise<void> {
+    try {
+      console.log('🌀 Setting background blur...');
+      
+      // Ensure Agora tracks are available
+      const videoTrack = this.agoraService.getLocalVideoTrack();
+      if (!videoTrack) {
+        console.log('🔄 No Agora video track found, initializing...');
+        await this.initializeAgoraForVirtualBackground();
+      }
+      
+      // Verify track is now available
+      const verifyTrack = this.agoraService.getLocalVideoTrack();
+      if (!verifyTrack) {
+        throw new Error('Failed to create Agora video track for virtual background');
+      }
+      
+      await this.agoraService.setBackgroundBlur(2); // Medium blur
+      this.isVirtualBackgroundEnabled = true;
+      
+      // Update video preview to show Agora track with blur
+      this.updateVideoPreviewWithAgoraTrack();
+      
+      // Debug: Check if state was stored correctly
+      const vbState = this.agoraService.getVirtualBackgroundState();
+      console.log('🔍 DEBUG: Virtual background state after setting blur:', JSON.stringify(vbState, null, 2));
+      
+      console.log('✅ Background blur enabled successfully');
+    } catch (error) {
+      console.error('❌ Failed to set background blur:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Background Blur Error',
+        message: `Failed to enable background blur: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  async setBackgroundColor(color: string = '#00ff00'): Promise<void> {
+    try {
+      console.log('🎨 Setting background color:', color);
+      
+      // Ensure Agora tracks are available
+      const videoTrack = this.agoraService.getLocalVideoTrack();
+      if (!videoTrack) {
+        console.log('🔄 No Agora video track found, initializing...');
+        await this.initializeAgoraForVirtualBackground();
+      }
+      
+      // Verify track is now available
+      const verifyTrack = this.agoraService.getLocalVideoTrack();
+      if (!verifyTrack) {
+        throw new Error('Failed to create Agora video track for virtual background');
+      }
+      
+      await this.agoraService.setBackgroundColor(color);
+      this.isVirtualBackgroundEnabled = true;
+      
+      // Update video preview to show Agora track with color background
+      this.updateVideoPreviewWithAgoraTrack();
+      
+      console.log('✅ Background color set successfully');
+    } catch (error) {
+      console.error('❌ Failed to set background color:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Background Color Error',
+        message: `Failed to set background color: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  async disableVirtualBackground(): Promise<void> {
+    try {
+      console.log('🚫 Disabling virtual background...');
+      await this.agoraService.disableVirtualBackground();
+      this.isVirtualBackgroundEnabled = false;
+      
+      // Switch back to original MediaStream
+      this.updateVideoPreview();
+      
+      console.log('✅ Virtual background disabled successfully');
+    } catch (error) {
+      console.error('❌ Failed to disable virtual background:', error);
+    }
+  }
+
+  // Update video preview to show Agora track (with virtual background effects)
+  private updateVideoPreviewWithAgoraTrack(): void {
+    const videoElement = this.videoPreviewRef?.nativeElement;
+    const agoraVideoTrack = this.agoraService.getLocalVideoTrack();
+    
+    if (videoElement && agoraVideoTrack) {
+      try {
+        // Play the Agora track (which has virtual background processing)
+        agoraVideoTrack.play(videoElement);
+        console.log('✅ Switched to Agora video track with virtual background');
+      } catch (error) {
+        console.error('❌ Failed to play Agora video track:', error);
+        // Fallback to original MediaStream
+        this.updateVideoPreview();
+      }
     }
   }
 }

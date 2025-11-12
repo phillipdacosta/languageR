@@ -8,6 +8,7 @@ import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
+import { SharedModule } from '../shared/shared.module';
 import { takeUntil } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 
@@ -16,7 +17,7 @@ import { Subject } from 'rxjs';
   templateUrl: './student.page.html',
   styleUrls: ['./student.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule]
 })
 export class StudentPage implements OnInit, OnDestroy {
   studentId = '';

@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input } from '@angular/core';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ToastController, LoadingController, AlertController } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { IonicModule, ToastController, LoadingController, AlertController, NavController } from '@ionic/angular';
+import { Router, NavigationExtras } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -36,14 +36,20 @@ interface SelectedSlot {
 export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
 
+  @Input() targetDate: string | null = null; // Date parameter from route (YYYY-MM-DD format)
+  
   private destroy$ = new Subject<void>();
+  
+  // Single day mode flag
+  isSingleDayMode = false;
 
   // UI State
   activeTab = 'availability';
   showPopularSlots = false;
   selectedSlotsCount = 0;
-  currentWeek: Date = new Date(); // The Monday of the current week being viewed
+  currentWeek: Date = new Date(); // First day currently shown in grid
   hasUnsavedChanges = false;
+  initialSelectedSlotsCount = 0; // Track initial count when page loads
 
   // Now indicator state
   showNowIndicator = false;
@@ -51,7 +57,17 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   nowIndicatorLeft = 0;
   nowIndicatorWidth = 0;
   private nowIntervalId: any;
-  private boundResizeHandler = () => this.updateNowIndicator();
+  private boundResizeHandler = () => {
+    const previousMobile = this.isMobileView;
+    this.updateResponsiveState();
+    if (this.isMobileView !== previousMobile) {
+      this.refreshDisplayedWeekDays(new Date());
+    } else {
+      this.refreshDisplayedWeekDays();
+    }
+    this.updateNowIndicator();
+  };
+  private hasScrolledToNow = false;
 
   // Selection state
   isSelecting = false;
@@ -60,6 +76,12 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
 
   // Data
   weekDays: WeekDay[] = [];
+  displayedWeekDays: WeekDay[] = [];
+  private isMobileView = false;
+  private readonly mobileDaysToShow = 4;
+  private mobileStartIndex = 0;
+  showMobileSettings = false;
+  panelAnimating = false;
 
   timeSlots: TimeSlot[] = [];
 
@@ -72,6 +94,8 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
 
   constructor(
     private router: Router,
+    private navController: NavController,
+    private location: Location,
     private userService: UserService,
     private toastController: ToastController,
     private loadingController: LoadingController,
@@ -79,16 +103,101 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   ) {
     this.initializeTimeSlots();
     this.initializeCurrentWeek();
-    this.updateWeekDays();
+    this.updateResponsiveState();
+    this.updateWeekDays(new Date());
   }
 
   ngOnInit() {
+    // Check if we're in single day mode
+    if (this.targetDate) {
+      this.isSingleDayMode = true;
+      // Parse the date string (YYYY-MM-DD format) in local timezone
+      // Use local date construction to avoid timezone shifts
+      const [year, month, day] = this.targetDate.split('-').map(Number);
+      const targetDateObj = new Date(year, month - 1, day); // month is 0-indexed
+      targetDateObj.setHours(0, 0, 0, 0); // Normalize to midnight local time
+      
+      console.log('🔴 Single day mode - target date:', {
+        input: this.targetDate,
+        parsed: targetDateObj.toDateString(),
+        dayIndex: targetDateObj.getDay(),
+        localTime: targetDateObj.toLocaleString(),
+        utcTime: targetDateObj.toUTCString(),
+        isToday: this.isSameDay(targetDateObj, new Date())
+      });
+      
+      // Set current week to the week containing the target date
+      this.currentWeek = this.getWeekStart(targetDateObj);
+      // Update week days to show only the target day
+      this.updateWeekDaysForSingleDay(targetDateObj);
+    } else {
+      this.isSingleDayMode = false;
+    }
     this.loadExistingAvailability();
+  }
+  
+  private getWeekStart(date: Date): Date {
+    // Create a new date to avoid mutating the original
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const day = d.getDay();
+    const diff = d.getDate() - day; // Adjust to get Sunday as start of week
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  
+  private updateWeekDaysForSingleDay(targetDate: Date) {
+    this.weekDays = [];
+    this.displayedWeekDays = [];
+    
+    // Use local timezone for display
+    const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+    const shortName = targetDate.toLocaleDateString('en-US', { weekday: 'short' });
+    const dayOfMonth = targetDate.getDate();
+    const monthName = targetDate.toLocaleDateString('en-US', { month: 'short' });
+    
+    // Get day index in local timezone
+    const dayIndex = targetDate.getDay();
+    
+    console.log('🔧 Single day setup:', {
+      targetDate: targetDate.toDateString(),
+      dayName,
+      dayIndex,
+      localTime: targetDate.toLocaleString(),
+      isToday: this.isSameDay(targetDate, new Date())
+    });
+    
+    // Create a clean date object for this day
+    const cleanDate = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    
+    this.weekDays.push({
+      name: dayName,
+      shortName,
+      index: dayIndex,
+      date: cleanDate,
+      displayDate: dayOfMonth.toString(),
+      displayMonth: monthName
+    });
+    
+    this.displayedWeekDays = [...this.weekDays];
+    
+    console.log('🔧 displayedWeekDays after single day setup:', this.displayedWeekDays);
   }
 
   ngAfterViewInit() {
     // Initial compute after view renders
-    setTimeout(() => this.updateNowIndicator());
+    this.hasScrolledToNow = false;
+    // Use longer delay for single day mode to ensure DOM is ready
+    const delay = this.isSingleDayMode ? 500 : 100;
+    setTimeout(() => {
+      this.updateNowIndicator();
+      // Wait a bit more for DOM to be fully ready, then scroll
+      setTimeout(() => {
+        if (!this.hasScrolledToNow) {
+          this.scrollNowIndicatorIntoView(true);
+        }
+      }, 300);
+    }, delay);
     // Update every minute
     this.nowIntervalId = setInterval(() => this.updateNowIndicator(), 60_000);
     // Recompute on resize
@@ -96,43 +205,49 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   }
 
   private initializeCurrentWeek() {
-    // Set currentWeek to the Monday of the current week
     const today = new Date();
     const dayOfWeek = today.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Monday = 1, Sunday = 0
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     this.currentWeek = new Date(today);
     this.currentWeek.setDate(today.getDate() + mondayOffset);
     this.currentWeek.setHours(0, 0, 0, 0);
   }
 
-  private updateWeekDays() {
-    const monday = new Date(this.currentWeek);
-    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const shortNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  private updateWeekDays(focusDate?: Date) {
+    const start = new Date(this.currentWeek);
     
     this.weekDays = [];
     for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
       
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const shortName = date.toLocaleDateString('en-US', { weekday: 'short' });
       const dayOfMonth = date.getDate();
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthName = monthNames[date.getMonth()];
+      const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       
       this.weekDays.push({
-        name: dayNames[i],
-        shortName: shortNames[i],
+        name: dayName,
+        shortName,
         index: i,
-        date: date,
+        date,
         displayDate: dayOfMonth.toString(),
         displayMonth: monthName
       });
     }
+
+    this.refreshDisplayedWeekDays(focusDate);
   }
 
   getWeekRange(): string {
-    const startDate = this.weekDays[0]?.date;
-    const endDate = this.weekDays[6]?.date;
+    if (this.isSingleDayMode && this.displayedWeekDays.length > 0) {
+      const day = this.displayedWeekDays[0];
+      return `${day.displayMonth} ${day.displayDate}, ${day.date.getFullYear()}`;
+    }
+    
+    const days = this.displayedWeekDays.length ? this.displayedWeekDays : this.weekDays;
+    const startDate = days[0]?.date;
+    const endDate = days[days.length - 1]?.date;
     if (!startDate || !endDate) return '';
     
     const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
@@ -149,29 +264,56 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   }
 
   navigateWeek(direction: 'prev' | 'next') {
-    const days = direction === 'prev' ? -7 : 7;
+    // Don't allow navigation in single day mode
+    if (this.isSingleDayMode) return;
+    
+    const step = this.isMobileView ? this.mobileDaysToShow : 7;
+    const days = direction === 'prev' ? -step : step;
     this.currentWeek = new Date(this.currentWeek);
     this.currentWeek.setDate(this.currentWeek.getDate() + days);
+    if (this.isMobileView) {
+      this.mobileStartIndex = 0;
+    }
     this.updateWeekDays();
     // Recompute indicator after DOM updates
-    setTimeout(() => this.updateNowIndicator());
+    this.hasScrolledToNow = false;
+    setTimeout(() => {
+      this.updateNowIndicator();
+      setTimeout(() => {
+        if (!this.hasScrolledToNow) {
+          this.scrollNowIndicatorIntoView(true);
+        }
+      }, 200);
+    });
   }
 
   navigateMonth(direction: 'prev' | 'next') {
     const months = direction === 'prev' ? -1 : 1;
     this.currentWeek = new Date(this.currentWeek);
     this.currentWeek.setMonth(this.currentWeek.getMonth() + months);
-    // Ensure we're still on a Monday
     const dayOfWeek = this.currentWeek.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     this.currentWeek.setDate(this.currentWeek.getDate() + mondayOffset);
+    if (this.isMobileView) {
+      this.mobileStartIndex = 0;
+    }
     this.updateWeekDays();
+    this.hasScrolledToNow = false;
   }
 
   goToToday() {
     this.initializeCurrentWeek();
-    this.updateWeekDays();
-    setTimeout(() => this.updateNowIndicator());
+    this.mobileStartIndex = 0;
+    this.updateWeekDays(new Date());
+    this.hasScrolledToNow = false;
+    setTimeout(() => {
+      this.updateNowIndicator();
+      setTimeout(() => {
+        if (!this.hasScrolledToNow) {
+          this.scrollNowIndicatorIntoView(true);
+        }
+      }, 200);
+    });
   }
 
   ngOnDestroy() {
@@ -202,12 +344,13 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   }
 
   private loadExistingAvailability() {
-    console.log('🔧 Loading existing availability...');
+    console.log('🔧 Loading existing availability...', { isSingleDayMode: this.isSingleDayMode });
     this.userService.getAvailability().subscribe({
       next: (res) => {
         console.log('🔧 Loaded existing availability:', res);
         // Convert existing availability to selected slots
         if (res.availability && res.availability.length > 0) {
+          console.log('🔧 All availability blocks:', res.availability);
           res.availability.forEach(block => {
             console.log(`🔧 Processing existing block: day=${block.day}, time=${block.startTime}-${block.endTime}`);
             const [sh, sm] = block.startTime.split(':').map((v: string) => parseInt(v, 10));
@@ -216,13 +359,45 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
             const startIndex = sh * 2 + (sm >= 30 ? 1 : 0);
             const endIndex = eh * 2 + (em >= 30 ? 1 : 0);
 
+            // Handle both numeric day indices and day name strings
+            let dayIndex: number;
+            if (typeof block.day === 'number') {
+              dayIndex = block.day;
+            } else {
+              dayIndex = this.dayNameToIndex(block.day);
+            }
+            console.log(`🔧 Day mapping: ${block.day} (${typeof block.day}) -> ${dayIndex}`);
+            
+            // In single day mode, only load slots for the selected day
+            if (this.isSingleDayMode) {
+              const selectedDayIndex = this.displayedWeekDays[0]?.index;
+              console.log(`🔧 Single day mode check:`, {
+                selectedDayIndex,
+                blockDayIndex: dayIndex,
+                blockDay: block.day,
+                match: dayIndex === selectedDayIndex
+              });
+              if (dayIndex !== selectedDayIndex) {
+                console.log(`🔧 Skipping block for day ${block.day} (index ${dayIndex}) - not the selected day (index ${selectedDayIndex})`);
+                return;
+              }
+              console.log(`🔧 ✅ Block matches selected day, processing...`);
+            }
+
+            console.log(`🔧 Adding slots from index ${startIndex} to ${endIndex} for day ${dayIndex}`);
             for (let idx = startIndex; idx < endIndex; idx++) {
-              const slotKey = `${block.day}-${idx}`;
+              const slotKey = `${dayIndex}-${idx}`;
+              console.log(`🔧 Adding slot: ${slotKey}`);
               this.selectedSlots.add(slotKey);
             }
           });
           this.updateSelectedCount();
+          // Store the initial count after loading existing availability
+          this.initialSelectedSlotsCount = this.selectedSlotsCount;
           console.log('🔧 Final selected slots after loading:', Array.from(this.selectedSlots));
+        } else {
+          // No existing availability, so initial count is 0
+          this.initialSelectedSlotsCount = 0;
         }
         // Loaded selections reflect saved state; reset dirty flag
         this.hasUnsavedChanges = false;
@@ -232,14 +407,122 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
       }
     });
   }
+  
+  private dayNameToIndex(dayName: string): number {
+    const dayMap: { [key: string]: number } = {
+      'sunday': 0,
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6
+    };
+    return dayMap[dayName.toLowerCase()] ?? 0;
+  }
+  
+  private indexToDayName(dayIndex: number): string {
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    return dayNames[dayIndex] ?? 'sunday';
+  }
+
+  private updateResponsiveState() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const newIsMobile = window.innerWidth <= 768;
+    if (newIsMobile !== this.isMobileView) {
+      this.isMobileView = newIsMobile;
+      if (this.isMobileView) {
+        this.mobileStartIndex = 0;
+        this.refreshDisplayedWeekDays(new Date());
+      } else {
+        this.refreshDisplayedWeekDays();
+        this.showMobileSettings = false;
+      }
+    } else {
+      this.isMobileView = newIsMobile;
+    }
+  }
+
+  toggleMobileSettings() {
+    if (this.showMobileSettings) {
+      this.panelAnimating = true;
+      this.showMobileSettings = false;
+      setTimeout(() => {
+        this.panelAnimating = false;
+      }, 250);
+    } else {
+      this.panelAnimating = true;
+      this.showMobileSettings = true;
+
+      setTimeout(() => {
+        this.panelAnimating = false;
+      }, 0);
+    }
+  }
+
+  private refreshDisplayedWeekDays(focusDate?: Date) {
+    if (this.isMobileView) {
+      let startIndex = this.mobileStartIndex;
+      if (focusDate) {
+        const targetIdx = this.weekDays.findIndex(day => this.isSameDay(day.date, focusDate));
+        if (targetIdx >= 0) {
+          startIndex = targetIdx;
+        }
+      }
+      if (startIndex < 0) {
+        startIndex = 0;
+      }
+      this.mobileStartIndex = startIndex;
+      const totalDays = this.weekDays.length;
+      const days: WeekDay[] = [];
+      for (let i = 0; i < this.mobileDaysToShow; i++) {
+        const idx = (startIndex + i) % totalDays;
+        days.push(this.weekDays[idx]);
+      }
+      this.displayedWeekDays = days;
+    } else {
+      this.mobileStartIndex = 0;
+      this.displayedWeekDays = [...this.weekDays];
+    }
+  }
+
+  private isSameDay(a: Date, b: Date): boolean {
+    // Compare dates in local timezone
+    return a.getFullYear() === b.getFullYear() &&
+           a.getMonth() === b.getMonth() &&
+           a.getDate() === b.getDate();
+  }
 
   // Navigation
   goBack() {
+    this.showMobileSettings = false;
     if (this.selectedSlotsCount > 0 && this.hasUnsavedChanges) {
       this.confirmLeaveWithUnsavedChanges();
       return;
     }
-    this.router.navigate(['/tabs/tutor-calendar']);
+    
+    // In single day mode, go back to regular availability setup with forward animation (left to right)
+    if (this.isSingleDayMode) {
+      // Try using window.history.back() to go back in browser history
+      // This should trigger the correct animation direction
+      window.history.back();
+    } else {
+      // In regular mode, go back to calendar
+      this.router.navigate(['/tabs/tutor-calendar']);
+    }
+  }
+
+  // Navigate to single-day availability setup for a specific date
+  selectDate(day: WeekDay) {
+    if (!day || !day.date) return;
+    
+    // Format date as YYYY-MM-DD
+    const dateStr = day.date.toISOString().split('T')[0];
+    
+    // Navigate to single-day availability setup page
+    this.router.navigate(['/tabs/availability-setup', dateStr]);
   }
 
   private async confirmLeaveWithUnsavedChanges() {
@@ -248,8 +531,14 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
       message: 'You have selected time slots that are not saved.',
       buttons: [
         {
-          text: 'Cancel',
-          role: 'cancel'
+          text: "Don't save",
+          role: 'destructive',
+          handler: () => {
+            this.selectedSlots.clear();
+            this.selectedSlotsCount = 0;
+            this.hasUnsavedChanges = false;
+            this.router.navigate(['/tabs/tutor-calendar']);
+          }
         },
         {
           text: 'Save',
@@ -348,8 +637,13 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
 
   // Disallow selecting time slots in the past (relative to now)
   isPastSlot(dayIndex: number, slotIndex: number): boolean {
-    if (!this.weekDays[dayIndex]) return false;
-    const slotDate = new Date(this.weekDays[dayIndex].date);
+    // In single-day mode, use displayedWeekDays; otherwise use weekDays
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    const day = dayArray?.find(d => d.index === dayIndex) || dayArray?.[dayIndex];
+    
+    if (!day) return false;
+    
+    const slotDate = new Date(day.date);
     const hour = Math.floor(slotIndex / 2);
     const minute = slotIndex % 2 === 1 ? 30 : 0;
     slotDate.setHours(hour, minute, 0, 0);
@@ -364,6 +658,24 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   }
 
   private isCurrentWeekInView(): boolean {
+    // In single day mode, check if the selected day is today
+    if (this.isSingleDayMode) {
+      if (!this.displayedWeekDays || this.displayedWeekDays.length === 0) {
+        console.log('🔴 Single day mode: No displayed days');
+        return false;
+      }
+      const selectedDay = new Date(this.displayedWeekDays[0].date);
+      const now = new Date();
+      const isToday = this.isSameDay(selectedDay, now);
+      console.log('🔴 Single day mode check:', { 
+        selectedDay: selectedDay.toDateString(), 
+        today: now.toDateString(), 
+        isToday 
+      });
+      return isToday;
+    }
+    
+    // Regular week mode
     if (!this.weekDays || this.weekDays.length !== 7) return false;
     const start = new Date(this.weekDays[0].date);
     const end = new Date(this.weekDays[6].date);
@@ -376,15 +688,19 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
   private updateNowIndicator() {
     const container = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
     if (!container) {
+      console.log('🔴 No container found for now indicator');
       this.showNowIndicator = false;
       return;
     }
 
     // Only show if viewing the week that includes today
     if (!this.isCurrentWeekInView()) {
+      console.log('🔴 Current week/day not in view');
       this.showNowIndicator = false;
       return;
     }
+    
+    console.log('🔴 Updating now indicator...');
 
     // Top position based on minutes since midnight across full 24h height
     const now = new Date();
@@ -398,10 +714,90 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
     const firstLabel = container.querySelector('.time-slot-row .time-label') as HTMLElement | null;
     const containerWidth = container.clientWidth;
     const labelWidth = firstLabel ? firstLabel.offsetWidth : 80; // fallback
-    this.nowIndicatorLeft = labelWidth;
-    this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
+    
+    // In single day mode, the line should span only the single day column
+    if (this.isSingleDayMode) {
+      const dayColumn = container.querySelector('.day-column') as HTMLElement | null;
+      if (dayColumn) {
+        const dayColumnRect = dayColumn.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        this.nowIndicatorLeft = dayColumnRect.left - containerRect.left;
+        this.nowIndicatorWidth = dayColumn.offsetWidth;
+        console.log('🔴 Single day mode positioning:', {
+          left: this.nowIndicatorLeft,
+          width: this.nowIndicatorWidth,
+          top: this.nowIndicatorTop
+        });
+      } else {
+        console.log('🔴 Day column not found, using fallback');
+        // Fallback: span from label to end
+        this.nowIndicatorLeft = labelWidth;
+        this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
+      }
+    } else {
+      // Regular mode: span all day columns
+      this.nowIndicatorLeft = labelWidth;
+      this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
+    }
 
     this.showNowIndicator = true;
+    console.log('🔴 Now indicator set:', {
+      show: this.showNowIndicator,
+      top: this.nowIndicatorTop,
+      left: this.nowIndicatorLeft,
+      width: this.nowIndicatorWidth
+    });
+
+    if (!this.hasScrolledToNow) {
+      this.scrollNowIndicatorIntoView(true);
+    }
+  }
+
+  private scrollNowIndicatorIntoView(force = false, attempt = 0) {
+    const container = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
+    if (!container) {
+      if (attempt < 5) {
+        setTimeout(() => this.scrollNowIndicatorIntoView(force, attempt + 1), 100);
+      }
+      return;
+    }
+
+    if (!this.showNowIndicator && !force) {
+      return;
+    }
+
+    const maxAttempts = 5;
+    const currentScroll = container.scrollTop;
+    const viewHeight = container.clientHeight;
+    const indicator = this.nowIndicatorTop;
+    const buffer = 40;
+
+    // Check if we have valid dimensions
+    if (viewHeight === 0 || container.scrollHeight === 0) {
+      if (attempt < maxAttempts) {
+        setTimeout(() => this.scrollNowIndicatorIntoView(force, attempt + 1), 150);
+      }
+      return;
+    }
+
+    const needsScroll =
+      force ||
+      indicator < currentScroll + buffer ||
+      indicator > currentScroll + viewHeight - buffer;
+
+    if (needsScroll) {
+      const target = Math.max(0, indicator - viewHeight / 2);
+      requestAnimationFrame(() => {
+        container.scrollTo({ 
+          top: target, 
+          behavior: attempt === 0 ? 'smooth' : 'auto' 
+        });
+        this.hasScrolledToNow = true;
+        console.log(`⏰ Scrolled availability setup to now indicator at position ${target}`);
+      });
+    } else {
+      this.hasScrolledToNow = true;
+    }
   }
 
   private updateSelectedCount() {
@@ -498,6 +894,8 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
           await toast.present();
           
           this.hasUnsavedChanges = false;
+          // Update initial count to reflect saved state
+          this.initialSelectedSlotsCount = this.selectedSlotsCount;
           // Navigate back to calendar
           this.router.navigate(['/tabs/tutor-calendar']);
         },
@@ -559,7 +957,7 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
         } else {
           const block = {
             id: `${day}-${startIdx}-${endIdx}`,
-            day: day,
+            day: day, // Keep as number (0-6) to match backend schema
             startTime: idxToTime(startIdx),
             endTime: idxToTime(endIdx),
             type: 'available',
@@ -576,7 +974,7 @@ export class AvailabilitySetupComponent implements OnInit, AfterViewInit, OnDest
 
       const lastBlock = {
         id: `${day}-${startIdx}-${endIdx}`,
-        day: day,
+        day: day, // Keep as number (0-6) to match backend schema
         startTime: idxToTime(startIdx),
         endTime: idxToTime(endIdx),
         type: 'available',

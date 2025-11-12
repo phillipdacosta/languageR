@@ -36,6 +36,7 @@
           <label>I want to learn</label>
           <div class="filter-value-wrapper" (click)="toggleLanguageDropdown()">
             <span class="filter-value">{{ getCurrentLanguageLabel() }}</span>
+            <app-flag-icon *ngIf="filters.language && filters.language !== 'any'" [language]="filters.language" [size]="18" cssClass="filter-flag" style="margin-left: 6px;"></app-flag-icon>
             <ion-icon name="close-outline" class="clear-icon" *ngIf="filters.language && filters.language !== 'any'" (click)="selectLanguage('any'); $event.stopPropagation()"></ion-icon>
             <ion-icon name="chevron-down-outline" [class.rotated]="showLanguageDropdown" *ngIf="!filters.language || filters.language === 'any'"></ion-icon>
           </div>
@@ -46,7 +47,8 @@
                  *ngFor="let lang of availableLanguages" 
                  [class.selected]="filters.language === lang.value"
                  (click)="selectLanguage(lang.value)">
-              {{ lang.label }}
+              <span>{{ lang.label }}</span>
+              <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="16" cssClass="dropdown-flag" style="margin-left: 6px;"></app-flag-icon>
             </div>
           </div>
         </div>
@@ -193,7 +195,10 @@
           <div class="tutor-info">
             <h3 class="tutor-name">{{ tutor.name }}</h3>
             <div class="tutor-languages">
-              <span class="language-tag" *ngFor="let language of tutor.languages">{{ language }}</span>
+              <span class="language-tag" *ngFor="let language of tutor.languages">
+                <span>{{ language }}</span>
+                <app-flag-icon [language]="language" [size]="14" cssClass="tag-flag" style="margin-left: 4px;"></app-flag-icon>
+              </span>
             </div>
             <div class="tutor-rating" *ngIf="tutor.rating > 0">
               <ion-icon name="star" class="star-icon"></ion-icon>
@@ -245,7 +250,7 @@
         </div>
 
         <div class="tutor-actions">
-          <ion-button fill="outline" size="small">
+          <ion-button fill="outline" size="small" (click)="saveTutor(tutor, $event)">
             <ion-icon name="heart-outline" slot="start"></ion-icon>
             Save
           </ion-button>
@@ -261,7 +266,7 @@
             <ion-icon name="person-outline" slot="start"></ion-icon>
             Profile
           </ion-button>
-          <ion-button class="cta" fill="solid" color="success" size="small">
+          <ion-button class="cta" fill="solid" color="success" size="small" (click)="bookLesson(tutor, $event)">
             <ion-icon name="videocam-outline" slot="start"></ion-icon>
             Book lesson
           </ion-button>
