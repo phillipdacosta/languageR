@@ -231,7 +231,7 @@
     padding: 56px 16px 20px 16px; // Add top padding for overlay buttons
     margin: -16px -16px 24px -16px;
     top: 0;
-    position: relative; // Ensure absolute positioning works
+    position: sticky;
 
     .date-card {
       min-width: auto;
@@ -661,7 +661,7 @@
   margin-bottom: 0; // Remove gap between headers and time grid
   position: sticky;
   top: -26px;
-  z-index: 10;
+  z-index: 110; // Higher than now-indicator (100) to stay on top
   background: white;
   padding-top: 8px;
   padding-bottom: 22px; // Add padding to extend header down and cover time labels
@@ -1106,6 +1106,8 @@
 
   .time-slots {
     margin-top: 8px;
+    // Ensure time slots create scrollable content on mobile
+    min-height: 1600px; // 48 slots × 32px + margins
   }
 
   .day-headers {
@@ -1358,6 +1360,13 @@
     padding: 12px 12px 140px;
     display: block;
     overflow: visible;
+    // Ensure minimum height for scrollable content on mobile
+    min-height: calc(100vh + 500px);
+  }
+
+  .time-slots {
+    // Ensure time slots create scrollable content on mobile
+    min-height: 1600px; // 48 slots × 32px + margins
   }
 
   .action-bar {
@@ -1430,7 +1439,7 @@
     border-bottom: 1px solid #e9ecef;
     position: sticky;
     top: 56px;
-    z-index: 25;
+    z-index: 110; // Higher than now-indicator (100) to stay on top
     background: #f8f9fa;
 
     .time-column-header {
@@ -1483,4 +1492,17 @@
       }
     }
   }
+}
+
+// Enhanced smooth scrolling for better user experience
+html {
+  scroll-behavior: smooth;
+}
+
+.availability-setup {
+  scroll-behavior: smooth;
+}
+
+.time-grid-container {
+  scroll-behavior: smooth;
 }

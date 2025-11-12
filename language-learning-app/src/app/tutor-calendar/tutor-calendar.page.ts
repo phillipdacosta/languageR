@@ -549,9 +549,28 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const currentUrl = this.router.url;
     console.log('📅 Current URL:', currentUrl);
     
+    // Check for refresh parameter from availability setup
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldRefreshAvailability = urlParams.get('refreshAvailability') === 'true';
+    
+    if (shouldRefreshAvailability) {
+      console.log('🔄 Detected return from availability setup - forcing refresh...');
+      // Clear the query parameter to avoid repeated refreshes
+      this.router.navigate(['/tabs/tutor-calendar'], { replaceUrl: true });
+      
+      // Force refresh regardless of user state
+      if (this.currentUser) {
+        this.forceRefreshAvailability();
+      } else {
+        // Load user first, then refresh
+        this.loadCurrentUser();
+      }
+      return;
+    }
+    
     // Only refresh if we have a user
     if (this.currentUser) {
-            if (currentUrl === '/tabs/tutor-calendar') {
+      if (currentUrl === '/tabs/tutor-calendar') {
         // Force refresh calendar data when returning to calendar
         this.refreshCalendarData();
       } else {
@@ -1008,6 +1027,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Update calendar with events smoothly
           this.updateCalendarEvents();
+          
+          // Also update mobile views if in mobile mode
+          if (this.isMobileView) {
+            console.log('📱 Also updating mobile agenda view...');
+            this.buildMobileAgenda();
+          }
         },
         error: (error) => {
           console.error('📅 Error loading availability:', error);
@@ -1049,6 +1074,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.calendar.render();
       
       console.log('📅 Adding new events...');
+      console.log('📅 Events to add:', this.events.map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.start,
+        end: e.end,
+        backgroundColor: e.backgroundColor
+      })));
       this.calendar.addEventSource(this.events);
       console.log('📅 Events added to calendar');
       
@@ -1067,12 +1099,24 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         if (this.calendar) {
           const allEvents = this.calendar.getEvents();
           console.log('📅 Calendar now has events:', allEvents.length);
-          console.log('📅 Calendar events:', allEvents.map(e => ({
-            id: e.id,
-            title: e.title,
-            start: e.startStr,
-            end: e.endStr
-          })));
+          if (allEvents.length > 0) {
+            console.log('📅 Sample events:', allEvents.slice(0, 3).map(e => ({
+              id: e.id,
+              title: e.title,
+              start: e.startStr,
+              end: e.endStr,
+              display: e.display
+            })));
+          } else {
+            console.warn('📅 ⚠️ No events found in calendar after adding!');
+            console.log('📅 Original events array:', this.events.length, 'events');
+            console.log('📅 Calendar view:', {
+              type: this.calendar.view.type,
+              start: this.calendar.view.activeStart.toDateString(),
+              end: this.calendar.view.activeEnd.toDateString()
+            });
+            console.log('📅 Sample original event:', this.events[0]);
+          }
         }
       }, 100);
       
@@ -1299,6 +1343,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   // Mapping helpers
   private blockToEvent(b: any): EventInput {
     // Process availability block
+    console.log('📅 Converting block to event:', {
+      blockId: b.id,
+      day: b.day,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      type: b.type
+    });
     
     // Prefer absolute one-off dates when provided (e.g., classes)
     let start: Date;
@@ -1306,20 +1357,31 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (b.absoluteStart && b.absoluteEnd) {
       start = new Date(b.absoluteStart);
       end = new Date(b.absoluteEnd);
-      // Using absolute dates for one-off events (classes)
+      console.log('📅 Using absolute dates for class/lesson');
     } else {
-      // Weekly availability fallback: map to current week
+      // Weekly availability: map to current week
       const today = new Date();
+      
+      // Calculate the start of the current week (Sunday)
       const currentDay = today.getDay();
-      const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay; // Monday = 1, Sunday = 0
-      const monday = new Date(today);
-      monday.setDate(today.getDate() + mondayOffset);
-      monday.setHours(0, 0, 0, 0);
-      const dayDate = new Date(monday);
-      dayDate.setDate(monday.getDate() + b.day);
+      const sundayOffset = -currentDay; // Sunday is 0, so offset from current day
+      const sunday = new Date(today);
+      sunday.setDate(today.getDate() + sundayOffset);
+      sunday.setHours(0, 0, 0, 0);
+      
+      // Add the day index directly to Sunday to get the correct day
+      const dayDate = new Date(sunday);
+      dayDate.setDate(sunday.getDate() + b.day);
+      
       start = this.withTime(dayDate, b.startTime);
       end = this.withTime(dayDate, b.endTime);
-      // Using weekly mapping for recurring availability
+      
+      console.log('📅 Mapped availability:', {
+        day: b.day,
+        dayName: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][b.day],
+        date: dayDate.toDateString(),
+        time: `${b.startTime}-${b.endTime}`
+      });
     }
     
     const isClass = b.type === 'class';
@@ -1408,9 +1470,22 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // TODO: Implement extra slots modal
   }
 
-  onSetUpAvailability() {
-    console.log('Set up availability clicked');
-    this.router.navigate(['/tabs/availability-setup']);
+  onSetUpAvailability(date?: Date) {
+    console.log('Set up availability clicked', date ? `for date: ${date.toDateString()}` : '');
+    
+    if (date) {
+      // Format date as YYYY-MM-DD using local timezone to avoid UTC conversion issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const dayOfMonth = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${dayOfMonth}`;
+      
+      console.log('Navigating to availability setup for date:', dateStr);
+      this.router.navigate(['/tabs/availability-setup', dateStr]);
+    } else {
+      // Fallback to general availability setup if no date provided
+      this.router.navigate(['/tabs/availability-setup']);
+    }
   }
 
   connectGoogleCalendar() {
@@ -1427,6 +1502,60 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       console.log('🔄 Calendar not initialized, reinitializing...');
       this.forceReinitializeCalendar();
     }
+  }
+
+  // Force refresh availability data after saving from availability setup
+  private forceRefreshAvailability() {
+    console.log('🔄 Force refreshing availability after setup...');
+    
+    if (!this.currentUser) {
+      console.warn('📅 No current user for availability refresh');
+      return;
+    }
+
+    // Clear existing events to avoid stale data
+    this.events = [];
+    
+    // Force reload availability data
+    this.userService.getAvailability().subscribe({
+      next: (res) => {
+        console.log('📅 Fresh availability data loaded:', res.availability?.length || 0, 'blocks');
+        
+        if (res.availability && res.availability.length > 0) {
+          this.events = res.availability.map(b => this.blockToEvent(b));
+          console.log('📅 Converted to', this.events.length, 'calendar events');
+        } else {
+          this.events = [];
+          console.log('📅 No availability blocks found');
+        }
+        
+        // Update calendar display
+        if (this.isMobileView) {
+          // Mobile view: update mobile timeline and agenda
+          console.log('📱 Updating mobile calendar views...');
+          this.buildMobileTimeline();
+          this.buildMobileAgenda();
+          console.log('✅ Mobile calendar views updated successfully');
+        } else if (this.calendar && this.isInitialized) {
+          // Desktop view: update FullCalendar
+          this.updateCalendarEvents();
+          console.log('✅ Desktop calendar events updated successfully');
+        } else {
+          console.log('🔄 Calendar not ready, reinitializing...');
+          this.forceReinitializeCalendar();
+        }
+        
+        // Also reload lessons to ensure complete data
+        if (this.currentUser?.id) {
+          this.loadLessons(this.currentUser.id);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error force refreshing availability:', error);
+        // Try to reinitialize calendar as fallback
+        this.forceReinitializeCalendar();
+      }
+    });
   }
 
   private refreshCalendarData() {

@@ -157,7 +157,12 @@
       <ion-label>Search</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button *ngIf="currentUser?.userType === 'tutor'" tab="tutor-calendar" [routerLink]="['/tabs/tutor-calendar']" routerDirection="root" [selected]="isCurrentRoute('/tabs/tutor-calendar')">
+    <ion-tab-button *ngIf="currentUser?.userType === 'tutor'" 
+                    tab="tutor-calendar" 
+                    [routerLink]="['/tabs/tutor-calendar']" 
+                    routerDirection="root" 
+                    [class.tab-selected]="isCurrentRoute('/tabs/tutor-calendar')"
+                    [attr.aria-selected]="isCurrentRoute('/tabs/tutor-calendar')">
       <ion-icon aria-hidden="true" name="calendar"></ion-icon>
       <ion-label>Calendar</ion-label>
     </ion-tab-button>

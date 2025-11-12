@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, ActivatedRoute } from '@angular/router';
@@ -12,6 +12,8 @@ import { AvailabilitySetupComponent } from '../../components/availability-setup/
   imports: [CommonModule, IonicModule, RouterModule, AvailabilitySetupComponent]
 })
 export class AvailabilitySetupPage implements OnInit {
+  @ViewChild(AvailabilitySetupComponent) availabilityComponent?: AvailabilitySetupComponent;
+  
   selectedDate: string | null = null;
 
   constructor(private route: ActivatedRoute) {}
@@ -20,5 +22,15 @@ export class AvailabilitySetupPage implements OnInit {
     this.route.params.subscribe(params => {
       this.selectedDate = params['date'] || null;
     });
+  }
+
+  // Ionic lifecycle hook - called when view has fully entered and is now the active view
+  ionViewDidEnter() {
+    // Give the component time to render the indicator, then scroll
+    setTimeout(() => {
+      if (this.availabilityComponent) {
+        this.availabilityComponent.scrollToNowIndicator();
+      }
+    }, 125);
   }
 }

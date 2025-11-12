@@ -896,13 +896,13 @@ export class Tab1Page implements OnInit, OnDestroy {
 
     if (bookedMinutes <= 0) {
       if (this.isSelectedDatePast) {
-        this.availabilityHeadline = 'You had ' + this.formatMinutes(openMinutes) + ' of availability open for ' + dateLabel + '.';
+        this.availabilityHeadline = 'You were available for ' + this.formatMinutes(openMinutes) + ' on ' + dateLabel + '.';
         this.availabilityDetail = 'That was spread across ' + this.pluralize(totalSlots, 'availability block') + '.';
       } else if (isFuture) {
-        this.availabilityHeadline = 'You have ' + this.formatMinutes(openMinutes) + ' of availability open for ' + dateLabel + '.';
+        this.availabilityHeadline = 'You are available for ' + this.formatMinutes(openMinutes) + ' on ' + dateLabel + '.';
         this.availabilityDetail = 'That\'s spread across ' + this.pluralize(totalSlots, 'availability block') + '. Add or adjust times to fill your schedule.';
       } else {
-        this.availabilityHeadline = 'You have ' + this.formatMinutes(openMinutes) + ' of availability open today.';
+        this.availabilityHeadline = 'You are available for ' + this.formatMinutes(openMinutes) + ' today.';
         this.availabilityDetail = 'That\'s spread across ' + this.pluralize(totalSlots, 'availability block') + '. Add or adjust times to fill your schedule.';
       }
       return;
@@ -921,8 +921,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   private getAvailabilityDayIndex(date: Date): number {
-    const day = date.getDay(); // 0 (Sun) - 6 (Sat)
-    return day === 0 ? 6 : day - 1; // Convert to Monday=0
+    // Use the same day index system as availability setup component
+    // Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+    return date.getDay();
   }
 
   private parseTimeToMinutes(time: string): number {

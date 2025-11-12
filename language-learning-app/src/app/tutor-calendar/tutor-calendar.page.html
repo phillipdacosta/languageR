@@ -71,8 +71,8 @@
 
     <div class="mobile-calendar-wrapper">
       <div class="mobile-view-toggle">
-        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
         <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">Day</button>
+        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
       </div>
 
       <div class="schedule-legend">
@@ -141,8 +141,8 @@
                   <div class="location" *ngIf="item.location">{{ item.location }}</div>
                 </ng-container>
                 <ng-template #freeBlock>
-                  <div class="free-slot-content" (click)="onSetUpAvailability()">
-                    <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} free</span>
+                  <div class="free-slot-content" (click)="onSetUpAvailability(selectedMobileDay?.date)">
+                    <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
                     <button type="button" class="free-add-icon" aria-label="Add availability">
                       <ion-icon name="add-outline"></ion-icon>
                     </button>
@@ -205,8 +205,8 @@
                         <div class="location" *ngIf="item.location">{{ item.location }}</div>
                       </ng-container>
                       <ng-template #agendaFreeBlock>
-                        <div class="free-slot-content" (click)="onSetUpAvailability()">
-                          <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} free</span>
+                        <div class="free-slot-content" (click)="onSetUpAvailability(section.date)">
+                          <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
                           <button type="button" class="free-add-icon" aria-label="Add availability">
                             <ion-icon name="add-outline"></ion-icon>
                           </button>
