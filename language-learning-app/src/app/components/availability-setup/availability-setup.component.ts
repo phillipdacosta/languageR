@@ -1403,20 +1403,43 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         return `${h.toString().padStart(2, '0')}:${m}`;
       };
 
+      // Find the weekDay that matches this day-of-week index
+      // Note: 'day' here is already the day-of-week (0=Sun, 1=Mon, etc.) from the slotKey
+      const matchingWeekDay = this.weekDays.find(wd => wd.index === day);
+      if (!matchingWeekDay) {
+        console.error(`🔧 No date found for day of week ${day}`);
+        return;
+      }
+      
+      const dayDate = matchingWeekDay.date;
+      console.log(`🔧 Day of week ${day} maps to ${dayDate.toDateString()}`);
+
+      // Create absolute start/end dates for this specific date
+      const getAbsoluteDateTime = (date: Date, timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const absoluteDate = new Date(date);
+        absoluteDate.setHours(hours, minutes, 0, 0);
+        return absoluteDate.toISOString();
+      };
+
       for (let i = 1; i < indices.length; i++) {
         if (indices[i] === endIdx) {
           endIdx++;
         } else {
+          const startTime = idxToTime(startIdx);
+          const endTime = idxToTime(endIdx);
           const block = {
             id: `${day}-${startIdx}-${endIdx}`,
-            day: day, // Keep as number (0-6) to match backend schema
-            startTime: idxToTime(startIdx),
-            endTime: idxToTime(endIdx),
+            day: day, // Use day of week (0=Sun, 1=Mon, ..., 6=Sat)
+            startTime: startTime,
+            endTime: endTime,
+            absoluteStart: getAbsoluteDateTime(dayDate, startTime),
+            absoluteEnd: getAbsoluteDateTime(dayDate, endTime),
             type: 'available',
             title: 'Available',
             color: '#007bff'
           };
-          console.log(`🔧 Created block:`, block);
+          console.log(`🔧 Created block with absolute dates:`, block);
           blocks.push(block);
 
           startIdx = indices[i];
@@ -1424,16 +1447,20 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         }
       }
 
+      const startTime = idxToTime(startIdx);
+      const endTime = idxToTime(endIdx);
       const lastBlock = {
         id: `${day}-${startIdx}-${endIdx}`,
-        day: day, // Keep as number (0-6) to match backend schema
-        startTime: idxToTime(startIdx),
-        endTime: idxToTime(endIdx),
+        day: day, // Use day of week (0=Sun, 1=Mon, ..., 6=Sat)
+        startTime: startTime,
+        endTime: endTime,
+        absoluteStart: getAbsoluteDateTime(dayDate, startTime),
+        absoluteEnd: getAbsoluteDateTime(dayDate, endTime),
         type: 'available',
         title: 'Available',
         color: '#007bff'
       };
-      console.log(`🔧 Created last block:`, lastBlock);
+      console.log(`🔧 Created last block with absolute dates:`, lastBlock);
       blocks.push(lastBlock);
     });
     

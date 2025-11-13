@@ -597,9 +597,48 @@ router.put('/availability', verifyToken, async (req, res) => {
       return res.status(403).json({ message: 'Only tutors can set availability' });
     }
 
-    // Update availability in user document
-    user.availability = availabilityBlocks;
+    // Merge new availability blocks with existing ones
+    // Strategy: Remove existing blocks that overlap with new blocks (same date), then add new blocks
+    
+    const existingAvailability = user.availability || [];
+    
+    // Get unique dates from new blocks
+    const newBlockDates = new Set();
+    availabilityBlocks.forEach(block => {
+      if (block.absoluteStart) {
+        // Normalize to date only (YYYY-MM-DD)
+        const date = new Date(block.absoluteStart);
+        date.setHours(0, 0, 0, 0);
+        newBlockDates.add(date.toISOString().split('T')[0]);
+      }
+    });
+    
+    console.log('New block dates:', Array.from(newBlockDates));
+    
+    // Keep existing blocks that DON'T overlap with new block dates
+    const blocksToKeep = existingAvailability.filter(existing => {
+      // If existing block has no absolute date, keep it (recurring pattern)
+      if (!existing.absoluteStart) {
+        return true;
+      }
+      
+      // Check if existing block is for a date we're updating
+      const existingDate = new Date(existing.absoluteStart);
+      existingDate.setHours(0, 0, 0, 0);
+      const existingDateKey = existingDate.toISOString().split('T')[0];
+      
+      // Keep if NOT in the new dates we're updating
+      return !newBlockDates.has(existingDateKey);
+    });
+    
+    console.log('Blocks to keep:', blocksToKeep.length);
+    console.log('New blocks to add:', availabilityBlocks.length);
+    
+    // Merge: kept blocks + new blocks
+    user.availability = [...blocksToKeep, ...availabilityBlocks];
     await user.save();
+
+    console.log('Final availability count:', user.availability.length);
 
     res.json({ 
       success: true, 
