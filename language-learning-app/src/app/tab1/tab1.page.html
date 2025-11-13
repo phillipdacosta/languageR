@@ -160,12 +160,7 @@
                           <p class="availability-detail" *ngIf="availabilityDetail">{{ availabilityDetail }}</p>
                         </div>
                       </div>
-                      <ion-button 
-                        fill="outline" 
-                        size="small" 
-                        class="availability-cta" 
-                        [disabled]="isSelectedDatePast"
-                        (click)="openAvailabilitySetup()">
+                      <ion-button fill="outline" size="small" class="availability-cta" (click)="openAvailabilitySetup()">
                         <ion-icon slot="start" name="settings-outline"></ion-icon>
                         Set up availability
                       </ion-button>
@@ -269,7 +264,7 @@
       </div>
 
       <!-- No Lessons State -->
-      <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && getUpcomingLessons().length === 0">
+      <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && getUpcomingLessons().length === 0 && !isTutor()">
         <ion-card-content>
           <div class="empty-state">
             <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
@@ -305,9 +300,20 @@
       </ion-card>
     </ng-container>
 
+    <div class="section-header-new">
+      <h2>{{ isTutor() ? 'Enhance Your Lessons' : 'Upcoming Lessons' }}</h2>
+      <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
+    </div>
+
     <!-- Category Tabs (moved below lessons for mobile student view) -->
-    <div class="category-tabs" *ngIf="!isTutor()">
-      <div class="tab-item active">
+    <div class="category-tabs" *ngIf="isTutor()">
+      <div class="tab-item">
+        <div class="tab-icon kids">
+          <ion-icon name="create"></ion-icon>
+        </div>
+        <span>Create Material</span>
+      </div>
+      <div class="tab-item">
         <div class="tab-icon hospital">
           <ion-icon name="briefcase"></ion-icon>
         </div>
@@ -318,12 +324,6 @@
           <ion-icon name="people"></ion-icon>
         </div>
         <span>Conversation</span>
-      </div>
-      <div class="tab-item">
-        <div class="tab-icon kids">
-          <ion-icon name="create"></ion-icon>
-        </div>
-        <span>Create Material</span>
       </div>
     </div>
 

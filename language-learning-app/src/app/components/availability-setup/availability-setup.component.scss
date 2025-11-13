@@ -125,7 +125,7 @@
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 110; // Higher than now-indicator (100) to stay on top, matching day-headers
 
   // Overlay buttons (Airbnb-style) - only on mobile
   .header-overlay-buttons {

@@ -41,6 +41,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   isNotificationDropdownOpen = false;
   // Current route for tab highlighting
   currentRoute = '';
+  // Computed property for calendar tab selection
+  get isCalendarTabSelected(): boolean {
+    const result = this.isCurrentRoute('/tabs/tutor-calendar');
+    console.log('[Tab Selection] isCalendarTabSelected:', result, 'URL:', this.router.url);
+    return result;
+  }
   // Dropdown positioning
   dropdownTop = 60;
   dropdownRight = 20;
@@ -146,8 +152,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe((event: NavigationEnd) => {
       // Update current route for tab highlighting
       this.currentRoute = event.url;
-      // Trigger change detection when route changes so isCurrentRoute is re-evaluated
+      // Force change detection immediately and again after a short delay to ensure tab highlighting updates
       this.cdr.detectChanges();
+      setTimeout(() => {
+        this.cdr.detectChanges();
+      }, 100);
     });
     
     // Initialize current route
@@ -267,18 +276,23 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isCurrentRoute(route: string): boolean {
-    // Use cached currentRoute for better reactivity, fallback to router.url
-    const currentUrl = this.currentRoute || this.router.url;
+    // Always get fresh URL to ensure accuracy, especially on mobile
+    const currentUrl = this.router.url;
+    // Remove query parameters and trailing slashes for comparison
+    const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
     
     // Special handling for calendar tab - should highlight for all calendar-related routes
     if (route === '/tabs/tutor-calendar') {
-      return currentUrl === '/tabs/tutor-calendar' ||
-             currentUrl.startsWith('/tabs/tutor-calendar/') ||
-             currentUrl === '/tabs/availability-setup' ||
-             currentUrl.startsWith('/tabs/availability-setup');
+      const isCalendarRoute = normalizedUrl === '/tabs/tutor-calendar' ||
+                              normalizedUrl.startsWith('/tabs/tutor-calendar/') ||
+                              normalizedUrl === '/tabs/availability-setup' ||
+                              normalizedUrl.startsWith('/tabs/availability-setup/');
+      console.log('[Route Check] Checking calendar route:', { currentUrl, normalizedUrl, isCalendarRoute });
+      return isCalendarRoute;
     }
     
-    return currentUrl === route;
+    const normalizedRoute = route.replace(/\/$/, '');
+    return normalizedUrl === normalizedRoute || normalizedUrl.startsWith(normalizedRoute + '/');
   }
 
 

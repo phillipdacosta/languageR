@@ -392,15 +392,29 @@
       }
       
       // Custom selected state for calendar tab on availability-setup routes
-      &.tab-selected {
+      // This needs to override Ionic's internal .tab-selected class
+      &.tab-selected,
+      &.tab-selected.ion-activatable {
         --color: var(--ion-color-primary, #007aff) !important;
+        --color-selected: var(--ion-color-primary, #007aff) !important;
+        --background: transparent !important;
+        --background-focused: transparent !important;
+        --background-focused-opacity: 0 !important;
+        --ripple-color: transparent !important;
+        
+        &::part(native) {
+          color: var(--ion-color-primary, #007aff) !important;
+        }
         
         ion-icon {
           color: var(--ion-color-primary, #007aff) !important;
+          opacity: 1 !important;
         }
         
         ion-label {
           color: var(--ion-color-primary, #007aff) !important;
+          opacity: 1 !important;
+          font-weight: 500 !important;
         }
       }
       
