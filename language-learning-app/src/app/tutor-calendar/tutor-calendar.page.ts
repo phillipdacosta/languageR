@@ -34,6 +34,7 @@ interface TimelineEntry {
   color?: string;
   location?: string;
   avatarUrl?: string;
+  isPast?: boolean;
 }
 
 interface AgendaSection {
@@ -289,6 +290,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private buildDayEntries(dayStart: Date, dayEnd: Date): TimelineEntry[] {
     const eventEntries = this.collectEventsForDay(dayStart, dayEnd);
+    
+    // Merge contiguous availability blocks
+    const mergedEvents = this.mergeAvailabilityBlocks(eventEntries);
+    
     const entries: TimelineEntry[] = [];
     let cursor = new Date(dayStart.getTime());
 
@@ -308,7 +313,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       });
     };
 
-    for (const entry of eventEntries) {
+    for (const entry of mergedEvents) {
       if (entry.start.getTime() > cursor.getTime()) {
         pushFreeBlock(cursor, entry.start);
       }
@@ -323,6 +328,55 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
 
     return entries;
+  }
+
+  private mergeAvailabilityBlocks(entries: TimelineEntry[]): TimelineEntry[] {
+    if (entries.length === 0) {
+      return entries;
+    }
+
+    const merged: TimelineEntry[] = [];
+    let current: TimelineEntry | null = null;
+
+    for (const entry of entries) {
+      // Check if this is an availability block (not a lesson)
+      const isAvailability = entry.title === 'Available' || 
+                            entry.title?.toLowerCase().includes('available') ||
+                            (!entry.avatarUrl && !entry.subtitle);
+
+      if (!current) {
+        current = { ...entry };
+        continue;
+      }
+
+      const currentIsAvailability = current.title === 'Available' || 
+                                   current.title?.toLowerCase().includes('available') ||
+                                   (!current.avatarUrl && !current.subtitle);
+
+      // If both are availability blocks and they overlap or are adjacent (within 30 minutes)
+      if (isAvailability && currentIsAvailability) {
+        const gap = entry.start.getTime() - current.end.getTime();
+        const thirtyMinutes = 30 * 60 * 1000;
+
+        if (gap <= thirtyMinutes) {
+          // Merge: extend the current block's end time
+          current.end = new Date(Math.max(current.end.getTime(), entry.end.getTime()));
+          current.durationMinutes = Math.round((current.end.getTime() - current.start.getTime()) / 60000);
+          continue;
+        }
+      }
+
+      // If we can't merge, push the current and start a new one
+      merged.push(current);
+      current = { ...entry };
+    }
+
+    // Push the last entry
+    if (current) {
+      merged.push(current);
+    }
+
+    return merged;
   }
 
   private buildMobileTimeline() {
@@ -398,9 +452,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
-    const color = (event.backgroundColor as string) || '#667eea';
+    // Availability blocks should be blue (#007bff), lessons use their status color
+    const color = isLesson ? ((event.backgroundColor as string) || '#10b981') : '#007bff';
     const location = extended.location || extended.platform;
     const avatarUrl = isLesson ? extended.studentAvatar : undefined;
+    
+    // Check if event is in the past
+    const now = new Date();
+    const isPast = end.getTime() < now.getTime();
 
     return {
       type: 'event',
@@ -412,7 +471,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       meta,
       color,
       location,
-      avatarUrl
+      avatarUrl,
+      isPast
     };
   }
 
