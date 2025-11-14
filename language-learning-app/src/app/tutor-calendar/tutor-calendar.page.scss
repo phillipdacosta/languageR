@@ -1786,10 +1786,17 @@ ion-content {
   }
 
   .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 101;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px 0;
     gap: 12px;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mobile-header .mobile-back-button {
@@ -1802,6 +1809,17 @@ ion-content {
 
   .mobile-header .mobile-back-button ion-icon {
     margin-right: 8px;
+  }
+
+  .mobile-header .mobile-schedule-button {
+    flex: 0 0 auto;
+    --color: #667eea;
+    --padding-start: 6px;
+    --padding-end: 6px;
+  }
+
+  .mobile-header .mobile-schedule-button ion-icon {
+    font-size: 22px;
   }
 
   .mobile-header .mobile-settings-button {
@@ -1861,6 +1879,14 @@ ion-content {
     font-weight: 500;
   }
 
+  .mobile-settings-panel .panel-section ion-button {
+    margin-bottom: 8px;
+  }
+
+  .mobile-settings-panel .panel-section ion-button:last-child {
+    margin-bottom: 0;
+  }
+
   .mobile-calendar-wrapper {
     flex-direction: column;
     gap: 16px;
@@ -1868,10 +1894,17 @@ ion-content {
   }
 
   .mobile-view-toggle {
-    background: rgba(241, 245, 249, 0.9);
-    border-radius: 16px;
-    padding: 6px;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: #ffffff;
+    border-radius: 0;
+    padding: 16px;
+    padding-bottom: 20px;
     gap: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mobile-view-toggle button {
@@ -1892,13 +1925,23 @@ ion-content {
   }
 
   .mobile-day-strip {
+    position: fixed;
+    top: 222px;
+    left: 0;
+    right: 0;
+    z-index: 98;
     display: flex;
     align-items: center;
     gap: 1px;
-    padding: 8px 0;
+    padding: 12px 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
     min-height: 64px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    background: #ffffff;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mobile-day-strip::-webkit-scrollbar {
@@ -1907,6 +1950,18 @@ ion-content {
 
   .mobile-day-strip.agenda-strip {
     gap: 12px;
+    position: fixed;
+    top: 220px;
+    left: 0;
+    right: 0;
+    z-index: 98;
+    background: #ffffff;
+    margin: 0;
+    padding: 12px 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    min-height: 64px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mobile-day-strip .day-nav-btn {
@@ -1968,10 +2023,20 @@ ion-content {
   }
 
   .mobile-date-header {
+    position: fixed;
+    top: 303px;
+    left: 0;
+    right: 0;
+    z-index: 97;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    padding: 0 4px;
+    padding: 16px 20px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    background: #ffffff;
+    margin: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .mobile-date-header .date-day {
@@ -1989,6 +2054,7 @@ ion-content {
   .mobile-timeline {
     flex-direction: column;
     gap: 12px;
+    padding-top: 420px;
   }
 
   .timeline-entry {
@@ -2189,13 +2255,14 @@ ion-content {
   .mobile-agenda {
     flex-direction: column;
     gap: 20px;
+    padding-top: 308px;
     padding-bottom: 24px;
   }
 
   .agenda-section {
     background: #ffffff;
     border-radius: 20px;
-    padding: 16px;
+    padding: 10px;
     box-shadow: 0 2px 16px rgba(15, 23, 42, 0.06), 0 1px 4px rgba(15, 23, 42, 0.04);
     border: 1px solid rgba(148, 163, 184, 0.08);
     display: flex;
@@ -2217,6 +2284,7 @@ ion-content {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    padding-top: 360px;
     padding-bottom: 24px;
   }
 
@@ -2275,14 +2343,23 @@ ion-content {
   }
 
   .schedule-legend {
-    margin: 18px 0 24px;
-    padding: 14px 16px;
-    background: rgba(248, 250, 252, 0.9);
-    border-radius: 16px;
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    position: fixed;
+    top: 117px;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    margin: 0;
+    padding: 16px;
+    padding-top: 20px;
+    padding-bottom: 20px;
+    background: #ffffff;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.28);
     display: flex;
     flex-direction: column;
     gap: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   .schedule-legend h4 {
@@ -2595,20 +2672,30 @@ ion-content {
     margin-left: auto;
     display: flex;
     align-items: center;
+    gap: 8px;
   }
 
 .mobile-settings-wrapper {
-    overflow: hidden;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 102;
+    overflow-y: auto;
     max-height: 0;
     opacity: 0;
     transform: translateY(-8px);
     transition: max-height 250ms ease, opacity 250ms ease, transform 250ms ease;
+    background: #f8fafc;
+    pointer-events: none;
   }
 
   .mobile-settings-wrapper.open {
-    max-height: 600px;
+    max-height: calc(100vh - 56px);
     opacity: 1;
     transform: translateY(0);
+    pointer-events: auto;
   }
 
 .tutor-calendar-page.disable-scroll {

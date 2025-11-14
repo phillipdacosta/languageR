@@ -46,6 +46,10 @@
 
         <div class="panel-section">
           <h3>Quick Actions</h3>
+            <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson(); toggleMobileSettings()">
+              <ion-icon name="add-outline" slot="start"></ion-icon>
+              Schedule lesson
+            </ion-button>
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
               Add time off
@@ -158,11 +162,11 @@
             </div>
           </ng-template>
 
-          <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+          <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
             <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
               <ion-icon name="add-outline"></ion-icon>
             </ion-fab-button>
-          </ion-fab>
+          </ion-fab> -->
         </ng-container>
 
         <ng-container *ngSwitchCase="'agenda'">
@@ -228,11 +232,11 @@
             </div>
           </ng-template>
           
-          <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+          <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
             <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
               <ion-icon name="add-outline"></ion-icon>
             </ion-fab-button>
-          </ion-fab>
+          </ion-fab> -->
         </ng-container>
       </ng-container>
     </div>

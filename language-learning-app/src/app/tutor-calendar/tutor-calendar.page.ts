@@ -1077,6 +1077,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             console.warn('📅 No availability data found');
             this.events = [];
             this.updateCalendarEvents();
+            
+            // Update mobile views even when no data
+            if (this.isMobileView) {
+              console.log('📱 Updating mobile views with empty data...');
+              this.buildMobileTimeline();
+              this.buildMobileAgenda();
+            }
             return;
           }
           
@@ -1090,7 +1097,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Also update mobile views if in mobile mode
           if (this.isMobileView) {
-            console.log('📱 Also updating mobile agenda view...');
+            console.log('📱 Also updating mobile views...');
+            this.buildMobileTimeline();
             this.buildMobileAgenda();
           }
         },
@@ -1110,6 +1118,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       console.warn('📅 No current user found, initializing empty calendar');
       this.events = [];
       this.updateCalendarEvents();
+      
+      // Update mobile views even when no user
+      if (this.isMobileView) {
+        console.log('📱 Updating mobile views with empty data (no user)...');
+        this.buildMobileTimeline();
+        this.buildMobileAgenda();
+      }
     }
   }
 
@@ -1621,7 +1636,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private refreshCalendarData() {
     console.log('🔄 Refreshing calendar data after navigation...');
     console.log('📅 User state before refresh:', this.currentUser);
+    console.log('📅 Is mobile view:', this.isMobileView);
     
+    // Handle mobile view refresh
+    if (this.isMobileView) {
+      console.log('📅 Refreshing mobile view...');
+      this.loadAndUpdateCalendarData();
+      // Reload lessons if we have a user
+      if (this.currentUser && this.currentUser.id) {
+        this.loadLessons(this.currentUser.id);
+      }
+      return;
+    }
+    
+    // Handle desktop view refresh
     if (this.calendar && this.isInitialized) {
       console.log('📅 Calendar exists and is initialized, refreshing data...');
       this.loadAndUpdateCalendarData();
