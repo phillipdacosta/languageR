@@ -128,7 +128,7 @@
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
             </ion-avatar>
-            <div class="rating-badge">
+            <div class="rating-badge" *ngIf="!getFirstLessonForSelectedDate()?.isClass">
               <ion-icon name="star"></ion-icon>
               <span>{{ getFirstLessonForSelectedDate()?.rating || '4.5' }}</span>
             </div>
@@ -177,7 +177,7 @@
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
             </ion-avatar>
-            <div class="rating-badge">
+            <div class="rating-badge" *ngIf="!student.isClass">
               <ion-icon name="star"></ion-icon>
               <span>{{ student.rating || '4.5' }}</span>
             </div>

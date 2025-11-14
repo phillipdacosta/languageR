@@ -451,10 +451,26 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Group lessons by student and find the earliest lesson for each student
     const studentLessonMap = new Map<string, { student: any; lesson: Lesson; isNext: boolean }>();
     
-    // First pass: find the earliest lesson for each student
-    lessonsForDate
-      .filter(l => l.studentId && typeof l.studentId === 'object')
-      .forEach(l => {
+    // First pass: find the earliest lesson for each student, and handle classes
+    lessonsForDate.forEach(l => {
+      // Handle classes (they don't have a studentId)
+      if ((l as any).isClass) {
+        const classId = String(l._id);
+        studentLessonMap.set(`class_${classId}`, {
+          student: {
+            id: classId,
+            name: (l as any).className || l.subject || 'Class',
+            profilePicture: 'assets/avatar.png', // Use default avatar for classes
+            email: '',
+            rating: 0,
+            isClass: true
+          },
+          lesson: l,
+          isNext: false // Will be set correctly below
+        });
+      }
+      // Handle regular lessons with students
+      else if (l.studentId && typeof l.studentId === 'object') {
         const studentId = (l.studentId as any)._id;
         const existing = studentLessonMap.get(studentId);
         
@@ -472,7 +488,8 @@ export class Tab1Page implements OnInit, OnDestroy {
             isNext: false // Will be set correctly below
           });
         }
-      });
+      }
+    });
     
     // Second pass: find the earliest upcoming lesson ACROSS ALL DATES and mark it as "next"
     // Get ALL upcoming lessons (not just for this date)
@@ -610,13 +627,28 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     const isNextClass = allUpcomingLessons.length > 0 && String(allUpcomingLessons[0]._id) === String(firstLesson._id);
     
-    const student = firstLesson.studentId && typeof firstLesson.studentId === 'object' ? {
-      id: (firstLesson.studentId as any)._id,
-      name: (firstLesson.studentId as any).name || (firstLesson.studentId as any).email,
-      profilePicture: (firstLesson.studentId as any).picture || (firstLesson.studentId as any).profilePicture || 'assets/avatar.png',
-      email: (firstLesson.studentId as any).email,
-      rating: (firstLesson.studentId as any).rating || 4.5,
-    } : null;
+    // Handle both classes and regular lessons
+    let student: any = null;
+    if ((firstLesson as any).isClass) {
+      // For classes, show class info
+      student = {
+        id: String(firstLesson._id),
+        name: (firstLesson as any).className || firstLesson.subject || 'Class',
+        profilePicture: 'assets/avatar.png',
+        email: '',
+        rating: 0,
+        isClass: true
+      };
+    } else if (firstLesson.studentId && typeof firstLesson.studentId === 'object') {
+      // For regular lessons, show student info
+      student = {
+        id: (firstLesson.studentId as any)._id,
+        name: (firstLesson.studentId as any).name || (firstLesson.studentId as any).email,
+        profilePicture: (firstLesson.studentId as any).picture || (firstLesson.studentId as any).profilePicture || 'assets/avatar.png',
+        email: (firstLesson.studentId as any).email,
+        rating: (firstLesson.studentId as any).rating || 4.5,
+      };
+    }
     
     const lessonDate = new Date(firstLesson.startTime);
     const dateTag = this.getDateTag(lessonDate);
@@ -923,8 +955,40 @@ export class Tab1Page implements OnInit, OnDestroy {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
         const now = Date.now();
+        let allLessons = [...resp.lessons];
+
+        // For tutors, also load classes from availability
+        if (this.isTutor()) {
+          const availResp = await this.userService.getAvailability().toPromise();
+          if (availResp?.availability) {
+            // Find class blocks in availability
+            const classBlocks = availResp.availability.filter((b: any) => b.type === 'class');
+            
+            // Convert class blocks to lesson-like objects
+            const classLessons = classBlocks.map((cls: any) => ({
+              _id: cls.id,
+              tutorId: (this.currentUser as any)?._id || (this.currentUser as any)?.id,
+              studentId: null as any, // Classes don't have a specific student
+              startTime: cls.absoluteStart || cls.startTime,
+              endTime: cls.absoluteEnd || cls.endTime,
+              status: 'scheduled' as const,
+              subject: cls.title || cls.name || 'Class',
+              channelName: `class_${cls.id}`,
+              price: 0, // Classes don't have individual pricing
+              duration: 60, // Default duration
+              createdAt: cls.createdAt || new Date(),
+              updatedAt: cls.updatedAt || new Date(),
+              isClass: true, // Mark as class to differentiate
+              className: cls.title || cls.name
+            } as any));
+            
+            // Merge classes with lessons
+            allLessons = [...allLessons, ...classLessons];
+          }
+        }
+
         // Filter for upcoming lessons
-        this.lessons = [...resp.lessons]
+        this.lessons = allLessons
           .filter(l => new Date(l.endTime).getTime() >= now)
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
