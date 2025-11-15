@@ -265,6 +265,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       .subscribe({
         next: (response) => {
           console.log('🔍 Tutor search successful:', response);
+          console.log('🔍 First tutor video data:', response.tutors[0] ? {
+            name: response.tutors[0].name,
+            hasVideo: !!response.tutors[0].introductionVideo,
+            videoUrl: response.tutors[0].introductionVideo,
+            hasThumbnail: !!response.tutors[0].videoThumbnail,
+            thumbnailUrl: response.tutors[0].videoThumbnail,
+            videoType: response.tutors[0].videoType
+          } : 'No tutors');
           this.searchResponse = response;
           this.tutors = response.tutors;
           this.isLoading = false;
@@ -653,5 +661,49 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     };
     videoEl.addEventListener('pause', showOverlay, { once: true });
     videoEl.addEventListener('ended', showOverlay, { once: true });
+  }
+
+  // Track which tutor videos are currently playing
+  private playingVideos = new Set<string>();
+
+  isExternalVideo(url: string): boolean {
+    if (!url) return false;
+    return url.includes('youtube.com') || url.includes('youtu.be') || 
+           url.includes('vimeo.com');
+  }
+
+  isTutorVideoPlaying(tutorId: string): boolean {
+    return this.playingVideos.has(tutorId);
+  }
+
+  playTutorVideo(tutor: Tutor) {
+    if (!tutor || !tutor.introductionVideo) return;
+    
+    // Mark this tutor's video as playing
+    this.playingVideos.add(tutor.id);
+    
+    // For HTML5 videos, programmatically start playback after view updates
+    if (!this.isExternalVideo(tutor.introductionVideo)) {
+      setTimeout(() => {
+        const videoElement = document.getElementById('tutor-video-' + tutor.id) as HTMLVideoElement;
+        if (videoElement) {
+          videoElement.play().catch(err => {
+            console.error('Error playing video:', err);
+          });
+        }
+      }, 100);
+    }
+  }
+
+  getTutorVideoUrl(tutor: Tutor): string {
+    if (!tutor.introductionVideo) return '';
+    
+    // If video is already playing, add autoplay parameter
+    if (this.isTutorVideoPlaying(tutor.id)) {
+      const separator = tutor.introductionVideo.includes('?') ? '&' : '?';
+      return tutor.introductionVideo + separator + 'autoplay=1';
+    }
+    
+    return tutor.introductionVideo;
   }
 }

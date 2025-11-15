@@ -223,6 +223,50 @@
     }
   }
 
+  .week-view-button {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+
+    .week-view-btn {
+      --background: rgba(255, 255, 255, 0.2);
+      --background-hover: rgba(255, 255, 255, 0.3);
+      --background-activated: rgba(255, 255, 255, 0.25);
+      --color: white;
+      --border-color: rgba(255, 255, 255, 0.4);
+      --border-width: 1.5px;
+      --border-style: solid;
+      --border-radius: 12px;
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --padding-top: 12px;
+      --padding-bottom: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: 0.3px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+
+      &:hover {
+        --background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      }
+
+      ion-icon {
+        font-size: 18px;
+        margin-right: 6px;
+      }
+    }
+  }
+
   // Mobile responsive
   @media (max-width: 768px) {
     flex-direction: column;
@@ -249,6 +293,25 @@
 
       p {
         font-size: 14px;
+      }
+    }
+
+    .week-view-button {
+      width: 100%;
+      justify-content: center;
+
+      .week-view-btn {
+        --padding-start: 20px;
+        --padding-end: 20px;
+        --padding-top: 14px;
+        --padding-bottom: 14px;
+        font-size: 15px;
+        width: 100%;
+        max-width: 280px;
+
+        ion-icon {
+          font-size: 20px;
+        }
       }
     }
   }

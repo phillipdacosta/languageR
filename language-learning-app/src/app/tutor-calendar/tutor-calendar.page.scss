@@ -463,6 +463,12 @@ ion-content {
 .fc-timegrid {
   display: block !important;
   visibility: visible !important;
+  width: 100% !important;
+}
+
+.fc-timegrid-container {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .fc-timegrid-body {
@@ -1182,10 +1188,32 @@ ion-content {
     border-bottom: none !important;
     color: #ffffff !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+    width: 100% !important;
+    min-width: 0 !important;
     
     .fc-col-header-cell-cushion {
       padding: 0 !important;
     }
+  }
+  
+  // Ensure day headers fill full width on mobile
+  .fc-scrollgrid-section-header {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .fc-scrollgrid-sync-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+  
+  .fc-timegrid-container {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .fc-timegrid {
+    width: 100% !important;
   }
   
   // Reasonable cell heights - not too tall
@@ -2042,7 +2070,7 @@ ion-content {
   .mobile-date-header .date-day {
     font-size: 28px;
     font-weight: 800;
-    color: #ff2d55;
+    color: black;
   }
 
   .mobile-date-header .date-month {
@@ -2055,12 +2083,16 @@ ion-content {
     flex-direction: column;
     gap: 12px;
     padding-top: 420px;
+    position: relative;
+    z-index: 1;
   }
 
   .timeline-entry {
     display: flex;
     align-items: stretch;
     gap: 12px;
+    position: relative;
+    z-index: 1;
   }
 
   .timeline-marker {
@@ -2103,6 +2135,8 @@ ion-content {
     flex-direction: column;
     gap: 12px;
     transition: all 0.25s ease;
+    position: relative;
+    z-index: 1;
     
     &:active {
       transform: scale(0.98);
@@ -2284,8 +2318,10 @@ ion-content {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    padding-top: 360px;
+    padding-top: 420px;
     padding-bottom: 24px;
+    position: relative;
+    z-index: 1;
   }
 
   .free-slot-content {
@@ -2637,7 +2673,7 @@ ion-content {
     &.is-today {
       font-size: 28px;
       font-weight: 800;
-      color: #ff2d55;
+      color: black
     }
   }
 

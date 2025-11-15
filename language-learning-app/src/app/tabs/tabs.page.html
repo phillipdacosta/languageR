@@ -51,8 +51,8 @@
         <!-- User Profile Section (moved beside Profile button) -->
         <div class="user-profile" *ngIf="currentUser">
           <ion-avatar class="user-avatar">
-            <img [src]="currentUser.picture" [alt]="currentUser.name" *ngIf="currentUser.picture" (error)="onImageError($event)">
-            <div class="user-initials" *ngIf="!currentUser.picture" [style.display]="currentUser.picture ? 'none' : 'block'">{{ getUserInitials(currentUser) }}</div>
+            <img *ngIf="currentUser.picture" [src]="currentUser.picture" [alt]="currentUser.name" (error)="onImageError($event)">
+            <div class="user-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
           </ion-avatar>
         </div>
         
@@ -146,7 +146,7 @@
   </div>
 
   <!-- Mobile/Tablet Tabs (Bottom Navigation) -->
-  <ion-tab-bar slot="bottom" *ngIf="showTabs">
+  <ion-tab-bar slot="bottom" *ngIf="showTabs && !shouldHideTabs">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root">
       <ion-icon aria-hidden="true" name="home"></ion-icon>
       <ion-label>Home</ion-label>
@@ -166,7 +166,13 @@
       <ion-label>Calendar</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="messages" [routerLink]="['/tabs/messages']" routerDirection="root" style="position: relative;">
+    <ion-tab-button tab="messages" 
+                    [routerLink]="['/tabs/messages']" 
+                    routerDirection="root" 
+                    [class.tab-selected]="isMessagesTabSelected"
+                    [attr.aria-selected]="isMessagesTabSelected"
+                    [attr.aria-label]="'Messages'"
+                    style="position: relative;">
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
       <ion-label>Messages</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 

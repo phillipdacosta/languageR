@@ -5,7 +5,7 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
-import { Observable, takeUntil } from 'rxjs';
+import { Observable, takeUntil, take } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
@@ -41,8 +41,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   hasNotifications = false;
   unreadNotificationCount = 0;
   
-  // Cached profile picture to avoid repeated evaluations
-  private _currentUserPicture: string = 'assets/avatar.png';
+  // Cached avatar cache for student/tutor avatars
   private _avatarCache = new Map<string, string>();
   
   // Tutor date strip and upcoming lesson
@@ -99,6 +98,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.userService.getCurrentUser()
     .pipe(takeUntil(this.destroy$))
     .subscribe(user => {
+      console.log('🔄 Tab1Page Constructor: Loaded user from database:', {
+        email: user?.email,
+        firstName: user?.firstName,
+        picture: user?.picture,
+        hasPicture: !!user?.picture
+      });
       this.currentUser = user;
       // Load notification count when user is available
       if (user) {
@@ -106,9 +111,6 @@ export class Tab1Page implements OnInit, OnDestroy {
           this.loadUnreadNotificationCount();
         }, 500);
       }
-        
-        // Cache profile picture to avoid repeated evaluations
-        this._currentUserPicture = user?.picture || 'assets/avatar.png';
         
         // Load lessons as soon as we have the current user
         this.loadLessons();
@@ -134,15 +136,28 @@ export class Tab1Page implements OnInit, OnDestroy {
       if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
         console.log('🔄 Tab1Page: Received currentUser$ update:', {
           picture: updatedUser?.picture,
+          firstName: updatedUser?.firstName,
           hasPicture: !!updatedUser?.picture
         });
         this.currentUser = updatedUser;
-        this._currentUserPicture = updatedUser?.picture || 'assets/avatar.png';
       }
     });
   }
 
   ngOnInit() {
+    // Refresh user data to ensure we have the latest (including picture after onboarding)
+    this.userService.getCurrentUser()
+      .pipe(take(1))
+      .subscribe(user => {
+        console.log('🔄 Tab1Page ngOnInit: Refreshed user data:', {
+          email: user?.email,
+          firstName: user?.firstName,
+          picture: user?.picture,
+          hasPicture: !!user?.picture
+        });
+        this.currentUser = user;
+      });
+    
     // Load user data and stats
     this.loadUserStats();
 
@@ -311,6 +326,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.router.navigate(['/tabs/tutor-search']);
   }
 
+  navigateToTutorCalendar() {
+    this.router.navigate(['/tabs/tutor-calendar']);
+  }
+
   openAvailabilitySetup() {
     if (!this.isTutor()) {
       return;
@@ -399,16 +418,52 @@ export class Tab1Page implements OnInit, OnDestroy {
     return upcoming.length > 0 ? upcoming[0] : null;
   }
 
-  // Format lesson time for display
+  // Format lesson time for display with clear when information
   formatLessonTime(lesson: Lesson): string {
     const start = new Date(lesson.startTime);
     const end = new Date(lesson.endTime);
+    const now = new Date();
     
-    const dateStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     
-    return `${dateStr}, ${startTime} - ${endTime}`;
+    // Calculate relative date
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfLessonDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const daysDiff = Math.floor((startOfLessonDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Calculate hours until start for very soon classes
+    const hoursUntilStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    let whenText = '';
+    
+    // First check if it's today - prioritize showing "Today"
+    if (daysDiff === 0) {
+      // If it's today and starting very soon (within 2 hours), show countdown
+      if (hoursUntilStart > 0 && hoursUntilStart <= 2) {
+        const hours = Math.floor(hoursUntilStart);
+        const minutes = Math.floor((hoursUntilStart - hours) * 60);
+        if (hours > 0) {
+          whenText = `Today • In ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+        } else if (minutes > 0) {
+          whenText = `Today • In ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+        } else {
+          whenText = 'Today • Starting now';
+        }
+      } else {
+        whenText = 'Today';
+      }
+    } else if (daysDiff === 1) {
+      whenText = 'Tomorrow';
+    } else if (daysDiff > 1 && daysDiff < 7) {
+      // Within the next week, show weekday name
+      whenText = start.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      // Further out, show full date
+      whenText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    return `${whenText} • ${startTime} - ${endTime}`;
   }
 
   // Format subject to show language (e.g., "Spanish" -> "Spanish Student")
@@ -726,20 +781,35 @@ export class Tab1Page implements OnInit, OnDestroy {
     const upcomingLessons = this.getUpcomingLessons();
     const now = new Date();
     
-    // Get next 3 upcoming lessons
+    // Get the next class being shown in the text section (if tutor view)
+    const nextClassLesson = this.isTutor() ? this.getFirstLessonForSelectedDate() : null;
+    // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
+    const nextClassLessonId = nextClassLesson?.lessonId || 
+                              nextClassLesson?.lesson?._id || 
+                              (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
+    
+    // Filter out the next class lesson and get next 3 upcoming lessons
     return upcomingLessons
-      .filter(lesson => new Date(lesson.startTime) > now)
+      .filter(lesson => {
+        // Exclude if it's in the past
+        if (new Date(lesson.startTime) <= now) return false;
+        // Exclude if it's the next class being shown in the text section
+        if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+        return true;
+      })
       .slice(0, 3)
       .map(lesson => {
         const startTime = new Date(lesson.startTime);
+        const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
         const student = lesson.studentId as any;
         
         return {
           time: this.formatTimeOnly(startTime),
+          endTime: endTime ? this.formatTimeOnly(endTime) : null,
           date: this.formatRelativeDate(startTime),
           name: student?.name || 'Student',
           subject: this.formatSubject(lesson.subject),
-          avatar: student?.picture || student?.profilePicture || 'assets/avatar.png',
+          avatar: student?.picture || student?.profilePicture || null,
           lesson: lesson
         };
       });
@@ -1542,9 +1612,49 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
   }
 
-  // Cached getter for profile picture
-  get currentUserPicture(): string {
-    return this._currentUserPicture;
+  // Get current user's picture directly from database
+  get currentUserPicture(): string | null {
+    console.log('🔄 Tab1Page get currentUserPicture: Current user picture:', this.currentUser?.picture);
+    return this.currentUser?.picture || null;
+  }
+
+  // Check if user has a profile picture from the database
+  get hasUserPicture(): boolean {
+    const hasPicture = !!this.currentUser?.picture;
+    console.log('🔄 Tab1Page get hasUserPicture:', {
+      hasPicture,
+      picture: this.currentUser?.picture,
+      currentUser: !!this.currentUser
+    });
+    return hasPicture;
+  }
+
+  // Get user's first initial for avatar fallback
+  get userInitial(): string {
+    if (this.currentUser?.firstName) {
+      return this.currentUser.firstName.charAt(0).toUpperCase();
+    }
+    if (this.currentUser?.name) {
+      return this.currentUser.name.charAt(0).toUpperCase();
+    }
+    return '?';
+  }
+
+  // Debug methods for avatar loading
+  onAvatarError(event: any) {
+    console.error('❌ Avatar image failed to load:', {
+      src: event.target?.src,
+      currentUserPicture: this.currentUser?.picture,
+      error: event
+    });
+  }
+
+  onAvatarLoad(event: any) {
+    console.log('✅ Avatar image loaded successfully:', {
+      src: event.target?.src,
+      width: event.target?.width,
+      height: event.target?.height
+    });
   }
 
   // Simple helper methods for user type checking

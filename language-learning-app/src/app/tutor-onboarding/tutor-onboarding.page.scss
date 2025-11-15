@@ -1,3 +1,11 @@
+// Global modal styles
+::ng-deep .country-select-modal {
+  --width: 90%;
+  --max-width: 500px;
+  --height: 80%;
+  --border-radius: 16px;
+}
+
 .onboarding-container {
   max-width: 600px;
   margin: 0 auto;
@@ -135,6 +143,41 @@ ion-item {
     &[disabled] {
       opacity: 0.5;
     }
+  }
+}
+
+// Country select button
+.country-select-button {
+  width: 100%;
+  margin-top: 8px;
+  --border-radius: 8px;
+  text-align: left;
+  justify-content: space-between;
+  
+  span {
+    flex: 1;
+    text-align: left;
+  }
+}
+
+// Selected country display
+.selected-country {
+  display: flex;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--ion-color-light);
+  border-radius: 8px;
+  
+  .country-flag {
+    font-size: 2rem;
+    margin-right: 1rem;
+  }
+  
+  .country-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ion-color-dark);
   }
 }
 

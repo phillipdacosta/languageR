@@ -7,6 +7,7 @@ import { IonicModule } from '@ionic/angular';
 import { TutorOnboardingPageRoutingModule } from './tutor-onboarding-routing.module';
 
 import { TutorOnboardingPage } from './tutor-onboarding.page';
+import { CountrySelectModalComponent } from './country-select-modal.component';
 
 @NgModule({
   imports: [
@@ -15,6 +16,6 @@ import { TutorOnboardingPage } from './tutor-onboarding.page';
     IonicModule,
     TutorOnboardingPageRoutingModule
   ],
-  declarations: [TutorOnboardingPage]
+  declarations: [TutorOnboardingPage, CountrySelectModalComponent]
 })
 export class TutorOnboardingPageModule {}

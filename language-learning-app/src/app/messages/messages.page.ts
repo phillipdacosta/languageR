@@ -392,6 +392,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (!this.isDesktop) {
       this.selectedConversation = null;
       this.messages = [];
+      // Notify service that no conversation is selected
+      this.messagingService.setHasSelectedConversation(false);
     }
     
     // Always try to load conversations - getCurrentUserId() waits for authentication internally
@@ -424,6 +426,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     // This prevents showing messages they're not ready to read
     this.selectedConversation = null;
     this.messages = []; // Also clear messages to prevent showing stale data
+    // Notify service that no conversation is selected
+    this.messagingService.setHasSelectedConversation(false);
   }
 
   private openConversationWithTutor(tutorId: string) {
@@ -486,6 +490,8 @@ export class MessagesPage implements OnInit, OnDestroy {
               this.selectedConversation = placeholderConversation;
               this.messages = [];
               this.isLoadingMessages = false; // Don't show loading for new conversations
+              // Notify service that a conversation is selected (for hiding tabs on mobile)
+              this.messagingService.setHasSelectedConversation(true);
               
               // Focus the message input
               setTimeout(() => {
@@ -673,6 +679,13 @@ export class MessagesPage implements OnInit, OnDestroy {
     });
   }
 
+  clearSelectedConversation() {
+    this.selectedConversation = null;
+    this.messages = [];
+    // Notify service that no conversation is selected
+    this.messagingService.setHasSelectedConversation(false);
+  }
+
   selectConversation(conversation: Conversation) {
     // Store unread count BEFORE loading messages (since backend marks as read when fetching)
     const unreadCount = conversation.unreadCount || 0;
@@ -695,6 +708,9 @@ export class MessagesPage implements OnInit, OnDestroy {
     
     // Set new conversation
     this.selectedConversation = conversation;
+    
+    // Notify service that a conversation is selected (for hiding tabs on mobile)
+    this.messagingService.setHasSelectedConversation(true);
     
     // Small delay to ensure DOM has updated with loading state before fetching
     // This prevents any flash of old content

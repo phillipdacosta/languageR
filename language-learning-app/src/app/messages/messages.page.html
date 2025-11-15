@@ -529,7 +529,7 @@
       <!-- Chat View (Mobile) -->
       <div class="chat-view-mobile" *ngIf="selectedConversation">
         <div class="chat-header">
-          <ion-button fill="clear" (click)="selectedConversation = null">
+          <ion-button fill="clear" (click)="clearSelectedConversation()">
             <ion-icon name="arrow-back"></ion-icon>
           </ion-button>
           <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">

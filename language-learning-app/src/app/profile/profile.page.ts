@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
@@ -7,6 +7,7 @@ import { FileUploadService } from '../services/file-upload.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LoadingController, AlertController } from '@ionic/angular';
+import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 
 @Component({
   selector: 'app-profile',
@@ -15,12 +16,16 @@ import { LoadingController, AlertController } from '@ionic/angular';
   standalone: false,
 })
 export class ProfilePage implements OnInit {
+  @ViewChild(VideoUploadComponent) videoUploadComponent?: VideoUploadComponent;
+  
   user$: Observable<any>;
   isAuthenticated$: Observable<boolean>;
   currentUser: User | null = null;
   viewingUser: any = null; // User being viewed (if different from current user)
   isViewingOtherUser = false;
   tutorIntroductionVideo = '';
+  tutorVideoThumbnail = '';
+  tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   isDarkMode$: Observable<boolean>;
 
   constructor(
@@ -81,8 +86,23 @@ export class ProfilePage implements OnInit {
         }, 1000);
       }
       
-      if (user?.userType === 'tutor' && (user.onboardingData as any)?.introductionVideo) {
-        this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
+      if (user?.userType === 'tutor') {
+        console.log('📹 Full onboardingData from DB:', user.onboardingData);
+        
+        if ((user.onboardingData as any)?.introductionVideo) {
+          this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
+          this.tutorVideoThumbnail = (user.onboardingData as any)?.videoThumbnail || '';
+          this.tutorVideoType = (user.onboardingData as any)?.videoType || 'upload';
+          console.log('📹 Loaded video data from DB:', {
+            video: this.tutorIntroductionVideo,
+            thumbnail: this.tutorVideoThumbnail,
+            type: this.tutorVideoType,
+            hasVideo: !!this.tutorIntroductionVideo,
+            hasThumbnail: !!this.tutorVideoThumbnail
+          });
+        } else {
+          console.log('📹 No introduction video in onboardingData');
+        }
       }
     });
     
@@ -99,6 +119,16 @@ export class ProfilePage implements OnInit {
 
     // Ensure the toggle reflects the current theme state
     console.log('🎨 Profile page: Current dark mode state:', this.themeService.isDarkMode());
+  }
+
+  // Ionic lifecycle hook - called when leaving the page
+  ionViewWillLeave() {
+    console.log('📹 ProfilePage ionViewWillLeave - stopping video');
+    
+    // Stop video playback when leaving the page
+    if (this.videoUploadComponent) {
+      this.videoUploadComponent.stopVideo();
+    }
   }
 
   loadOtherUserProfile(userId: string) {
@@ -148,17 +178,31 @@ export class ProfilePage implements OnInit {
     return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
   }
 
-  onVideoUploaded(videoUrl: string) {
-    this.tutorIntroductionVideo = videoUrl;
-    this.updateTutorVideo();
+  onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    console.log('📹 Video uploaded event received:', {
+      url: data.url,
+      thumbnail: data.thumbnail,
+      type: data.type,
+      hasThumbnail: !!data.thumbnail
+    });
+    this.tutorIntroductionVideo = data.url;
+    this.tutorVideoThumbnail = data.thumbnail;
+    this.tutorVideoType = data.type;
+    this.updateTutorVideo(data.url, data.thumbnail, data.type);
   }
 
   onVideoRemoved() {
     this.tutorIntroductionVideo = '';
-    this.updateTutorVideo();
+    this.tutorVideoThumbnail = '';
+    this.tutorVideoType = 'upload';
+    this.updateTutorVideo('', '', 'upload');
   }
 
-  private async updateTutorVideo() {
+  private async updateTutorVideo(
+    videoUrl: string, 
+    thumbnailUrl?: string, 
+    videoType?: 'upload' | 'youtube' | 'vimeo'
+  ) {
     const loading = await this.loadingController.create({
       message: 'Updating video...',
       spinner: 'crescent'
@@ -166,7 +210,11 @@ export class ProfilePage implements OnInit {
     await loading.present();
 
     try {
-      await this.userService.updateTutorVideo(this.tutorIntroductionVideo).pipe(take(1)).toPromise();
+      const result = await this.userService.updateTutorVideo(videoUrl, thumbnailUrl, videoType)
+        .pipe(take(1))
+        .toPromise();
+      
+      console.log('📹 Backend response after update:', result);
       
       const alert = await this.alertController.create({
         header: 'Success',

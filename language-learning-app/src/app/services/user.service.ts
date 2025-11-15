@@ -10,6 +10,9 @@ export interface User {
   auth0Id: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  country?: string;
   picture?: string;
   emailVerified: boolean;
   userType: 'student' | 'tutor';
@@ -43,6 +46,8 @@ export interface User {
 }
 
 export interface OnboardingData {
+  firstName?: string;
+  lastName?: string;
   languages: string[];
   goals: string[];
   experienceLevel: string;
@@ -50,12 +55,17 @@ export interface OnboardingData {
 }
 
 export interface TutorOnboardingData {
+  firstName?: string;
+  lastName?: string;
+  country?: string;
   languages: string[];
   experience: string;
   schedule: string;
   bio: string;
   hourlyRate: number;
   introductionVideo?: string;
+  videoThumbnail?: string;
+  videoType?: 'upload' | 'youtube' | 'vimeo';
 }
 
 export interface Tutor {
@@ -70,6 +80,8 @@ export interface Tutor {
   schedule: string;
   bio: string;
   introductionVideo?: string;
+  videoThumbnail?: string;
+  videoType?: 'upload' | 'youtube' | 'vimeo';
   country: string;
   gender: string;
   nativeSpeaker: boolean;
@@ -380,21 +392,30 @@ export class UserService {
   }
 
   /**
-   * Update tutor introduction video
+   * Update tutor introduction video with thumbnail and type
    */
-  updateTutorVideo(introductionVideo: string): Observable<{ success: boolean; message: string; introductionVideo: string }> {
+  updateTutorVideo(
+    introductionVideo: string, 
+    videoThumbnail?: string, 
+    videoType?: 'upload' | 'youtube' | 'vimeo'
+  ): Observable<{ success: boolean; message: string; introductionVideo: string; videoThumbnail?: string; videoType?: string }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
-        return this.http.put<{ success: boolean; message: string; introductionVideo: string }>(
+        return this.http.put<{ success: boolean; message: string; introductionVideo: string; videoThumbnail?: string; videoType?: string }>(
           `${this.apiUrl}/users/tutor-video`,
-          { introductionVideo },
+          { 
+            introductionVideo,
+            videoThumbnail: videoThumbnail || '',
+            videoType: videoType || 'upload'
+          },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
+        console.log('📹 Tutor video updated:', response);
       }),
       catchError(error => {
         console.error('📹 Error updating tutor video:', error);

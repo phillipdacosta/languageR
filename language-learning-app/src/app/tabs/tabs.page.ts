@@ -41,11 +41,23 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   isNotificationDropdownOpen = false;
   // Current route for tab highlighting
   currentRoute = '';
+  
+  // Track if a conversation is selected (for hiding tabs on mobile)
+  hasSelectedConversation = false;
+  
+  // Check if tabs should be hidden (on messages route AND conversation selected)
+  get shouldHideTabs(): boolean {
+    return this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation;
+  }
+  
   // Computed property for calendar tab selection
   get isCalendarTabSelected(): boolean {
-    const result = this.isCurrentRoute('/tabs/tutor-calendar');
-    console.log('[Tab Selection] isCalendarTabSelected:', result, 'URL:', this.router.url);
-    return result;
+    return this.isCurrentRoute('/tabs/tutor-calendar');
+  }
+  
+  // Computed property for messages tab selection
+  get isMessagesTabSelected(): boolean {
+    return this.isCurrentRoute('/tabs/messages');
   }
   // Dropdown positioning
   dropdownTop = 60;
@@ -152,9 +164,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe((event: NavigationEnd) => {
       // Update current route for tab highlighting
       this.currentRoute = event.url;
-      // Force change detection immediately and again after a short delay to ensure tab highlighting updates
+      // Force change detection to update tab visibility (especially for messages route)
+      this.cdr.markForCheck();
       this.cdr.detectChanges();
       setTimeout(() => {
+        this.cdr.markForCheck();
         this.cdr.detectChanges();
       }, 100);
     });
@@ -170,6 +184,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       next: (count) => {
         console.log('🔴 Unread count changed in tabs page:', count, 'Previous value:', this.unreadCount$.value);
         this.unreadCount$.next(count);
+        this.cdr.detectChanges();
+      }
+    });
+    
+    // Subscribe to conversation selection state (for hiding tabs when viewing a conversation)
+    this.messagingService.hasSelectedConversation$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (hasSelection) => {
+        this.hasSelectedConversation = hasSelection;
+        this.cdr.markForCheck();
         this.cdr.detectChanges();
       }
     });
@@ -287,7 +312,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
                               normalizedUrl.startsWith('/tabs/tutor-calendar/') ||
                               normalizedUrl === '/tabs/availability-setup' ||
                               normalizedUrl.startsWith('/tabs/availability-setup/');
-      console.log('[Route Check] Checking calendar route:', { currentUrl, normalizedUrl, isCalendarRoute });
       return isCalendarRoute;
     }
     

@@ -335,35 +335,54 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return entries;
     }
 
+    // First, separate lessons from availability blocks
+    const lessons: TimelineEntry[] = [];
+    const availabilityBlocks: TimelineEntry[] = [];
+
+    for (const entry of entries) {
+      // Check if this is a lesson (has avatar or subtitle which indicates student info)
+      const isLesson = entry.avatarUrl || entry.subtitle;
+      
+      if (isLesson) {
+        lessons.push(entry);
+      } else {
+        availabilityBlocks.push(entry);
+      }
+    }
+
+    // Filter out availability blocks that overlap with any lesson
+    const nonOverlappingAvailability = availabilityBlocks.filter(availability => {
+      return !lessons.some(lesson => {
+        // Check if availability block overlaps with this lesson
+        const availStart = availability.start.getTime();
+        const availEnd = availability.end.getTime();
+        const lessonStart = lesson.start.getTime();
+        const lessonEnd = lesson.end.getTime();
+        
+        // Overlaps if: availability starts before lesson ends AND availability ends after lesson starts
+        return availStart < lessonEnd && availEnd > lessonStart;
+      });
+    });
+
+    // Now merge contiguous availability blocks
     const merged: TimelineEntry[] = [];
     let current: TimelineEntry | null = null;
 
-    for (const entry of entries) {
-      // Check if this is an availability block (not a lesson)
-      const isAvailability = entry.title === 'Available' || 
-                            entry.title?.toLowerCase().includes('available') ||
-                            (!entry.avatarUrl && !entry.subtitle);
-
+    for (const entry of nonOverlappingAvailability) {
       if (!current) {
         current = { ...entry };
         continue;
       }
 
-      const currentIsAvailability = current.title === 'Available' || 
-                                   current.title?.toLowerCase().includes('available') ||
-                                   (!current.avatarUrl && !current.subtitle);
+      // Check if they're adjacent or overlapping (within 30 minutes)
+      const gap = entry.start.getTime() - current.end.getTime();
+      const thirtyMinutes = 30 * 60 * 1000;
 
-      // If both are availability blocks and they overlap or are adjacent (within 30 minutes)
-      if (isAvailability && currentIsAvailability) {
-        const gap = entry.start.getTime() - current.end.getTime();
-        const thirtyMinutes = 30 * 60 * 1000;
-
-        if (gap <= thirtyMinutes) {
-          // Merge: extend the current block's end time
-          current.end = new Date(Math.max(current.end.getTime(), entry.end.getTime()));
-          current.durationMinutes = Math.round((current.end.getTime() - current.start.getTime()) / 60000);
-          continue;
-        }
+      if (gap <= thirtyMinutes) {
+        // Merge: extend the current block's end time
+        current.end = new Date(Math.max(current.end.getTime(), entry.end.getTime()));
+        current.durationMinutes = Math.round((current.end.getTime() - current.start.getTime()) / 60000);
+        continue;
       }
 
       // If we can't merge, push the current and start a new one
@@ -371,12 +390,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       current = { ...entry };
     }
 
-    // Push the last entry
+    // Push the last availability block
     if (current) {
       merged.push(current);
     }
 
-    return merged;
+    // Combine lessons and merged availability blocks, then sort by start time
+    const combined = [...lessons, ...merged];
+    combined.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    return combined;
   }
 
   private buildMobileTimeline() {

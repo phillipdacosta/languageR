@@ -892,15 +892,94 @@
     .tutor-video {
       margin: 16px 0;
       
+      .video-label {
+        text-align: left;
+        font-size: 13px;
+        color: #666;
+        margin: 0 0 8px 0;
+        font-weight: 600;
+      }
+      
       .video-container {
         position: relative;
         width: 100%;
         max-width: 400px;
         margin: 0 auto;
-        border-radius: 8px;
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        background: #f5f5f5;
       }
+      
+      .external-video-preview,
+      .uploaded-video-preview {
+        position: relative;
+        width: 100%;
+        padding-top: 56.25%; // 16:9 aspect ratio
+        background: #000;
+      }
+      
+      .thumbnail-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        
+        .video-thumbnail {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        
+        .play-overlay {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          
+          .play-icon {
+            font-size: 72px;
+            color: white;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+            opacity: 0.95;
+            transition: all 0.2s ease;
+          }
+        }
+        
+        &:hover {
+          transform: scale(1.02);
+          
+          .play-icon {
+            opacity: 1;
+            transform: scale(1.1);
+          }
+        }
+        
+        &:active {
+          transform: scale(0.98);
+        }
+      }
+      
+      .preview-iframe,
+      .preview-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+        border-radius: 12px;
+      }
+      
+      .preview-video {
+        background: #000;
+        object-fit: contain;
+      }
+      
       .floating-play {
         position: absolute;
         right: 12px;
@@ -915,8 +994,9 @@
         justify-content: center;
         box-shadow: 0 6px 16px rgba(0,0,0,0.25);
         cursor: pointer;
+        z-index: 10;
       }
-      .floating-play ion-icon { color: #111; font-size: 20px; }
+      .floating-play ion-icon { color: #fff; font-size: 20px; }
       
       .introduction-video {
         width: 100%;
@@ -925,23 +1005,20 @@
         background: #f5f5f5;
       }
       
-      .video-label {
-        text-align: center;
-        font-size: 12px;
-        color: #888;
-        margin: 8px 0 0 0;
-        font-weight: 500;
-      }
-      
       @media (max-width: 768px) {
         margin: 12px 0;
         
         .video-container {
           max-width: 100%;
+          border-radius: 8px;
         }
         
         .video-label {
-          font-size: 11px;
+          font-size: 12px;
+        }
+        
+        .play-overlay .play-icon {
+          font-size: 56px;
         }
       }
     }

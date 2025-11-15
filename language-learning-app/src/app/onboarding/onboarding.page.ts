@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
 import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { take, timeout, retry, catchError } from 'rxjs/operators';
 import { LoadingController, AlertController } from '@ionic/angular';
 
 @Component({
@@ -15,16 +15,19 @@ import { LoadingController, AlertController } from '@ionic/angular';
 export class OnboardingPage implements OnInit {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 4;
+  totalSteps = 4; // Students: Name + Languages + Goals + Experience/Schedule
   currentUser: User | null = null;
 
   // Onboarding data
+  firstName = '';
+  lastName = '';
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
   experienceLevel = '';
   preferredSchedule = '';
 
   // Tutor-specific data
+  tutorCountry = '';
   tutorExperience = '';
   tutorSchedule = '';
   tutorBio = '';
@@ -56,7 +59,119 @@ export class OnboardingPage implements OnInit {
     'Flexible schedule'
   ];
 
-  // Tutor-specific options
+  // Tutor-specific options - comprehensive list with flags
+  tutorCountryOptions = [
+    { name: 'Afghanistan', flag: '🇦🇫' },
+    { name: 'Albania', flag: '🇦🇱' },
+    { name: 'Algeria', flag: '🇩🇿' },
+    { name: 'Argentina', flag: '🇦🇷' },
+    { name: 'Armenia', flag: '🇦🇲' },
+    { name: 'Australia', flag: '🇦🇺' },
+    { name: 'Austria', flag: '🇦🇹' },
+    { name: 'Azerbaijan', flag: '🇦🇿' },
+    { name: 'Bahrain', flag: '🇧🇭' },
+    { name: 'Bangladesh', flag: '🇧🇩' },
+    { name: 'Belarus', flag: '🇧🇾' },
+    { name: 'Belgium', flag: '🇧🇪' },
+    { name: 'Bolivia', flag: '🇧🇴' },
+    { name: 'Bosnia and Herzegovina', flag: '🇧🇦' },
+    { name: 'Brazil', flag: '🇧🇷' },
+    { name: 'Bulgaria', flag: '🇧🇬' },
+    { name: 'Cambodia', flag: '🇰🇭' },
+    { name: 'Canada', flag: '🇨🇦' },
+    { name: 'Chile', flag: '🇨🇱' },
+    { name: 'China', flag: '🇨🇳' },
+    { name: 'Colombia', flag: '🇨🇴' },
+    { name: 'Costa Rica', flag: '🇨🇷' },
+    { name: 'Croatia', flag: '🇭🇷' },
+    { name: 'Cuba', flag: '🇨🇺' },
+    { name: 'Czech Republic', flag: '🇨🇿' },
+    { name: 'Denmark', flag: '🇩🇰' },
+    { name: 'Dominican Republic', flag: '🇩🇴' },
+    { name: 'Ecuador', flag: '🇪🇨' },
+    { name: 'Egypt', flag: '🇪🇬' },
+    { name: 'El Salvador', flag: '🇸🇻' },
+    { name: 'Estonia', flag: '🇪🇪' },
+    { name: 'Ethiopia', flag: '🇪🇹' },
+    { name: 'Finland', flag: '🇫🇮' },
+    { name: 'France', flag: '🇫🇷' },
+    { name: 'Georgia', flag: '🇬🇪' },
+    { name: 'Germany', flag: '🇩🇪' },
+    { name: 'Ghana', flag: '🇬🇭' },
+    { name: 'Greece', flag: '🇬🇷' },
+    { name: 'Guatemala', flag: '🇬🇹' },
+    { name: 'Honduras', flag: '🇭🇳' },
+    { name: 'Hong Kong', flag: '🇭🇰' },
+    { name: 'Hungary', flag: '🇭🇺' },
+    { name: 'Iceland', flag: '🇮🇸' },
+    { name: 'India', flag: '🇮🇳' },
+    { name: 'Indonesia', flag: '🇮🇩' },
+    { name: 'Iran', flag: '🇮🇷' },
+    { name: 'Iraq', flag: '🇮🇶' },
+    { name: 'Ireland', flag: '🇮🇪' },
+    { name: 'Israel', flag: '🇮🇱' },
+    { name: 'Italy', flag: '🇮🇹' },
+    { name: 'Jamaica', flag: '🇯🇲' },
+    { name: 'Japan', flag: '🇯🇵' },
+    { name: 'Jordan', flag: '🇯🇴' },
+    { name: 'Kazakhstan', flag: '🇰🇿' },
+    { name: 'Kenya', flag: '🇰🇪' },
+    { name: 'Kuwait', flag: '🇰🇼' },
+    { name: 'Latvia', flag: '🇱🇻' },
+    { name: 'Lebanon', flag: '🇱🇧' },
+    { name: 'Libya', flag: '🇱🇾' },
+    { name: 'Lithuania', flag: '🇱🇹' },
+    { name: 'Luxembourg', flag: '🇱🇺' },
+    { name: 'Malaysia', flag: '🇲🇾' },
+    { name: 'Mexico', flag: '🇲🇽' },
+    { name: 'Morocco', flag: '🇲🇦' },
+    { name: 'Netherlands', flag: '🇳🇱' },
+    { name: 'New Zealand', flag: '🇳🇿' },
+    { name: 'Nicaragua', flag: '🇳🇮' },
+    { name: 'Nigeria', flag: '🇳🇬' },
+    { name: 'North Korea', flag: '🇰🇵' },
+    { name: 'Norway', flag: '🇳🇴' },
+    { name: 'Oman', flag: '🇴🇲' },
+    { name: 'Pakistan', flag: '🇵🇰' },
+    { name: 'Palestine', flag: '🇵🇸' },
+    { name: 'Panama', flag: '🇵🇦' },
+    { name: 'Paraguay', flag: '🇵🇾' },
+    { name: 'Peru', flag: '🇵🇪' },
+    { name: 'Philippines', flag: '🇵🇭' },
+    { name: 'Poland', flag: '🇵🇱' },
+    { name: 'Portugal', flag: '🇵🇹' },
+    { name: 'Puerto Rico', flag: '🇵🇷' },
+    { name: 'Qatar', flag: '🇶🇦' },
+    { name: 'Romania', flag: '🇷🇴' },
+    { name: 'Russia', flag: '🇷🇺' },
+    { name: 'Saudi Arabia', flag: '🇸🇦' },
+    { name: 'Serbia', flag: '🇷🇸' },
+    { name: 'Singapore', flag: '🇸🇬' },
+    { name: 'Slovakia', flag: '🇸🇰' },
+    { name: 'Slovenia', flag: '🇸🇮' },
+    { name: 'South Africa', flag: '🇿🇦' },
+    { name: 'South Korea', flag: '🇰🇷' },
+    { name: 'Spain', flag: '🇪🇸' },
+    { name: 'Sri Lanka', flag: '🇱🇰' },
+    { name: 'Sweden', flag: '🇸🇪' },
+    { name: 'Switzerland', flag: '🇨🇭' },
+    { name: 'Syria', flag: '🇸🇾' },
+    { name: 'Taiwan', flag: '🇹🇼' },
+    { name: 'Thailand', flag: '🇹🇭' },
+    { name: 'Tunisia', flag: '🇹🇳' },
+    { name: 'Turkey', flag: '🇹🇷' },
+    { name: 'Ukraine', flag: '🇺🇦' },
+    { name: 'United Arab Emirates', flag: '🇦🇪' },
+    { name: 'United Kingdom', flag: '🇬🇧' },
+    { name: 'United States', flag: '🇺🇸' },
+    { name: 'Uruguay', flag: '🇺🇾' },
+    { name: 'Uzbekistan', flag: '🇺🇿' },
+    { name: 'Venezuela', flag: '🇻🇪' },
+    { name: 'Vietnam', flag: '🇻🇳' },
+    { name: 'Yemen', flag: '🇾🇪' },
+    { name: 'Other', flag: '🌍' }
+  ];
+
   tutorExperienceOptions = [
     'Beginner (0-1 years)',
     'Intermediate (1-3 years)',
@@ -83,22 +198,48 @@ export class OnboardingPage implements OnInit {
 
   ngOnInit() {
     // Check if user is authenticated
-    this.authService.isAuthenticated$.subscribe(isAuthenticated => {
+    this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
+        console.error('User not authenticated, redirecting to login');
         this.router.navigate(['/login']);
+        return;
       }
+
+      // Verify we have a valid user profile
+      this.authService.getUserProfile().pipe(take(1)).subscribe(
+        user => {
+          if (!user || !user.email) {
+            console.error('No valid user profile, redirecting to login');
+            this.router.navigate(['/login']);
+            return;
+          }
+          console.log('✅ User authenticated:', user.email);
+        },
+        error => {
+          console.error('Error getting user profile:', error);
+          this.showError('Authentication failed. Please log in again.', true);
+        }
+      );
     });
 
-    // Get current user from database to determine if they're a tutor
-    this.userService.getCurrentUser().subscribe(user => {
-      this.currentUser = user;
-      if (user?.userType === 'tutor') {
-        this.totalSteps = 5; // Add extra step for video upload
-      }
-    });
+    // Get userType from localStorage (set during user type selection)
+    const selectedUserType = localStorage.getItem('selectedUserType');
+    console.log('🔍 Selected user type from localStorage:', selectedUserType);
+    
+    if (selectedUserType === 'tutor') {
+      this.totalSteps = 3; // Tutors: Name + Languages + Tutor Profile (country, experience, schedule, bio, rate, video)
+    }
   }
 
   nextStep() {
+    // Validate current step before proceeding
+    if (this.currentStep === 1) {
+      if (!this.firstName.trim() || !this.lastName.trim()) {
+        alert('Please enter your first and last name');
+        return;
+      }
+    }
+    
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
     } else {
@@ -139,6 +280,16 @@ export class OnboardingPage implements OnInit {
   }
 
   // Tutor-specific methods
+  setTutorCountry(country: string) {
+    this.tutorCountry = country;
+  }
+
+  // Get flag emoji for selected country
+  getCountryFlag(countryName: string): string {
+    const country = this.tutorCountryOptions.find(c => c.name === countryName);
+    return country ? country.flag : '';
+  }
+
   setTutorExperience(experience: string) {
     this.tutorExperience = experience;
   }
@@ -155,12 +306,17 @@ export class OnboardingPage implements OnInit {
     this.tutorHourlyRate = rate;
   }
 
-  onVideoUploaded(videoUrl: string) {
-    this.tutorIntroductionVideo = videoUrl;
+  onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    this.tutorIntroductionVideo = data.url;
   }
 
   onVideoRemoved() {
     this.tutorIntroductionVideo = '';
+  }
+
+  // Helper method to check if user is a tutor (from localStorage)
+  isTutorOnboarding(): boolean {
+    return localStorage.getItem('selectedUserType') === 'tutor';
   }
 
   async completeOnboarding() {
@@ -171,28 +327,38 @@ export class OnboardingPage implements OnInit {
     await loading.present();
 
     try {
-      // First, ensure user exists in database
-      console.log('🔍 Creating/updating user in database...');
-      console.log('🔍 localStorage selectedUserType:', localStorage.getItem('selectedUserType'));
-      const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
+      // Get userType from localStorage (set during user type selection)
+      const userType = localStorage.getItem('selectedUserType') || 'student';
+      console.log('💾 Completing onboarding for userType:', userType);
       
-      if (!auth0User) {
-        throw new Error('No Auth0 user data available');
+      // Get Auth0 user with timeout and retry
+      const auth0User = await this.authService.getUserProfile().pipe(
+        take(1),
+        timeout(10000), // 10 second timeout
+        retry(2), // Retry twice if fails
+        catchError(error => {
+          console.error('❌ Error getting Auth0 user profile:', error);
+          throw new Error('Unable to verify authentication. Please check your internet connection and try again.');
+        })
+      ).toPromise();
+      
+      if (!auth0User || !auth0User.email) {
+        throw new Error('Authentication required. Please log in again.');
       }
 
-      console.log('🔍 Auth0User data:', auth0User);
-
-      // Create or update user in database
-      const user = await this.userService.initializeUser(auth0User).toPromise();
-      console.log('🔍 User created/updated in database:', user);
-      console.log('🔍 User userType:', user?.userType);
+      console.log('✅ Auth0 user authenticated:', auth0User.email);
 
       // Prepare onboarding data for API based on user type
+      // The backend will create the user if they don't exist
       let updatedUser;
       
-      if (user?.userType === 'tutor') {
+      if (userType === 'tutor') {
         // Tutor onboarding
-        const tutorData: TutorOnboardingData = {
+        const tutorData: TutorOnboardingData & { userType: string } = {
+          userType: 'tutor',
+          firstName: this.firstName,
+          lastName: this.lastName,
+          country: this.tutorCountry,
           languages: this.selectedLanguages,
           experience: this.tutorExperience,
           schedule: this.tutorSchedule,
@@ -201,27 +367,44 @@ export class OnboardingPage implements OnInit {
           introductionVideo: this.tutorIntroductionVideo
         };
 
-        console.log('Saving tutor onboarding data to database:', tutorData);
-        updatedUser = await this.userService.completeTutorOnboarding(tutorData).toPromise();
+        console.log('💾 Saving tutor onboarding data (user will be created if needed)');
+        updatedUser = await this.userService.completeTutorOnboarding(tutorData).pipe(
+          timeout(10000),
+          retry(2),
+          catchError(error => {
+            console.error('❌ Error saving tutor onboarding:', error);
+            throw new Error('Unable to save your information. Please try again.');
+          })
+        ).toPromise();
       } else {
         // Student onboarding
-        const onboardingData: OnboardingData = {
+        const onboardingData: OnboardingData & { userType: string } = {
+          userType: 'student',
+          firstName: this.firstName,
+          lastName: this.lastName,
           languages: this.selectedLanguages,
           goals: this.learningGoals,
           experienceLevel: this.experienceLevel,
           preferredSchedule: this.preferredSchedule
         };
 
-        console.log('Saving student onboarding data to database:', onboardingData);
-        updatedUser = await this.userService.completeOnboarding(onboardingData).toPromise();
+        console.log('💾 Saving student onboarding data (user will be created if needed)');
+        updatedUser = await this.userService.completeOnboarding(onboardingData).pipe(
+          timeout(10000),
+          retry(2),
+          catchError(error => {
+            console.error('❌ Error saving student onboarding:', error);
+            throw new Error('Unable to save your information. Please try again.');
+          })
+        ).toPromise();
       }
       
-      console.log('Onboarding completed successfully:', updatedUser);
+      console.log('✅ Onboarding completed successfully');
 
       // Store in localStorage as backup
       localStorage.setItem('onboarding_completed', 'true');
       
-      const backupData = user?.['userType'] === 'tutor' ? {
+      const backupData = userType === 'tutor' ? {
         languages: this.selectedLanguages,
         experience: this.tutorExperience,
         schedule: this.tutorSchedule,
@@ -241,19 +424,62 @@ export class OnboardingPage implements OnInit {
 
       await loading.dismiss();
 
-              // Navigate to main app
-              this.router.navigate(['/tabs']);
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
+      // Navigate to main app
+      this.router.navigate(['/tabs']);
+    } catch (error: any) {
+      console.error('❌ Error completing onboarding:', error);
       await loading.dismiss();
       
+      // Determine error message
+      let errorMessage = 'Failed to complete setup. Please try again.';
+      let showReloginButton = false;
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (error.message?.includes('Authentication') || error.message?.includes('log in')) {
+        showReloginButton = true;
+      }
+      
+      const buttons: any[] = showReloginButton ? [
+        {
+          text: 'Re-login',
+          handler: () => {
+            this.authService.logout();
+            this.router.navigate(['/login']);
+          }
+        },
+        {
+          text: 'Retry',
+          role: 'cancel'
+        }
+      ] : ['OK'];
+      
       const alert = await this.alertController.create({
-        header: 'Error',
-        message: 'Failed to complete setup. Please try again.',
-        buttons: ['OK']
+        header: 'Setup Error',
+        message: errorMessage,
+        buttons: buttons
       });
       await alert.present();
     }
+  }
+
+  private async showError(message: string, redirectToLogin: boolean = false) {
+    const alert = await this.alertController.create({
+      header: 'Error',
+      message: message,
+      buttons: redirectToLogin ? [
+        {
+          text: 'Go to Login',
+          handler: () => {
+            this.authService.logout();
+            this.router.navigate(['/login']);
+          }
+        }
+      ] : ['OK']
+    });
+    await alert.present();
   }
   logout() {
     this.authService.logout();

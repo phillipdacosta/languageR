@@ -217,20 +217,52 @@
           
           <!-- Introduction Video -->
           <div class="tutor-video" *ngIf="tutor.introductionVideo">
-            <div class="video-container">
-              <video 
-                #cardVideo
-                [src]="tutor.introductionVideo" 
-                preload="metadata"
-                poster=""
-                class="introduction-video">
-                Your browser does not support the video tag.
-              </video>
-              <button type="button" class="floating-play" (click)="playIntroVideo(cardVideo)">
-                <ion-icon name="play"></ion-icon>
-              </button>
-            </div>
             <p class="video-label">Introduction Video</p>
+            <div class="video-container">
+              <!-- External video (YouTube/Vimeo) with Thumbnail -->
+              <div class="external-video-preview" *ngIf="isExternalVideo(tutor.introductionVideo)">
+                <!-- Thumbnail Overlay -->
+                <div class="thumbnail-overlay" *ngIf="tutor.videoThumbnail" (click)="playTutorVideo(tutor)">
+                  <img [src]="tutor.videoThumbnail" alt="Video thumbnail" class="video-thumbnail">
+                  <div class="play-overlay">
+                    <ion-icon name="play-circle" class="play-icon"></ion-icon>
+                  </div>
+                </div>
+                
+                <!-- iframe - shown when thumbnail is clicked or no thumbnail exists -->
+                <iframe 
+                  *ngIf="!tutor.videoThumbnail || isTutorVideoPlaying(tutor.id)"
+                  [attr.id]="'tutor-video-' + tutor.id"
+                  [src]="getTutorVideoUrl(tutor) | safeUrl"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                  class="preview-iframe">
+                </iframe>
+              </div>
+              
+              <!-- Uploaded video (GCP) with optional Thumbnail -->
+              <div class="uploaded-video-preview" *ngIf="!isExternalVideo(tutor.introductionVideo)">
+                <!-- Thumbnail Overlay -->
+                <div class="thumbnail-overlay" *ngIf="tutor.videoThumbnail" (click)="playTutorVideo(tutor)">
+                  <img [src]="tutor.videoThumbnail" alt="Video thumbnail" class="video-thumbnail">
+                  <div class="play-overlay">
+                    <ion-icon name="play-circle" class="play-icon"></ion-icon>
+                  </div>
+                </div>
+                
+                <!-- HTML5 Video - shown when thumbnail is clicked or no thumbnail exists -->
+                <video 
+                  *ngIf="!tutor.videoThumbnail || isTutorVideoPlaying(tutor.id)"
+                  [attr.id]="'tutor-video-' + tutor.id"
+                  [src]="tutor.introductionVideo" 
+                  controls 
+                  preload="metadata" 
+                  class="preview-video">
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </div>
           </div>
           
           <div class="tutor-stats">
