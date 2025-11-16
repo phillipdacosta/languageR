@@ -292,8 +292,16 @@ export class TutorOnboardingPage implements OnInit {
 
       await loading.dismiss();
 
-      // Navigate to main app
-      this.router.navigate(['/tabs']);
+      // Check for return URL (for users who clicked a shared link before signing up)
+      const returnUrl = localStorage.getItem('returnUrl');
+      if (returnUrl) {
+        console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
+        localStorage.removeItem('returnUrl');
+        this.router.navigateByUrl(returnUrl);
+      } else {
+        // Default: Navigate to main app
+        this.router.navigate(['/tabs']);
+      }
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
       await loading.dismiss();

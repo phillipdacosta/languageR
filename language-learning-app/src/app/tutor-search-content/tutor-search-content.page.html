@@ -193,7 +193,7 @@
             <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" (error)="onImageError($event)">
           </div>
           <div class="tutor-info">
-            <h3 class="tutor-name">{{ tutor.name }}</h3>
+            <h3 class="tutor-name">{{ tutor.firstName | displayName:tutor.lastName:tutor.name }}</h3>
             <div class="tutor-languages">
               <span class="language-tag" *ngFor="let language of tutor.languages">
                 <span>{{ language }}</span>

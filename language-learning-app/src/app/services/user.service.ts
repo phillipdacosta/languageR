@@ -72,6 +72,8 @@ export interface Tutor {
   id: string;
   auth0Id?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   picture?: string;
   languages: string[];

@@ -145,12 +145,22 @@
       </div>
     </div>
 
-    <!-- Empty State: No Upcoming Classes -->
+    <!-- Empty State: No Classes Today -->
     <div class="next-class-empty-state" *ngIf="isTutor() && !getFirstLessonForSelectedDate()">
       <div class="empty-state-content">
         <ion-icon name="calendar-outline" class="empty-state-icon"></ion-icon>
-        <h3 class="empty-state-title">No upcoming classes scheduled</h3>
-        <p class="empty-state-subtitle">You don't have any lessons today.</p>
+        <h3 class="empty-state-title">No class today</h3>
+        
+        <!-- Show next lesson info if available -->
+        <p class="empty-state-subtitle" *ngIf="getNextLessonInfo()">
+          Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
+        </p>
+        
+        <!-- Fallback if no future lessons at all -->
+        <p class="empty-state-subtitle" *ngIf="!getNextLessonInfo()">
+          You don't have any lessons scheduled yet.
+        </p>
+        
         <ion-button 
           fill="outline" 
           size="medium" 

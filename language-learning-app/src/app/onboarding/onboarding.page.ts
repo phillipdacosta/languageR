@@ -424,8 +424,21 @@ export class OnboardingPage implements OnInit {
 
       await loading.dismiss();
 
-      // Navigate to main app
-      this.router.navigate(['/tabs']);
+      // Check for return URL (for users who clicked a shared link before signing up)
+      const returnUrl = localStorage.getItem('returnUrl');
+      if (returnUrl) {
+        console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);
+        localStorage.removeItem('returnUrl');
+        
+        // Set flag so the destination page knows to override back button
+        localStorage.setItem('justCompletedLogin', returnUrl);
+        console.log('🔄 Onboarding: Set justCompletedLogin flag to:', returnUrl);
+        
+        this.router.navigateByUrl(returnUrl);
+      } else {
+        // Default: Navigate to main app
+        this.router.navigate(['/tabs']);
+      }
     } catch (error: any) {
       console.error('❌ Error completing onboarding:', error);
       await loading.dismiss();

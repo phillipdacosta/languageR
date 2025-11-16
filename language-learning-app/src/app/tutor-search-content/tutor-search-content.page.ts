@@ -706,4 +706,28 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     
     return tutor.introductionVideo;
   }
+
+  // Format name as "FirstName LastInitial."
+  formatDisplayName(firstName?: string, lastName?: string, fullName?: string): string {
+    // If we have firstName and lastName, use them
+    if (firstName && lastName) {
+      const lastInitial = lastName.charAt(0).toUpperCase();
+      return `${firstName} ${lastInitial}.`;
+    }
+    
+    // Fallback: try to parse from fullName
+    if (fullName) {
+      const parts = fullName.trim().split(' ');
+      if (parts.length >= 2) {
+        const first = parts[0];
+        const last = parts[parts.length - 1];
+        const lastInitial = last.charAt(0).toUpperCase();
+        return `${first} ${lastInitial}.`;
+      }
+      // If only one name, return as is
+      return fullName;
+    }
+    
+    return '';
+  }
 }

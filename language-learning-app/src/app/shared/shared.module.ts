@@ -5,12 +5,14 @@ import { IonicModule } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { FlagIconComponent } from '../components/flag-icon/flag-icon.component';
 import { SafeUrlPipe } from './pipes/safe-url.pipe';
+import { DisplayNamePipe } from './pipes/display-name.pipe';
 
 @NgModule({
   declarations: [
     VideoUploadComponent,
     FlagIconComponent,
-    SafeUrlPipe
+    SafeUrlPipe,
+    DisplayNamePipe
   ],
   imports: [
     CommonModule,
@@ -20,7 +22,8 @@ import { SafeUrlPipe } from './pipes/safe-url.pipe';
   exports: [
     VideoUploadComponent,
     FlagIconComponent,
-    SafeUrlPipe
+    SafeUrlPipe,
+    DisplayNamePipe
   ]
 })
 export class SharedModule { }

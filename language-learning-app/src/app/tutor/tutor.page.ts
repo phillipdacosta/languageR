@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, Platform } from '@ionic/angular';
+import { IonicModule, ModalController, Platform, AlertController } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -31,6 +31,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   showOverlay = true;
   cameFromModal = false;
+  justLoggedIn = false;
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
@@ -73,7 +74,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private location: Location,
     private messagingService: MessagingService,
     private websocketService: WebSocketService,
-    private authService: AuthService
+    private authService: AuthService,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -81,6 +83,22 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (!this.tutorId) {
       this.router.navigate(['/tabs']);
       return;
+    }
+    
+    // Check if user just logged in via returnUrl
+    const returnUrl = localStorage.getItem('justCompletedLogin');
+    console.log('🔍 Checking justCompletedLogin:', {
+      returnUrl,
+      currentUrl: this.router.url,
+      matches: returnUrl === this.router.url
+    });
+    
+    if (returnUrl && returnUrl === this.router.url) {
+      console.log('✅ User just completed login flow to this page - setting justLoggedIn = true');
+      localStorage.removeItem('justCompletedLogin');
+      this.justLoggedIn = true;
+    } else if (returnUrl) {
+      console.log('❌ URLs do not match - justLoggedIn will be false');
     }
     
     // Check if we came from the modal (via query params)
@@ -188,10 +206,16 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.routerSubscription = { unsubscribe: () => window.removeEventListener('popstate', popStateHandler) };
   }
   
+  
   async handleBackClick(event: Event) {
     event.preventDefault();
     event.stopPropagation();
     await this.reopenSearchModal();
+  }
+  
+  navigateToHome() {
+    console.log('🔄 Navigating to /tabs/home (post-login)');
+    this.router.navigate(['/tabs/home']);
   }
   
   async reopenSearchModal() {
@@ -200,7 +224,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Navigate back to home tab first
     await this.router.navigate(['/tabs/home'], { replaceUrl: true });
-    
+      
     // Small delay to ensure navigation completes
     setTimeout(async () => {
       // Reopen the search modal with data to restore scroll position
@@ -273,6 +297,37 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
 
   async messageTutor() {
     if (!this.tutor) return;
+    
+    // Check authentication first
+    const isAuth = await firstValueFrom(this.authService.isAuthenticated$);
+    
+    if (!isAuth) {
+      // Store where they wanted to go
+      const currentUrl = this.router.url;
+      localStorage.setItem('returnUrl', currentUrl);
+      console.log('🔄 Saving returnUrl for after login:', currentUrl);
+      
+      // Show friendly prompt
+      const alert = await this.alertController.create({
+        header: 'Login Required',
+        message: `Please log in to message ${this.tutor.name}.`,
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Log In',
+            handler: async () => {
+              // Navigate to login
+              await this.router.navigate(['/login']);
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
     
     // Open messaging sidebar instead of navigating
     this.showMessagingSidebar = true;
@@ -898,6 +953,38 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     }
 
     try {
+      // Check authentication first
+      const isAuth = await firstValueFrom(this.authService.isAuthenticated$);
+      
+      if (!isAuth) {
+        // Store where they wanted to go
+        const currentUrl = this.router.url;
+        localStorage.setItem('returnUrl', currentUrl);
+        console.log('🔄 Saving returnUrl for after login (book):', currentUrl);
+        
+        // Show friendly prompt
+        const alert = await this.alertController.create({
+          header: 'Login Required',
+          message: `Please log in to book a lesson with ${this.tutor.name}.`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Log In',
+              handler: async () => {
+                // Navigate to login with replaceUrl to replace current page (tutor) with login
+                // This prevents tutor page from being in history
+                await this.router.navigate(['/login'], { replaceUrl: true });
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+      
       const currentUser = await firstValueFrom(this.authService.user$);
       
       if (!currentUser) {
@@ -907,7 +994,12 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       
       // Check if user is a student
       if (currentUser.userType !== 'student') {
-        console.log('Only students can book lessons');
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can book lessons. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
         return;
       }
 

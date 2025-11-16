@@ -1,11 +1,17 @@
 <ion-header>
   <ion-toolbar>
     <ion-buttons slot="start">
+      <!-- Debug: cameFromModal={{cameFromModal}}, justLoggedIn={{justLoggedIn}} -->
       <ion-back-button 
-        *ngIf="!cameFromModal"
-        defaultHref="/tabs" 
+        *ngIf="!cameFromModal && !justLoggedIn"
+        defaultHref="/tabs/home" 
         text="">
       </ion-back-button>
+      <ion-button 
+        *ngIf="!cameFromModal && justLoggedIn"
+        (click)="navigateToHome()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
       <ion-button 
         *ngIf="cameFromModal"
         (click)="handleBackClick($event)">

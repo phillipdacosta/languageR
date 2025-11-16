@@ -418,6 +418,43 @@ export class Tab1Page implements OnInit, OnDestroy {
     return upcoming.length > 0 ? upcoming[0] : null;
   }
 
+  // Get formatted info about the next lesson for empty state display
+  getNextLessonInfo(): { date: string; time: string; dayText: string } | null {
+    const nextLesson = this.getNextLesson();
+    if (!nextLesson) return null;
+    
+    const start = new Date(nextLesson.startTime);
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const lessonDay = this.startOfDay(start);
+    const daysDiff = Math.floor((lessonDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Format time
+    const time = start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    
+    // Determine day text
+    let dayText = '';
+    if (daysDiff === 0) {
+      dayText = 'today';
+    } else if (daysDiff === 1) {
+      dayText = 'tomorrow';
+    } else if (daysDiff < 7) {
+      dayText = start.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      dayText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    return {
+      date: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      time,
+      dayText
+    };
+  }
+
   // Format lesson time for display with clear when information
   formatLessonTime(lesson: Lesson): string {
     const start = new Date(lesson.startTime);
