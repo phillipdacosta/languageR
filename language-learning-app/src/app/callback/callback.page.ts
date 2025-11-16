@@ -177,6 +177,25 @@ export class CallbackPage implements OnInit {
           console.log('🔍 CALLBACK: User exists in database?', userExists);
           console.log('🔍 CALLBACK: userExists value:', userExists, 'type:', typeof userExists);
           
+          // If user doesn't exist, create them now with Auth0 profile data (including picture)
+          if (!userExists) {
+            console.log('📝 CALLBACK checkUserInDatabase: About to initialize NEW user with auth0User:', {
+              email: auth0User.email,
+              name: auth0User.name,
+              picture: auth0User.picture
+            });
+            try {
+              const createdUser = await this.userService.initializeUser(auth0User).toPromise();
+              console.log('✅ CALLBACK checkUserInDatabase: User initialized:', {
+                id: createdUser?.id,
+                email: createdUser?.email,
+                picture: createdUser?.picture
+              });
+            } catch (error) {
+              console.error('❌ CALLBACK checkUserInDatabase: User initialization ERROR:', error);
+            }
+          }
+          
           if (userExists) {
             // Existing user with returnUrl - go directly there, bypassing onboarding check
             console.log('✅ CALLBACK: userExists=true, treating as existing user, navigating to returnUrl:', returnUrl);
@@ -193,7 +212,7 @@ export class CallbackPage implements OnInit {
           } else {
             // New user with returnUrl - need onboarding first, but keep returnUrl for after
             console.log('⚠️ CALLBACK: userExists=false, treating as NEW user with returnUrl, going to onboarding (will redirect after)');
-            localStorage.setItem('returnUrl', returnUrl); // Put it back
+            localStorage.setItem('returnUrl', returnUrl); // Put it back (returnUrl is guaranteed non-null here due to outer check)
             await this.router.navigate(['/onboarding'], { replaceUrl: true });
             return;
           }
@@ -268,6 +287,8 @@ export class CallbackPage implements OnInit {
       // Get Auth0 user data and initialize in database
       const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
       console.log('🔍 CALLBACK: Got auth0User:', auth0User?.email);
+      console.log('🖼️ CALLBACK: auth0User FULL DATA:', JSON.stringify(auth0User, null, 2));
+      console.log('🖼️ CALLBACK: auth0User.picture:', auth0User?.picture);
       
       if (auth0User && auth0User.email) {
         // Check if user already exists
@@ -277,9 +298,19 @@ export class CallbackPage implements OnInit {
         if (!userExists) {
           // New user - initialize in database
           try {
-            await this.userService.initializeUser(auth0User).toPromise();
-            console.log('✅ CALLBACK: User initialized in database');
+            console.log('📝 CALLBACK: About to initialize user with auth0User:', {
+              email: auth0User.email,
+              name: auth0User.name,
+              picture: auth0User.picture
+            });
+            const createdUser = await this.userService.initializeUser(auth0User).toPromise();
+            console.log('✅ CALLBACK: User initialized in database:', {
+              id: createdUser?.id,
+              email: createdUser?.email,
+              picture: createdUser?.picture
+            });
           } catch (error) {
+            console.error('❌ CALLBACK: User initialization ERROR:', error);
             console.log('⚠️ CALLBACK: User initialization failed, continuing to onboarding');
           }
         } else {
@@ -312,7 +343,9 @@ export class CallbackPage implements OnInit {
           } else {
             // New user with returnUrl - need onboarding first, but keep returnUrl for after
             console.log('⚠️ CALLBACK: userExists=false, treating as NEW user with returnUrl, going to onboarding (will redirect after)');
-            localStorage.setItem('returnUrl', returnUrl); // Put it back
+            if (returnUrl) {
+              localStorage.setItem('returnUrl', returnUrl); // Put it back
+            }
             await this.router.navigate(['/onboarding'], { replaceUrl: true });
             return;
           }

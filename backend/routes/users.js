@@ -2,7 +2,24 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const rateLimit = require('express-rate-limit');
 
+// Rate limiters for public endpoints
+const publicProfileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per IP
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const emailCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50, // Allow more requests for guards and legitimate use
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // GET /api/users/debug - Debug what we're receiving
 router.get('/debug', verifyToken, async (req, res) => {
@@ -87,6 +104,9 @@ router.get('/me', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -150,7 +170,13 @@ router.post('/', verifyToken, async (req, res) => {
       
       try {
         // Get picture from Auth0 if available
+        console.log('🖼️ Picture sources:', {
+          'req.user.picture': req.user.picture,
+          'req.user.picture_url': req.user.picture_url,
+          'body.picture': picture
+        });
         const auth0Picture = req.user.picture || req.user.picture_url || picture || null;
+        console.log('🖼️ Selected auth0Picture:', auth0Picture);
         
         user = new User({
           auth0Id: req.user.sub,
@@ -180,6 +206,9 @@ router.post('/', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -198,34 +227,117 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// PUT /api/users/onboarding - Complete onboarding
+// PUT /api/users/onboarding - Complete onboarding (creates user if doesn't exist)
 router.put('/onboarding', verifyToken, async (req, res) => {
   try {
     console.log('🔍 PUT /api/users/onboarding called');
     console.log('🔍 Request body:', req.body);
     console.log('🔍 Request user:', req.user);
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    let user = await User.findOne({ auth0Id: req.user.sub });
     
-    if (!user) {
-      console.log('🔍 User not found in database');
-      return res.status(404).json({ error: 'User not found' });
+    // If not found by auth0Id, try to find by email (in case auth0Id changed)
+    if (!user && req.user.email) {
+      console.log('🔍 User not found by auth0Id, trying email:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      
+      // If found by email, update the auth0Id to match current token
+      if (user) {
+        console.log('🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        user.auth0Id = req.user.sub;
+      }
     }
     
-    console.log('🔍 User found:', user.email, 'userType:', user.userType);
+    // If user doesn't exist, create them now
+    if (!user) {
+      console.log('🔍 User not found in database - creating new user during onboarding');
+      console.log('🔍 Request user data:', JSON.stringify(req.user, null, 2));
+      console.log('🔍 Request body:', JSON.stringify(req.body, null, 2));
+      
+      // Get picture from request body (sent from frontend) or Auth0 token
+      const auth0Picture = req.body.picture || req.user.picture || req.user.picture_url || null;
+      console.log('🖼️ Picture source - body:', req.body.picture, 'token:', req.user.picture, 'final:', auth0Picture);
+      
+      // Determine userType from request body or default to 'student'
+      const userType = req.body.userType || 'student';
+      
+      // Get firstName, lastName, and country from request body or Auth0
+      const firstName = req.body.firstName || req.user.given_name || '';
+      const lastName = req.body.lastName || req.user.family_name || '';
+      const country = req.body.country || '';
+      
+      // Ensure we have email and name (required fields)
+      const email = req.user.email || req.body.email;
+      const name = req.user.name || req.user.given_name || email?.split('@')[0] || 'User';
+      
+      if (!email) {
+        console.error('❌ Cannot create user: email is required');
+        return res.status(400).json({ 
+          error: 'Email is required',
+          details: 'User email not found in authentication token. Please log in again.' 
+        });
+      }
+      
+      user = new User({
+        auth0Id: req.user.sub,
+        email: email,
+        name: name,
+        firstName: firstName,
+        lastName: lastName,
+        country: country,
+        picture: auth0Picture,
+        emailVerified: req.user.email_verified || false,
+        userType: userType,
+        onboardingCompleted: false
+      });
+      
+      console.log('🔍 New user created during onboarding:', {
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        userType: user.userType,
+        firstName: user.firstName,
+        lastName: user.lastName
+      });
+    } else {
+      console.log('🔍 User found:', user.email, 'userType:', user.userType);
+      console.log('🔍 Current user picture:', user.picture);
+      
+      // Sync picture from Auth0 if available and user doesn't have one
+      const auth0Picture = req.user.picture || req.user.picture_url || null;
+      if (auth0Picture && !user.picture) {
+        console.log('🖼️ User has no picture, syncing from Auth0:', auth0Picture);
+        user.picture = auth0Picture;
+      } else if (auth0Picture && auth0Picture !== user.picture) {
+        console.log('🖼️ Updating user picture from Auth0:', { old: user.picture, new: auth0Picture });
+        user.picture = auth0Picture;
+      }
+      
+      // Update firstName, lastName, and country if provided
+      if (req.body.firstName !== undefined) {
+        user.firstName = req.body.firstName;
+      }
+      if (req.body.lastName !== undefined) {
+        user.lastName = req.body.lastName;
+      }
+      if (req.body.country !== undefined) {
+        user.country = req.body.country;
+      }
+    }
     
     // Update onboarding data based on user type
     user.onboardingCompleted = true;
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate } = req.body;
+      const { languages, experience, schedule, bio, hourlyRate, introductionVideo } = req.body;
       user.onboardingData = {
         languages: languages || [],
         experience: experience || '',
         schedule: schedule || '',
         bio: bio || '',
         hourlyRate: hourlyRate || 25,
+        introductionVideo: introductionVideo || '',
         completedAt: new Date()
       };
     } else {
@@ -242,6 +354,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     await user.save();
     
+    console.log('✅ Onboarding completed successfully for:', user.email);
+    
     res.json({
       success: true,
       message: 'Onboarding completed successfully',
@@ -250,6 +364,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -262,8 +379,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error completing onboarding:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Error completing onboarding:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -305,6 +423,9 @@ router.put('/profile', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -322,8 +443,8 @@ router.put('/profile', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/users/check-email - Check if user exists by email (no auth required)
-router.post('/check-email', async (req, res) => {
+// POST /api/users/check-email - Check if user exists by email (rate limited to prevent enumeration)
+router.post('/check-email', emailCheckLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -349,8 +470,8 @@ router.post('/check-email', async (req, res) => {
   }
 });
 
-// POST /api/users/by-email - Get user by email (no auth required)
-router.post('/by-email', async (req, res) => {
+// POST /api/users/by-email - Get user by email (rate limited - used by onboarding guard)
+router.post('/by-email', emailCheckLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -487,7 +608,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
       .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit))
-      .select('name email picture auth0Id onboardingData profile stats createdAt');
+      .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
 
     // Get total count for pagination
     const totalCount = await User.countDocuments(filterQuery);
@@ -497,6 +618,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
       id: tutor._id,
       auth0Id: tutor.auth0Id,
       name: tutor.name,
+      firstName: tutor.firstName || tutor.onboardingData?.firstName || '',
+      lastName: tutor.lastName || tutor.onboardingData?.lastName || '',
       email: tutor.email,
       picture: tutor.picture,
       languages: tutor.onboardingData?.languages || [],
@@ -505,7 +628,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
       schedule: tutor.onboardingData?.schedule || 'Flexible',
       bio: tutor.onboardingData?.bio || '',
       introductionVideo: tutor.onboardingData?.introductionVideo || '',
-      country: tutor.profile?.country || 'Unknown',
+      videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
+      videoType: tutor.onboardingData?.videoType || 'upload',
+      country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
       gender: tutor.profile?.gender || 'Not specified',
       nativeSpeaker: tutor.profile?.nativeSpeaker || false,
       rating: tutor.stats?.rating || 0,
@@ -532,10 +657,18 @@ router.get('/tutors', verifyToken, async (req, res) => {
   }
 });
 
-// PUT /api/users/tutor-video - Update tutor introduction video
+// PUT /api/users/tutor-video - Update tutor introduction video with thumbnail and type
 router.put('/tutor-video', verifyToken, async (req, res) => {
   try {
-    const { introductionVideo } = req.body;
+    const { introductionVideo, videoThumbnail, videoType } = req.body;
+    
+    console.log('📹 Received video update request:', {
+      introductionVideo,
+      videoThumbnail,
+      videoType,
+      hasVideo: !!introductionVideo,
+      hasThumbnail: !!videoThumbnail
+    });
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -548,21 +681,44 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Only tutors can update introduction videos' });
     }
     
-    // Update introduction video
+    console.log('📹 Current onboardingData before update:', user.onboardingData);
+    
+    // Update introduction video, thumbnail, and type
     if (user.onboardingData) {
       user.onboardingData.introductionVideo = introductionVideo || '';
+      user.onboardingData.videoThumbnail = videoThumbnail || '';
+      user.onboardingData.videoType = videoType || 'upload';
     } else {
       user.onboardingData = {
-        introductionVideo: introductionVideo || ''
+        introductionVideo: introductionVideo || '',
+        videoThumbnail: videoThumbnail || '',
+        videoType: videoType || 'upload'
       };
     }
     
     await user.save();
     
+    // Re-fetch to confirm save
+    const updatedUser = await User.findOne({ auth0Id: req.user.sub });
+    
+    console.log('✅ Tutor video updated and saved:', {
+      video: user.onboardingData.introductionVideo,
+      thumbnail: user.onboardingData.videoThumbnail,
+      type: user.onboardingData.videoType
+    });
+    
+    console.log('✅ Confirmed in DB:', {
+      video: updatedUser.onboardingData.introductionVideo,
+      thumbnail: updatedUser.onboardingData.videoThumbnail,
+      type: updatedUser.onboardingData.videoType
+    });
+    
     res.json({
       success: true,
       message: 'Introduction video updated successfully',
-      introductionVideo: user.onboardingData.introductionVideo
+      introductionVideo: user.onboardingData.introductionVideo,
+      videoThumbnail: user.onboardingData.videoThumbnail,
+      videoType: user.onboardingData.videoType
     });
 
   } catch (error) {
@@ -652,9 +808,9 @@ router.put('/availability', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/availability - Get tutor availability by tutor ID (public)
+// GET /api/users/:userId/availability - Get tutor availability by tutor ID (public with rate limiting)
 // NOTE: This route MUST come before /availability to avoid route conflicts
-router.get('/:userId/availability', async (req, res) => {
+router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
   try {
     const { userId } = req.params;
     console.log('📅 Fetching availability for tutor ID:', userId);
@@ -687,8 +843,8 @@ router.get('/:userId/availability', async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/public - Public user profile summary (tutor or student)
-router.get('/:userId/public', async (req, res) => {
+// GET /api/users/:userId/public - Public user profile summary (rate limited for scraping protection)
+router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
   try {
     const { userId } = req.params;
     
@@ -721,6 +877,8 @@ router.get('/:userId/public', async (req, res) => {
           schedule: user.onboardingData?.schedule || '',
           bio: user.onboardingData?.bio || '',
           introductionVideo: user.onboardingData?.introductionVideo || '',
+          videoThumbnail: user.onboardingData?.videoThumbnail || '',
+          videoType: user.onboardingData?.videoType || 'upload',
           stats: user.stats || {},
           profile: user.profile || {}
         }
@@ -807,6 +965,9 @@ router.put('/picture', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,

@@ -51,7 +51,7 @@
         <!-- User Profile Section (moved beside Profile button) -->
         <div class="user-profile" *ngIf="currentUser">
           <ion-avatar class="user-avatar">
-            <img *ngIf="currentUser.picture" [src]="currentUser.picture" [alt]="currentUser.name" (error)="onImageError($event)">
+            <img *ngIf="currentUser.picture" [src]="currentUser.picture" [alt]="currentUser.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
             <div class="user-initials" *ngIf="!currentUser.picture">{{ getUserInitials(currentUser) }}</div>
           </ion-avatar>
         </div>

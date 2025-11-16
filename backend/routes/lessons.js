@@ -6,6 +6,37 @@ const Notification = require('../models/Notification');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 
+// Helper function to format names as "FirstName LastInitial."
+const formatDisplayName = (user) => {
+  if (!user) return 'Unknown User';
+  
+  const firstName = user.firstName || user.onboardingData?.firstName;
+  const lastName = user.lastName || user.onboardingData?.lastName;
+  const fullName = user.name;
+  
+  if (firstName && lastName) {
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  if (fullName) {
+    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      const lastInitial = last.charAt(0).toUpperCase();
+      return `${first} ${lastInitial}.`;
+    }
+    return fullName;
+  }
+  
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  
+  return 'Unknown User';
+};
+
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
 
@@ -154,17 +185,21 @@ router.post('/', verifyToken, async (req, res) => {
       language = tutor.onboardingData.languages[0];
     }
 
+    // Format names for notifications
+    const studentDisplayName = formatDisplayName(student);
+    const tutorDisplayName = formatDisplayName(tutor);
+
     // Create notification for tutor
     try {
       await Notification.create({
         userId: tutor._id,
         type: 'lesson_created',
         title: 'New Lesson Scheduled',
-        message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
+        message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           studentId: student._id,
-          studentName: student.name,
+          studentName: studentDisplayName,
           language: language,
           date: formattedDate,
           time: formattedTime,
@@ -182,11 +217,11 @@ router.post('/', verifyToken, async (req, res) => {
         userId: student._id,
         type: 'lesson_created',
         title: 'Lesson Scheduled',
-        message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`,
+        message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           tutorId: tutor._id,
-          tutorName: tutor.name,
+          tutorName: tutorDisplayName,
           language: language,
           date: formattedDate,
           time: formattedTime,
@@ -206,14 +241,14 @@ router.post('/', verifyToken, async (req, res) => {
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
+          message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
         });
       }
 
       if (studentSocketId) {
         req.io.to(studentSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`
+          message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`
         });
       }
     }
@@ -232,9 +267,9 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// Get lessons by tutor ID (public endpoint for availability checking)
+// Get lessons by tutor ID (protected - contains sensitive student data)
 // IMPORTANT: This must come BEFORE /:id route to avoid route conflicts
-router.get('/by-tutor/:tutorId', async (req, res) => {
+router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
   try {
     const { tutorId } = req.params;
     const { all } = req.query; // Query param to get all lessons (including past)
@@ -256,7 +291,7 @@ router.get('/by-tutor/:tutorId', async (req, res) => {
 
     // Find lessons for this tutor
     const lessons = await Lesson.find(query)
-    .populate('studentId', 'name email picture')
+    .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
     console.log(`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
@@ -308,8 +343,8 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         { studentId: userId }
       ]
     })
-    .populate('tutorId', 'name email picture')
-    .populate('studentId', 'name email picture')
+    .populate('tutorId', 'name email picture firstName lastName')
+    .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
     res.json({ 
@@ -325,12 +360,12 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
   }
 });
 
-// Get lesson details
-router.get('/:id', async (req, res) => {
+// Get lesson details (protected - contains sensitive data)
+router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture')
-      .populate('studentId', 'name email picture');
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('studentId', 'name email picture firstName lastName');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -453,8 +488,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     console.log('📅 User attempting to join lesson:', { userId, lessonId: req.params.id, role: userRole });
 
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture')
-      .populate('studentId', 'name email picture');
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('studentId', 'name email picture firstName lastName');
 
     if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
       return res.status(404).json({ 
@@ -612,7 +647,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             participantPicture: user.picture,
             joinedAt: now.toISOString()
           };
@@ -739,8 +774,8 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
     }
     const userId = user._id;
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture auth0Id')
-      .populate('studentId', 'name email picture auth0Id');
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('studentId', 'name email picture firstName lastName auth0Id');
     if (!lesson) {
       console.log('❌ Lesson not found:', req.params.id);
       return res.status(404).json({ success: false, message: 'Lesson not found' });
@@ -788,7 +823,7 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             leftAt: new Date().toISOString()
           };
           console.log('🚪 Emitting lesson_participant_left event:', JSON.stringify(leaveEvent, null, 2));
@@ -867,8 +902,8 @@ router.post('/:id/leave-beacon', async (req, res) => {
     
     const userId = user._id;
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture auth0Id')
-      .populate('studentId', 'name email picture auth0Id');
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('studentId', 'name email picture firstName lastName auth0Id');
     
     if (!lesson) {
       console.log('❌ Lesson not found:', req.params.id);
@@ -907,7 +942,7 @@ router.post('/:id/leave-beacon', async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             leftAt: new Date().toISOString()
           };
           

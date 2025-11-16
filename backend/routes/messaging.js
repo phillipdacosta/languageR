@@ -6,6 +6,37 @@ const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
 const User = require('../models/User');
 
+// Helper function to format names as "FirstName LastInitial."
+const formatDisplayName = (user) => {
+  if (!user) return 'Unknown User';
+  
+  const firstName = user.firstName || user.onboardingData?.firstName;
+  const lastName = user.lastName || user.onboardingData?.lastName;
+  const fullName = user.name;
+  
+  if (firstName && lastName) {
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  if (fullName) {
+    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      const lastInitial = last.charAt(0).toUpperCase();
+      return `${first} ${lastInitial}.`;
+    }
+    return fullName;
+  }
+  
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  
+  return 'Unknown User';
+};
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -241,7 +272,7 @@ router.get('/conversations', verifyToken, async (req, res) => {
           otherUser: otherUser ? {
             id: otherUser._id.toString(),
             auth0Id: otherUser.auth0Id,
-            name: otherUser.name,
+            name: formatDisplayName(otherUser),
             picture: otherUser.picture,
             userType: otherUser.userType
           } : {
@@ -558,7 +589,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
       createdAt: savedMessage.createdAt,
       sender: sender ? {
         id: sender._id.toString(),
-        name: sender.name,
+        name: formatDisplayName(sender),
         picture: sender.picture
       } : null
     };
@@ -679,7 +710,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       createdAt: savedMessage.createdAt,
       sender: sender ? {
         id: sender._id.toString(),
-        name: sender.name,
+        name: formatDisplayName(sender),
         picture: sender.picture
       } : null
     };
@@ -696,16 +727,17 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     if (receiver) {
       try {
         const Notification = require('../models/Notification');
+        const senderDisplayName = sender ? formatDisplayName(sender) : null;
         await Notification.create({
           userId: receiver._id,
           type: 'message',
           title: 'New Message',
-          message: sender ? `${sender.name} sent you a message` : 'You have a new message',
+          message: senderDisplayName ? `${senderDisplayName} sent you a message` : 'You have a new message',
           data: {
             messageId: savedMessage._id.toString(),
             conversationId: savedMessage.conversationId,
             senderId: sender?._id?.toString(),
-            senderName: sender?.name,
+            senderName: senderDisplayName,
             content: savedMessage.content.substring(0, 100) // Preview first 100 chars
           }
         });
@@ -924,8 +956,8 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       languageText = tutorLanguages.slice(0, -1).join(', ') + ' and ' + tutorLanguages[tutorLanguages.length - 1];
     }
     
-    // Get student name
-    const studentName = student.name || student.email?.split('@')[0] || 'a student';
+    // Get student name formatted as "FirstName LastInitial."
+    const studentName = formatDisplayName(student);
     
     // Randomly select from different message templates for variation
     const messageTemplates = [
@@ -972,11 +1004,11 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       type: 'potential_student',
       title: 'Potential Student Interest',
       message: triggerType === 'favorite' 
-        ? `${student.name} saved your profile`
-        : `${student.name} clicked "Book lesson" on your profile`,
+        ? `${studentName} saved your profile`
+        : `${studentName} clicked "Book lesson" on your profile`,
       data: {
         studentId: student._id.toString(),
-        studentName: student.name,
+        studentName: studentName,
         studentPicture: student.picture,
         conversationId,
         triggerType,
@@ -1000,11 +1032,11 @@ router.post('/potential-student', verifyToken, async (req, res) => {
         type: 'potential_student',
         title: 'Potential Student Interest',
         message: triggerType === 'favorite' 
-          ? `${student.name} saved your profile`
-          : `${student.name} clicked "Book lesson" on your profile`,
+          ? `${studentName} saved your profile`
+          : `${studentName} clicked "Book lesson" on your profile`,
         data: {
           studentId: student._id.toString(),
-          studentName: student.name,
+          studentName: studentName,
           studentPicture: student.picture,
           conversationId,
           triggerType

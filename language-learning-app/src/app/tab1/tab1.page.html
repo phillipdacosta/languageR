@@ -12,7 +12,7 @@
         <span class="notification-dot" *ngIf="hasNotifications"></span>
       </ion-button>
       <ion-avatar class="header-avatar" *ngIf="currentUser">
-        <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" (error)="onAvatarError($event)" (load)="onAvatarLoad($event)">
+        <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" referrerpolicy="no-referrer" (error)="onAvatarError($event)" (load)="onAvatarLoad($event)">
         <div *ngIf="!currentUser.picture" class="avatar-initial">{{ userInitial }}</div>
       </ion-avatar>
     </ion-buttons>
@@ -123,7 +123,21 @@
           </span>
         </div>
         <div class="next-class-details">
-          <h3 class="next-class-name">{{ getFirstLessonForSelectedDate()?.name }}</h3>
+          <div class="next-class-student-row" *ngIf="getFirstLessonForSelectedDate() as nextClass">
+            <ion-avatar class="next-class-student-avatar">
+              <img
+                [src]="getOtherParticipantAvatar(nextClass.lesson)"
+                [alt]="formatStudentDisplayName(nextClass)"
+                referrerpolicy="no-referrer"
+              />
+            </ion-avatar>
+            <div class="next-class-student-info">
+              <div class="next-class-student-name">
+                {{ formatStudentDisplayName(nextClass) }}
+              </div>
+            </div>
+          </div>
+          <h3 class="next-class-name">{{ getFirstLessonForSelectedDate()?.subject }}</h3>
           <p class="next-class-subject">{{ getFirstLessonForSelectedDate()?.subject }}</p>
           <p class="next-class-time" *ngIf="getFirstLessonForSelectedDate()?.lessonTime">
             <ion-icon name="time-outline"></ion-icon>
@@ -179,7 +193,7 @@
         <div class="tutor-card" *ngFor="let student of getOtherStudentsForDate()">
           <div class="tutor-card-content">
             <ion-avatar class="tutor-avatar">
-              <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}">
+              <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}" referrerpolicy="no-referrer">
               <div class="presence-indicator" *ngIf="hasParticipantJoinedById(student.lessonId)">
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
@@ -242,7 +256,7 @@
                     <span class="timeline-date" [class.is-today]="event.date === 'Today'">{{ event.date }}</span>
                   </div>
                   <ion-avatar class="timeline-avatar" *ngIf="event.avatar">
-                    <img [src]="event.avatar" [alt]="event.name">
+                    <img [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
                   </ion-avatar>
                 </div>
                 <div class="timeline-details">
@@ -280,7 +294,7 @@
       <div class="tutor-card" *ngFor="let tutor of featuredTutors">
         <div class="tutor-card-content">
           <ion-avatar class="tutor-avatar">
-            <img [src]="tutor.profilePicture || 'assets/avatar.png'" alt="{{ tutor.name }}">
+            <img [src]="tutor.profilePicture || 'assets/avatar.png'" alt="{{ tutor.name }}" referrerpolicy="no-referrer">
           </ion-avatar>
           <div class="rating-badge">
             <ion-icon name="star"></ion-icon>
@@ -299,7 +313,7 @@
       <ion-card-content>
         <div class="upcoming-lesson-row">
           <ion-avatar class="lesson-avatar-large">
-            <img [src]="upcomingLesson ? getPresenceAvatar(upcomingLesson) : 'assets/avatar.png'" alt="Avatar" />
+            <img [src]="upcomingLesson ? getPresenceAvatar(upcomingLesson) : 'assets/avatar.png'" alt="Avatar" referrerpolicy="no-referrer" />
             <div class="presence-indicator" *ngIf="hasParticipantJoined(upcomingLesson)">
               <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
             </div>
@@ -350,6 +364,7 @@
                 <img 
                   [src]="tutor.picture || 'assets/avatar.png'" 
                   [alt]="tutor.name"
+                  referrerpolicy="no-referrer"
                   (error)="$event.target.src='assets/avatar.png'">
               </div>
             </div>

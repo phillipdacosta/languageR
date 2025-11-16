@@ -32,7 +32,7 @@
           <div class="avatar" *ngIf="!tutor.picture">
             {{ getInitials(tutor.name) }}
           </div>
-          <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="tutor.name" class="avatar-img">
+          <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="tutor.name" class="avatar-img" referrerpolicy="no-referrer">
           <div class="online-badge"></div>
         </div>
         <div class="profile-info">

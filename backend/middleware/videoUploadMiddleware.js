@@ -279,7 +279,8 @@ const verifyToken = async (req, res, next) => {
         userInfo = {
           sub: `dev-user-${email}`,
           email: email,
-          name: username
+          name: username,
+          picture: null // Dev tokens don't have pictures - use real Auth0 login for picture support
         };
       } else {
         // Fallback: convert all hyphens to dots
@@ -287,7 +288,8 @@ const verifyToken = async (req, res, next) => {
         userInfo = {
           sub: `dev-user-${email}`,
           email: email,
-          name: email.split('@')[0]
+          name: email.split('@')[0],
+          picture: null // Dev tokens don't have pictures - use real Auth0 login for picture support
         };
       }
       console.log('🔍 Backend: Dev token processed, user:', userInfo.email);
@@ -310,16 +312,43 @@ const verifyToken = async (req, res, next) => {
         }
         
         const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-        console.log('🔍 Backend: JWT payload:', decodedPayload);
+        console.log('🔍 Backend: Full JWT payload:', JSON.stringify(decodedPayload, null, 2));
+        
+        // Extract user info with multiple fallbacks for different Auth0 token formats
+        const email = decodedPayload.email || 
+                      decodedPayload['https://your-domain.com/email'] || 
+                      decodedPayload['http://your-domain.com/email'];
+        
+        const name = decodedPayload.name || 
+                     decodedPayload.nickname || 
+                     decodedPayload.given_name ||
+                     decodedPayload['https://your-domain.com/name'] ||
+                     email?.split('@')[0] || 
+                     'User';
+        
+        const picture = decodedPayload.picture || 
+                        decodedPayload.picture_url ||
+                        decodedPayload['https://your-domain.com/picture'] ||
+                        null;
         
         userInfo = {
           sub: decodedPayload.sub,
-          email: decodedPayload.email,
-          name: decodedPayload.name || decodedPayload.nickname || decodedPayload.email?.split('@')[0],
+          email: email,
+          name: name,
           email_verified: decodedPayload.email_verified,
-          picture: decodedPayload.picture || decodedPayload.picture_url || null
+          picture: picture,
+          given_name: decodedPayload.given_name,
+          family_name: decodedPayload.family_name
         };
-        console.log('🔍 Backend: Auth0 token processed, user:', userInfo.email);
+        
+        console.log('🔍 Backend: Extracted user info:', {
+          sub: userInfo.sub,
+          email: userInfo.email,
+          name: userInfo.name,
+          picture: userInfo.picture ? 'present' : 'null',
+          given_name: userInfo.given_name,
+          family_name: userInfo.family_name
+        });
       } catch (jwtError) {
         console.error('🔍 Backend: Error decoding JWT:', jwtError);
         console.error('🔍 Backend: Token parts:', token.split('.').length);

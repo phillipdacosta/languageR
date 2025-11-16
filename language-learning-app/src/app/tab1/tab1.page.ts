@@ -102,8 +102,11 @@ export class Tab1Page implements OnInit, OnDestroy {
         email: user?.email,
         firstName: user?.firstName,
         picture: user?.picture,
-        hasPicture: !!user?.picture
+        hasPicture: !!user?.picture,
+        pictureType: typeof user?.picture,
+        pictureLength: user?.picture?.length
       });
+      console.log('🖼️ Full picture URL:', user?.picture);
       this.currentUser = user;
       // Load notification count when user is available
       if (user) {
@@ -568,13 +571,24 @@ export class Tab1Page implements OnInit, OnDestroy {
         
         // If no existing entry, or this lesson is earlier, use this lesson
         if (!existing || new Date(l.startTime) < new Date(existing.lesson.startTime)) {
+          const studentData = l.studentId as any;
+          // Build full name from firstName and lastName if available
+          let fullName = studentData.name || studentData.email;
+          if (studentData.firstName && studentData.lastName) {
+            fullName = `${studentData.firstName} ${studentData.lastName}`;
+          } else if (studentData.firstName) {
+            fullName = studentData.firstName;
+          }
+          
           studentLessonMap.set(studentId, {
             student: {
               id: studentId,
-              name: (l.studentId as any).name || (l.studentId as any).email,
-              profilePicture: (l.studentId as any).picture || (l.studentId as any).profilePicture || 'assets/avatar.png',
-              email: (l.studentId as any).email,
-              rating: (l.studentId as any).rating || 4.5,
+              name: fullName,
+              firstName: studentData.firstName,
+              lastName: studentData.lastName,
+              profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
+              email: studentData.email,
+              rating: studentData.rating || 4.5,
             },
             lesson: l,
             isNext: false // Will be set correctly below
@@ -656,6 +670,61 @@ export class Tab1Page implements OnInit, OnDestroy {
     return students.find(s => s.isNextClass) || null;
   }
 
+  // Format student display name as "First L."
+  formatStudentDisplayName(studentOrName: any): string {
+    // Handle if it's a student object with firstName and lastName
+    if (typeof studentOrName === 'object' && studentOrName) {
+      const firstName = studentOrName.firstName;
+      const lastName = studentOrName.lastName;
+      
+      if (firstName && lastName) {
+        return `${this.capitalize(firstName)} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return this.capitalize(firstName);
+      }
+      
+      // Fall back to name field if firstName/lastName not available
+      const rawName = studentOrName.name || studentOrName.email;
+      if (!rawName) return 'Student';
+      return this.formatStudentDisplayName(rawName); // Recursively handle the string
+    }
+    
+    // Handle if it's just a string name
+    const rawName = studentOrName;
+    if (!rawName || typeof rawName !== 'string') {
+      return 'Student';
+    }
+
+    const name = rawName.trim();
+
+    // If it's an email, use the part before @ as a fallback
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      if (!base) return 'Student';
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
   // Check if the next class is currently in progress
   isNextClassInProgress(): boolean {
     const nextClassStudent = this.getNextClassStudent();
@@ -733,12 +802,23 @@ export class Tab1Page implements OnInit, OnDestroy {
       };
     } else if (firstLesson.studentId && typeof firstLesson.studentId === 'object') {
       // For regular lessons, show student info
+      const studentData = firstLesson.studentId as any;
+      // Build full name from firstName and lastName if available, otherwise use name field
+      let fullName = studentData.name || studentData.email;
+      if (studentData.firstName && studentData.lastName) {
+        fullName = `${studentData.firstName} ${studentData.lastName}`;
+      } else if (studentData.firstName) {
+        fullName = studentData.firstName;
+      }
+      
       student = {
-        id: (firstLesson.studentId as any)._id,
-        name: (firstLesson.studentId as any).name || (firstLesson.studentId as any).email,
-        profilePicture: (firstLesson.studentId as any).picture || (firstLesson.studentId as any).profilePicture || 'assets/avatar.png',
-        email: (firstLesson.studentId as any).email,
-        rating: (firstLesson.studentId as any).rating || 4.5,
+        id: studentData._id,
+        name: fullName,
+        firstName: studentData.firstName,
+        lastName: studentData.lastName,
+        profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
+        email: studentData.email,
+        rating: studentData.rating || 4.5,
       };
     }
     
@@ -1010,6 +1090,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getOtherParticipantAvatar(lesson: Lesson): string {
+    console.log('getOtherParticipantAvatar', lesson);
     if (!this.currentUser || !lesson) return 'assets/avatar.png';
     
     // Use lesson ID + participant ID as cache key
@@ -1682,8 +1763,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     console.error('❌ Avatar image failed to load:', {
       src: event.target?.src,
       currentUserPicture: this.currentUser?.picture,
+      areEqual: event.target?.src === this.currentUser?.picture,
+      srcLength: event.target?.src?.length,
+      pictureLength: this.currentUser?.picture?.length,
+      errorType: event.type,
       error: event
     });
+    
+    // Try to diagnose the issue
+    if (this.currentUser?.picture) {
+      const img = new Image();
+      img.onload = () => console.log('✅ Manual image test succeeded for:', this.currentUser?.picture);
+      img.onerror = (e) => console.error('❌ Manual image test failed for:', this.currentUser?.picture, e);
+      img.src = this.currentUser.picture;
+    }
   }
 
   onAvatarLoad(event: any) {

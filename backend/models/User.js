@@ -19,6 +19,21 @@ const userSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  firstName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  lastName: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  country: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   picture: {
     type: String,
     default: null
@@ -66,7 +81,7 @@ const userSchema = new mongoose.Schema({
     },
     bio: {
       type: String,
-      maxlength: 500,
+      maxlength: 1000,
       default: ''
     },
     hourlyRate: {
@@ -78,6 +93,16 @@ const userSchema = new mongoose.Schema({
       trim: true,
       default: ''
     },
+    videoThumbnail: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    videoType: {
+      type: String,
+      enum: ['upload', 'youtube', 'vimeo'],
+      default: 'upload'
+    },
     completedAt: {
       type: Date,
       default: Date.now
@@ -86,7 +111,7 @@ const userSchema = new mongoose.Schema({
   profile: {
     bio: {
       type: String,
-      maxlength: 500,
+      maxlength: 1000,
       default: ''
     },
     timezone: {

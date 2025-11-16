@@ -378,17 +378,19 @@ export class OnboardingPage implements OnInit {
         ).toPromise();
       } else {
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string } = {
           userType: 'student',
           firstName: this.firstName,
           lastName: this.lastName,
           languages: this.selectedLanguages,
           goals: this.learningGoals,
           experienceLevel: this.experienceLevel,
-          preferredSchedule: this.preferredSchedule
+          preferredSchedule: this.preferredSchedule,
+          picture: auth0User.picture // Include picture from Auth0 user profile
         };
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');
+        console.log('🖼️ Student onboarding picture:', auth0User.picture);
         updatedUser = await this.userService.completeOnboarding(onboardingData).pipe(
           timeout(10000),
           retry(2),

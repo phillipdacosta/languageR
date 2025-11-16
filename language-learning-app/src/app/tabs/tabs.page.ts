@@ -89,8 +89,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
             name: user?.name,
             email: user?.email,
             picture: user?.picture,
-            hasPicture: !!user?.picture
+            hasPicture: !!user?.picture,
+            pictureType: typeof user?.picture,
+            pictureLength: user?.picture?.length
           });
+          console.log('🖼️ TabsPage: Full picture URL:', user?.picture);
           this.currentUser = user;
           
           // If user doesn't have a picture but Auth0 user does, reload after a short delay
@@ -357,6 +360,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onImageError(event: any) {
+    console.error('❌ Avatar image failed to load in tabs:', {
+      src: event.target?.src,
+      currentUserPicture: this.currentUser?.picture,
+      errorType: event.type
+    });
     
     // Hide the image and show initials instead
     const img = event.target;

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { Observable, BehaviorSubject, combineLatest } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { map, tap, take } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
@@ -92,6 +92,13 @@ export class AuthService {
    */
   getAccessToken(): Observable<string> {
     return this.auth0.getAccessTokenSilently();
+  }
+
+  /**
+   * Get ID token claims (includes user profile with picture)
+   */
+  async getIdTokenClaims(): Promise<any> {
+    return this.auth0.idTokenClaims$.pipe(take(1)).toPromise();
   }
 
   /**
