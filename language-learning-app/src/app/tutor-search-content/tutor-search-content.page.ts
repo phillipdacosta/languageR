@@ -8,6 +8,7 @@ import { ModalController, ViewWillEnter } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
+import { VideoPlayerModalComponent } from './video-player-modal.component';
 
 @Component({
   selector: 'app-tutor-search-content',
@@ -47,11 +48,13 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   
   showFiltersView = false;
   showLanguageDropdown = false;
+  showSecondaryFilters = false;
   isLoading = true; // prevent initial FOUC of empty state until first load completes
   tutors: Tutor[] = [];
   searchResponse: TutorSearchResponse | null = null;
   currentUser: User | null = null;
   showPriceFilter = false;
+  viewMode: 'grid' | 'list' = 'list'; // View toggle - default to list
   
   filters: TutorSearchFilters = {
     language: 'Spanish',
@@ -341,7 +344,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   }
 
   toggleLanguageDropdown() {
+    console.log('Toggle language dropdown', this.showLanguageDropdown);
     this.showLanguageDropdown = !this.showLanguageDropdown;
+  }
+
+  toggleSecondaryFilters() {
+    this.showSecondaryFilters = !this.showSecondaryFilters;
   }
 
   selectLanguage(language: string) {
@@ -392,10 +400,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event) {
-    const target = event.target as HTMLElement;
-    const languageFilter = target.closest('.language-filter');
-    
-    if (!languageFilter && this.showLanguageDropdown) {
+    // Close language dropdown when clicking outside
+    if (this.showLanguageDropdown) {
       this.showLanguageDropdown = false;
     }
   }
@@ -680,6 +686,23 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     return this.playingVideos.has(tutorId);
   }
 
+  async openVideoModal(tutor: Tutor) {
+    if (!tutor || !tutor.introductionVideo) return;
+    
+    const modal = await this.modalController.create({
+      component: VideoPlayerModalComponent,
+      componentProps: {
+        videoUrl: tutor.introductionVideo,
+        thumbnailUrl: tutor.videoThumbnail || '',
+        tutorName: this.formatDisplayName(tutor.firstName, tutor.lastName, tutor.name)
+      },
+      cssClass: 'video-player-modal',
+      backdropDismiss: true
+    });
+    
+    await modal.present();
+  }
+
   playTutorVideo(tutor: Tutor) {
     if (!tutor || !tutor.introductionVideo) return;
     
@@ -733,5 +756,25 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     }
     
     return '';
+  }
+
+  // Toggle view mode
+  toggleViewMode(mode: 'grid' | 'list') {
+    this.viewMode = mode;
+  }
+
+  // Open tutor profile (new tab on desktop, same page on mobile)
+  openTutorProfile(tutor: Tutor, event: Event) {
+    event.stopPropagation();
+    const url = `/tutor/${tutor.id}`;
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+      // Navigate in the same window on mobile
+      this.router.navigate([url]);
+    } else {
+      // Open in new tab on desktop
+      window.open(url, '_blank');
+    }
   }
 }

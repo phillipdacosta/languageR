@@ -32,23 +32,25 @@
       <!-- Top Row Filters - Always visible -->
       <div class="top-filters">
         <!-- Language Search - Always visible -->
-        <div class="filter-item language-filter" [class.dropdown-open]="showLanguageDropdown">
+        <div class="filter-item language-filter" 
+             [class.dropdown-open]="showLanguageDropdown"
+             (click)="toggleLanguageDropdown(); $event.stopPropagation()">
           <label>I want to learn</label>
-          <div class="filter-value-wrapper" (click)="toggleLanguageDropdown()">
+          <div class="filter-value-wrapper">
             <span class="filter-value">{{ getCurrentLanguageLabel() }}</span>
-            <app-flag-icon *ngIf="filters.language && filters.language !== 'any'" [language]="filters.language" [size]="18" cssClass="filter-flag" style="margin-left: 6px;"></app-flag-icon>
+            <app-flag-icon *ngIf="filters.language && filters.language !== 'any'" [language]="filters.language" [size]="16" cssClass="filter-flag"></app-flag-icon>
             <ion-icon name="close-outline" class="clear-icon" *ngIf="filters.language && filters.language !== 'any'" (click)="selectLanguage('any'); $event.stopPropagation()"></ion-icon>
             <ion-icon name="chevron-down-outline" [class.rotated]="showLanguageDropdown" *ngIf="!filters.language || filters.language === 'any'"></ion-icon>
           </div>
           
           <!-- Language Dropdown -->
-          <div class="language-dropdown" *ngIf="showLanguageDropdown">
+          <div class="language-dropdown" *ngIf="showLanguageDropdown" (click)="$event.stopPropagation()">
             <div class="dropdown-option" 
                  *ngFor="let lang of availableLanguages" 
                  [class.selected]="filters.language === lang.value"
-                 (click)="selectLanguage(lang.value)">
+                 (click)="selectLanguage(lang.value); $event.stopPropagation()">
               <span>{{ lang.label }}</span>
-              <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="16" cssClass="dropdown-flag" style="margin-left: 6px;"></app-flag-icon>
+              <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="14" cssClass="dropdown-flag"></app-flag-icon>
             </div>
           </div>
         </div>
@@ -97,209 +99,175 @@
         </ion-button>
       </div>
 
+      <!-- Secondary Filters Row - Collapsible -->
+      <div class="secondary-filters-toggle">
+        <ion-button fill="clear" size="small" (click)="toggleSecondaryFilters()" class="more-filters-btn">
+          <ion-icon [name]="showSecondaryFilters ? 'chevron-up-outline' : 'chevron-down-outline'" slot="start"></ion-icon>
+          {{ showSecondaryFilters ? 'Less filters' : 'More filters' }}
+        </ion-button>
+      </div>
+
       <!-- Secondary Filters Row -->
-      <div class="secondary-filters">
+      <div class="secondary-filters" *ngIf="showSecondaryFilters">
         <ion-button class="filter-chip" fill="outline" size="small" (click)="openSpecialtiesFilter()">
           Specialties
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
         </ion-button>
 
         <ion-button class="filter-chip" fill="outline" size="small" (click)="openGenderFilter()">
           Gender
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
-        </ion-button>
-
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openAlsoSpeaksFilter()">
-          Also speaks
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
         </ion-button>
 
         <ion-button class="filter-chip" fill="outline" size="small" (click)="openNativeSpeakerFilter()">
-          Native speaker
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
-        </ion-button>
-
-        <ion-button class="filter-chip" fill="outline" size="small" (click)="openCategoriesFilter()">
-          Tutor categories
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
+          Native
         </ion-button>
 
         <ion-button class="filter-chip" fill="outline" size="small" (click)="openSortFilter()">
-          Sort by: Our top picks
-          <ion-icon slot="end" name="chevron-down-outline"></ion-icon>
+          Sort
         </ion-button>
 
         <div class="search-input-wrapper">
           <ion-icon name="search-outline" class="search-icon"></ion-icon>
-          <input type="text" placeholder="Search by name or keyword" class="search-input">
+          <input type="text" placeholder="Search by name" class="search-input">
         </div>
       </div>
     </div>
 
-    <!-- Loading State with Skeleton -->
+    <!-- Loading State -->
     <div class="loading-container" *ngIf="isLoading && tutors.length === 0">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Finding tutors...</p>
     </div>
 
-    <!-- Skeleton Loading Cards -->
-    <div class="skeleton-cards" *ngIf="isLoading && tutors.length > 0">
-      <div class="skeleton-card" *ngFor="let item of [1,2,3]">
-        <div class="skeleton-header">
-          <div class="skeleton-avatar"></div>
-          <div class="skeleton-info">
-            <div class="skeleton-name"></div>
-            <div class="skeleton-languages"></div>
-            <div class="skeleton-rating"></div>
-          </div>
-          <div class="skeleton-price"></div>
-        </div>
-        <div class="skeleton-details">
-          <div class="skeleton-bio"></div>
-          <div class="skeleton-stats">
-            <div class="skeleton-stat"></div>
-            <div class="skeleton-stat"></div>
-            <div class="skeleton-stat"></div>
-          </div>
-        </div>
-        <div class="skeleton-actions">
-          <div class="skeleton-button"></div>
-          <div class="skeleton-button"></div>
-          <div class="skeleton-button"></div>
-        </div>
+    <!-- Results Header with View Toggle -->
+    <div class="results-header" *ngIf="searchResponse && !isLoading">
+      <h2>{{ searchResponse.pagination.totalCount }} {{ filters.language !== 'any' ? filters.language : '' }} tutors available</h2>
+      <div class="view-toggle desktop-only">
+        <ion-button 
+          [fill]="viewMode === 'grid' ? 'solid' : 'clear'" 
+          size="small" 
+          (click)="toggleViewMode('grid')">
+          <ion-icon name="grid-outline"></ion-icon>
+        </ion-button>
+        <ion-button 
+          [fill]="viewMode === 'list' ? 'solid' : 'clear'" 
+          size="small" 
+          (click)="toggleViewMode('list')">
+          <ion-icon name="list-outline"></ion-icon>
+        </ion-button>
       </div>
     </div>
 
-    <!-- Tutors List -->
-    <div class="tutors-container" *ngIf="!isLoading || tutors.length > 0" [@fadeInOut]>
-      <!-- Results Summary -->
-      <div class="results-summary" *ngIf="searchResponse">
-        <p>{{ searchResponse.pagination.totalCount }} tutors found</p>
-        <!-- Subtle loading indicator when updating -->
-        <div class="updating-indicator" *ngIf="isLoading && tutors.length > 0">
-          <ion-spinner name="crescent" class="small-spinner"></ion-spinner>
-          <span>Updating...</span>
-        </div>
-      </div>
-
+    <!-- Tutors Container with Dynamic Layout -->
+    <div class="tutors-container" 
+         [class.grid-view]="viewMode === 'grid'" 
+         [class.list-view]="viewMode === 'list'"
+         *ngIf="!isLoading || tutors.length > 0" 
+         [@fadeInOut]>
+      
       <!-- Tutor Cards -->
-      <div class="tutor-card" 
+      <div class="tutor-card-modern" 
            *ngFor="let tutor of tutors; trackBy: trackByTutorId; let i = index"
            [attr.data-tutor-id]="tutor.id"
            [@slideInUp] 
-           [style.animation-delay]="(i * 0.1) + 's'">
-        <div class="tutor-header">
-          <div class="tutor-avatar">
-            <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" (error)="onImageError($event)">
-          </div>
-          <div class="tutor-info">
-            <h3 class="tutor-name">{{ tutor.firstName | displayName:tutor.lastName:tutor.name }}</h3>
-            <div class="tutor-languages">
-              <span class="language-tag" *ngFor="let language of tutor.languages">
-                <span>{{ language }}</span>
-                <app-flag-icon [language]="language" [size]="14" cssClass="tag-flag" style="margin-left: 4px;"></app-flag-icon>
-              </span>
+           [style.animation-delay]="(i * 0.05) + 's'"
+           (click)="navigateToTutorProfile(tutor.id)">
+        
+        <!-- Card Main Content -->
+        <div class="card-main">
+          <!-- Left: Avatar -->
+          <div class="left-section">
+            <div class="tutor-avatar-container">
+              <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" class="tutor-avatar-image" (error)="onImageError($event)">
+              <div class="online-badge" *ngIf="tutor.isOnline"></div>
             </div>
-            <div class="tutor-rating" *ngIf="tutor.rating > 0">
-              <ion-icon name="star" class="star-icon"></ion-icon>
-              <span>{{ tutor.rating.toFixed(1) }}</span>
-              <span class="rating-count">({{ tutor.totalLessons }} lessons)</span>
-            </div>
+            <button 
+              class="see-video-btn mobile-only" 
+              *ngIf="tutor.videoThumbnail || tutor.introductionVideo"
+              (click)="openVideoModal(tutor); $event.stopPropagation()">
+              <ion-icon name="play-circle-outline"></ion-icon>
+              <span>See video</span>
+            </button>
           </div>
-          <div class="tutor-price">
-            <span class="price">${{ tutor.hourlyRate }}</span>
-            <span class="price-unit">/hour</span>
-          </div>
-        </div>
-
-        <div class="tutor-details">
-          <p class="tutor-bio" *ngIf="tutor.bio">{{ tutor.bio }}</p>
           
-          <!-- Introduction Video -->
-          <div class="tutor-video" *ngIf="tutor.introductionVideo">
-            <p class="video-label">Introduction Video</p>
-            <div class="video-container">
-              <!-- External video (YouTube/Vimeo) with Thumbnail -->
-              <div class="external-video-preview" *ngIf="isExternalVideo(tutor.introductionVideo)">
-                <!-- Thumbnail Overlay -->
-                <div class="thumbnail-overlay" *ngIf="tutor.videoThumbnail" (click)="playTutorVideo(tutor)">
-                  <img [src]="tutor.videoThumbnail" alt="Video thumbnail" class="video-thumbnail">
-                  <div class="play-overlay">
-                    <ion-icon name="play-circle" class="play-icon"></ion-icon>
+          <!-- Middle: Info & Bio -->
+          <div class="middle-section">
+            <!-- Header Row -->
+            <div class="header-row">
+              <div class="name-section">
+                <h3 class="tutor-name-modern">{{ tutor.firstName | displayName:tutor.lastName:tutor.name }}</h3>
+                <div class="tutor-meta-inline">
+                  <div class="rating-badge" *ngIf="tutor.rating > 0">
+                    <ion-icon name="star"></ion-icon>
+                    <span>{{ tutor.rating.toFixed(1) }}</span>
+                    <span class="lessons-count">({{ tutor.totalLessons }})</span>
+                  </div>
+                  <div class="language-badge-inline">
+                    <app-flag-icon *ngIf="tutor.languages && tutor.languages[0]" [language]="tutor.languages[0]" [size]="14"></app-flag-icon>
+                    <span>{{ tutor.languages && tutor.languages[0] }}</span>
+                  </div>
+                  <div class="tutor-country-inline" *ngIf="tutor.country">
+                    <ion-icon name="location-outline"></ion-icon>
+                    <span>{{ tutor.country }}</span>
                   </div>
                 </div>
-                
-                <!-- iframe - shown when thumbnail is clicked or no thumbnail exists -->
-                <iframe 
-                  *ngIf="!tutor.videoThumbnail || isTutorVideoPlaying(tutor.id)"
-                  [attr.id]="'tutor-video-' + tutor.id"
-                  [src]="getTutorVideoUrl(tutor) | safeUrl"
-                  frameborder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowfullscreen
-                  class="preview-iframe">
-                </iframe>
               </div>
               
-              <!-- Uploaded video (GCP) with optional Thumbnail -->
-              <div class="uploaded-video-preview" *ngIf="!isExternalVideo(tutor.introductionVideo)">
-                <!-- Thumbnail Overlay -->
-                <div class="thumbnail-overlay" *ngIf="tutor.videoThumbnail" (click)="playTutorVideo(tutor)">
-                  <img [src]="tutor.videoThumbnail" alt="Video thumbnail" class="video-thumbnail">
-                  <div class="play-overlay">
-                    <ion-icon name="play-circle" class="play-icon"></ion-icon>
-                  </div>
-                </div>
-                
-                <!-- HTML5 Video - shown when thumbnail is clicked or no thumbnail exists -->
-                <video 
-                  *ngIf="!tutor.videoThumbnail || isTutorVideoPlaying(tutor.id)"
-                  [attr.id]="'tutor-video-' + tutor.id"
-                  [src]="tutor.introductionVideo" 
-                  controls 
-                  preload="metadata" 
-                  class="preview-video">
-                  Your browser does not support the video tag.
-                </video>
+              <div class="price-badge-compact">
+                <div class="price-amount">${{ tutor.hourlyRate }}</div>
+                <div class="price-label">per hour</div>
+              </div>
+            </div>
+            
+            <!-- Bio Section - Center Priority -->
+            <div class="bio-section-inline" *ngIf="tutor.bio">
+              <p class="bio-text" [class.truncated]="tutor.bio.length > 200">
+                {{ tutor.bio }}
+              </p>
+              <button class="learn-more-btn" 
+                      (click)="openTutorProfile(tutor, $event)" 
+                      *ngIf="tutor.bio && tutor.bio.length > 200">
+                Learn more
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+              </button>
+            </div>
+            
+            <!-- Quick Stats -->
+            <div class="quick-stats-inline">
+              <div class="stat-chip">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ tutor.totalHours || 0 }}h taught</span>
+              </div>
+              <div class="stat-chip" *ngIf="tutor.nativeSpeaker">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>Native</span>
+              </div>
+              <div class="stat-chip" *ngIf="tutor.specialties && tutor.specialties[0]">
+                <span>{{ tutor.specialties[0] }}</span>
               </div>
             </div>
           </div>
           
-          <div class="tutor-stats">
-            <div class="stat-item">
-              <ion-icon name="time-outline"></ion-icon>
-              <span>{{ tutor.totalHours }}h taught</span>
-            </div>
-            <div class="stat-item">
-              <ion-icon name="calendar-outline"></ion-icon>
-              <span>{{ tutor.schedule }}</span>
-            </div>
-            <div class="stat-item" *ngIf="tutor.nativeSpeaker">
-              <ion-icon name="checkmark-circle-outline"></ion-icon>
-              <span>Native speaker</span>
+          <!-- Right: Video Thumbnail (only show in list view) -->
+          <div class="right-section" *ngIf="(tutor.videoThumbnail || tutor.introductionVideo) && viewMode === 'list'">
+            <div class="video-thumbnail-wrapper" (click)="openVideoModal(tutor); $event.stopPropagation()">
+              <img *ngIf="tutor.videoThumbnail" [src]="tutor.videoThumbnail" alt="Video preview" class="video-thumbnail-image">
+              <div class="video-play-overlay">
+                <ion-icon name="play"></ion-icon>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="tutor-actions">
-          <ion-button fill="outline" size="small" (click)="saveTutor(tutor, $event)">
-            <ion-icon name="heart-outline" slot="start"></ion-icon>
-            Save
+        
+        <!-- Action Buttons -->
+        <div class="card-actions" (click)="$event.stopPropagation()">
+          <ion-button class="action-btn secondary" fill="outline" size="small" (click)="saveTutor(tutor, $event)">
+            <ion-icon name="heart-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <ion-button fill="solid" size="small" (click)="messageTutor(tutor)">
-            <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
-            Message
+          <ion-button class="action-btn secondary" fill="outline" size="small" (click)="messageTutor(tutor)">
+            <ion-icon name="chatbubble-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <ion-button fill="outline" color="primary" size="small" (click)="viewAvailability(tutor)">
-            <ion-icon name="calendar-outline" slot="start"></ion-icon>
-            Availability
-          </ion-button>
-          <ion-button fill="outline" color="medium" size="small" (click)="navigateToTutorProfile(tutor.id)">
-            <ion-icon name="person-outline" slot="start"></ion-icon>
-            Profile
-          </ion-button>
-          <ion-button class="cta" fill="solid" color="success" size="small" (click)="bookLesson(tutor, $event)">
-            <ion-icon name="videocam-outline" slot="start"></ion-icon>
+          <ion-button class="action-btn primary" fill="solid" expand="block" (click)="bookLesson(tutor, $event)">
+            <ion-icon name="calendar" slot="start"></ion-icon>
             Book lesson
           </ion-button>
         </div>
@@ -308,6 +276,7 @@
       <!-- Load More Button -->
       <div class="load-more-container" *ngIf="searchResponse && searchResponse.pagination.hasNext">
         <ion-button fill="outline" (click)="loadMoreTutors()" [disabled]="isLoading">
+          <ion-icon name="chevron-down-outline" slot="start"></ion-icon>
           Load More Tutors
         </ion-button>
       </div>
@@ -321,35 +290,6 @@
           Clear Filters
         </ion-button>
       </div>
-    </div>
-
-    <!-- Info Banner -->
-     <div *ngIf="!isLoading">
-
-    
-    <div class="info-banner"> 
-      <ion-icon name="wallet-outline" class="banner-icon"></ion-icon>
-      <span>Use your balance to book a trial lesson. <a href="#">Learn more</a></span>
-    </div>
-
-    <!-- Results Count -->
-    <div class="results-header">
-      <h2>11,664 Spanish teachers available</h2>
-    </div>
-    <div class="promo-banner">
-      <ion-icon name="gift-outline" class="promo-icon"></ion-icon>
-      <div class="promo-text">
-        <strong>Enjoy 100% off your trial lesson</strong>
-        <p>No code needed. Applies to tutors charging $7 or more.</p>
-      </div>
-    </div>
-  </div>
-    <!-- Promo Banner -->
-
-
-    <!-- Tutor Results would go here -->
-    <div class="tutors-list">
-      <!-- Tutor cards will be rendered here -->
     </div>
   </div>
 

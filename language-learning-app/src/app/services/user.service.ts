@@ -91,6 +91,11 @@ export interface Tutor {
   totalLessons: number;
   totalHours: number;
   joinedDate: string;
+  // UI state properties
+  isOnline?: boolean;
+  expanded?: boolean;
+  responseTime?: string;
+  specialties?: string[];
 }
 
 export interface TutorSearchFilters {
