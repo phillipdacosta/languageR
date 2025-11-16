@@ -37,6 +37,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Virtual background properties
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
+  
+  // Audio level monitoring
+  audioLevel: number = 0;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private animationFrame: number | null = null;
 
 
   constructor(
@@ -194,24 +200,34 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  toggleMicrophone() {
+  async toggleMicrophone() {
     this.isMuted = !this.isMuted;
     
-    if (this.localStream) {
-      const audioTracks = this.localStream.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !this.isMuted;
-      });
-    } else if (!this.isMuted) {
-      // If stream doesn't exist and user wants to enable mic, request it
-      this.setupPreview();
-    }
+    // Note: We don't actually disable audio tracks during pre-call
+    // The video element is already muted to prevent feedback
+    // This just tracks the mute state for when entering the classroom
+    // and the UI will show the audio level at 0% when muted
+    
+    console.log(`🎤 Microphone state toggled: ${this.isMuted ? 'muted' : 'unmuted'} (for call entry only - audio monitoring continues)`);
   }
 
   async toggleCamera() {
     this.isVideoOff = !this.isVideoOff;
     
-    if (this.localStream) {
+    // Check if we're using Agora tracks (for virtual background)
+    const agoraVideoTrack = this.agoraService.getLocalVideoTrack();
+    
+    if (agoraVideoTrack) {
+      // If using Agora tracks, toggle the Agora video track
+      await agoraVideoTrack.setEnabled(!this.isVideoOff);
+      console.log(`📹 Camera ${this.isVideoOff ? 'OFF' : 'ON'} (Agora track)`);
+      
+      // Update video element visibility but keep using Agora track
+      if (!this.isVideoOff) {
+        this.updateVideoPreviewWithAgoraTrack();
+      }
+    } else if (this.localStream) {
+      // If using MediaStream, toggle MediaStream video tracks
       const videoTracks = this.localStream.getVideoTracks();
       if (videoTracks.length > 0) {
         // Video tracks exist, just enable/disable them
@@ -234,7 +250,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
       }
-
+      
       // Update video element
       this.updateVideoPreview();
     } else if (!this.isVideoOff) {
@@ -377,6 +393,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.destroy$.next();
     this.destroy$.complete();
     
+    // Stop audio monitoring
+    this.stopAudioMonitoring();
+    
     // Clean up media stream
     if (this.localStream) {
       console.log('🛑 Stopping preview MediaStream tracks in ngOnDestroy...');
@@ -440,10 +459,15 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Use MediaStream for video preview
     if (this.localStream) {
+      // Ensure video element is muted to prevent audio feedback
+      videoElement.muted = true;
       videoElement.srcObject = this.localStream;
       videoElement.play().catch(err => {
         console.error('Error playing video:', err);
       });
+      
+      // Start monitoring audio levels for visual feedback
+      this.startAudioMonitoring();
     }
   }
 
@@ -472,7 +496,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Failed to create Agora video track');
       }
       
-      console.log('✅ Agora tracks created successfully for virtual background support');
+      // Keep the Agora audio track enabled for monitoring
+      // The video element is muted so there won't be any feedback
+      // This allows the audio level indicator to work properly
+      console.log('✅ Agora tracks created successfully for virtual background support (audio enabled for monitoring)');
     } catch (error) {
       console.error('❌ Failed to initialize Agora for virtual background:', error);
       throw error; // Re-throw so calling code knows it failed
@@ -512,6 +539,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔍 DEBUG: Virtual background state after setting blur:', JSON.stringify(vbState, null, 2));
       
       console.log('✅ Background blur enabled successfully');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to set background blur:', error);
       
@@ -548,6 +578,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.updateVideoPreviewWithAgoraTrack();
       
       console.log('✅ Background color set successfully');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to set background color:', error);
       
@@ -566,10 +599,25 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.disableVirtualBackground();
       this.isVirtualBackgroundEnabled = false;
       
+      // Recreate MediaStream with audio (since we stopped it when enabling blur)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        this.localStream = stream;
+        console.log('✅ Recreated MediaStream with audio for preview');
+      } catch (error) {
+        console.error('❌ Failed to recreate MediaStream:', error);
+      }
+      
       // Switch back to original MediaStream
       this.updateVideoPreview();
       
       console.log('✅ Virtual background disabled successfully');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to disable virtual background:', error);
     }
@@ -582,15 +630,117 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     if (videoElement && agoraVideoTrack) {
       try {
+        // Stop the original MediaStream to prevent audio feedback
+        if (this.localStream) {
+          this.localStream.getAudioTracks().forEach(track => {
+            track.stop();
+            console.log('🔇 Stopped MediaStream audio track to prevent feedback');
+          });
+        }
+        
+        // Ensure video element is muted to prevent any audio feedback
+        videoElement.muted = true;
+        
         // Play the Agora track (which has virtual background processing)
-        agoraVideoTrack.play(videoElement);
-        console.log('✅ Switched to Agora video track with virtual background');
+        // Disable mirroring to prevent video from flipping when blur is enabled
+        agoraVideoTrack.play(videoElement, { mirror: false });
+        console.log('✅ Switched to Agora video track with virtual background (mirror disabled)');
+        
+        // Start monitoring Agora audio levels
+        this.startAudioMonitoring();
       } catch (error) {
         console.error('❌ Failed to play Agora video track:', error);
         // Fallback to original MediaStream
         this.updateVideoPreview();
       }
     }
+  }
+
+  // Start monitoring audio levels for visual feedback
+  private startAudioMonitoring(): void {
+    try {
+      // Stop any existing monitoring
+      this.stopAudioMonitoring();
+      
+      // Get the active audio track (Agora or MediaStream)
+      const agoraAudioTrack = this.agoraService.getLocalAudioTrack();
+      let audioStream: MediaStream | null = null;
+      
+      if (agoraAudioTrack) {
+        // Get MediaStreamTrack from Agora track
+        console.log('🎤 Using Agora audio track for monitoring');
+        const mediaStreamTrack = agoraAudioTrack.getMediaStreamTrack();
+        console.log('🔍 Agora audio track state:', {
+          enabled: mediaStreamTrack.enabled,
+          muted: mediaStreamTrack.muted,
+          readyState: mediaStreamTrack.readyState
+        });
+        audioStream = new MediaStream([mediaStreamTrack]);
+      } else if (this.localStream) {
+        console.log('🎤 Using MediaStream audio track for monitoring');
+        audioStream = this.localStream;
+      }
+      
+      if (!audioStream) {
+        console.log('⚠️ No audio stream available for monitoring');
+        return;
+      }
+      
+      // Create audio context and analyser
+      this.audioContext = new AudioContext();
+      const source = this.audioContext.createMediaStreamSource(audioStream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      source.connect(this.analyser);
+      
+      // Start the monitoring loop
+      const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+      
+      const updateLevel = () => {
+        if (!this.analyser) {
+          this.audioLevel = 0;
+          return;
+        }
+        
+        this.analyser.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        
+        // Convert to percentage (0-100) and smooth it out
+        // The UI will handle showing 0 when muted, but we keep monitoring
+        this.audioLevel = Math.min(100, (average / 128) * 100);
+        
+        // Continue monitoring
+        this.animationFrame = requestAnimationFrame(updateLevel);
+      };
+      
+      updateLevel();
+      console.log('🎤 Audio level monitoring started');
+    } catch (error) {
+      console.error('❌ Failed to start audio monitoring:', error);
+    }
+  }
+
+  // Stop monitoring audio levels
+  private stopAudioMonitoring(): void {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+      this.animationFrame = null;
+    }
+    
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    
+    this.analyser = null;
+    this.audioLevel = 0;
+    console.log('🎤 Audio level monitoring stopped');
   }
 }
 

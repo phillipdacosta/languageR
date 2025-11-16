@@ -1954,7 +1954,7 @@ ion-content {
 
   .mobile-day-strip {
     position: fixed;
-    top: 222px;
+    top: 190px;
     left: 0;
     right: 0;
     z-index: 98;
@@ -1979,7 +1979,7 @@ ion-content {
   .mobile-day-strip.agenda-strip {
     gap: 12px;
     position: fixed;
-    top: 220px;
+    top: 187px;
     left: 0;
     right: 0;
     z-index: 98;
@@ -2052,7 +2052,7 @@ ion-content {
 
   .mobile-date-header {
     position: fixed;
-    top: 303px;
+    top: 273px;
     left: 0;
     right: 0;
     z-index: 97;
@@ -2289,7 +2289,7 @@ ion-content {
   .mobile-agenda {
     flex-direction: column;
     gap: 20px;
-    padding-top: 308px;
+    padding-top: 270px;
     padding-bottom: 24px;
   }
 
@@ -2410,7 +2410,7 @@ ion-content {
   .legend-items {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 18px;
+    gap: 10px 17px;
   }
 
   .legend-item {

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, from } from 'rxjs';
+import { Observable, BehaviorSubject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
@@ -221,7 +221,16 @@ export class UserService {
   /**
    * Get current user from API
    */
-  getCurrentUser(): Observable<User> {
+  getCurrentUser(forceRefresh = false): Observable<User> {
+    // If we already have a user and not forcing refresh, return cached
+    const cachedUser = this.currentUserSubject.value;
+    if (cachedUser && !forceRefresh) {
+      console.log('📦 UserService: Returning cached user');
+      return of(cachedUser);
+    }
+
+    // Otherwise fetch from API
+    console.log('🌐 UserService: Fetching user from API');
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {

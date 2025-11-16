@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Afte
 import { Router, NavigationEnd } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
@@ -78,63 +78,30 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
-    this.user$.subscribe(user => {
-      if (user?.email) {
-        // Load user initially
-        this.userService.getCurrentUser()
-        .pipe(takeUntil(this.destroy$))
-        .subscribe((user: any) => {
-          console.log('👤 TabsPage: Loaded currentUser:', {
-            id: user?.id,
-            name: user?.name,
-            email: user?.email,
-            picture: user?.picture,
-            hasPicture: !!user?.picture,
-            pictureType: typeof user?.picture,
-            pictureLength: user?.picture?.length
-          });
-          console.log('🖼️ TabsPage: Full picture URL:', user?.picture);
-          this.currentUser = user;
-          
-          // If user doesn't have a picture but Auth0 user does, reload after a short delay
-          // This ensures the picture sync from Auth0 has completed
-          if (!user?.picture && user?.email) {
-            console.log('🔄 TabsPage: User has no picture, reloading after sync delay...');
-            setTimeout(() => {
-              this.userService.getCurrentUser()
-                .pipe(takeUntil(this.destroy$))
-                .subscribe((updatedUser: any) => {
-                  console.log('👤 TabsPage: Reloaded user after sync:', {
-                    picture: updatedUser?.picture,
-                    hasPicture: !!updatedUser?.picture
-                  });
-                  this.currentUser = updatedUser;
-                  this.cdr.detectChanges();
-                });
-            }, 1000);
-          }
-          
-          // Load unread count once user is authenticated (important for page refresh)
-          this.loadUnreadCount();
-          // Also load notification count
-          this.loadUnreadNotificationCount();
+    
+    // Subscribe to currentUser$ observable to get updates automatically
+    this.userService.currentUser$
+      .pipe(
+        filter(user => user !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((user: any) => {
+        console.log('👤 TabsPage: Received user:', {
+          id: user?.id,
+          name: user?.name,
+          email: user?.email,
+          picture: user?.picture,
+          hasPicture: !!user?.picture
         });
+        this.currentUser = user;
         
-        // Subscribe to currentUser$ to get updates when picture changes
-        this.userService.currentUser$.pipe(
-          takeUntil(this.destroy$)
-        ).subscribe((updatedUser: any) => {
-          if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
-            console.log('🔄 TabsPage: Received currentUser$ update:', {
-              picture: updatedUser?.picture,
-              hasPicture: !!updatedUser?.picture
-            });
-            this.currentUser = updatedUser;
-            this.cdr.detectChanges();
-          }
-        });
-      }
-    });
+        // Load counts when user is available
+        this.loadUnreadCount();
+        this.loadUnreadNotificationCount();
+        
+        this.cdr.detectChanges();
+      });
+    
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     
     // Connect to WebSocket early to receive messages
@@ -157,8 +124,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     };
     window.addEventListener('resize', this.resizeListener);
     
-    // Ensure currentUser is loaded
-    this.loadCurrentUser();
+    // Fetch user once (will use cache if available, or fetch from API)
+    this.userService.getCurrentUser()
+      .pipe(take(1))
+      .subscribe();
     
     // Subscribe to router events to update tab highlighting on route changes
     this.router.events.pipe(
@@ -249,14 +218,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         console.error('❌ TabsPage: Error loading conversations for unread count:', error);
       }
     });
-  }
-
-  private loadCurrentUser() {
-    this.userService.getCurrentUser()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((user: any) => {
-        this.currentUser = user;
-      });
   }
 
   ngOnDestroy() {

@@ -15,10 +15,18 @@ const publicProfileLimiter = rateLimit({
 
 const emailCheckLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Allow more requests for guards and legitimate use
-  message: 'Too many requests, please try again later',
+  max: 2000, // Very high limit for development - guards cache aggressively
+  message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('⚠️ Rate limit hit for email check endpoint:', req.ip);
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'Please wait a moment before trying again',
+      retryAfter: Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000)
+    });
+  }
 });
 
 // GET /api/users/debug - Debug what we're receiving

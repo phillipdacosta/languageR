@@ -176,10 +176,37 @@ export class TutorOnboardingPage implements OnInit {
 
   ngOnInit() {
     // Check if user is authenticated
-    this.authService.isAuthenticated$.subscribe(isAuthenticated => {
+    this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
         this.router.navigate(['/login']);
+        return;
       }
+
+      // Safety check: Check if user has already completed onboarding
+      this.authService.getUserProfile().pipe(take(1)).subscribe(user => {
+        if (!user || !user.email) {
+          this.router.navigate(['/login']);
+          return;
+        }
+        
+        console.log('✅ Tutor authenticated:', user.email);
+        
+        // Check database for onboarding status
+        this.userService.getCurrentUser().pipe(take(1)).subscribe({
+          next: (dbUser) => {
+            if (dbUser?.onboardingCompleted) {
+              console.log('✅ Tutor onboarding already completed, redirecting to home');
+              this.router.navigate(['/tabs/home'], { replaceUrl: true });
+              return;
+            }
+            console.log('📝 Tutor needs to complete onboarding');
+          },
+          error: (error) => {
+            // User doesn't exist in DB yet - that's okay, let them onboard
+            console.log('Tutor not in database yet, proceeding with onboarding');
+          }
+        });
+      });
     });
   }
 

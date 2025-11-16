@@ -4,7 +4,7 @@ import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } fro
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
-import { ModalController } from '@ionic/angular';
+import { ModalController, ViewWillEnter } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
@@ -38,7 +38,7 @@ import { MessagingService } from '../services/messaging.service';
     ])
   ]
 })
-export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewChecked {
+export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewChecked, ViewWillEnter {
   private destroy$ = new Subject<void>();
   private searchSubject$ = new Subject<void>();
   
@@ -121,8 +121,6 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     // Load saved filters first
     this.loadSavedFilters();
     
-    this.getCurrentUser();
-    
     // Set up debounced search to prevent flashing
     this.searchSubject$.pipe(
       debounceTime(300), // Wait 300ms after the last change
@@ -130,6 +128,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     ).subscribe(() => {
       this.performSearch();
     });
+  }
+  
+  ionViewWillEnter() {
+    // Load tutors every time the view is entered
+    console.log('TutorSearchContent: ionViewWillEnter - loading tutors');
+    this.getCurrentUser();
   }
   
   private loadSavedFilters() {

@@ -5,7 +5,7 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
-import { Observable, takeUntil, take } from 'rxjs';
+import { Observable, takeUntil, take, filter } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
@@ -94,26 +94,27 @@ export class Tab1Page implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private messagingService: MessagingService
   ) {
-    // Get database user data instead of Auth0 data
-    this.userService.getCurrentUser()
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(user => {
-      console.log('🔄 Tab1Page Constructor: Loaded user from database:', {
-        email: user?.email,
-        firstName: user?.firstName,
-        picture: user?.picture,
-        hasPicture: !!user?.picture,
-        pictureType: typeof user?.picture,
-        pictureLength: user?.picture?.length
-      });
-      console.log('🖼️ Full picture URL:', user?.picture);
-      this.currentUser = user;
-      // Load notification count when user is available
-      if (user) {
-        setTimeout(() => {
-          this.loadUnreadNotificationCount();
-        }, 500);
-      }
+    // Subscribe to currentUser$ observable to get updates automatically
+    this.userService.currentUser$
+      .pipe(
+        filter(user => user !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(user => {
+        console.log('🔄 Tab1Page: Received user:', {
+          email: user?.email,
+          firstName: user?.firstName,
+          picture: user?.picture,
+          hasPicture: !!user?.picture
+        });
+        this.currentUser = user;
+        
+        // Load notification count when user is available
+        if (user) {
+          setTimeout(() => {
+            this.loadUnreadNotificationCount();
+          }, 500);
+        }
         
         // Load lessons as soon as we have the current user
         this.loadLessons();
@@ -131,36 +132,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     ).subscribe(count => {
       this.unreadMessages = count;
     });
-    
-    // Subscribe to currentUser$ to get updates when picture changes
-    this.userService.currentUser$.pipe(
-      takeUntil(this.destroy$)
-    ).subscribe((updatedUser: any) => {
-      if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
-        console.log('🔄 Tab1Page: Received currentUser$ update:', {
-          picture: updatedUser?.picture,
-          firstName: updatedUser?.firstName,
-          hasPicture: !!updatedUser?.picture
-        });
-        this.currentUser = updatedUser;
-      }
-    });
   }
 
   ngOnInit() {
-    // Refresh user data to ensure we have the latest (including picture after onboarding)
-    this.userService.getCurrentUser()
-      .pipe(take(1))
-      .subscribe(user => {
-        console.log('🔄 Tab1Page ngOnInit: Refreshed user data:', {
-          email: user?.email,
-          firstName: user?.firstName,
-          picture: user?.picture,
-          hasPicture: !!user?.picture
-        });
-        this.currentUser = user;
-      });
-    
     // Load user data and stats
     this.loadUserStats();
 
@@ -506,14 +480,24 @@ export class Tab1Page implements OnInit, OnDestroy {
     return `${whenText} • ${startTime} - ${endTime}`;
   }
 
-  // Format subject to show language (e.g., "Spanish" -> "Spanish Student")
+  // Format subject to show language (e.g., "Spanish" -> "Spanish")
   formatSubject(subject: string): string {
     if (!subject || subject === 'Language Lesson') {
-      return 'Language Student';
+      return 'Language';
     }
     // Extract language name from subject (remove "Lesson" if present)
-    const language = subject.replace(/ Lesson$/i, '').trim();
-    return `${language} Student`;
+    return subject.replace(/ Lesson$/i, '').trim();
+  }
+  
+  // Get just the time range portion (e.g., "2:00 PM - 3:00 PM")
+  getTimeRangeOnly(lesson: Lesson): string {
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+    
+    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    
+    return `${startTime} — ${endTime}`;
   }
 
   // New method: Get students for selected date (tutor view)
@@ -862,6 +846,32 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
   }
 
+  // Get time until lesson starts (e.g., "55 minutes", "2h 30m")
+  getTimeUntilLesson(lesson: any): string {
+    if (!lesson) return '';
+    
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    const diffMs = startTime.getTime() - now.getTime();
+    
+    if (diffMs < 0) {
+      return 'now';
+    }
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    
+    if (hours > 0) {
+      if (minutes > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+      return `${hours}h`;
+    }
+    
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  }
+
   // Check if there are any completed/past lessons for the selected date
   hasPastLessonsForDate(): boolean {
     if (!this.selectedDate) {
@@ -924,7 +934,7 @@ export class Tab1Page implements OnInit, OnDestroy {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
           date: this.formatRelativeDate(startTime),
-          name: student?.name || 'Student',
+          name: this.formatStudentDisplayName(student),
           subject: this.formatSubject(lesson.subject),
           avatar: student?.picture || student?.profilePicture || null,
           lesson: lesson

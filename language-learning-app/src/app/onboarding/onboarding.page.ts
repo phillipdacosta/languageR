@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
+import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
 import { LoadingController, AlertController } from '@ionic/angular';
@@ -191,7 +192,8 @@ export class OnboardingPage implements OnInit {
     private userService: UserService,
     private router: Router,
     private loadingController: LoadingController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private onboardingGuard: OnboardingGuard
   ) {
     this.user$ = this.authService.user$;
   }
@@ -205,7 +207,7 @@ export class OnboardingPage implements OnInit {
         return;
       }
 
-      // Verify we have a valid user profile
+      // Verify we have a valid user profile and check onboarding status
       this.authService.getUserProfile().pipe(take(1)).subscribe(
         user => {
           if (!user || !user.email) {
@@ -213,7 +215,24 @@ export class OnboardingPage implements OnInit {
             this.router.navigate(['/login']);
             return;
           }
+          
           console.log('✅ User authenticated:', user.email);
+          
+          // Safety check: Check if user has already completed onboarding
+          this.userService.getCurrentUser().pipe(take(1)).subscribe({
+            next: (dbUser) => {
+              if (dbUser?.onboardingCompleted) {
+                console.log('✅ Onboarding already completed, redirecting to home');
+                this.router.navigate(['/tabs/home'], { replaceUrl: true });
+                return;
+              }
+              console.log('📝 User needs to complete onboarding');
+            },
+            error: (error) => {
+              // User doesn't exist in DB yet - that's okay, let them onboard
+              console.log('User not in database yet, proceeding with onboarding');
+            }
+          });
         },
         error => {
           console.error('Error getting user profile:', error);
@@ -402,6 +421,12 @@ export class OnboardingPage implements OnInit {
       }
       
       console.log('✅ Onboarding completed successfully');
+
+      // Clear the onboarding guard cache so it doesn't use stale data
+      // auth0User is already available from above
+      if (auth0User?.email) {
+        this.onboardingGuard.clearCache(auth0User.email);
+      }
 
       // Store in localStorage as backup
       localStorage.setItem('onboarding_completed', 'true');
