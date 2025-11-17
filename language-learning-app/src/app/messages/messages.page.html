@@ -78,7 +78,7 @@
         </div>
 
         <!-- Conversations Search Header -->
-        <div class="conversations-search-header">
+        <div class="conversations-search-header" [@slideInUp]>
           <ion-icon name="search-outline" class="search-icon"></ion-icon>
           <input
             type="text"
@@ -96,12 +96,14 @@
         </div>
 
         <!-- Conversations List (stays visible after first load) -->
-        <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading">
+        <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading" [@fadeInOut]>
           <div 
-            *ngFor="let conversation of filteredConversations; trackBy: trackByConversationId" 
+            *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
-            (click)="selectConversation(conversation)">
+            (click)="selectConversation(conversation)"
+            [@slideInUp]
+            [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
@@ -138,7 +140,7 @@
         </div>
 
         <!-- Empty State -->
-        <div *ngIf="!isInitialLoad && conversations.length === 0" class="empty-state">
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <p>No conversations yet</p>
           <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
@@ -461,7 +463,7 @@
         </div>
 
         <!-- Mobile: Conversations Search Header -->
-        <div class="conversations-search-header">
+        <div class="conversations-search-header" [@slideInUp]>
           <ion-icon name="search-outline" class="search-icon"></ion-icon>
           <input
             type="text"
@@ -482,11 +484,13 @@
           <ion-spinner name="crescent"></ion-spinner>
         </div>
 
-        <div class="conversations-list" *ngIf="(!isInitialLoad || !isLoading) && filteredConversations.length > 0">
+        <div class="conversations-list" *ngIf="(!isInitialLoad || !isLoading) && filteredConversations.length > 0" [@fadeInOut]>
           <div 
-            *ngFor="let conversation of filteredConversations; trackBy: trackByConversationId" 
+            *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
-            (click)="selectConversation(conversation)">
+            (click)="selectConversation(conversation)"
+            [@slideInUp]
+            [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
@@ -518,7 +522,7 @@
           </div>
         </div>
 
-        <div *ngIf="!isInitialLoad && conversations.length === 0" class="empty-state">
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <h2>No messages yet</h2>
           <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>

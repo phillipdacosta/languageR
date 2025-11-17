@@ -96,6 +96,7 @@
         <ion-button class="mobile-filters-btn" fill="outline" (click)="openFiltersView()">
           <ion-icon slot="start" name="options-outline"></ion-icon>
           Filters
+          <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
         </ion-button>
       </div>
 
@@ -104,6 +105,12 @@
         <ion-button fill="clear" size="small" (click)="toggleSecondaryFilters()" class="more-filters-btn">
           <ion-icon [name]="showSecondaryFilters ? 'chevron-up-outline' : 'chevron-down-outline'" slot="start"></ion-icon>
           {{ showSecondaryFilters ? 'Less filters' : 'More filters' }}
+          <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
+        </ion-button>
+        
+        <ion-button fill="clear" size="small" (click)="clearFilters()" class="clear-filters-btn" [disabled]="getActiveFilterCount() === 0">
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+          Clear Filters
         </ion-button>
       </div>
 

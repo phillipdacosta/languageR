@@ -65,7 +65,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   
   filters: TutorSearchFilters = {
     language: 'Spanish',
-    priceMin: 0,
+    priceMin: 6,
     priceMax: 200,
     country: 'any',
     availability: 'anytime',
@@ -79,7 +79,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   // Price range for the dual-knob slider
   priceRange = {
-    lower: 0,
+    lower: 6,
     upper: 200
   };
   
@@ -365,7 +365,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   clearFilters() {
     this.filters = {
       language: 'any',
-      priceMin: 0,
+      priceMin: 6,
       priceMax: 200,
       country: 'any',
       availability: 'anytime',
@@ -377,7 +377,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       limit: 20
     };
     this.priceRange = {
-      lower: 0,
+      lower: 6,
       upper: 200
     };
     // Clear scroll target when filters are cleared
@@ -394,6 +394,47 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   toggleSecondaryFilters() {
     this.showSecondaryFilters = !this.showSecondaryFilters;
+  }
+
+  getActiveFilterCount(): number {
+    let count = 0;
+    
+    // Count language if not 'any' (even if 'Spanish' is default, we still count it)
+    if (this.filters.language && this.filters.language !== 'any') {
+      count++;
+    }
+    
+    // Count price if not default range
+    if (this.filters.priceMin !== 6 || this.filters.priceMax !== 200) {
+      count++;
+    }
+    
+    // Count country if not 'any'
+    if (this.filters.country && this.filters.country !== 'any') {
+      count++;
+    }
+    
+    // Count availability if not 'anytime'
+    if (this.filters.availability && this.filters.availability !== 'anytime') {
+      count++;
+    }
+    
+    // Count specialties if any selected
+    if (this.filters.specialties && this.filters.specialties.length > 0) {
+      count++;
+    }
+    
+    // Count gender if not 'any'
+    if (this.filters.gender && this.filters.gender !== 'any') {
+      count++;
+    }
+    
+    // Count native speaker if true
+    if (this.filters.nativeSpeaker === true) {
+      count++;
+    }
+    
+    return count;
   }
 
   selectLanguage(language: string) {
@@ -988,9 +1029,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     }
   }
 
-  // Handle avatar click - open video if available
+  // Handle avatar click - open video if available (mobile only)
   onAvatarClick(tutor: Tutor, event: Event) {
-    if (tutor.videoThumbnail || tutor.introductionVideo) {
+    // Only open video on mobile (screen width <= 768px)
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile && (tutor.videoThumbnail || tutor.introductionVideo)) {
       event.stopPropagation();
       
       // Get element bounds for animation origin

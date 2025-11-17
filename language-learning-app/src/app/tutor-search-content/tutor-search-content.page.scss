@@ -262,13 +262,30 @@
     ion-icon {
       font-size: 20px;
     }
+    
+    .filter-badge {
+      margin-left: 6px;
+      font-size: 11px;
+      min-width: 20px;
+      height: 20px;
+      line-height: 20px;
+      padding: 0 6px;
+    }
   }
 }
 
 // Secondary Filters Toggle
 .secondary-filters-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   max-width: 1400px;
   margin: 8px auto 0;
+  padding: 0 20px;
+  
+  @media (min-width: 1025px) {
+    padding: 0 40px;
+  }
   
   .more-filters-btn {
     --color: #6b7280;
@@ -281,8 +298,40 @@
       margin-right: 4px;
     }
     
+    .filter-badge {
+      margin-left: 6px;
+      font-size: 10px;
+      min-width: 18px;
+      height: 18px;
+      line-height: 18px;
+      padding: 0 5px;
+    }
+    
     &:hover {
       --color: #374151;
+    }
+  }
+  
+  .clear-filters-btn {
+    --color: #6c7280
+    font-size: 12px;
+    font-weight: 600;
+    height: 28px;
+    padding: 0 10px;
+    
+    ion-icon {
+      font-size: 16px;
+      margin-right: 4px;
+    }
+    
+    &:hover {
+      --color: #dc2626;
+    }
+    
+    &[disabled] {
+      --color: #d1d5db;
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
   
@@ -606,7 +655,12 @@
 .tutor-avatar-container {
   position: relative;
   flex-shrink: 0;
-  cursor: pointer;
+  cursor: default;
+  
+  // Only show pointer cursor on mobile where clicking opens video
+  @media (max-width: 768px) {
+    cursor: pointer;
+  }
   
   // Instagram-style rotating gradient ring for unwatched videos (Grid view + Mobile only)
   &.has-video:not(.video-watched).show-ring {
@@ -1150,8 +1204,9 @@
     white-space: nowrap;
     
     @media (max-width: 600px) {
-      max-width: 130px;
+      max-width: 140px;
       font-size: 13px;
+      margin-left: auto; // Right-align on mobile
     }
     
     ion-icon {

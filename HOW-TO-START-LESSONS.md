@@ -82,7 +82,7 @@ fetch('http://localhost:3000/api/lessons', {
   })
 })
 .then(res => res.json())
-.then(data => console.log('Lesson created:', data));
+.then(data => console\.log\([\s\S]*?\);'Lesson created:', data));
 ```
 
 ## 🎬 What Happens Behind the Scenes
