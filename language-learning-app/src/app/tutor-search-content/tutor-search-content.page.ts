@@ -57,6 +57,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   showSecondaryFilters = false;
   isLoading = true; // prevent initial FOUC of empty state until first load completes
   isTransitioning = false; // For smooth filter transitions
+  hasLoadedOnce = false; // Track if we've done initial data load
   tutors: Tutor[] = [];
   searchResponse: TutorSearchResponse | null = null;
   currentUser: User | null = null;
@@ -147,9 +148,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   }
   
   ionViewWillEnter() {
-    // Load tutors every time the view is entered
-    console.log('TutorSearchContent: ionViewWillEnter - loading tutors');
-    this.getCurrentUser();
+    // Only load tutors on first view entry
+    if (!this.hasLoadedOnce) {
+      this.getCurrentUser();
+      this.hasLoadedOnce = true;
+    }
+    // On subsequent visits, use cached data to avoid unnecessary API calls
   }
   
   private loadSavedFilters() {

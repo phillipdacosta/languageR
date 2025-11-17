@@ -16,7 +16,6 @@ export class TutorSearchPage implements OnInit, ViewWillEnter {
   
   ionViewWillEnter() {
     // This will trigger the child component's ionViewWillEnter
-    console.log('TutorSearchPage: ionViewWillEnter');
   }
 
   cancel() {
