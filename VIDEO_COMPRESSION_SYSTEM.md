@@ -207,7 +207,7 @@ apt-get install ffmpeg  # Ubuntu
 ### Logging
 
 ```javascript
-console.log('📊 Compression stats:', {
+console\.log\([\s\S]*?\);'📊 Compression stats:', {
   originalSize: '400MB',
   compressedSize: '50MB',
   compressionRatio: '8:1',

@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Afte
 import { Router, NavigationEnd } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
@@ -41,6 +41,24 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   isNotificationDropdownOpen = false;
   // Current route for tab highlighting
   currentRoute = '';
+  
+  // Track if a conversation is selected (for hiding tabs on mobile)
+  hasSelectedConversation = false;
+  
+  // Check if tabs should be hidden (on messages route AND conversation selected)
+  get shouldHideTabs(): boolean {
+    return this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation;
+  }
+  
+  // Computed property for calendar tab selection
+  get isCalendarTabSelected(): boolean {
+    return this.isCurrentRoute('/tabs/tutor-calendar');
+  }
+  
+  // Computed property for messages tab selection
+  get isMessagesTabSelected(): boolean {
+    return this.isCurrentRoute('/tabs/messages');
+  }
   // Dropdown positioning
   dropdownTop = 60;
   dropdownRight = 20;
@@ -60,60 +78,30 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
-    this.user$.subscribe(user => {
-      if (user?.email) {
-        // Load user initially
-        this.userService.getCurrentUser()
-        .pipe(takeUntil(this.destroy$))
-        .subscribe((user: any) => {
-          console.log('👤 TabsPage: Loaded currentUser:', {
-            id: user?.id,
-            name: user?.name,
-            email: user?.email,
-            picture: user?.picture,
-            hasPicture: !!user?.picture
-          });
-          this.currentUser = user;
-          
-          // If user doesn't have a picture but Auth0 user does, reload after a short delay
-          // This ensures the picture sync from Auth0 has completed
-          if (!user?.picture && user?.email) {
-            console.log('🔄 TabsPage: User has no picture, reloading after sync delay...');
-            setTimeout(() => {
-              this.userService.getCurrentUser()
-                .pipe(takeUntil(this.destroy$))
-                .subscribe((updatedUser: any) => {
-                  console.log('👤 TabsPage: Reloaded user after sync:', {
-                    picture: updatedUser?.picture,
-                    hasPicture: !!updatedUser?.picture
-                  });
-                  this.currentUser = updatedUser;
-                  this.cdr.detectChanges();
-                });
-            }, 1000);
-          }
-          
-          // Load unread count once user is authenticated (important for page refresh)
-          this.loadUnreadCount();
-          // Also load notification count
-          this.loadUnreadNotificationCount();
+    
+    // Subscribe to currentUser$ observable to get updates automatically
+    this.userService.currentUser$
+      .pipe(
+        filter(user => user !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((user: any) => {
+        console.log('👤 TabsPage: Received user:', {
+          id: user?.id,
+          name: user?.name,
+          email: user?.email,
+          picture: user?.picture,
+          hasPicture: !!user?.picture
         });
+        this.currentUser = user;
         
-        // Subscribe to currentUser$ to get updates when picture changes
-        this.userService.currentUser$.pipe(
-          takeUntil(this.destroy$)
-        ).subscribe((updatedUser: any) => {
-          if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
-            console.log('🔄 TabsPage: Received currentUser$ update:', {
-              picture: updatedUser?.picture,
-              hasPicture: !!updatedUser?.picture
-            });
-            this.currentUser = updatedUser;
-            this.cdr.detectChanges();
-          }
-        });
-      }
-    });
+        // Load counts when user is available
+        this.loadUnreadCount();
+        this.loadUnreadNotificationCount();
+        
+        this.cdr.detectChanges();
+      });
+    
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     
     // Connect to WebSocket early to receive messages
@@ -136,8 +124,10 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     };
     window.addEventListener('resize', this.resizeListener);
     
-    // Ensure currentUser is loaded
-    this.loadCurrentUser();
+    // Fetch user once (will use cache if available, or fetch from API)
+    this.userService.getCurrentUser()
+      .pipe(take(1))
+      .subscribe();
     
     // Subscribe to router events to update tab highlighting on route changes
     this.router.events.pipe(
@@ -146,8 +136,13 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe((event: NavigationEnd) => {
       // Update current route for tab highlighting
       this.currentRoute = event.url;
-      // Trigger change detection when route changes so isCurrentRoute is re-evaluated
+      // Force change detection to update tab visibility (especially for messages route)
+      this.cdr.markForCheck();
       this.cdr.detectChanges();
+      setTimeout(() => {
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      }, 100);
     });
     
     // Initialize current route
@@ -161,6 +156,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       next: (count) => {
         console.log('🔴 Unread count changed in tabs page:', count, 'Previous value:', this.unreadCount$.value);
         this.unreadCount$.next(count);
+        this.cdr.detectChanges();
+      }
+    });
+    
+    // Subscribe to conversation selection state (for hiding tabs when viewing a conversation)
+    this.messagingService.hasSelectedConversation$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (hasSelection) => {
+        this.hasSelectedConversation = hasSelection;
+        this.cdr.markForCheck();
         this.cdr.detectChanges();
       }
     });
@@ -214,14 +220,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  private loadCurrentUser() {
-    this.userService.getCurrentUser()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((user: any) => {
-        this.currentUser = user;
-      });
-  }
-
   ngOnDestroy() {
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
@@ -267,18 +265,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isCurrentRoute(route: string): boolean {
-    // Use cached currentRoute for better reactivity, fallback to router.url
-    const currentUrl = this.currentRoute || this.router.url;
+    // Always get fresh URL to ensure accuracy, especially on mobile
+    const currentUrl = this.router.url;
+    // Remove query parameters and trailing slashes for comparison
+    const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
     
     // Special handling for calendar tab - should highlight for all calendar-related routes
     if (route === '/tabs/tutor-calendar') {
-      return currentUrl === '/tabs/tutor-calendar' ||
-             currentUrl.startsWith('/tabs/tutor-calendar/') ||
-             currentUrl === '/tabs/availability-setup' ||
-             currentUrl.startsWith('/tabs/availability-setup');
+      const isCalendarRoute = normalizedUrl === '/tabs/tutor-calendar' ||
+                              normalizedUrl.startsWith('/tabs/tutor-calendar/') ||
+                              normalizedUrl === '/tabs/availability-setup' ||
+                              normalizedUrl.startsWith('/tabs/availability-setup/');
+      return isCalendarRoute;
     }
     
-    return currentUrl === route;
+    const normalizedRoute = route.replace(/\/$/, '');
+    return normalizedUrl === normalizedRoute || normalizedUrl.startsWith(normalizedRoute + '/');
   }
 
 
@@ -319,6 +321,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onImageError(event: any) {
+    console.error('❌ Avatar image failed to load in tabs:', {
+      src: event.target?.src,
+      currentUserPicture: this.currentUser?.picture,
+      errorType: event.type
+    });
     
     // Hide the image and show initials instead
     const img = event.target;

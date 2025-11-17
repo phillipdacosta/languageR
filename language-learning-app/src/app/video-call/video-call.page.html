@@ -109,50 +109,33 @@
       </div>
       
       <div class="bg-options">
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="primary"
+        <button 
+          class="bg-option-btn blur-option"
           (click)="setBackgroundBlur()">
-          <ion-icon name="blur" slot="start"></ion-icon>
-          Enable Blur
-        </ion-button>
+          <ion-icon name="blur"></ion-icon>
+          <span>Enable Blur</span>
+        </button>
         
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="success"
-          (click)="setBackgroundColor('#00ff00')">
-          <ion-icon name="square-outline" slot="start"></ion-icon>
-          Green Background
-        </ion-button>
+        <button 
+          class="bg-option-btn black-option"
+          (click)="setBackgroundColor('#000000')">
+          <div class="color-preview black"></div>
+          <span>Black Background</span>
+        </button>
         
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="danger"
-          (click)="setBackgroundColor('#ff0000')">
-          <ion-icon name="square-outline" slot="start"></ion-icon>
-          Red Background
-        </ion-button>
-        
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="medium"
+        <button 
+          class="bg-option-btn normal-option"
           (click)="disableVirtualBackground()">
-          <ion-icon name="videocam-outline" slot="start"></ion-icon>
-          Normal
-        </ion-button>
+          <ion-icon name="videocam-outline"></ion-icon>
+          <span>Normal</span>
+        </button>
         
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="warning"
+        <button 
+          class="bg-option-btn debug-option"
           (click)="debugForceRestore()">
-          <ion-icon name="refresh-outline" slot="start"></ion-icon>
-          Force Restore
-        </ion-button>
+          <ion-icon name="refresh-outline"></ion-icon>
+          <span>Force Restore</span>
+        </button>
       </div>
       
       <div class="status-info" *ngIf="isVirtualBackgroundEnabled">

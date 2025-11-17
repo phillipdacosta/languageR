@@ -4,7 +4,8 @@ import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { CountrySelectModalComponent } from './country-select-modal.component';
 
 @Component({
   selector: 'app-tutor-onboarding',
@@ -15,9 +16,12 @@ import { LoadingController, AlertController } from '@ionic/angular';
 export class TutorOnboardingPage implements OnInit {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 4;
+  totalSteps = 5; // Name + Languages + Experience + Schedule + Profile
 
   // Tutor onboarding data
+  firstName = '';
+  lastName = '';
+  country = '';
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
@@ -28,6 +32,119 @@ export class TutorOnboardingPage implements OnInit {
   availableLanguages = [
     'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
     'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian', 'Dutch', 'Swedish'
+  ];
+
+  // Comprehensive country list with flags
+  countryOptions = [
+    { name: 'Afghanistan', flag: '🇦🇫' },
+    { name: 'Albania', flag: '🇦🇱' },
+    { name: 'Algeria', flag: '🇩🇿' },
+    { name: 'Argentina', flag: '🇦🇷' },
+    { name: 'Armenia', flag: '🇦🇲' },
+    { name: 'Australia', flag: '🇦🇺' },
+    { name: 'Austria', flag: '🇦🇹' },
+    { name: 'Azerbaijan', flag: '🇦🇿' },
+    { name: 'Bahrain', flag: '🇧🇭' },
+    { name: 'Bangladesh', flag: '🇧🇩' },
+    { name: 'Belarus', flag: '🇧🇾' },
+    { name: 'Belgium', flag: '🇧🇪' },
+    { name: 'Bolivia', flag: '🇧🇴' },
+    { name: 'Bosnia and Herzegovina', flag: '🇧🇦' },
+    { name: 'Brazil', flag: '🇧🇷' },
+    { name: 'Bulgaria', flag: '🇧🇬' },
+    { name: 'Cambodia', flag: '🇰🇭' },
+    { name: 'Canada', flag: '🇨🇦' },
+    { name: 'Chile', flag: '🇨🇱' },
+    { name: 'China', flag: '🇨🇳' },
+    { name: 'Colombia', flag: '🇨🇴' },
+    { name: 'Costa Rica', flag: '🇨🇷' },
+    { name: 'Croatia', flag: '🇭🇷' },
+    { name: 'Cuba', flag: '🇨🇺' },
+    { name: 'Czech Republic', flag: '🇨🇿' },
+    { name: 'Denmark', flag: '🇩🇰' },
+    { name: 'Dominican Republic', flag: '🇩🇴' },
+    { name: 'Ecuador', flag: '🇪🇨' },
+    { name: 'Egypt', flag: '🇪🇬' },
+    { name: 'El Salvador', flag: '🇸🇻' },
+    { name: 'Estonia', flag: '🇪🇪' },
+    { name: 'Ethiopia', flag: '🇪🇹' },
+    { name: 'Finland', flag: '🇫🇮' },
+    { name: 'France', flag: '🇫🇷' },
+    { name: 'Georgia', flag: '🇬🇪' },
+    { name: 'Germany', flag: '🇩🇪' },
+    { name: 'Ghana', flag: '🇬🇭' },
+    { name: 'Greece', flag: '🇬🇷' },
+    { name: 'Guatemala', flag: '🇬🇹' },
+    { name: 'Honduras', flag: '🇭🇳' },
+    { name: 'Hong Kong', flag: '🇭🇰' },
+    { name: 'Hungary', flag: '🇭🇺' },
+    { name: 'Iceland', flag: '🇮🇸' },
+    { name: 'India', flag: '🇮🇳' },
+    { name: 'Indonesia', flag: '🇮🇩' },
+    { name: 'Iran', flag: '🇮🇷' },
+    { name: 'Iraq', flag: '🇮🇶' },
+    { name: 'Ireland', flag: '🇮🇪' },
+    { name: 'Israel', flag: '🇮🇱' },
+    { name: 'Italy', flag: '🇮🇹' },
+    { name: 'Jamaica', flag: '🇯🇲' },
+    { name: 'Japan', flag: '🇯🇵' },
+    { name: 'Jordan', flag: '🇯🇴' },
+    { name: 'Kazakhstan', flag: '🇰🇿' },
+    { name: 'Kenya', flag: '🇰🇪' },
+    { name: 'Kuwait', flag: '🇰🇼' },
+    { name: 'Latvia', flag: '🇱🇻' },
+    { name: 'Lebanon', flag: '🇱🇧' },
+    { name: 'Libya', flag: '🇱🇾' },
+    { name: 'Lithuania', flag: '🇱🇹' },
+    { name: 'Luxembourg', flag: '🇱🇺' },
+    { name: 'Malaysia', flag: '🇲🇾' },
+    { name: 'Mexico', flag: '🇲🇽' },
+    { name: 'Morocco', flag: '🇲🇦' },
+    { name: 'Netherlands', flag: '🇳🇱' },
+    { name: 'New Zealand', flag: '🇳🇿' },
+    { name: 'Nicaragua', flag: '🇳🇮' },
+    { name: 'Nigeria', flag: '🇳🇬' },
+    { name: 'North Korea', flag: '🇰🇵' },
+    { name: 'Norway', flag: '🇳🇴' },
+    { name: 'Oman', flag: '🇴🇲' },
+    { name: 'Pakistan', flag: '🇵🇰' },
+    { name: 'Palestine', flag: '🇵🇸' },
+    { name: 'Panama', flag: '🇵🇦' },
+    { name: 'Paraguay', flag: '🇵🇾' },
+    { name: 'Peru', flag: '🇵🇪' },
+    { name: 'Philippines', flag: '🇵🇭' },
+    { name: 'Poland', flag: '🇵🇱' },
+    { name: 'Portugal', flag: '🇵🇹' },
+    { name: 'Puerto Rico', flag: '🇵🇷' },
+    { name: 'Qatar', flag: '🇶🇦' },
+    { name: 'Romania', flag: '🇷🇴' },
+    { name: 'Russia', flag: '🇷🇺' },
+    { name: 'Saudi Arabia', flag: '🇸🇦' },
+    { name: 'Serbia', flag: '🇷🇸' },
+    { name: 'Singapore', flag: '🇸🇬' },
+    { name: 'Slovakia', flag: '🇸🇰' },
+    { name: 'Slovenia', flag: '🇸🇮' },
+    { name: 'South Africa', flag: '🇿🇦' },
+    { name: 'South Korea', flag: '🇰🇷' },
+    { name: 'Spain', flag: '🇪🇸' },
+    { name: 'Sri Lanka', flag: '🇱🇰' },
+    { name: 'Sweden', flag: '🇸🇪' },
+    { name: 'Switzerland', flag: '🇨🇭' },
+    { name: 'Syria', flag: '🇸🇾' },
+    { name: 'Taiwan', flag: '🇹🇼' },
+    { name: 'Thailand', flag: '🇹🇭' },
+    { name: 'Tunisia', flag: '🇹🇳' },
+    { name: 'Turkey', flag: '🇹🇷' },
+    { name: 'Ukraine', flag: '🇺🇦' },
+    { name: 'United Arab Emirates', flag: '🇦🇪' },
+    { name: 'United Kingdom', flag: '🇬🇧' },
+    { name: 'United States', flag: '🇺🇸' },
+    { name: 'Uruguay', flag: '🇺🇾' },
+    { name: 'Uzbekistan', flag: '🇺🇿' },
+    { name: 'Venezuela', flag: '🇻🇪' },
+    { name: 'Vietnam', flag: '🇻🇳' },
+    { name: 'Yemen', flag: '🇾🇪' },
+    { name: 'Other', flag: '🌍' }
   ];
 
   experienceLevels = [
@@ -51,17 +168,45 @@ export class TutorOnboardingPage implements OnInit {
     private userService: UserService,
     private router: Router,
     private loadingController: LoadingController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private modalController: ModalController
   ) {
     this.user$ = this.authService.user$;
   }
 
   ngOnInit() {
     // Check if user is authenticated
-    this.authService.isAuthenticated$.subscribe(isAuthenticated => {
+    this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
         this.router.navigate(['/login']);
+        return;
       }
+
+      // Safety check: Check if user has already completed onboarding
+      this.authService.getUserProfile().pipe(take(1)).subscribe(user => {
+        if (!user || !user.email) {
+          this.router.navigate(['/login']);
+          return;
+        }
+        
+        console.log('✅ Tutor authenticated:', user.email);
+        
+        // Check database for onboarding status
+        this.userService.getCurrentUser().pipe(take(1)).subscribe({
+          next: (dbUser) => {
+            if (dbUser?.onboardingCompleted) {
+              console.log('✅ Tutor onboarding already completed, redirecting to home');
+              this.router.navigate(['/tabs/home'], { replaceUrl: true });
+              return;
+            }
+            console.log('📝 Tutor needs to complete onboarding');
+          },
+          error: (error) => {
+            // User doesn't exist in DB yet - that's okay, let them onboard
+            console.log('Tutor not in database yet, proceeding with onboarding');
+          }
+        });
+      });
     });
   }
 
@@ -94,6 +239,33 @@ export class TutorOnboardingPage implements OnInit {
     this.selectedSchedule = schedule;
   }
 
+  // Get flag emoji for selected country
+  getCountryFlag(countryName: string): string {
+    const country = this.countryOptions.find(c => c.name === countryName);
+    return country ? country.flag : '';
+  }
+
+  // Open country selection modal
+  async openCountryModal() {
+    const modal = await this.modalController.create({
+      component: CountrySelectModalComponent,
+      componentProps: {
+        countries: this.countryOptions,
+        selectedCountry: this.country
+      },
+      cssClass: 'country-select-modal',
+      showBackdrop: true,
+      backdropDismiss: true
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data && data.selectedCountry) {
+      this.country = data.selectedCountry;
+    }
+  }
+
   async completeOnboarding() {
     const loading = await this.loadingController.create({
       message: 'Completing setup...',
@@ -121,6 +293,9 @@ export class TutorOnboardingPage implements OnInit {
 
       // Prepare tutor onboarding data
       const onboardingData: TutorOnboardingData = {
+        firstName: this.firstName,
+        lastName: this.lastName,
+        country: this.country,
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
@@ -144,8 +319,16 @@ export class TutorOnboardingPage implements OnInit {
 
       await loading.dismiss();
 
-      // Navigate to main app
-      this.router.navigate(['/tabs']);
+      // Check for return URL (for users who clicked a shared link before signing up)
+      const returnUrl = localStorage.getItem('returnUrl');
+      if (returnUrl) {
+        console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
+        localStorage.removeItem('returnUrl');
+        this.router.navigateByUrl(returnUrl);
+      } else {
+        // Default: Navigate to main app
+        this.router.navigate(['/tabs']);
+      }
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
       await loading.dismiss();
@@ -166,12 +349,14 @@ export class TutorOnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.selectedLanguages.length > 0;
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
       case 2:
-        return this.selectedExperience !== '';
+        return this.selectedLanguages.length > 0;
       case 3:
-        return this.selectedSchedule !== '';
+        return this.selectedExperience !== '';
       case 4:
+        return this.selectedSchedule !== '';
+      case 5:
         return true; // Bio and rate are optional
       default:
         return false;

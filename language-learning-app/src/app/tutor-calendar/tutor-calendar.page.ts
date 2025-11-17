@@ -34,6 +34,7 @@ interface TimelineEntry {
   color?: string;
   location?: string;
   avatarUrl?: string;
+  isPast?: boolean;
 }
 
 interface AgendaSection {
@@ -289,6 +290,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private buildDayEntries(dayStart: Date, dayEnd: Date): TimelineEntry[] {
     const eventEntries = this.collectEventsForDay(dayStart, dayEnd);
+    
+    // Merge contiguous availability blocks
+    const mergedEvents = this.mergeAvailabilityBlocks(eventEntries);
+    
     const entries: TimelineEntry[] = [];
     let cursor = new Date(dayStart.getTime());
 
@@ -308,7 +313,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       });
     };
 
-    for (const entry of eventEntries) {
+    for (const entry of mergedEvents) {
       if (entry.start.getTime() > cursor.getTime()) {
         pushFreeBlock(cursor, entry.start);
       }
@@ -323,6 +328,78 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
 
     return entries;
+  }
+
+  private mergeAvailabilityBlocks(entries: TimelineEntry[]): TimelineEntry[] {
+    if (entries.length === 0) {
+      return entries;
+    }
+
+    // First, separate lessons from availability blocks
+    const lessons: TimelineEntry[] = [];
+    const availabilityBlocks: TimelineEntry[] = [];
+
+    for (const entry of entries) {
+      // Check if this is a lesson (has avatar or subtitle which indicates student info)
+      const isLesson = entry.avatarUrl || entry.subtitle;
+      
+      if (isLesson) {
+        lessons.push(entry);
+      } else {
+        availabilityBlocks.push(entry);
+      }
+    }
+
+    // Filter out availability blocks that overlap with any lesson
+    const nonOverlappingAvailability = availabilityBlocks.filter(availability => {
+      return !lessons.some(lesson => {
+        // Check if availability block overlaps with this lesson
+        const availStart = availability.start.getTime();
+        const availEnd = availability.end.getTime();
+        const lessonStart = lesson.start.getTime();
+        const lessonEnd = lesson.end.getTime();
+        
+        // Overlaps if: availability starts before lesson ends AND availability ends after lesson starts
+        return availStart < lessonEnd && availEnd > lessonStart;
+      });
+    });
+
+    // Now merge contiguous availability blocks
+    const merged: TimelineEntry[] = [];
+    let current: TimelineEntry | null = null;
+
+    for (const entry of nonOverlappingAvailability) {
+      if (!current) {
+        current = { ...entry };
+        continue;
+      }
+
+      // Check if they're adjacent or overlapping (within 30 minutes)
+      const gap = entry.start.getTime() - current.end.getTime();
+      const thirtyMinutes = 30 * 60 * 1000;
+
+      if (gap <= thirtyMinutes) {
+        // Merge: extend the current block's end time
+        current.end = new Date(Math.max(current.end.getTime(), entry.end.getTime()));
+        current.durationMinutes = Math.round((current.end.getTime() - current.start.getTime()) / 60000);
+        continue;
+      }
+
+      // If we can't merge, push the current and start a new one
+      merged.push(current);
+      current = { ...entry };
+    }
+
+    // Push the last availability block
+    if (current) {
+      merged.push(current);
+    }
+
+    // Combine lessons and merged availability blocks, then sort by start time
+    const combined = [...lessons, ...merged];
+    combined.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    return combined;
   }
 
   private buildMobileTimeline() {
@@ -398,9 +475,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
-    const color = (event.backgroundColor as string) || '#667eea';
+    // Availability blocks should be blue (#007bff), lessons use their status color
+    const color = isLesson ? ((event.backgroundColor as string) || '#10b981') : '#007bff';
     const location = extended.location || extended.platform;
     const avatarUrl = isLesson ? extended.studentAvatar : undefined;
+    
+    // Check if event is in the past
+    const now = new Date();
+    const isPast = end.getTime() < now.getTime();
 
     return {
       type: 'event',
@@ -412,7 +494,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       meta,
       color,
       location,
-      avatarUrl
+      avatarUrl,
+      isPast
     };
   }
 
@@ -1017,6 +1100,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             console.warn('📅 No availability data found');
             this.events = [];
             this.updateCalendarEvents();
+            
+            // Update mobile views even when no data
+            if (this.isMobileView) {
+              console.log('📱 Updating mobile views with empty data...');
+              this.buildMobileTimeline();
+              this.buildMobileAgenda();
+            }
             return;
           }
           
@@ -1030,7 +1120,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Also update mobile views if in mobile mode
           if (this.isMobileView) {
-            console.log('📱 Also updating mobile agenda view...');
+            console.log('📱 Also updating mobile views...');
+            this.buildMobileTimeline();
             this.buildMobileAgenda();
           }
         },
@@ -1050,6 +1141,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       console.warn('📅 No current user found, initializing empty calendar');
       this.events = [];
       this.updateCalendarEvents();
+      
+      // Update mobile views even when no user
+      if (this.isMobileView) {
+        console.log('📱 Updating mobile views with empty data (no user)...');
+        this.buildMobileTimeline();
+        this.buildMobileAgenda();
+      }
     }
   }
 
@@ -1561,7 +1659,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private refreshCalendarData() {
     console.log('🔄 Refreshing calendar data after navigation...');
     console.log('📅 User state before refresh:', this.currentUser);
+    console.log('📅 Is mobile view:', this.isMobileView);
     
+    // Handle mobile view refresh
+    if (this.isMobileView) {
+      console.log('📅 Refreshing mobile view...');
+      this.loadAndUpdateCalendarData();
+      // Reload lessons if we have a user
+      if (this.currentUser && this.currentUser.id) {
+        this.loadLessons(this.currentUser.id);
+      }
+      return;
+    }
+    
+    // Handle desktop view refresh
     if (this.calendar && this.isInitialized) {
       console.log('📅 Calendar exists and is initialized, refreshing data...');
       this.loadAndUpdateCalendarData();

@@ -442,3 +442,38 @@ html.ion-palette-dark {
   background: transparent;
   box-shadow: none;
 }
+
+/* Video Player Modal */
+.video-player-modal {
+  --background: rgba(0, 0, 0, 0.95);
+  --width: 90%;
+  --height: 85%;
+  --border-radius: 12px;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.video-player-modal .modal-wrapper {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.video-player-modal ion-header {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.video-player-modal ion-toolbar {
+  --background: rgba(0, 0, 0, 0.9);
+  --color: #fff;
+}
+
+.video-player-modal ion-title {
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .video-player-modal {
+    --width: 100%;
+    --height: 100%;
+    --border-radius: 0;
+  }
+}

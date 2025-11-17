@@ -7,6 +7,7 @@ import { IonicModule } from '@ionic/angular';
 import { TutorSearchContentPageRoutingModule } from './tutor-search-content-routing.module';
 
 import { TutorSearchContentPage } from './tutor-search-content.page';
+import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { SharedModule } from '../shared/shared.module';
 
 @NgModule({
@@ -17,7 +18,7 @@ import { SharedModule } from '../shared/shared.module';
     TutorSearchContentPageRoutingModule,
     SharedModule
   ],
-  declarations: [TutorSearchContentPage],
-  exports: [TutorSearchContentPage]
+  declarations: [TutorSearchContentPage, VideoPlayerModalComponent],
+  exports: [TutorSearchContentPage, VideoPlayerModalComponent]
 })
 export class TutorSearchContentPageModule {}

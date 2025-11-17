@@ -1,0 +1,198 @@
+<div class="video-upload-container">
+  <!-- Mode Toggle (only show if no video uploaded yet) -->
+  <div class="upload-mode-toggle" *ngIf="!videoUrl">
+    <button 
+      class="mode-btn" 
+      [class.active]="uploadMode === 'file'"
+      (click)="toggleUploadMode('file')">
+      <ion-icon name="cloud-upload-outline"></ion-icon>
+      Upload File
+    </button>
+    <button 
+      class="mode-btn" 
+      [class.active]="uploadMode === 'link'"
+      (click)="toggleUploadMode('link')">
+      <ion-icon name="link-outline"></ion-icon>
+      Paste Link
+    </button>
+  </div>
+
+  <!-- FILE UPLOAD MODE -->
+  <div class="upload-section" *ngIf="!videoUrl && uploadMode === 'file'">
+    <div class="upload-area" 
+         [class.dragover]="isDragOver"
+         (dragover)="onDragOver($event)"
+         (dragleave)="onDragLeave($event)"
+         (drop)="onDrop($event)"
+         (click)="fileInput.click()">
+      
+      <input #fileInput 
+             type="file" 
+             accept="video/*" 
+             (change)="onFileSelected($event)"
+             style="display: none;">
+      
+      <div class="upload-content">
+        <ion-icon name="videocam-outline" class="upload-icon"></ion-icon>
+        <h3>Upload Introduction Video</h3>
+        <p>Click to browse or drag and drop a video file</p>
+        <p class="upload-hint">Max size: 1GB. Large videos will be automatically compressed.</p>
+      </div>
+    </div>
+    
+    <!-- Optional: Thumbnail Upload for File Upload -->
+    <div class="thumbnail-upload-section" *ngIf="!videoUrl">
+      <p class="thumbnail-label">Add a thumbnail (optional but recommended - tutors with thumbnails earn 18% more!)</p>
+      <input #thumbnailFileInput 
+             type="file" 
+             accept="image/jpeg,image/jpg,image/png" 
+             (change)="onThumbnailSelected($event)"
+             style="display: none;">
+      
+      <button class="thumbnail-upload-btn" (click)="thumbnailFileInput.click()" *ngIf="!thumbnailPreview">
+        <ion-icon name="image-outline"></ion-icon>
+        Upload Thumbnail (16:9 ratio, JPG/PNG, max 20MB)
+      </button>
+      
+      <div class="thumbnail-preview-small" *ngIf="thumbnailPreview">
+        <img [src]="thumbnailPreview" alt="Thumbnail preview">
+        <button class="remove-thumb-btn" (click)="removeThumbnail()">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+    </div>
+    
+    <div class="upload-error" *ngIf="errorMessage">
+      <ion-icon name="warning-outline"></ion-icon>
+      <span>{{ errorMessage }}</span>
+    </div>
+  </div>
+
+  <!-- LINK PASTE MODE -->
+  <div class="link-section" *ngIf="!videoUrl && uploadMode === 'link'">
+    <div class="link-input-area">
+      <ion-icon name="link-outline" class="link-icon"></ion-icon>
+      <h3>🔗 Paste your video link</h3>
+      <p class="link-hint">YouTube or Vimeo URLs accepted</p>
+      <p class="link-privacy">Your video must be set to <strong>Public</strong> or <strong>Unlisted</strong></p>
+      
+      <div class="input-group">
+        <ion-input
+          [(ngModel)]="videoLinkInput"
+          placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+          class="link-input">
+        </ion-input>
+        <ion-button 
+          fill="solid" 
+          (click)="onPasteLink()"
+          [disabled]="!videoLinkInput.trim()">
+          Add Video
+        </ion-button>
+      </div>
+      
+      <!-- Optional: Custom Thumbnail for Vimeo -->
+      <div class="thumbnail-upload-section" *ngIf="videoLinkInput.includes('vimeo')">
+        <p class="thumbnail-label-small">Add a custom thumbnail for Vimeo videos (optional)</p>
+        <input #thumbnailLinkInput 
+               type="file" 
+               accept="image/jpeg,image/jpg,image/png" 
+               (change)="onThumbnailSelected($event)"
+               style="display: none;">
+        
+        <button class="thumbnail-upload-btn-small" (click)="thumbnailLinkInput.click()" *ngIf="!thumbnailPreview">
+          <ion-icon name="image-outline"></ion-icon>
+          Upload Thumbnail
+        </button>
+        
+        <div class="thumbnail-preview-small" *ngIf="thumbnailPreview">
+          <img [src]="thumbnailPreview" alt="Thumbnail preview">
+          <button class="remove-thumb-btn" (click)="removeThumbnail()">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="upload-error" *ngIf="errorMessage">
+      <ion-icon name="warning-outline"></ion-icon>
+      <span>{{ errorMessage }}</span>
+    </div>
+  </div>
+  
+  <!-- VIDEO PREVIEW (for both modes) -->
+  <div class="video-preview" *ngIf="videoUrl">
+    <div class="video-container">
+      <!-- External video (YouTube/Vimeo) with Thumbnail -->
+      <div class="external-video-preview" *ngIf="isExternalVideo(videoUrl)">
+        <div class="thumbnail-overlay" *ngIf="thumbnailUrl && showThumbnailOverlay" (click)="playVideo()">
+          <img [src]="thumbnailUrl" alt="Video thumbnail" class="video-thumbnail">
+          <div class="play-overlay">
+            <ion-icon name="play-circle" class="play-icon"></ion-icon>
+          </div>
+        </div>
+        <iframe 
+          #iframeElement
+          *ngIf="!thumbnailUrl || !showThumbnailOverlay"
+          [src]="videoUrl | safeUrl"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          class="preview-iframe">
+        </iframe>
+      </div>
+      
+      <!-- Uploaded video (GCP) with optional Thumbnail -->
+      <div class="uploaded-video-preview" *ngIf="!isExternalVideo(videoUrl)">
+        <div class="thumbnail-overlay" *ngIf="thumbnailUrl && showThumbnailOverlay" (click)="playVideo()">
+          <img [src]="thumbnailUrl" alt="Video thumbnail" class="video-thumbnail">
+          <div class="play-overlay">
+            <ion-icon name="play-circle" class="play-icon"></ion-icon>
+          </div>
+        </div>
+        <video 
+          #videoElement
+          *ngIf="!thumbnailUrl || !showThumbnailOverlay"
+          [src]="videoUrl" 
+          controls 
+          preload="metadata" 
+          class="preview-video">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </div>
+    
+    <!-- Thumbnail Upload Section for Videos (after upload) -->
+    <div class="thumbnail-section" *ngIf="videoUrl && !autoThumbnailGenerated && !thumbnailUrl">
+      <h4>Add a Thumbnail (Recommended)</h4>
+      <p class="thumbnail-benefit">Tutors with thumbnails earn 18% more on average!</p>
+      
+      <input #thumbnailAfterInput 
+             type="file" 
+             accept="image/jpeg,image/jpg,image/png" 
+             (change)="onThumbnailSelected($event)"
+             style="display: none;">
+      
+      <button class="thumbnail-btn" (click)="thumbnailAfterInput.click()">
+        <ion-icon name="image-outline"></ion-icon>
+        Upload Thumbnail (16:9 ratio, JPG/PNG, max 20MB)
+      </button>
+    </div>
+    
+    <div class="video-actions">
+      <ion-button fill="outline" size="small" (click)="removeVideo()">
+        <ion-icon name="trash-outline" slot="start"></ion-icon>
+        Remove
+      </ion-button>
+      <ion-button fill="outline" size="small" (click)="changeVideo()">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Change
+      </ion-button>
+    </div>
+  </div>
+  
+  <div class="upload-progress" *ngIf="isUploading">
+    <ion-spinner></ion-spinner>
+    <p>{{ errorMessage || 'Processing...' }}</p>
+  </div>
+</div>
+

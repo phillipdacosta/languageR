@@ -2,13 +2,38 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const rateLimit = require('express-rate-limit');
 
+// Rate limiters for public endpoints
+const publicProfileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per IP
+  message: 'Too many requests, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const emailCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 2000, // Very high limit for development - guards cache aggressively
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    console.warn('⚠️ Rate limit hit for email check endpoint:', req.ip);
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'Please wait a moment before trying again',
+      retryAfter: Math.ceil((req.rateLimit.resetTime - Date.now()) / 1000)
+    });
+  }
+});
 
 // GET /api/users/debug - Debug what we're receiving
 router.get('/debug', verifyToken, async (req, res) => {
-  console.log('🔍 DEBUG: Full request user:', JSON.stringify(req.user, null, 2));
-  console.log('🔍 DEBUG: User sub:', req.user.sub);
-  console.log('🔍 DEBUG: User email:', req.user.email);
+  console\.log\([\s\S]*?\);'🔍 DEBUG: Full request user:', JSON.stringify(req.user, null, 2));
+  console\.log\([\s\S]*?\);'🔍 DEBUG: User sub:', req.user.sub);
+  console\.log\([\s\S]*?\);'🔍 DEBUG: User email:', req.user.email);
   
   res.json({
     success: true,
@@ -19,31 +44,31 @@ router.get('/debug', verifyToken, async (req, res) => {
 
 // GET /api/users/me - Get current user
 router.get('/me', verifyToken, async (req, res) => {
-  console.log('🔍 Getting current user:', req.user);
+  console\.log\([\s\S]*?\);'🔍 Getting current user:', req.user);
   try {
     // Try to find user by auth0Id first, then by email as fallback
     let user = await User.findOne({ auth0Id: req.user.sub });
     
     if (!user && req.user.email) {
-      console.log('🔍 User not found by auth0Id, trying email:', req.user.email);
+      console\.log\([\s\S]*?\);'🔍 User not found by auth0Id, trying email:', req.user.email);
       user = await User.findOne({ email: req.user.email });
       
       // If found by email, update the auth0Id to match the current token
       if (user) {
-        console.log('🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        console\.log\([\s\S]*?\);'🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
         user.auth0Id = req.user.sub;
         await user.save();
       }
     }
     
     if (!user) {
-      console.log('🔍 User not found by auth0Id or email');
+      console\.log\([\s\S]*?\);'🔍 User not found by auth0Id or email');
       return res.status(404).json({ error: 'User not found' });
     }
     
     // Sync picture from Auth0 if it's different (handles Google profile picture updates)
     const auth0Picture = req.user.picture || req.user.picture_url || null;
-    console.log('🖼️ Checking picture sync:', {
+    console\.log\([\s\S]*?\);'🖼️ Checking picture sync:', {
       auth0Picture,
       dbPicture: user.picture,
       hasAuth0Picture: !!auth0Picture,
@@ -52,30 +77,30 @@ router.get('/me', verifyToken, async (req, res) => {
     });
     
     if (auth0Picture && auth0Picture !== user.picture) {
-      console.log('🖼️ Picture changed in Auth0, updating database:', {
+      console\.log\([\s\S]*?\);'🖼️ Picture changed in Auth0, updating database:', {
         old: user.picture,
         new: auth0Picture
       });
       user.picture = auth0Picture;
       await user.save();
-      console.log('✅ Picture updated in database');
+      console\.log\([\s\S]*?\);'✅ Picture updated in database');
     } else if (auth0Picture && !user.picture) {
       // If Auth0 has a picture but database doesn't, sync it
-      console.log('🖼️ Auth0 has picture but database doesn\'t, syncing...');
+      console\.log\([\s\S]*?\);'🖼️ Auth0 has picture but database doesn\'t, syncing...');
       user.picture = auth0Picture;
       await user.save();
-      console.log('✅ Picture synced to database');
+      console\.log\([\s\S]*?\);'✅ Picture synced to database');
     }
     
     // Also sync name and emailVerified if they changed
     if (req.user.name && req.user.name !== user.name) {
-      console.log('📝 Name changed in Auth0, updating database');
+      console\.log\([\s\S]*?\);'📝 Name changed in Auth0, updating database');
       user.name = req.user.name;
       await user.save();
     }
     
     if (req.user.email_verified !== undefined && req.user.email_verified !== user.emailVerified) {
-      console.log('✅ Email verification status changed in Auth0, updating database');
+      console\.log\([\s\S]*?\);'✅ Email verification status changed in Auth0, updating database');
       user.emailVerified = req.user.email_verified;
       await user.save();
     }
@@ -87,6 +112,9 @@ router.get('/me', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -109,26 +137,26 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     const { email, name, picture, emailVerified, userType } = req.body;
     
-    console.log('🔍 Creating/updating user with data:', { email, name, userType });
-    console.log('🔍 Full request body:', req.body);
+    console\.log\([\s\S]*?\);'🔍 Creating/updating user with data:', { email, name, userType });
+    console\.log\([\s\S]*?\);'🔍 Full request body:', req.body);
     
     // Check if user already exists by auth0Id first, then by email
     let user = await User.findOne({ auth0Id: req.user.sub });
     
     if (!user && req.user.email) {
-      console.log('🔍 User not found by auth0Id, trying email for update:', req.user.email);
+      console\.log\([\s\S]*?\);'🔍 User not found by auth0Id, trying email for update:', req.user.email);
       user = await User.findOne({ email: req.user.email });
       
       // If found by email, update the auth0Id to match the current token
       if (user) {
-        console.log('🔍 Found existing user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        console\.log\([\s\S]*?\);'🔍 Found existing user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
         user.auth0Id = req.user.sub;
       }
     }
     
     if (user) {
       // Update existing user
-      console.log('🔍 Updating existing user. Current userType:', user.userType, 'New userType:', userType);
+      console\.log\([\s\S]*?\);'🔍 Updating existing user. Current userType:', user.userType, 'New userType:', userType);
       user.email = email || user.email;
       user.name = name || user.name;
       
@@ -140,17 +168,23 @@ router.post('/', verifyToken, async (req, res) => {
       user.userType = userType || user.userType; // Update user type
       user.updatedAt = new Date();
       
-      console.log('🔍 User after update. userType:', user.userType);
+      console\.log\([\s\S]*?\);'🔍 User after update. userType:', user.userType);
       await user.save();
     } else {
       // Create new user
-      console.log('🔍 Creating new user with userType:', userType);
-      console.log('🔍 Request user data:', req.user);
-      console.log('🔍 Request body data:', req.body);
+      console\.log\([\s\S]*?\);'🔍 Creating new user with userType:', userType);
+      console\.log\([\s\S]*?\);'🔍 Request user data:', req.user);
+      console\.log\([\s\S]*?\);'🔍 Request body data:', req.body);
       
       try {
         // Get picture from Auth0 if available
+        console\.log\([\s\S]*?\);'🖼️ Picture sources:', {
+          'req.user.picture': req.user.picture,
+          'req.user.picture_url': req.user.picture_url,
+          'body.picture': picture
+        });
         const auth0Picture = req.user.picture || req.user.picture_url || picture || null;
+        console\.log\([\s\S]*?\);'🖼️ Selected auth0Picture:', auth0Picture);
         
         user = new User({
           auth0Id: req.user.sub,
@@ -162,11 +196,11 @@ router.post('/', verifyToken, async (req, res) => {
           onboardingCompleted: false
         });
         
-        console.log('🔍 New user object created:', user);
-        console.log('🔍 New user userType:', user.userType);
+        console\.log\([\s\S]*?\);'🔍 New user object created:', user);
+        console\.log\([\s\S]*?\);'🔍 New user userType:', user.userType);
         
         await user.save();
-        console.log('🔍 User saved successfully');
+        console\.log\([\s\S]*?\);'🔍 User saved successfully');
       } catch (saveError) {
         console.error('🔍 Error saving user:', saveError);
         throw saveError;
@@ -180,6 +214,9 @@ router.post('/', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -198,34 +235,117 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// PUT /api/users/onboarding - Complete onboarding
+// PUT /api/users/onboarding - Complete onboarding (creates user if doesn't exist)
 router.put('/onboarding', verifyToken, async (req, res) => {
   try {
-    console.log('🔍 PUT /api/users/onboarding called');
-    console.log('🔍 Request body:', req.body);
-    console.log('🔍 Request user:', req.user);
+    console\.log\([\s\S]*?\);'🔍 PUT /api/users/onboarding called');
+    console\.log\([\s\S]*?\);'🔍 Request body:', req.body);
+    console\.log\([\s\S]*?\);'🔍 Request user:', req.user);
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    let user = await User.findOne({ auth0Id: req.user.sub });
     
-    if (!user) {
-      console.log('🔍 User not found in database');
-      return res.status(404).json({ error: 'User not found' });
+    // If not found by auth0Id, try to find by email (in case auth0Id changed)
+    if (!user && req.user.email) {
+      console\.log\([\s\S]*?\);'🔍 User not found by auth0Id, trying email:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      
+      // If found by email, update the auth0Id to match current token
+      if (user) {
+        console\.log\([\s\S]*?\);'🔍 Found user by email, updating auth0Id from', user.auth0Id, 'to', req.user.sub);
+        user.auth0Id = req.user.sub;
+      }
     }
     
-    console.log('🔍 User found:', user.email, 'userType:', user.userType);
+    // If user doesn't exist, create them now
+    if (!user) {
+      console\.log\([\s\S]*?\);'🔍 User not found in database - creating new user during onboarding');
+      console\.log\([\s\S]*?\);'🔍 Request user data:', JSON.stringify(req.user, null, 2));
+      console\.log\([\s\S]*?\);'🔍 Request body:', JSON.stringify(req.body, null, 2));
+      
+      // Get picture from request body (sent from frontend) or Auth0 token
+      const auth0Picture = req.body.picture || req.user.picture || req.user.picture_url || null;
+      console\.log\([\s\S]*?\);'🖼️ Picture source - body:', req.body.picture, 'token:', req.user.picture, 'final:', auth0Picture);
+      
+      // Determine userType from request body or default to 'student'
+      const userType = req.body.userType || 'student';
+      
+      // Get firstName, lastName, and country from request body or Auth0
+      const firstName = req.body.firstName || req.user.given_name || '';
+      const lastName = req.body.lastName || req.user.family_name || '';
+      const country = req.body.country || '';
+      
+      // Ensure we have email and name (required fields)
+      const email = req.user.email || req.body.email;
+      const name = req.user.name || req.user.given_name || email?.split('@')[0] || 'User';
+      
+      if (!email) {
+        console.error('❌ Cannot create user: email is required');
+        return res.status(400).json({ 
+          error: 'Email is required',
+          details: 'User email not found in authentication token. Please log in again.' 
+        });
+      }
+      
+      user = new User({
+        auth0Id: req.user.sub,
+        email: email,
+        name: name,
+        firstName: firstName,
+        lastName: lastName,
+        country: country,
+        picture: auth0Picture,
+        emailVerified: req.user.email_verified || false,
+        userType: userType,
+        onboardingCompleted: false
+      });
+      
+      console\.log\([\s\S]*?\);'🔍 New user created during onboarding:', {
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        userType: user.userType,
+        firstName: user.firstName,
+        lastName: user.lastName
+      });
+    } else {
+      console\.log\([\s\S]*?\);'🔍 User found:', user.email, 'userType:', user.userType);
+      console\.log\([\s\S]*?\);'🔍 Current user picture:', user.picture);
+      
+      // Sync picture from Auth0 if available and user doesn't have one
+      const auth0Picture = req.user.picture || req.user.picture_url || null;
+      if (auth0Picture && !user.picture) {
+        console\.log\([\s\S]*?\);'🖼️ User has no picture, syncing from Auth0:', auth0Picture);
+        user.picture = auth0Picture;
+      } else if (auth0Picture && auth0Picture !== user.picture) {
+        console\.log\([\s\S]*?\);'🖼️ Updating user picture from Auth0:', { old: user.picture, new: auth0Picture });
+        user.picture = auth0Picture;
+      }
+      
+      // Update firstName, lastName, and country if provided
+      if (req.body.firstName !== undefined) {
+        user.firstName = req.body.firstName;
+      }
+      if (req.body.lastName !== undefined) {
+        user.lastName = req.body.lastName;
+      }
+      if (req.body.country !== undefined) {
+        user.country = req.body.country;
+      }
+    }
     
     // Update onboarding data based on user type
     user.onboardingCompleted = true;
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate } = req.body;
+      const { languages, experience, schedule, bio, hourlyRate, introductionVideo } = req.body;
       user.onboardingData = {
         languages: languages || [],
         experience: experience || '',
         schedule: schedule || '',
         bio: bio || '',
         hourlyRate: hourlyRate || 25,
+        introductionVideo: introductionVideo || '',
         completedAt: new Date()
       };
     } else {
@@ -242,6 +362,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     await user.save();
     
+    console\.log\([\s\S]*?\);'✅ Onboarding completed successfully for:', user.email);
+    
     res.json({
       success: true,
       message: 'Onboarding completed successfully',
@@ -250,6 +372,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -262,8 +387,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error completing onboarding:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ Error completing onboarding:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
@@ -305,6 +431,9 @@ router.put('/profile', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
@@ -322,8 +451,8 @@ router.put('/profile', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/users/check-email - Check if user exists by email (no auth required)
-router.post('/check-email', async (req, res) => {
+// POST /api/users/check-email - Check if user exists by email (rate limited to prevent enumeration)
+router.post('/check-email', emailCheckLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -331,12 +460,12 @@ router.post('/check-email', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
     
-    console.log('Checking if user exists with email:', email);
+    console\.log\([\s\S]*?\);'Checking if user exists with email:', email);
     
     const user = await User.findOne({ email });
     const exists = !!user;
     
-    console.log('User exists:', exists);
+    console\.log\([\s\S]*?\);'User exists:', exists);
     
     res.json({
       success: true,
@@ -349,8 +478,8 @@ router.post('/check-email', async (req, res) => {
   }
 });
 
-// POST /api/users/by-email - Get user by email (no auth required)
-router.post('/by-email', async (req, res) => {
+// POST /api/users/by-email - Get user by email (rate limited - used by onboarding guard)
+router.post('/by-email', emailCheckLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -358,7 +487,7 @@ router.post('/by-email', async (req, res) => {
       return res.status(400).json({ error: 'Email is required' });
     }
     
-    console.log('Getting user by email:', email);
+    console\.log\([\s\S]*?\);'Getting user by email:', email);
     
     const user = await User.findOne({ email });
     
@@ -366,7 +495,7 @@ router.post('/by-email', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    console.log('User found:', user.email);
+    console\.log\([\s\S]*?\);'User found:', user.email);
     
     res.json({
       success: true,
@@ -394,7 +523,7 @@ router.post('/by-email', async (req, res) => {
 // GET /api/users/tutors - Search tutors with filters
 router.get('/tutors', verifyToken, async (req, res) => {
   try {
-    console.log('🔍 Searching tutors with filters:', req.query);
+    console\.log\([\s\S]*?\);'🔍 Searching tutors with filters:', req.query);
     
     const {
       language,
@@ -458,10 +587,12 @@ router.get('/tutors', verifyToken, async (req, res) => {
       filterQuery['profile.nativeSpeaker'] = true;
     }
 
-    console.log('🔍 Filter query:', JSON.stringify(filterQuery, null, 2));
+    console\.log\([\s\S]*?\);'🔍 Filter query:', JSON.stringify(filterQuery, null, 2));
 
     // Build sort query
     let sortQuery = {};
+    let useRandomSort = false;
+    
     switch (sortBy) {
       case 'price':
         sortQuery = { 'onboardingData.hourlyRate': 1 };
@@ -475,6 +606,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
       case 'experience':
         sortQuery = { 'onboardingData.experience': -1 };
         break;
+      case 'random':
+        useRandomSort = true;
+        break;
       default:
         sortQuery = { createdAt: -1 };
     }
@@ -482,12 +616,73 @@ router.get('/tutors', verifyToken, async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Execute query
-    const tutors = await User.find(filterQuery)
-      .sort(sortQuery)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('name email picture auth0Id onboardingData profile stats createdAt');
+    let tutors;
+    
+    // For random sorting, use MongoDB aggregation with $sample
+    // This gives true randomization while respecting filters
+    if (useRandomSort && page == 1) {
+      // For first page, use $sample for true randomization
+      tutors = await User.aggregate([
+        { $match: filterQuery },
+        { $sample: { size: parseInt(limit) } },
+        {
+          $project: {
+            name: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            picture: 1,
+            auth0Id: 1,
+            onboardingData: 1,
+            profile: 1,
+            stats: 1,
+            createdAt: 1
+          }
+        }
+      ]);
+    } else if (useRandomSort) {
+      // For pagination with random, we need a consistent but random-looking order
+      // Use daily seed + tutor ID hash for consistent pagination within a day
+      const dailySeed = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Changes daily
+      
+      tutors = await User.aggregate([
+        { $match: filterQuery },
+        {
+          $addFields: {
+            randomSort: {
+              $mod: [
+                { $add: [{ $toLong: '$_id' }, dailySeed] },
+                10000
+              ]
+            }
+          }
+        },
+        { $sort: { randomSort: 1 } },
+        { $skip: skip },
+        { $limit: parseInt(limit) },
+        {
+          $project: {
+            name: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            picture: 1,
+            auth0Id: 1,
+            onboardingData: 1,
+            profile: 1,
+            stats: 1,
+            createdAt: 1
+          }
+        }
+      ]);
+    } else {
+      // Standard sort query
+      tutors = await User.find(filterQuery)
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
+    }
 
     // Get total count for pagination
     const totalCount = await User.countDocuments(filterQuery);
@@ -497,6 +692,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
       id: tutor._id,
       auth0Id: tutor.auth0Id,
       name: tutor.name,
+      firstName: tutor.firstName || tutor.onboardingData?.firstName || '',
+      lastName: tutor.lastName || tutor.onboardingData?.lastName || '',
       email: tutor.email,
       picture: tutor.picture,
       languages: tutor.onboardingData?.languages || [],
@@ -505,7 +702,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
       schedule: tutor.onboardingData?.schedule || 'Flexible',
       bio: tutor.onboardingData?.bio || '',
       introductionVideo: tutor.onboardingData?.introductionVideo || '',
-      country: tutor.profile?.country || 'Unknown',
+      videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
+      videoType: tutor.onboardingData?.videoType || 'upload',
+      country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
       gender: tutor.profile?.gender || 'Not specified',
       nativeSpeaker: tutor.profile?.nativeSpeaker || false,
       rating: tutor.stats?.rating || 0,
@@ -532,10 +731,18 @@ router.get('/tutors', verifyToken, async (req, res) => {
   }
 });
 
-// PUT /api/users/tutor-video - Update tutor introduction video
+// PUT /api/users/tutor-video - Update tutor introduction video with thumbnail and type
 router.put('/tutor-video', verifyToken, async (req, res) => {
   try {
-    const { introductionVideo } = req.body;
+    const { introductionVideo, videoThumbnail, videoType } = req.body;
+    
+    console\.log\([\s\S]*?\);'📹 Received video update request:', {
+      introductionVideo,
+      videoThumbnail,
+      videoType,
+      hasVideo: !!introductionVideo,
+      hasThumbnail: !!videoThumbnail
+    });
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -548,21 +755,44 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Only tutors can update introduction videos' });
     }
     
-    // Update introduction video
+    console\.log\([\s\S]*?\);'📹 Current onboardingData before update:', user.onboardingData);
+    
+    // Update introduction video, thumbnail, and type
     if (user.onboardingData) {
       user.onboardingData.introductionVideo = introductionVideo || '';
+      user.onboardingData.videoThumbnail = videoThumbnail || '';
+      user.onboardingData.videoType = videoType || 'upload';
     } else {
       user.onboardingData = {
-        introductionVideo: introductionVideo || ''
+        introductionVideo: introductionVideo || '',
+        videoThumbnail: videoThumbnail || '',
+        videoType: videoType || 'upload'
       };
     }
     
     await user.save();
     
+    // Re-fetch to confirm save
+    const updatedUser = await User.findOne({ auth0Id: req.user.sub });
+    
+    console\.log\([\s\S]*?\);'✅ Tutor video updated and saved:', {
+      video: user.onboardingData.introductionVideo,
+      thumbnail: user.onboardingData.videoThumbnail,
+      type: user.onboardingData.videoType
+    });
+    
+    console\.log\([\s\S]*?\);'✅ Confirmed in DB:', {
+      video: updatedUser.onboardingData.introductionVideo,
+      thumbnail: updatedUser.onboardingData.videoThumbnail,
+      type: updatedUser.onboardingData.videoType
+    });
+    
     res.json({
       success: true,
       message: 'Introduction video updated successfully',
-      introductionVideo: user.onboardingData.introductionVideo
+      introductionVideo: user.onboardingData.introductionVideo,
+      videoThumbnail: user.onboardingData.videoThumbnail,
+      videoType: user.onboardingData.videoType
     });
 
   } catch (error) {
@@ -597,9 +827,48 @@ router.put('/availability', verifyToken, async (req, res) => {
       return res.status(403).json({ message: 'Only tutors can set availability' });
     }
 
-    // Update availability in user document
-    user.availability = availabilityBlocks;
+    // Merge new availability blocks with existing ones
+    // Strategy: Remove existing blocks that overlap with new blocks (same date), then add new blocks
+    
+    const existingAvailability = user.availability || [];
+    
+    // Get unique dates from new blocks
+    const newBlockDates = new Set();
+    availabilityBlocks.forEach(block => {
+      if (block.absoluteStart) {
+        // Normalize to date only (YYYY-MM-DD)
+        const date = new Date(block.absoluteStart);
+        date.setHours(0, 0, 0, 0);
+        newBlockDates.add(date.toISOString().split('T')[0]);
+      }
+    });
+    
+    console\.log\([\s\S]*?\);'New block dates:', Array.from(newBlockDates));
+    
+    // Keep existing blocks that DON'T overlap with new block dates
+    const blocksToKeep = existingAvailability.filter(existing => {
+      // If existing block has no absolute date, keep it (recurring pattern)
+      if (!existing.absoluteStart) {
+        return true;
+      }
+      
+      // Check if existing block is for a date we're updating
+      const existingDate = new Date(existing.absoluteStart);
+      existingDate.setHours(0, 0, 0, 0);
+      const existingDateKey = existingDate.toISOString().split('T')[0];
+      
+      // Keep if NOT in the new dates we're updating
+      return !newBlockDates.has(existingDateKey);
+    });
+    
+    console\.log\([\s\S]*?\);'Blocks to keep:', blocksToKeep.length);
+    console\.log\([\s\S]*?\);'New blocks to add:', availabilityBlocks.length);
+    
+    // Merge: kept blocks + new blocks
+    user.availability = [...blocksToKeep, ...availabilityBlocks];
     await user.save();
+
+    console\.log\([\s\S]*?\);'Final availability count:', user.availability.length);
 
     res.json({ 
       success: true, 
@@ -613,28 +882,36 @@ router.put('/availability', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/availability - Get tutor availability by tutor ID (public)
+// GET /api/users/:userId/availability - Get tutor availability by tutor ID (public with rate limiting)
 // NOTE: This route MUST come before /availability to avoid route conflicts
-router.get('/:userId/availability', async (req, res) => {
+router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { userId } = req.params;
-    console.log('📅 Fetching availability for tutor ID:', userId);
+    console\.log\([\s\S]*?\);`⏱️ [Availability] Request started for userId: ${userId}`);
+    console\.log\([\s\S]*?\);'📅 Fetching availability for tutor ID:', userId);
     
     // Validate MongoDB ObjectId format
     if (!/^[0-9a-fA-F]{24}$/.test(userId)) {
-      console.log('📅 Invalid tutor ID format:', userId);
+      console\.log\([\s\S]*?\);'📅 Invalid tutor ID format:', userId);
       return res.status(400).json({ message: 'Invalid tutor ID format' });
     }
     
+    const dbStartTime = Date.now();
     const tutor = await User.findOne({ _id: userId, userType: 'tutor' });
+    const dbDuration = Date.now() - dbStartTime;
+    console\.log\([\s\S]*?\);`⏱️ [Availability] DB query took: ${dbDuration}ms`);
     
     if (!tutor) {
-      console.log('📅 Tutor not found:', userId);
+      console\.log\([\s\S]*?\);'📅 Tutor not found:', userId);
       return res.status(404).json({ message: 'Tutor not found' });
     }
 
-    console.log('📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
-    console.log('📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+    console\.log\([\s\S]*?\);'📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
+    console\.log\([\s\S]*?\);'📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+
+    const totalDuration = Date.now() - startTime;
+    console\.log\([\s\S]*?\);`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
@@ -648,13 +925,16 @@ router.get('/:userId/availability', async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/public - Public user profile summary (tutor or student)
-router.get('/:userId/public', async (req, res) => {
+// GET /api/users/:userId/public - Public user profile summary (rate limited for scraping protection)
+router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { userId } = req.params;
+    console\.log\([\s\S]*?\);`⏱️ [Public Profile] Request started for userId: ${userId}`);
     
     // Support both MongoDB ObjectId and auth0Id
     let user;
+    const dbStartTime = Date.now();
     if (/^[0-9a-fA-F]{24}$/.test(userId)) {
       // MongoDB ObjectId
       user = await User.findById(userId);
@@ -662,10 +942,15 @@ router.get('/:userId/public', async (req, res) => {
       // Try auth0Id
       user = await User.findOne({ auth0Id: userId });
     }
+    const dbDuration = Date.now() - dbStartTime;
+    console\.log\([\s\S]*?\);`⏱️ [Public Profile] DB query took: ${dbDuration}ms`);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    const totalDuration = Date.now() - startTime;
+    console\.log\([\s\S]*?\);`⏱️ [Public Profile] Total request time: ${totalDuration}ms`);
 
     if (user.userType === 'tutor') {
       res.json({
@@ -682,6 +967,8 @@ router.get('/:userId/public', async (req, res) => {
           schedule: user.onboardingData?.schedule || '',
           bio: user.onboardingData?.bio || '',
           introductionVideo: user.onboardingData?.introductionVideo || '',
+          videoThumbnail: user.onboardingData?.videoThumbnail || '',
+          videoType: user.onboardingData?.videoType || 'upload',
           stats: user.stats || {},
           profile: user.profile || {}
         }
@@ -750,7 +1037,7 @@ router.put('/picture', verifyToken, async (req, res) => {
     }
     
     // Update picture
-    console.log('🖼️ Updating user profile picture:', {
+    console\.log\([\s\S]*?\);'🖼️ Updating user profile picture:', {
       userId: user._id,
       oldPicture: user.picture,
       newPicture: picture
@@ -758,7 +1045,7 @@ router.put('/picture', verifyToken, async (req, res) => {
     user.picture = picture;
     await user.save();
     
-    console.log('✅ Profile picture updated successfully');
+    console\.log\([\s\S]*?\);'✅ Profile picture updated successfully');
     
     res.json({
       success: true,
@@ -768,6 +1055,9 @@ router.put('/picture', verifyToken, async (req, res) => {
         auth0Id: user.auth0Id,
         email: user.email,
         name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        country: user.country,
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,

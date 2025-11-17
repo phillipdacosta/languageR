@@ -1,21 +1,29 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { FlagIconComponent } from '../components/flag-icon/flag-icon.component';
+import { SafeUrlPipe } from './pipes/safe-url.pipe';
+import { DisplayNamePipe } from './pipes/display-name.pipe';
 
 @NgModule({
   declarations: [
     VideoUploadComponent,
-    FlagIconComponent
+    FlagIconComponent,
+    SafeUrlPipe,
+    DisplayNamePipe
   ],
   imports: [
     CommonModule,
+    FormsModule,
     IonicModule
   ],
   exports: [
     VideoUploadComponent,
-    FlagIconComponent
+    FlagIconComponent,
+    SafeUrlPipe,
+    DisplayNamePipe
   ]
 })
 export class SharedModule { }

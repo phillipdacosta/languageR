@@ -15,8 +15,54 @@
     <!-- Step Content -->
     <div class="step-content">
       
-      <!-- Step 1: Languages -->
+      <!-- Step 1: Name & Country -->
       <div *ngIf="currentStep === 1" class="step">
+        <h2>Tell us about yourself</h2>
+        <p>Let's start with some basic information</p>
+        
+        <ion-item>
+          <ion-label position="stacked">First Name *</ion-label>
+          <ion-input 
+            [(ngModel)]="firstName"
+            placeholder="Enter your first name"
+            type="text">
+          </ion-input>
+        </ion-item>
+        
+        <ion-item>
+          <ion-label position="stacked">Last Name *</ion-label>
+          <ion-input 
+            [(ngModel)]="lastName"
+            placeholder="Enter your last name"
+            type="text">
+          </ion-input>
+        </ion-item>
+        
+        <ion-item>
+          <ion-label position="stacked">Where are you from? *</ion-label>
+          <ion-button 
+            fill="outline" 
+            expand="block"
+            (click)="openCountryModal()"
+            class="country-select-button">
+            <span *ngIf="country; else noCountrySelected">
+              {{ getCountryFlag(country) }} {{ country }}
+            </span>
+            <ng-template #noCountrySelected>
+              Select your country
+            </ng-template>
+            <ion-icon name="chevron-down" slot="end"></ion-icon>
+          </ion-button>
+        </ion-item>
+        
+        <div class="selected-country" *ngIf="country">
+          <span class="country-flag">{{ getCountryFlag(country) }}</span>
+          <span class="country-name">{{ country }}</span>
+        </div>
+      </div>
+
+      <!-- Step 2: Languages -->
+      <div *ngIf="currentStep === 2" class="step">
         <h2>What languages do you teach?</h2>
         <p>Select all languages you're comfortable teaching</p>
         
@@ -32,8 +78,8 @@
         </div>
       </div>
 
-      <!-- Step 2: Teaching Experience -->
-      <div *ngIf="currentStep === 2" class="step">
+      <!-- Step 3: Teaching Experience -->
+      <div *ngIf="currentStep === 3" class="step">
         <h2>What's your teaching experience?</h2>
         <p>Help students understand your background</p>
         
@@ -50,8 +96,8 @@
         </div>
       </div>
 
-      <!-- Step 3: Availability -->
-      <div *ngIf="currentStep === 3" class="step">
+      <!-- Step 4: Availability -->
+      <div *ngIf="currentStep === 4" class="step">
         <h2>When are you available?</h2>
         <p>Let students know your teaching schedule</p>
         
@@ -68,8 +114,8 @@
         </div>
       </div>
 
-      <!-- Step 4: Profile Setup -->
-      <div *ngIf="currentStep === 4" class="step">
+      <!-- Step 5: Profile Setup -->
+      <div *ngIf="currentStep === 5" class="step">
         <h2>Complete your profile</h2>
         <p>Add some details about yourself</p>
         

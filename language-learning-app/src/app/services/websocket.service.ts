@@ -118,13 +118,21 @@ export class WebSocketService {
   }
 
   connect(): void {
+    const startTime = performance.now();
+    console.log(`⏱️ [WebSocket] Starting connection attempt...`);
+    
     // If already connected, just ensure listeners are set up
     if (this.socket?.connected) {
+      const duration = performance.now() - startTime;
+      console.log(`⏱️ [WebSocket] Already connected (${duration.toFixed(2)}ms)`);
       this.setupEventListeners();
       return;
     }
 
     this.authService.user$.pipe(take(1)).subscribe(user => {
+      const authDuration = performance.now() - startTime;
+      console.log(`⏱️ [WebSocket] Got auth user in ${authDuration.toFixed(2)}ms`);
+      
       if (!user) {
         console.error('No user available for WebSocket connection');
         return;
@@ -136,15 +144,21 @@ export class WebSocketService {
       const token = `dev-token-${tokenEmail}`;
       
       const socketUrl = environment.backendUrl;
+      const socketStartTime = performance.now();
+      console.log(`⏱️ [WebSocket] Creating socket connection to ${socketUrl}...`);
       
       this.socket = io(socketUrl, {
         auth: {
           token: token
         },
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        timeout: 5000  // 5 second timeout
       });
 
       this.socket.on('connect', () => {
+        const connectDuration = performance.now() - socketStartTime;
+        const totalDuration = performance.now() - startTime;
+        console.log(`⏱️ [WebSocket] Connected in ${connectDuration.toFixed(2)}ms (total: ${totalDuration.toFixed(2)}ms)`);
         this.isConnected = true;
         this.connectionSubject.next(true);
         // Set up listeners after connection is established
@@ -158,7 +172,8 @@ export class WebSocketService {
       });
 
       this.socket.on('connect_error', (error) => {
-        console.error('WebSocket connection error:', error);
+        const errorDuration = performance.now() - socketStartTime;
+        console.error(`⏱️ [WebSocket] Connection error after ${errorDuration.toFixed(2)}ms:`, error);
         this.isConnected = false;
         this.connectionSubject.next(false);
       });

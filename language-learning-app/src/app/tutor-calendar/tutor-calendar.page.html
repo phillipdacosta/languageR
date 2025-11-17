@@ -46,6 +46,10 @@
 
         <div class="panel-section">
           <h3>Quick Actions</h3>
+            <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson(); toggleMobileSettings()">
+              <ion-icon name="add-outline" slot="start"></ion-icon>
+              Schedule lesson
+            </ion-button>
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
               Add time off
@@ -123,9 +127,9 @@
           </div>
 
           <div class="mobile-timeline" *ngIf="mobileTimeline.length > 0; else emptyTimeline">
-            <div *ngFor="let item of mobileTimeline" class="timeline-entry" [class.free]="item.type === 'free'">
+            <div *ngFor="let item of mobileTimeline" class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
               <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
-              <div class="timeline-card" [class.free]="item.type === 'free'">
+              <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast">
                 <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
                 <ng-container *ngIf="item.type === 'event'; else freeBlock">
                   <div class="card-header" [class.has-avatar]="item.avatarUrl">
@@ -158,11 +162,11 @@
             </div>
           </ng-template>
 
-          <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+          <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
             <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
               <ion-icon name="add-outline"></ion-icon>
             </ion-fab-button>
-          </ion-fab>
+          </ion-fab> -->
         </ng-container>
 
         <ng-container *ngSwitchCase="'agenda'">
@@ -180,16 +184,16 @@
             <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
               <div class="agenda-header">
                 <div class="agenda-label-group">
-                  <div class="agenda-label">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
+                  <div class="agenda-label" [class.is-today]="section.isToday">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
                   <div class="agenda-date">{{ section.dateLabel }}</div>
                 </div>
                 <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
               </div>
               <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
                 <div class="agenda-item" *ngFor="let item of section.events">
-                  <div class="timeline-entry" [class.free]="item.type === 'free'">
+                  <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
                     <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
-                    <div class="timeline-card" [class.free]="item.type === 'free'">
+                    <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast">
                       <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
                       <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
                         <div class="card-header" [class.has-avatar]="item.avatarUrl">
@@ -227,6 +231,12 @@
               <p>No upcoming events.</p>
             </div>
           </ng-template>
+          
+          <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+            <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
+              <ion-icon name="add-outline"></ion-icon>
+            </ion-fab-button>
+          </ion-fab> -->
         </ng-container>
       </ng-container>
     </div>

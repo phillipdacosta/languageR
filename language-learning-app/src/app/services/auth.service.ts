@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
 import { Observable, BehaviorSubject, combineLatest } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { map, tap, take } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
@@ -92,6 +92,13 @@ export class AuthService {
    */
   getAccessToken(): Observable<string> {
     return this.auth0.getAccessTokenSilently();
+  }
+
+  /**
+   * Get ID token claims (includes user profile with picture)
+   */
+  async getIdTokenClaims(): Promise<any> {
+    return this.auth0.idTokenClaims$.pipe(take(1)).toPromise();
   }
 
   /**
@@ -215,10 +222,15 @@ export class AuthService {
    * Clear Auth0 state (useful for debugging or forced logout)
    */
   clearAuth0State(): void {
-    console.log('Clearing Auth0 state...');
+    console.log('🔧 AuthService: clearAuth0State() called');
+    console.log('🔧 AuthService: localStorage BEFORE clear:', Object.keys(localStorage));
     
-    // Preserve selectedUserType before clearing localStorage
+    // Preserve critical items before clearing localStorage
     const selectedUserType = localStorage.getItem('selectedUserType');
+    const returnUrl = localStorage.getItem('returnUrl');
+    
+    console.log('🔧 AuthService: selectedUserType to preserve:', selectedUserType);
+    console.log('🔧 AuthService: returnUrl to preserve:', returnUrl);
     
     // Clear local state
     this.userSubject.next(null);
@@ -227,12 +239,20 @@ export class AuthService {
     // Clear all storage
     localStorage.clear();
     sessionStorage.clear();
+    console.log('🔧 AuthService: localStorage AFTER clear:', Object.keys(localStorage));
     
-    // Restore selectedUserType if it existed
+    // Restore preserved items
     if (selectedUserType) {
       localStorage.setItem('selectedUserType', selectedUserType);
-      console.log('Preserved selectedUserType:', selectedUserType);
+      console.log('✅ AuthService: Preserved selectedUserType:', selectedUserType);
     }
+    
+    if (returnUrl) {
+      localStorage.setItem('returnUrl', returnUrl);
+      console.log('✅ AuthService: Preserved returnUrl:', returnUrl);
+    }
+    
+    console.log('🔧 AuthService: localStorage AFTER restore:', Object.keys(localStorage));
     
     // Clear Auth0 specific items
     const keysToRemove = [];

@@ -823,13 +823,14 @@
   position: absolute;
   bottom: 80px;
   right: 20px;
-  background: rgba(0, 0, 0, 0.9);
-  border-radius: 12px;
-  padding: 16px;
-  min-width: 220px;
+  background: rgba(0, 0, 0, 0.95);
+  border-radius: 16px;
+  padding: 20px;
+  min-width: 280px;
   z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 
   .controls-header {
     display: flex;
@@ -854,92 +855,108 @@
   .bg-options {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     
-    ion-button {
-      --color: white;
-      --border-color: rgba(255, 255, 255, 0.3);
-      --background: rgba(255, 255, 255, 0.05);
-      margin: 0;
-      font-size: 14px;
-      
-      &[color="primary"] {
-        --background: rgba(var(--ion-color-primary-rgb), 0.2);
-        --border-color: var(--ion-color-primary);
-        --color: var(--ion-color-primary);
-      }
-
-      &:hover {
-        --background: rgba(255, 255, 255, 0.1);
-      }
-    }
-  }
-}
-// Virtual Background Controls (same as pre-call page)
-.virtual-bg-controls {
-  position: absolute;
-  bottom: 80px;
-  left: 20px;
-  background: rgba(0, 0, 0, 0.9);
-  border-radius: 12px;
-  padding: 16px;
-  min-width: 220px;
-  z-index: 1000;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-
-  .controls-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    
-    h3 {
+    .bg-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
       color: white;
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-    }
-
-    ion-button {
-      --color: rgba(255, 255, 255, 0.7);
-      --padding-start: 4px;
-      --padding-end: 4px;
-    }
-  }
-
-  .bg-options {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    
-    ion-button {
-      --color: white;
-      --border-color: rgba(255, 255, 255, 0.3);
-      --background: rgba(255, 255, 255, 0.05);
-      margin: 0;
       font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
       
-      &[color="primary"] {
-        --background: rgba(var(--ion-color-primary-rgb), 0.2);
-        --border-color: var(--ion-color-primary);
-        --color: var(--ion-color-primary);
-      }
-
-      &[color="success"] {
-        --background: rgba(var(--ion-color-success-rgb), 0.2);
-        --border-color: var(--ion-color-success);
-        --color: var(--ion-color-success);
-      }
-
-      &[color="danger"] {
-        --background: rgba(var(--ion-color-danger-rgb), 0.2);
-        --border-color: var(--ion-color-danger);
-        --color: var(--ion-color-danger);
-      }
-
       &:hover {
-        --background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      ion-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+      }
+      
+      span {
+        flex: 1;
+        text-align: left;
+      }
+      
+      .color-preview {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        
+        &.purple {
+          background: linear-gradient(135deg, #6b21a8 0%, #7c3aed 100%);
+          box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+        }
+        
+        &.black {
+          background: #000000;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+        }
+      }
+      
+      &.blur-option {
+        border-color: rgba(59, 130, 246, 0.4);
+        
+        ion-icon {
+          color: #3b82f6;
+        }
+        
+        &:hover {
+          border-color: rgba(59, 130, 246, 0.6);
+          background: rgba(59, 130, 246, 0.1);
+        }
+      }
+      
+      &.purple-option:hover {
+        border-color: rgba(124, 58, 237, 0.6);
+        background: rgba(124, 58, 237, 0.1);
+      }
+      
+      &.black-option:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(0, 0, 0, 0.2);
+      }
+      
+      &.normal-option {
+        border-color: rgba(156, 163, 175, 0.4);
+        
+        ion-icon {
+          color: #9ca3af;
+        }
+        
+        &:hover {
+          border-color: rgba(156, 163, 175, 0.6);
+          background: rgba(156, 163, 175, 0.1);
+        }
+      }
+      
+      &.debug-option {
+        border-color: rgba(251, 146, 60, 0.4);
+        
+        ion-icon {
+          color: #fb923c;
+        }
+        
+        &:hover {
+          border-color: rgba(251, 146, 60, 0.6);
+          background: rgba(251, 146, 60, 0.1);
+        }
       }
     }
   }

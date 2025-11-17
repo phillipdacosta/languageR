@@ -112,10 +112,11 @@ export class LessonService {
     return this.http.post<{ success: boolean; lesson: Lesson }>(`${this.baseUrl}`, lessonData, { headers });
   }
 
-  // Get lessons by tutor ID (public endpoint)
+  // Get lessons by tutor ID (requires authentication)
   getLessonsByTutor(tutorId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
     const url = all ? `${this.baseUrl}/by-tutor/${tutorId}?all=true` : `${this.baseUrl}/by-tutor/${tutorId}`;
-    return this.http.get<{ success: boolean; lessons: Lesson[] }>(url);
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
   }
 
   // Get all lessons for current user

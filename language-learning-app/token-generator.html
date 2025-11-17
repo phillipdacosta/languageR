@@ -6,7 +6,7 @@
     <script>
         // Wait for the script to load
         window.addEventListener('load', function() {
-            console.log('AgoraTokenBuilder loaded:', typeof AgoraTokenBuilder);
+            console\.log\([\s\S]*?\);'AgoraTokenBuilder loaded:', typeof AgoraTokenBuilder);
         });
     </script>
 </head>
@@ -66,7 +66,7 @@
             try {
                 const token = AgoraTokenBuilder.buildTokenWithUid(appId, appCertificate, channelName, uid, AgoraTokenBuilder.Role.Role_Publisher, expirationTime);
                 document.getElementById('tokenOutput').value = token;
-                console.log('Token generated successfully:', token);
+                console\.log\([\s\S]*?\);'Token generated successfully:', token);
             } catch (error) {
                 alert('Error generating token: ' + error.message);
                 console.error('Token generation error:', error);

@@ -5,12 +5,13 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
-import { Observable, takeUntil } from 'rxjs';
+import { Observable, takeUntil, take, filter } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { NotificationService } from '../services/notification.service';
+import { MessagingService } from '../services/messaging.service';
 
 @Component({
   selector: 'app-tab1',
@@ -40,8 +41,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   hasNotifications = false;
   unreadNotificationCount = 0;
   
-  // Cached profile picture to avoid repeated evaluations
-  private _currentUserPicture: string = 'assets/avatar.png';
+  // Cached avatar cache for student/tutor avatars
   private _avatarCache = new Map<string, string>();
   
   // Tutor date strip and upcoming lesson
@@ -59,6 +59,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   totalStudents = 0;
   lessonsThisWeek = 0;
   tutorRating = '0.0';
+  unreadMessages = 0;
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -90,22 +91,30 @@ export class Tab1Page implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private toastController: ToastController,
     private websocketService: WebSocketService,
-    private notificationService: NotificationService
+    private notificationService: NotificationService,
+    private messagingService: MessagingService
   ) {
-    // Get database user data instead of Auth0 data
-    this.userService.getCurrentUser()
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(user => {
-      this.currentUser = user;
-      // Load notification count when user is available
-      if (user) {
-        setTimeout(() => {
-          this.loadUnreadNotificationCount();
-        }, 500);
-      }
+    // Subscribe to currentUser$ observable to get updates automatically
+    this.userService.currentUser$
+      .pipe(
+        filter(user => user !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(user => {
+        console.log('🔄 Tab1Page: Received user:', {
+          email: user?.email,
+          firstName: user?.firstName,
+          picture: user?.picture,
+          hasPicture: !!user?.picture
+        });
+        this.currentUser = user;
         
-        // Cache profile picture to avoid repeated evaluations
-        this._currentUserPicture = user?.picture || 'assets/avatar.png';
+        // Load notification count when user is available
+        if (user) {
+          setTimeout(() => {
+            this.loadUnreadNotificationCount();
+          }, 500);
+        }
         
         // Load lessons as soon as we have the current user
         this.loadLessons();
@@ -117,18 +126,11 @@ export class Tab1Page implements OnInit, OnDestroy {
         }
       });
     
-    // Subscribe to currentUser$ to get updates when picture changes
-    this.userService.currentUser$.pipe(
+    // Subscribe to unread message count
+    this.messagingService.unreadCount$.pipe(
       takeUntil(this.destroy$)
-    ).subscribe((updatedUser: any) => {
-      if (updatedUser && updatedUser['id'] === this.currentUser?.['id']) {
-        console.log('🔄 Tab1Page: Received currentUser$ update:', {
-          picture: updatedUser?.picture,
-          hasPicture: !!updatedUser?.picture
-        });
-        this.currentUser = updatedUser;
-        this._currentUserPicture = updatedUser?.picture || 'assets/avatar.png';
-      }
+    ).subscribe(count => {
+      this.unreadMessages = count;
     });
   }
 
@@ -199,6 +201,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Update join labels for all displayed students
         this.updateStudentJoinLabels();
         // Update countdownTick after labels are updated to trigger single change detection
+        // This also triggers the isNextClassInProgress() check for the badge
         this.countdownTick = now;
       }
     }, 5000); // Check every 5s, but only update when minute changes
@@ -300,6 +303,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       this.router.navigate(['/tabs/tutor-search']);
   }
 
+  navigateToTutorCalendar() {
+    this.router.navigate(['/tabs/tutor-calendar']);
+  }
+
   openAvailabilitySetup() {
     if (!this.isTutor()) {
       return;
@@ -388,26 +395,109 @@ export class Tab1Page implements OnInit, OnDestroy {
     return upcoming.length > 0 ? upcoming[0] : null;
   }
 
-  // Format lesson time for display
+  // Get formatted info about the next lesson for empty state display
+  getNextLessonInfo(): { date: string; time: string; dayText: string } | null {
+    const nextLesson = this.getNextLesson();
+    if (!nextLesson) return null;
+    
+    const start = new Date(nextLesson.startTime);
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const lessonDay = this.startOfDay(start);
+    const daysDiff = Math.floor((lessonDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Format time
+    const time = start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    
+    // Determine day text
+    let dayText = '';
+    if (daysDiff === 0) {
+      dayText = 'today';
+    } else if (daysDiff === 1) {
+      dayText = 'tomorrow';
+    } else if (daysDiff < 7) {
+      dayText = start.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      dayText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    return {
+      date: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      time,
+      dayText
+    };
+  }
+
+  // Format lesson time for display with clear when information
   formatLessonTime(lesson: Lesson): string {
     const start = new Date(lesson.startTime);
     const end = new Date(lesson.endTime);
+    const now = new Date();
     
-    const dateStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     
-    return `${dateStr}, ${startTime} - ${endTime}`;
+    // Calculate relative date
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfLessonDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const daysDiff = Math.floor((startOfLessonDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Calculate hours until start for very soon classes
+    const hoursUntilStart = (start.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    let whenText = '';
+    
+    // First check if it's today - prioritize showing "Today"
+    if (daysDiff === 0) {
+      // If it's today and starting very soon (within 2 hours), show countdown
+      if (hoursUntilStart > 0 && hoursUntilStart <= 2) {
+        const hours = Math.floor(hoursUntilStart);
+        const minutes = Math.floor((hoursUntilStart - hours) * 60);
+        if (hours > 0) {
+          whenText = `Today • In ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+        } else if (minutes > 0) {
+          whenText = `Today • In ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+        } else {
+          whenText = 'Today • Starting now';
+        }
+      } else {
+        whenText = 'Today';
+      }
+    } else if (daysDiff === 1) {
+      whenText = 'Tomorrow';
+    } else if (daysDiff > 1 && daysDiff < 7) {
+      // Within the next week, show weekday name
+      whenText = start.toLocaleDateString('en-US', { weekday: 'long' });
+    } else {
+      // Further out, show full date
+      whenText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    return `${whenText} • ${startTime} - ${endTime}`;
   }
 
-  // Format subject to show language (e.g., "Spanish" -> "Spanish Student")
+  // Format subject to show language (e.g., "Spanish" -> "Spanish")
   formatSubject(subject: string): string {
     if (!subject || subject === 'Language Lesson') {
-      return 'Language Student';
+      return 'Language';
     }
     // Extract language name from subject (remove "Lesson" if present)
-    const language = subject.replace(/ Lesson$/i, '').trim();
-    return `${language} Student`;
+    return subject.replace(/ Lesson$/i, '').trim();
+  }
+  
+  // Get just the time range portion (e.g., "2:00 PM - 3:00 PM")
+  getTimeRangeOnly(lesson: Lesson): string {
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+    
+    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    
+    return `${startTime} — ${endTime}`;
   }
 
   // New method: Get students for selected date (tutor view)
@@ -435,90 +525,84 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.cachedStudentsDate = new Date(this.selectedDate);
     this.cachedStudentsLessonsHash = lessonsHash;
     
-    // Find the earliest lesson among ALL scheduled/in_progress lessons on the selected date
     const now = new Date();
-    
-    // Get all scheduled/in_progress lessons on this date (past or future)
-    const activeLessonsOnDate = lessonsForDate
-      .filter(l => l.status === 'scheduled' || l.status === 'in_progress')
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    
-    // Get the earliest start time from all active lessons on this date
-    const earliestStartTime = activeLessonsOnDate.length > 0 
-      ? new Date(activeLessonsOnDate[0].startTime).getTime() 
-      : null;
-    
-    // Mark all lessons that start at the earliest time as "next" (if earliest is upcoming or in progress)
-    const nextLessonIds = new Set<string>();
-    if (earliestStartTime !== null) {
-      // Check if the earliest lesson is upcoming or currently in progress (within the last hour)
-      const earliestStartDate = new Date(earliestStartTime);
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      
-      // Mark as "next" if it's upcoming or started within the last hour (still active)
-      if (earliestStartDate >= oneHourAgo) {
-        activeLessonsOnDate.forEach(l => {
-          const lessonStartTime = new Date(l.startTime).getTime();
-          // If lesson starts within 5 minutes of the earliest time, consider it "next"
-          // This handles cases where lessons are scheduled for the exact same time
-          if (Math.abs(lessonStartTime - earliestStartTime) < 5 * 60 * 1000) {
-            nextLessonIds.add(String(l._id));
-          }
-        });
-      }
-      
-    }
     
     // Group lessons by student and find the earliest lesson for each student
     const studentLessonMap = new Map<string, { student: any; lesson: Lesson; isNext: boolean }>();
     
-    // First pass: find the earliest lesson for each student
-    lessonsForDate
-      .filter(l => l.studentId && typeof l.studentId === 'object')
-      .forEach(l => {
+    // First pass: find the earliest lesson for each student, and handle classes
+    lessonsForDate.forEach(l => {
+      // Handle classes (they don't have a studentId)
+      if ((l as any).isClass) {
+        const classId = String(l._id);
+        studentLessonMap.set(`class_${classId}`, {
+          student: {
+            id: classId,
+            name: (l as any).className || l.subject || 'Class',
+            profilePicture: 'assets/avatar.png', // Use default avatar for classes
+            email: '',
+            rating: 0,
+            isClass: true
+          },
+          lesson: l,
+          isNext: false // Will be set correctly below
+        });
+      }
+      // Handle regular lessons with students
+      else if (l.studentId && typeof l.studentId === 'object') {
         const studentId = (l.studentId as any)._id;
         const existing = studentLessonMap.get(studentId);
         
         // If no existing entry, or this lesson is earlier, use this lesson
         if (!existing || new Date(l.startTime) < new Date(existing.lesson.startTime)) {
+          const studentData = l.studentId as any;
+          // Build full name from firstName and lastName if available
+          let fullName = studentData.name || studentData.email;
+          if (studentData.firstName && studentData.lastName) {
+            fullName = `${studentData.firstName} ${studentData.lastName}`;
+          } else if (studentData.firstName) {
+            fullName = studentData.firstName;
+          }
+          
           studentLessonMap.set(studentId, {
             student: {
               id: studentId,
-              name: (l.studentId as any).name || (l.studentId as any).email,
-              profilePicture: (l.studentId as any).picture || (l.studentId as any).profilePicture || 'assets/avatar.png',
-              email: (l.studentId as any).email,
-              rating: (l.studentId as any).rating || 4.5,
+              name: fullName,
+              firstName: studentData.firstName,
+              lastName: studentData.lastName,
+              profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
+              email: studentData.email,
+              rating: studentData.rating || 4.5,
             },
             lesson: l,
             isNext: false // Will be set correctly below
           });
         }
-      });
-    
-    // Second pass: find the earliest among displayed lessons and mark them as "next"
-    const displayedLessons = Array.from(studentLessonMap.values()).map(({ lesson }) => lesson);
-    if (displayedLessons.length > 0) {
-      displayedLessons.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-      const earliestDisplayedStartTime = new Date(displayedLessons[0].startTime).getTime();
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      
-      
-      // Mark as "next" if earliest is upcoming or started within the last hour
-      if (new Date(earliestDisplayedStartTime) >= oneHourAgo) {
-        displayedLessons.forEach(l => {
-          const lessonStartTime = new Date(l.startTime).getTime();
-          // If lesson starts within 5 minutes of the earliest displayed time, mark as "next"
-          if (Math.abs(lessonStartTime - earliestDisplayedStartTime) < 5 * 60 * 1000) {
-            const studentId = String((l.studentId as any)._id);
-            const entry = studentLessonMap.get(studentId);
-            if (entry && String(entry.lesson._id) === String(l._id)) {
-              entry.isNext = true;
-            }
-          }
-        });
-      } else {
       }
+    });
+    
+    // Second pass: find the earliest upcoming lesson ACROSS ALL DATES and mark it as "next"
+    // Get ALL upcoming lessons (not just for this date)
+    const allUpcomingLessons = this.lessons
+      .filter(l => {
+        if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+        const startTime = new Date(l.startTime);
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        // Include lessons that are upcoming or started within the last hour (still active)
+        return startTime >= oneHourAgo;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    // Get the very next lesson ID (the earliest upcoming lesson across all dates)
+    const nextLessonId = allUpcomingLessons.length > 0 ? String(allUpcomingLessons[0]._id) : null;
+    
+    // Mark the lesson as "next" if it matches the next lesson ID
+    if (nextLessonId) {
+      studentLessonMap.forEach((entry) => {
+        if (String(entry.lesson._id) === nextLessonId) {
+          entry.isNext = true;
+        }
+      });
     }
     
     // Convert map to array and calculate join labels
@@ -564,6 +648,251 @@ export class Tab1Page implements OnInit, OnDestroy {
     return students;
   }
 
+  // Get the next class student (the one with isNextClass: true)
+  getNextClassStudent(): any | null {
+    const students = this.getStudentsForDate();
+    return students.find(s => s.isNextClass) || null;
+  }
+
+  // Format student display name as "First L."
+  formatStudentDisplayName(studentOrName: any): string {
+    // Handle if it's a student object with firstName and lastName
+    if (typeof studentOrName === 'object' && studentOrName) {
+      const firstName = studentOrName.firstName;
+      const lastName = studentOrName.lastName;
+      
+      if (firstName && lastName) {
+        return `${this.capitalize(firstName)} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return this.capitalize(firstName);
+      }
+      
+      // Fall back to name field if firstName/lastName not available
+      const rawName = studentOrName.name || studentOrName.email;
+      if (!rawName) return 'Student';
+      return this.formatStudentDisplayName(rawName); // Recursively handle the string
+    }
+    
+    // Handle if it's just a string name
+    const rawName = studentOrName;
+    if (!rawName || typeof rawName !== 'string') {
+      return 'Student';
+    }
+
+    const name = rawName.trim();
+
+    // If it's an email, use the part before @ as a fallback
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      if (!base) return 'Student';
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  // Check if the next class is currently in progress
+  isNextClassInProgress(): boolean {
+    const nextClassStudent = this.getNextClassStudent();
+    if (!nextClassStudent || !nextClassStudent.lesson) {
+      return false;
+    }
+    
+    const lesson = nextClassStudent.lesson;
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    const endTime = new Date(lesson.endTime);
+    
+    // Check if lesson status is in_progress OR if current time is between start and end
+    return lesson.status === 'in_progress' || (now >= startTime && now <= endTime);
+  }
+
+  // Get students for date excluding the next class one
+  getOtherStudentsForDate(): any[] {
+    const students = this.getStudentsForDate();
+    return students.filter(s => !s.isNextClass);
+  }
+
+  // Get first lesson for the selected date
+  getFirstLessonForSelectedDate(): any | null {
+    if (!this.selectedDate) {
+      return null;
+    }
+    
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const selectedDay = this.startOfDay(this.selectedDate);
+    const isToday = selectedDay.getTime() === today.getTime();
+    
+    // Get all lessons for the selected date
+    const lessonsForDate = this.lessonsForSelectedDate();
+    
+    // Filter for upcoming/active lessons
+    const activeLessons = lessonsForDate.filter(l => {
+      if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+      const startTime = new Date(l.startTime);
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      // Include lessons that are upcoming or started within the last hour (still active)
+      return startTime >= oneHourAgo;
+    }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    if (activeLessons.length === 0) {
+      return null;
+    }
+    
+    const firstLesson = activeLessons[0];
+    
+    // Check if this is the actual next class across ALL dates
+    const allUpcomingLessons = this.lessons
+      .filter(l => {
+        if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+        const startTime = new Date(l.startTime);
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        return startTime >= oneHourAgo;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    const isNextClass = allUpcomingLessons.length > 0 && String(allUpcomingLessons[0]._id) === String(firstLesson._id);
+    
+    // Handle both classes and regular lessons
+    let student: any = null;
+    if ((firstLesson as any).isClass) {
+      // For classes, show class info
+      student = {
+        id: String(firstLesson._id),
+        name: (firstLesson as any).className || firstLesson.subject || 'Class',
+        profilePicture: 'assets/avatar.png',
+        email: '',
+        rating: 0,
+        isClass: true
+      };
+    } else if (firstLesson.studentId && typeof firstLesson.studentId === 'object') {
+      // For regular lessons, show student info
+      const studentData = firstLesson.studentId as any;
+      // Build full name from firstName and lastName if available, otherwise use name field
+      let fullName = studentData.name || studentData.email;
+      if (studentData.firstName && studentData.lastName) {
+        fullName = `${studentData.firstName} ${studentData.lastName}`;
+      } else if (studentData.firstName) {
+        fullName = studentData.firstName;
+      }
+      
+      student = {
+        id: studentData._id,
+        name: fullName,
+        firstName: studentData.firstName,
+        lastName: studentData.lastName,
+        profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
+        email: studentData.email,
+        rating: studentData.rating || 4.5,
+      };
+    }
+    
+    const lessonDate = new Date(firstLesson.startTime);
+    const dateTag = this.getDateTag(lessonDate);
+    const isInProgress = this.isLessonInProgress(firstLesson);
+    
+    return {
+      ...student,
+      lessonId: String(firstLesson._id),
+      lesson: firstLesson,
+      lessonTime: this.formatLessonTime(firstLesson),
+      subject: this.formatSubject(firstLesson.subject),
+      dateTag: dateTag,
+      isToday: isToday,
+      isNextClass: isNextClass,
+      isInProgress: isInProgress,
+      startTime: firstLesson.startTime,
+      joinLabel: this.calculateJoinLabel(firstLesson)
+    };
+  }
+
+  // Get date tag for featured lessons
+  getDateTag(date: Date): string {
+    const lessonDate = this.startOfDay(date);
+    const today = this.startOfDay(new Date());
+    const tomorrow = this.startOfDay(new Date());
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (lessonDate.getTime() === today.getTime()) {
+      return 'TODAY';
+    } else if (lessonDate.getTime() === tomorrow.getTime()) {
+      return 'TOMORROW';
+    } else {
+      // Format as "Mon. Nov 17"
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      }).replace(',', '.');
+    }
+  }
+
+  // Get time until lesson starts (e.g., "55 minutes", "2h 30m")
+  getTimeUntilLesson(lesson: any): string {
+    if (!lesson) return '';
+    
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    const diffMs = startTime.getTime() - now.getTime();
+    
+    if (diffMs < 0) {
+      return 'now';
+    }
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    
+    if (hours > 0) {
+      if (minutes > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+      return `${hours}h`;
+    }
+    
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  }
+
+  // Check if there are any completed/past lessons for the selected date
+  hasPastLessonsForDate(): boolean {
+    if (!this.selectedDate) {
+      return false;
+    }
+    
+    const lessonsForDate = this.lessonsForSelectedDate();
+    const now = new Date();
+    
+    // Check if there are any completed lessons OR lessons that ended in the past
+    return lessonsForDate.some(lesson => {
+      if (lesson.status === 'completed') {
+        return true;
+      }
+      
+      // Check if lesson has ended (end time is in the past)
+      const endTime = new Date(lesson.endTime);
+      return endTime < now;
+    });
+  }
+
   // New method: Get upcoming lessons (all future lessons)
   getUpcomingLessons(): Lesson[] {
     return this.lessons;
@@ -572,6 +901,144 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Track by function for tutors
   trackByTutorId(index: number, tutor: { id: string; name: string; picture?: string }): string {
     return tutor.id;
+  }
+
+  // Get timeline events for "Coming Up Next" section
+  getTimelineEvents() {
+    const upcomingLessons = this.getUpcomingLessons();
+    const now = new Date();
+    
+    // Get the next class being shown in the text section (if tutor view)
+    const nextClassLesson = this.isTutor() ? this.getFirstLessonForSelectedDate() : null;
+    // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
+    const nextClassLessonId = nextClassLesson?.lessonId || 
+                              nextClassLesson?.lesson?._id || 
+                              (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
+    
+    // Filter out the next class lesson and get next 3 upcoming lessons
+    return upcomingLessons
+      .filter(lesson => {
+        // Exclude if it's in the past
+        if (new Date(lesson.startTime) <= now) return false;
+        // Exclude if it's the next class being shown in the text section
+        if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+        return true;
+      })
+      .slice(0, 3)
+      .map(lesson => {
+        const startTime = new Date(lesson.startTime);
+        const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
+        const student = lesson.studentId as any;
+        
+        return {
+          time: this.formatTimeOnly(startTime),
+          endTime: endTime ? this.formatTimeOnly(endTime) : null,
+          date: this.formatRelativeDate(startTime),
+          name: this.formatStudentDisplayName(student),
+          subject: this.formatSubject(lesson.subject),
+          avatar: student?.picture || student?.profilePicture || null,
+          lesson: lesson
+        };
+      });
+  }
+
+  hasMoreTimelineEvents(): boolean {
+    const upcomingLessons = this.getUpcomingLessons();
+    const now = new Date();
+    const futureLessons = upcomingLessons.filter(lesson => new Date(lesson.startTime) > now);
+    return futureLessons.length > 3;
+  }
+
+  navigateToLessons() {
+    this.router.navigate(['/lessons']);
+  }
+
+  // Format time only (e.g., "2:00 PM")
+  formatTimeOnly(date: Date): string {
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  }
+
+  // Format relative date (e.g., "Today", "Tomorrow", "Wed, Nov 15")
+  formatRelativeDate(date: Date): string {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    
+    // For other dates, show day and date (e.g., "Wed, Nov 15")
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  // Navigate to lesson details or join
+  navigateToLesson(lesson: Lesson) {
+    // For now, we could navigate to the call page if it's time to join
+    // Or show lesson details. Let's make it joinable if within time window
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    const canJoin = this.canJoinLessonByTime(startTime);
+    
+    if (canJoin) {
+      this.joinLessonById(lesson._id);
+    }
+  }
+
+  // Helper to join lesson by ID
+  async joinLessonById(lessonId: string) {
+    const loading = await this.loadingController.create({
+      message: 'Joining lesson...',
+    });
+    await loading.present();
+
+    this.lessonService.joinLesson(lessonId, 'tutor', this.currentUser?.['id']).subscribe({
+      next: async (response) => {
+        await loading.dismiss();
+        
+        if (response.success) {
+          // Navigate to call page with lesson data
+          this.router.navigate(['/call'], {
+            state: {
+              agora: response.agora,
+              lesson: response.lesson,
+              role: 'tutor'
+            }
+          });
+        }
+      },
+      error: async (error) => {
+        await loading.dismiss();
+        console.error('Error joining lesson:', error);
+        
+        const toast = await this.toastController.create({
+          message: error.error?.message || 'Failed to join lesson',
+          duration: 3000,
+          color: 'danger'
+        });
+        toast.present();
+      }
+    });
+  }
+
+  // Check if lesson can be joined based on time
+  canJoinLessonByTime(startTime: Date): boolean {
+    const now = new Date();
+    const timeDiff = startTime.getTime() - now.getTime();
+    const minutesDiff = timeDiff / (1000 * 60);
+    
+    // Can join 15 minutes before or anytime after start
+    return minutesDiff <= 15 && minutesDiff >= -60;
   }
 
   // New method: Get other participant's avatar (with caching)
@@ -633,6 +1100,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getOtherParticipantAvatar(lesson: Lesson): string {
+    console.log('getOtherParticipantAvatar', lesson);
     if (!this.currentUser || !lesson) return 'assets/avatar.png';
     
     // Use lesson ID + participant ID as cache key
@@ -685,8 +1153,40 @@ export class Tab1Page implements OnInit, OnDestroy {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
         const now = Date.now();
+        let allLessons = [...resp.lessons];
+
+        // For tutors, also load classes from availability
+        if (this.isTutor()) {
+          const availResp = await this.userService.getAvailability().toPromise();
+          if (availResp?.availability) {
+            // Find class blocks in availability
+            const classBlocks = availResp.availability.filter((b: any) => b.type === 'class');
+            
+            // Convert class blocks to lesson-like objects
+            const classLessons = classBlocks.map((cls: any) => ({
+              _id: cls.id,
+              tutorId: (this.currentUser as any)?._id || (this.currentUser as any)?.id,
+              studentId: null as any, // Classes don't have a specific student
+              startTime: cls.absoluteStart || cls.startTime,
+              endTime: cls.absoluteEnd || cls.endTime,
+              status: 'scheduled' as const,
+              subject: cls.title || cls.name || 'Class',
+              channelName: `class_${cls.id}`,
+              price: 0, // Classes don't have individual pricing
+              duration: 60, // Default duration
+              createdAt: cls.createdAt || new Date(),
+              updatedAt: cls.updatedAt || new Date(),
+              isClass: true, // Mark as class to differentiate
+              className: cls.title || cls.name
+            } as any));
+            
+            // Merge classes with lessons
+            allLessons = [...allLessons, ...classLessons];
+          }
+        }
+
         // Filter for upcoming lessons
-        this.lessons = [...resp.lessons]
+        this.lessons = allLessons
           .filter(l => new Date(l.endTime).getTime() >= now)
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
@@ -1047,7 +1547,14 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   isLessonInProgress(lesson: Lesson): boolean {
-    return (lesson as any)?.status === 'in_progress';
+    if (!lesson) return false;
+    
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    const endTime = new Date(lesson.endTime);
+    
+    // Check if lesson status is in_progress OR if current time is between start and end
+    return (lesson as any)?.status === 'in_progress' || (now >= startTime && now <= endTime);
   }
 
   getUserRole(lesson: Lesson): 'tutor' | 'student' {
@@ -1102,7 +1609,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     const delta = direction === 'prev' ? -days : days;
     const newStart = this.startOfDay(new Date(this.weekStartDate));
     newStart.setDate(newStart.getDate() + delta);
-    this.updateDateStrip(newStart, true);
+    // When going back, prefer selecting today if it's in the range
+    this.updateDateStrip(newStart, direction === 'next');
   }
 
   goToToday() {
@@ -1123,8 +1631,20 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.weekStartDate = start;
     const days = this.getDateStripDaysCount();
     this.dateStrip = this.generateDateStrip(days, start);
+    
     if (forceSelectStart || !this.selectedDate || !this.isDateInWeek(this.selectedDate, start)) {
-      this.selectedDate = this.dateStrip[0]?.date ?? null;
+      // When going back (forceSelectStart is false), check if today is in the range
+      if (!forceSelectStart) {
+        const today = this.startOfDay(new Date());
+        if (this.isDateInWeek(today, start)) {
+          this.selectedDate = today;
+        } else {
+          this.selectedDate = this.dateStrip[0]?.date ?? null;
+        }
+      } else {
+        // When going forward, select the first date
+        this.selectedDate = this.dateStrip[0]?.date ?? null;
+      }
     }
     this.updateAvailabilitySummary();
   }
@@ -1220,9 +1740,61 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
   }
 
-  // Cached getter for profile picture
-  get currentUserPicture(): string {
-    return this._currentUserPicture;
+  // Get current user's picture directly from database
+  get currentUserPicture(): string | null {
+    console.log('🔄 Tab1Page get currentUserPicture: Current user picture:', this.currentUser?.picture);
+    return this.currentUser?.picture || null;
+  }
+
+  // Check if user has a profile picture from the database
+  get hasUserPicture(): boolean {
+    const hasPicture = !!this.currentUser?.picture;
+    console.log('🔄 Tab1Page get hasUserPicture:', {
+      hasPicture,
+      picture: this.currentUser?.picture,
+      currentUser: !!this.currentUser
+    });
+    return hasPicture;
+  }
+
+  // Get user's first initial for avatar fallback
+  get userInitial(): string {
+    if (this.currentUser?.firstName) {
+      return this.currentUser.firstName.charAt(0).toUpperCase();
+    }
+    if (this.currentUser?.name) {
+      return this.currentUser.name.charAt(0).toUpperCase();
+    }
+    return '?';
+  }
+
+  // Debug methods for avatar loading
+  onAvatarError(event: any) {
+    console.error('❌ Avatar image failed to load:', {
+      src: event.target?.src,
+      currentUserPicture: this.currentUser?.picture,
+      areEqual: event.target?.src === this.currentUser?.picture,
+      srcLength: event.target?.src?.length,
+      pictureLength: this.currentUser?.picture?.length,
+      errorType: event.type,
+      error: event
+    });
+    
+    // Try to diagnose the issue
+    if (this.currentUser?.picture) {
+      const img = new Image();
+      img.onload = () => console.log('✅ Manual image test succeeded for:', this.currentUser?.picture);
+      img.onerror = (e) => console.error('❌ Manual image test failed for:', this.currentUser?.picture, e);
+      img.src = this.currentUser.picture;
+    }
+  }
+
+  onAvatarLoad(event: any) {
+    console.log('✅ Avatar image loaded successfully:', {
+      src: event.target?.src,
+      width: event.target?.width,
+      height: event.target?.height
+    });
   }
 
   // Simple helper methods for user type checking

@@ -10,12 +10,36 @@ import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
+import { trigger, style, transition, animate } from '@angular/animations';
 
 @Component({
   selector: 'app-messages',
   templateUrl: 'messages.page.html',
   styleUrls: ['messages.page.scss'],
   standalone: false,
+  animations: [
+    trigger('fadeInOut', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('400ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate('200ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 0 }))
+      ])
+    ]),
+    trigger('slideInUp', [
+      transition(':enter', [
+        style({ 
+          opacity: 0, 
+          transform: 'translateY(30px) scale(0.98)' 
+        }),
+        animate('500ms cubic-bezier(0.4, 0, 0.2, 1)', style({ 
+          opacity: 1, 
+          transform: 'translateY(0) scale(1)' 
+        }))
+      ])
+    ])
+  ]
 })
 export class MessagesPage implements OnInit, OnDestroy {
   private isInitialized = false;
@@ -33,6 +57,7 @@ export class MessagesPage implements OnInit, OnDestroy {
   isLoadingMessages = false;
   isSending = false;
   newMessage = '';
+  showEmptyState = false; // Control empty state visibility for smooth transitions
   
   // Typing indicator
   isTyping = false;
@@ -392,6 +417,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (!this.isDesktop) {
       this.selectedConversation = null;
       this.messages = [];
+      // Notify service that no conversation is selected
+      this.messagingService.setHasSelectedConversation(false);
     }
     
     // Always try to load conversations - getCurrentUserId() waits for authentication internally
@@ -424,6 +451,8 @@ export class MessagesPage implements OnInit, OnDestroy {
     // This prevents showing messages they're not ready to read
     this.selectedConversation = null;
     this.messages = []; // Also clear messages to prevent showing stale data
+    // Notify service that no conversation is selected
+    this.messagingService.setHasSelectedConversation(false);
   }
 
   private openConversationWithTutor(tutorId: string) {
@@ -486,6 +515,8 @@ export class MessagesPage implements OnInit, OnDestroy {
               this.selectedConversation = placeholderConversation;
               this.messages = [];
               this.isLoadingMessages = false; // Don't show loading for new conversations
+              // Notify service that a conversation is selected (for hiding tabs on mobile)
+              this.messagingService.setHasSelectedConversation(true);
               
               // Focus the message input
               setTimeout(() => {
@@ -660,6 +691,15 @@ export class MessagesPage implements OnInit, OnDestroy {
           this.isLoading = false;
           this.isInitialLoad = false; // Mark that we've loaded at least once
           
+          // Control empty state visibility for smooth transitions
+          if (this.conversations.length === 0) {
+            setTimeout(() => {
+              this.showEmptyState = true;
+            }, 200);
+          } else {
+            this.showEmptyState = false;
+          }
+          
           resolve();
         },
         error: (error) => {
@@ -667,10 +707,23 @@ export class MessagesPage implements OnInit, OnDestroy {
           console.error('❌ Error details:', error.error);
           this.isLoading = false;
           this.isInitialLoad = false;
+          
+          // Show empty state on error after delay
+          setTimeout(() => {
+            this.showEmptyState = true;
+          }, 200);
+          
           reject(error);
         }
       });
     });
+  }
+
+  clearSelectedConversation() {
+    this.selectedConversation = null;
+    this.messages = [];
+    // Notify service that no conversation is selected
+    this.messagingService.setHasSelectedConversation(false);
   }
 
   selectConversation(conversation: Conversation) {
@@ -695,6 +748,9 @@ export class MessagesPage implements OnInit, OnDestroy {
     
     // Set new conversation
     this.selectedConversation = conversation;
+    
+    // Notify service that a conversation is selected (for hiding tabs on mobile)
+    this.messagingService.setHasSelectedConversation(true);
     
     // Small delay to ensure DOM has updated with loading state before fetching
     // This prevents any flash of old content

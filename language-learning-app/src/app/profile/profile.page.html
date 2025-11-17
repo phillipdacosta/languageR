@@ -15,7 +15,7 @@
             <div class="profile-header">
               <div class="avatar-container" (click)="!isViewingOtherUser && triggerPictureUpload()" [class.clickable]="!isViewingOtherUser">
                 <ion-avatar class="profile-avatar">
-                  <img [src]="getDisplayUser()?.picture" [alt]="getDisplayUser()?.name" *ngIf="getDisplayUser()?.picture">
+                  <img [src]="getDisplayUser()?.picture" [alt]="getDisplayUser()?.name" referrerpolicy="no-referrer" *ngIf="getDisplayUser()?.picture">
                   <div class="profile-initials" *ngIf="!getDisplayUser()?.picture">{{ getUserInitials(getDisplayUser()) }}</div>
                 </ion-avatar>
                 <div class="avatar-overlay" *ngIf="!isViewingOtherUser">
@@ -128,6 +128,8 @@
             
             <app-video-upload
               [videoUrl]="tutorIntroductionVideo"
+              [thumbnailUrl]="tutorVideoThumbnail"
+              [videoType]="tutorVideoType"
               (videoUploaded)="onVideoUploaded($event)"
               (videoRemoved)="onVideoRemoved()">
             </app-video-upload>

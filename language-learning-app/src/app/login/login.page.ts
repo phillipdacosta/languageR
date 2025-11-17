@@ -1,8 +1,12 @@
-import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Router, NavigationStart } from '@angular/router';
+import { Location } from '@angular/common';
 import { LoadingController, AlertController } from '@ionic/angular';
 import { AuthService } from '../services/auth.service';
 import { LoadingService } from '../services/loading.service';
+import { take } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -10,27 +14,85 @@ import { LoadingService } from '../services/loading.service';
   styleUrls: ['./login.page.scss'],
   standalone: false,
 })
-export class LoginPage implements OnInit {
+export class LoginPage implements OnInit, OnDestroy {
   isLoading = false;
   selectedUserType: 'student' | 'tutor' | null = null;
+  private routerSubscription?: Subscription;
 
   constructor(
     private authService: AuthService,
     private router: Router,
+    private location: Location,
     private loadingController: LoadingController,
     private alertController: AlertController,
     private loadingService: LoadingService
-  ) {}
+  ) {
+    // Log all navigation attempts to debug race conditions
+    this.routerSubscription = this.router.events.subscribe(event => {
+      if (event instanceof NavigationStart) {
+        console.log('🔀 NAVIGATION DETECTED:', event.url);
+      }
+    });
+  }
 
   ngOnInit() {
     // Hide loading when login page loads (user has been logged out)
-    console.log('🚀 LoginPage: Hiding loading on login page load');
+    console.log('🚀 LoginPage: ngOnInit() called');
+    console.log('🚀 LoginPage: localStorage contents:', Object.keys(localStorage));
+    console.log('🚀 LoginPage: returnUrl in localStorage:', localStorage.getItem('returnUrl'));
     this.loadingService.hide();
     
-    // Check if user is already authenticated
-    this.authService.isAuthenticated$.subscribe(isAuthenticated => {
+    // Check if user is already authenticated (use take(1) to prevent multiple redirects)
+    this.authService.isAuthenticated$.pipe(take(1)).subscribe(async isAuthenticated => {
+      console.log('🚀 LoginPage: isAuthenticated?', isAuthenticated);
       if (isAuthenticated) {
-        this.router.navigate(['/tabs']);
+        // Check for return URL (for users already logged in trying to access protected actions)
+        const returnUrl = localStorage.getItem('returnUrl');
+        if (returnUrl) {
+          console.log('🔄 LoginPage: User already authenticated, redirecting to returnUrl:', returnUrl);
+          
+          // Check if user needs onboarding first
+          const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
+          console.log('🔍 LoginPage: Got auth0User:', auth0User?.email);
+          
+          if (auth0User && auth0User.email) {
+            // Check if user exists in database
+            const userExists = await this.checkUserExistsByEmail(auth0User.email);
+            console.log('🔍 LoginPage: User exists in database?', userExists);
+            
+            if (!userExists) {
+              // New user - send to onboarding first, keep returnUrl for after
+              console.log('⚠️ LoginPage: New user with returnUrl, going to onboarding first');
+              // returnUrl stays in localStorage for onboarding to use
+              await this.router.navigate(['/onboarding'], { replaceUrl: true });
+              return;
+            }
+          }
+          
+          // Existing user - go directly to returnUrl
+          localStorage.removeItem('returnUrl');
+          console.log('🔄 LoginPage: Removed returnUrl from localStorage');
+          
+          // Set flag so the destination page knows to override back button
+          localStorage.setItem('justCompletedLogin', returnUrl);
+          console.log('🔄 LoginPage: Set justCompletedLogin flag to:', returnUrl);
+          
+          console.log('🔄 LoginPage: About to replace login with /tabs/home and navigate');
+          
+          // Replace the login page with /tabs/home in history
+          this.location.replaceState('/tabs/home');
+          
+          // Then navigate to the target (adds to history)
+          // Result: [/tabs/home, /tutor/123]
+          const navigationResult = await this.router.navigateByUrl(returnUrl);
+          console.log('🔄 LoginPage: Navigation result:', navigationResult);
+          console.log('🔄 LoginPage: Current URL after navigation:', this.router.url);
+        } else {
+          console.log('🔄 LoginPage: User already authenticated, redirecting to tabs');
+          await this.router.navigate(['/tabs'], { replaceUrl: true });
+        }
+      } else {
+        console.log('🚀 LoginPage: User NOT authenticated, showing login UI');
       }
     });
   }
@@ -56,6 +118,9 @@ export class LoginPage implements OnInit {
       return;
     }
 
+    console.log('🚀 LoginPage: login() called');
+    console.log('🚀 LoginPage: returnUrl BEFORE clearAuth0State:', localStorage.getItem('returnUrl'));
+
     this.isLoading = true;
     const loading = await this.loadingController.create({
       message: `Signing you in as ${this.selectedUserType}...`,
@@ -65,12 +130,15 @@ export class LoginPage implements OnInit {
 
     try {
       // Clear any existing Auth0 state first
+      console.log('🚀 LoginPage: About to call clearAuth0State()');
       this.authService.clearAuth0State();
+      console.log('🚀 LoginPage: returnUrl AFTER clearAuth0State:', localStorage.getItem('returnUrl'));
       
       // Wait a moment for state to clear
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Use redirect instead of popup to avoid COOP issues
+      console.log('🚀 LoginPage: About to call loginWithRedirect()');
       this.authService.loginWithRedirect();
     } catch (error) {
       console.error('Login error:', error);
@@ -107,6 +175,36 @@ export class LoginPage implements OnInit {
   nuclearLogout() {
     // Use the nuclear logout method from AuthService
     this.authService.nuclearLogout();
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+  }
+
+  private async checkUserExistsByEmail(email: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${environment.backendUrl}/api/users/check-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
+      });
+      
+      if (!response.ok) {
+        console.log('❌ API call failed:', response.status);
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log('🔍 LoginPage: Email check result:', result);
+      return result.exists || false;
+    } catch (error) {
+      console.error('❌ Error checking user by email:', error);
+      return false;
+    }
   }
 
 }

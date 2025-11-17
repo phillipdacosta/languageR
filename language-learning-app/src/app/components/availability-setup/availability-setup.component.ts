@@ -687,41 +687,52 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         if (res.availability && res.availability.length > 0) {
           console.log('🔧 All availability blocks:', res.availability);
           res.availability.forEach(block => {
-            console.log(`🔧 Processing existing block: day=${block.day}, time=${block.startTime}-${block.endTime}`);
+            console.log(`🔧 Processing existing block: day=${block.day}, time=${block.startTime}-${block.endTime}, absoluteStart=${block.absoluteStart}`);
+            
+            // Parse the absolute start date to get the specific date for this block
+            let blockDate: Date;
+            if (block.absoluteStart) {
+              blockDate = new Date(block.absoluteStart);
+            } else {
+              // Fallback: if no absoluteStart, calculate date from day-of-week and current week
+              let dayIndex: number;
+              if (typeof block.day === 'number') {
+                dayIndex = block.day;
+              } else {
+                dayIndex = this.dayNameToIndex(block.day);
+              }
+              const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+              const matchingDay = dayArray.find(d => d.index === dayIndex);
+              if (!matchingDay) {
+                console.warn(`🔧 No matching day found for day index ${dayIndex}`);
+                return;
+              }
+              blockDate = matchingDay.date;
+            }
+            
+            const dateStr = this.formatDateKey(blockDate);
+            console.log(`🔧 Block date: ${dateStr} (${blockDate.toDateString()})`);
+            
+            // In single day mode, only load slots for the selected day
+            if (this.isSingleDayMode) {
+              const selectedDate = this.displayedWeekDays[0]?.date;
+              if (!selectedDate || !this.isSameDay(blockDate, selectedDate)) {
+                console.log(`🔧 Skipping block for ${dateStr} - not the selected day`);
+                return;
+              }
+              console.log(`🔧 ✅ Block matches selected day, processing...`);
+            }
+
+            // Parse time slots
             const [sh, sm] = block.startTime.split(':').map((v: string) => parseInt(v, 10));
             const [eh, em] = block.endTime.split(':').map((v: string) => parseInt(v, 10));
 
             const startIndex = sh * 2 + (sm >= 30 ? 1 : 0);
             const endIndex = eh * 2 + (em >= 30 ? 1 : 0);
 
-            // Handle both numeric day indices and day name strings
-            let dayIndex: number;
-            if (typeof block.day === 'number') {
-              dayIndex = block.day;
-            } else {
-              dayIndex = this.dayNameToIndex(block.day);
-            }
-            console.log(`🔧 Day mapping: ${block.day} (${typeof block.day}) -> ${dayIndex}`);
-            
-            // In single day mode, only load slots for the selected day
-            if (this.isSingleDayMode) {
-              const selectedDayIndex = this.displayedWeekDays[0]?.index;
-              console.log(`🔧 Single day mode check:`, {
-                selectedDayIndex,
-                blockDayIndex: dayIndex,
-                blockDay: block.day,
-                match: dayIndex === selectedDayIndex
-              });
-              if (dayIndex !== selectedDayIndex) {
-                console.log(`🔧 Skipping block for day ${block.day} (index ${dayIndex}) - not the selected day (index ${selectedDayIndex})`);
-                return;
-              }
-              console.log(`🔧 ✅ Block matches selected day, processing...`);
-            }
-
-            console.log(`🔧 Adding slots from index ${startIndex} to ${endIndex} for day ${dayIndex}`);
+            console.log(`🔧 Adding slots from index ${startIndex} to ${endIndex} for date ${dateStr}`);
             for (let idx = startIndex; idx < endIndex; idx++) {
-              const slotKey = `${dayIndex}-${idx}`;
+              const slotKey = `${dateStr}-${idx}`;
               console.log(`🔧 Adding slot: ${slotKey}`);
               this.selectedSlots.add(slotKey);
             }
@@ -810,14 +821,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       if (startIndex < 0) {
         startIndex = 0;
       }
-      this.mobileStartIndex = startIndex;
+      
+      // Ensure we don't exceed the week bounds
       const totalDays = this.weekDays.length;
-      const days: WeekDay[] = [];
-      for (let i = 0; i < this.mobileDaysToShow; i++) {
-        const idx = (startIndex + i) % totalDays;
-        days.push(this.weekDays[idx]);
-      }
-      this.displayedWeekDays = days;
+      const maxStartIndex = Math.max(0, totalDays - this.mobileDaysToShow);
+      startIndex = Math.min(startIndex, maxStartIndex);
+      
+      this.mobileStartIndex = startIndex;
+      
+      // Simply slice the array instead of using modulo to avoid date jumps
+      this.displayedWeekDays = this.weekDays.slice(startIndex, startIndex + this.mobileDaysToShow);
     } else {
       this.mobileStartIndex = 0;
       this.displayedWeekDays = [...this.weekDays];
@@ -848,6 +861,17 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       // In regular mode, go back to calendar
       this.router.navigate(['/tabs/tutor-calendar']);
     }
+  }
+
+  navigateToWeekView() {
+    // Check for unsaved changes
+    if (this.selectedSlotsCount > 0 && this.hasUnsavedChanges) {
+      this.confirmLeaveWithUnsavedChanges();
+      return;
+    }
+    
+    // Navigate to week view
+    this.router.navigate(['/tabs/availability-setup']);
   }
 
   // Navigate to single-day availability setup for a specific date
@@ -923,10 +947,17 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const startIdx = Math.min(this.selectionStart.index, slotIndex);
     const endIdx = Math.max(this.selectionStart.index, slotIndex);
 
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    
     for (let day = startDay; day <= endDay; day++) {
+      const dayObj = dayArray?.find(d => d.index === day);
+      if (!dayObj) continue;
+      
+      const dateStr = this.formatDateKey(dayObj.date);
+      
       for (let idx = startIdx; idx <= endIdx; idx++) {
         if (this.isPastSlot(day, idx)) continue;
-        this.selectedSlots.add(`${day}-${idx}`);
+        this.selectedSlots.add(`${dateStr}-${idx}`);
       }
     }
 
@@ -941,7 +972,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   private toggleSlot(dayIndex: number, slotIndex: number) {
     if (this.isPastSlot(dayIndex, slotIndex)) return;
-    const slotKey = `${dayIndex}-${slotIndex}`;
+    
+    // Find the specific date for this dayIndex
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    const day = dayArray?.find(d => d.index === dayIndex);
+    if (!day) return;
+    
+    // Use specific date in slot key (YYYY-MM-DD format)
+    const dateStr = this.formatDateKey(day.date);
+    const slotKey = `${dateStr}-${slotIndex}`;
+    
     if (this.selectedSlots.has(slotKey)) {
       this.selectedSlots.delete(slotKey);
     } else {
@@ -949,6 +989,14 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     }
     this.updateSelectedCount();
     this.hasUnsavedChanges = true;
+  }
+  
+  // Helper to format date as YYYY-MM-DD for slot keys
+  private formatDateKey(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private clearSelectionRange() {
@@ -959,15 +1007,27 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const startHour = Math.min(this.selectionStart.index, this.selectionStart.index);
     const endHour = Math.max(this.selectionStart.index, this.selectionStart.index);
 
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    
     for (let day = startDay; day <= endDay; day++) {
+      const dayObj = dayArray?.find(d => d.index === day);
+      if (!dayObj) continue;
+      
+      const dateStr = this.formatDateKey(dayObj.date);
+      
       for (let hour = startHour; hour <= endHour; hour++) {
-        this.selectedSlots.delete(`${day}-${hour}`);
+        this.selectedSlots.delete(`${dateStr}-${hour}`);
       }
     }
   }
 
   isSlotSelected(dayIndex: number, slotIndex: number): boolean {
-    return this.selectedSlots.has(`${dayIndex}-${slotIndex}`);
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    const day = dayArray?.find(d => d.index === dayIndex);
+    if (!day) return false;
+    
+    const dateStr = this.formatDateKey(day.date);
+    return this.selectedSlots.has(`${dateStr}-${slotIndex}`);
   }
 
   isPopularSlot(dayIndex: number, slotIndex: number): boolean {
@@ -1256,11 +1316,20 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   setBusinessHours() {
     // Set 9:00 AM - 6:00 PM for weekdays (30-min slots)
     this.selectedSlots.clear();
-    for (let day = 0; day < 5; day++) { // Monday to Friday
-      const startIdx = 9 * 2; // 9:00
-      const endIdx = 18 * 2; // 18:00 (exclusive)
-      for (let idx = startIdx; idx < endIdx; idx++) this.selectedSlots.add(`${day}-${idx}`);
-    }
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    
+    dayArray.forEach(dayObj => {
+      // Only apply to weekdays (Mon-Fri, indices 1-5)
+      if (dayObj.index >= 1 && dayObj.index <= 5) {
+        const dateStr = this.formatDateKey(dayObj.date);
+        const startIdx = 9 * 2; // 9:00
+        const endIdx = 18 * 2; // 18:00 (exclusive)
+        for (let idx = startIdx; idx < endIdx; idx++) {
+          this.selectedSlots.add(`${dateStr}-${idx}`);
+        }
+      }
+    });
+    
     this.updateSelectedCount();
   }
 
@@ -1270,17 +1339,65 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   copyWeek() {
-    // Copy Monday's schedule to all other days
-    const mondaySlots = Array.from(this.selectedSlots).filter(slot => slot.startsWith('0-'));
+    // Copy currently selected time slots to all FUTURE days (next 8 weeks)
+    if (this.selectedSlots.size === 0) {
+      console.warn('No slots selected to copy');
+      return;
+    }
+    
+    // Extract all unique time slot indices from current selections (regardless of date)
+    const timeSlotIndices = new Set<number>();
+    this.selectedSlots.forEach(slotKey => {
+      const parts = slotKey.split('-');
+      if (parts.length >= 4) {
+        const idx = parseInt(parts[3]); // Last part is the slot index
+        if (!isNaN(idx)) {
+          timeSlotIndices.add(idx);
+        }
+      }
+    });
+    
+    if (timeSlotIndices.size === 0) {
+      console.warn('No valid time slot indices found');
+      return;
+    }
+    
+    console.log('Copying time slot indices to all future days (next 8 weeks):', Array.from(timeSlotIndices));
+    
+    // Get tomorrow's date at midnight
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    // Calculate end date (8 weeks from now)
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + (8 * 7)); // 8 weeks = 56 days
+    endDate.setHours(23, 59, 59, 999);
+    
+    console.log(`Applying to dates from ${tomorrow.toDateString()} to ${endDate.toDateString()}`);
+    
+    // Clear all selections
     this.selectedSlots.clear();
     
-    for (let day = 0; day < 7; day++) {
-      mondaySlots.forEach(slot => {
-        const idx = slot.split('-')[1];
-        this.selectedSlots.add(`${day}-${idx}`);
+    let appliedDays = 0;
+    
+    // Generate all future days from tomorrow to 8 weeks ahead
+    const currentDate = new Date(tomorrow);
+    while (currentDate <= endDate) {
+      const dateStr = this.formatDateKey(currentDate);
+      timeSlotIndices.forEach(idx => {
+        this.selectedSlots.add(`${dateStr}-${idx}`);
       });
+      appliedDays++;
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
     }
+    
     this.updateSelectedCount();
+    this.hasUnsavedChanges = true;
+    
+    console.log(`✅ Applied slots to ${appliedDays} future days. Total slots: ${this.selectedSlots.size}`);
   }
 
   togglePopularSlots() {
@@ -1372,26 +1489,33 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   private convertSlotsToBlocks(): any[] {
     const blocks: any[] = [];
-    const dayGroups = new Map<number, number[]>();
+    const dateGroups = new Map<string, number[]>(); // Group by date string instead of day index
     
     console.log('🔧 Converting slots to blocks. Selected slots:', Array.from(this.selectedSlots));
     
-    // Group slots by day
+    // Group slots by date (YYYY-MM-DD)
     this.selectedSlots.forEach(slotKey => {
-      const [dayStr, idxStr] = slotKey.split('-');
-      const day = parseInt(dayStr);
-      const idx = parseInt(idxStr);
-      
-      console.log(`🔧 Processing slot: ${slotKey} -> day=${day}, index=${idx}`);
-      
-      if (!dayGroups.has(day)) {
-        dayGroups.set(day, []);
+      // Slot key format: YYYY-MM-DD-slotIndex
+      const parts = slotKey.split('-');
+      if (parts.length < 4) {
+        console.error(`🔧 Invalid slot key format: ${slotKey}`);
+        return;
       }
-      dayGroups.get(day)!.push(idx);
+      
+      // Extract date (YYYY-MM-DD) and slot index
+      const dateStr = `${parts[0]}-${parts[1]}-${parts[2]}`; // YYYY-MM-DD
+      const idx = parseInt(parts[3]); // slot index
+      
+      console.log(`🔧 Processing slot: ${slotKey} -> date=${dateStr}, index=${idx}`);
+      
+      if (!dateGroups.has(dateStr)) {
+        dateGroups.set(dateStr, []);
+      }
+      dateGroups.get(dateStr)!.push(idx);
     });
     
-    // Convert each day's hours to blocks
-    dayGroups.forEach((indices, day) => {
+    // Convert each date's hours to blocks
+    dateGroups.forEach((indices, dateStr) => {
       indices.sort((a, b) => a - b);
 
       let startIdx = indices[0];
@@ -1403,20 +1527,37 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         return `${h.toString().padStart(2, '0')}:${m}`;
       };
 
+      // Parse the date from the date string
+      const dayDate = new Date(dateStr + 'T00:00:00');
+      const dayOfWeek = dayDate.getDay(); // Get day of week for backward compatibility
+      console.log(`🔧 Date ${dateStr} maps to ${dayDate.toDateString()}, day of week: ${dayOfWeek}`);
+
+      // Create absolute start/end dates for this specific date
+      const getAbsoluteDateTime = (date: Date, timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const absoluteDate = new Date(date);
+        absoluteDate.setHours(hours, minutes, 0, 0);
+        return absoluteDate.toISOString();
+      };
+
       for (let i = 1; i < indices.length; i++) {
         if (indices[i] === endIdx) {
           endIdx++;
         } else {
+          const startTime = idxToTime(startIdx);
+          const endTime = idxToTime(endIdx);
           const block = {
-            id: `${day}-${startIdx}-${endIdx}`,
-            day: day, // Keep as number (0-6) to match backend schema
-            startTime: idxToTime(startIdx),
-            endTime: idxToTime(endIdx),
+            id: `${dateStr}-${startIdx}-${endIdx}`,
+            day: dayOfWeek, // Use day of week (0=Sun, 1=Mon, ..., 6=Sat) for backend compatibility
+            startTime: startTime,
+            endTime: endTime,
+            absoluteStart: getAbsoluteDateTime(dayDate, startTime),
+            absoluteEnd: getAbsoluteDateTime(dayDate, endTime),
             type: 'available',
             title: 'Available',
             color: '#007bff'
           };
-          console.log(`🔧 Created block:`, block);
+          console.log(`🔧 Created block with absolute dates:`, block);
           blocks.push(block);
 
           startIdx = indices[i];
@@ -1424,16 +1565,20 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         }
       }
 
+      const startTime = idxToTime(startIdx);
+      const endTime = idxToTime(endIdx);
       const lastBlock = {
-        id: `${day}-${startIdx}-${endIdx}`,
-        day: day, // Keep as number (0-6) to match backend schema
-        startTime: idxToTime(startIdx),
-        endTime: idxToTime(endIdx),
+        id: `${dateStr}-${startIdx}-${endIdx}`,
+        day: dayOfWeek, // Use day of week (0=Sun, 1=Mon, ..., 6=Sat) for backend compatibility
+        startTime: startTime,
+        endTime: endTime,
+        absoluteStart: getAbsoluteDateTime(dayDate, startTime),
+        absoluteEnd: getAbsoluteDateTime(dayDate, endTime),
         type: 'available',
         title: 'Available',
         color: '#007bff'
       };
-      console.log(`🔧 Created last block:`, lastBlock);
+      console.log(`🔧 Created last block with absolute dates:`, lastBlock);
       blocks.push(lastBlock);
     });
     

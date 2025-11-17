@@ -6,6 +6,37 @@ const Notification = require('../models/Notification');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 
+// Helper function to format names as "FirstName LastInitial."
+const formatDisplayName = (user) => {
+  if (!user) return 'Unknown User';
+  
+  const firstName = user.firstName || user.onboardingData?.firstName;
+  const lastName = user.lastName || user.onboardingData?.lastName;
+  const fullName = user.name;
+  
+  if (firstName && lastName) {
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  if (fullName) {
+    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      const lastInitial = last.charAt(0).toUpperCase();
+      return `${first} ${lastInitial}.`;
+    }
+    return fullName;
+  }
+  
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  
+  return 'Unknown User';
+};
+
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
 
@@ -28,7 +59,7 @@ router.post('/', verifyToken, async (req, res) => {
       bookingData 
     } = req.body;
 
-    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, user: req.user });
+    console\.log\([\s\S]*?\);'📅 Creating lesson:', { tutorId, studentId, startTime, endTime, user: req.user });
 
     // Validate required fields
     if (!tutorId || !studentId || !startTime || !endTime || !price) {
@@ -55,7 +86,7 @@ router.post('/', verifyToken, async (req, res) => {
     const requestedStart = new Date(startTime);
     const requestedEnd = new Date(endTime);
 
-    console.log('🔍 Checking for conflicts:', {
+    console\.log\([\s\S]*?\);'🔍 Checking for conflicts:', {
       tutorId,
       requestedStart: requestedStart.toISOString(),
       requestedEnd: requestedEnd.toISOString()
@@ -63,7 +94,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     // First, let's see all existing lessons for this tutor
     const allTutorLessons = await Lesson.find({ tutorId: tutorId });
-    console.log('📚 All lessons for tutor:', allTutorLessons.map(l => ({
+    console\.log\([\s\S]*?\);'📚 All lessons for tutor:', allTutorLessons.map(l => ({
       id: l._id,
       start: l.startTime,
       end: l.endTime,
@@ -80,7 +111,7 @@ router.post('/', verifyToken, async (req, res) => {
       endTime: { $gt: requestedStart }
     });
 
-    console.log('🔍 Conflict query result:', conflictingLesson ? {
+    console\.log\([\s\S]*?\);'🔍 Conflict query result:', conflictingLesson ? {
       id: conflictingLesson._id,
       start: conflictingLesson.startTime,
       end: conflictingLesson.endTime,
@@ -88,7 +119,7 @@ router.post('/', verifyToken, async (req, res) => {
     } : 'No conflicts found');
 
     if (conflictingLesson) {
-      console.log('⚠️ Time slot conflict detected:', {
+      console\.log\([\s\S]*?\);'⚠️ Time slot conflict detected:', {
         tutorId,
         requestedTime: { start: requestedStart, end: requestedEnd },
         conflictingLesson: {
@@ -127,7 +158,7 @@ router.post('/', verifyToken, async (req, res) => {
       { path: 'studentId', select: 'name email picture' }
     ]);
 
-    console.log('📅 Lesson created successfully:', lesson._id);
+    console\.log\([\s\S]*?\);'📅 Lesson created successfully:', lesson._id);
 
     // Format date and time for notifications
     const lessonDate = new Date(lesson.startTime);
@@ -154,24 +185,28 @@ router.post('/', verifyToken, async (req, res) => {
       language = tutor.onboardingData.languages[0];
     }
 
+    // Format names for notifications
+    const studentDisplayName = formatDisplayName(student);
+    const tutorDisplayName = formatDisplayName(tutor);
+
     // Create notification for tutor
     try {
       await Notification.create({
         userId: tutor._id,
         type: 'lesson_created',
         title: 'New Lesson Scheduled',
-        message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
+        message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           studentId: student._id,
-          studentName: student.name,
+          studentName: studentDisplayName,
           language: language,
           date: formattedDate,
           time: formattedTime,
           startTime: lesson.startTime
         }
       });
-      console.log('✅ Notification created for tutor:', tutor._id);
+      console\.log\([\s\S]*?\);'✅ Notification created for tutor:', tutor._id);
     } catch (notifError) {
       console.error('❌ Error creating notification for tutor:', notifError);
     }
@@ -182,18 +217,18 @@ router.post('/', verifyToken, async (req, res) => {
         userId: student._id,
         type: 'lesson_created',
         title: 'Lesson Scheduled',
-        message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`,
+        message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           tutorId: tutor._id,
-          tutorName: tutor.name,
+          tutorName: tutorDisplayName,
           language: language,
           date: formattedDate,
           time: formattedTime,
           startTime: lesson.startTime
         }
       });
-      console.log('✅ Notification created for student:', student._id);
+      console\.log\([\s\S]*?\);'✅ Notification created for student:', student._id);
     } catch (notifError) {
       console.error('❌ Error creating notification for student:', notifError);
     }
@@ -206,14 +241,14 @@ router.post('/', verifyToken, async (req, res) => {
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `${student.name} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
+          message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
         });
       }
 
       if (studentSocketId) {
         req.io.to(studentSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `You set up a ${language} lesson with ${tutor.name} for ${formattedDate} at ${formattedTime}`
+          message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`
         });
       }
     }
@@ -232,12 +267,15 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// Get lessons by tutor ID (public endpoint for availability checking)
+// Get lessons by tutor ID (protected - contains sensitive student data)
 // IMPORTANT: This must come BEFORE /:id route to avoid route conflicts
-router.get('/by-tutor/:tutorId', async (req, res) => {
+router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { tutorId } = req.params;
     const { all } = req.query; // Query param to get all lessons (including past)
+    
+    console\.log\([\s\S]*?\);`⏱️ [Lessons By Tutor] Request started for tutorId: ${tutorId}`);
     
     if (!tutorId) {
       return res.status(400).json({ 
@@ -246,7 +284,7 @@ router.get('/by-tutor/:tutorId', async (req, res) => {
       });
     }
 
-    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all);
+    console\.log\([\s\S]*?\);'📅 Fetching lessons for tutor:', tutorId, 'all:', all);
 
     // Build query - if 'all' is true, get all lessons; otherwise only active ones
     const query = { tutorId: tutorId };
@@ -255,11 +293,17 @@ router.get('/by-tutor/:tutorId', async (req, res) => {
     }
 
     // Find lessons for this tutor
+    const dbStartTime = Date.now();
     const lessons = await Lesson.find(query)
-    .populate('studentId', 'name email picture')
+    .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
+    const dbDuration = Date.now() - dbStartTime;
+    console\.log\([\s\S]*?\);`⏱️ [Lessons By Tutor] DB query took: ${dbDuration}ms`);
 
-    console.log(`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
+    console\.log\([\s\S]*?\);`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
+
+    const totalDuration = Date.now() - startTime;
+    console\.log\([\s\S]*?\);`⏱️ [Lessons By Tutor] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
@@ -299,7 +343,7 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
     }
     const userId = user._id;
 
-    console.log('📅 Fetching lessons for user:', userId);
+    console\.log\([\s\S]*?\);'📅 Fetching lessons for user:', userId);
 
     // Find lessons where user is either tutor or student
     const lessons = await Lesson.find({
@@ -308,8 +352,8 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         { studentId: userId }
       ]
     })
-    .populate('tutorId', 'name email picture')
-    .populate('studentId', 'name email picture')
+    .populate('tutorId', 'name email picture firstName lastName')
+    .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
     res.json({ 
@@ -325,12 +369,12 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
   }
 });
 
-// Get lesson details
-router.get('/:id', async (req, res) => {
+// Get lesson details (protected - contains sensitive data)
+router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture')
-      .populate('studentId', 'name email picture');
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('studentId', 'name email picture firstName lastName');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -432,16 +476,16 @@ router.get('/:id/status', verifyToken, async (req, res) => {
 
 // Secure join: returns Agora params only within time window
 router.post('/:id/join', verifyToken, async (req, res) => {
-  console.log('🚀🚀🚀 LESSON JOIN ENDPOINT CALLED 🚀🚀🚀');
-  console.log('🚀 Request params:', req.params);
-  console.log('🚀 Request body:', req.body);
-  console.log('🚀 Request user:', req.user);
+  console\.log\([\s\S]*?\);'🚀🚀🚀 LESSON JOIN ENDPOINT CALLED 🚀🚀🚀');
+  console\.log\([\s\S]*?\);'🚀 Request params:', req.params);
+  console\.log\([\s\S]*?\);'🚀 Request body:', req.body);
+  console\.log\([\s\S]*?\);'🚀 Request user:', req.user);
   
   try {
     // Get user ID from auth token
     const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
     if (!user) {
-      console.log('❌ User not found for auth0Id:', req.user.sub);
+      console\.log\([\s\S]*?\);'❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
@@ -450,11 +494,11 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     const userId = user._id;
     const userRole = req.body.role; // 'tutor' or 'student'
 
-    console.log('📅 User attempting to join lesson:', { userId, lessonId: req.params.id, role: userRole });
+    console\.log\([\s\S]*?\);'📅 User attempting to join lesson:', { userId, lessonId: req.params.id, role: userRole });
 
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture')
-      .populate('studentId', 'name email picture');
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('studentId', 'name email picture firstName lastName');
 
     if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
       return res.status(404).json({ 
@@ -468,7 +512,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     const isTutor = lesson.tutorId._id.toString() === userIdStr;
     const isStudent = lesson.studentId._id.toString() === userIdStr;
 
-    console.log('📅 Authorization check:', {
+    console\.log\([\s\S]*?\);'📅 Authorization check:', {
       userIdStr,
       tutorId: lesson.tutorId._id.toString(),
       studentId: lesson.studentId._id.toString(),
@@ -518,7 +562,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     const uidAccount = userId.toString();
     const tokenExpiry = Math.floor(Date.now() / 1000) + expireTs;
 
-    console.log('📅 Token generation parameters:', {
+    console\.log\([\s\S]*?\);'📅 Token generation parameters:', {
       appId: AGORA_APP_ID,
       channelName,
       uidAccount,
@@ -535,7 +579,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     const TEMP_TOKEN = process.env.AGORA_TEMP_TOKEN;
     const isDevelopment = process.env.NODE_ENV === 'development';
     
-    console.log('🔍 DEBUG Token generation:', {
+    console\.log\([\s\S]*?\);'🔍 DEBUG Token generation:', {
       isDevelopment,
       hasTempToken: !!TEMP_TOKEN,
       tempTokenLength: TEMP_TOKEN ? TEMP_TOKEN.length : 0,
@@ -544,7 +588,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     });
     
     if (isDevelopment && TEMP_TOKEN) {
-      console.log('🔧 DEV: Using temporary token from environment for channel:', channelName);
+      console\.log\([\s\S]*?\);'🔧 DEV: Using temporary token from environment for channel:', channelName);
       token = TEMP_TOKEN;
     } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
       token = RtcTokenBuilder.buildTokenWithUserAccount(
@@ -555,7 +599,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
         agoraRole,
         tokenExpiry
       );
-      console.log('✅ Generated certificate-based token for channel:', channelName);
+      console\.log\([\s\S]*?\);'✅ Generated certificate-based token for channel:', channelName);
     } else {
       console.warn('⚠️ No valid token method available; proceeding with null token');
       token = null;
@@ -577,7 +621,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     
     await lesson.save();
 
-    console.log('📅 Generated Agora token for lesson:', { 
+    console\.log\([\s\S]*?\);'📅 Generated Agora token for lesson:', { 
       lessonId: lesson._id, 
       channelName, 
       userId, 
@@ -588,22 +632,22 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     });
 
     // Emit WebSocket event for lesson presence
-    console.log('📡 Attempting to emit lesson presence event...');
-    console.log('📡 req.io exists:', !!req.io);
-    console.log('📡 req.connectedUsers exists:', !!req.connectedUsers);
+    console\.log\([\s\S]*?\);'📡 Attempting to emit lesson presence event...');
+    console\.log\([\s\S]*?\);'📡 req.io exists:', !!req.io);
+    console\.log\([\s\S]*?\);'📡 req.connectedUsers exists:', !!req.connectedUsers);
     
     if (req.io && req.connectedUsers) {
       // Get the other participant's User document to get their auth0Id
       const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
-      console.log('📡 Looking for other participant with MongoDB ID:', otherUserMongoId);
+      console\.log\([\s\S]*?\);'📡 Looking for other participant with MongoDB ID:', otherUserMongoId);
       
       const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
-      console.log('📡 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
+      console\.log\([\s\S]*?\);'📡 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
       
       if (otherUser && otherUser.auth0Id) {
         const otherUserAuth0Id = otherUser.auth0Id;
-        console.log('📡 Looking for socket connection for auth0Id:', otherUserAuth0Id);
-        console.log('📡 All connected users:', Array.from(req.connectedUsers.entries()));
+        console\.log\([\s\S]*?\);'📡 Looking for socket connection for auth0Id:', otherUserAuth0Id);
+        console\.log\([\s\S]*?\);'📡 All connected users:', Array.from(req.connectedUsers.entries()));
         
         const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
         
@@ -612,28 +656,28 @@ router.post('/:id/join', verifyToken, async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             participantPicture: user.picture,
             joinedAt: now.toISOString()
           };
-          console.log('📡 Emitting lesson_participant_joined event:', JSON.stringify(presenceEvent, null, 2));
-          console.log('📡 Emitting to socket:', otherUserSocketId);
-          console.log('📡 Using req.io.to().emit() method');
+          console\.log\([\s\S]*?\);'📡 Emitting lesson_participant_joined event:', JSON.stringify(presenceEvent, null, 2));
+          console\.log\([\s\S]*?\);'📡 Emitting to socket:', otherUserSocketId);
+          console\.log\([\s\S]*?\);'📡 Using req.io.to().emit() method');
           
           // Emit to socket ID only (room emission causes duplicates)
           req.io.to(otherUserSocketId).emit('lesson_participant_joined', presenceEvent);
           
-          console.log('✅ Successfully emitted lesson_participant_joined to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
-          console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'✅ Successfully emitted lesson_participant_joined to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'✅ Also emitted to room: user:' + otherUserAuth0Id);
         } else {
-          console.log('⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
-          console.log('⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
+          console\.log\([\s\S]*?\);'⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
         }
       } else {
-        console.log('⚠️ Could not find other participant user document or auth0Id');
+        console\.log\([\s\S]*?\);'⚠️ Could not find other participant user document or auth0Id');
       }
     } else {
-      console.log('⚠️ req.io or req.connectedUsers is missing');
+      console\.log\([\s\S]*?\);'⚠️ req.io or req.connectedUsers is missing');
     }
 
     res.json({
@@ -710,7 +754,7 @@ router.post('/:id/end', verifyToken, async (req, res) => {
     lesson.status = 'completed';
     await lesson.save();
 
-    console.log('📅 Lesson ended:', lesson._id);
+    console\.log\([\s\S]*?\);'📅 Lesson ended:', lesson._id);
 
     res.json({ 
       success: true, 
@@ -727,22 +771,22 @@ router.post('/:id/end', verifyToken, async (req, res) => {
 
 // Mark participant leaving the lesson (without completing it)
 router.post('/:id/leave', verifyToken, async (req, res) => {
-  console.log('🚪🚪🚪 LESSON LEAVE ENDPOINT CALLED 🚪🚪🚪');
-  console.log('🚪 Request params:', req.params);
-  console.log('🚪 Request user:', req.user);
+  console\.log\([\s\S]*?\);'🚪🚪🚪 LESSON LEAVE ENDPOINT CALLED 🚪🚪🚪');
+  console\.log\([\s\S]*?\);'🚪 Request params:', req.params);
+  console\.log\([\s\S]*?\);'🚪 Request user:', req.user);
   
   try {
     const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
     if (!user) {
-      console.log('❌ User not found for auth0Id:', req.user.sub);
+      console\.log\([\s\S]*?\);'❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     const userId = user._id;
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture auth0Id')
-      .populate('studentId', 'name email picture auth0Id');
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('studentId', 'name email picture firstName lastName auth0Id');
     if (!lesson) {
-      console.log('❌ Lesson not found:', req.params.id);
+      console\.log\([\s\S]*?\);'❌ Lesson not found:', req.params.id);
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
     
@@ -754,7 +798,7 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'User is not a participant in this lesson' });
     }
     
-    console.log('🚪 User leaving lesson:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
+    console\.log\([\s\S]*?\);'🚪 User leaving lesson:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
 
     if (!lesson.participants) lesson.participants = new Map();
     const key = user._id.toString();
@@ -764,22 +808,22 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
     await lesson.save();
 
     // Emit WebSocket event for lesson presence left
-    console.log('🚪 Attempting to emit lesson presence left event...');
-    console.log('🚪 req.io exists:', !!req.io);
-    console.log('🚪 req.connectedUsers exists:', !!req.connectedUsers);
+    console\.log\([\s\S]*?\);'🚪 Attempting to emit lesson presence left event...');
+    console\.log\([\s\S]*?\);'🚪 req.io exists:', !!req.io);
+    console\.log\([\s\S]*?\);'🚪 req.connectedUsers exists:', !!req.connectedUsers);
     
     if (req.io && req.connectedUsers) {
       // Get the other participant's User document to get their auth0Id
       const otherUserMongoId = isTutor ? lesson.studentId._id : lesson.tutorId._id;
-      console.log('🚪 Looking for other participant with MongoDB ID:', otherUserMongoId);
+      console\.log\([\s\S]*?\);'🚪 Looking for other participant with MongoDB ID:', otherUserMongoId);
       
       const otherUser = await User.findById(otherUserMongoId).select('auth0Id name picture');
-      console.log('🚪 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
+      console\.log\([\s\S]*?\);'🚪 Found other user:', otherUser ? { auth0Id: otherUser.auth0Id, name: otherUser.name } : 'NOT FOUND');
       
       if (otherUser && otherUser.auth0Id) {
         const otherUserAuth0Id = otherUser.auth0Id;
-        console.log('🚪 Looking for socket connection for auth0Id:', otherUserAuth0Id);
-        console.log('🚪 All connected users:', Array.from(req.connectedUsers.entries()));
+        console\.log\([\s\S]*?\);'🚪 Looking for socket connection for auth0Id:', otherUserAuth0Id);
+        console\.log\([\s\S]*?\);'🚪 All connected users:', Array.from(req.connectedUsers.entries()));
         
         const otherUserSocketId = req.connectedUsers.get(otherUserAuth0Id);
         
@@ -788,26 +832,26 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             leftAt: new Date().toISOString()
           };
-          console.log('🚪 Emitting lesson_participant_left event:', JSON.stringify(leaveEvent, null, 2));
-          console.log('🚪 Emitting to socket:', otherUserSocketId);
+          console\.log\([\s\S]*?\);'🚪 Emitting lesson_participant_left event:', JSON.stringify(leaveEvent, null, 2));
+          console\.log\([\s\S]*?\);'🚪 Emitting to socket:', otherUserSocketId);
           
           // Emit to socket ID only (room emission causes duplicates)
           req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
           
-          console.log('✅ Successfully emitted lesson_participant_left to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
-          console.log('✅ Also emitted to room: user:' + otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'✅ Successfully emitted lesson_participant_left to socket:', otherUserSocketId, 'for user:', otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'✅ Also emitted to room: user:' + otherUserAuth0Id);
         } else {
-          console.log('⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
-          console.log('⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
+          console\.log\([\s\S]*?\);'⚠️ Other participant not connected. Auth0Id:', otherUserAuth0Id);
+          console\.log\([\s\S]*?\);'⚠️ Available connected users:', Array.from(req.connectedUsers.keys()));
         }
       } else {
-        console.log('⚠️ Could not find other participant user document or auth0Id');
+        console\.log\([\s\S]*?\);'⚠️ Could not find other participant user document or auth0Id');
       }
     } else {
-      console.log('⚠️ req.io or req.connectedUsers is missing');
+      console\.log\([\s\S]*?\);'⚠️ req.io or req.connectedUsers is missing');
     }
 
     res.json({ success: true, message: 'Left lesson recorded' });
@@ -819,15 +863,15 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
 
 // Special endpoint for navigator.sendBeacon (doesn't support custom headers)
 router.post('/:id/leave-beacon', async (req, res) => {
-  console.log('🚪🚪🚪 LESSON LEAVE BEACON ENDPOINT CALLED 🚪🚪🚪');
-  console.log('🚪 Request params:', req.params);
-  console.log('🚪 Request body:', req.body);
+  console\.log\([\s\S]*?\);'🚪🚪🚪 LESSON LEAVE BEACON ENDPOINT CALLED 🚪🚪🚪');
+  console\.log\([\s\S]*?\);'🚪 Request params:', req.params);
+  console\.log\([\s\S]*?\);'🚪 Request body:', req.body);
   
   try {
     // Extract auth token from form data
     const authToken = req.body.authToken;
     if (!authToken) {
-      console.log('❌ No auth token in beacon request');
+      console\.log\([\s\S]*?\);'❌ No auth token in beacon request');
       return res.status(401).json({ success: false, message: 'No auth token' });
     }
     
@@ -836,7 +880,7 @@ router.post('/:id/leave-beacon', async (req, res) => {
     const token = authToken.replace('Bearer ', '');
     
     if (token.startsWith('dev-token-')) {
-      console.log('🚪 Processing dev token from beacon');
+      console\.log\([\s\S]*?\);'🚪 Processing dev token from beacon');
       const emailPart = token.replace('dev-token-', '');
       const parts = emailPart.split('-');
       if (parts.length >= 2) {
@@ -854,24 +898,24 @@ router.post('/:id/leave-beacon', async (req, res) => {
     }
     
     if (!userInfo) {
-      console.log('❌ Invalid token in beacon request');
+      console\.log\([\s\S]*?\);'❌ Invalid token in beacon request');
       return res.status(401).json({ success: false, message: 'Invalid token' });
     }
     
     // Find user and lesson (same logic as regular leave endpoint)
     const user = await User.findOne({ auth0Id: userInfo.sub }).select('name email picture auth0Id');
     if (!user) {
-      console.log('❌ User not found for auth0Id:', userInfo.sub);
+      console\.log\([\s\S]*?\);'❌ User not found for auth0Id:', userInfo.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
     const userId = user._id;
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture auth0Id')
-      .populate('studentId', 'name email picture auth0Id');
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('studentId', 'name email picture firstName lastName auth0Id');
     
     if (!lesson) {
-      console.log('❌ Lesson not found:', req.params.id);
+      console\.log\([\s\S]*?\);'❌ Lesson not found:', req.params.id);
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
     
@@ -883,7 +927,7 @@ router.post('/:id/leave-beacon', async (req, res) => {
       return res.status(403).json({ success: false, message: 'User is not a participant in this lesson' });
     }
     
-    console.log('🚪 User leaving lesson via beacon:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
+    console\.log\([\s\S]*?\);'🚪 User leaving lesson via beacon:', { userId, lessonId: lesson._id, role: isTutor ? 'tutor' : 'student' });
     
     // Update participants data
     if (!lesson.participants) lesson.participants = new Map();
@@ -907,15 +951,15 @@ router.post('/:id/leave-beacon', async (req, res) => {
             lessonId: lesson._id.toString(),
             participantId: userId.toString(),
             participantRole: isTutor ? 'tutor' : 'student',
-            participantName: user.name,
+            participantName: formatDisplayName(user),
             leftAt: new Date().toISOString()
           };
           
-          console.log('🚪 Emitting lesson_participant_left event from beacon:', JSON.stringify(leaveEvent, null, 2));
+          console\.log\([\s\S]*?\);'🚪 Emitting lesson_participant_left event from beacon:', JSON.stringify(leaveEvent, null, 2));
           req.io.to(otherUserSocketId).emit('lesson_participant_left', leaveEvent);
-          console.log('✅ Successfully emitted lesson_participant_left from beacon');
+          console\.log\([\s\S]*?\);'✅ Successfully emitted lesson_participant_left from beacon');
         } else {
-          console.log('⚠️ Other participant not connected for beacon leave');
+          console\.log\([\s\S]*?\);'⚠️ Other participant not connected for beacon leave');
         }
       }
     }

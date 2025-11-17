@@ -22,13 +22,32 @@
       <p class="step-indicator">Step {{ currentStep }} of {{ totalSteps }}</p>
     </div>
 
-    <!-- Step 1: Welcome -->
+    <!-- Step 1: Name -->
     <div *ngIf="currentStep === 1" class="step-content">
-      <div class="welcome-section">
-        <ion-icon name="school" size="large" color="primary"></ion-icon>
-        <h1>Welcome to Language Learning!</h1>
-        <p>Let's personalize your learning experience by getting to know you better.</p>
-        <p>This will only take a few minutes.</p>
+      <div class="name-section">
+        <ion-icon name="person" size="large" color="primary"></ion-icon>
+        <h2>What's your name?</h2>
+        <p>Let's start with the basics</p>
+        
+        <ion-item class="name-input">
+          <ion-label position="stacked">First Name</ion-label>
+          <ion-input 
+            [(ngModel)]="firstName" 
+            placeholder="Enter your first name"
+            type="text"
+            required>
+          </ion-input>
+        </ion-item>
+        
+        <ion-item class="name-input">
+          <ion-label position="stacked">Last Name</ion-label>
+          <ion-input 
+            [(ngModel)]="lastName" 
+            placeholder="Enter your last name"
+            type="text"
+            required>
+          </ion-input>
+        </ion-item>
       </div>
     </div>
 
@@ -47,8 +66,8 @@
       </div>
     </div>
 
-    <!-- Step 3: Learning Goals -->
-    <div *ngIf="currentStep === 3" class="step-content">
+    <!-- Step 3: Learning Goals (Students Only) -->
+    <div *ngIf="currentStep === 3 && !isTutorOnboarding()" class="step-content">
       <h2>What are your learning goals?</h2>
       <p>Choose what you want to achieve:</p>
       
@@ -67,8 +86,8 @@
       </div>
     </div>
 
-    <!-- Step 4: Experience & Schedule -->
-    <div *ngIf="currentStep === 4" class="step-content">
+    <!-- Step 4: Experience & Schedule (Students Only) -->
+    <div *ngIf="currentStep === 4 && !isTutorOnboarding()" class="step-content">
       <h2>Tell us about your experience</h2>
       
       <div class="experience-section">
@@ -96,9 +115,30 @@
       </div>
     </div>
 
-    <!-- Step 5: Tutor-specific steps -->
-    <div *ngIf="currentStep === 5 && currentUser?.['userType'] === 'tutor'" class="step-content">
+    <!-- Step 3: Tutor-specific steps (Tutors Only) -->
+    <div *ngIf="currentStep === 3 && isTutorOnboarding()" class="step-content">
       <h2>Complete your tutor profile</h2>
+      
+      <!-- Tutor Country -->
+      <div class="tutor-country-section">
+        <h3>Where are you from?</h3>
+        <p class="section-hint">This helps students find tutors from specific regions</p>
+        <ion-item class="country-select-item">
+          <ion-label position="stacked">Country</ion-label>
+          <ion-select 
+            [(ngModel)]="tutorCountry" 
+            placeholder="Select your country"
+            interface="action-sheet">
+            <ion-select-option *ngFor="let country of tutorCountryOptions" [value]="country.name">
+              {{ country.flag }} {{ country.name }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <div class="selected-country" *ngIf="tutorCountry">
+          <span class="country-flag-display">{{ getCountryFlag(tutorCountry) }}</span>
+          <span class="country-name-display">{{ tutorCountry }}</span>
+        </div>
+      </div>
       
       <!-- Tutor Experience -->
       <div class="tutor-experience-section">
@@ -133,9 +173,9 @@
           [(ngModel)]="tutorBio"
           placeholder="Write a brief description of your teaching style, background, and what students can expect from your lessons..."
           rows="4"
-          maxlength="500">
+          maxlength="1000">
         </ion-textarea>
-        <p class="character-count">{{ tutorBio.length }}/500 characters</p>
+        <p class="character-count">{{ tutorBio.length }}/1000 characters</p>
       </div>
 
       <!-- Hourly Rate -->

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Observable, BehaviorSubject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
@@ -10,6 +10,9 @@ export interface User {
   auth0Id: string;
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  country?: string;
   picture?: string;
   emailVerified: boolean;
   userType: 'student' | 'tutor';
@@ -43,6 +46,8 @@ export interface User {
 }
 
 export interface OnboardingData {
+  firstName?: string;
+  lastName?: string;
   languages: string[];
   goals: string[];
   experienceLevel: string;
@@ -50,18 +55,25 @@ export interface OnboardingData {
 }
 
 export interface TutorOnboardingData {
+  firstName?: string;
+  lastName?: string;
+  country?: string;
   languages: string[];
   experience: string;
   schedule: string;
   bio: string;
   hourlyRate: number;
   introductionVideo?: string;
+  videoThumbnail?: string;
+  videoType?: 'upload' | 'youtube' | 'vimeo';
 }
 
 export interface Tutor {
   id: string;
   auth0Id?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   picture?: string;
   languages: string[];
@@ -70,6 +82,8 @@ export interface Tutor {
   schedule: string;
   bio: string;
   introductionVideo?: string;
+  videoThumbnail?: string;
+  videoType?: 'upload' | 'youtube' | 'vimeo';
   country: string;
   gender: string;
   nativeSpeaker: boolean;
@@ -77,6 +91,11 @@ export interface Tutor {
   totalLessons: number;
   totalHours: number;
   joinedDate: string;
+  // UI state properties
+  isOnline?: boolean;
+  expanded?: boolean;
+  responseTime?: string;
+  specialties?: string[];
 }
 
 export interface TutorSearchFilters {
@@ -118,7 +137,46 @@ export class UserService {
     private authService: AuthService
   ) {}
 
+  private async getAuthHeadersAsync(): Promise<HttpHeaders> {
+    try {
+      // Get ID token claims which include user profile (email, name, picture)
+      const idTokenClaims = await this.authService.getIdTokenClaims();
+      console.log('🔑 Got ID token claims:', idTokenClaims ? 'present' : 'null');
+      console.log('🔑 ID token claims content:', JSON.stringify(idTokenClaims, null, 2));
+      
+      // The ID token itself is in __raw
+      const idToken = idTokenClaims?.__raw;
+      
+      if (!idToken) {
+        throw new Error('No ID token available');
+      }
+      
+      console.log('🔑 Using ID token:', idToken.substring(0, 20) + '...');
+      console.log('🖼️ Picture in ID token claims:', idTokenClaims?.picture || 'NOT FOUND');
+      
+      return new HttpHeaders({
+        'Authorization': `Bearer ${idToken}`,
+        'Content-Type': 'application/json'
+      });
+    } catch (error) {
+      console.error('❌ Error getting ID token:', error);
+      console.log('⚠️ Falling back to dev token');
+      
+      // Fallback to dev token if Auth0 token fails
+      const user = await this.authService.user$.pipe(take(1)).toPromise();
+      const userEmail = user?.email || 'unknown';
+      const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
+      const mockToken = `dev-token-${tokenEmail}`;
+      
+      return new HttpHeaders({
+        'Authorization': `Bearer ${mockToken}`,
+        'Content-Type': 'application/json'
+      });
+    }
+  }
+
   private getAuthHeaders(userEmail: string): HttpHeaders {
+    // This synchronous version is deprecated - use getAuthHeadersAsync instead
     // Use dev token format for now since Auth0 interceptor isn't working properly
     // Convert email to token format: replace @ and . with -
     const tokenEmail = userEmail.replace('@', '-').replace(/\./g, '-');
@@ -168,7 +226,16 @@ export class UserService {
   /**
    * Get current user from API
    */
-  getCurrentUser(): Observable<User> {
+  getCurrentUser(forceRefresh = false): Observable<User> {
+    // If we already have a user and not forcing refresh, return cached
+    const cachedUser = this.currentUserSubject.value;
+    if (cachedUser && !forceRefresh) {
+      console.log('📦 UserService: Returning cached user');
+      return of(cachedUser);
+    }
+
+    // Otherwise fetch from API
+    console.log('🌐 UserService: Fetching user from API');
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -198,12 +265,10 @@ export class UserService {
    * Create or update user
    */
   createOrUpdateUser(userData: Partial<User>): Observable<User> {
-    return this.authService.user$.pipe(
-      take(1),
-      switchMap(user => {
-        const userEmail = user?.email || 'unknown';
+    return from(this.getAuthHeadersAsync()).pipe(
+      switchMap(headers => {
         return this.http.post<{success: boolean, user: User}>(`${this.apiUrl}/users`, userData, {
-          headers: this.getAuthHeaders(userEmail)
+          headers
         });
       }),
       map(response => {
@@ -223,12 +288,10 @@ export class UserService {
    * Complete onboarding
    */
   completeOnboarding(onboardingData: OnboardingData): Observable<User> {
-    return this.authService.user$.pipe(
-      take(1),
-      switchMap(user => {
-        const userEmail = user?.email || 'unknown';
+    return from(this.getAuthHeadersAsync()).pipe(
+      switchMap(headers => {
         return this.http.put<{success: boolean, user: User}>(`${this.apiUrl}/users/onboarding`, onboardingData, {
-          headers: this.getAuthHeaders(userEmail)
+          headers
         });
       }),
       map(response => response.user),
@@ -240,12 +303,10 @@ export class UserService {
    * Complete tutor onboarding
    */
   completeTutorOnboarding(tutorData: TutorOnboardingData): Observable<User> {
-    return this.authService.user$.pipe(
-      take(1),
-      switchMap(user => {
-        const userEmail = user?.email || 'unknown';
+    return from(this.getAuthHeadersAsync()).pipe(
+      switchMap(headers => {
         return this.http.put<{success: boolean, user: User}>(`${this.apiUrl}/users/onboarding`, tutorData, {
-          headers: this.getAuthHeaders(userEmail)
+          headers
         });
       }),
       map(response => response.user),
@@ -327,6 +388,8 @@ export class UserService {
     // Get user type from localStorage (set during login)
     const userType = localStorage.getItem('selectedUserType') || 'student';
     
+    console.log('🔍 UserService initializeUser: auth0User data:', auth0User);
+    console.log('🖼️ UserService initializeUser: auth0User.picture:', auth0User.picture);
     
     if (!auth0User?.email) {
       console.error('🔍 UserService initializeUser: No email in Auth0 user data!');
@@ -339,6 +402,8 @@ export class UserService {
       emailVerified: auth0User.email_verified,
       userType: userType as 'student' | 'tutor'
     };
+
+    console.log('🖼️ UserService initializeUser: userData being sent:', userData);
 
     return this.createOrUpdateUser(userData);
   }
@@ -380,21 +445,30 @@ export class UserService {
   }
 
   /**
-   * Update tutor introduction video
+   * Update tutor introduction video with thumbnail and type
    */
-  updateTutorVideo(introductionVideo: string): Observable<{ success: boolean; message: string; introductionVideo: string }> {
+  updateTutorVideo(
+    introductionVideo: string, 
+    videoThumbnail?: string, 
+    videoType?: 'upload' | 'youtube' | 'vimeo'
+  ): Observable<{ success: boolean; message: string; introductionVideo: string; videoThumbnail?: string; videoType?: string }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
-        return this.http.put<{ success: boolean; message: string; introductionVideo: string }>(
+        return this.http.put<{ success: boolean; message: string; introductionVideo: string; videoThumbnail?: string; videoType?: string }>(
           `${this.apiUrl}/users/tutor-video`,
-          { introductionVideo },
+          { 
+            introductionVideo,
+            videoThumbnail: videoThumbnail || '',
+            videoType: videoType || 'upload'
+          },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
+        console.log('📹 Tutor video updated:', response);
       }),
       catchError(error => {
         console.error('📹 Error updating tutor video:', error);

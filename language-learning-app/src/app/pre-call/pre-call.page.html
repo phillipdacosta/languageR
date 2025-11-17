@@ -73,6 +73,18 @@
             <ion-icon name="settings-outline"></ion-icon>
           </button>
         </div>
+        
+        <!-- Audio Level Indicator -->
+        <div class="audio-level-container">
+          <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'" 
+                    [class.muted]="isMuted"
+                    class="mic-icon"></ion-icon>
+          <div class="audio-level-bar">
+            <div class="audio-level-fill" 
+                 [style.width.%]="isMuted ? 0 : audioLevel"
+                 [class.muted]="isMuted"></div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -87,41 +99,26 @@
       </div>
       
       <div class="bg-options">
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="primary"
+        <button 
+          class="bg-option-btn blur-option"
           (click)="setBackgroundBlur()">
-          <ion-icon name="blur" slot="start"></ion-icon>
-          Enable Blur
-        </ion-button>
+          <ion-icon name="blur"></ion-icon>
+          <span>Enable Blur</span>
+        </button>
         
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="success"
-          (click)="setBackgroundColor('#00ff00')">
-          <ion-icon name="square-outline" slot="start"></ion-icon>
-          Green Background
-        </ion-button>
+        <button 
+          class="bg-option-btn black-option"
+          (click)="setBackgroundColor('#000000')">
+          <div class="color-preview black"></div>
+          <span>Black Background</span>
+        </button>
         
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="danger"
-          (click)="setBackgroundColor('#ff0000')">
-          <ion-icon name="square-outline" slot="start"></ion-icon>
-          Red Background
-        </ion-button>
-        
-        <ion-button 
-          fill="outline" 
-          size="small"
-          color="medium"
+        <button 
+          class="bg-option-btn normal-option"
           (click)="disableVirtualBackground()">
-          <ion-icon name="videocam-outline" slot="start"></ion-icon>
-          Normal
-        </ion-button>
+          <ion-icon name="videocam-outline"></ion-icon>
+          <span>Normal</span>
+        </button>
       </div>
       
       <div class="status-info" *ngIf="isVirtualBackgroundEnabled">

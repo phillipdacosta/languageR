@@ -77,6 +77,10 @@ export class MessagingService {
   // Observable for real-time unread count updates
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
+  
+  // Observable for tracking when a conversation is selected (for hiding tabs on mobile)
+  private hasSelectedConversationSubject = new BehaviorSubject<boolean>(false);
+  public hasSelectedConversation$ = this.hasSelectedConversationSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -87,6 +91,11 @@ export class MessagingService {
   // Method to update unread count from outside
   updateUnreadCount(count: number) {
     this.unreadCountSubject.next(count);
+  }
+  
+  // Method to update conversation selection state
+  setHasSelectedConversation(hasSelection: boolean) {
+    this.hasSelectedConversationSubject.next(hasSelection);
   }
   
   // Method to increment unread count when a new message arrives

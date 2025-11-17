@@ -6,6 +6,37 @@ const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
 const User = require('../models/User');
 
+// Helper function to format names as "FirstName LastInitial."
+const formatDisplayName = (user) => {
+  if (!user) return 'Unknown User';
+  
+  const firstName = user.firstName || user.onboardingData?.firstName;
+  const lastName = user.lastName || user.onboardingData?.lastName;
+  const fullName = user.name;
+  
+  if (firstName && lastName) {
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  if (fullName) {
+    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      const lastInitial = last.charAt(0).toUpperCase();
+      return `${first} ${lastInitial}.`;
+    }
+    return fullName;
+  }
+  
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  
+  return 'Unknown User';
+};
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,7 +77,7 @@ router.post('/channels/:channelName/messages', verifyToken, async (req, res) => 
       messages.splice(0, messages.length - 100);
     }
 
-    console.log(`📨 Message sent to channel ${channelName}:`, { type, userId });
+    console\.log\([\s\S]*?\);`📨 Message sent to channel ${channelName}:`, { type, userId });
 
     res.json({
       success: true,
@@ -216,19 +247,19 @@ router.get('/conversations', verifyToken, async (req, res) => {
         
         // If not found and otherUserId doesn't start with 'dev-user-', try with prefix
         if (!otherUser && !conv.otherUserId.startsWith('dev-user-')) {
-          console.log(`⚠️ User not found for auth0Id: ${conv.otherUserId}, trying with dev-user- prefix`);
+          console\.log\([\s\S]*?\);`⚠️ User not found for auth0Id: ${conv.otherUserId}, trying with dev-user- prefix`);
           otherUser = await User.findOne({ auth0Id: `dev-user-${conv.otherUserId}` });
           if (otherUser) {
-            console.log(`✅ Found user with prefix: ${otherUser.auth0Id}`);
+            console\.log\([\s\S]*?\);`✅ Found user with prefix: ${otherUser.auth0Id}`);
           }
         }
         
         // If still not found, try checking if it's an email and search by email
         if (!otherUser && conv.otherUserId.includes('@')) {
-          console.log(`⚠️ Trying to find user by email: ${conv.otherUserId}`);
+          console\.log\([\s\S]*?\);`⚠️ Trying to find user by email: ${conv.otherUserId}`);
           otherUser = await User.findOne({ email: conv.otherUserId });
           if (otherUser) {
-            console.log(`✅ Found user by email: ${otherUser.auth0Id}`);
+            console\.log\([\s\S]*?\);`✅ Found user by email: ${otherUser.auth0Id}`);
           }
         }
         
@@ -241,7 +272,7 @@ router.get('/conversations', verifyToken, async (req, res) => {
           otherUser: otherUser ? {
             id: otherUser._id.toString(),
             auth0Id: otherUser.auth0Id,
-            name: otherUser.name,
+            name: formatDisplayName(otherUser),
             picture: otherUser.picture,
             userType: otherUser.userType
           } : {
@@ -282,7 +313,7 @@ router.get('/conversations', verifyToken, async (req, res) => {
       return conv.lastMessage && (conv.lastMessage.type === 'system' || conv.lastMessage.senderId === 'system');
     });
     if (systemMessageConvs.length > 0) {
-      console.log('📋 Found system message conversations:', systemMessageConvs.length, systemMessageConvs.map(c => ({
+      console\.log\([\s\S]*?\);'📋 Found system message conversations:', systemMessageConvs.length, systemMessageConvs.map(c => ({
         conversationId: c.conversationId,
         otherUser: c.otherUser?.name || 'Unknown',
         lastMessage: c.lastMessage?.content?.substring(0, 50)
@@ -313,13 +344,13 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     const { otherUserId } = req.params;
     const { limit = 50, before } = req.query;
     
-    console.log('📥 GET /conversations/:otherUserId/messages', { userId, otherUserId, limit, before });
+    console\.log\([\s\S]*?\);'📥 GET /conversations/:otherUserId/messages', { userId, otherUserId, limit, before });
     
     // Try to find messages with the exact conversationId first
     const ids = [userId, otherUserId].sort();
     const conversationId = `${ids[0]}_${ids[1]}`;
     
-    console.log('🔍 Looking for messages with conversationId:', conversationId);
+    console\.log\([\s\S]*?\);'🔍 Looking for messages with conversationId:', conversationId);
     
     // Get user info to check if they're a tutor or student
     const currentUser = await User.findOne({ auth0Id: userId });
@@ -356,19 +387,19 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
       .limit(parseInt(limit))
       .lean();
 
-    console.log(`✅ Found ${messages.length} messages for conversationId: ${conversationId}`);
+    console\.log\([\s\S]*?\);`✅ Found ${messages.length} messages for conversationId: ${conversationId}`);
     
     // If no messages found, try alternative conversationId formats
     // This handles cases where messages might have been stored with different ID formats
     if (messages.length === 0) {
-      console.log('⚠️ No messages found with primary conversationId, trying alternative formats...');
+      console\.log\([\s\S]*?\);'⚠️ No messages found with primary conversationId, trying alternative formats...');
       
       // Try reverse order (in case IDs were stored in different order)
       const reverseIds = [otherUserId, userId].sort();
       const reverseConversationId = `${reverseIds[0]}_${reverseIds[1]}`;
       
       if (reverseConversationId !== conversationId) {
-        console.log('🔍 Trying reverse conversationId:', reverseConversationId);
+        console\.log\([\s\S]*?\);'🔍 Trying reverse conversationId:', reverseConversationId);
         let altQuery = { conversationId: reverseConversationId };
         if (before) {
           altQuery.createdAt = { $lt: new Date(before) };
@@ -377,12 +408,12 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
           .sort({ createdAt: -1 })
           .limit(parseInt(limit))
           .lean();
-        console.log(`✅ Found ${messages.length} messages with reverse conversationId`);
+        console\.log\([\s\S]*?\);`✅ Found ${messages.length} messages with reverse conversationId`);
       }
       
       // If still no messages, try finding by senderId/receiverId directly
       if (messages.length === 0) {
-        console.log('🔍 Trying to find messages by senderId/receiverId directly...');
+        console\.log\([\s\S]*?\);'🔍 Trying to find messages by senderId/receiverId directly...');
         let directQuery = {
           $or: [
             { senderId: userId, receiverId: otherUserId },
@@ -396,10 +427,10 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
           .sort({ createdAt: -1 })
           .limit(parseInt(limit))
           .lean();
-        console.log(`✅ Found ${messages.length} messages by direct senderId/receiverId match`);
+        console\.log\([\s\S]*?\);`✅ Found ${messages.length} messages by direct senderId/receiverId match`);
         
         if (messages.length > 0) {
-          console.log('📋 Sample messages found:', messages.slice(0, 2).map(m => ({
+          console\.log\([\s\S]*?\);'📋 Sample messages found:', messages.slice(0, 2).map(m => ({
             conversationId: m.conversationId,
             senderId: m.senderId,
             receiverId: m.receiverId
@@ -409,7 +440,7 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     }
     
     if (messages.length > 0) {
-      console.log('📋 Sample messages:', messages.slice(0, 3).map(m => ({
+      console\.log\([\s\S]*?\);'📋 Sample messages:', messages.slice(0, 3).map(m => ({
         id: m._id,
         conversationId: m.conversationId,
         senderId: m.senderId,
@@ -435,7 +466,7 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     );
     
     if (updateResult.modifiedCount > 0) {
-      console.log(`📖 Marked ${updateResult.modifiedCount} messages as read`);
+      console\.log\([\s\S]*?\);`📖 Marked ${updateResult.modifiedCount} messages as read`);
     }
 
     // Map _id to id for frontend compatibility and filter invalid replyTo
@@ -483,7 +514,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
       });
     }
 
-    console.log('📤 File upload request:', {
+    console\.log\([\s\S]*?\);'📤 File upload request:', {
       senderId,
       receiverId,
       messageType,
@@ -506,7 +537,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
     const sanitizedFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
     const gcsFilename = `messages/${messageType}s/${senderId}/${timestamp}_${sanitizedFilename}`;
 
-    console.log('☁️ Uploading to GCS:', gcsFilename);
+    console\.log\([\s\S]*?\);'☁️ Uploading to GCS:', gcsFilename);
 
     // Upload to GCS
     const file = bucket.file(gcsFilename);
@@ -519,7 +550,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
 
     // Get public URL
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${gcsFilename}`;
-    console.log('✅ File uploaded successfully:', fileUrl);
+    console\.log\([\s\S]*?\);'✅ File uploaded successfully:', fileUrl);
 
     // Create message with file
     const ids = [senderId, receiverId].sort();
@@ -538,7 +569,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
     });
 
     const savedMessage = await message.save();
-    console.log('💾 Message with file saved:', savedMessage._id.toString());
+    console\.log\([\s\S]*?\);'💾 Message with file saved:', savedMessage._id.toString());
 
     // Populate sender info
     const sender = await User.findOne({ auth0Id: senderId });
@@ -558,7 +589,7 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
       createdAt: savedMessage.createdAt,
       sender: sender ? {
         id: sender._id.toString(),
-        name: sender.name,
+        name: formatDisplayName(sender),
         picture: sender.picture
       } : null
     };
@@ -566,17 +597,17 @@ router.post('/conversations/:receiverId/upload', verifyToken, upload.single('fil
     // Emit via WebSocket to sender (confirmation)
     const senderSocketId = req.connectedUsers?.get(senderId);
     if (senderSocketId && req.io) {
-      console.log('📤 Sending file upload confirmation to sender:', senderId);
+      console\.log\([\s\S]*?\);'📤 Sending file upload confirmation to sender:', senderId);
       req.io.to(senderSocketId).emit('message_sent', messageResponse);
     }
 
     // Emit via WebSocket to receiver (real-time notification)
     const receiverSocketId = req.connectedUsers?.get(receiverId);
     if (receiverSocketId && req.io) {
-      console.log('📤 Sending file message to receiver:', receiverId);
+      console\.log\([\s\S]*?\);'📤 Sending file message to receiver:', receiverId);
       req.io.to(receiverSocketId).emit('new_message', messageResponse);
     } else {
-      console.log('📭 Receiver not online:', receiverId);
+      console\.log\([\s\S]*?\);'📭 Receiver not online:', receiverId);
     }
 
     res.json({
@@ -599,7 +630,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     const { receiverId } = req.params;
     const { content, type = 'text', replyTo } = req.body;
 
-    console.log('📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type, replyTo });
+    console\.log\([\s\S]*?\);'📨 HTTP POST /conversations/:receiverId/messages', { senderId, receiverId, content, type, replyTo });
 
     if (!content || !content.trim()) {
       return res.status(400).json({
@@ -619,7 +650,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     const ids = [senderId, receiverId].sort();
     const conversationId = `${ids[0]}_${ids[1]}`;
 
-    console.log('📝 Creating message with conversationId:', conversationId);
+    console\.log\([\s\S]*?\);'📝 Creating message with conversationId:', conversationId);
 
     const messageData = {
       conversationId,
@@ -632,17 +663,17 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Add replyTo if provided and valid (must have messageId)
     if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
       messageData.replyTo = replyTo;
-      console.log('💬 Message is a reply to:', replyTo.messageId);
+      console\.log\([\s\S]*?\);'💬 Message is a reply to:', replyTo.messageId);
     } else if (replyTo) {
-      console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
+      console\.log\([\s\S]*?\);'⚠️ Invalid replyTo data (missing messageId):', replyTo);
       // Don't add invalid replyTo to messageData
     }
 
     const message = new Message(messageData);
 
-    console.log('💾 Saving message to database...');
+    console\.log\([\s\S]*?\);'💾 Saving message to database...');
     const savedMessage = await message.save();
-    console.log('✅ Message saved successfully:', savedMessage._id.toString());
+    console\.log\([\s\S]*?\);'✅ Message saved successfully:', savedMessage._id.toString());
     
     // Populate sender info for real-time response
     const sender = await User.findOne({ auth0Id: senderId });
@@ -664,7 +695,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
           { conversationId, isSystemMessage: true, visibleToTutorOnly: true },
           { visibleToTutorOnly: false }
         );
-        console.log('✅ Made potential student conversation visible to student');
+        console\.log\([\s\S]*?\);'✅ Made potential student conversation visible to student');
       }
     }
 
@@ -679,7 +710,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
       createdAt: savedMessage.createdAt,
       sender: sender ? {
         id: sender._id.toString(),
-        name: sender.name,
+        name: formatDisplayName(sender),
         picture: sender.picture
       } : null
     };
@@ -696,20 +727,21 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     if (receiver) {
       try {
         const Notification = require('../models/Notification');
+        const senderDisplayName = sender ? formatDisplayName(sender) : null;
         await Notification.create({
           userId: receiver._id,
           type: 'message',
           title: 'New Message',
-          message: sender ? `${sender.name} sent you a message` : 'You have a new message',
+          message: senderDisplayName ? `${senderDisplayName} sent you a message` : 'You have a new message',
           data: {
             messageId: savedMessage._id.toString(),
             conversationId: savedMessage.conversationId,
             senderId: sender?._id?.toString(),
-            senderName: sender?.name,
+            senderName: senderDisplayName,
             content: savedMessage.content.substring(0, 100) // Preview first 100 chars
           }
         });
-        console.log('✅ Notification created for message to receiver:', receiver._id);
+        console\.log\([\s\S]*?\);'✅ Notification created for message to receiver:', receiver._id);
       } catch (notifError) {
         console.error('❌ Error creating notification for message:', notifError);
       }
@@ -717,7 +749,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
 
     // Emit WebSocket message to receiver (for real-time message display)
     const receiverSocketId = req.connectedUsers?.get(receiverId);
-    console.log('📤 Checking WebSocket for message:', {
+    console\.log\([\s\S]*?\);'📤 Checking WebSocket for message:', {
       receiverId,
       receiverSocketId,
       hasIo: !!req.io,
@@ -726,10 +758,10 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     });
     
     if (receiverSocketId && req.io) {
-      console.log('✅ Emitting new_message to receiver:', receiverId, 'socket:', receiverSocketId);
+      console\.log\([\s\S]*?\);'✅ Emitting new_message to receiver:', receiverId, 'socket:', receiverSocketId);
       req.io.to(receiverSocketId).emit('new_message', messageResponse);
     } else {
-      console.log('⚠️ Receiver not online or WebSocket not available:', {
+      console\.log\([\s\S]*?\);'⚠️ Receiver not online or WebSocket not available:', {
         receiverId,
         receiverSocketId,
         hasIo: !!req.io
@@ -739,7 +771,7 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Emit confirmation to sender
     const senderSocketId = req.connectedUsers?.get(senderId);
     if (senderSocketId && req.io) {
-      console.log('✅ Emitting message_sent to sender:', senderId, 'socket:', senderSocketId);
+      console\.log\([\s\S]*?\);'✅ Emitting message_sent to sender:', senderId, 'socket:', senderSocketId);
       req.io.to(senderSocketId).emit('message_sent', messageResponse);
     }
 
@@ -799,7 +831,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     const studentId = req.user.sub; // Current user (student)
     const { tutorId, triggerType } = req.body; // 'favorite' or 'book_lesson'
 
-    console.log('📝 Creating potential student conversation:', { 
+    console\.log\([\s\S]*?\);'📝 Creating potential student conversation:', { 
       studentId, 
       tutorId, 
       triggerType,
@@ -825,7 +857,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     const student = await User.findOne({ auth0Id: studentId });
     const tutor = await User.findOne({ auth0Id: tutorId });
 
-    console.log('🔍 Looking for users:', { 
+    console\.log\([\s\S]*?\);'🔍 Looking for users:', { 
       studentId, 
       tutorId,
       studentFound: !!student,
@@ -844,10 +876,10 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       console.error('❌ Tutor not found with auth0Id:', tutorId);
       // Try to find by _id as fallback
       const tutorById = await User.findById(tutorId);
-      console.log('🔍 Trying to find tutor by _id:', { tutorId, found: !!tutorById });
+      console\.log\([\s\S]*?\);'🔍 Trying to find tutor by _id:', { tutorId, found: !!tutorById });
       
       if (tutorById) {
-        console.log('✅ Found tutor by _id, using auth0Id:', tutorById.auth0Id);
+        console\.log\([\s\S]*?\);'✅ Found tutor by _id, using auth0Id:', tutorById.auth0Id);
         // Re-call with correct auth0Id
         return res.status(400).json({
           success: false,
@@ -882,7 +914,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     const ids = [studentId, tutorId].sort();
     const conversationId = `${ids[0]}_${ids[1]}`;
 
-    console.log('🔍 Checking for existing conversation:', {
+    console\.log\([\s\S]*?\);'🔍 Checking for existing conversation:', {
       studentId,
       tutorId,
       conversationId,
@@ -894,7 +926,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     // We don't want to spam the tutor with notifications every time the student clicks
     const existingMessage = await Message.findOne({ conversationId });
     
-    console.log('🔍 Existing message found:', existingMessage ? {
+    console\.log\([\s\S]*?\);'🔍 Existing message found:', existingMessage ? {
       id: existingMessage._id,
       type: existingMessage.type,
       isSystemMessage: existingMessage.isSystemMessage,
@@ -904,7 +936,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     
     if (existingMessage) {
       // Conversation already exists (either with system message or real messages)
-      console.log('ℹ️ Conversation already exists, not creating duplicate potential student notification:', conversationId);
+      console\.log\([\s\S]*?\);'ℹ️ Conversation already exists, not creating duplicate potential student notification:', conversationId);
       return res.json({
         success: true,
         message: 'Conversation already exists',
@@ -924,8 +956,8 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       languageText = tutorLanguages.slice(0, -1).join(', ') + ' and ' + tutorLanguages[tutorLanguages.length - 1];
     }
     
-    // Get student name
-    const studentName = student.name || student.email?.split('@')[0] || 'a student';
+    // Get student name formatted as "FirstName LastInitial."
+    const studentName = formatDisplayName(student);
     
     // Randomly select from different message templates for variation
     const messageTemplates = [
@@ -957,7 +989,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     });
 
     await systemMessage.save();
-    console.log('✅ System message created:', {
+    console\.log\([\s\S]*?\);'✅ System message created:', {
       messageId: systemMessage._id.toString(),
       conversationId,
       studentName: student.name,
@@ -972,11 +1004,11 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       type: 'potential_student',
       title: 'Potential Student Interest',
       message: triggerType === 'favorite' 
-        ? `${student.name} saved your profile`
-        : `${student.name} clicked "Book lesson" on your profile`,
+        ? `${studentName} saved your profile`
+        : `${studentName} clicked "Book lesson" on your profile`,
       data: {
         studentId: student._id.toString(),
-        studentName: student.name,
+        studentName: studentName,
         studentPicture: student.picture,
         conversationId,
         triggerType,
@@ -984,7 +1016,7 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       }
     });
 
-    console.log('✅ Notification created for tutor:', {
+    console\.log\([\s\S]*?\);'✅ Notification created for tutor:', {
       notificationId: notification._id.toString(),
       tutorId: tutor._id.toString(),
       tutorName: tutor.name,
@@ -995,16 +1027,16 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     // Emit WebSocket notification to tutor if online
     const tutorSocketId = req.connectedUsers?.get(tutorId);
     if (tutorSocketId && req.io) {
-      console.log('📤 Emitting potential_student notification to tutor:', tutorId);
+      console\.log\([\s\S]*?\);'📤 Emitting potential_student notification to tutor:', tutorId);
       req.io.to(tutorSocketId).emit('new_notification', {
         type: 'potential_student',
         title: 'Potential Student Interest',
         message: triggerType === 'favorite' 
-          ? `${student.name} saved your profile`
-          : `${student.name} clicked "Book lesson" on your profile`,
+          ? `${studentName} saved your profile`
+          : `${studentName} clicked "Book lesson" on your profile`,
         data: {
           studentId: student._id.toString(),
-          studentName: student.name,
+          studentName: studentName,
           studentPicture: student.picture,
           conversationId,
           triggerType

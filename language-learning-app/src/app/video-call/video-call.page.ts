@@ -462,8 +462,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           try {
             console.log('🎬 Playing local video in participant tile');
             this.localVideoRef.nativeElement.innerHTML = '';
-            localVideoTrack.play(this.localVideoRef.nativeElement);
-            console.log('✅ Local video setup complete');
+            // Disable mirroring to prevent video from flipping
+            localVideoTrack.play(this.localVideoRef.nativeElement, { mirror: false });
+            console.log('✅ Local video setup complete (mirror disabled)');
             
             // Apply virtual background after video display is ready
             setTimeout(() => {
@@ -1029,6 +1030,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.setBackgroundBlur(2); // Medium blur
       this.isVirtualBackgroundEnabled = true;
       console.log('✅ Background blur enabled successfully in video call');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to set background blur in video call:', error);
       
@@ -1047,6 +1051,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.setBackgroundColor(color);
       this.isVirtualBackgroundEnabled = true;
       console.log('✅ Background color set successfully in video call');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to set background color in video call:', error);
       
@@ -1065,6 +1072,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.disableVirtualBackground();
       this.isVirtualBackgroundEnabled = false;
       console.log('✅ Virtual background disabled successfully in video call');
+      
+      // Close the virtual background controls panel
+      this.showVirtualBackgroundControls = false;
     } catch (error) {
       console.error('❌ Failed to disable virtual background in video call:', error);
     }

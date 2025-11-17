@@ -13,7 +13,7 @@ const upload = multer({
     fileSize: 1000 * 1024 * 1024, // 1GB limit for input
   },
   fileFilter: (req, file, cb) => {
-    console.log('🔍 File details:', {
+    console\.log\([\s\S]*?\);'🔍 File details:', {
       fieldname: file.fieldname,
       originalname: file.originalname,
       mimetype: file.mimetype,
@@ -38,7 +38,7 @@ const uploadImage = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit for images
   },
   fileFilter: (req, file, cb) => {
-    console.log('🖼️ Image file details:', {
+    console\.log\([\s\S]*?\);'🖼️ Image file details:', {
       fieldname: file.fieldname,
       originalname: file.originalname,
       mimetype: file.mimetype,
@@ -77,7 +77,7 @@ function initializeGCS() {
     });
 
     bucket = storage.bucket(process.env.GOOGLE_CLOUD_BUCKET_NAME);
-    console.log('✅ Google Cloud Storage initialized');
+    console\.log\([\s\S]*?\);'✅ Google Cloud Storage initialized');
     return { storage, bucket };
   } catch (error) {
     console.warn('⚠️ Google Cloud Storage initialization failed:', error.message);
@@ -107,14 +107,14 @@ async function uploadVideoWithCompression(req, res) {
     }
 
     const originalSizeMB = req.file.size / (1024 * 1024);
-    console.log(`📊 Original file size: ${originalSizeMB.toFixed(2)}MB`);
+    console\.log\([\s\S]*?\);`📊 Original file size: ${originalSizeMB.toFixed(2)}MB`);
 
     let finalBuffer = req.file.buffer;
     let compressionInfo = null;
 
     // Compress if file is larger than 50MB
     if (req.file.size > 50 * 1024 * 1024) {
-      console.log('🎬 Starting video compression...');
+      console\.log\([\s\S]*?\);'🎬 Starting video compression...');
       
       const compressionOptions = {
         maxSizeMB: 50,
@@ -137,9 +137,9 @@ async function uploadVideoWithCompression(req, res) {
         timeSaved: `${((originalSizeMB - compressionResult.sizeMB) / originalSizeMB * 100).toFixed(1)}%`
       };
 
-      console.log('✅ Compression completed:', compressionInfo);
+      console\.log\([\s\S]*?\);'✅ Compression completed:', compressionInfo);
     } else {
-      console.log('📝 File is small enough, skipping compression');
+      console\.log\([\s\S]*?\);'📝 File is small enough, skipping compression');
     }
 
     // Generate unique filename
@@ -147,7 +147,7 @@ async function uploadVideoWithCompression(req, res) {
     const fileExtension = req.file.originalname.split('.').pop() || 'mp4';
     const fileName = `tutor-videos/${user._id}/${timestamp}-compressed.${fileExtension}`;
     
-    console.log('📤 Starting upload to Google Cloud Storage...');
+    console\.log\([\s\S]*?\);'📤 Starting upload to Google Cloud Storage...');
     
     // Upload to Google Cloud Storage
     const file = bucket.file(fileName);
@@ -176,7 +176,7 @@ async function uploadVideoWithCompression(req, res) {
     stream.on('progress', (progress) => {
       uploadedBytes = progress.bytesWritten;
       const progressPercent = ((uploadedBytes / totalBytes) * 100).toFixed(1);
-      console.log(`📤 Upload progress: ${progressPercent}% (${(uploadedBytes / 1024 / 1024).toFixed(2)}MB / ${(totalBytes / 1024 / 1024).toFixed(2)}MB)`);
+      console\.log\([\s\S]*?\);`📤 Upload progress: ${progressPercent}% (${(uploadedBytes / 1024 / 1024).toFixed(2)}MB / ${(totalBytes / 1024 / 1024).toFixed(2)}MB)`);
     });
 
     stream.on('finish', async () => {
@@ -196,8 +196,8 @@ async function uploadVideoWithCompression(req, res) {
         
         await user.save();
         
-        console.log('✅ Video upload completed successfully');
-        console.log(`🔗 Public URL: ${publicUrl}`);
+        console\.log\([\s\S]*?\);'✅ Video upload completed successfully');
+        console\.log\([\s\S]*?\);`🔗 Public URL: ${publicUrl}`);
         
         res.json({
           success: true,
@@ -237,10 +237,29 @@ async function uploadVideoWithCompression(req, res) {
 async function getUserFromRequest(req) {
   const User = require('../models/User');
   
+  console\.log\([\s\S]*?\);'🔍 getUserFromRequest - Looking for user with:', {
+    auth0Id: req.user?.sub,
+    email: req.user?.email,
+    fullUserObject: req.user
+  });
+  
   let user = await User.findOne({ auth0Id: req.user.sub });
+  console\.log\([\s\S]*?\);'🔍 Search by auth0Id result:', user ? 'FOUND' : 'NOT FOUND');
   
   if (!user) {
     user = await User.findOne({ email: req.user.email });
+    console\.log\([\s\S]*?\);'🔍 Search by email result:', user ? 'FOUND' : 'NOT FOUND');
+  }
+  
+  if (user) {
+    console\.log\([\s\S]*?\);'✅ User found:', {
+      _id: user._id,
+      auth0Id: user.auth0Id,
+      email: user.email,
+      userType: user.userType
+    });
+  } else {
+    console\.log\([\s\S]*?\);'❌ User NOT found in database');
   }
   
   return user;
@@ -255,13 +274,13 @@ const verifyToken = async (req, res, next) => {
     }
     
     const token = authHeader.replace('Bearer ', '');
-    console.log('🔍 Backend: Received token:', token.substring(0, 20) + '...');
+    console\.log\([\s\S]*?\);'🔍 Backend: Received token:', token.substring(0, 20) + '...');
     
     let userInfo;
     
     // Handle dev tokens (for development)
     if (token.startsWith('dev-token-')) {
-      console.log('🔍 Backend: Processing dev token');
+      console\.log\([\s\S]*?\);'🔍 Backend: Processing dev token');
       const emailPart = token.replace('dev-token-', '');
       // Convert hyphens back to dots, but preserve the @ symbol
       // The emailPart should be like "phillip-dacosta-gmail-com"
@@ -279,7 +298,8 @@ const verifyToken = async (req, res, next) => {
         userInfo = {
           sub: `dev-user-${email}`,
           email: email,
-          name: username
+          name: username,
+          picture: null // Dev tokens don't have pictures - use real Auth0 login for picture support
         };
       } else {
         // Fallback: convert all hyphens to dots
@@ -287,14 +307,15 @@ const verifyToken = async (req, res, next) => {
         userInfo = {
           sub: `dev-user-${email}`,
           email: email,
-          name: email.split('@')[0]
+          name: email.split('@')[0],
+          picture: null // Dev tokens don't have pictures - use real Auth0 login for picture support
         };
       }
-      console.log('🔍 Backend: Dev token processed, user:', userInfo.email);
+      console\.log\([\s\S]*?\);'🔍 Backend: Dev token processed, user:', userInfo.email);
     } 
     // Handle Auth0 JWT tokens
     else if (token.includes('.')) {
-      console.log('🔍 Backend: Processing Auth0 JWT token');
+      console\.log\([\s\S]*?\);'🔍 Backend: Processing Auth0 JWT token');
       try {
         // For development, we'll decode the JWT without verification
         // In production, you should verify the JWT signature
@@ -310,23 +331,50 @@ const verifyToken = async (req, res, next) => {
         }
         
         const decodedPayload = JSON.parse(Buffer.from(payload, 'base64').toString());
-        console.log('🔍 Backend: JWT payload:', decodedPayload);
+        console\.log\([\s\S]*?\);'🔍 Backend: Full JWT payload:', JSON.stringify(decodedPayload, null, 2));
+        
+        // Extract user info with multiple fallbacks for different Auth0 token formats
+        const email = decodedPayload.email || 
+                      decodedPayload['https://your-domain.com/email'] || 
+                      decodedPayload['http://your-domain.com/email'];
+        
+        const name = decodedPayload.name || 
+                     decodedPayload.nickname || 
+                     decodedPayload.given_name ||
+                     decodedPayload['https://your-domain.com/name'] ||
+                     email?.split('@')[0] || 
+                     'User';
+        
+        const picture = decodedPayload.picture || 
+                        decodedPayload.picture_url ||
+                        decodedPayload['https://your-domain.com/picture'] ||
+                        null;
         
         userInfo = {
           sub: decodedPayload.sub,
-          email: decodedPayload.email,
-          name: decodedPayload.name || decodedPayload.nickname || decodedPayload.email?.split('@')[0],
+          email: email,
+          name: name,
           email_verified: decodedPayload.email_verified,
-          picture: decodedPayload.picture || decodedPayload.picture_url || null
+          picture: picture,
+          given_name: decodedPayload.given_name,
+          family_name: decodedPayload.family_name
         };
-        console.log('🔍 Backend: Auth0 token processed, user:', userInfo.email);
+        
+        console\.log\([\s\S]*?\);'🔍 Backend: Extracted user info:', {
+          sub: userInfo.sub,
+          email: userInfo.email,
+          name: userInfo.name,
+          picture: userInfo.picture ? 'present' : 'null',
+          given_name: userInfo.given_name,
+          family_name: userInfo.family_name
+        });
       } catch (jwtError) {
         console.error('🔍 Backend: Error decoding JWT:', jwtError);
         console.error('🔍 Backend: Token parts:', token.split('.').length);
         console.error('🔍 Backend: First 50 chars of token:', token.substring(0, 50));
         
         // Fallback: if JWT decoding fails, treat as unknown user
-        console.log('🔍 Backend: JWT decoding failed, using fallback user');
+        console\.log\([\s\S]*?\);'🔍 Backend: JWT decoding failed, using fallback user');
         userInfo = {
           sub: 'jwt-decode-failed',
           email: 'unknown@jwt-failed.com',
@@ -336,7 +384,7 @@ const verifyToken = async (req, res, next) => {
     }
     // Fallback for unknown token format
     else {
-      console.log('🔍 Backend: Unknown token format, using default user');
+      console\.log\([\s\S]*?\);'🔍 Backend: Unknown token format, using default user');
       userInfo = {
         sub: 'dev-user-123',
         email: 'dev@example.com',
@@ -345,7 +393,7 @@ const verifyToken = async (req, res, next) => {
     }
     
     req.user = userInfo;
-    console.log('🔍 Backend: Final user info:', { sub: userInfo.sub, email: userInfo.email, name: userInfo.name });
+    console\.log\([\s\S]*?\);'🔍 Backend: Final user info:', { sub: userInfo.sub, email: userInfo.email, name: userInfo.name });
     next();
   } catch (error) {
     console.error('Token verification error:', error);
@@ -394,7 +442,7 @@ async function uploadImageToGCS(req, res) {
         // Get public URL
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
         
-        console.log('✅ Image uploaded successfully:', publicUrl);
+        console\.log\([\s\S]*?\);'✅ Image uploaded successfully:', publicUrl);
         
         res.json({
           success: true,

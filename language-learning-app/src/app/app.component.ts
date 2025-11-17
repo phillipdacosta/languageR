@@ -4,7 +4,8 @@ import { ThemeService } from './services/theme.service';
 import { WebSocketService } from './services/websocket.service';
 import { MessagingService } from './services/messaging.service';
 import { AuthService } from './services/auth.service';
-import { Subject, takeUntil } from 'rxjs';
+import { Router, NavigationEnd } from '@angular/router';
+import { Subject, takeUntil, filter } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -22,7 +23,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private themeService: ThemeService,
     private websocketService: WebSocketService,
     private messagingService: MessagingService,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -44,9 +46,27 @@ export class AppComponent implements OnInit, OnDestroy {
     // Show loading immediately when app starts to prevent any flash
     this.loadingService.show();
     
+    // Hide loading for public routes immediately
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      takeUntil(this.destroy$)
+    ).subscribe((event: any) => {
+      const url = event.urlAfterRedirects || event.url;
+      
+      // List of public routes that don't need auth/onboarding checks
+      const publicRoutes = ['/login', '/tutor/', '/signup'];
+      const isPublicRoute = publicRoutes.some(route => url.includes(route));
+      
+      if (isPublicRoute) {
+        console.log('🔓 Public route detected, hiding loading:', url);
+        this.loadingService.hide();
+      }
+    });
+    
     // Add a timeout to hide loading after 10 seconds as a safety net
     setTimeout(() => {
       if (this.loadingService.isLoading()) {
+        console.log('⏱️ Safety timeout reached, hiding loading');
         this.loadingService.hide();
       }
     }, 10000);

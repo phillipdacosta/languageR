@@ -50,10 +50,12 @@ const routes: Routes = [
   {
     path: 'tutor/:id',
     loadComponent: () => import('./tutor/tutor.page').then(m => m.TutorPage)
+    // Intentionally public for shareability and SEO
   },
   {
     path: 'student/:id',
-    loadComponent: () => import('./student/student.page').then(m => m.StudentPage)
+    loadComponent: () => import('./student/student.page').then(m => m.StudentPage),
+    canActivate: [AuthGuard] // Student profiles are private
   },
   {
     path: 'pre-call',
@@ -70,18 +72,7 @@ const routes: Routes = [
     loadChildren: () => import('./debug-permissions/debug-permissions.module').then( m => m.DebugPermissionsPageModule),
     canActivate: [AuthGuard]
   },
-  {
-    path: 'auth-debug',
-    loadChildren: () => import('./auth-debug/auth-debug.module').then( m => m.AuthDebugPageModule)
-  },
-  {
-    path: 'tutor-onboarding',
-    loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then( m => m.TutorOnboardingPageModule)
-  },
-  {
-    path: 'tutor-calendar',
-    loadChildren: () => import('./tutor-calendar/tutor-calendar.module').then( m => m.TutorCalendarPageModule)
-  },
+  // Removed duplicate routes and auth-debug (security risk)
   {
     path: 'availability-setup',
     loadComponent: () => import('./pages/availability-setup/availability-setup.page').then( m => m.AvailabilitySetupPage),
