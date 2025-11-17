@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, Platform, AlertController } from '@ionic/angular';
+import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -9,6 +9,8 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
+import { TutorSearchContentPageModule } from '../tutor-search-content/tutor-search-content.module';
+import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-modal.component';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
 import { filter, takeUntil } from 'rxjs/operators';
@@ -19,17 +21,17 @@ import { Subject, firstValueFrom } from 'rxjs';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
   tutor: any = null;
   isLoading = true;
-  showVideo = false;
+  currentUserAuth0Id: string = '';
+  bioExpanded = false;
   @ViewChild('introVideo', { static: false }) introVideoRef?: ElementRef<HTMLVideoElement>;
   @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef?: ElementRef<HTMLDivElement>;
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
-  showOverlay = true;
   cameFromModal = false;
   justLoggedIn = false;
   availabilityRefreshTrigger = 0;
@@ -48,6 +50,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   // File upload and voice recording
   isUploading = false;
   isRecording = false;
+  selectedFile: File | null = null;
+  selectedConversation: any = null; // For conversation context
   recordingDuration = 0;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
@@ -75,10 +79,14 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private messagingService: MessagingService,
     private websocketService: WebSocketService,
     private authService: AuthService,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private animationCtrl: AnimationController
   ) {}
 
   ngOnInit() {
+    const pageLoadStart = performance.now();
+    console.log(`⏱️ [Tutor Page] ========== PAGE INIT STARTED ==========`);
+    
     this.tutorId = this.route.snapshot.paramMap.get('id') || '';
     if (!this.tutorId) {
       this.router.navigate(['/tabs']);
@@ -105,12 +113,21 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     const fromModal = this.route.snapshot.queryParamMap.get('fromModal');
     this.cameFromModal = fromModal === 'true';
     
+    const startTime = performance.now();
+    console.log(`⏱️ [Tutor Page] Starting to load tutor: ${this.tutorId}`);
+    
     this.userService.getTutorPublic(this.tutorId).subscribe({
       next: (res) => {
+        const duration = performance.now() - startTime;
+        console.log(`⏱️ [Tutor Page] Tutor data received in ${duration.toFixed(2)}ms`);
         this.tutor = res.tutor;
+        console.log(`⏱️ [Tutor Page] Setting isLoading = false and tutor =`, this.tutor ? 'exists' : 'null');
         this.isLoading = false;
+        console.log(`⏱️ [Tutor Page] isLoading is now:`, this.isLoading, '- UI should update now');
       },
-      error: () => {
+      error: (err) => {
+        const duration = performance.now() - startTime;
+        console.log(`⏱️ [Tutor Page] Error after ${duration.toFixed(2)}ms`, err);
         this.isLoading = false;
       }
     });
@@ -138,6 +155,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       const email = user?.email || '';
       // Use email-based ID to match backend format (dev-user-{email}) or use sub if available
       this.currentUserId = email ? `dev-user-${email}` : user?.sub || '';
+      // Also store auth0Id for availability component
+      this.currentUserAuth0Id = user?.sub || email || '';
       console.log('👤 Tutor page: Current user ID set to:', this.currentUserId);
     });
     
@@ -183,6 +202,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         this.otherUserTyping = data.isTyping;
       }
     });
+    
+    const pageLoadEnd = performance.now();
+    const totalInitTime = pageLoadEnd - pageLoadStart;
+    console.log(`⏱️ [Tutor Page] ========== PAGE INIT COMPLETED in ${totalInitTime.toFixed(2)}ms ==========`);
   }
   
   private setupBackButtonHandler() {
@@ -259,31 +282,171 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.destroy$.complete();
   }
 
-  toggleIntroVideo() {
-    const el = this.introVideoRef?.nativeElement;
-    if (!el) return;
-    el.controls = true;
-    el.play();
-    this.showOverlay = false;
-  }
-
-  expandVideo() {
-    this.showVideo = true;
-  }
-
   ngAfterViewInit() {
-    const el = this.introVideoRef?.nativeElement;
-    if (!el) return;
-    el.controls = false;
-    el.addEventListener('pause', () => {
-      this.showOverlay = true;
+    console.log(`⏱️ [Tutor Page] ========== DOM RENDERED - ngAfterViewInit called ==========`);
+  }
+
+  async openVideoModal(event: Event) {
+    if (!this.tutor || !this.tutor.introductionVideo) return;
+
+    event.stopPropagation();
+
+    // Get element bounds for animation origin
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ion-safe-area-top')) || 0;
+
+    const circleBounds = {
+      x: rect.left,
+      y: rect.top - safeTop,
+      width: rect.width,
+      height: rect.height
+    };
+
+    const modal = await this.modalController.create({
+      component: VideoPlayerModalComponent,
+      componentProps: {
+        videoUrl: this.tutor.introductionVideo,
+        thumbnailUrl: this.tutor.videoThumbnail || '',
+        tutorName: this.tutor.name
+      },
+      cssClass: 'video-player-modal',
+      backdropDismiss: true,
+      enterAnimation: (baseEl: any) => {
+        return this.createZoomEnterAnimation(baseEl, circleBounds);
+      },
+      leaveAnimation: (baseEl: any) => {
+        return this.createZoomLeaveAnimation(baseEl, circleBounds);
+      }
     });
-    el.addEventListener('ended', () => {
-      this.showOverlay = true;
-    });
-    el.addEventListener('play', () => {
-      this.showOverlay = false;
-    });
+
+    await modal.present();
+  }
+
+  private createZoomEnterAnimation(baseEl: any, circleBounds: { x: number; y: number; width: number; height: number }) {
+    const backdropAnimation = this.animationCtrl.create()
+      .addElement(baseEl.querySelector('ion-backdrop')!)
+      .fromTo('opacity', '0', '0.4')
+      .duration(200);
+
+    const root = baseEl.shadowRoot || baseEl;
+    const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
+
+    if (!modalWrapper) {
+      console.warn('Modal wrapper not found');
+      return this.animationCtrl.create();
+    }
+
+    const forcedLayout = modalWrapper.offsetHeight;
+
+    const modalRect = modalWrapper.getBoundingClientRect();
+
+    let modalCenterX: number;
+    let modalCenterY: number;
+
+    if (Math.abs(modalRect.top) > 10) {
+      modalCenterX = window.innerWidth / 2;
+      modalCenterY = window.innerHeight / 2;
+    } else {
+      modalCenterX = modalRect.left + modalRect.width / 2;
+      modalCenterY = modalRect.top + modalRect.height / 2;
+    }
+
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+
+    let extraOffset = 0;
+    if (window.navigator.userAgent.includes('iPhone')) {
+      extraOffset = 10;
+    }
+
+    const adjustedTranslateY = translateY - extraOffset;
+
+    const scaleX = circleBounds.width / modalRect.width;
+    const scaleY = circleBounds.height / modalRect.height;
+    const finalScale = Math.min(scaleX, scaleY);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(250)
+      .easing('ease-in-out')
+      .fromTo('transform',
+        `translate(${translateX}px, ${adjustedTranslateY}px) scale(${finalScale})`,
+        'translate(0px, 0px) scale(1)')
+      .fromTo('opacity', '0.3', '1');
+
+    return this.animationCtrl.create()
+      .addAnimation([backdropAnimation, wrapperAnimation]);
+  }
+
+  private createZoomLeaveAnimation(baseEl: any, circleBounds: { x: number; y: number; width: number; height: number }) {
+    const backdropAnimation = this.animationCtrl.create()
+      .addElement(baseEl.querySelector('ion-backdrop')!)
+      .fromTo('opacity', '0.4', '0')
+      .duration(250);
+
+    const root = baseEl.shadowRoot || baseEl;
+    const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
+
+    if (!modalWrapper) {
+      console.warn('Modal wrapper not found');
+      return this.animationCtrl.create();
+    }
+
+    const modalRect = modalWrapper.getBoundingClientRect();
+
+    let modalCenterX: number;
+    let modalCenterY: number;
+
+    if (Math.abs(modalRect.top) > 10) {
+      modalCenterX = window.innerWidth / 2;
+      modalCenterY = window.innerHeight / 2;
+    } else {
+      modalCenterX = modalRect.left + modalRect.width / 2;
+      modalCenterY = modalRect.top + modalRect.height / 2;
+    }
+
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+
+    let extraOffset = 0;
+    if (window.navigator.userAgent.includes('iPhone')) {
+      extraOffset = 10;
+    }
+
+    const adjustedTranslateY = translateY - extraOffset;
+
+    const scaleX = circleBounds.width / modalRect.width;
+    const scaleY = circleBounds.height / modalRect.height;
+    const finalScale = Math.min(scaleX, scaleY);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(300)
+      .easing('ease-in-out')
+      .fromTo('transform',
+        'translate(0px, 0px) scale(1)',
+        `translate(${translateX}px, ${adjustedTranslateY}px) scale(${finalScale})`)
+      .fromTo('opacity', '1', '0.3');
+
+    return this.animationCtrl.create()
+      .addAnimation([backdropAnimation, wrapperAnimation]);
   }
 
   getInitials(name: string): string {
@@ -293,6 +456,14 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  }
+
+  toggleBio() {
+    this.bioExpanded = !this.bioExpanded;
+  }
+
+  shouldShowReadMore(bio: string | undefined): boolean {
+    return !!(bio && typeof bio === 'string' && bio.length > 200);
   }
 
   async messageTutor() {
@@ -377,6 +548,54 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         }
       });
     }
+  }
+  
+  closeMessaging() {
+    this.showMessagingSidebar = false;
+  }
+  
+  formatMessageTime(timestamp: string): string {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (minutes < 1) {
+      return 'Just now';
+    } else if (minutes < 60) {
+      return `${minutes}m ago`;
+    } else if (hours < 24) {
+      return `${hours}h ago`;
+    } else if (days === 1) {
+      return 'Yesterday';
+    } else if (days < 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  }
+  
+  onTyping() {
+    this.onInputChange();
+  }
+  
+  onEnterKey(event: KeyboardEvent) {
+    if (!event.shiftKey) {
+      event.preventDefault();
+      this.sendMessage();
+    }
+  }
+  
+  @ViewChild('fileInput') fileInputRef?: ElementRef<HTMLInputElement>;
+  
+  triggerFileInput() {
+    this.fileInputRef?.nativeElement?.click();
+  }
+  
+  cancelReply() {
+    this.clearReply();
   }
   
   loadMessages() {
@@ -599,16 +818,21 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   // Handle file selection
-  onFileSelected(event: Event, messageType: 'image' | 'file') {
+  onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     
     const file = input.files[0];
+    this.selectedFile = file;
+    
+    // Determine message type based on file type
+    const messageType = file.type.startsWith('image/') ? 'image' : 'file';
     
     this.uploadFile(file, messageType);
     
     // Reset input
     input.value = '';
+    this.selectedFile = null;
   }
 
   // Upload file to server

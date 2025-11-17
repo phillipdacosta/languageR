@@ -19,6 +19,6 @@ import { SharedModule } from '../shared/shared.module';
     SharedModule
   ],
   declarations: [TutorSearchContentPage, VideoPlayerModalComponent],
-  exports: [TutorSearchContentPage]
+  exports: [TutorSearchContentPage, VideoPlayerModalComponent]
 })
 export class TutorSearchContentPageModule {}

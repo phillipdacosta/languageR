@@ -158,9 +158,10 @@
     </div>
 
     <!-- Tutors Container with Dynamic Layout -->
-    <div class="tutors-container" 
+      <div class="tutors-container" 
          [class.grid-view]="viewMode === 'grid'" 
          [class.list-view]="viewMode === 'list'"
+         [class.transitioning]="isTransitioning"
          *ngIf="!isLoading || tutors.length > 0" 
          [@fadeInOut]>
       
@@ -168,25 +169,22 @@
       <div class="tutor-card-modern" 
            *ngFor="let tutor of tutors; trackBy: trackByTutorId; let i = index"
            [attr.data-tutor-id]="tutor.id"
-           [@slideInUp] 
-           [style.animation-delay]="(i * 0.05) + 's'"
-           (click)="navigateToTutorProfile(tutor.id)">
+           [@slideInUp]
+           [style.animation-delay]="isTransitioning ? '0s' : (i < 10 ? i * 0.04 : 0.4) + 's'"
+           >
         
         <!-- Card Main Content -->
         <div class="card-main">
           <!-- Left: Avatar -->
           <div class="left-section">
-            <div class="tutor-avatar-container">
+            <div class="tutor-avatar-container" 
+                 [class.has-video]="tutor.videoThumbnail || tutor.introductionVideo"
+                 [class.video-watched]="hasWatchedVideo(tutor.id)"
+                 [class.show-ring]="viewMode === 'grid'"
+                 (click)="onAvatarClick(tutor, $event)">
               <img [src]="getTutorImageSrc(tutor)" [alt]="tutor.name" class="tutor-avatar-image" (error)="onImageError($event)">
               <div class="online-badge" *ngIf="tutor.isOnline"></div>
             </div>
-            <button 
-              class="see-video-btn mobile-only" 
-              *ngIf="tutor.videoThumbnail || tutor.introductionVideo"
-              (click)="openVideoModal(tutor); $event.stopPropagation()">
-              <ion-icon name="play-circle-outline"></ion-icon>
-              <span>See video</span>
-            </button>
           </div>
           
           <!-- Middle: Info & Bio -->
@@ -249,7 +247,7 @@
           
           <!-- Right: Video Thumbnail (only show in list view) -->
           <div class="right-section" *ngIf="(tutor.videoThumbnail || tutor.introductionVideo) && viewMode === 'list'">
-            <div class="video-thumbnail-wrapper" (click)="openVideoModal(tutor); $event.stopPropagation()">
+            <div class="video-thumbnail-wrapper" (click)="onVideoThumbnailClick(tutor, $event)">
               <img *ngIf="tutor.videoThumbnail" [src]="tutor.videoThumbnail" alt="Video preview" class="video-thumbnail-image">
               <div class="video-play-overlay">
                 <ion-icon name="play"></ion-icon>
@@ -266,7 +264,7 @@
           <ion-button class="action-btn secondary" fill="outline" size="small" (click)="messageTutor(tutor)">
             <ion-icon name="chatbubble-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <ion-button class="action-btn primary" fill="solid" expand="block" (click)="bookLesson(tutor, $event)">
+          <ion-button class="action-btn primary" fill="solid" size="small" (click)="bookLesson(tutor, $event)">
             <ion-icon name="calendar" slot="start"></ion-icon>
             Book lesson
           </ion-button>
@@ -282,7 +280,9 @@
       </div>
 
       <!-- No Results -->
-      <div class="no-results" *ngIf="!isLoading && tutors.length === 0">
+      <div class="no-results" 
+           *ngIf="!isLoading && tutors.length === 0"
+           [@fadeInOut]>
         <ion-icon name="search-outline" class="no-results-icon"></ion-icon>
         <h3>No tutors found</h3>
         <p>Try adjusting your filters to find more tutors.</p>

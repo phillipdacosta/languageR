@@ -63,8 +63,9 @@
       <div class="day-slots" *ngFor="let date of weekDates">
         <div 
           class="slot" 
-          [class.available]="!slot.booked"
+          [class.available]="!slot.booked && !isCurrentUserTutor()"
           [class.booked]="slot.booked"
+          [class.disabled]="isCurrentUserTutor() && !slot.booked"
           *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
           <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>
@@ -149,8 +150,9 @@
       <div class="day-slots" *ngFor="let date of weekDates">
         <div 
           class="slot" 
-          [class.available]="!slot.booked"
+          [class.available]="!slot.booked && !isCurrentUserTutor()"
           [class.booked]="slot.booked"
+          [class.disabled]="isCurrentUserTutor() && !slot.booked"
           *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
           <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>

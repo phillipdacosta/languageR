@@ -271,8 +271,11 @@ router.post('/', verifyToken, async (req, res) => {
 // IMPORTANT: This must come BEFORE /:id route to avoid route conflicts
 router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { tutorId } = req.params;
     const { all } = req.query; // Query param to get all lessons (including past)
+    
+    console.log(`⏱️ [Lessons By Tutor] Request started for tutorId: ${tutorId}`);
     
     if (!tutorId) {
       return res.status(400).json({ 
@@ -290,11 +293,17 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
     }
 
     // Find lessons for this tutor
+    const dbStartTime = Date.now();
     const lessons = await Lesson.find(query)
     .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
+    const dbDuration = Date.now() - dbStartTime;
+    console.log(`⏱️ [Lessons By Tutor] DB query took: ${dbDuration}ms`);
 
     console.log(`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`⏱️ [Lessons By Tutor] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 

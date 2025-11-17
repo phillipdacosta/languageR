@@ -237,10 +237,29 @@ async function uploadVideoWithCompression(req, res) {
 async function getUserFromRequest(req) {
   const User = require('../models/User');
   
+  console.log('🔍 getUserFromRequest - Looking for user with:', {
+    auth0Id: req.user?.sub,
+    email: req.user?.email,
+    fullUserObject: req.user
+  });
+  
   let user = await User.findOne({ auth0Id: req.user.sub });
+  console.log('🔍 Search by auth0Id result:', user ? 'FOUND' : 'NOT FOUND');
   
   if (!user) {
     user = await User.findOne({ email: req.user.email });
+    console.log('🔍 Search by email result:', user ? 'FOUND' : 'NOT FOUND');
+  }
+  
+  if (user) {
+    console.log('✅ User found:', {
+      _id: user._id,
+      auth0Id: user.auth0Id,
+      email: user.email,
+      userType: user.userType
+    });
+  } else {
+    console.log('❌ User NOT found in database');
   }
   
   return user;

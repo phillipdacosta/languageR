@@ -214,7 +214,8 @@ export class VideoUploadComponent implements OnInit, OnDestroy {
         thumbnailUrl = uploadResult.url;
         this.autoThumbnailGenerated = false;
       } catch (error) {
-        this.errorMessage = 'Failed to upload thumbnail';
+        this.clearPreviews();
+        this.errorMessage = 'Failed to upload thumbnail. Please try again.';
         this.isUploading = false;
         return;
       }
@@ -410,25 +411,34 @@ export class VideoUploadComponent implements OnInit, OnDestroy {
             console.log('📈 Upload stats:', result.uploadStats);
           }
         } else {
-          this.errorMessage = 'Failed to upload video';
+          // Upload failed - clear previews
+          this.clearPreviews();
+          this.errorMessage = 'Failed to upload video. Please try again.';
           this.isUploading = false;
         }
       },
       error: (error: any) => {
+        // Upload failed - clear previews
+        this.clearPreviews();
         this.isUploading = false;
-        this.errorMessage = 'Upload failed: ' + error.message;
+        this.errorMessage = 'Upload failed: ' + (error?.error?.error || error.message || 'Unknown error');
         console.error('❌ Upload error:', error);
       }
     });
   }
 
-  removeVideo() {
+  // Clear all previews on upload failure
+  private clearPreviews() {
     this.videoUrl = '';
     this.thumbnailUrl = '';
     this.thumbnailPreview = '';
     this.customThumbnail = null;
     this.autoThumbnailGenerated = false;
     this.showThumbnailOverlay = true;
+  }
+
+  removeVideo() {
+    this.clearPreviews();
     this.videoRemoved.emit();
   }
 

@@ -1,7 +1,6 @@
 <ion-header>
   <ion-toolbar>
-    <ion-buttons slot="start">
-      <!-- Debug: cameFromModal={{cameFromModal}}, justLoggedIn={{justLoggedIn}} -->
+    <!-- <ion-buttons slot="start">
       <ion-back-button 
         *ngIf="!cameFromModal && !justLoggedIn"
         defaultHref="/tabs/home" 
@@ -17,7 +16,7 @@
         (click)="handleBackClick($event)">
         <ion-icon name="arrow-back"></ion-icon>
       </ion-button>
-    </ion-buttons>
+    </ion-buttons> -->
     <ion-title>Tutor Profile</ion-title>
   </ion-toolbar>
 </ion-header>
@@ -25,200 +24,203 @@
 <ion-content [fullscreen]="true">
   <div class="page-wrapper" *ngIf="!isLoading && tutor; else loadingTpl">
     
-    <!-- Hero Section with Profile -->
-    <div class="hero-section">
-      <div class="profile-header">
-        <div class="avatar-wrapper">
-          <div class="avatar" *ngIf="!tutor.picture">
-            {{ getInitials(tutor.name) }}
+    <!-- Main Content Container -->
+    <div class="main-container">
+      
+      <!-- Left Column - Profile Info & Content -->
+      <div class="left-column">
+        
+        <!-- Profile Header -->
+        <div class="profile-header-card">
+          <div class="profile-top">
+            <div class="avatar-section">
+              <div class="avatar-large" *ngIf="!tutor.picture">
+                {{ getInitials(tutor.name) }}
+              </div>
+              <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="tutor.name" class="avatar-large" referrerpolicy="no-referrer">
+              <div class="online-dot"></div>
+            </div>
+            
+            <div class="profile-main-info">
+              <h1 class="tutor-name-large">{{ tutor.name }}</h1>
+              
+              <!-- Languages -->
+              <div class="languages-list">
+                <span *ngFor="let lang of tutor?.languages; let last = last" class="language-item-inline">
+                  <app-flag-icon [language]="lang" [size]="16"></app-flag-icon>
+                  <span>{{ lang }} tutor</span>
+                  <span *ngIf="!last" class="separator">•</span>
+                </span>
+              </div>
+              
+              <!-- Quick Stats -->
+              <div class="quick-stats">
+                <div class="stat-badge" *ngIf="tutor.stats?.rating">
+                  <ion-icon name="star"></ion-icon>
+                  <span>{{ tutor.stats.rating }}</span>
+                  <span class="stat-label">({{ tutor.stats?.totalLessons || 0 }} reviews)</span>
+                </div>
+                <div class="stat-badge">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span>{{ tutor.stats?.students || 0 }}</span>
+                  <span class="stat-label">students</span>
+                </div>
+                <div class="stat-badge">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span>{{ tutor.stats?.totalHours || 0 }}</span>
+                  <span class="stat-label">lessons</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="tutor.name" class="avatar-img" referrerpolicy="no-referrer">
-          <div class="online-badge"></div>
         </div>
-        <div class="profile-info">
-          <h1 class="tutor-name">{{ tutor.name }}</h1>
-          <div class="languages">
-            <span>Teaches </span>
-            <span *ngFor="let lang of tutor?.languages; let last = last" class="language-item">
-              <span>{{ lang }}</span>
-              <app-flag-icon [language]="lang" [size]="16" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
-              <span *ngIf="!last">, </span>
-            </span>
-          </div>
-          
-          <!-- Secondary Actions -->
-          <div class="secondary-actions">
-            <ion-button fill="outline" size="small" class="secondary-btn" (click)="messageTutor()">
-              <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
-              Message
-            </ion-button>
-            <ion-button fill="outline" size="small" class="secondary-btn">
-              <ion-icon name="heart-outline" slot="start"></ion-icon>
-              Save
-            </ion-button>
-          </div>
-        </div>
-      </div>
 
-      <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <ion-icon name="star"></ion-icon>
-          <div class="stat-content">
-            <div class="stat-value">{{ tutor.stats?.rating || '5.0' }}</div>
-            <div class="stat-label">Rating</div>
+        <!-- Video Card (if exists) -->
+        <div class="video-section-card" *ngIf="tutor.introductionVideo">
+          <div class="section-title">
+            <ion-icon name="play-circle-outline"></ion-icon>
+            <h2>Introduction Video</h2>
           </div>
-        </div>
-        <div class="stat-card">
-          <ion-icon name="time-outline"></ion-icon>
-          <div class="stat-content">
-            <div class="stat-value">{{ tutor.stats?.totalHours || 0 }}</div>
-            <div class="stat-label">Hours taught</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <ion-icon name="people-outline"></ion-icon>
-          <div class="stat-content">
-            <div class="stat-value">{{ tutor.stats?.students || 0 }}</div>
-            <div class="stat-label">Students</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Price Card - Sticky on mobile -->
-    <div class="price-card">
-      <div class="price-content">
-        <div class="price-info">
-          <span class="price-label">Trial Lesson</span>
-          <span class="price-amount">${{ tutor.hourlyRate || 25 }}/hr</span>
-        </div>
-        <ion-button expand="block" color="success" size="default" (click)="bookLesson()">
-          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-          Book Now
-        </ion-button>
-      </div>
-    </div>
-
-    <!-- Video Section -->
-    <div class="content-section" *ngIf="tutor.introductionVideo">
-      <div class="section-header">
-        <ion-icon name="play-circle-outline"></ion-icon>
-        <h2>Introduction Video</h2>
-      </div>
-      <div class="video-container">
-        <div class="video-wrapper" *ngIf="!showVideo">
-          <div class="video-thumbnail" (click)="expandVideo()">
-            <div class="play-button">
+          <div class="video-wrapper-compact" (click)="openVideoModal($event)">
+            <img 
+              *ngIf="tutor.videoThumbnail" 
+              [src]="tutor.videoThumbnail" 
+              alt="Video preview" 
+              class="video-thumbnail">
+            <div class="video-play-overlay">
               <ion-icon name="play"></ion-icon>
             </div>
-            <span class="video-label">Watch introduction</span>
           </div>
         </div>
-        <div class="video-player" *ngIf="showVideo">
-          <div class="video-wrapper">
-            <video #introVideo [src]="tutor.introductionVideo" preload="metadata"></video>
-            <button class="floating-play" [class.hidden]="!showOverlay" type="button" (click)="toggleIntroVideo()">
-              <ion-icon name="play"></ion-icon>
-            </button>
+
+        <!-- About Section -->
+        <div class="content-section-card" *ngIf="tutor.bio || tutor.experience">
+          <div class="section-title">
+            <ion-icon name="person-outline"></ion-icon>
+            <h2>About Me</h2>
+          </div>
+          <div class="section-content">
+            <div class="bio-container" *ngIf="tutor.bio">
+              <p class="bio-text" [class.expanded]="bioExpanded">{{ tutor.bio }}</p>
+              <button 
+                *ngIf="shouldShowReadMore(tutor.bio)"
+                class="read-more-btn"
+                (click)="toggleBio()">
+                {{ bioExpanded ? 'Read less' : 'Read more' }}
+                <ion-icon [name]="bioExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+              </button>
+            </div>
+            <div class="experience-block" *ngIf="tutor.experience">
+              <h3>Teaching Experience</h3>
+              <p>{{ tutor.experience }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Availability Section -->
+        <div class="content-section-card" *ngIf="tutorId">
+          <div class="section-title">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <h2>Weekly Availability</h2>
+          </div>
+          <div class="section-content">
+            <app-tutor-availability-viewer 
+              [tutorId]="tutorId" 
+              [tutorName]="tutor.name"
+              [inline]="true"
+              [refreshTrigger]="availabilityRefreshTrigger"
+              [currentUserAuth0Id]="currentUserAuth0Id"
+              [tutorAuth0Id]="tutor?.auth0Id">
+            </app-tutor-availability-viewer>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column - Sticky Booking Card -->
+      <div class="right-column">
+        <div class="booking-card-sticky">
+          <!-- Pricing Header -->
+          <div class="pricing-header">
+            <div class="price-display">
+              <span class="price-amount">${{ tutor.hourlyRate || 25 }}</span>
+              <span class="price-period">/hour</span>
+            </div>
+            <div class="trial-badge">
+              <ion-icon name="star-outline"></ion-icon>
+              <span>Trial lesson available</span>
+            </div>
+          </div>
+
+          <!-- Book Button -->
+          <ion-button expand="block" size="large" class="book-btn-primary" (click)="bookLesson()">
+            <ion-icon name="calendar" slot="start"></ion-icon>
+            Book Trial Lesson
+          </ion-button>
+
+          <!-- Secondary Actions -->
+          <div class="secondary-actions-stack">
+            <ion-button expand="block" fill="outline" size="default" (click)="messageTutor()">
+              <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
+              Send Message
+            </ion-button>
+            <ion-button expand="block" fill="clear" size="default">
+              <ion-icon name="heart-outline" slot="start"></ion-icon>
+              Save to my list
+            </ion-button>
+          </div>
+
+          <!-- Response Time -->
+          <div class="response-time">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>Usually responds in less than an hour</span>
+          </div>
+
+          <!-- Stats Summary (Desktop Only) -->
+          <div class="stats-summary desktop-only">
+            <div class="stat-row">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <span>{{ tutor.stats?.totalLessons || 0 }} lessons taught</span>
+            </div>
+            <div class="stat-row">
+              <ion-icon name="people-outline"></ion-icon>
+              <span>{{ tutor.stats?.students || 0 }} active students</span>
+            </div>
+            <div class="stat-row">
+              <ion-icon name="star"></ion-icon>
+              <span>{{ tutor.stats?.rating || '5.0' }} rating</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- About Section -->
-    <div class="content-section" *ngIf="tutor.bio">
-      <div class="section-header">
-        <ion-icon name="person-outline"></ion-icon>
-        <h2>About Me</h2>
+    <!-- Mobile Sticky Footer (Mobile Only) -->
+    <div class="mobile-booking-footer mobile-only">
+      <div class="mobile-price-info">
+        <div class="price-large">${{ tutor.hourlyRate || 25 }}<span>/hr</span></div>
+        <div class="trial-text">Trial available</div>
       </div>
-      <p class="section-text">{{ tutor.bio }}</p>
+      <ion-button size="default" class="mobile-book-btn" (click)="bookLesson()">
+        <ion-icon name="calendar" slot="start"></ion-icon>
+        Book Now
+      </ion-button>
     </div>
-
-    <!-- Experience Section -->
-    <div class="content-section" *ngIf="tutor.experience">
-      <div class="section-header">
-        <ion-icon name="briefcase-outline"></ion-icon>
-        <h2>Experience</h2>
-      </div>
-      <p class="section-text">{{ tutor.experience }}</p>
-    </div>
-
-    <!-- Schedule Section -->
-    <div class="content-section" *ngIf="tutor.schedule">
-      <div class="section-header">
-        <ion-icon name="time-outline"></ion-icon>
-        <h2>Schedule</h2>
-      </div>
-      <p class="section-text">{{ tutor.schedule }}</p>
-    </div>
-
-    <!-- Availability Section -->
-    <div class="content-section availability-section">
-      <div class="section-header">
-        <ion-icon name="calendar-outline"></ion-icon>
-        <h2>Weekly Availability</h2>
-      </div>
-      <div class="availability-wrapper">
-        <app-tutor-availability-viewer 
-          [tutorId]="tutorId" 
-          [tutorName]="tutor.name"
-          [inline]="true"
-          [refreshTrigger]="availabilityRefreshTrigger">
-        </app-tutor-availability-viewer>
-      </div>
-    </div>
-
-
-    <!-- Bottom spacing for sticky price card -->
-    <div style="height: 20px;"></div>
   </div>
 
+  <!-- Loading Template -->
   <ng-template #loadingTpl>
     <div class="loading">
       <ion-spinner name="crescent"></ion-spinner>
     </div>
   </ng-template>
-  
+
   <!-- Messaging Sidebar -->
-  <div class="messaging-sidebar" *ngIf="showMessagingSidebar">
-    <div class="chat-header">
-      <div class="chat-header-info">
-        <ion-avatar class="chat-avatar">
-          <img [src]="tutor?.picture" *ngIf="tutor?.picture" />
-          <div class="avatar-fallback" *ngIf="!tutor?.picture">
-            {{ getInitials(tutor?.name || '') }}
-          </div>
-        </ion-avatar>
-        <div class="chat-user-info">
-          <h3>{{ tutor?.name || 'Tutor' }}</h3>
-          <div class="typing-indicator" *ngIf="otherUserTyping">
-            {{ tutor?.name || 'Tutor' }} is typing...
-          </div>
-          <div class="user-details" *ngIf="!otherUserTyping && tutor">
-            <p class="user-status" *ngIf="tutor.languages && tutor.languages.length">
-              <ion-icon name="language-outline"></ion-icon>
-              <span>Teaches </span>
-              <span *ngFor="let lang of tutor.languages; let last = last" class="language-item">
-                <span>{{ lang }}</span>
-                <app-flag-icon [language]="lang" [size]="14" cssClass="language-flag" style="margin-left: 4px;"></app-flag-icon>
-                <span *ngIf="!last">, </span>
-              </span>
-              <span *ngIf="tutor.hourlyRate" class="rate">
-                • ${{ tutor.hourlyRate }}/hr
-              </span>
-              <span *ngIf="tutor.rating" class="rating">
-                • ⭐ {{ tutor.rating.toFixed(1) }}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="chat-header-actions">
-        <ion-button (click)="toggleMessagingSidebar()" fill="clear" size="small">
-          <ion-icon name="close-outline"></ion-icon>
-        </ion-button>
-      </div>
+  <div class="messaging-sidebar" [class.open]="showMessagingSidebar">
+    <div class="sidebar-header">
+      <h3>Message {{ tutor?.name }}</h3>
+      <ion-button fill="clear" (click)="closeMessaging()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
     </div>
 
     <div class="chat-messages" #chatMessagesContainer>
@@ -232,135 +234,91 @@
       <div *ngIf="!isLoadingMessages" class="messages-list">
         <div *ngIf="messages.length === 0" class="empty-state">
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
-          <h2>No messages yet</h2>
-          <p>Start the conversation!</p>
+          <p>No messages yet</p>
+          <small>Start the conversation!</small>
         </div>
-        
-        <div *ngFor="let message of messages; let i = index; trackBy: trackByMessageId" 
-             class="message-wrapper"
-             [attr.data-message-id]="message.id">
-          <!-- Date Separator -->
-          <div *ngIf="shouldShowDateSeparator(message, messages[i - 1])" class="date-separator">
-            {{ formatDate(message.createdAt) }}
-          </div>
 
-          <!-- Message Bubble -->
-          <div class="message-bubble" 
-               [class.sent]="isMyMessage(message)"
-               [class.received]="!isMyMessage(message)"
-               [class.highlighted]="highlightedMessageId === message.id"
-               (mousedown)="onMessageMouseDown(message, $event)"
-               (mouseup)="onMessageMouseUp()"
-               (mouseleave)="onMessageMouseUp()"
-               (dblclick)="onMessageDoubleClick(message)">
-            
-            <!-- Replied-to message preview (if this is a reply) -->
-            <div *ngIf="message.replyTo && message.replyTo.messageId" 
-                 class="reply-to-preview" 
-                 (click)="scrollToMessageById(message.replyTo.messageId, $event)">
-              <div class="reply-to-line"></div>
-              <div class="reply-to-content">
-                <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
-                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
-              </div>
-            </div>
-            
-            <!-- Text message -->
-            <div *ngIf="message.type === 'text'" class="message-content">
-              {{ message.content }}
-            </div>
-            
-            <!-- Image message -->
-            <div *ngIf="message.type === 'image'" class="message-image">
-              <img [src]="message.fileUrl" [alt]="message.fileName" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)" />
-              <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
-            </div>
-            
-            <!-- Document message -->
-            <div *ngIf="message.type === 'file'" class="message-file">
-              <div class="file-info" (click)="openFile(message.fileUrl!, message.fileType, message.fileName)">
-                <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
-                <div class="file-details">
-                  <p class="file-name">{{ message.fileName }}</p>
-                  <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
-                </div>
-                <ion-icon name="download-outline" class="download-icon"></ion-icon>
-              </div>
-              <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
-            </div>
-            
-            <!-- Voice note message -->
-            <div *ngIf="message.type === 'voice'" class="message-voice">
-              <ion-icon name="play-circle" class="voice-icon"></ion-icon>
-              <audio [src]="message.fileUrl" controls class="voice-player"></audio>
-              <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
-            </div>
-            
-            <div class="message-time">
-              {{ formatTime(message.createdAt) }}
-            </div>
+        <div 
+          *ngFor="let message of messages" 
+          class="message-item"
+          [class.my-message]="message.senderId === currentUserId || message.senderId === currentUserId.replace('dev-user-', '') || `dev-user-${message.senderId}` === currentUserId"
+          [class.their-message]="!(message.senderId === currentUserId || message.senderId === currentUserId.replace('dev-user-', '') || `dev-user-${message.senderId}` === currentUserId)">
+          
+          <div class="message-bubble">
+            <div class="message-content">{{ message.content }}</div>
+            <div class="message-time">{{ formatMessageTime(message.createdAt) }}</div>
           </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div *ngIf="otherUserTyping" class="typing-indicator">
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span class="typing-text">{{ tutor?.name }} is typing...</span>
         </div>
       </div>
     </div>
 
-    <!-- Reply Preview -->
-    <div *ngIf="replyingToMessage" class="replying-to-container">
-      <div class="replying-to-header">
-        <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-        <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : (tutor?.name || 'Unknown') }}</span>
-        <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
+    <div class="chat-input-container">
+      <!-- Reply Banner -->
+      <div class="reply-banner" *ngIf="replyingToMessage">
+        <div class="reply-content">
+          <ion-icon name="return-down-forward-outline" class="reply-icon"></ion-icon>
+          <div class="reply-details">
+            <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : (selectedConversation?.otherUser?.name || 'Unknown') }}</span>
+            <span class="reply-message-preview">{{ replyingToMessage.content }}</span>
+          </div>
+        </div>
+        <ion-button fill="clear" size="small" (click)="cancelReply()">
+          <ion-icon name="close" slot="icon-only"></ion-icon>
+        </ion-button>
       </div>
-      <button 
-        class="replying-to-preview-button" 
-        (click)="scrollToRepliedMessage($event)"
-        type="button">
-        {{ getReplyPreviewContent() }}
-      </button>
-    </div>
 
-    <!-- Message Input -->
-    <div class="message-input-container">
-      <!-- Hidden file inputs -->
-      <input type="file" #imageInput accept="image/*" (change)="onFileSelected($event, 'image')" style="display: none;">
-      <input type="file" #documentInput accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" (change)="onFileSelected($event, 'file')" style="display: none;">
-      
-      <ion-button fill="clear" size="small" (click)="imageInput.click()" [disabled]="isUploading">
-        <ion-icon name="image-outline"></ion-icon>
-      </ion-button>
-      <ion-button fill="clear" size="small" (click)="documentInput.click()" [disabled]="isUploading">
-        <ion-icon name="attach-outline"></ion-icon>
-      </ion-button>
-      <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
-        <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
-      </ion-button>
-      <ion-input
-        #messageInput
-        [(ngModel)]="newMessage"
-        placeholder="Type a message"
-        (ionInput)="onInputChange()"
-        (keydown.enter)="sendMessage()"
-        class="message-input"
-        [disabled]="isUploading || isRecording">
-      </ion-input>
-      <ion-button fill="clear" size="small" (click)="sendMessage()" [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
-        <ion-icon name="send-outline"></ion-icon>
-      </ion-button>
-      
-      <!-- Upload progress indicator -->
+      <!-- File Upload Progress -->
       <div *ngIf="isUploading" class="upload-progress">
         <ion-spinner name="crescent"></ion-spinner>
         <span>Uploading...</span>
       </div>
-      
-      <!-- Recording indicator -->
-      <div *ngIf="isRecording" class="recording-indicator">
-        <ion-icon name="radio-button-on" color="danger"></ion-icon>
-        <span>Recording... {{ recordingDuration }}s</span>
+
+      <div class="input-row">
+        <ion-button fill="clear" class="attachment-btn" (click)="triggerFileInput()">
+          <ion-icon name="attach-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <input 
+          type="file" 
+          #fileInput 
+          (change)="onFileSelected($event)" 
+          accept="image/*,application/pdf"
+          style="display: none;">
+        
+        <ion-textarea
+          [(ngModel)]="newMessage"
+          placeholder="Type a message..."
+          [autoGrow]="true"
+          [rows]="1"
+          class="message-input"
+          (ionInput)="onTyping()"
+          (keydown.enter)="onEnterKey($any($event))">
+        </ion-textarea>
+        
+        <ion-button 
+          [disabled]="!newMessage.trim() && !selectedFile || isSending"
+          (click)="sendMessage()"
+          class="send-btn">
+          <ion-spinner *ngIf="isSending" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSending" name="send" slot="icon-only"></ion-icon>
+        </ion-button>
       </div>
     </div>
+  </div>
+
+  <!-- Sidebar Overlay -->
+  <div 
+    class="sidebar-overlay" 
+    [class.visible]="showMessagingSidebar"
+    (click)="closeMessaging()">
   </div>
 </ion-content>

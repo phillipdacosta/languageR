@@ -4,7 +4,7 @@ import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } fro
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
-import { ModalController, ViewWillEnter } from '@ionic/angular';
+import { ModalController, ViewWillEnter, AnimationController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
@@ -19,22 +19,28 @@ import { VideoPlayerModalComponent } from './video-player-modal.component';
     trigger('fadeInOut', [
       transition(':enter', [
         style({ opacity: 0 }),
-        animate('300ms ease-in-out', style({ opacity: 1 }))
+        animate('400ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 1 }))
       ]),
       transition(':leave', [
-        animate('200ms ease-in-out', style({ opacity: 0 }))
+        animate('200ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 0 }))
       ])
     ]),
     trigger('slideInUp', [
       transition(':enter', [
         style({ 
           opacity: 0, 
-          transform: 'translateY(20px)' 
+          transform: 'translateY(30px) scale(0.98)' 
         }),
-        animate('400ms ease-out', style({ 
+        animate('500ms cubic-bezier(0.4, 0, 0.2, 1)', style({ 
           opacity: 1, 
-          transform: 'translateY(0)' 
+          transform: 'translateY(0) scale(1)' 
         }))
+      ])
+    ]),
+    trigger('listAnimation', [
+      transition('* => *', [
+        // This will be used for the list container
+        animate('300ms cubic-bezier(0.4, 0, 0.2, 1)')
       ])
     ])
   ]
@@ -50,6 +56,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   showLanguageDropdown = false;
   showSecondaryFilters = false;
   isLoading = true; // prevent initial FOUC of empty state until first load completes
+  isTransitioning = false; // For smooth filter transitions
   tutors: Tutor[] = [];
   searchResponse: TutorSearchResponse | null = null;
   currentUser: User | null = null;
@@ -65,7 +72,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     specialties: [],
     gender: 'any',
     nativeSpeaker: false,
-    sortBy: 'rating',
+    sortBy: 'random', // Random order for fairness - rotates daily
     page: 1,
     limit: 20
   };
@@ -77,6 +84,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   };
   
   private readonly FILTER_STORAGE_KEY = 'tutor_search_filters';
+  private readonly WATCHED_VIDEOS_KEY = 'watched_tutor_videos';
+  private watchedVideos: Set<string> = new Set();
 
   // Available languages for the dropdown
   availableLanguages = [
@@ -117,12 +126,16 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     private userService: UserService,
     private modalController: ModalController,
     private router: Router,
-    private messagingService: MessagingService
+    private messagingService: MessagingService,
+    private animationCtrl: AnimationController
   ) {}
 
   ngOnInit() {
     // Load saved filters first
     this.loadSavedFilters();
+    
+    // Load watched videos from localStorage
+    this.loadWatchedVideos();
     
     // Set up debounced search to prevent flashing
     this.searchSubject$.pipe(
@@ -144,6 +157,13 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       const savedFilters = localStorage.getItem(this.FILTER_STORAGE_KEY);
       if (savedFilters) {
         const parsed = JSON.parse(savedFilters);
+        
+        // For fairness, always use random sorting by default
+        // Users can still manually change to other sort options
+        if (!parsed.sortBy || parsed.sortBy === 'rating') {
+          parsed.sortBy = 'random';
+        }
+        
         // Restore filters while preserving defaults for missing fields
         this.filters = {
           ...this.filters,
@@ -260,8 +280,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   }
 
   private performSearch() {
-    // Always mark loading at the start of a search to avoid empty-state flash
-    this.isLoading = true;
+    const hasExistingContent = this.tutors.length > 0 || (!this.isLoading && this.tutors.length === 0);
+    const isFirstLoad = this.isLoading && this.tutors.length === 0;
+    
+    if (hasExistingContent && !isFirstLoad) {
+      // If we have existing content (tutors OR empty state), use smooth transition
+      this.isTransitioning = true;
+    } else {
+      // First load only
+      this.isLoading = true;
+    }
+    
     // Reset scroll flag when performing a new search
     this.hasScrolledToTutor = false;
     
@@ -280,9 +309,23 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
             thumbnailUrl: response.tutors[0].videoThumbnail,
             videoType: response.tutors[0].videoType
           } : 'No tutors');
+          
           this.searchResponse = response;
-          this.tutors = response.tutors;
-          this.isLoading = false;
+          
+          if (hasExistingContent && !isFirstLoad) {
+            // Smooth transition: fade out old, fade in new
+            setTimeout(() => {
+              this.tutors = response.tutors;
+              this.isLoading = false;
+              setTimeout(() => {
+                this.isTransitioning = false;
+              }, 50);
+            }, 250); // Brief delay for fade-out (increased for empty state transition)
+          } else {
+            // Direct update for first load
+            this.tutors = response.tutors;
+            this.isLoading = false;
+          }
           
           // If no tutors found and user has a specific language preference, suggest alternatives
           if (response.tutors.length === 0 && this.filters.language !== 'any' && this.currentUser?.onboardingData?.languages?.[0]) {
@@ -292,6 +335,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
         error: (error) => {
           console.error('🔍 Error searching tutors:', error);
           this.isLoading = false;
+          this.isTransitioning = false;
           // Handle error - maybe show a toast or alert
         }
       });
@@ -328,7 +372,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       specialties: [],
       gender: 'any',
       nativeSpeaker: false,
-      sortBy: 'rating',
+      sortBy: 'random', // Random order for fairness
       page: 1,
       limit: 20
     };
@@ -703,6 +747,172 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     await modal.present();
   }
 
+  async openVideoModalWithAnimation(tutor: Tutor, circleBounds: { x: number; y: number; width: number; height: number }) {
+    if (!tutor || !tutor.introductionVideo) return;
+    
+    const modal = await this.modalController.create({
+      component: VideoPlayerModalComponent,
+      componentProps: {
+        videoUrl: tutor.introductionVideo,
+        thumbnailUrl: tutor.videoThumbnail || '',
+        tutorName: this.formatDisplayName(tutor.firstName, tutor.lastName, tutor.name)
+      },
+      cssClass: 'video-player-modal',
+      backdropDismiss: true,
+      enterAnimation: (baseEl: any) => {
+        return this.createZoomEnterAnimation(baseEl, circleBounds);
+      },
+      leaveAnimation: (baseEl: any) => {
+        return this.createZoomLeaveAnimation(baseEl, circleBounds);
+      }
+    });
+    
+    await modal.present();
+  }
+
+  private createZoomEnterAnimation(baseEl: any, circleBounds: { x: number; y: number; width: number; height: number }) {
+    const backdropAnimation = this.animationCtrl.create()
+      .addElement(baseEl.querySelector('ion-backdrop')!)
+      .fromTo('opacity', '0', '0.4')
+      .duration(200);
+
+    // Get the modal wrapper element
+    const root = baseEl.shadowRoot || baseEl;
+    const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
+    
+    if (!modalWrapper) {
+      console.warn('Modal wrapper not found');
+      return this.animationCtrl.create();
+    }
+
+    // Force layout so measurements are current
+    const forcedLayout = modalWrapper.offsetHeight;
+    
+    // Get the modal's bounding rectangle
+    const modalRect = modalWrapper.getBoundingClientRect();
+    
+    // Compute modal center – if modalRect.top isn't near 0, use window dimensions
+    let modalCenterX: number;
+    let modalCenterY: number;
+    
+    if (Math.abs(modalRect.top) > 10) {
+      modalCenterX = window.innerWidth / 2;
+      modalCenterY = window.innerHeight / 2;
+    } else {
+      modalCenterX = modalRect.left + modalRect.width / 2;
+      modalCenterY = modalRect.top + modalRect.height / 2;
+    }
+    
+    // Compute clicked element (circle) center
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+    
+    // Adjust for safe area
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+    
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+    
+    // Calculate translation values so that modal center aligns with the circle's center
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+    
+    // Add extra vertical offset for iOS devices
+    let extraOffset = 0;
+    if (window.navigator.userAgent.includes('iPhone')) {
+      extraOffset = 10;
+    }
+    
+    const adjustedTranslateY = translateY - extraOffset;
+    
+    // Calculate scale factor
+    const scaleX = circleBounds.width / modalRect.width;
+    const scaleY = circleBounds.height / modalRect.height;
+    const finalScale = Math.min(scaleX, scaleY);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(250)
+      .easing('ease-in-out')
+      .fromTo('transform', 
+        `translate(${translateX}px, ${adjustedTranslateY}px) scale(${finalScale})`, 
+        'translate(0px, 0px) scale(1)')
+      .fromTo('opacity', '0.3', '1');
+
+    return this.animationCtrl.create()
+      .addAnimation([backdropAnimation, wrapperAnimation]);
+  }
+
+  private createZoomLeaveAnimation(baseEl: any, circleBounds: { x: number; y: number; width: number; height: number }) {
+    const backdropAnimation = this.animationCtrl.create()
+      .addElement(baseEl.querySelector('ion-backdrop')!)
+      .fromTo('opacity', '0.4', '0')
+      .duration(250);
+
+    // Get the modal wrapper element
+    const root = baseEl.shadowRoot || baseEl;
+    const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
+    
+    if (!modalWrapper) {
+      console.warn('Modal wrapper not found');
+      return this.animationCtrl.create();
+    }
+
+    // Get the modal's bounding rectangle
+    const modalRect = modalWrapper.getBoundingClientRect();
+    
+    // Compute modal center
+    let modalCenterX: number;
+    let modalCenterY: number;
+    
+    if (Math.abs(modalRect.top) > 10) {
+      modalCenterX = window.innerWidth / 2;
+      modalCenterY = window.innerHeight / 2;
+    } else {
+      modalCenterX = modalRect.left + modalRect.width / 2;
+      modalCenterY = modalRect.top + modalRect.height / 2;
+    }
+    
+    // Compute clicked element (circle) center
+    const circleCenterX = circleBounds.x + circleBounds.width / 2;
+    const circleCenterY = circleBounds.y + circleBounds.height / 2;
+    
+    // Adjust for safe area
+    const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--ion-safe-area-top')) || 0;
+    
+    const adjustedCircleCenterY = circleCenterY + safeAreaTop;
+    
+    // Calculate translation values
+    const translateX = circleCenterX - modalCenterX;
+    const translateY = adjustedCircleCenterY - modalCenterY;
+    
+    // Add extra vertical offset for iOS devices
+    let extraOffset = 0;
+    if (window.navigator.userAgent.includes('iPhone')) {
+      extraOffset = 10;
+    }
+    
+    const adjustedTranslateY = translateY - extraOffset;
+    
+    // Calculate scale factor
+    const scaleX = circleBounds.width / modalRect.width;
+    const scaleY = circleBounds.height / modalRect.height;
+    const finalScale = Math.min(scaleX, scaleY);
+
+    const wrapperAnimation = this.animationCtrl.create()
+      .addElement(modalWrapper)
+      .duration(300)
+      .easing('ease-in-out')
+      .fromTo('transform', 
+        'translate(0px, 0px) scale(1)',
+        `translate(${translateX}px, ${adjustedTranslateY}px) scale(${finalScale})`)
+      .fromTo('opacity', '1', '0.3');
+
+    return this.animationCtrl.create()
+      .addAnimation([backdropAnimation, wrapperAnimation]);
+  }
+
   playTutorVideo(tutor: Tutor) {
     if (!tutor || !tutor.introductionVideo) return;
     
@@ -775,6 +985,80 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     } else {
       // Open in new tab on desktop
       window.open(url, '_blank');
+    }
+  }
+
+  // Handle avatar click - open video if available
+  onAvatarClick(tutor: Tutor, event: Event) {
+    if (tutor.videoThumbnail || tutor.introductionVideo) {
+      event.stopPropagation();
+      
+      // Get element bounds for animation origin
+      const target = event.currentTarget as HTMLElement;
+      const rect = target.getBoundingClientRect();
+      const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ion-safe-area-top')) || 0;
+      
+      const circleBounds = {
+        x: rect.left,
+        y: rect.top - safeTop,
+        width: rect.width,
+        height: rect.height
+      };
+      
+      this.openVideoModalWithAnimation(tutor, circleBounds);
+      this.markVideoAsWatched(tutor.id);
+    }
+  }
+
+  // Handle video thumbnail click in list view
+  onVideoThumbnailClick(tutor: Tutor, event: Event) {
+    event.stopPropagation();
+    
+    // Get element bounds for animation origin
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ion-safe-area-top')) || 0;
+    
+    const circleBounds = {
+      x: rect.left,
+      y: rect.top - safeTop,
+      width: rect.width,
+      height: rect.height
+    };
+    
+    this.openVideoModalWithAnimation(tutor, circleBounds);
+    this.markVideoAsWatched(tutor.id);
+  }
+
+  // Load watched videos from localStorage
+  private loadWatchedVideos() {
+    try {
+      const stored = localStorage.getItem(this.WATCHED_VIDEOS_KEY);
+      if (stored) {
+        const watchedArray = JSON.parse(stored);
+        this.watchedVideos = new Set(watchedArray);
+      }
+    } catch (error) {
+      console.warn('Failed to load watched videos:', error);
+      this.watchedVideos = new Set();
+    }
+  }
+
+  // Check if user has watched a tutor's video
+  hasWatchedVideo(tutorId: string): boolean {
+    return this.watchedVideos.has(tutorId);
+  }
+
+  // Mark a video as watched
+  private markVideoAsWatched(tutorId: string) {
+    this.watchedVideos.add(tutorId);
+    try {
+      localStorage.setItem(
+        this.WATCHED_VIDEOS_KEY, 
+        JSON.stringify(Array.from(this.watchedVideos))
+      );
+    } catch (error) {
+      console.warn('Failed to save watched video:', error);
     }
   }
 }

@@ -591,6 +591,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
 
     // Build sort query
     let sortQuery = {};
+    let useRandomSort = false;
+    
     switch (sortBy) {
       case 'price':
         sortQuery = { 'onboardingData.hourlyRate': 1 };
@@ -604,6 +606,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
       case 'experience':
         sortQuery = { 'onboardingData.experience': -1 };
         break;
+      case 'random':
+        useRandomSort = true;
+        break;
       default:
         sortQuery = { createdAt: -1 };
     }
@@ -611,12 +616,73 @@ router.get('/tutors', verifyToken, async (req, res) => {
     // Calculate pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Execute query
-    const tutors = await User.find(filterQuery)
-      .sort(sortQuery)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
+    let tutors;
+    
+    // For random sorting, use MongoDB aggregation with $sample
+    // This gives true randomization while respecting filters
+    if (useRandomSort && page == 1) {
+      // For first page, use $sample for true randomization
+      tutors = await User.aggregate([
+        { $match: filterQuery },
+        { $sample: { size: parseInt(limit) } },
+        {
+          $project: {
+            name: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            picture: 1,
+            auth0Id: 1,
+            onboardingData: 1,
+            profile: 1,
+            stats: 1,
+            createdAt: 1
+          }
+        }
+      ]);
+    } else if (useRandomSort) {
+      // For pagination with random, we need a consistent but random-looking order
+      // Use daily seed + tutor ID hash for consistent pagination within a day
+      const dailySeed = Math.floor(Date.now() / (1000 * 60 * 60 * 24)); // Changes daily
+      
+      tutors = await User.aggregate([
+        { $match: filterQuery },
+        {
+          $addFields: {
+            randomSort: {
+              $mod: [
+                { $add: [{ $toLong: '$_id' }, dailySeed] },
+                10000
+              ]
+            }
+          }
+        },
+        { $sort: { randomSort: 1 } },
+        { $skip: skip },
+        { $limit: parseInt(limit) },
+        {
+          $project: {
+            name: 1,
+            firstName: 1,
+            lastName: 1,
+            email: 1,
+            picture: 1,
+            auth0Id: 1,
+            onboardingData: 1,
+            profile: 1,
+            stats: 1,
+            createdAt: 1
+          }
+        }
+      ]);
+    } else {
+      // Standard sort query
+      tutors = await User.find(filterQuery)
+        .sort(sortQuery)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
+    }
 
     // Get total count for pagination
     const totalCount = await User.countDocuments(filterQuery);
@@ -820,7 +886,9 @@ router.put('/availability', verifyToken, async (req, res) => {
 // NOTE: This route MUST come before /availability to avoid route conflicts
 router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { userId } = req.params;
+    console.log(`⏱️ [Availability] Request started for userId: ${userId}`);
     console.log('📅 Fetching availability for tutor ID:', userId);
     
     // Validate MongoDB ObjectId format
@@ -829,7 +897,10 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Invalid tutor ID format' });
     }
     
+    const dbStartTime = Date.now();
     const tutor = await User.findOne({ _id: userId, userType: 'tutor' });
+    const dbDuration = Date.now() - dbStartTime;
+    console.log(`⏱️ [Availability] DB query took: ${dbDuration}ms`);
     
     if (!tutor) {
       console.log('📅 Tutor not found:', userId);
@@ -838,6 +909,9 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
 
     console.log('📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
     console.log('📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+
+    const totalDuration = Date.now() - startTime;
+    console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
@@ -854,10 +928,13 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
 // GET /api/users/:userId/public - Public user profile summary (rate limited for scraping protection)
 router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
   try {
+    const startTime = Date.now();
     const { userId } = req.params;
+    console.log(`⏱️ [Public Profile] Request started for userId: ${userId}`);
     
     // Support both MongoDB ObjectId and auth0Id
     let user;
+    const dbStartTime = Date.now();
     if (/^[0-9a-fA-F]{24}$/.test(userId)) {
       // MongoDB ObjectId
       user = await User.findById(userId);
@@ -865,10 +942,15 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
       // Try auth0Id
       user = await User.findOne({ auth0Id: userId });
     }
+    const dbDuration = Date.now() - dbStartTime;
+    console.log(`⏱️ [Public Profile] DB query took: ${dbDuration}ms`);
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    const totalDuration = Date.now() - startTime;
+    console.log(`⏱️ [Public Profile] Total request time: ${totalDuration}ms`);
 
     if (user.userType === 'tutor') {
       res.json({

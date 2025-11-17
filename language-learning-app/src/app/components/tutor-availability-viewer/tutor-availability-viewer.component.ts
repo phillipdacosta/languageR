@@ -35,6 +35,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() inline = false;
   // Trigger refresh when this value changes
   @Input() refreshTrigger: number = 0;
+  // Current user's auth0Id - if this matches tutor's auth0Id, disable slot selection
+  @Input() currentUserAuth0Id?: string;
+  // Tutor's auth0Id for comparison
+  @Input() tutorAuth0Id?: string;
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
@@ -129,32 +133,39 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   async loadAvailability() {
+    const startTime = performance.now();
+    console.log(`⏱️ [Availability] Starting to load for tutor: ${this.tutorId}`);
+    
     this.isLoading = true;
-    const loading = await this.loadingController.create({
-      message: 'Loading availability...',
-      duration: 5000
-    });
-    await loading.present();
+    
+    // Only show loading spinner for standalone modal, not inline view
+    let loading: HTMLIonLoadingElement | null = null;
+    if (!this.inline) {
+      loading = await this.loadingController.create({
+        message: 'Loading availability...',
+        duration: 5000
+      });
+      await loading.present();
+    }
 
     this.userService.getTutorAvailability(this.tutorId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          console.log('📅 Availability response received:', response);
-          console.log('📅 Availability array:', response.availability);
+          const duration = performance.now() - startTime;
+          console.log(`⏱️ [Availability] Data received in ${duration.toFixed(2)}ms`);
           this.availability = response.availability || [];
           this.timezone = response.timezone || 'America/New_York';
-          console.log('📅 Building availability set with', this.availability.length, 'blocks');
           this.buildAvailabilitySet();
-          console.log('📅 Availability set size:', this.availabilitySet.size);
-          console.log('📅 First few availability set entries:', Array.from(this.availabilitySet).slice(0, 10));
           this.isLoading = false;
-          loading.dismiss();
+          if (loading) loading.dismiss();
         },
         error: (error) => {
+          const duration = performance.now() - startTime;
+          console.log(`⏱️ [Availability] Error after ${duration.toFixed(2)}ms`);
           console.error('Error loading availability:', error);
           this.isLoading = false;
-          loading.dismiss();
+          if (loading) loading.dismiss();
         }
       });
   }
@@ -168,15 +179,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   async loadBookedLessons() {
+    const startTime = performance.now();
+    console.log(`⏱️ [Booked Lessons] Starting to load for tutor: ${this.tutorId}`);
+    
     try {
-      console.log('📅 Loading booked lessons for tutor:', this.tutorId);
-      
       const response = await firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));
+      
+      const duration = performance.now() - startTime;
+      console.log(`⏱️ [Booked Lessons] Data received in ${duration.toFixed(2)}ms - ${response.lessons?.length || 0} lessons`);
       
       if (response.success && response.lessons) {
         this.buildBookedSlotsSet(response.lessons);
       }
     } catch (error) {
+      const duration = performance.now() - startTime;
+      console.log(`⏱️ [Booked Lessons] Error after ${duration.toFixed(2)}ms`);
       console.error('Error loading booked lessons:', error);
       // Don't fail silently - set empty set if error
       this.bookedSlots = new Set();
@@ -199,12 +216,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       const dateKey = this.dateKey(this.weekDates[i]);
       dateToIndexMap.set(dateKey, i);
     }
-    
-    console.log('📅 Building booked slots for week:', {
-      weekStart: weekStart.toISOString(),
-      weekEnd: weekEnd.toISOString(),
-      weekDates: this.weekDates.map(d => this.dateKey(d))
-    });
     
     for (const lesson of lessons) {
       // Only consider scheduled or in_progress lessons
@@ -236,15 +247,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       // This matches how availability is stored (by day of week, not specific date)
       const dayIndex = lessonDate.getDay();
       
-      console.log('📅 Processing lesson:', {
-        lessonId: lesson._id,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        lessonDate: lessonDateKey,
-        weekIndex,
-        dayIndex
-      });
-      
       // Generate 30-minute slots between start and end
       let currentTime = new Date(startTime);
       while (currentTime < endTime) {
@@ -254,22 +256,17 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         const key = `${dayIndex}-${timeSlot}`;
         set.add(key);
         
-        console.log(`  ✓ Added booked slot: ${key}`);
-        
         // Move to next 30-minute slot
         currentTime.setMinutes(currentTime.getMinutes() + 30);
       }
     }
     
     this.bookedSlots = set;
-    console.log('📅 Booked slots for current week:', Array.from(set).sort());
     this.slotsCache.clear();
   }
 
   private buildAvailabilitySet() {
     const set = new Set<string>();
-    console.log('📅 Building availability set from', this.availability.length, 'blocks');
-    console.log('📅 Raw availability blocks:', this.availability);
     
     // Build a map for quick date lookups: dateKey -> weekIndex
     const dateIndexMap = new Map<string, number>();
@@ -306,28 +303,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         
         // Skip this block if it doesn't apply to any day in the displayed week
         if (!appliestoThisWeek) {
-          console.log(`📅 Skipping block - not in current week. Block date: ${blockStart.toDateString()}`);
           continue;
         }
       }
       
       const start = this.timeToMinutes(block.startTime);
       const end = this.timeToMinutes(block.endTime);
-      console.log(`📅 Block day=${block.day}, start=${block.startTime} (${start} min), end=${block.endTime} (${end} min), absoluteStart=${block.absoluteStart}`);
       
-      const generatedKeys: string[] = [];
       for (let m = start; m < end; m += 30) {
         const hh = Math.floor(m / 60).toString().padStart(2, '0');
         const mm = (m % 60).toString().padStart(2, '0');
         const key = `${block.day}-${hh}:${mm}`;
         set.add(key);
-        generatedKeys.push(key);
       }
-      console.log(`📅 Generated keys for block:`, generatedKeys);
     }
     this.availabilitySet = set;
-    console.log('📅 Final availability set size:', set.size);
-    console.log('📅 All keys:', Array.from(set).sort());
     this.slotsCache.clear();
   }
 
@@ -446,11 +436,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     // Use native getDay() to match how availability is stored (0=Sun, 1=Mon, ..., 6=Sat)
     const dayIndex = date.getDay();
     
-    // Debug logging
-    console.log(`📅 DEBUG: Getting availability for date ${date.toDateString()}`);
-    console.log(`📅 DEBUG: Date.getDay() = ${dayIndex} (0=Sun, 1=Mon, ..., 6=Sat)`);
-    console.log(`📅 DEBUG: Available keys in set:`, Array.from(this.availabilitySet).filter(key => key.startsWith(`${dayIndex}-`)));
-    
     // Filter blocks that apply to this specific date
     const applicableBlocks = this.availability.filter(block => {
       if (block.type !== 'available') return false;
@@ -474,8 +459,6 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return true;
     });
     
-    console.log(`📅 DEBUG: Found ${applicableBlocks.length} applicable blocks for this date`);
-    
     const slots: { label: string; time: string; booked: boolean }[] = [];
     for (let i = 0; i < this.timeSlots.length; i++) {
       const key = `${dayIndex}-${this.timeSlots[i]}`;
@@ -494,15 +477,30 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       }
     }
     
-    console.log(`📅 DEBUG: Found ${slots.length} available slots for day ${dayIndex} on ${date.toDateString()}`);
-    
     this.slotsCache.set(cacheKey, slots);
     return slots;
+  }
+
+  isCurrentUserTutor(): boolean {
+    if (!this.currentUserAuth0Id || !this.tutorAuth0Id) {
+      return false;
+    }
+    return (
+      this.currentUserAuth0Id === this.tutorAuth0Id ||
+      this.currentUserAuth0Id === this.tutorAuth0Id.replace('dev-user-', '') ||
+      `dev-user-${this.currentUserAuth0Id}` === this.tutorAuth0Id
+    );
   }
 
   onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean }) {
     // Don't allow booking if slot is already booked
     if (slot.booked) {
+      return;
+    }
+    
+    // Don't allow tutors to book their own slots
+    if (this.isCurrentUserTutor()) {
+      console.log('Tutors cannot book their own availability slots');
       return;
     }
     

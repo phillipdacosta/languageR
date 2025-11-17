@@ -452,6 +452,11 @@ html.ion-palette-dark {
   --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 
+.video-player-modal .modal-wrapper {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 .video-player-modal ion-header {
   background: rgba(0, 0, 0, 0.9);
 }

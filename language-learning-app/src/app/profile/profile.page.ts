@@ -226,6 +226,11 @@ export class ProfilePage implements OnInit {
     } catch (error) {
       console.error('Error updating tutor video:', error);
       
+      // Clear the video data on failure
+      this.tutorIntroductionVideo = '';
+      this.tutorVideoThumbnail = '';
+      this.tutorVideoType = 'upload';
+      
       const alert = await this.alertController.create({
         header: 'Error',
         message: 'Failed to update video. Please try again.',
