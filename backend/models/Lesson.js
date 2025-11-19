@@ -43,6 +43,11 @@ const LessonSchema = new mongoose.Schema({
     required: true,
     default: 60
   },
+  // Flag to indicate if this is a trial lesson (first lesson with a tutor)
+  isTrialLesson: {
+    type: Boolean,
+    default: false
+  },
   // Track participant join/leave history for rejoin logic
   participants: {
     type: Map,

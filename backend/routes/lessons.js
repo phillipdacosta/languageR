@@ -140,6 +140,22 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
+    // Check if this is the first lesson between this student and tutor (trial lesson)
+    const previousLessons = await Lesson.countDocuments({
+      tutorId: tutorId,
+      studentId: studentId,
+      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+    });
+    
+    const isTrialLesson = previousLessons === 0;
+    
+    console.log('🎓 Trial lesson check:', {
+      tutorId,
+      studentId,
+      previousLessons,
+      isTrialLesson
+    });
+
     const lesson = await Lesson.create({
       tutorId,
       studentId,
@@ -148,6 +164,7 @@ router.post('/', verifyToken, async (req, res) => {
       subject: subject || 'Language Lesson',
       price,
       duration: duration || 60,
+      isTrialLesson,
       bookingData,
       channelName: `lesson_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`
     });
@@ -188,14 +205,18 @@ router.post('/', verifyToken, async (req, res) => {
     // Format names for notifications
     const studentDisplayName = formatDisplayName(student);
     const tutorDisplayName = formatDisplayName(tutor);
+    
+    // Add trial lesson prefix to messages if applicable
+    const lessonTypePrefix = isTrialLesson ? 'trial ' : '';
+    const lessonTypeLabel = isTrialLesson ? 'Trial Lesson' : 'Lesson';
 
     // Create notification for tutor
     try {
       await Notification.create({
         userId: tutor._id,
         type: 'lesson_created',
-        title: 'New Lesson Scheduled',
-        message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`,
+        title: isTrialLesson ? 'New Trial Lesson Scheduled' : 'New Lesson Scheduled',
+        message: `${studentDisplayName} set up a ${language} ${lessonTypePrefix}lesson with you for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           studentId: student._id,
@@ -203,7 +224,8 @@ router.post('/', verifyToken, async (req, res) => {
           language: language,
           date: formattedDate,
           time: formattedTime,
-          startTime: lesson.startTime
+          startTime: lesson.startTime,
+          isTrialLesson: isTrialLesson
         }
       });
       console.log('✅ Notification created for tutor:', tutor._id);
@@ -216,8 +238,8 @@ router.post('/', verifyToken, async (req, res) => {
       await Notification.create({
         userId: student._id,
         type: 'lesson_created',
-        title: 'Lesson Scheduled',
-        message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
+        title: isTrialLesson ? 'Trial Lesson Scheduled' : 'Lesson Scheduled',
+        message: `You set up a ${language} ${lessonTypePrefix}lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
         data: {
           lessonId: lesson._id,
           tutorId: tutor._id,
@@ -225,7 +247,8 @@ router.post('/', verifyToken, async (req, res) => {
           language: language,
           date: formattedDate,
           time: formattedTime,
-          startTime: lesson.startTime
+          startTime: lesson.startTime,
+          isTrialLesson: isTrialLesson
         }
       });
       console.log('✅ Notification created for student:', student._id);
@@ -241,14 +264,16 @@ router.post('/', verifyToken, async (req, res) => {
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `${studentDisplayName} set up a ${language} lesson with you for ${formattedDate} at ${formattedTime}`
+          message: `${studentDisplayName} set up a ${language} ${lessonTypePrefix}lesson with you for ${formattedDate} at ${formattedTime}`,
+          isTrialLesson: isTrialLesson
         });
       }
 
       if (studentSocketId) {
         req.io.to(studentSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `You set up a ${language} lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`
+          message: `You set up a ${language} ${lessonTypePrefix}lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
+          isTrialLesson: isTrialLesson
         });
       }
     }
@@ -318,6 +343,7 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
         notes: lesson.notes,
         price: lesson.price,
         duration: lesson.duration,
+        isTrialLesson: lesson.isTrialLesson,
         bookingData: lesson.bookingData
       }))
     });
