@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // Health check route for Render - MUST be first, before any middleware
 app.get('/health', (req, res) => {
-  console\.log\([\s\S]*?\);'Health check requested');
+  console.log('Health check requested');
   res.status(200).json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -40,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/language-learning-app')
-.then(() => console\.log\([\s\S]*?\);'Connected to MongoDB'))
+.then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
@@ -147,21 +147,21 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   const userId = socket.userId;
-  console\.log\([\s\S]*?\);`✅ User connected: ${userId}, socket.id: ${socket.id}`);
+  console.log(`✅ User connected: ${userId}, socket.id: ${socket.id}`);
   
   // Store user connection
   connectedUsers.set(userId, socket.id);
   socket.join(`user:${userId}`);
   
-  console\.log\([\s\S]*?\);`📊 Total connected users: ${connectedUsers.size}`);
-  console\.log\([\s\S]*?\);`📊 Connected users list:`, Array.from(connectedUsers.keys()));
+  console.log(`📊 Total connected users: ${connectedUsers.size}`);
+  console.log(`📊 Connected users list:`, Array.from(connectedUsers.keys()));
 
   // Handle sending messages
   socket.on('send_message', async (data) => {
     try {
       const { receiverId, content, type = 'text', replyTo } = data;
       
-      console\.log\([\s\S]*?\);'📨 Received send_message event:', { userId, receiverId, content, type, replyTo });
+      console.log('📨 Received send_message event:', { userId, receiverId, content, type, replyTo });
       
       if (!content || !content.trim()) {
         socket.emit('message_error', { message: 'Message content is required' });
@@ -177,7 +177,7 @@ io.on('connection', (socket) => {
       const ids = [userId, receiverId].sort();
       const conversationId = `${ids[0]}_${ids[1]}`;
       
-      console\.log\([\s\S]*?\);'📝 Creating message with conversationId:', conversationId);
+      console.log('📝 Creating message with conversationId:', conversationId);
       
       const messageData = {
         conversationId,
@@ -190,17 +190,17 @@ io.on('connection', (socket) => {
       // Add replyTo if provided and valid (must have messageId)
       if (replyTo && typeof replyTo === 'object' && replyTo.messageId) {
         messageData.replyTo = replyTo;
-        console\.log\([\s\S]*?\);'💬 Message is a reply to:', replyTo.messageId);
+        console.log('💬 Message is a reply to:', replyTo.messageId);
       } else if (replyTo) {
-        console\.log\([\s\S]*?\);'⚠️ Invalid replyTo data (missing messageId):', replyTo);
+        console.log('⚠️ Invalid replyTo data (missing messageId):', replyTo);
         // Don't add invalid replyTo to messageData
       }
 
       const message = new Message(messageData);
 
-      console\.log\([\s\S]*?\);'💾 Saving message to database...');
+      console.log('💾 Saving message to database...');
       const savedMessage = await message.save();
-      console\.log\([\s\S]*?\);'✅ Message saved successfully:', savedMessage._id.toString());
+      console.log('✅ Message saved successfully:', savedMessage._id.toString());
 
       const messagePayload = {
         id: savedMessage._id.toString(),
@@ -224,10 +224,10 @@ io.on('connection', (socket) => {
       // Emit to receiver if online
       const receiverSocketId = connectedUsers.get(receiverId);
       if (receiverSocketId) {
-        console\.log\([\s\S]*?\);'📤 Sending message to receiver:', receiverId);
+        console.log('📤 Sending message to receiver:', receiverId);
         io.to(receiverSocketId).emit('new_message', messagePayload);
       } else {
-        console\.log\([\s\S]*?\);'⚠️ Receiver not online:', receiverId);
+        console.log('⚠️ Receiver not online:', receiverId);
       }
     } catch (error) {
       console.error('❌ Error sending message via socket:', error);
@@ -251,19 +251,19 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     const userId = socket.userId;
-    console\.log\([\s\S]*?\);`❌ User disconnected: ${userId}`);
+    console.log(`❌ User disconnected: ${userId}`);
     if (userId) {
       connectedUsers.delete(userId);
-      console\.log\([\s\S]*?\);`📊 Remaining connected users: ${connectedUsers.size}`);
+      console.log(`📊 Remaining connected users: ${connectedUsers.size}`);
     }
   });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console\.log\([\s\S]*?\);`Server running on port ${PORT}`);
-  console\.log\([\s\S]*?\);`Health check available at: http://0.0.0.0:${PORT}/health`);
-  console\.log\([\s\S]*?\);`Server bound to all interfaces (0.0.0.0)`);
-  console\.log\([\s\S]*?\);`WebSocket server ready`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
+  console.log(`Server bound to all interfaces (0.0.0.0)`);
+  console.log(`WebSocket server ready`);
 });
 
 // Handle server errors
@@ -273,9 +273,9 @@ server.on('error', (error) => {
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console\.log\([\s\S]*?\);'SIGTERM received, shutting down gracefully');
+  console.log('SIGTERM received, shutting down gracefully');
   server.close(() => {
-    console\.log\([\s\S]*?\);'Process terminated');
+    console.log('Process terminated');
   });
 });
 

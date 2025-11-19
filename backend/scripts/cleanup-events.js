@@ -32,26 +32,26 @@ async function main() {
   }
 
   await mongoose.connect(process.env.MONGODB_URI);
-  console\.log\([\s\S]*?\);'Connected to MongoDB');
-  console\.log\([\s\S]*?\);'Cutoff (UTC):', cutoff.toISOString());
+  console.log('Connected to MongoDB');
+  console.log('Cutoff (UTC):', cutoff.toISOString());
   console\.log\([\s\S]*?\);apply ? 'Mode: APPLY (will delete)' : 'Mode: DRY-RUN (no changes)');
 
   // Lessons
   const lessonQuery = { startTime: { $gte: cutoff } };
   const lessonCount = await Lesson.countDocuments(lessonQuery);
-  console\.log\([\s\S]*?\);`Lessons to delete: ${lessonCount}`);
+  console.log(`Lessons to delete: ${lessonCount}`);
   if (apply && lessonCount > 0) {
     const res = await Lesson.deleteMany(lessonQuery);
-    console\.log\([\s\S]*?\);'Lessons deleted:', res.deletedCount);
+    console.log('Lessons deleted:', res.deletedCount);
   }
 
   // Classes
   const classQuery = { startTime: { $gte: cutoff } };
   const classCount = await ClassModel.countDocuments(classQuery);
-  console\.log\([\s\S]*?\);`Classes to delete: ${classCount}`);
+  console.log(`Classes to delete: ${classCount}`);
   if (apply && classCount > 0) {
     const res = await ClassModel.deleteMany(classQuery);
-    console\.log\([\s\S]*?\);'Classes deleted:', res.deletedCount);
+    console.log('Classes deleted:', res.deletedCount);
   }
 
   // Users: remove class-type availability blocks on/after cutoff
@@ -90,11 +90,11 @@ async function main() {
       }
     }
   }
-  console\.log\([\s\S]*?\);`Users modified: ${usersModified}`);
-  console\.log\([\s\S]*?\);`Class availability blocks removed: ${totalBlocksRemoved}`);
+  console.log(`Users modified: ${usersModified}`);
+  console.log(`Class availability blocks removed: ${totalBlocksRemoved}`);
 
   await mongoose.disconnect();
-  console\.log\([\s\S]*?\);'Done.');
+  console.log('Done.');
 }
 
 main().catch(err => {

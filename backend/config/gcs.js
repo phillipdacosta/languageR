@@ -36,7 +36,7 @@ function initializeGCS() {
     bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
     bucket = storage.bucket(bucketName);
     
-    console\.log\([\s\S]*?\);'✅ Google Cloud Storage initialized successfully');
+    console.log('✅ Google Cloud Storage initialized successfully');
     return { storage, bucket, bucketName };
   } catch (error) {
     console.warn('⚠️  Google Cloud Storage initialization failed:', error.message);

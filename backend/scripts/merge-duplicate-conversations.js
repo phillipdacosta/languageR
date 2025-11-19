@@ -11,10 +11,10 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 async function mergeDuplicateConversations() {
   try {
-    console\.log\([\s\S]*?\);'🔍 Finding all messages...');
+    console.log('🔍 Finding all messages...');
     
     const allMessages = await Message.find({}).sort({ createdAt: 1 });
-    console\.log\([\s\S]*?\);`Found ${allMessages.length} total messages`);
+    console.log(`Found ${allMessages.length} total messages`);
 
     let updateCount = 0;
 
@@ -41,23 +41,23 @@ async function mergeDuplicateConversations() {
         const ids = [correctedSenderId, correctedReceiverId].sort();
         updates.conversationId = `${ids[0]}_${ids[1]}`;
 
-        console\.log\([\s\S]*?\);`\n📝 Updating message ${message._id}:`);
-        console\.log\([\s\S]*?\);`   Old: ${message.conversationId}`);
-        console\.log\([\s\S]*?\);`   New: ${updates.conversationId}`);
-        console\.log\([\s\S]*?\);`   SenderId: ${message.senderId} → ${updates.senderId || message.senderId}`);
-        console\.log\([\s\S]*?\);`   ReceiverId: ${message.receiverId} → ${updates.receiverId || message.receiverId}`);
+        console.log(`\n📝 Updating message ${message._id}:`);
+        console.log(`   Old: ${message.conversationId}`);
+        console.log(`   New: ${updates.conversationId}`);
+        console.log(`   SenderId: ${message.senderId} → ${updates.senderId || message.senderId}`);
+        console.log(`   ReceiverId: ${message.receiverId} → ${updates.receiverId || message.receiverId}`);
 
         await Message.updateOne({ _id: message._id }, { $set: updates });
         updateCount++;
       }
     }
 
-    console\.log\([\s\S]*?\);`\n✅ Updated ${updateCount} messages`);
-    console\.log\([\s\S]*?\);'🔍 Checking for remaining duplicates...');
+    console.log(`\n✅ Updated ${updateCount} messages`);
+    console.log('🔍 Checking for remaining duplicates...');
 
     const updatedMessages = await Message.find({}).sort({ createdAt: 1 });
     const conversations = new Set(updatedMessages.map(m => m.conversationId));
-    console\.log\([\s\S]*?\);`Now have ${conversations.size} unique conversation(s)`);
+    console.log(`Now have ${conversations.size} unique conversation(s)`);
 
     process.exit(0);
   } catch (error) {

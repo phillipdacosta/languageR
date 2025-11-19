@@ -36,7 +36,7 @@ class VideoCompressionService {
 
       // Get video metadata first
       const metadata = await this.getVideoMetadata(inputPath);
-      console\.log\([\s\S]*?\);'📊 Video metadata:', {
+      console.log('📊 Video metadata:', {
         duration: metadata.duration,
         size: metadata.size,
         width: metadata.width,
@@ -52,7 +52,7 @@ class VideoCompressionService {
         quality
       });
 
-      console\.log\([\s\S]*?\);'🎬 Compression settings:', compressionSettings);
+      console.log('🎬 Compression settings:', compressionSettings);
 
       // Compress video
       await this.performCompression(inputPath, outputPath, compressionSettings);
@@ -61,7 +61,7 @@ class VideoCompressionService {
       const compressedBuffer = await fs.promises.readFile(outputPath);
       const compressedSizeMB = compressedBuffer.length / (1024 * 1024);
 
-      console\.log\([\s\S]*?\);`✅ Compression complete: ${compressedSizeMB.toFixed(2)}MB`);
+      console.log(`✅ Compression complete: ${compressedSizeMB.toFixed(2)}MB`);
 
       // Clean up temporary files
       await this.cleanup([inputPath, outputPath]);
@@ -156,15 +156,15 @@ class VideoCompressionService {
         .addOption('-level', '4.0')
         .addOption('-pix_fmt', 'yuv420p') // Ensure compatibility
         .on('start', (commandLine) => {
-          console\.log\([\s\S]*?\);'🎬 FFmpeg command:', commandLine);
+          console.log('🎬 FFmpeg command:', commandLine);
         })
         .on('progress', (progress) => {
           if (progress.percent) {
-            console\.log\([\s\S]*?\);`📊 Compression progress: ${progress.percent.toFixed(1)}%`);
+            console.log(`📊 Compression progress: ${progress.percent.toFixed(1)}%`);
           }
         })
         .on('end', () => {
-          console\.log\([\s\S]*?\);'✅ Compression completed');
+          console.log('✅ Compression completed');
           resolve();
         })
         .on('error', (err) => {
