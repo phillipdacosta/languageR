@@ -117,8 +117,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
       if (response?.success && response.lesson) {
         const lesson = response.lesson;
-        this.tutorName = lesson.tutorId?.name || 'Tutor';
-        this.studentName = lesson.studentId?.name || 'Student';
+        // Use the entire user object for proper formatting (firstName, lastName, etc.)
+        this.tutorName = this.formatName(lesson.tutorId);
+        this.studentName = this.formatName(lesson.studentId);
         
         // For tutors, show student info. For students, show tutor info.
         if (this.isTutor) {
@@ -741,6 +742,70 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.analyser = null;
     this.audioLevel = 0;
     console.log('🎤 Audio level monitoring stopped');
+  }
+
+  // Format user name to "First L." format (e.g., "Phillip D.")
+  private formatName(user: any): string {
+    if (!user) return 'User';
+    
+    // Try firstName and lastName first
+    if (user.firstName && user.lastName) {
+      return `${this.capitalize(user.firstName)} ${user.lastName.charAt(0).toUpperCase()}.`;
+    }
+    
+    // Try just firstName
+    if (user.firstName) {
+      return this.capitalize(user.firstName);
+    }
+    
+    // Fall back to name property
+    if (user.name) {
+      return this.formatNameString(user.name);
+    }
+    
+    // Fall back to email
+    if (user.email) {
+      return this.formatNameString(user.email);
+    }
+    
+    return 'User';
+  }
+
+  // Format a name string to "First L." format
+  private formatNameString(nameStr: string): string {
+    if (!nameStr || typeof nameStr !== 'string') {
+      return 'User';
+    }
+
+    const name = nameStr.trim();
+
+    // If it's an email, use the part before @
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      if (!base) return 'User';
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+
+    // Split by spaces
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
 }
 

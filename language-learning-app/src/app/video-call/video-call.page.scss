@@ -1,11 +1,501 @@
-.video-container {
+.video-call-wrapper {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+// Main content area (whiteboard/video/chat) - takes up space above controls
+.main-content-area {
+  flex: 1;
+  display: flex;
+  overflow: visible; // Allow participant tiles to overflow
+  min-height: 0; // Important for flex children
+  position: relative; // For absolute positioning of participants-grid
+}
+
+// Whiteboard Panel (Left Side - Responsive)
+.whiteboard-panel {
+  // Default: When whiteboard is open WITHOUT chat - maximize whiteboard space
+  width: 80%;
+  min-width: 600px;
+  max-width: none;
+  height: 100%;
+  flex-shrink: 0;
+  background: white;
+  border-right: 2px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow: hidden; // Prevent whiteboard content from overflowing
+  
+  // Smooth slide-in animation
+  animation: slideInFromLeft 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  @media (max-width: 1400px) {
+    width: 70%;
+    min-width: 500px;
+  }
+  
+  @media (max-width: 1024px) {
+    width: 65%;
+    min-width: 400px;
+  }
+  
+  @media (max-width: 768px) {
+    width: 100%;
+    min-width: unset;
+    max-width: unset;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 200;
+  }
+}
+
+// When whiteboard is open - use participant tiles for both users
+.video-call-wrapper.whiteboard-open {
+  // Stack whiteboard, tiles, and chat horizontally
+  .main-content-area {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+  }
+  
+  .whiteboard-panel {
+    // Use the width set above (60%) unless chat is also open
+    flex-shrink: 0;
+  }
+  
+  // Video container becomes narrow column for tiles
+  .video-container {
+    flex: 1; // Take remaining space
+    min-width: 135px;
+    max-width: none;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background:black;
+    padding: 10px 6px;
+  }
+  
+  // Hide the main video inside video-container
+  .main-video {
+    display: none !important;
+  }
+  
+  // Position participants in the narrow column
+  .participants-grid {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    transform: none !important;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+    justify-content: flex-start;
+    align-items: center;
+  }
+  
+  .participant-tile {
+    width: 200px;
+    height: 150px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  
+  .chat-panel {
+    flex-shrink: 0;
+  }
+}
+
+// When BOTH whiteboard and chat are open
+.video-call-wrapper.whiteboard-open.chat-open {
+  .whiteboard-panel {
+    width: 65%; // Larger whiteboard even with chat open
+    min-width: 550px;
+  }
+  
+  .chat-panel {
+    width: 320px; // Compact chat panel
+    flex-shrink: 0;
+  }
+  
+  .video-container {
+    flex: 1; // Video area fills remaining space
+    min-width: 135px;
+  }
+}
+
+// Slide in animation for whiteboard
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Slide in animation for chat
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.whiteboard-fixed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.whiteboard-header-fixed {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  min-height: 56px;
+  flex-shrink: 0;
+  gap: 16px;
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+    min-width: 0;
+    
+    h3 {
+      margin: 0;
+      color: #1a1a1a;
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    
+    .header-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      
+      .tool-btn, .size-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        padding: 0 8px;
+        background: #f5f5f5;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        ion-icon {
+          font-size: 18px;
+          color: #666;
+        }
+        
+        &:hover:not([disabled]) {
+          background: #e8e8e8;
+          border-color: #ddd;
+        }
+        
+        &.active {
+          background: #e3f2fd;
+          border-color: #2196F3;
+          
+          ion-icon {
+            color: #2196F3;
+          }
+        }
+        
+        &[disabled] {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+        
+        &.danger {
+          ion-icon {
+            color: #f44336;
+          }
+          
+          &:hover:not([disabled]) {
+            background: #ffebee;
+            border-color: #f44336;
+          }
+        }
+      }
+      
+      .size-btn {
+        min-width: 32px;
+        padding: 0;
+        
+        .size-preview {
+          border-radius: 50%;
+          background: #666;
+        }
+        
+        &.active .size-preview {
+          background: #2196F3;
+        }
+      }
+      
+      .brush-size-mini {
+        display: flex;
+        gap: 4px;
+      }
+      
+      .colors-mini {
+        display: flex;
+        gap: 4px;
+        
+        .color-mini {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 2px solid transparent;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+          }
+          
+          &.active {
+            border-color: #fff;
+            box-shadow: 0 0 0 2px #2196F3;
+            transform: scale(1.1);
+          }
+        }
+      }
+      
+      .text-size-mini {
+        height: 32px;
+        padding: 0 8px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: #f5f5f5;
+        font-size: 13px;
+        cursor: pointer;
+        
+        &:hover {
+          background: #e8e8e8;
+        }
+        
+        &:focus {
+          outline: none;
+          border-color: #2196F3;
+          background: #e3f2fd;
+        }
+      }
+      
+      .text-formatting, .text-alignment {
+        display: flex;
+        gap: 4px;
+      }
+      
+      .format-btn, .align-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: #f5f5f5;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+        font-weight: 600;
+        color: #666;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+        
+        &:hover {
+          background: #e8e8e8;
+          border-color: #ddd;
+        }
+        
+        &.active {
+          background: #e3f2fd;
+          border-color: #2196F3;
+          color: #2196F3;
+          
+          ion-icon {
+            color: #2196F3;
+          }
+        }
+      }
+      
+      .tool-divider {
+        width: 1px;
+        height: 24px;
+        background: #e0e0e0;
+        margin: 0 4px;
+      }
+    }
+  }
+  
+  .whiteboard-controls {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    
+    ion-button {
+      --color: #666;
+      --background: transparent;
+      --background-hover: rgba(0, 0, 0, 0.05);
+      --border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      margin: 0;
+      
+      ion-icon {
+        font-size: 18px;
+      }
+      
+      &:hover {
+        --background: rgba(0, 0, 0, 0.08);
+      }
+    }
+  }
+}
+
+.whiteboard-content-fixed {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px;
+  background: #fafafa;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  
+  .canvas-container {
+    position: relative;
+    flex: 1;
+    border-radius: 8px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+  
+  canvas {
+    border: none;
+    border-radius: 8px;
+    cursor: crosshair;
+    background: white;
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    
+    &.text-cursor {
+      cursor: text;
+    }
+    
+    &.move-cursor {
+      cursor: move;
+    }
+  }
+  
+  .inline-text-input {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px dashed #2196F3;
+    outline: none;
+    font-family: Arial, sans-serif;
+    padding: 8px 12px;
+    min-width: 200px;
+    min-height: 40px;
+    max-width: 600px;
+    z-index: 10;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    overflow: auto;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    
+    &:focus {
+      background: rgba(255, 255, 255, 1);
+      border-color: #1976D2;
+      box-shadow: 0 2px 16px rgba(33, 150, 243, 0.3);
+    }
+    
+    // Placeholder for contenteditable
+    &[contenteditable]:empty:before {
+      content: attr(data-placeholder);
+      color: #999;
+      font-style: italic;
+      pointer-events: none;
+    }
+    
+    // Style for formatted text
+    b, strong {
+      font-weight: bold;
+    }
+    
+    i, em {
+      font-style: italic;
+    }
+    
+    u {
+      text-decoration: underline;
+    }
+  }
+}
+
+// Old bottom toolbar styles - removed to expand whiteboard
+// .whiteboard-tools-fixed {
+//   padding: 12px 16px;
+//   background: white;
+//   border-top: 1px solid #e0e0e0;
+//   flex-shrink: 0;
+// }
+
+.video-container {
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: #000;
   color: white;
   position: relative;
   overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 0; // Allow flex shrinking
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: width, transform;
 }
 
 .debug-info {
@@ -34,7 +524,11 @@
   background: #1a1a1a;
   display: flex;
   align-items: center;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   justify-content: center;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
 
   .remote-user-info {
     position: absolute;
@@ -85,6 +579,13 @@
   }
 }
 
+// Speaking indicator for main video (when whiteboard is not open, solid like Zoom)
+.video-container-remote.speaking {
+  border: 4px solid #9C27B0;
+  box-shadow: 0 0 12px rgba(156, 39, 176, 0.5);
+  transition: all 0.2s ease;
+}
+
 .video-placeholder {
   text-align: center;
   color: #666;
@@ -107,15 +608,26 @@
   }
 }
 
-// Participant tiles in top-right corner
+// Participant tiles positioning
+// Default: Not visible when whiteboard is closed (main video shows instead)
+// Will be repositioned when whiteboard opens
 .participants-grid {
-  position: absolute;
-  top: 20px;
+  position: fixed; // Fixed to viewport
+  top: 80px; // Default top-right position
   right: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 50;
+  z-index: 1000; // Very high to stay above everything
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  backface-visibility: hidden;
+  pointer-events: auto; // Ensure tiles are clickable
+  opacity: 0.95; // Slightly transparent
+  
+  @media (max-width: 768px) {
+    top: 70px;
+    right: 10px;
+  }
 }
 
 .participant-tile {
@@ -136,6 +648,19 @@
   
   &.local-participant {
     border-color: #4CAF50;
+  }
+  
+  &.remote-participant {
+    border-color: #2196F3;
+  }
+
+  // Speaking indicator - purple highlighted border (solid, like Zoom)
+  &.speaking {
+    border-width: 4px;
+    border-color: #9C27B0 !important;
+    box-shadow: 0 0 12px rgba(156, 39, 176, 0.5),
+                0 4px 20px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease;
   }
   
   .participant-video {
@@ -179,19 +704,17 @@
   }
 }
 
-// Bottom control bar
+// Bottom control bar (in its own row, separate from main content)
 .video-controls {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 12px;
-  padding: 24px 20px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 70%, transparent 100%);
-  z-index: 100;
+  padding: 20px;
+  background: black;
+  z-index: 150;
+  min-height: 90px;
   
   ion-button {
     --background: rgba(255, 255, 255, 0.15);
@@ -230,6 +753,37 @@
       --background-hover: #1976D2;
     }
   }
+  
+  // Responsive adjustments
+  @media (max-width: 768px) {
+    gap: 8px;
+    padding: 16px 12px;
+    min-height: 80px;
+    
+    ion-button {
+      width: 44px;
+      height: 44px;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+  }
+  
+  @media (max-width: 480px) {
+    gap: 6px;
+    padding: 12px 8px;
+    min-height: 70px;
+    
+    ion-button {
+      width: 40px;
+      height: 40px;
+      
+      ion-icon {
+        font-size: 18px;
+      }
+    }
+  }
 }
 
 // Speaker view toggle
@@ -259,19 +813,41 @@
   }
 }
 
-// Chat panel - modern design
+// Chat panel - modern design and responsive
 .chat-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 380px;
+  // Default: When chat is open WITHOUT whiteboard - take good width
+  width: 500px;
   height: 100%;
   background: white;
   box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
-  z-index: 200;
-  animation: slideInRight 0.3s ease;
+  flex-shrink: 0;
+  z-index: 200; // Lower than participants grid (1000+)
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform, opacity;
+  animation: slideInFromRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  @media (max-width: 1024px) {
+    width: 420px;
+  }
+  
+  @media (max-width: 768px) {
+    width: 100%;
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 200;
+    transform: translateX(100%);
+    
+    // Show when active
+    &:not(.ng-hide) {
+      transform: translateX(0);
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
   
   .chat-header {
     display: flex;
@@ -362,6 +938,9 @@
     overflow-y: auto;
     padding: 20px;
     background: #f8f9fa;
+    scroll-behavior: auto !important; // Disable smooth scrolling for instant positioning
+    overflow-anchor: none; // Prevent scroll anchoring that might jump to top
+    -webkit-overflow-scrolling: touch;
     
     .chat-message {
       margin-bottom: 16px;
@@ -398,8 +977,87 @@
             color: rgba(255, 255, 255, 0.9);
           }
           
+          .message-text {
+            color: white; // White text for sent messages
+          }
+          
           .message-time {
             color: rgba(255, 255, 255, 0.7);
+          }
+          
+          // File message styling for sent messages (on blue background)
+          .message-file {
+            background: rgba(255, 255, 255, 0.15);
+            
+            .file-icon {
+              color: rgba(255, 255, 255, 0.9);
+            }
+            
+            .file-name {
+              color: rgba(255, 255, 255, 0.95);
+            }
+            
+            .file-size {
+              color: rgba(255, 255, 255, 0.7);
+            }
+            
+            .download-icon {
+              color: rgba(255, 255, 255, 0.9);
+              
+              &:hover {
+                color: white;
+              }
+            }
+            
+            .file-caption {
+              color: rgba(255, 255, 255, 0.8);
+              border-top-color: rgba(255, 255, 255, 0.2);
+            }
+          }
+          
+          // Reply preview styling for sent messages (on blue background)
+          .reply-to-preview {
+            background: rgba(255, 255, 255, 0.15);
+            
+            &:hover {
+              background: rgba(255, 255, 255, 0.25);
+            }
+            
+            .reply-to-line {
+              background: rgba(255, 255, 255, 0.7);
+            }
+            
+            .reply-to-content {
+              .reply-to-sender {
+                color: rgba(255, 255, 255, 0.95);
+              }
+              
+              .reply-to-text {
+                color: rgba(255, 255, 255, 0.8);
+              }
+            }
+          }
+        }
+      }
+      
+      // System messages styling
+      &.system-message {
+        justify-content: center;
+        
+        .message-content {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-align: center;
+          max-width: 80%;
+          cursor: default !important;
+          pointer-events: none;
+          
+          .message-text {
+            color: white;
+          }
+          
+          .message-time {
+            color: rgba(255, 255, 255, 0.8);
           }
         }
       }
@@ -410,6 +1068,10 @@
         border-radius: 16px;
         max-width: 70%;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+        position: relative;
+        user-select: none;
+        -webkit-user-select: none;
         
         .sender-name {
           font-size: 12px;
@@ -424,6 +1086,58 @@
           font-size: 14px;
           line-height: 1.4;
           word-wrap: break-word;
+          color: #333; // Black text for received messages
+        }
+        
+        // Reply-to preview inside message bubbles
+        .reply-to-preview {
+          display: flex;
+          margin-bottom: 8px;
+          padding: 6px 8px;
+          background: rgba(0, 0, 0, 0.08);
+          border-radius: 8px;
+          opacity: 0.95;
+          cursor: pointer;
+          transition: all 0.2s;
+          
+          &:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.12);
+          }
+          
+          &:active {
+            transform: scale(0.98);
+          }
+          
+          .reply-to-line {
+            width: 3px;
+            background: rgba(102, 126, 234, 0.6);
+            border-radius: 2px;
+            margin-right: 8px;
+            flex-shrink: 0;
+          }
+          
+          .reply-to-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+            
+            .reply-to-sender {
+              font-size: 12px;
+              font-weight: 600;
+              color: #667eea;
+            }
+            
+            .reply-to-text {
+              font-size: 13px;
+              color: #666;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+          }
         }
         
         .message-image {
@@ -435,6 +1149,87 @@
           img {
             width: 100%;
             display: block;
+          }
+        }
+        
+        .message-file {
+          margin-top: 8px;
+          background: #f5f5f5;
+          border-radius: 12px;
+          padding: 12px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          max-width: 100%;
+          
+          .file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+            
+            &:hover {
+              opacity: 0.8;
+            }
+          }
+          
+          .file-icon {
+            font-size: 32px;
+            color: #2196F3;
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+          }
+          
+          .file-details {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          
+          .file-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+          
+          .file-size {
+            margin: 0;
+            font-size: 12px;
+            color: #757575;
+            font-weight: 400;
+          }
+          
+          .download-icon {
+            font-size: 20px;
+            color: #1a1a1a;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            
+            &:hover {
+              color: #2196F3;
+            }
+          }
+          
+          .file-caption {
+            margin: 8px 0 0 0;
+            font-size: 13px;
+            color: #666;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
           }
         }
         
@@ -488,51 +1283,296 @@
     .message-input {
       flex: 1;
       --background: #f5f5f5;
+      --color: #333;
+      --placeholder-color: #999;
+      --placeholder-opacity: 1;
       --padding-start: 16px;
       --padding-end: 16px;
       border-radius: 24px;
       font-size: 14px;
     }
+    
+    .upload-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #f0f8ff;
+      border-radius: 8px;
+      
+      ion-spinner {
+        width: 20px;
+        height: 20px;
+      }
+      
+      span {
+        font-size: 13px;
+        color: #666;
+      }
+    }
+    
+    .recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: #ffebee;
+      border-radius: 8px;
+      
+      .recording-dot {
+        width: 8px;
+        height: 8px;
+        background: #f44336;
+        border-radius: 50%;
+        animation: pulse 1s infinite;
+      }
+      
+      span {
+        font-size: 13px;
+        color: #d32f2f;
+        font-weight: 500;
+      }
+    }
+  }
+  
+  // Reply Preview Container
+  .replying-to-container {
+    background: #f0f8ff;
+    border-top: 1px solid #d0e8ff;
+    padding: 10px 16px;
+    animation: slideDown 0.2s ease-out;
+    
+    .replying-to-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      
+      .reply-icon {
+        font-size: 18px;
+        color: #667eea;
+      }
+      
+      .replying-to-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #667eea;
+        flex: 1;
+      }
+      
+      .close-reply-icon {
+        font-size: 20px;
+        color: #999;
+        cursor: pointer;
+        transition: color 0.2s;
+        
+        &:hover {
+          color: #666;
+        }
+        
+        &:active {
+          color: #333;
+        }
+      }
+    }
+    
+    .replying-to-preview {
+      font-size: 14px;
+      color: #666;
+      padding: 8px 12px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+      border-left: 3px solid #667eea;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  
+  // Voice Note Preview
+  .voice-preview {
+    background: #f0f8ff;
+    border-top: 1px solid #d0e8ff;
+    padding: 12px 16px;
+    animation: slideDown 0.2s ease-out;
+    
+    .voice-preview-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      
+      ion-icon {
+        font-size: 24px;
+        color: #667eea;
+      }
+      
+      .voice-preview-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #667eea;
+        flex: 1;
+      }
+    }
+    
+    audio {
+      width: 100%;
+      height: 40px;
+      margin-bottom: 10px;
+    }
+    
+    .voice-preview-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      
+      ion-button {
+        --padding-start: 12px;
+        --padding-end: 12px;
+        height: 32px;
+        font-size: 13px;
+      }
+    }
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+  
+  // Context Menu (Long-press)
+  .message-context-menu {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    width: 220px;
+    animation: contextMenuSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: top center;
+    z-index: 10001;
+    
+    &.show-below {
+      transform-origin: bottom center;
+    }
+    
+    .context-menu-arrow {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      
+      &.arrow-top {
+        border-bottom: 10px solid rgba(255, 255, 255, 0.98);
+        top: -10px;
+      }
+      
+      &.arrow-bottom {
+        border-top: 10px solid rgba(255, 255, 255, 0.98);
+        bottom: -10px;
+        border-bottom: none;
+      }
+    }
+    
+    .context-menu-content {
+      padding: 4px 0;
+    }
+    
+    .context-menu-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      color: #1c1c1e;
+      transition: background 0.15s ease;
+      text-align: left;
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      
+      &:active {
+        background: rgba(0, 0, 0, 0.1);
+      }
+      
+      ion-icon {
+        font-size: 20px;
+        color: #667eea;
+        flex-shrink: 0;
+      }
+      
+      span {
+        flex: 1;
+        font-weight: 500;
+      }
+    }
+  }
+  
+  .context-menu-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    z-index: 10000;
+  }
+  
+  @keyframes contextMenuSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.9) translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 }
 
-// Whiteboard - modern design
+// Old floating whiteboard styles (now using fixed panel above)
 .whiteboard {
-  position: absolute;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  transition: all 0.3s ease;
-  z-index: 150;
-  animation: fadeIn 0.3s ease;
-  
-  &.dragging {
-    transition: none;
-    cursor: grabbing;
-  }
-  
-  &.fullscreen {
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    bottom: 20px;
-    right: 400px;
-    z-index: 150;
-  }
+  // Deprecated - now using .whiteboard-panel
+  display: none;
   
   .whiteboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px;
-    background: #fafafa;
+    padding: 12px 16px;
+    background: #ffffff;
     border-bottom: 1px solid #e0e0e0;
     border-radius: 12px 12px 0 0;
     cursor: move;
     user-select: none;
+    min-height: 50px;
     
     &:hover {
-      background: #f5f5f5;
+      background: #f8f8f8;
     }
     
     &.dragging {
@@ -540,32 +1580,175 @@
       background: #f0f0f0;
     }
     
-    h3 {
-      margin: 0;
-      color: #1a1a1a;
-      font-size: 16px;
-      font-weight: 600;
+    .header-left {
       pointer-events: none;
+      
+      h3 {
+        margin: 0;
+        color: #1a1a1a;
+        font-size: 15px;
+        font-weight: 600;
+      }
     }
     
     .whiteboard-controls {
       display: flex;
-      gap: 8px;
+      gap: 4px;
       pointer-events: auto;
       
       ion-button {
         --color: #666;
         --background: transparent;
         --background-hover: rgba(0, 0, 0, 0.05);
-        --border-radius: 8px;
-        width: 36px;
-        height: 36px;
+        --border-radius: 6px;
+        width: 32px;
+        height: 32px;
         margin: 0;
         
         ion-icon {
           font-size: 18px;
         }
+        
+        &:hover {
+          --background: rgba(0, 0, 0, 0.08);
+        }
       }
+    }
+  }
+  
+  // New Horizontal Toolbar (Preply-style)
+  .whiteboard-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-height: 48px;
+    
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .toolbar-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      background: white;
+      color: #333;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      padding: 0;
+      
+      ion-icon {
+        font-size: 18px;
+        color: #555;
+      }
+      
+      span {
+        font-size: 16px;
+        font-weight: 600;
+        color: #555;
+      }
+      
+      &:hover:not(:disabled) {
+        background: #f5f5f5;
+        border-color: #b0b0b0;
+      }
+      
+      &.active {
+        background: #e3f2fd;
+        border-color: #2196F3;
+        color: #2196F3;
+        
+        ion-icon, span {
+          color: #2196F3;
+        }
+      }
+      
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      
+      &.danger {
+        &:hover:not(:disabled) {
+          background: #ffebee;
+          border-color: #f44336;
+          
+          ion-icon {
+            color: #f44336;
+          }
+        }
+      }
+    }
+    
+    .text-size-dropdown {
+      padding: 6px 12px;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      background: white;
+      color: #333;
+      font-size: 13px;
+      cursor: pointer;
+      min-width: 100px;
+      height: 32px;
+      
+      &:hover {
+        border-color: #b0b0b0;
+        background: #f5f5f5;
+      }
+      
+      &:focus {
+        outline: none;
+        border-color: #2196F3;
+      }
+    }
+    
+    .compact-colors {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      
+      .color-btn {
+        width: 24px;
+        height: 24px;
+        border: 2px solid transparent;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 0;
+        
+        &:hover {
+          transform: scale(1.1);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        
+        &.active {
+          border-color: #333;
+          transform: scale(1.15);
+          box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+        }
+      }
+    }
+    
+    .toolbar-divider {
+      width: 1px;
+      height: 24px;
+      background: #e0e0e0;
+      margin: 0 4px;
+    }
+    
+    .toolbar-spacer {
+      flex: 1;
     }
   }
   
@@ -600,24 +1783,53 @@
     
     .inline-text-input {
       position: absolute;
-      background: transparent;
-      border: none;
+      background: rgba(255, 255, 255, 0.95);
+      border: 2px dashed #2196F3;
       outline: none;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 2px 4px;
-      min-width: 20px;
+      font-family: Arial, sans-serif;
+      padding: 8px 12px;
+      min-width: 200px;
+      min-height: 40px;
+      max-width: 600px;
       z-index: 10;
+      border-radius: 6px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+      overflow: auto;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-wrap: break-word;
       
       &:focus {
-        background: rgba(33, 150, 243, 0.05);
-        border: 2px dashed #2196F3;
-        border-radius: 4px;
+        background: rgba(255, 255, 255, 1);
+        border-color: #1976D2;
+        box-shadow: 0 2px 16px rgba(33, 150, 243, 0.3);
+      }
+      
+      // Placeholder for contenteditable
+      &[contenteditable]:empty:before {
+        content: attr(data-placeholder);
+        color: #999;
+        font-style: italic;
+        pointer-events: none;
+      }
+      
+      // Style for formatted text
+      b, strong {
+        font-weight: bold;
+      }
+      
+      i, em {
+        font-style: italic;
+      }
+      
+      u {
+        text-decoration: underline;
       }
     }
   }
   
   .whiteboard-tools {
-    padding: 16px 20px;
+    padding: 12px 16px;
     background: white;
     border-radius: 0 0 12px 12px;
     border-top: 1px solid #e0e0e0;
@@ -625,15 +1837,15 @@
     .tool-selection {
       display: flex;
       gap: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       
       .tool-button {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 4px;
-        padding: 10px 16px;
-        background: #f5f5f5;
+        padding: 8px 12px;
+        background: #f8f8f8;
         border: 2px solid transparent;
         border-radius: 8px;
         cursor: pointer;
@@ -677,57 +1889,25 @@
       font-size: 11px;
       font-weight: 600;
       color: #666;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     
-    .color-picker-section {
-      margin-bottom: 16px;
+    .brush-size-section {
+      margin-bottom: 0;
       
-      .color-picker {
-        display: grid;
-        grid-template-columns: repeat(8, 1fr);
-        gap: 8px;
-        
-        .color-option {
-          width: 36px;
-          height: 36px;
-          border: 3px solid transparent;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          position: relative;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-          
-          &:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-          }
-          
-          &.active {
-            border-color: #2196F3;
-            transform: scale(1.1);
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
-          }
-        }
-      }
-    }
-    
-    .brush-size-section, .text-size-section {
-      margin-bottom: 16px;
-      
-      .brush-sizes, .text-sizes {
+      .brush-sizes {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         
-        .brush-option, .text-option {
+        .brush-option {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 44px;
-          height: 44px;
-          background: #f5f5f5;
+          width: 40px;
+          height: 40px;
+          background: #f8f8f8;
           border: 2px solid transparent;
           border-radius: 8px;
           cursor: pointer;
@@ -748,32 +1928,13 @@
             border-radius: 50%;
           }
         }
-        
-        .text-option {
-          font-size: 16px;
-          font-weight: bold;
-          color: #666;
-          
-          &.active {
-            color: #2196F3;
-          }
-        }
       }
     }
   }
 }
 
 // Animations
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
+// Remove slideInRight - no longer needed
 
 @keyframes fadeIn {
   from {
@@ -783,6 +1944,15 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes subtle-glow {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
   }
 }
 

@@ -420,9 +420,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     } else if (daysDiff === 1) {
       dayText = 'tomorrow';
     } else if (daysDiff < 7) {
-      dayText = start.toLocaleDateString('en-US', { weekday: 'long' });
+      // Show weekday with date: "Monday, November 25"
+      const weekday = start.toLocaleDateString('en-US', { weekday: 'long' });
+      const date = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      dayText = `${weekday}, ${date}`;
     } else {
-      dayText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      // Show month and day: "December 2"
+      dayText = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
     }
     
     return {

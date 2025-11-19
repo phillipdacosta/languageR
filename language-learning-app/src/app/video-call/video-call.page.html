@@ -3,14 +3,159 @@
     <ion-title>Video Class</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="endCall()" color="danger">
-        <ion-icon name="call"></ion-icon>
+        <ion-icon name="call-outline"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <div class="video-container">
+  <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
+    <!-- Main Content Area (above controls) -->
+    <div class="main-content-area">
+    <!-- Whiteboard Panel (Left Side) -->
+    <div class="whiteboard-panel" *ngIf="showWhiteboard">
+      <div class="whiteboard-fixed">
+        <div class="whiteboard-header-fixed">
+          <div class="header-left">
+            <h3>Whiteboard</h3>
+            
+            <!-- Compact toolbar in header -->
+            <div class="header-toolbar">
+              <!-- Tool Selection -->
+              <button class="tool-btn" [class.active]="currentTool === 'draw'" (click)="setTool('draw')" title="Draw">
+                <ion-icon name="brush-outline"></ion-icon>
+              </button>
+              <button class="tool-btn" [class.active]="currentTool === 'text'" (click)="setTool('text')" title="Text Tool: Click to add text, Enter to finish, Shift+Enter for new line">
+                <ion-icon name="text-outline"></ion-icon>
+              </button>
+              <button class="tool-btn" [class.active]="currentTool === 'move'" (click)="setTool('move')" title="Move">
+                <ion-icon name="move-outline"></ion-icon>
+              </button>
+              
+              <div class="tool-divider"></div>
+              
+              <!-- Brush Size (for draw tool) -->
+              <div class="brush-size-mini" *ngIf="currentTool === 'draw'">
+                <button class="size-btn" [class.active]="currentBrushSize === 2" (click)="setBrushSize(2)" title="Small">
+                  <div class="size-preview" style="width: 4px; height: 4px;"></div>
+                </button>
+                <button class="size-btn" [class.active]="currentBrushSize === 5" (click)="setBrushSize(5)" title="Medium">
+                  <div class="size-preview" style="width: 8px; height: 8px;"></div>
+                </button>
+                <button class="size-btn" [class.active]="currentBrushSize === 10" (click)="setBrushSize(10)" title="Large">
+                  <div class="size-preview" style="width: 12px; height: 12px;"></div>
+                </button>
+              </div>
+              
+              <!-- Text Size (for text tool) -->
+              <select class="text-size-mini" *ngIf="currentTool === 'text'" [(ngModel)]="currentTextSize" (mousedown)="$event.preventDefault()" (change)="setTextSize(currentTextSize)">
+                <option [value]="12">Small</option>
+                <option [value]="16">Normal</option>
+                <option [value]="24">Large</option>
+                <option [value]="32">XL</option>
+              </select>
+              
+              <!-- Text Formatting (for text tool) -->
+              <div class="text-formatting" *ngIf="currentTool === 'text'">
+                <button class="format-btn" [class.active]="textBold" (mousedown)="$event.preventDefault()" (click)="toggleTextBold()" title="Bold">
+                  <strong>B</strong>
+                </button>
+                <button class="format-btn" [class.active]="textItalic" (mousedown)="$event.preventDefault()" (click)="toggleTextItalic()" title="Italic">
+                  <em>I</em>
+                </button>
+                <button class="format-btn" [class.active]="textUnderline" (mousedown)="$event.preventDefault()" (click)="toggleTextUnderline()" title="Underline">
+                  <span style="text-decoration: underline;">U</span>
+                </button>
+              </div>
+              
+              <!-- Text Alignment (for text tool) -->
+              <div class="text-alignment" *ngIf="currentTool === 'text'">
+                <button class="align-btn" [class.active]="textAlign === 'left'" (mousedown)="$event.preventDefault()" (click)="setTextAlign('left')" title="Align Left">
+                  <ion-icon name="text-outline"></ion-icon>
+                </button>
+                <button class="align-btn" [class.active]="textAlign === 'center'" (mousedown)="$event.preventDefault()" (click)="setTextAlign('center')" title="Center">
+                  <ion-icon name="reorder-three-outline" style="transform: rotate(90deg);"></ion-icon>
+                </button>
+                <button class="align-btn" [class.active]="textAlign === 'right'" (mousedown)="$event.preventDefault()" (click)="setTextAlign('right')" title="Align Right">
+                  <ion-icon name="text-outline" style="transform: scaleX(-1);"></ion-icon>
+                </button>
+              </div>
+              
+              <div class="tool-divider" *ngIf="currentTool === 'text'"></div>
+              
+              <div class="tool-divider" *ngIf="currentTool === 'draw'"></div>
+              
+              <!-- Colors -->
+              <div class="colors-mini">
+                <button class="color-mini" [class.active]="currentColor === '#000000'" (mousedown)="$event.preventDefault()" (click)="setBrushColor('#000000')" style="background: #000000" title="Black"></button>
+                <button class="color-mini" [class.active]="currentColor === '#ff0000'" (mousedown)="$event.preventDefault()" (click)="setBrushColor('#ff0000')" style="background: #ff0000" title="Red"></button>
+                <button class="color-mini" [class.active]="currentColor === '#2196F3'" (mousedown)="$event.preventDefault()" (click)="setBrushColor('#2196F3')" style="background: #2196F3" title="Blue"></button>
+                <button class="color-mini" [class.active]="currentColor === '#4CAF50'" (mousedown)="$event.preventDefault()" (click)="setBrushColor('#4CAF50')" style="background: #4CAF50" title="Green"></button>
+              </div>
+              
+              <div class="tool-divider"></div>
+              
+              <!-- Undo/Redo -->
+              <button class="tool-btn" (click)="undo()" [disabled]="!canUndo()" title="Undo">
+                <ion-icon name="arrow-undo-outline"></ion-icon>
+              </button>
+              <button class="tool-btn" (click)="redo()" [disabled]="!canRedo()" title="Redo">
+                <ion-icon name="arrow-redo-outline"></ion-icon>
+              </button>
+              
+              <div class="tool-divider"></div>
+              
+              <!-- Clear -->
+              <button class="tool-btn danger" (click)="clearWhiteboard()" title="Clear All">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+          <div class="whiteboard-controls">
+            <ion-button (click)="toggleWhiteboard()" size="small" fill="clear" title="Close">
+              <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+        
+        <div class="whiteboard-content-fixed">
+          <div class="canvas-container">
+            <canvas 
+              #whiteboardCanvas 
+              [width]="canvasWidth"
+              [height]="canvasHeight"
+              [class.text-cursor]="currentTool === 'text'"
+              [class.move-cursor]="currentTool === 'move'"
+              (mousedown)="handleCanvasClick($event)"
+              (mousemove)="handleCanvasMove($event)"
+              (mouseup)="handleCanvasMouseUp($event)"
+              (mouseleave)="handleCanvasMouseLeave($event)">
+            </canvas>
+            
+            <!-- Inline text input - Rich text editor -->
+            <div 
+              #textInput
+              *ngIf="showInlineTextInput"
+              contenteditable="true"
+              [style.left.px]="textInputX"
+              [style.top.px]="textInputY"
+              [style.font-size.px]="currentTextSize"
+              [style.text-align]="textAlign"
+              class="inline-text-input rich-text-input"
+              [attr.data-placeholder]="'Type text here...'"
+              (input)="onRichTextInput($event)"
+              (blur)="onTextInputBlur()"
+              (keydown)="handleTextInputKeydown($event)"
+              (mouseup)="updateFormattingState()"
+              (keyup)="updateFormattingState()"
+              spellcheck="false"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="video-container">
         <!-- Debug info -->
         <!-- <div class="debug-info" *ngIf="isConnected">
           <p>Channel: {{channelName}} | Remote Users: {{remoteUserCount}} | Role: {{userRole}}</p>
@@ -28,13 +173,19 @@
 
     <!-- Main video area (fullscreen) -->
     <div class="main-video">
-      <div #remoteVideo class="video-container-remote" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
+      <div #remoteVideo class="video-container-remote" [class.speaking]="isRemoteUserSpeaking" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
         <!-- Remote video will be displayed here -->
+        
+        <!-- Camera Off placeholder for main view -->
+        <div class="video-placeholder" *ngIf="getRemoteUserVideoOffState()">
+          <ion-icon name="videocam-off-outline"></ion-icon>
+          <p>Camera Off</p>
+        </div>
         
         <!-- Remote user mute indicator (overlay on main video) -->
         <div class="remote-user-info" *ngIf="remoteUserCount > 0">
           <div class="remote-user-label">
-            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off' : 'mic'" 
+            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
                       [class.muted]="getRemoteUserMuteState()"></ion-icon>
             <span>{{getRemoteParticipantLabel()}}</span>
           </div>
@@ -48,63 +199,12 @@
       </ng-template>
     </div>
 
-    <!-- Participants Grid (top-right) -->
-    <div class="participants-grid">
-      <!-- Local participant tile (only show yourself in small tile) -->
-      <div class="participant-tile local-participant" *ngIf="isConnected">
-        <div #localVideo class="participant-video" *ngIf="!isVideoOff">
-          <!-- Local video will be displayed here -->
-        </div>
-        <div class="video-placeholder small" *ngIf="isVideoOff">
-          <ion-icon name="videocam-off"></ion-icon>
-          <p>Camera Off</p>
-        </div>
-        <div class="participant-label">
-          <ion-icon [name]="isMuted ? 'mic-off' : 'mic'"></ion-icon>
-          <span>You</span>
-        </div>
-      </div>
-      
-      <!-- Note: Remote user appears in main video area, not here -->
-    </div>
-
-    <!-- Bottom Controls -->
-    <div class="video-controls">
-      <ion-button (click)="toggleMute()" [color]="isMuted ? 'danger' : 'medium'" fill="clear" title="Microphone">
-        <ion-icon [name]="isMuted ? 'mic-off' : 'mic'"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="toggleVideo()" [color]="isVideoOff ? 'danger' : 'medium'" fill="clear" title="Camera">
-        <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam'"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="shareScreen()" color="medium" fill="clear" title="Share Screen">
-        <ion-icon name="desktop"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="toggleVirtualBackgroundControls()" [color]="showVirtualBackgroundControls ? 'primary' : 'medium'" fill="clear" title="Virtual Background">
-        <ion-icon name="color-filter-outline"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="toggleWhiteboard()" [color]="showWhiteboard ? 'primary' : 'medium'" fill="clear" title="Whiteboard">
-        <ion-icon name="create"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="toggleChat()" [color]="showChat ? 'primary' : 'medium'" fill="clear" title="Chat">
-        <ion-icon name="chatbubbles"></ion-icon>
-      </ion-button>
-      
-      <ion-button (click)="endCall()" color="danger" fill="solid" title="End Call">
-        <ion-icon name="call"></ion-icon>
-      </ion-button>
-    </div>
-
     <!-- Virtual Background Controls Panel -->
     <div class="virtual-bg-controls" *ngIf="showVirtualBackgroundControls">
       <div class="controls-header">
         <h3>Virtual Background</h3>
         <ion-button fill="clear" size="small" (click)="toggleVirtualBackgroundControls()">
-          <ion-icon name="close"></ion-icon>
+          <ion-icon name="close-outline"></ion-icon>
         </ion-button>
       </div>
       
@@ -144,239 +244,251 @@
       </div>
     </div>
 
+    <!-- Participants Grid (positioned outside video-container to stay visible) -->
+    <div class="participants-grid">
+      <!-- Remote participant tile (only show when whiteboard is open) -->
+      <div class="participant-tile remote-participant" [class.speaking]="isRemoteUserSpeaking" *ngIf="isConnected && remoteUserCount > 0 && showWhiteboard">
+        <div #remoteVideoTile class="participant-video" *ngIf="!getRemoteUserVideoOffState()">
+          <!-- Remote video will be cloned here when whiteboard is open -->
+        </div>
+        <div class="video-placeholder small" *ngIf="getRemoteUserVideoOffState()">
+          <ion-icon name="videocam-off-outline"></ion-icon>
+          <p>Camera Off</p>
+        </div>
+        <div class="participant-label">
+          <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
+                    [class.muted]="getRemoteUserMuteState()"></ion-icon>
+          <span>{{getRemoteParticipantLabel()}}</span>
+        </div>
+      </div>
+      
+      <!-- Local participant tile (always show when connected) -->
+      <div class="participant-tile local-participant" [class.speaking]="isLocalUserSpeaking" *ngIf="isConnected">
+        <div #localVideo class="participant-video" *ngIf="!isVideoOff">
+          <!-- Local video will be displayed here -->
+        </div>
+        <div class="video-placeholder small" *ngIf="isVideoOff">
+          <ion-icon name="videocam-off-outline"></ion-icon>
+          <p>Camera Off</p>
+        </div>
+        <div class="participant-label">
+          <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
+          <span>You</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Note: Whiteboard will appear as overlay, positioned via CSS -->
+    </div>
+    
     <!-- Chat Panel -->
     <div class="chat-panel" *ngIf="showChat">
       <div class="chat-header">
-        <h3>Chat</h3>
+        <h3>Chat with {{getRemoteParticipantLabel()}}</h3>
         <ion-button (click)="toggleChat()" size="small" fill="clear">
-          <ion-icon name="close"></ion-icon>
+          <ion-icon name="close-outline"></ion-icon>
         </ion-button>
       </div>
       
-      <div class="chat-participants">
-        <div class="participant-avatar">
-          <div class="avatar group">
-            <span>👥</span>
-          </div>
-          <span class="participant-name">Group</span>
+      <div class="chat-messages" #chatMessagesContainer>
+        <!-- Loading state -->
+        <div *ngIf="isLoadingMessages" class="loading-state">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Loading messages...</p>
         </div>
-        <div class="participant-avatar">
-          <div class="avatar">
-            <span>You</span>
-          </div>
-          <span class="participant-name">You</span>
+        
+        <!-- Empty state -->
+        <div *ngIf="!isLoadingMessages && chatMessages.length === 0" class="empty-state">
+          <ion-icon name="chatbubbles-outline"></ion-icon>
+          <p>No messages yet</p>
         </div>
-        <div class="participant-avatar" *ngIf="remoteUserCount > 0">
-          <div class="avatar">
-            <span>{{getRemoteParticipantLabel().charAt(0)}}</span>
-            <div class="notification-badge" *ngIf="chatMessages.length > 0">{{chatMessages.length}}</div>
+        
+        <!-- Messages -->
+        <div *ngFor="let message of chatMessages" class="chat-message" 
+             [class.own-message]="isMyMessage(message)"
+             [class.system-message]="message.type === 'system' || message.isSystemMessage"
+             [attr.data-message-id]="message.id">
+          <div class="message-content"
+               (mousedown)="message.type !== 'system' && !message.isSystemMessage && onMessagePressStart(message, $event)"
+               (touchstart)="message.type !== 'system' && !message.isSystemMessage && onMessagePressStart(message, $event)"
+               (mouseup)="onMessagePressEnd($event)"
+               (touchend)="onMessagePressEnd($event)"
+               (mouseleave)="onMessagePressEnd($event)"
+               (touchcancel)="onMessagePressEnd($event)">
+            <!-- Reply preview -->
+            <div *ngIf="message.replyTo" class="reply-to-preview">
+              <div class="reply-to-line"></div>
+              <div class="reply-to-content">
+                <span class="reply-to-sender">{{ message.replyTo.senderName }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'text'">{{ message.replyTo.content }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'image'">📷 Photo</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'file'">📄 {{ message.replyTo.fileName }}</span>
+                <span class="reply-to-text" *ngIf="message.replyTo.type === 'voice'">🎤 Voice message</span>
+              </div>
+            </div>
+            
+            <!-- Text message content -->
+            <p class="message-text" *ngIf="message.content">{{message.content}}</p>
+            
+            <!-- Image message -->
+            <div *ngIf="message.type === 'image'" class="message-image">
+              <img [src]="message.fileUrl" [alt]="message.fileName" />
+              <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+            </div>
+            
+            <!-- File message -->
+            <div *ngIf="message.type === 'file'" class="message-file">
+              <div class="file-info" (click)="downloadFile(message, $event)">
+                <ion-icon [name]="getFileIcon(message.fileType!)" class="file-icon"></ion-icon>
+                <div class="file-details">
+                  <p class="file-name">{{ message.fileName }}</p>
+                  <p class="file-size">{{ formatFileSize(message.fileSize!) }}</p>
+                </div>
+                <ion-icon name="download-outline" class="download-icon" (click)="downloadFile(message, $event)"></ion-icon>
+              </div>
+              <p *ngIf="message.content" class="file-caption">{{ message.content }}</p>
+            </div>
+            
+            <!-- Voice message -->
+            <div *ngIf="message.type === 'voice'" class="message-voice">
+              <ion-icon name="play-circle" class="voice-icon"></ion-icon>
+              <audio [src]="message.fileUrl" controls class="voice-player"></audio>
+              <span class="voice-duration" *ngIf="message.duration">{{ message.duration }}s</span>
+            </div>
+            
+            <span class="message-time">{{formatMessageTime(message.createdAt)}}</span>
           </div>
-          <span class="participant-name">{{getRemoteParticipantLabel()}}</span>
         </div>
       </div>
       
-      <div class="chat-messages" #chatMessagesContainer>
-        <div *ngFor="let message of chatMessages" class="chat-message" [class.own-message]="message.isOwn">
-          <div class="message-avatar">
-            <span>{{ message.isOwn ? 'Y' : getRemoteParticipantLabel().charAt(0) }}</span>
-          </div>
-          <div class="message-content">
-            <span class="sender-name">{{message.sender}}</span>
-            <p class="message-text">{{message.text}}</p>
-            <span class="message-time">{{message.timestamp | date:'short'}}</span>
-          </div>
+      <!-- Context Menu (Long-press) -->
+      <div *ngIf="showContextMenu && contextMenuPosition" 
+           class="message-context-menu"
+           [class.show-below]="contextMenuPosition.showBelow"
+           [style.top.px]="contextMenuPosition.top"
+           [style.left.px]="contextMenuPosition.left">
+        <div class="context-menu-arrow" 
+             [class.arrow-top]="contextMenuPosition.showBelow"
+             [class.arrow-bottom]="!contextMenuPosition.showBelow"
+             [style.left.px]="contextMenuPosition.arrowOffset"></div>
+        <div class="context-menu-content">
+          <button class="context-menu-item" (click)="onContextMenuAction('reply')">
+            <ion-icon name="arrow-undo-outline"></ion-icon>
+            <span>Reply</span>
+          </button>
+          <button class="context-menu-item" (click)="onContextMenuAction('copy')" *ngIf="contextMenuMessage?.content">
+            <ion-icon name="copy-outline"></ion-icon>
+            <span>Copy</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Context Menu Backdrop -->
+      <div *ngIf="showContextMenu" class="context-menu-backdrop" (click)="closeContextMenu()"></div>
+      
+      <!-- Reply Preview -->
+      <div *ngIf="replyingToMessage" class="replying-to-container">
+        <div class="replying-to-header">
+          <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
+          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : getRemoteParticipantLabel() }}</span>
+          <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
+        </div>
+        <div class="replying-to-preview">
+          <span *ngIf="replyingToMessage.type === 'text'">{{ replyingToMessage.content }}</span>
+          <span *ngIf="replyingToMessage.type === 'image'">📷 Photo</span>
+          <span *ngIf="replyingToMessage.type === 'file'">📄 {{ replyingToMessage.fileName }}</span>
+          <span *ngIf="replyingToMessage.type === 'voice'">🎤 Voice message</span>
+        </div>
+      </div>
+      
+      <!-- Pending Voice Note Preview -->
+      <div *ngIf="pendingVoiceNote" class="voice-preview">
+        <div class="voice-preview-header">
+          <ion-icon name="mic-circle"></ion-icon>
+          <span class="voice-preview-label">Voice note {{ pendingVoiceNote.duration }}s</span>
+        </div>
+        <audio [src]="pendingVoiceNote.url" controls></audio>
+        <div class="voice-preview-actions">
+          <ion-button fill="clear" size="small" color="medium" (click)="clearPendingVoiceNote()">
+            <ion-icon slot="start" name="trash-outline"></ion-icon>
+            Discard
+          </ion-button>
+          <ion-button size="small" (click)="sendPendingVoiceNote()" [disabled]="isUploading">
+            <ion-icon slot="start" name="send"></ion-icon>
+            Send
+          </ion-button>
         </div>
       </div>
       
       <div class="chat-input">
-        <ion-button class="emoji-button" fill="clear" size="small">
-          <ion-icon name="happy-outline"></ion-icon>
+        <!-- File attachment buttons -->
+        <ion-button fill="clear" size="small" (click)="triggerFileInput()" [disabled]="isUploading || isRecording">
+          <ion-icon name="attach-outline"></ion-icon>
         </ion-button>
+        
+        <!-- Voice recording button -->
+        <ion-button fill="clear" size="small" (click)="toggleVoiceRecording()" [disabled]="isUploading">
+          <ion-icon [name]="isRecording ? 'stop-circle' : 'mic-outline'" [color]="isRecording ? 'danger' : ''"></ion-icon>
+        </ion-button>
+        
         <ion-input 
           [(ngModel)]="newMessage" 
           placeholder="Write your message..."
           (keyup.enter)="sendMessage()"
-          class="message-input">
+          class="message-input"
+          [disabled]="isUploading || isRecording">
         </ion-input>
-        <ion-button (click)="sendMessage()" class="send-button" fill="solid">
+        
+        <ion-button (click)="sendMessage()" class="send-button" fill="solid" 
+                    [disabled]="!newMessage.trim() || isSending || isUploading || isRecording">
           <ion-icon name="send"></ion-icon>
         </ion-button>
+        
+        <!-- Upload progress indicator -->
+        <div *ngIf="isUploading" class="upload-progress">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Uploading...</span>
+        </div>
+        
+        <!-- Recording indicator -->
+        <div *ngIf="isRecording" class="recording-indicator">
+          <ion-icon name="radio-button-on" color="danger"></ion-icon>
+          <span>Recording... {{formatRecordingDuration()}}</span>
+        </div>
       </div>
+    </div>
+    </div> <!-- End of main-content-area -->
+    
+    <!-- Bottom Controls (Separate from main content) -->
+    <div class="video-controls">
+      <ion-button (click)="toggleMute()" [color]="isMuted ? 'danger' : 'medium'" fill="clear" title="Microphone">
+        <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="toggleVideo()" [color]="isVideoOff ? 'danger' : 'medium'" fill="clear" title="Camera">
+        <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="shareScreen()" color="medium" fill="clear" title="Share Screen">
+        <ion-icon name="desktop-outline"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="toggleVirtualBackgroundControls()" [color]="showVirtualBackgroundControls ? 'primary' : 'medium'" fill="clear" title="Virtual Background">
+        <ion-icon name="color-filter-outline"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="toggleWhiteboard()" [color]="showWhiteboard ? 'primary' : 'medium'" fill="clear" title="Whiteboard">
+        <ion-icon name="create-outline"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="toggleChat()" [color]="showChat ? 'primary' : 'medium'" fill="clear" title="Chat">
+        <ion-icon name="chatbubbles-outline"></ion-icon>
+      </ion-button>
+      
+      <ion-button (click)="endCall()" color="danger" fill="solid" title="End Call">
+        <ion-icon name="call-outline"></ion-icon>
+      </ion-button>
     </div>
 
-    <!-- Whiteboard -->
-    <div class="whiteboard" 
-         [class.fullscreen]="isWhiteboardFullscreen"
-         [class.dragging]="isWhiteboardDragging"
-         [style.width.px]="whiteboardWidth"
-         [style.height.px]="whiteboardHeight"
-         [style.left.px]="whiteboardX"
-         [style.top.px]="whiteboardY"
-         *ngIf="showWhiteboard">
-      <div class="whiteboard-header" 
-           (mousedown)="startWhiteboardDrag($event)"
-           [class.dragging]="isWhiteboardDragging">
-        <h3>Whiteboard</h3>
-        <div class="whiteboard-controls">
-          <ion-button (click)="toggleFullscreen()" size="small" fill="clear" title="Fullscreen">
-            <ion-icon [name]="isWhiteboardFullscreen ? 'contract' : 'expand'"></ion-icon>
-          </ion-button>
-          <ion-button (click)="clearWhiteboard()" size="small" fill="clear" title="Clear">
-            <ion-icon name="trash"></ion-icon>
-          </ion-button>
-          <ion-button (click)="toggleWhiteboard()" size="small" fill="clear" title="Close">
-            <ion-icon name="close"></ion-icon>
-          </ion-button>
-        </div>
-      </div>
-      
-      <div class="whiteboard-content">
-        <div class="canvas-container">
-          <canvas 
-            #whiteboardCanvas 
-            [width]="canvasWidth"
-            [height]="canvasHeight"
-            [class.text-cursor]="currentTool === 'text'"
-            [class.move-cursor]="currentTool === 'move'"
-            (mousedown)="handleCanvasClick($event)"
-            (mousemove)="handleCanvasMove($event)"
-            (mouseup)="handleCanvasMouseUp($event)"
-            (mouseleave)="handleCanvasMouseLeave($event)">
-          </canvas>
-          
-          <!-- Inline text input -->
-          <input 
-            #textInput
-            *ngIf="showInlineTextInput"
-            type="text"
-            [(ngModel)]="inlineTextValue"
-            [style.left.px]="textInputX"
-            [style.top.px]="textInputY"
-            [style.color]="currentTextColor"
-            [style.font-size.px]="currentTextSize"
-            class="inline-text-input"
-            (blur)="finishTextInput()"
-            (keyup.enter)="finishTextInput()"
-            (keyup.escape)="cancelTextInput()"
-            autofocus>
-        </div>
-      </div>
-      
-      <div class="whiteboard-tools">
-        <!-- Tool Selection -->
-        <div class="tool-selection">
-          <div class="tool-button" 
-               [class.active]="currentTool === 'draw'"
-               (click)="setTool('draw')"
-               title="Draw">
-            <ion-icon name="brush"></ion-icon>
-            <span>Draw</span>
-          </div>
-          <div class="tool-button" 
-               [class.active]="currentTool === 'text'"
-               (click)="setTool('text')"
-               title="Add Text">
-            <ion-icon name="text"></ion-icon>
-            <span>Text</span>
-          </div>
-          <div class="tool-button" 
-               [class.active]="currentTool === 'move'"
-               (click)="setTool('move')"
-               title="Move Elements">
-            <ion-icon name="move"></ion-icon>
-            <span>Move</span>
-          </div>
-        </div>
-        
-        <!-- Color Picker -->
-        <div class="color-picker-section">
-          <div class="section-label">Color</div>
-          <div class="color-picker">
-            <div class="color-option" 
-                 [class.active]="currentColor === '#000000'"
-                 (click)="setBrushColor('#000000')"
-                 style="background-color: #000000"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#ff0000'"
-                 (click)="setBrushColor('#ff0000')"
-                 style="background-color: #ff0000"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#2196F3'"
-                 (click)="setBrushColor('#2196F3')"
-                 style="background-color: #2196F3"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#4CAF50'"
-                 (click)="setBrushColor('#4CAF50')"
-                 style="background-color: #4CAF50"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#ffeb3b'"
-                 (click)="setBrushColor('#ffeb3b')"
-                 style="background-color: #ffeb3b"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#ff9800'"
-                 (click)="setBrushColor('#ff9800')"
-                 style="background-color: #ff9800"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#9c27b0'"
-                 (click)="setBrushColor('#9c27b0')"
-                 style="background-color: #9c27b0"></div>
-            <div class="color-option" 
-                 [class.active]="currentColor === '#795548'"
-                 (click)="setBrushColor('#795548')"
-                 style="background-color: #795548"></div>
-          </div>
-        </div>
-        
-        <!-- Brush Size -->
-        <div class="brush-size-section" *ngIf="currentTool === 'draw'">
-          <div class="section-label">Brush Size</div>
-          <div class="brush-sizes">
-            <div class="brush-option" 
-                 [class.active]="currentBrushSize === 2"
-                 (click)="setBrushSize(2)">
-              <div class="brush-preview" style="width: 4px; height: 4px;"></div>
-            </div>
-            <div class="brush-option" 
-                 [class.active]="currentBrushSize === 5"
-                 (click)="setBrushSize(5)">
-              <div class="brush-preview" style="width: 8px; height: 8px;"></div>
-            </div>
-            <div class="brush-option" 
-                 [class.active]="currentBrushSize === 10"
-                 (click)="setBrushSize(10)">
-              <div class="brush-preview" style="width: 12px; height: 12px;"></div>
-            </div>
-            <div class="brush-option" 
-                 [class.active]="currentBrushSize === 15"
-                 (click)="setBrushSize(15)">
-              <div class="brush-preview" style="width: 16px; height: 16px;"></div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Text Size -->
-        <div class="text-size-section" *ngIf="currentTool === 'text'">
-          <div class="section-label">Text Size</div>
-          <div class="text-sizes">
-            <div class="text-option" 
-                 [class.active]="currentTextSize === 16"
-                 (click)="setTextSize(16)"
-                 style="font-size: 14px;">A</div>
-            <div class="text-option" 
-                 [class.active]="currentTextSize === 24"
-                 (click)="setTextSize(24)"
-                 style="font-size: 18px;">A</div>
-            <div class="text-option" 
-                 [class.active]="currentTextSize === 32"
-                 (click)="setTextSize(32)"
-                 style="font-size: 22px;">A</div>
-            <div class="text-option" 
-                 [class.active]="currentTextSize === 48"
-                 (click)="setTextSize(48)"
-                 style="font-size: 26px;">A</div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </ion-content>

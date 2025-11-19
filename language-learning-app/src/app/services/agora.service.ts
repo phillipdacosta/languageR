@@ -49,6 +49,7 @@ export class AgoraService {
   public onWhiteboardMessage?: (data: any) => void;
   public onChatMessage?: (message: any) => void;
   public onRemoteUserStateChange?: (uid: UID, state: { isMuted?: boolean; isVideoOff?: boolean }) => void;
+  public onVolumeIndicator?: (volumes: { uid: UID; level: number }[]) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -484,6 +485,12 @@ export class AgoraService {
     // Listen for remote user joining
     this.client.on("user-published", async (user, mediaType) => {
       console.log("🎉 User published:", user.uid, mediaType);
+      console.log("📊 User details:", {
+        uid: user.uid,
+        hasVideoTrack: !!user.videoTrack,
+        hasAudioTrack: !!user.audioTrack,
+        mediaType: mediaType
+      });
       
       try {
         // Subscribe to the remote user
@@ -491,11 +498,19 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
+          // For remote users, we assume video is ON when published (they'll send a message if it's muted)
+          // This is important because muted video tracks are still published (keeps them in the call)
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
-            videoTrack: user.videoTrack 
+            videoTrack: user.videoTrack,
+            isVideoOff: false // Default to false, will be updated via messaging if needed
           });
           console.log("📹 Added video track for user:", user.uid);
+          
+          // Notify the UI about video state (assume on initially)
+          if (this.onRemoteUserStateChange) {
+            this.onRemoteUserStateChange(user.uid, { isVideoOff: false });
+          }
         }
         
         if (mediaType === "audio") {
@@ -508,6 +523,13 @@ export class AgoraService {
         }
         
         console.log("👥 Total remote users:", this.remoteUsers.size);
+        console.log("👥 Remote users map:", Array.from(this.remoteUsers.entries()).map(([uid, u]) => ({
+          uid,
+          hasVideo: !!u.videoTrack,
+          hasAudio: !!u.audioTrack,
+          isVideoOff: u.isVideoOff,
+          isMuted: u.isMuted
+        })));
       } catch (error) {
         console.error("❌ Error subscribing to user:", user.uid, error);
       }
@@ -521,6 +543,12 @@ export class AgoraService {
         const remoteUser = this.remoteUsers.get(user.uid);
         if (remoteUser) {
           remoteUser.videoTrack = undefined;
+          remoteUser.isVideoOff = true;
+          
+          // Notify the UI that video is off
+          if (this.onRemoteUserStateChange) {
+            this.onRemoteUserStateChange(user.uid, { isVideoOff: true });
+          }
         }
       }
       
@@ -537,6 +565,16 @@ export class AgoraService {
       console.log("👋 User left:", user.uid);
       this.remoteUsers.delete(user.uid);
       console.log("👥 Total remote users after leave:", this.remoteUsers.size);
+    });
+
+    // Enable volume indicator for speaking detection
+    this.client.enableAudioVolumeIndicator();
+    
+    // Listen for volume indicator (speaking detection)
+    this.client.on("volume-indicator", (volumes) => {
+      if (this.onVolumeIndicator) {
+        this.onVolumeIndicator(volumes);
+      }
     });
   }
 
@@ -781,26 +819,52 @@ export class AgoraService {
       console.log("Successfully joined lesson channel:", agora.channelName);
 
       // Publish both tracks (they both exist now)
+      console.log("📤 Publishing local tracks...", {
+        hasAudioTrack: !!this.localAudioTrack,
+        hasVideoTrack: !!this.localVideoTrack,
+        micEnabled,
+        videoEnabled
+      });
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
-      console.log("Successfully published local tracks");
+      console.log("✅ Successfully published local tracks to channel");
       
-      // Apply user preferences after publishing
-      // Audio: Use setMuted() (can be toggled)
-      // Video: Use setEnabled() (can be toggled since track exists and is published)
+      // CRITICAL: Wait 1 second before muting to ensure other participants receive "user-published" events
+      // Muting immediately can prevent events from firing on the remote side
+      // If both audio and video are off, we need extra time for the events to propagate
+      console.log("⏳ Waiting 1 second for user-published events to propagate...");
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log("✅ Delay complete, now applying user preferences");
+      
+      // Apply user preferences after publishing AND after delay
+      // Use setMuted() to keep tracks published (so other participants see we're in the call)
       if (!micEnabled) {
         this.localAudioTrack!.setMuted(true);
-        console.log("Microphone track muted per user preference");
+        console.log("🎤 Microphone track muted per user preference");
+      } else {
+        console.log("🎤 Microphone track active");
       }
       
       if (!videoEnabled) {
-        // For video tracks, use setEnabled() to disable camera
-        await this.localVideoTrack!.setEnabled(false);
+        // Mute video track (camera appears off but track stays published)
+        this.localVideoTrack!.setMuted(true);
         this.videoEnabledState = false; // Track state
-        console.log("Video track disabled per user preference");
+        console.log("📹 Video track muted (camera off) per user preference");
+        
+        // Send video state to notify others
+        setTimeout(async () => {
+          await this.sendVideoStateUpdate(true); // true = video is OFF
+          console.log("📤 Sent video off state to other participants");
+        }, 1500);
       } else {
         this.videoEnabledState = true; // Track state
-        console.log("Video track enabled per user preference");
+        console.log("📹 Video track active (camera on)");
       }
+      
+      console.log("📊 Final track states:", {
+        audioMuted: this.localAudioTrack?.muted,
+        videoMuted: this.localVideoTrack?.muted,
+        videoEnabledState: this.videoEnabledState
+      });
 
       // Initialize real-time messaging for the lesson
       this.channelName = agora.channelName;
@@ -1030,13 +1094,14 @@ export class AgoraService {
     if (!this.localVideoTrack) return false;
 
     try {
-      // Use setEnabled() approach - simpler and more reliable
+      // Use setMuted() to keep track published (allows other participants to detect we're in the call)
       const currentlyEnabled = this.videoEnabledState;
       const newState = !currentlyEnabled;
       
       console.log(`Toggling video: ${currentlyEnabled ? 'ON' : 'OFF'} -> ${newState ? 'ON' : 'OFF'}`);
       
-      await this.localVideoTrack.setEnabled(newState);
+      // Use setMuted (true = camera off, false = camera on)
+      this.localVideoTrack.setMuted(!newState);
       this.videoEnabledState = newState;
       
       // Send video state to other users via messaging
