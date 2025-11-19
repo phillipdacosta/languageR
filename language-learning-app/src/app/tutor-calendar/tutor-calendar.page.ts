@@ -11,6 +11,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { filter } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
+import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 
 interface MobileDayContext {
   date: Date;
@@ -51,7 +52,40 @@ interface AgendaSection {
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule]
+  imports: [CommonModule, IonicModule, FormsModule],
+  animations: [
+    trigger('slideInUp', [
+      state('void', style({})),
+      state('in', style({
+        opacity: 1,
+        transform: 'translateY(0) scale(1)'
+      })),
+      transition('void => in', [
+        style({
+          opacity: 0,
+          transform: 'translateY(20px) scale(0.98)'
+        }),
+        animate('400ms cubic-bezier(0.4, 0, 0.2, 1)', style({
+          opacity: 1,
+          transform: 'translateY(0) scale(1)'
+        }))
+      ]),
+      transition('void => void', [])
+    ]),
+    trigger('listAnimation', [
+      transition('* => *', [
+        query(':enter', [
+          style({ opacity: 0, transform: 'translateY(20px) scale(0.98)' }),
+          stagger(80, [
+            animate('400ms cubic-bezier(0.4, 0, 0.2, 1)', style({
+              opacity: 1,
+              transform: 'translateY(0) scale(1)'
+            }))
+          ])
+        ], { optional: true })
+      ])
+    ])
+  ]
 })
 export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   currentUser: User | null = null;
@@ -87,6 +121,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   mobileAgendaSections: AgendaSection[] = [];
   selectedMobileDayIndex = 0;
   mobileTimeline: TimelineEntry[] = [];
+  mobileTimelineEvents: TimelineEntry[] = []; // Pre-filtered events only
 
   private viewportResizeHandler = () => this.evaluateViewport();
 
@@ -405,20 +440,51 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private buildMobileTimeline() {
     if (!this.isMobileView) {
       this.mobileTimeline = [];
+      this.mobileTimelineEvents = [];
       return;
     }
     const activeDay = this.selectedMobileDay;
     if (!activeDay) {
       this.mobileTimeline = [];
+      this.mobileTimelineEvents = [];
       return;
     }
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
     this.mobileTimeline = this.buildDayEntries(dayStart, dayEnd);
+    
+    // Debug: Log all timeline entries for the selected day
+    console.log('📅 Building mobile timeline for:', activeDay.date.toLocaleDateString());
+    console.log('📋 All timeline entries:', this.mobileTimeline.map(item => ({
+      type: item.type,
+      title: item.title,
+      subtitle: item.subtitle,
+      start: item.start.toLocaleString(),
+      hasAvatar: !!item.avatarUrl
+    })));
+    
+    // Filter to only actual lessons (exclude free time slots and availability blocks)
+    // Lessons have subtitles, avatarUrls, or titles that aren't "Available"/"Open time slot"
+    this.mobileTimelineEvents = this.mobileTimeline.filter(item => {
+      if (item.type !== 'event') return false;
+      // Exclude availability blocks (they have "Available" or "Open time slot" as title and no lesson indicators)
+      const isAvailabilityBlock = (item.title === 'Available' || item.title === 'Open time slot') && 
+                                 !item.subtitle && 
+                                 !item.avatarUrl;
+      return !isAvailabilityBlock;
+    });
+    
+    // Debug: Log filtered events
+    console.log('✅ Filtered lesson events:', this.mobileTimelineEvents.map(item => ({
+      title: item.title,
+      subtitle: item.subtitle,
+      start: item.start.toLocaleString()
+    })));
   }
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
     const results: TimelineEntry[] = [];
+    
     for (const event of this.events || []) {
       if (!event.start || !event.end) {
         continue;
@@ -428,24 +494,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (isNaN(rawStart.getTime()) || isNaN(rawEnd.getTime())) {
         continue;
       }
+      
       if (rawStart >= dayEnd || rawEnd <= dayStart) {
         continue;
       }
       const clampedStart = rawStart.getTime() < dayStart.getTime() ? new Date(dayStart.getTime()) : rawStart;
       const clampedEnd = rawEnd.getTime() > dayEnd.getTime() ? new Date(dayEnd.getTime()) : rawEnd;
-      
-      // Debug logging for 12:00 PM events
-      const eventStartTime = rawStart.toLocaleTimeString();
-      if (eventStartTime.includes('12:00')) {
-        console.log('🔍 collectEventsForDay - Processing 12:00 PM event:', {
-          eventTitle: event.title,
-          eventId: event.id,
-          backgroundColor: event.backgroundColor,
-          extendedProps: event.extendedProps,
-          hasExtendedProps: !!event.extendedProps,
-          extendedPropsKeys: event.extendedProps ? Object.keys(event.extendedProps) : []
-        });
-      }
       
       results.push(this.buildTimelineEvent(event, clampedStart, clampedEnd));
     }

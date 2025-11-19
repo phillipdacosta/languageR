@@ -79,7 +79,8 @@
         <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
       </div>
 
-      <div class="schedule-legend">
+      <!-- Temporarily commented out schedule legend -->
+      <!-- <div class="schedule-legend">
         <h4>Your Schedule</h4>
         <div class="legend-items">
           <div class="legend-item">
@@ -95,7 +96,7 @@
             <span>Booked lesson</span>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <ng-container [ngSwitch]="mobileViewMode">
         <ng-container *ngSwitchCase="'day'">
@@ -126,39 +127,48 @@
             <div class="date-month">{{ activeDay.monthLabel }} {{ activeDay.dayNumber }}</div>
           </div>
 
-          <div class="mobile-timeline" *ngIf="mobileTimeline.length > 0; else emptyTimeline">
-            <div *ngFor="let item of mobileTimeline" class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
-              <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
-              <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast">
-                <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
-                <ng-container *ngIf="item.type === 'event'; else freeBlock">
-                  <div class="card-header" [class.has-avatar]="item.avatarUrl">
-                    <ng-container *ngIf="item.avatarUrl">
-                      <img [src]="item.avatarUrl" alt="" class="card-avatar" />
-                    </ng-container>
-                    <div class="card-text">
-                      <div class="title">{{ item.title }}</div>
-                      <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+          <div class="schedule-legend">
+            <h4>Your Schedule</h4>
+            <div class="legend-items">
+              <div class="legend-item">
+                <span class="legend-dot cancelled"></span>
+                <span>Cancelled lesson</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot booked"></span>
+                <span>Booked lesson</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mobile-timeline-simple" *ngIf="mobileTimelineEvents.length > 0; else emptyTimeline">
+            <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [@slideInUp]="item.isPast ? 'void' : 'in'">
+              <div class="time-column">
+                <div class="time-display">{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</div>
+              </div>
+              <div class="event-column">
+                <div class="timeline-entry">
+                  <div class="timeline-marker" [style.background]="item.color || '#667eea'"></div>
+                  <div class="timeline-card" [class.past]="item.isPast">
+                    <div class="card-header" [class.has-avatar]="item.avatarUrl">
+                      <ng-container *ngIf="item.avatarUrl">
+                        <img [src]="item.avatarUrl" alt="" class="card-avatar" />
+                      </ng-container>
+                      <div class="card-text">
+                        <div class="title">{{ item.title }}</div>
+                        <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                      </div>
                     </div>
+                    <div class="location" *ngIf="item.location">{{ item.location }}</div>
                   </div>
-                  <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
-                  <div class="location" *ngIf="item.location">{{ item.location }}</div>
-                </ng-container>
-                <ng-template #freeBlock>
-                  <div class="free-slot-content" (click)="onSetUpAvailability(selectedMobileDay?.date)">
-                    <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
-                    <button type="button" class="free-add-icon" aria-label="Add availability">
-                      <ion-icon name="add-outline"></ion-icon>
-                    </button>
-                  </div>
-                </ng-template>
+                </div>
               </div>
             </div>
           </div>
           <ng-template #emptyTimeline>
             <div class="timeline-empty">
-              <ion-icon name="sunny-outline"></ion-icon>
-              <p>No events scheduled for this day.</p>
+              <ion-icon name="calendar-outline"></ion-icon>
+              <p>No lessons</p>
             </div>
           </ng-template>
 
@@ -180,6 +190,29 @@
             </ion-button>
             <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Current Week</ion-button>
           </div>
+          
+          <div class="schedule-legend">
+            <h4>Your Schedule</h4>
+            <div class="legend-items">
+              <div class="legend-item">
+                <span class="legend-dot available"></span>
+                <span>Available for booking</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot open"></span>
+                <span>Open time slot</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot cancelled"></span>
+                <span>Cancelled lesson</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot booked"></span>
+                <span>Booked lesson</span>
+              </div>
+            </div>
+          </div>
+          
           <div class="mobile-agenda" *ngIf="mobileAgendaSections.length > 0; else agendaEmpty">
             <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
               <div class="agenda-header">
