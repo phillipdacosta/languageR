@@ -29,6 +29,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   isLoading = true;
   errorMessage: string = '';
   isTutor: boolean = false;
+  isTrialLesson: boolean = false;
   otherParticipantJoined: boolean = false;
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
@@ -120,6 +121,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Use the entire user object for proper formatting (firstName, lastName, etc.)
         this.tutorName = this.formatName(lesson.tutorId);
         this.studentName = this.formatName(lesson.studentId);
+        this.isTrialLesson = lesson.isTrialLesson || false;
         
         // For tutors, show student info. For students, show tutor info.
         if (this.isTutor) {

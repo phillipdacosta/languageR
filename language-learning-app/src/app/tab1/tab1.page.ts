@@ -941,7 +941,8 @@ export class Tab1Page implements OnInit, OnDestroy {
           name: this.formatStudentDisplayName(student),
           subject: this.formatSubject(lesson.subject),
           avatar: student?.picture || student?.profilePicture || null,
-          lesson: lesson
+          lesson: lesson,
+          isTrialLesson: lesson.isTrialLesson || false
         };
       });
   }

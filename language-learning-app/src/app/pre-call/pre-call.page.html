@@ -129,12 +129,24 @@
 
     <!-- Right Panel: Lesson Info -->
     <div class="info-panel">
-      <h1 class="lesson-title">{{ lessonTitle || 'Language Lesson' }}</h1>
-      <p class="lesson-subtitle" *ngIf="isTutor">
+      <div class="lesson-header">
+        <h1 class="lesson-title">{{ lessonTitle || 'Language Lesson' }}</h1>
+        <div class="trial-badge" *ngIf="isTrialLesson">
+          <ion-icon name="star"></ion-icon>
+          <span>Trial Lesson</span>
+        </div>
+      </div>
+      <p class="lesson-subtitle" *ngIf="isTutor && !isTrialLesson">
         Enter the classroom to join {{ studentName || 'your student' }}
       </p>
-      <p class="lesson-subtitle" *ngIf="!isTutor">
+      <p class="lesson-subtitle" *ngIf="isTutor && isTrialLesson">
+        This is a trial lesson with {{ studentName || 'your student' }}
+      </p>
+      <p class="lesson-subtitle" *ngIf="!isTutor && !isTrialLesson">
         Enter the classroom to meet your tutor
+      </p>
+      <p class="lesson-subtitle" *ngIf="!isTutor && isTrialLesson">
+        This is your trial lesson with {{ tutorName || 'your tutor' }}
       </p>
       
       <!-- Presence indicator -->

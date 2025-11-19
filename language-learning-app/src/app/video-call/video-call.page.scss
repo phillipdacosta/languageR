@@ -1,3 +1,27 @@
+// Header styles
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  .trial-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+    color: white;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(255, 165, 0, 0.3);
+    
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+}
+
 .video-call-wrapper {
   height: 100%;
   display: flex;

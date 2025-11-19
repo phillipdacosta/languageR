@@ -55,6 +55,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Participant names
   tutorName: string = '';
   studentName: string = '';
+  isTrialLesson: boolean = false;
 
   // Virtual background properties
   showVirtualBackgroundControls = false;
@@ -244,6 +245,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             // Extract first names from tutor and student objects
             this.tutorName = this.getFirstName(lesson.tutorId) || 'Tutor';
             this.studentName = this.getFirstName(lesson.studentId) || 'Student';
+            this.isTrialLesson = lesson.isTrialLesson || false;
             
             // Get the other participant's email to look up their auth0Id
             const otherUserEmail = this.userRole === 'tutor' 

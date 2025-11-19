@@ -1,6 +1,12 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>Video Class</ion-title>
+    <div class="header-content">
+      <ion-title>Video Class</ion-title>
+      <div class="trial-badge" *ngIf="isTrialLesson">
+        <ion-icon name="star"></ion-icon>
+        <span>Trial</span>
+      </div>
+    </div>
     <ion-buttons slot="end">
       <ion-button (click)="endCall()" color="danger">
         <ion-icon name="call-outline"></ion-icon>

@@ -137,11 +137,20 @@
       <span style="display: none;">{{ countdownTick }}</span>
       <ion-card-content>
         <div class="card-inner" *ngIf="getFirstLessonForSelectedDate() as nextClass">
-          <!-- NEXT CLASS Badge -->
-          <div class="next-class-badge">
-            <span *ngIf="nextClass.isInProgress">NOW</span>
-            <span *ngIf="!nextClass.isInProgress && nextClass.isNextClass">NEXT CLASS</span>
-            <span *ngIf="!nextClass.isInProgress && !nextClass.isNextClass">{{ nextClass.dateTag }}</span>
+          <!-- Badge Row -->
+          <div class="badge-row">
+            <!-- NEXT CLASS Badge -->
+            <div class="next-class-badge">
+              <span *ngIf="nextClass.isInProgress">NOW</span>
+              <span *ngIf="!nextClass.isInProgress && nextClass.isNextClass">NEXT CLASS</span>
+              <span *ngIf="!nextClass.isInProgress && !nextClass.isNextClass">{{ nextClass.dateTag }}</span>
+            </div>
+            
+            <!-- Trial Lesson Badge -->
+            <div class="trial-lesson-badge" *ngIf="nextClass.lesson?.isTrialLesson">
+              <ion-icon name="star"></ion-icon>
+              <span>TRIAL</span>
+            </div>
           </div>
           
           <!-- Main Content Row -->
@@ -285,10 +294,16 @@
                     <img [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
                   </ion-avatar>
                 </div>
-                <div class="timeline-details">
-                  <h4 class="timeline-name">{{ event.name }}</h4>
-                  <p class="timeline-subject">{{ event.subject }}</p>
+            <div class="timeline-details">
+              <div class="timeline-name-row">
+                <h4 class="timeline-name">{{ event.name }}</h4>
+                <div class="timeline-trial-badge" *ngIf="event.isTrialLesson">
+                  <ion-icon name="star"></ion-icon>
+                  <span>Trial</span>
                 </div>
+              </div>
+              <p class="timeline-subject">{{ event.subject }}</p>
+            </div>
                 <!-- Join button for first timeline card -->
                 <div class="timeline-join-button" *ngIf="first && event.lesson">
                   <ion-button 

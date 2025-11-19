@@ -26,6 +26,7 @@ export interface Lesson {
   notes?: string;
   price: number;
   duration: number;
+  isTrialLesson?: boolean;
   bookingData?: {
     selectedDate: string;
     selectedTime: string;
