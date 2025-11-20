@@ -141,40 +141,43 @@
             </div>
           </div>
 
-          <div class="mobile-timeline-simple" *ngIf="mobileTimelineEvents.length > 0; else emptyTimeline">
-            <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [@slideInUp]="item.isPast ? 'void' : 'in'">
-              <div class="time-column">
-                <div class="time-display">{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</div>
-              </div>
-              <div class="event-column">
-                <div class="timeline-entry">
-                  <div class="timeline-marker" [style.background]="item.color || '#667eea'"></div>
-                  <div class="timeline-card" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
-                    <!-- Trial Badge -->
-                    <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
-                      <ion-icon name="star"></ion-icon>
-                    </div>
-                    <div class="card-header" [class.has-avatar]="item.avatarUrl">
-                      <ng-container *ngIf="item.avatarUrl">
-                        <img [src]="item.avatarUrl" alt="" class="card-avatar" />
-                      </ng-container>
-                      <div class="card-text">
-                        <div class="title">{{ item.title }}</div>
-                        <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+          <!-- Show nothing while loading -->
+          <ng-container *ngIf="!isLoadingMobileData">
+            <div class="mobile-timeline-simple" *ngIf="mobileTimelineEvents.length > 0; else emptyTimeline">
+              <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [@slideInUp]="item.isPast ? 'void' : 'in'">
+                <div class="time-column">
+                  <div class="time-display">{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</div>
+                </div>
+                <div class="event-column">
+                  <div class="timeline-entry">
+                    <div class="timeline-marker" [style.background]="item.color || '#667eea'"></div>
+                    <div class="timeline-card" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
+                      <!-- Trial Badge -->
+                      <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
+                        <ion-icon name="star"></ion-icon>
                       </div>
+                      <div class="card-header" [class.has-avatar]="item.avatarUrl">
+                        <ng-container *ngIf="item.avatarUrl">
+                          <img [src]="item.avatarUrl" alt="" class="card-avatar" />
+                        </ng-container>
+                        <div class="card-text">
+                          <div class="title">{{ item.title }}</div>
+                          <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                        </div>
+                      </div>
+                      <div class="location" *ngIf="item.location">{{ item.location }}</div>
                     </div>
-                    <div class="location" *ngIf="item.location">{{ item.location }}</div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          <ng-template #emptyTimeline>
-            <div class="timeline-empty">
-              <ion-icon name="calendar-outline"></ion-icon>
-              <p>No lessons</p>
-            </div>
-          </ng-template>
+            <ng-template #emptyTimeline>
+              <div class="timeline-empty">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <p>No lessons</p>
+              </div>
+            </ng-template>
+          </ng-container>
 
           <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
             <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">
@@ -217,61 +220,64 @@
             </div>
           </div>
           
-          <div class="mobile-agenda" *ngIf="mobileAgendaSections.length > 0; else agendaEmpty">
-            <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
-              <div class="agenda-header">
-                <div class="agenda-label-group">
-                  <div class="agenda-label" [class.is-today]="section.isToday">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
-                  <div class="agenda-date">{{ section.dateLabel }}</div>
+          <!-- Show nothing while loading -->
+          <ng-container *ngIf="!isLoadingMobileData">
+            <div class="mobile-agenda" *ngIf="mobileAgendaSections.length > 0; else agendaEmpty">
+              <div class="agenda-section" *ngFor="let section of mobileAgendaSections">
+                <div class="agenda-header">
+                  <div class="agenda-label-group">
+                    <div class="agenda-label" [class.is-today]="section.isToday">{{ section.isToday ? 'Today' : section.dayLabel }}</div>
+                    <div class="agenda-date">{{ section.dateLabel }}</div>
+                  </div>
+                  <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
                 </div>
-                <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
-              </div>
-              <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
-                <div class="agenda-item" *ngFor="let item of section.events">
-                  <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
-                    <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
-                    <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
-                      <!-- Trial Badge -->
-                      <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
-                        <ion-icon name="star"></ion-icon>
-                      </div>
-                      <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
-                      <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
-                        <div class="card-header" [class.has-avatar]="item.avatarUrl">
-                          <ng-container *ngIf="item.avatarUrl">
-                            <img [src]="item.avatarUrl" alt="" class="card-avatar" />
-                          </ng-container>
-                          <div class="card-text">
-                            <div class="title">{{ item.title }}</div>
-                            <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
+                  <div class="agenda-item" *ngFor="let item of section.events">
+                    <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
+                      <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
+                      <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
+                        <!-- Trial Badge -->
+                        <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
+                          <ion-icon name="star"></ion-icon>
+                        </div>
+                        <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
+                        <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
+                          <div class="card-header" [class.has-avatar]="item.avatarUrl">
+                            <ng-container *ngIf="item.avatarUrl">
+                              <img [src]="item.avatarUrl" alt="" class="card-avatar" />
+                            </ng-container>
+                            <div class="card-text">
+                              <div class="title">{{ item.title }}</div>
+                              <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
+                            </div>
                           </div>
-                        </div>
-                        <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
-                        <div class="location" *ngIf="item.location">{{ item.location }}</div>
-                      </ng-container>
-                      <ng-template #agendaFreeBlock>
-                        <div class="free-slot-content" (click)="onSetUpAvailability(section.date)">
-                          <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
-                          <button type="button" class="free-add-icon" aria-label="Add availability">
-                            <ion-icon name="add-outline"></ion-icon>
-                          </button>
-                        </div>
-                      </ng-template>
+                          <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
+                          <div class="location" *ngIf="item.location">{{ item.location }}</div>
+                        </ng-container>
+                        <ng-template #agendaFreeBlock>
+                          <div class="free-slot-content" (click)="onSetUpAvailability(section.date)">
+                            <span class="free-duration">{{ formatDurationShort(item.durationMinutes) }} open</span>
+                            <button type="button" class="free-add-icon" aria-label="Add availability">
+                              <ion-icon name="add-outline"></ion-icon>
+                            </button>
+                          </div>
+                        </ng-template>
+                      </div>
                     </div>
                   </div>
                 </div>
+                <ng-template #noAgendaEvents>
+                  <div class="agenda-empty">No events scheduled.</div>
+                </ng-template>
               </div>
-              <ng-template #noAgendaEvents>
-                <div class="agenda-empty">No events scheduled.</div>
-              </ng-template>
             </div>
-          </div>
-          <ng-template #agendaEmpty>
-            <div class="timeline-empty">
-              <ion-icon name="sunny-outline"></ion-icon>
-              <p>No upcoming events.</p>
-            </div>
-          </ng-template>
+            <ng-template #agendaEmpty>
+              <div class="timeline-empty">
+                <ion-icon name="sunny-outline"></ion-icon>
+                <p>No upcoming events.</p>
+              </div>
+            </ng-template>
+          </ng-container>
           
           <!-- <ion-fab vertical="bottom" horizontal="end" slot="fixed">
             <ion-fab-button color="primary" (click)="onScheduleLesson()" [disabled]="isScreenLocked()">

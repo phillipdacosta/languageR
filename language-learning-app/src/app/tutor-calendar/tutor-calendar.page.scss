@@ -2131,6 +2131,8 @@ ion-content {
     background: #ffffff;
     border-radius: 16px;
     padding: 16px;
+    min-width: 220px; // Increased width to hold more data
+    min-height: 110px; // Increased height for more content
     box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
     border: 1px solid rgba(148, 163, 184, 0.12);
     display: flex;
@@ -2385,9 +2387,9 @@ ion-content {
     .timeline-row {
       display: flex;
       align-items: flex-start;
-      gap: 24px;
+      gap: 2px;
       padding: 18px 0;
-      padding-left: 4px;
+      // padding-left: 4px;
       border-bottom: 1px solid rgba(0, 0, 0, 0.08);
       border-left: 3px solid transparent;
       transition: all 0.2s ease;
@@ -2444,7 +2446,7 @@ ion-content {
     
     .event-column {
       flex: 1;
-      min-width: 0;
+      min-width: 240px; // Set minimum width for cards
       padding-top: 0;
       overflow: visible; // Allow badge to show outside bounds
       
@@ -2467,7 +2469,8 @@ ion-content {
       
       .timeline-card {
         flex: 1;
-        min-width: 0;
+        min-width: 200px; // Maintain width on mobile
+        min-height: 90px; // Add height on mobile
         padding: 10px 14px;
         gap: 8px;
         border-radius: 12px;

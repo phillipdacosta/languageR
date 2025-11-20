@@ -123,6 +123,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   selectedMobileDayIndex = 0;
   mobileTimeline: TimelineEntry[] = [];
   mobileTimelineEvents: TimelineEntry[] = []; // Pre-filtered events only
+  isLoadingMobileData = true; // Track loading state to prevent empty state flash
+  private availabilityLoaded = false;
+  private lessonsLoaded = false;
 
   private viewportResizeHandler = () => this.evaluateViewport();
 
@@ -371,15 +374,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return entries;
     }
 
-    // First, separate lessons from availability blocks
+    // First, separate lessons/classes from availability blocks
     const lessons: TimelineEntry[] = [];
     const availabilityBlocks: TimelineEntry[] = [];
 
     for (const entry of entries) {
       // Check if this is a lesson (has avatar or subtitle which indicates student info)
+      // OR a class (has a title that's not "Available")
       const isLesson = entry.avatarUrl || entry.subtitle;
+      const isClass = entry.title && entry.title !== 'Available' && entry.title.includes('Class');
       
-      if (isLesson) {
+      if (isLesson || isClass) {
         lessons.push(entry);
       } else {
         availabilityBlocks.push(entry);
@@ -452,22 +457,24 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
-    this.mobileTimeline = this.buildDayEntries(dayStart, dayEnd);
     
-    // Debug: Log all timeline entries for the selected day
+    // Build timeline in temporary variable to avoid flashing
+    const timeline = this.buildDayEntries(dayStart, dayEnd);
     
-    // Filter to only actual lessons (exclude free time slots and availability blocks)
-    // Lessons have subtitles, avatarUrls, or titles that aren't "Available"/"Open time slot"
-    this.mobileTimelineEvents = this.mobileTimeline.filter(item => {
+    // Filter to show lessons and classes (exclude free time slots and generic availability blocks)
+    // Lessons have subtitles/avatarUrls, Classes have specific titles
+    const timelineEvents = timeline.filter(item => {
       if (item.type !== 'event') return false;
-      // Exclude availability blocks (they have "Available" or "Open time slot" as title and no lesson indicators)
-      const isAvailabilityBlock = (item.title === 'Available' || item.title === 'Open time slot') && 
-                                 !item.subtitle && 
-                                 !item.avatarUrl;
-      return !isAvailabilityBlock;
+      // Exclude generic availability blocks (they have "Available" as title and no lesson indicators)
+      // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
+      const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
+      const isFreeSlot = item.title === 'Open time slot';
+      return !isGenericAvailability && !isFreeSlot;
     });
     
-    // Debug: Log filtered events
+    // Assign all at once to prevent intermediate empty states
+    this.mobileTimeline = timeline;
+    this.mobileTimelineEvents = timelineEvents;
   }
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
@@ -498,6 +505,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const extended = (event.extendedProps as any) || {};
     const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
     const isLesson = Boolean(extended.lessonId);
+    const isClass = event.title && event.title !== 'Available' && event.title.includes('Class');
     
     // Debug logging for the 12:00-1:00 PM slot
     const debugStartTimeStr = start.toLocaleTimeString();
@@ -508,8 +516,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
-    // Availability blocks should be blue (#007bff), lessons use their status color
-    const color = isLesson ? ((event.backgroundColor as string) || '#10b981') : '#007bff';
+    // Classes and lessons should be green (#10b981), availability blocks blue (#007bff)
+    // Override the purple color that classes get from blockToEvent
+    const color = (isLesson || isClass) ? '#10b981' : '#007bff';
     const location = extended.location || extended.platform;
     const avatarUrl = isLesson ? extended.studentAvatar : undefined;
     const isTrialLesson = isLesson ? (extended.isTrialLesson || false) : false;
@@ -647,6 +656,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   ionViewWillEnter() {
     // Reset initialization attempts when entering the page
     this.initializationAttempts = 0;
+    // Always set loading state when entering view to prevent flash
+    if (this.isMobileView) {
+      this.isLoadingMobileData = true;
+      // Reset loading flags to track fresh data load
+      this.availabilityLoaded = false;
+      this.lessonsLoaded = false;
+    }
   }
 
   ionViewDidEnter() {
@@ -734,9 +750,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.convertLessonsToEvents(response.lessons);
           this.updateCalendarEvents();
         }
+        // Mark lessons as loaded
+        this.lessonsLoaded = true;
+        this.checkIfBothLoaded();
       },
       error: (error) => {
         console.error('📅 Error loading lessons:', error);
+        // Mark lessons as loaded (even on error)
+        this.lessonsLoaded = true;
+        this.checkIfBothLoaded();
       }
     });
   }
@@ -1072,7 +1094,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             console.warn('📅 No availability data found');
             this.events = [];
             this.updateCalendarEvents();
-            // updateCalendarEvents() already calls buildMobileTimeline() for mobile view
+            // Mark availability as loaded
+            this.availabilityLoaded = true;
+            this.checkIfBothLoaded();
             return;
           }
           
@@ -1081,8 +1105,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           });
           
           // Update calendar with events smoothly
-          // updateCalendarEvents() already calls buildMobileTimeline() for mobile view
           this.updateCalendarEvents();
+          // Mark availability as loaded
+          this.availabilityLoaded = true;
+          this.checkIfBothLoaded();
         },
         error: (error) => {
           console.error('📅 Error loading availability:', error);
@@ -1094,13 +1120,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             console.warn('📅 User state lost during API call, restoring...');
             this.currentUser = preservedUser;
           }
+          
+          // Mark availability as loaded (even on error) to prevent infinite loading
+          this.availabilityLoaded = true;
+          this.checkIfBothLoaded();
         }
       });
     } else {
       console.warn('📅 No current user found, initializing empty calendar');
       this.events = [];
-      // updateCalendarEvents() already calls buildMobileTimeline() for mobile view
       this.updateCalendarEvents();
+      // Mark both as loaded since we're not loading any data
+      this.availabilityLoaded = true;
+      this.lessonsLoaded = true;
+      this.checkIfBothLoaded();
+    }
+  }
+  
+  private checkIfBothLoaded() {
+    if (this.isMobileView && this.availabilityLoaded && this.lessonsLoaded) {
+      // Both API calls completed - mark data as loaded
+      this.isLoadingMobileData = false;
     }
   }
 
@@ -1109,6 +1149,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (this.isMobileView) {
       this.buildMobileTimeline();
       this.buildMobileAgenda();
+      // Don't mark as loaded here - wait for both availability and lessons to load
       return;
     }
     
@@ -1554,6 +1595,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Handle mobile view refresh
     if (this.isMobileView) {
+      // Don't set loading state during refresh to avoid flash
+      // Data will update smoothly in the background
       this.loadAndUpdateCalendarData();
       // Reload lessons if we have a user
       if (this.currentUser && this.currentUser.id) {
