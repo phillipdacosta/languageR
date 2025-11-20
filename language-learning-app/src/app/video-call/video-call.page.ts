@@ -239,13 +239,29 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Load lesson data to get participant names and IDs
       if (qp.lessonId) {
         try {
+          console.log('🎓 VIDEO-CALL: Loading lesson details', { 
+            lessonId: qp.lessonId, 
+            role: this.userRole 
+          });
+          
           const lessonResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
+          console.log('🎓 VIDEO-CALL: API Response:', lessonResponse);
+          
           if (lessonResponse?.success && lessonResponse.lesson) {
             const lesson = lessonResponse.lesson;
             // Extract first names from tutor and student objects
             this.tutorName = this.getFirstName(lesson.tutorId) || 'Tutor';
             this.studentName = this.getFirstName(lesson.studentId) || 'Student';
             this.isTrialLesson = lesson.isTrialLesson || false;
+            
+            console.log('🎓 VIDEO-CALL: Lesson loaded', {
+              lessonId: lesson._id,
+              isTrialLesson: lesson.isTrialLesson,
+              isTrialLessonComponent: this.isTrialLesson,
+              role: this.userRole,
+              tutorName: this.tutorName,
+              studentName: this.studentName
+            });
             
             // Get the other participant's email to look up their auth0Id
             const otherUserEmail = this.userRole === 'tutor' 
@@ -340,7 +356,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Begin monitoring remote users
       this.monitorRemoteUsers();
       this.isConnected = true;
-      console.log('Successfully connected to lesson video call');
+      
+      // Force change detection to show participant tiles immediately
+      this.cdr.detectChanges();
+      
+      console.log('✅ Successfully connected to lesson video call');
+      console.log('📊 Participant box state:', {
+        isConnected: this.isConnected,
+        isVideoOff: this.isVideoOff,
+        isMuted: this.isMuted,
+        hasVideoTrack: !!this.agoraService.getLocalVideoTrack(),
+        hasAudioTrack: !!this.agoraService.getLocalAudioTrack()
+      });
 
     } catch (error: any) {
       console.error('Error initializing video call via lesson params:', error);
@@ -384,15 +411,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       if (this.agoraService.isConnected()) {
         console.log('✅ Already connected to Agora, skipping initialization');
         this.isConnected = true;
+        this.cdr.detectChanges(); // Force UI update
       } else if (this.agoraService.isConnecting()) {
         console.log('⏳ Already connecting to Agora, waiting...');
         this.isConnected = true;
+        this.cdr.detectChanges(); // Force UI update
       } else {
         // Initialize Agora client and join when not already connected
         loading.message = 'Connecting to video call...';
         await this.agoraService.initializeClient();
         await this.agoraService.joinChannel(this.channelName);
         this.isConnected = true;
+        this.cdr.detectChanges(); // Force UI update
       }
 
       // Set up local video display - wait for tracks to be ready
@@ -462,21 +492,41 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           videoTrack: !!localVideoTrack,
           audioTrack: !!localAudioTrack,
           isConnected: this.agoraService.isConnected(),
-          isVideoEnabled: this.agoraService.isVideoEnabled()
+          isVideoEnabled: this.agoraService.isVideoEnabled(),
+          isVideoOff: this.isVideoOff
         });
         
-        if (localVideoTrack) {
-          console.log('✅ Local video track is ready, setting up display...');
+        // Wait for at least one track (video OR audio)
+        if (localVideoTrack || localAudioTrack) {
+          console.log('✅ Local tracks are ready, setting up display...');
           
           // Sync audio state
           if (localAudioTrack) {
             this.isMuted = localAudioTrack.muted;
           }
           
-          this.setupLocalVideoDisplay();
+          // Sync video state
+          if (localVideoTrack) {
+            this.isVideoOff = localVideoTrack.muted;
+          }
+          
+          // Only setup video display if video track exists and is not off
+          if (localVideoTrack && !this.isVideoOff) {
+            this.setupLocalVideoDisplay();
+          }
+          
+          // Force change detection to show participant box
+          this.cdr.detectChanges();
+          
+          console.log('✅ Participant box should now be visible with state:', {
+            isConnected: this.isConnected,
+            isVideoOff: this.isVideoOff,
+            isMuted: this.isMuted
+          });
+          
           resolve();
         } else {
-          console.log(`⏳ Waiting for video track (attempt ${attempts + 1})`);
+          console.log(`⏳ Waiting for tracks (attempt ${attempts + 1})`);
           setTimeout(() => checkTracks(attempts + 1), 500); // Increased delay
         }
       };
@@ -758,10 +808,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('Video toggled from', previousState, 'to', this.isVideoOff);
       console.log('Video:', this.isVideoOff ? 'Off' : 'On');
       
-      // Refresh video display after toggling
+      // Force change detection to update DOM (show/hide video element)
+      this.cdr.detectChanges();
+      
+      // Refresh video display after toggling and DOM updates
       setTimeout(() => {
         if (!this.isVideoOff) {
           // Video was turned ON - setup display
+          console.log('📹 Video turned ON, setting up display...');
           this.setupLocalVideoDisplay();
         } else {
           // Video was turned OFF - clear the video element
@@ -770,11 +824,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.localVideoRef.nativeElement.innerHTML = '';
           }
         }
-      }, 200);
+      }, 300); // Increased timeout to allow DOM update
     } catch (error) {
       console.error('Error toggling video:', error);
     }
   }
+
 
   toggleWhiteboard() {
     this.showWhiteboard = !this.showWhiteboard;
@@ -2537,13 +2592,86 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 VideoCall: Query params were:', this.queryParams);
       }
       
+      console.log('🚪 VideoCall: Leaving Agora channel and cleaning up tracks...');
       await this.agoraService.leaveChannel();
       this.isConnected = false;
+
+      // Explicitly cleanup all video/audio elements and their MediaStreams
+      console.log('🚪 VideoCall: Cleaning up all video/audio elements...');
+      this.cleanupAllMediaElements();
+
+      // Longer delay to ensure camera/mic hardware is fully released before navigation
+      console.log('🚪 VideoCall: Waiting for camera/mic release...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('🚪 VideoCall: Camera/mic released, navigating...');
 
       this.router.navigate(['/tabs']);
     } catch (error) {
       console.error('Error ending call:', error);
+      // Even on error, try to cleanup media
+      this.cleanupAllMediaElements();
+      await new Promise(resolve => setTimeout(resolve, 500));
       this.router.navigate(['/tabs']);
+    }
+  }
+
+  private cleanupAllMediaElements(): void {
+    try {
+      // Get all video elements in the page
+      const videoElements = document.querySelectorAll('video');
+      console.log(`🎥 Found ${videoElements.length} video elements to cleanup`);
+      
+      videoElements.forEach((video, index) => {
+        try {
+          // Stop all tracks in the video's srcObject
+          if (video.srcObject) {
+            const stream = video.srcObject as MediaStream;
+            const tracks = stream.getTracks();
+            console.log(`  🎥 Video ${index}: Stopping ${tracks.length} tracks`);
+            tracks.forEach(track => {
+              track.stop();
+              console.log(`    ⏹️ Stopped ${track.kind} track: ${track.label}`);
+            });
+          }
+          
+          // Clear the srcObject
+          video.srcObject = null;
+          video.load();
+          video.remove(); // Remove the element completely
+          console.log(`  ✅ Video ${index}: Cleaned up and removed`);
+        } catch (err) {
+          console.error(`  ❌ Error cleaning up video ${index}:`, err);
+        }
+      });
+
+      // Get all audio elements in the page
+      const audioElements = document.querySelectorAll('audio');
+      console.log(`🎤 Found ${audioElements.length} audio elements to cleanup`);
+      
+      audioElements.forEach((audio, index) => {
+        try {
+          // Stop all tracks in the audio's srcObject
+          if (audio.srcObject) {
+            const stream = audio.srcObject as MediaStream;
+            const tracks = stream.getTracks();
+            console.log(`  🎤 Audio ${index}: Stopping ${tracks.length} tracks`);
+            tracks.forEach(track => {
+              track.stop();
+              console.log(`    ⏹️ Stopped ${track.kind} track: ${track.label}`);
+            });
+          }
+          
+          // Clear the srcObject
+          audio.srcObject = null;
+          audio.load();
+          audio.remove(); // Remove the element completely
+          console.log(`  ✅ Audio ${index}: Cleaned up and removed`);
+        } catch (err) {
+          console.error(`  ❌ Error cleaning up audio ${index}:`, err);
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error in cleanupAllMediaElements:', error);
     }
   }
 
@@ -2585,6 +2713,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Fallback: ensure tracks are cleaned up even if endCall fails
         try {
           await this.agoraService.cleanupLocalTracks();
+          this.cleanupAllMediaElements(); // Explicit DOM cleanup
         } catch (cleanupError) {
           console.error('🚪 VideoCall: Error in cleanup fallback:', cleanupError);
         }
@@ -2607,9 +2736,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           console.log('🧹 VideoCall: Cleaning up tracks that may have been created but not joined...');
           await this.agoraService.cleanupLocalTracks();
         }
+        // Always cleanup DOM elements
+        this.cleanupAllMediaElements();
       } catch (cleanupError) {
         console.error('🚪 VideoCall: Error cleaning up tracks in ngOnDestroy:', cleanupError);
       }
+    } else {
+      // Last resort: cleanup any remaining media elements
+      console.log('🧹 VideoCall: No lesson connection, but cleaning up any media elements...');
+      this.cleanupAllMediaElements();
     }
 
     // Remove beforeunload listener

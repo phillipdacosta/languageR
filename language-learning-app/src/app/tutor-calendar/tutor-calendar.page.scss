@@ -1919,6 +1919,7 @@ ion-content {
     flex-direction: column;
     gap: 16px;
     padding: 0 16px 120px;
+    overflow: visible; // Allow badge to show outside bounds
   }
 
   .mobile-view-toggle {
@@ -1979,7 +1980,7 @@ ion-content {
   .mobile-day-strip.agenda-strip {
     gap: 12px;
     position: fixed;
-    top: 187px;
+    top: 215px;
     left: 0;
     right: 0;
     z-index: 98;
@@ -2093,6 +2094,7 @@ ion-content {
     gap: 12px;
     position: relative;
     z-index: 1;
+    overflow: visible; // Allow badge to show outside bounds
   }
 
   .timeline-marker {
@@ -2137,10 +2139,17 @@ ion-content {
     transition: all 0.25s ease;
     position: relative;
     z-index: 1;
+    overflow: visible; // Allow badge to show outside card bounds
     
     &:active {
       transform: scale(0.98);
       box-shadow: 0 1px 8px rgba(15, 23, 42, 0.06), 0 0.5px 2px rgba(15, 23, 42, 0.04);
+    }
+    
+    &.trial-lesson {
+      // Add a subtle border and glow for trial lessons
+      border: 1.5px solid rgba(255, 165, 0, 0.3);
+      box-shadow: 0 2px 12px rgba(255, 165, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.08);
     }
     
     &.past {
@@ -2184,6 +2193,38 @@ ion-content {
     border: none;
     box-shadow: none;
     gap: 0;
+  }
+
+  .trial-corner-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4), 0 0 0 3px white;
+    z-index: 10;
+    animation: pulse-trial 2s ease-in-out infinite;
+    
+    ion-icon {
+      color: white;
+      font-size: 16px;
+    }
+  }
+
+  @keyframes pulse-trial {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4), 0 0 0 3px white;
+    }
+    50% {
+      transform: scale(1.05);
+      box-shadow: 0 2px 12px rgba(255, 165, 0, 0.6), 0 0 0 3px white, 0 0 0 6px rgba(255, 165, 0, 0.2);
+    }
   }
 
   .timeline-card .time-range {
@@ -2291,6 +2332,7 @@ ion-content {
     gap: 20px;
     padding-top: 270px;
     padding-bottom: 24px;
+    overflow: visible; // Allow badge to show outside bounds
   }
 
   .agenda-section {
@@ -2302,16 +2344,19 @@ ion-content {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: visible; // Allow badge to show outside bounds
   }
 
   .agenda-items {
     display: flex;
     flex-direction: column;
     gap: 18px;
+    overflow: visible; // Allow badge to show outside bounds
   }
 
   .agenda-item .timeline-entry {
     width: 100%;
+    overflow: visible; // Allow badge to show outside bounds
   }
   
   .mobile-timeline {
@@ -2335,6 +2380,7 @@ ion-content {
     background: #ffffff;
     position: relative;
     z-index: 1;
+    overflow: visible; // Allow badge to show outside bounds
     
     .timeline-row {
       display: flex;
@@ -2347,6 +2393,7 @@ ion-content {
       transition: all 0.2s ease;
       position: relative;
       will-change: transform, opacity;
+      overflow: visible; // Allow badge to show outside bounds
       backface-visibility: hidden;
       transform: translateZ(0);
       -webkit-backface-visibility: hidden;
@@ -2399,11 +2446,13 @@ ion-content {
       flex: 1;
       min-width: 0;
       padding-top: 0;
+      overflow: visible; // Allow badge to show outside bounds
       
       .timeline-entry {
         display: flex;
         gap: 12px;
         align-items: flex-start;
+        overflow: visible; // Allow badge to show outside bounds
       }
       
       .timeline-marker {
@@ -2422,6 +2471,7 @@ ion-content {
         padding: 10px 14px;
         gap: 8px;
         border-radius: 12px;
+        overflow: visible; // Allow badge to show outside card bounds
         
         .card-header {
           gap: 10px;
@@ -2847,6 +2897,7 @@ ion-content {
     padding-bottom: 12px;
     margin-bottom: 8px;
     border-bottom: 2px solid rgba(148, 163, 184, 0.08);
+    padding-top: 16px;
   }
 
   .agenda-label {

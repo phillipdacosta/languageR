@@ -101,12 +101,6 @@ export class Tab1Page implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe(user => {
-        console.log('🔄 Tab1Page: Received user:', {
-          email: user?.email,
-          firstName: user?.firstName,
-          picture: user?.picture,
-          hasPicture: !!user?.picture
-        });
         this.currentUser = user;
         
         // Load notification count when user is available
@@ -735,6 +729,56 @@ export class Tab1Page implements OnInit, OnDestroy {
     return students.filter(s => !s.isNextClass);
   }
 
+  // Check if there were completed lessons earlier today
+  hadLessonsEarlierToday(): boolean {
+    if (!this.selectedDate) {
+      return false;
+    }
+    
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const selectedDay = this.startOfDay(this.selectedDate);
+    const isToday = selectedDay.getTime() === today.getTime();
+    
+    // Only check for today
+    if (!isToday) {
+      return false;
+    }
+    
+    // Get all lessons for today (regardless of status initially)
+    const lessonsForDate = this.lessons.filter(lesson => {
+      const lessonDate = new Date(lesson.startTime);
+      const lessonDay = this.startOfDay(lessonDate);
+      const matches = lessonDay.getTime() === selectedDay.getTime();
+      
+      return matches;
+    });
+    
+    // Check if any lessons happened earlier today
+    // A lesson counts as "earlier today" if:
+    // 1. Status is 'completed', OR
+    // 2. Its end time was in the past
+    const completedLessonsToday = lessonsForDate.filter(l => {
+      // Check if status is explicitly 'completed'
+      if (l.status === 'completed') {
+        return true;
+      }
+      
+      // Also check if lesson time has passed (even if status isn't updated)
+      const startTime = new Date(l.startTime);
+      const endTime = l.endTime ? new Date(l.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000); // Assume 1 hour if no end time
+      
+      // Check if lesson ended more than 10 minutes ago
+      const graceMinutes = 10;
+      const gracePeriodAgo = new Date(now.getTime() - graceMinutes * 60 * 1000);
+      const hasEnded = endTime < gracePeriodAgo;
+      
+      return hasEnded;
+    });
+    
+    return completedLessonsToday.length > 0;
+  }
+
   // Get first lesson for the selected date
   getFirstLessonForSelectedDate(): any | null {
     if (!this.selectedDate) {
@@ -1105,7 +1149,6 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   getOtherParticipantAvatar(lesson: Lesson): string {
-    console.log('getOtherParticipantAvatar', lesson);
     if (!this.currentUser || !lesson) return 'assets/avatar.png';
     
     // Use lesson ID + participant ID as cache key
@@ -1190,9 +1233,20 @@ export class Tab1Page implements OnInit, OnDestroy {
           }
         }
 
-        // Filter for upcoming lessons
+        // Filter for upcoming lessons + lessons from today (even if completed)
+        const today = this.startOfDay(new Date());
         this.lessons = allLessons
-          .filter(l => new Date(l.endTime).getTime() >= now)
+          .filter(l => {
+            const endTime = new Date(l.endTime).getTime();
+            const lessonDate = new Date(l.startTime);
+            const lessonDay = this.startOfDay(lessonDate);
+            
+            // Keep if: upcoming OR happened today
+            const isUpcoming = endTime >= now;
+            const isToday = lessonDay.getTime() === today.getTime();
+            
+            return isUpcoming || isToday;
+          })
           .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
         // Filter for past/completed lessons (for students to show past tutors)
@@ -1203,16 +1257,6 @@ export class Tab1Page implements OnInit, OnDestroy {
             return endTime < now && l.status !== 'cancelled';
           })
           .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
-
-        console.log('📚 Tab1Page: Past lessons found:', this.pastLessons.length);
-        console.log('📚 Tab1Page: Is tutor?', this.isTutor());
-        console.log('📚 Tab1Page: Past lessons:', this.pastLessons.map(l => ({
-          id: l._id,
-          tutorId: l.tutorId?._id || l.tutorId,
-          tutorName: l.tutorId?.name,
-          status: l.status,
-          endTime: l.endTime
-        })));
 
         // Extract unique tutors from past lessons (for students only)
         if (!this.isTutor()) {
@@ -1232,7 +1276,6 @@ export class Tab1Page implements OnInit, OnDestroy {
             }
           });
           this.pastTutors = Array.from(tutorMap.values());
-          console.log('👥 Tab1Page: Past tutors extracted:', this.pastTutors.length, this.pastTutors);
         } else {
           this.pastTutors = [];
         }
@@ -1747,18 +1790,12 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // Get current user's picture directly from database
   get currentUserPicture(): string | null {
-    console.log('🔄 Tab1Page get currentUserPicture: Current user picture:', this.currentUser?.picture);
     return this.currentUser?.picture || null;
   }
 
   // Check if user has a profile picture from the database
   get hasUserPicture(): boolean {
     const hasPicture = !!this.currentUser?.picture;
-    console.log('🔄 Tab1Page get hasUserPicture:', {
-      hasPicture,
-      picture: this.currentUser?.picture,
-      currentUser: !!this.currentUser
-    });
     return hasPicture;
   }
 
@@ -1788,18 +1825,12 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Try to diagnose the issue
     if (this.currentUser?.picture) {
       const img = new Image();
-      img.onload = () => console.log('✅ Manual image test succeeded for:', this.currentUser?.picture);
       img.onerror = (e) => console.error('❌ Manual image test failed for:', this.currentUser?.picture, e);
       img.src = this.currentUser.picture;
     }
   }
 
   onAvatarLoad(event: any) {
-    console.log('✅ Avatar image loaded successfully:', {
-      src: event.target?.src,
-      width: event.target?.width,
-      height: event.target?.height
-    });
   }
 
   // Simple helper methods for user type checking

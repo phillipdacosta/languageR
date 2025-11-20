@@ -68,7 +68,11 @@ export class AgoraService {
     private tokenGenerator: TokenGeneratorService,
     private lessonService: LessonService,
     private userService: UserService
-  ) { }
+  ) {
+    // Set Agora SDK log level to ERROR only (suppress INFO/DEBUG logs)
+    // Log levels: 0=NONE, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG
+    AgoraRTC.setLogLevel(1);
+  }
 
   getClient(): IAgoraRTCClient | null {
     return this.client;
@@ -1035,14 +1039,34 @@ export class AgoraService {
         await this.disableVirtualBackground();
       }
 
-      // Stop local tracks
+      // Stop local tracks and explicitly release MediaStream
       if (this.localVideoTrack) {
+        try {
+          // Get the underlying MediaStream and stop all tracks explicitly
+          const videoMediaStreamTrack = this.localVideoTrack.getMediaStreamTrack();
+          if (videoMediaStreamTrack) {
+            console.log('🎥 Stopping underlying video MediaStreamTrack...');
+            videoMediaStreamTrack.stop();
+          }
+        } catch (error) {
+          console.warn('⚠️ Error stopping video MediaStreamTrack:', error);
+        }
         this.localVideoTrack.stop();
         this.localVideoTrack.close();
         this.localVideoTrack = null;
       }
 
       if (this.localAudioTrack) {
+        try {
+          // Get the underlying MediaStream and stop all tracks explicitly
+          const audioMediaStreamTrack = this.localAudioTrack.getMediaStreamTrack();
+          if (audioMediaStreamTrack) {
+            console.log('🎤 Stopping underlying audio MediaStreamTrack...');
+            audioMediaStreamTrack.stop();
+          }
+        } catch (error) {
+          console.warn('⚠️ Error stopping audio MediaStreamTrack:', error);
+        }
         this.localAudioTrack.stop();
         this.localAudioTrack.close();
         this.localAudioTrack = null;
@@ -1170,6 +1194,12 @@ export class AgoraService {
     if (this.localVideoTrack) {
       try {
         console.log('🛑 Stopping and closing local video track...');
+        // Get the underlying MediaStream and stop all tracks explicitly
+        const videoMediaStreamTrack = this.localVideoTrack.getMediaStreamTrack();
+        if (videoMediaStreamTrack) {
+          console.log('🎥 Stopping underlying video MediaStreamTrack in cleanup...');
+          videoMediaStreamTrack.stop();
+        }
         this.localVideoTrack.stop();
         this.localVideoTrack.close();
         console.log('✅ Local video track cleaned up');
@@ -1183,6 +1213,12 @@ export class AgoraService {
     if (this.localAudioTrack) {
       try {
         console.log('🛑 Stopping and closing local audio track...');
+        // Get the underlying MediaStream and stop all tracks explicitly
+        const audioMediaStreamTrack = this.localAudioTrack.getMediaStreamTrack();
+        if (audioMediaStreamTrack) {
+          console.log('🎤 Stopping underlying audio MediaStreamTrack in cleanup...');
+          audioMediaStreamTrack.stop();
+        }
         this.localAudioTrack.stop();
         this.localAudioTrack.close();
         console.log('✅ Local audio track cleaned up');

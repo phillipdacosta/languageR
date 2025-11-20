@@ -2492,7 +2492,7 @@ ion-content {
 .next-class-badge {
   position: absolute;
   top: 16px;
-  left: 16px;
+  // left: 16px;
   background: #1f2937;
   color: #fff;
   padding: 4px 12px;
@@ -2521,7 +2521,7 @@ ion-content {
   
   @media (max-width: 600px) {
     top: 12px;
-    left: 12px;
+    // left: 12px;
     padding: 3px 10px;
     font-size: 10px;
   }

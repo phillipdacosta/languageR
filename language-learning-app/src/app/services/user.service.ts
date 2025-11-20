@@ -235,7 +235,6 @@ export class UserService {
     }
 
     // Otherwise fetch from API
-    console.log('🌐 UserService: Fetching user from API');
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {

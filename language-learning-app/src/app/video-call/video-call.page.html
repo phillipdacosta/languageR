@@ -270,7 +270,7 @@
       
       <!-- Local participant tile (always show when connected) -->
       <div class="participant-tile local-participant" [class.speaking]="isLocalUserSpeaking" *ngIf="isConnected">
-        <div #localVideo class="participant-video" *ngIf="!isVideoOff">
+        <div #localVideo class="participant-video" [class.hidden]="isVideoOff">
           <!-- Local video will be displayed here -->
         </div>
         <div class="video-placeholder small" *ngIf="isVideoOff">

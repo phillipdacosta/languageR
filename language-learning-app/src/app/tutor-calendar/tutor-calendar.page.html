@@ -149,7 +149,11 @@
               <div class="event-column">
                 <div class="timeline-entry">
                   <div class="timeline-marker" [style.background]="item.color || '#667eea'"></div>
-                  <div class="timeline-card" [class.past]="item.isPast">
+                  <div class="timeline-card" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
+                    <!-- Trial Badge -->
+                    <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
+                      <ion-icon name="star"></ion-icon>
+                    </div>
                     <div class="card-header" [class.has-avatar]="item.avatarUrl">
                       <ng-container *ngIf="item.avatarUrl">
                         <img [src]="item.avatarUrl" alt="" class="card-avatar" />
@@ -226,7 +230,11 @@
                 <div class="agenda-item" *ngFor="let item of section.events">
                   <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
                     <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
-                    <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast">
+                    <div class="timeline-card" [class.free]="item.type === 'free'" [class.past]="item.isPast" [class.trial-lesson]="item.isTrialLesson">
+                      <!-- Trial Badge -->
+                      <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
+                        <ion-icon name="star"></ion-icon>
+                      </div>
                       <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
                       <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
                         <div class="card-header" [class.has-avatar]="item.avatarUrl">

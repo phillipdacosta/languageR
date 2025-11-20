@@ -184,7 +184,6 @@ export class OnboardingGuard implements CanActivate {
         });
         
         if (onboardingCompleted) {
-          console.log('✅ OnboardingGuard: User has completed onboarding, allowing access');
           this.loadingService.hide();
           observer.next(true);
           observer.complete();

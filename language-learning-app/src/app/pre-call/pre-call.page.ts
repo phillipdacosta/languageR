@@ -115,13 +115,31 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       this.isTutor = role === 'tutor';
       
+      console.log('🎓 PRE-CALL: Loading lesson details', { 
+        lessonId: this.lessonId, 
+        role, 
+        isTutor: this.isTutor 
+      });
+      
       const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      console.log('🎓 PRE-CALL: API Response:', response);
+      
       if (response?.success && response.lesson) {
         const lesson = response.lesson;
         // Use the entire user object for proper formatting (firstName, lastName, etc.)
         this.tutorName = this.formatName(lesson.tutorId);
         this.studentName = this.formatName(lesson.studentId);
         this.isTrialLesson = lesson.isTrialLesson || false;
+        
+        console.log('🎓 PRE-CALL: Lesson loaded', {
+          lessonId: lesson._id,
+          isTrialLesson: lesson.isTrialLesson,
+          isTrialLessonComponent: this.isTrialLesson,
+          role,
+          isTutor: this.isTutor,
+          tutorName: this.tutorName,
+          studentName: this.studentName
+        });
         
         // For tutors, show student info. For students, show tutor info.
         if (this.isTutor) {
@@ -355,10 +373,24 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   async goBack() {
     console.log('🚪 PreCall: goBack() called - cleaning up resources...');
     
+    // Stop audio monitoring
+    this.stopAudioMonitoring();
+    
+    // Clear video element srcObject first to release camera
+    const videoElement = this.videoPreviewRef?.nativeElement;
+    if (videoElement) {
+      console.log('🎥 Clearing video element srcObject...');
+      videoElement.srcObject = null;
+      videoElement.load(); // Reset the video element
+    }
+    
     // Stop preview stream before navigating away
     if (this.localStream) {
       console.log('🛑 Stopping preview MediaStream tracks...');
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('  ⏹️ Stopped track:', track.kind, track.label);
+      });
       this.localStream = null;
     }
     
@@ -399,10 +431,25 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Stop audio monitoring
     this.stopAudioMonitoring();
     
+    // Clear video element srcObject to release camera
+    try {
+      const videoElement = this.videoPreviewRef?.nativeElement;
+      if (videoElement) {
+        console.log('🎥 Clearing video element srcObject in ngOnDestroy...');
+        videoElement.srcObject = null;
+        videoElement.load(); // Reset the video element
+      }
+    } catch (error) {
+      console.error('❌ Error clearing video element:', error);
+    }
+    
     // Clean up media stream
     if (this.localStream) {
       console.log('🛑 Stopping preview MediaStream tracks in ngOnDestroy...');
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('  ⏹️ Stopped track:', track.kind, track.label);
+      });
       this.localStream = null;
     }
     

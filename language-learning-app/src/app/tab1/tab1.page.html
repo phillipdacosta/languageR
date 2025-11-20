@@ -194,19 +194,30 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- Empty State: No Classes Today -->
+    <!-- Empty State: No Classes Today / No More Classes Today -->
     <div class="next-class-empty-state" *ngIf="isTutor() && !isLoadingLessons && !getFirstLessonForSelectedDate()">
       <div class="empty-state-content">
         <ion-icon name="calendar-outline" class="empty-state-icon"></ion-icon>
-        <h3 class="empty-state-title">No class today</h3>
         
-        <!-- Show next lesson info if available -->
-        <p class="empty-state-subtitle" *ngIf="getNextLessonInfo()">
+        <!-- Case 1: Had lessons earlier today, but no more -->
+        <h3 class="empty-state-title" *ngIf="hadLessonsEarlierToday()">No more classes today</h3>
+        
+        <!-- Case 2: No lessons at all today -->
+        <h3 class="empty-state-title" *ngIf="!hadLessonsEarlierToday()">No class today</h3>
+        
+        <!-- Subtitle for Case 1: Had lessons earlier -->
+        <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday() && getNextLessonInfo()">
           Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
         </p>
+        <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday() && !getNextLessonInfo()">
+          You don't have any more lessons scheduled for today.
+        </p>
         
-        <!-- Fallback if no future lessons at all -->
-        <p class="empty-state-subtitle" *ngIf="!getNextLessonInfo()">
+        <!-- Subtitle for Case 2: No lessons today at all -->
+        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo()">
+          Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
+        </p>
+        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && !getNextLessonInfo()">
           You don't have any lessons scheduled yet.
         </p>
         

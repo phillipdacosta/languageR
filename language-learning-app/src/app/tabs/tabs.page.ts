@@ -86,13 +86,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         takeUntil(this.destroy$)
       )
       .subscribe((user: any) => {
-        console.log('👤 TabsPage: Received user:', {
-          id: user?.id,
-          name: user?.name,
-          email: user?.email,
-          picture: user?.picture,
-          hasPicture: !!user?.picture
-        });
         this.currentUser = user;
         
         // Load counts when user is available
@@ -154,7 +147,6 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       takeUntil(this.destroy$)
     ).subscribe({
       next: (count) => {
-        console.log('🔴 Unread count changed in tabs page:', count, 'Previous value:', this.unreadCount$.value);
         this.unreadCount$.next(count);
         this.cdr.detectChanges();
       }

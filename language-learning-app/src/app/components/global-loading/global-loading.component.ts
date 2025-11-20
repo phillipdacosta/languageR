@@ -60,7 +60,6 @@ export class GlobalLoadingComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.subscription = this.loadingService.loading$.subscribe(loading => {
-      console.log('🔄 GlobalLoadingComponent: Loading state changed to:', loading);
       this.isLoading = loading;
     });
   }

@@ -70,21 +70,11 @@ export class WebSocketService {
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
-      console.log('📨 WebSocket received new_message:', {
-        id: message.id,
-        senderId: message.senderId,
-        receiverId: message.receiverId,
-        content: message.content?.substring(0, 50)
-      });
       this.newMessageSubject.next(message);
     });
 
     // Listen for message sent confirmation (outgoing)
     this.socket.on('message_sent', (message: Message) => {
-      console.log('📤 WebSocket received message_sent confirmation:', {
-        id: message.id,
-        senderId: message.senderId
-      });
       this.newMessageSubject.next(message);
     });
 
@@ -110,7 +100,6 @@ export class WebSocketService {
 
     // Listen for new notifications
     this.socket.on('new_notification', (data: any) => {
-      console.log('🔔 WebSocket received new_notification:', data);
       this.newNotificationSubject.next(data);
     });
 
@@ -119,20 +108,14 @@ export class WebSocketService {
 
   connect(): void {
     const startTime = performance.now();
-    console.log(`⏱️ [WebSocket] Starting connection attempt...`);
     
     // If already connected, just ensure listeners are set up
     if (this.socket?.connected) {
-      const duration = performance.now() - startTime;
-      console.log(`⏱️ [WebSocket] Already connected (${duration.toFixed(2)}ms)`);
       this.setupEventListeners();
       return;
     }
 
     this.authService.user$.pipe(take(1)).subscribe(user => {
-      const authDuration = performance.now() - startTime;
-      console.log(`⏱️ [WebSocket] Got auth user in ${authDuration.toFixed(2)}ms`);
-      
       if (!user) {
         console.error('No user available for WebSocket connection');
         return;
@@ -145,7 +128,6 @@ export class WebSocketService {
       
       const socketUrl = environment.backendUrl;
       const socketStartTime = performance.now();
-      console.log(`⏱️ [WebSocket] Creating socket connection to ${socketUrl}...`);
       
       this.socket = io(socketUrl, {
         auth: {
@@ -156,9 +138,6 @@ export class WebSocketService {
       });
 
       this.socket.on('connect', () => {
-        const connectDuration = performance.now() - socketStartTime;
-        const totalDuration = performance.now() - startTime;
-        console.log(`⏱️ [WebSocket] Connected in ${connectDuration.toFixed(2)}ms (total: ${totalDuration.toFixed(2)}ms)`);
         this.isConnected = true;
         this.connectionSubject.next(true);
         // Set up listeners after connection is established
@@ -212,9 +191,6 @@ export class WebSocketService {
     // Only add replyTo if it's a valid object with messageId
     if (replyTo && replyTo.messageId) {
       data.replyTo = replyTo;
-      console.log('📤 WebSocket: Adding replyTo to message:', replyTo);
-    } else {
-      console.log('📤 WebSocket: No replyTo (replyTo:', replyTo, ')');
     }
     
     this.socket.emit('send_message', data);
