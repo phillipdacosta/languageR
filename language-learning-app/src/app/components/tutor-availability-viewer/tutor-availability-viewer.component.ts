@@ -86,12 +86,30 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
 
   ngOnChanges(changes: SimpleChanges) {
     // Reload availability if refreshTrigger changes
-    if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
-      console.log('🔄 Refresh trigger detected, reloading availability...');
-      Promise.all([
-        this.loadAvailability(),
-        this.loadBookedLessons()
-      ]);
+    if (changes['refreshTrigger']) {
+      console.log('🔄 Refresh trigger change detected:', {
+        firstChange: changes['refreshTrigger'].firstChange,
+        previousValue: changes['refreshTrigger'].previousValue,
+        currentValue: changes['refreshTrigger'].currentValue
+      });
+      
+      if (!changes['refreshTrigger'].firstChange) {
+        console.log('🔄 Reloading availability and booked lessons...');
+        // Clear ALL caches before reloading
+        this.slotsCache.clear();
+        this.availabilitySet.clear();
+        this.bookedSlots.clear();
+        
+        // Force async to ensure UI updates
+        setTimeout(() => {
+          Promise.all([
+            this.loadAvailability(),
+            this.loadBookedLessons()
+          ]).then(() => {
+            console.log('🔄 Refresh complete!');
+          });
+        }, 100);
+      }
     }
   }
 
@@ -137,6 +155,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   async loadAvailability() {
     const startTime = performance.now();
     console.log(`⏱️ [Availability] Starting to load for tutor: ${this.tutorId}`);
+    console.log(`⏱️ [Availability] Current cache size: ${this.slotsCache.size}`);
     
     this.isLoading = true;
     
@@ -156,9 +175,16 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         next: (response) => {
           const duration = performance.now() - startTime;
           console.log(`⏱️ [Availability] Data received in ${duration.toFixed(2)}ms`);
+          console.log(`⏱️ [Availability] Total blocks received: ${response.availability?.length || 0}`);
           this.availability = response.availability || [];
           this.timezone = response.timezone || 'America/New_York';
           
+          // Clear ALL caches to ensure fresh data is displayed
+          this.slotsCache.clear();
+          this.availabilitySet.clear();
+          this.bookedSlots.clear();
+          
+          console.log(`⏱️ [Availability] Caches cleared, rebuilding...`);
           this.buildAvailabilitySet();
           this.isLoading = false;
           if (loading) loading.dismiss();

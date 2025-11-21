@@ -119,31 +119,31 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.userService.getTutorPublic(this.tutorId).subscribe({
       next: (res) => {
         const duration = performance.now() - startTime;
-        console.log(`⏱️ [Tutor Page] Tutor data received in ${duration.toFixed(2)}ms`);
         this.tutor = res.tutor;
-        console.log(`⏱️ [Tutor Page] Setting isLoading = false and tutor =`, this.tutor ? 'exists' : 'null');
+        console.log('🔄 tutor:', this.tutor);
         this.isLoading = false;
-        console.log(`⏱️ [Tutor Page] isLoading is now:`, this.isLoading, '- UI should update now');
       },
       error: (err) => {
         const duration = performance.now() - startTime;
-        console.log(`⏱️ [Tutor Page] Error after ${duration.toFixed(2)}ms`, err);
         this.isLoading = false;
       }
     });
     
-    // Check for refresh trigger from query params (e.g., after booking conflict)
-    const refreshAvailability = this.route.snapshot.queryParamMap.get('refreshAvailability');
-    if (refreshAvailability === 'true') {
-      // Trigger availability refresh
-      this.availabilityRefreshTrigger = Date.now();
-      // Clear the query param to avoid repeated refreshes
-      this.router.navigate([], {
-        relativeTo: this.route,
-        queryParams: { refreshAvailability: null },
-        queryParamsHandling: 'merge'
-      });
-    }
+    // Subscribe to query params to detect refresh trigger (even on navigation back)
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      if (params['refreshAvailability'] === 'true') {
+        console.log('🔄 Refresh availability query param detected, triggering refresh...');
+        // Trigger availability refresh
+        this.availabilityRefreshTrigger = Date.now();
+        console.log('🔄 New refresh trigger value:', this.availabilityRefreshTrigger);
+        // Clear the query param to avoid repeated refreshes
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { refreshAvailability: null },
+          queryParamsHandling: 'merge'
+        });
+      }
+    });
     
     // Set up back button handler if we came from modal
     if (this.cameFromModal) {
@@ -308,7 +308,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       componentProps: {
         videoUrl: this.tutor.introductionVideo,
         thumbnailUrl: this.tutor.videoThumbnail || '',
-        tutorName: this.tutor.name
+        tutorName: this.formatStudentDisplayName(this.tutor)
       },
       cssClass: 'video-player-modal',
       backdropDismiss: true,
@@ -1244,5 +1244,61 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     } catch (error) {
       console.error('Error creating potential student conversation:', error);
     }
+  }
+
+  // Format student display name as "First L."
+  formatStudentDisplayName(studentOrName: any): string {
+    // Handle if it's a student object with firstName and lastName
+    console.log('🔄 formatStudentDisplayName:', studentOrName);
+    if (typeof studentOrName === 'object' && studentOrName) {
+      const firstName = studentOrName.firstName;
+      const lastName = studentOrName.lastName;
+      
+      if (firstName && lastName) {
+        return `${this.capitalize(firstName)} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return this.capitalize(firstName);
+      }
+      
+      // Fall back to name field if firstName/lastName not available
+      const rawName = studentOrName.name || studentOrName.email;
+      if (!rawName) return 'Student';
+      return this.formatStudentDisplayName(rawName); // Recursively handle the string
+    }
+    
+    // Handle if it's just a string name
+    const rawName = studentOrName;
+    if (!rawName || typeof rawName !== 'string') {
+      return 'Student';
+    }
+
+    const name = rawName.trim();
+
+    // If it's an email, use the part before @ as a fallback
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      if (!base) return 'Student';
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+  
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1);
   }
 }

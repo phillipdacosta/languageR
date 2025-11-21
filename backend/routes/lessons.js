@@ -153,6 +153,90 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
+    // Validate that the time slot is still in the tutor's availability
+    console.log('🔍 Validating availability for time slot:', {
+      tutorId,
+      requestedStart: requestedStart.toISOString(),
+      requestedEnd: requestedEnd.toISOString()
+    });
+    
+    // Helper function to convert time string (HH:mm) to minutes
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    // Get the day of week (0=Sunday, 1=Monday, etc.)
+    const dayOfWeek = requestedStart.getDay();
+    const requestedStartMinutes = requestedStart.getHours() * 60 + requestedStart.getMinutes();
+    const requestedEndMinutes = requestedEnd.getHours() * 60 + requestedEnd.getMinutes();
+    
+    // Find matching availability blocks
+    const availabilityBlocks = tutor.availability || [];
+    const matchingBlocks = availabilityBlocks.filter(block => {
+      // Must be an 'available' block
+      if (block.type !== 'available') return false;
+      
+      // Must match the day of week
+      if (block.day !== dayOfWeek) return false;
+      
+      // If block has absoluteStart, check if it matches the requested date
+      if (block.absoluteStart) {
+        const blockDate = new Date(block.absoluteStart);
+        blockDate.setHours(0, 0, 0, 0);
+        const requestedDate = new Date(requestedStart);
+        requestedDate.setHours(0, 0, 0, 0);
+        
+        // If dates don't match, skip this block
+        if (blockDate.getTime() !== requestedDate.getTime()) {
+          return false;
+        }
+      } else if (block.id && typeof block.id === 'string') {
+        // If no absoluteStart, try parsing from id (format: YYYY-MM-DD-...)
+        const idParts = block.id.split('-');
+        if (idParts.length >= 3) {
+          const blockDateStr = `${idParts[0]}-${idParts[1]}-${idParts[2]}`;
+          const blockDate = new Date(blockDateStr + 'T00:00:00');
+          const requestedDate = new Date(requestedStart);
+          requestedDate.setHours(0, 0, 0, 0);
+          
+          if (blockDate.getTime() !== requestedDate.getTime()) {
+            return false;
+          }
+        }
+      }
+      
+      // Check if requested time falls within this block's time range
+      const blockStartMinutes = timeToMinutes(block.startTime);
+      const blockEndMinutes = timeToMinutes(block.endTime);
+      
+      // Requested time must be completely within the available block
+      return requestedStartMinutes >= blockStartMinutes && requestedEndMinutes <= blockEndMinutes;
+    });
+    
+    console.log('📊 Availability check:', {
+      dayOfWeek,
+      requestedStartMinutes,
+      requestedEndMinutes,
+      totalBlocks: availabilityBlocks.length,
+      matchingBlocks: matchingBlocks.length
+    });
+    
+    if (matchingBlocks.length === 0) {
+      console.log('⚠️ Time slot not available:', {
+        tutorId,
+        requestedTime: { start: requestedStart, end: requestedEnd },
+        dayOfWeek,
+        availableBlocksForDay: availabilityBlocks.filter(b => b.day === dayOfWeek).length
+      });
+      
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot is no longer available. The tutor may have updated their schedule. Please refresh the page and select a different time.',
+        code: 'SLOT_NO_LONGER_AVAILABLE'
+      });
+    }
+    
     // Check if this is the first lesson between this student and tutor (trial lesson)
     const previousLessons = await Lesson.countDocuments({
       tutorId: tutorId,

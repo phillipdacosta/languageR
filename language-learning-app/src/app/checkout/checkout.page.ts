@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, LoadingController, ToastController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { LessonService, LessonCreateRequest } from '../services/lesson.service';
@@ -31,7 +31,8 @@ export class CheckoutPage {
     private lessonService: LessonService,
     private auth: AuthService,
     private loadingController: LoadingController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private alertController: AlertController
   ) {
     const qp = this.route.snapshot.queryParamMap;
     this.tutorId = qp.get('tutorId') || '';
@@ -125,6 +126,42 @@ export class CheckoutPage {
       
       // Check if this is a time slot conflict (409 Conflict)
       const isConflict = error instanceof HttpErrorResponse && error.status === 409;
+      const errorCode = error.error?.code;
+      
+      // If the slot is no longer available, show a more prominent alert
+      if (isConflict && errorCode === 'SLOT_NO_LONGER_AVAILABLE') {
+        // Dismiss loading spinner BEFORE showing alert
+        await loading.dismiss();
+        this.isBooking = false;
+        
+        const alert = await this.alertController.create({
+          header: 'Time Slot No Longer Available',
+          message: error.error?.message || 'The tutor has updated their availability. This time slot is no longer available.',
+          buttons: [
+            {
+              text: 'View Updated Schedule',
+              handler: () => {
+                // Return true to dismiss the alert, then navigate
+                return true;
+              }
+            }
+          ]
+        });
+        
+        await alert.present();
+        const { role } = await alert.onDidDismiss();
+        
+        // Navigate back to tutor page with refresh trigger after alert dismisses
+        if (this.tutor?.id) {
+          this.router.navigate(['/tutor', this.tutor.id], {
+            queryParams: { refreshAvailability: 'true' }
+          });
+        } else {
+          this.router.navigate(['/tabs/home']);
+        }
+        return;
+      }
+      
       const errorMessage = isConflict 
         ? (error.error?.message || 'This time slot is no longer available. It may have been booked by another student.')
         : (error.error?.message || error.message || 'Failed to book lesson. Please try again.');
@@ -151,7 +188,12 @@ export class CheckoutPage {
       }
     } finally {
       this.isBooking = false;
-      await loading.dismiss();
+      // Try to dismiss loading, but catch if already dismissed
+      try {
+        await loading.dismiss();
+      } catch (e) {
+        // Already dismissed, ignore
+      }
     }
   }
 
