@@ -42,7 +42,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   unreadNotificationCount = 0;
   
   // Cached avatar cache for student/tutor avatars
-  private _avatarCache = new Map<string, string>();
+  private _avatarCache = new Map<string, string | null>();
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -160,7 +160,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Listen for lesson-left events to immediately refresh status
     window.addEventListener('lesson-left' as any, (e: any) => {
       const leftLessonId = e?.detail?.lessonId;
-      if (this.upcomingLesson && this.upcomingLesson._id === leftLessonId) {
+      // Skip if upcoming lesson is a class (not a real lesson)
+      if (this.upcomingLesson && this.upcomingLesson._id === leftLessonId && !(this.upcomingLesson as any).isClass) {
         this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
           if (status?.success) {
             (this.upcomingLesson as any).status = status.lesson?.status || (this.upcomingLesson as any).status;
@@ -202,7 +203,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     // Poll lesson status periodically to reflect In Progress/Rejoin
     this.statusInterval = setInterval(() => {
-      if (this.upcomingLesson) {
+      // Skip if upcoming lesson is a class (not a real lesson)
+      if (this.upcomingLesson && !(this.upcomingLesson as any).isClass) {
         this.lessonService.getLessonStatus(this.upcomingLesson._id).subscribe(status => {
           if (status?.success && this.upcomingLesson) {
             (this.upcomingLesson as any).serverTime = status.serverTime;
@@ -1139,8 +1141,8 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   // Get presence avatar (uses presence data if available, otherwise falls back to lesson data)
-  getPresenceAvatar(lesson: Lesson | null): string {
-    if (!lesson) return 'assets/avatar.png';
+  getPresenceAvatar(lesson: Lesson | null): string | null {
+    if (!lesson) return null;
     const presence = this.getPresenceData(lesson);
     if (presence?.participantPicture) {
       return presence.participantPicture;
@@ -1148,8 +1150,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this.getOtherParticipantAvatar(lesson);
   }
 
-  getOtherParticipantAvatar(lesson: Lesson): string {
-    if (!this.currentUser || !lesson) return 'assets/avatar.png';
+  getOtherParticipantAvatar(lesson: Lesson): string | null {
+    if (!this.currentUser || !lesson) return null;
     
     // Use lesson ID + participant ID as cache key
     const isTutor = lesson.tutorId?._id === this.currentUser.id;
@@ -1166,10 +1168,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     // Calculate and cache the avatar URL
     const other = isTutor ? lesson.studentId : lesson.tutorId;
-    let avatarUrl = 'assets/avatar.png';
+    let avatarUrl: string | null = null;
     
     if (typeof other === 'object' && other) {
-      avatarUrl = (other as any).picture || (other as any).profilePicture || 'assets/avatar.png';
+      avatarUrl = (other as any).picture || (other as any).profilePicture || null;
     }
     
     // Cache the result
@@ -1512,6 +1514,11 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     // Check each lesson for existing participants
     for (const lesson of this.lessons) {
+      // Skip classes - they don't exist in the lessons API
+      if ((lesson as any).isClass) {
+        continue;
+      }
+      
       try {
         // Get detailed lesson info with participants
         const lessonResponse = await this.lessonService.getLesson(lesson._id).toPromise();

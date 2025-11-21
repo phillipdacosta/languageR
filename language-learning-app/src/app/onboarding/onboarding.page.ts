@@ -428,6 +428,11 @@ export class OnboardingPage implements OnInit {
         this.onboardingGuard.clearCache(auth0User.email);
       }
 
+      // Force refresh the current user in UserService to reflect onboarding completion
+      // This updates the currentUser$ observable that the home page subscribes to
+      console.log('🔄 Force refreshing user in UserService');
+      await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
+
       // Store in localStorage as backup
       localStorage.setItem('onboarding_completed', 'true');
       
@@ -461,10 +466,10 @@ export class OnboardingPage implements OnInit {
         localStorage.setItem('justCompletedLogin', returnUrl);
         console.log('🔄 Onboarding: Set justCompletedLogin flag to:', returnUrl);
         
-        this.router.navigateByUrl(returnUrl);
+        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
       } else {
         // Default: Navigate to main app
-        this.router.navigate(['/tabs']);
+        this.router.navigate(['/tabs/home'], { replaceUrl: true });
       }
     } catch (error: any) {
       console.error('❌ Error completing onboarding:', error);
@@ -525,10 +530,24 @@ export class OnboardingPage implements OnInit {
     this.authService.logout();
     this.router.navigate(['/login']);
   }
-  skipOnboarding() {
+  async skipOnboarding() {
     // Mark onboarding as completed without data
     localStorage.setItem('onboarding_completed', 'true');
-    this.router.navigate(['/tabs']);
+    
+    // Clear the onboarding guard cache and refresh user
+    try {
+      const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
+      if (auth0User?.email) {
+        this.onboardingGuard.clearCache(auth0User.email);
+      }
+      
+      // Force refresh the current user
+      await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
+    } catch (error) {
+      console.error('Error clearing cache on skip:', error);
+    }
+    
+    this.router.navigate(['/tabs/home'], { replaceUrl: true });
   }
 
   getProgressPercentage(): number {

@@ -159,11 +159,12 @@
             <div class="student-section">
               <ion-avatar class="student-avatar">
                 <img
+                  *ngIf="getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
                   [src]="getOtherParticipantAvatar(nextClass.lesson)"
                   [alt]="formatStudentDisplayName(nextClass)"
                   referrerpolicy="no-referrer"
-                  (error)="$event.target.src='assets/avatar.png'"
                 />
+                <ion-icon *ngIf="!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png'" name="person" class="avatar-placeholder-icon"></ion-icon>
               </ion-avatar>
               
               <div class="student-details">
@@ -203,7 +204,10 @@
         <h3 class="empty-state-title" *ngIf="hadLessonsEarlierToday()">No more classes today</h3>
         
         <!-- Case 2: No lessons at all today -->
-        <h3 class="empty-state-title" *ngIf="!hadLessonsEarlierToday()">No class today</h3>
+        <ng-container *ngIf="!hadLessonsEarlierToday()">
+          <h3 class="empty-state-title" *ngIf="getNextLessonInfo() && getNextLessonInfo()?.dayText === 'today'">Your next class is today</h3>
+          <h3 class="empty-state-title" *ngIf="!getNextLessonInfo() || getNextLessonInfo()?.dayText !== 'today'">No class today</h3>
+        </ng-container>
         
         <!-- Subtitle for Case 1: Had lessons earlier -->
         <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday() && getNextLessonInfo()">
@@ -214,8 +218,11 @@
         </p>
         
         <!-- Subtitle for Case 2: No lessons today at all -->
-        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo()">
+        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo() && getNextLessonInfo()?.dayText !== 'today'">
           Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
+        </p>
+        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo() && getNextLessonInfo()?.dayText === 'today'">
+          Your class starts at <strong>{{ getNextLessonInfo()?.time }}</strong>
         </p>
         <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && !getNextLessonInfo()">
           You don't have any lessons scheduled yet.
@@ -239,7 +246,8 @@
         <div class="tutor-card" *ngFor="let student of getOtherStudentsForDate()">
           <div class="tutor-card-content">
             <ion-avatar class="tutor-avatar">
-              <img [src]="student.profilePicture || student.picture || 'assets/avatar.png'" alt="{{ student.name }}" referrerpolicy="no-referrer">
+              <img *ngIf="student.profilePicture || student.picture" [src]="student.profilePicture || student.picture" alt="{{ student.name }}" referrerpolicy="no-referrer">
+              <ion-icon *ngIf="!student.profilePicture && !student.picture" name="person" class="avatar-placeholder-icon"></ion-icon>
               <div class="presence-indicator" *ngIf="hasParticipantJoinedById(student.lessonId)">
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
@@ -346,7 +354,8 @@
       <div class="tutor-card" *ngFor="let tutor of featuredTutors">
         <div class="tutor-card-content">
           <ion-avatar class="tutor-avatar">
-            <img [src]="tutor.profilePicture || 'assets/avatar.png'" alt="{{ tutor.name }}" referrerpolicy="no-referrer">
+            <img *ngIf="tutor.profilePicture" [src]="tutor.profilePicture" alt="{{ tutor.name }}" referrerpolicy="no-referrer">
+            <ion-icon *ngIf="!tutor.profilePicture" name="person" class="avatar-placeholder-icon"></ion-icon>
           </ion-avatar>
           <div class="rating-badge">
             <ion-icon name="star"></ion-icon>
@@ -364,8 +373,13 @@
     <ion-card class="upcoming-lesson-card" *ngIf="upcomingLesson && !isTutor()">
       <ion-card-content>
         <div class="upcoming-lesson-row">
-          <ion-avatar class="lesson-avatar-large">
-            <img [src]="upcomingLesson ? getPresenceAvatar(upcomingLesson) : 'assets/avatar.png'" alt="Avatar" referrerpolicy="no-referrer" />
+            <ion-avatar class="lesson-avatar-large">
+            <img 
+              *ngIf="upcomingLesson && getPresenceAvatar(upcomingLesson)" 
+              [src]="getPresenceAvatar(upcomingLesson)" 
+              alt="Avatar" 
+              referrerpolicy="no-referrer" />
+            <ion-icon *ngIf="!upcomingLesson || !getPresenceAvatar(upcomingLesson)" name="person" class="avatar-placeholder-icon"></ion-icon>
             <div class="presence-indicator" *ngIf="hasParticipantJoined(upcomingLesson)">
               <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
             </div>
@@ -414,10 +428,11 @@
                 class="stacked-avatar" 
                 *ngFor="let tutor of pastTutors.slice(0, 5); trackBy: trackByTutorId">
                 <img 
-                  [src]="tutor.picture || 'assets/avatar.png'" 
+                  *ngIf="tutor.picture"
+                  [src]="tutor.picture" 
                   [alt]="tutor.name"
-                  referrerpolicy="no-referrer"
-                  (error)="$event.target.src='assets/avatar.png'">
+                  referrerpolicy="no-referrer">
+                <ion-icon *ngIf="!tutor.picture" name="person" style="font-size: 24px; color: #94a3b8;"></ion-icon>
               </div>
             </div>
             <p class="past-tutors-label">Or</p>

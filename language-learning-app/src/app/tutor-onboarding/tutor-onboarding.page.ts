@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
+import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController } from '@ionic/angular';
@@ -169,7 +170,8 @@ export class TutorOnboardingPage implements OnInit {
     private router: Router,
     private loadingController: LoadingController,
     private alertController: AlertController,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private onboardingGuard: OnboardingGuard
   ) {
     this.user$ = this.authService.user$;
   }
@@ -317,6 +319,15 @@ export class TutorOnboardingPage implements OnInit {
         completedAt: new Date().toISOString()
       }));
 
+      // Clear the onboarding guard cache so navigation works immediately
+      console.log('🔍 Clearing onboarding guard cache for', auth0User.email);
+      this.onboardingGuard.clearCache(auth0User.email);
+
+      // Force refresh the current user in UserService to reflect onboarding completion
+      // This updates the currentUser$ observable that the home page subscribes to
+      console.log('🔄 Force refreshing user in UserService');
+      await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
+
       await loading.dismiss();
 
       // Check for return URL (for users who clicked a shared link before signing up)
@@ -324,10 +335,10 @@ export class TutorOnboardingPage implements OnInit {
       if (returnUrl) {
         console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
         localStorage.removeItem('returnUrl');
-        this.router.navigateByUrl(returnUrl);
+        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
       } else {
         // Default: Navigate to main app
-        this.router.navigate(['/tabs']);
+        this.router.navigate(['/tabs/home'], { replaceUrl: true });
       }
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
