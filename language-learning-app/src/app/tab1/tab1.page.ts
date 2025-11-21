@@ -8,6 +8,8 @@ import { UserService, User } from '../services/user.service';
 import { Observable, takeUntil, take, filter } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
+import { ClassService, ClassInvitation } from '../services/class.service';
+import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { NotificationService } from '../services/notification.service';
@@ -31,7 +33,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   lessons: Lesson[] = [];
   pastLessons: Lesson[] = [];
   pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
+  pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
+  isLoadingInvitations = false;
   availabilityBlocks: any[] = [];
   availabilityHeadline = '';
   availabilityDetail = '';
@@ -87,6 +91,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     private authService: AuthService,
     private userService: UserService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private agoraService: AgoraService,
     private loadingController: LoadingController,
     private toastController: ToastController,
@@ -117,6 +122,9 @@ export class Tab1Page implements OnInit, OnDestroy {
         if (this.isTutor()) {
           this.loadTutorInsights();
           this.loadAvailability();
+        } else {
+          // Load pending class invitations for students
+          this.loadPendingInvitations();
         }
       });
     
@@ -175,10 +183,39 @@ export class Tab1Page implements OnInit, OnDestroy {
     this.websocketService.connect();
     this.websocketService.newNotification$.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(() => {
+    ).subscribe(async (notification) => {
       // Reload notification count when a new notification arrives (only if user is authenticated)
       if (this.currentUser) {
         this.loadUnreadNotificationCount();
+        
+        // Handle class invitations specially
+        if (notification?.type === 'class_invitation' && this.currentUser.userType === 'student') {
+          // Reload pending invitations to show the new one
+          this.loadPendingInvitations();
+          
+          // Show a toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'You have a new class invitation!',
+            duration: 4000,
+            position: 'top',
+            color: 'primary',
+            buttons: [
+              {
+                text: 'View',
+                handler: () => {
+                  if (notification.classId) {
+                    this.openClassInvitation(notification.classId, { data: notification });
+                  }
+                }
+              },
+              {
+                text: 'Dismiss',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
       }
     });
 
@@ -278,6 +315,66 @@ export class Tab1Page implements OnInit, OnDestroy {
       error: (error) => {
         console.error('Error loading unread notification count:', error);
       }
+    });
+  }
+
+  loadPendingInvitations() {
+    if (!this.currentUser || this.currentUser.userType !== 'student') {
+      return;
+    }
+
+    this.isLoadingInvitations = true;
+    this.classService.getPendingInvitations().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.pendingClassInvitations = response.classes;
+        }
+        this.isLoadingInvitations = false;
+      },
+      error: (error) => {
+        console.error('Error loading pending invitations:', error);
+        this.isLoadingInvitations = false;
+      }
+    });
+  }
+
+  async openClassInvitation(classId: string, notification?: any) {
+    const modal = await this.modalCtrl.create({
+      component: ClassInvitationModalComponent,
+      componentProps: {
+        classId,
+        notification
+      },
+      cssClass: 'class-invitation-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.accepted || data?.declined) {
+      // Reload invitations and lessons to reflect the change
+      this.loadPendingInvitations();
+      this.loadLessons();
+    }
+  }
+
+  formatClassDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }
+
+  formatClassTime(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
     });
   }
 

@@ -1,9 +1,11 @@
 import { Component, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
+import { ModalController } from '@ionic/angular';
 import { Subject, takeUntil } from 'rxjs';
 import { NotificationService, Notification } from '../services/notification.service';
 import { WebSocketService } from '../services/websocket.service';
 import { PlatformService } from '../services/platform.service';
+import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 
 @Component({
   selector: 'app-notifications',
@@ -20,7 +22,8 @@ export class NotificationsPage implements OnDestroy {
     private notificationService: NotificationService,
     private websocketService: WebSocketService,
     private router: Router,
-    private platformService: PlatformService
+    private platformService: PlatformService,
+    private modalController: ModalController
   ) {
     this.websocketService.newNotification$
       .pipe(takeUntil(this.destroy$))
@@ -115,8 +118,30 @@ export class NotificationsPage implements OnDestroy {
         ['/tabs/tutor-calendar/event', notification.data.lessonId],
         shouldReturnToNotifications ? { queryParams: { from: 'notifications' } } : undefined
       );
+    } else if (notification.type === 'class_invitation' && notification.data?.classId) {
+      // Open class invitation modal
+      this.openClassInvitation(notification.data.classId, notification);
     } else if (notification.type === 'message' && notification.data?.conversationId) {
       this.router.navigate(['/tabs/messages', notification.data.conversationId]);
+    }
+  }
+
+  async openClassInvitation(classId: string, notification?: Notification) {
+    const modal = await this.modalController.create({
+      component: ClassInvitationModalComponent,
+      componentProps: {
+        classId,
+        notification: notification ? { data: notification.data } : undefined
+      },
+      cssClass: 'class-invitation-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.accepted || data?.declined) {
+      // Reload notifications to reflect the change
+      this.loadNotifications();
     }
   }
 

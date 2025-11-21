@@ -222,6 +222,15 @@
           <h3>Schedule</h3>
         </div>
         
+        <ion-button 
+          expand="block" 
+          fill="outline" 
+          class="availability-picker-button"
+          (click)="openAvailabilityPicker()">
+          <ion-icon name="calendar" slot="start"></ion-icon>
+          Choose from your availability
+        </ion-button>
+
         <div class="datetime-row">
           <ion-item>
             <ion-label position="stacked">Date</ion-label>

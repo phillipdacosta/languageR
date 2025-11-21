@@ -1527,8 +1527,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         return `${h.toString().padStart(2, '0')}:${m}`;
       };
 
-      // Parse the date from the date string
-      const dayDate = new Date(dateStr + 'T00:00:00');
+      // Parse the date from the date string (YYYY-MM-DD)
+      // Use explicit local timezone parsing to avoid shifts
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const dayDate = new Date(year, month - 1, day, 0, 0, 0, 0);
       const dayOfWeek = dayDate.getDay(); // Get day of week for backward compatibility
       console.log(`🔧 Date ${dateStr} maps to ${dayDate.toDateString()}, day of week: ${dayOfWeek}`);
 

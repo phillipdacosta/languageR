@@ -39,6 +39,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() currentUserAuth0Id?: string;
   // Tutor's auth0Id for comparison
   @Input() tutorAuth0Id?: string;
+  // When true, allow tutors to select from their own availability (for scheduling classes)
+  @Input() selectionMode = false;
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
@@ -54,7 +56,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   availabilitySet: Set<string> = new Set();
   // Fast lookup for booked slots: key = `${day}-${HH:mm}`
   bookedSlots: Set<string> = new Set();
-  private slotsCache: Map<string, { label: string; time: string; booked: boolean }[]> = new Map();
+  private slotsCache: Map<string, { label: string; time: string; booked: boolean; isPast: boolean }[]> = new Map();
   
   constructor(
     private userService: UserService,
@@ -156,6 +158,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           console.log(`⏱️ [Availability] Data received in ${duration.toFixed(2)}ms`);
           this.availability = response.availability || [];
           this.timezone = response.timezone || 'America/New_York';
+          
           this.buildAvailabilitySet();
           this.isLoading = false;
           if (loading) loading.dismiss();
@@ -305,6 +308,33 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         if (!appliestoThisWeek) {
           continue;
         }
+      } else if (block.id && typeof block.id === 'string') {
+        // If no absoluteStart, try to parse date from the id field (format: "YYYY-MM-DD-...")
+        const idParts = block.id.split('-');
+        if (idParts.length >= 3) {
+          // Parse as local date to avoid timezone shifts
+          const year = parseInt(idParts[0]);
+          const month = parseInt(idParts[1]) - 1; // Month is 0-indexed
+          const day = parseInt(idParts[2]);
+          const blockDate = new Date(year, month, day, 0, 0, 0, 0);
+          
+          // Check if this date is in the current week
+          let appliesToThisWeek = false;
+          for (const weekDate of this.weekDates) {
+            const checkDate = new Date(weekDate);
+            checkDate.setHours(0, 0, 0, 0);
+            
+            if (blockDate.getTime() === checkDate.getTime()) {
+              appliesToThisWeek = true;
+              break;
+            }
+          }
+          
+          // Skip this block if it doesn't apply to the current week
+          if (!appliesToThisWeek) {
+            continue;
+          }
+        }
       }
       
       const start = this.timeToMinutes(block.startTime);
@@ -413,8 +443,18 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
 
+  // Check if a time slot is in the past
+  private isSlotInPast(date: Date, timeSlot: string): boolean {
+    const [hours, minutes] = timeSlot.split(':').map(Number);
+    const slotDateTime = new Date(date);
+    slotDateTime.setHours(hours, minutes, 0, 0);
+    
+    const now = new Date();
+    return slotDateTime < now;
+  }
+
   // Return list of available slots with both label and 24h time for a given date
-  getAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean }[] {
+  getAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
     // Only show availability within the displayed 7-day window
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
@@ -430,9 +470,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return [];
     }
     
-    const cacheKey = this.dateKey(date);
+    // Re-enable caching with a timestamp to invalidate every minute
+    const cacheKey = this.dateKey(date) + '_' + Math.floor(Date.now() / 60000); // Cache for 1 minute
     const cached = this.slotsCache.get(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      return cached;
+    }
+    
+    // Clear old cache entries (keep last 10)
+    if (this.slotsCache.size > 10) {
+      const firstKey = this.slotsCache.keys().next().value;
+      if (firstKey) {
+        this.slotsCache.delete(firstKey);
+      }
+    }
+    
     // Use native getDay() to match how availability is stored (0=Sun, 1=Mon, ..., 6=Sat)
     const dayIndex = date.getDay();
     
@@ -455,11 +507,31 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
                checkDateNormalized.getTime() <= blockEnd.getTime();
       }
       
-      // If no absolute dates, it's a recurring pattern - always applies
+      // If no absoluteStart, try to parse date from the id field (format: "YYYY-MM-DD-...")
+      if (block.id && typeof block.id === 'string') {
+        const idParts = block.id.split('-');
+        if (idParts.length >= 3) {
+          // Extract YYYY-MM-DD from id  
+          // Parse as local date to avoid timezone shifts
+          const year = parseInt(idParts[0]);
+          const month = parseInt(idParts[1]) - 1; // Month is 0-indexed
+          const day = parseInt(idParts[2]);
+          const blockDate = new Date(year, month, day, 0, 0, 0, 0);
+          
+          const checkDateNormalized = new Date(dateToCheck);
+          checkDateNormalized.setHours(0, 0, 0, 0);
+          
+          
+          // Only show if dates match exactly
+          return blockDate.getTime() === checkDateNormalized.getTime();
+        }
+      }
+      
+      // If no date info at all, it's a recurring pattern - always applies
       return true;
     });
     
-    const slots: { label: string; time: string; booked: boolean }[] = [];
+    const slots: { label: string; time: string; booked: boolean; isPast: boolean }[] = [];
     for (let i = 0; i < this.timeSlots.length; i++) {
       const key = `${dayIndex}-${this.timeSlots[i]}`;
       
@@ -473,10 +545,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       
       if (hasAvailability) {
         const isBooked = this.bookedSlots.has(key);
-        slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked });
+        const isPast = this.isSlotInPast(date, this.timeSlots[i]);
+        slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked, isPast: isPast });
       }
     }
     
+    // Cache with timestamp key (auto-invalidates after 1 minute)
     this.slotsCache.set(cacheKey, slots);
     return slots;
   }
@@ -492,13 +566,27 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     );
   }
 
-  onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean }) {
-    // Don't allow booking if slot is already booked
-    if (slot.booked) {
+  onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean; isPast?: boolean }) {
+    // Don't allow booking if slot is already booked or in the past
+    if (slot.booked || slot.isPast) {
       return;
     }
     
-    // Don't allow tutors to book their own slots
+    // If in selection mode, close modal with selected date/time
+    if (this.selectionMode) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+      
+      this.modalController.dismiss({
+        selectedDate: dateString,
+        selectedTime: slot.time
+      });
+      return;
+    }
+    
+    // Don't allow tutors to book their own slots (except in selection mode)
     if (this.isCurrentUserTutor()) {
       console.log('Tutors cannot book their own availability slots');
       return;
@@ -516,3 +604,4 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
   
 }
+

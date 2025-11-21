@@ -6,11 +6,37 @@ import { UserService } from './user.service';
 
 export interface CreateClassRequest {
   name: string;
+  description?: string;
   capacity: number;
   isPublic: boolean;
+  price?: number;
   startTime: string; // ISO
   endTime: string;   // ISO
   recurrence?: { type: 'none' | 'daily' | 'weekly' | 'monthly'; count: number };
+  invitedStudentIds?: string[];
+}
+
+export interface ClassInvitation {
+  _id: string;
+  tutorId: {
+    _id: string;
+    name: string;
+    email: string;
+    picture?: string;
+  };
+  name: string;
+  description?: string;
+  capacity: number;
+  price: number;
+  startTime: string;
+  endTime: string;
+  invitedStudents: Array<{
+    studentId: string;
+    status: 'pending' | 'accepted' | 'declined';
+    invitedAt: string;
+    respondedAt?: string;
+  }>;
+  confirmedStudents: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -25,6 +51,36 @@ export class ClassService {
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.post<{ success: boolean; classes: any[] }>(`${this.apiUrl}/classes`, payload, { headers });
+      })
+    );
+  }
+
+  acceptInvitation(classId: string): Observable<{ success: boolean; class: any }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; class: any }>(`${this.apiUrl}/classes/${classId}/accept`, {}, { headers });
+      })
+    );
+  }
+
+  declineInvitation(classId: string): Observable<{ success: boolean; message: string }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; message: string }>(`${this.apiUrl}/classes/${classId}/decline`, {}, { headers });
+      })
+    );
+  }
+
+  getPendingInvitations(): Observable<{ success: boolean; classes: ClassInvitation[] }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(`${this.apiUrl}/classes/invitations/pending`, { headers });
       })
     );
   }

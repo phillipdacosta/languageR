@@ -1,0 +1,105 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Group Class Invitation</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <ion-spinner></ion-spinner>
+    <p>Loading class details...</p>
+  </div>
+
+  <!-- Class Details -->
+  <div class="invitation-details" *ngIf="!loading && classData">
+    <!-- Tutor Info -->
+    <div class="tutor-section">
+      <ion-avatar class="tutor-avatar">
+        <img *ngIf="classData.tutorId.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" />
+        <ion-icon *ngIf="!classData.tutorId.picture" name="person" class="avatar-placeholder"></ion-icon>
+      </ion-avatar>
+      <div class="tutor-info">
+        <p class="tutor-label">Instructor</p>
+        <h3 class="tutor-name">{{ classData.tutorId.name }}</h3>
+      </div>
+    </div>
+
+    <!-- Class Info Card -->
+    <ion-card class="class-card">
+      <ion-card-content>
+        <h2 class="class-title">{{ classData.name }}</h2>
+        
+        <div class="detail-row">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <span>{{ formattedDate }}</span>
+        </div>
+        
+        <div class="detail-row">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>{{ formattedTime }} ({{ duration }} minutes)</span>
+        </div>
+        
+        <div class="detail-row" *ngIf="classData.description">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <span>{{ classData.description }}</span>
+        </div>
+        
+        <div class="detail-row">
+          <ion-icon name="people-outline"></ion-icon>
+          <span>
+            {{ classData.confirmedStudents.length }} of {{ classData.capacity }} students joined
+            <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
+          </span>
+        </div>
+        
+        <div class="detail-row" *ngIf="classData.price > 0">
+          <ion-icon name="cash-outline"></ion-icon>
+          <span>${{ classData.price }}</span>
+        </div>
+        
+        <div class="detail-row" *ngIf="classData.price === 0">
+          <ion-icon name="gift-outline"></ion-icon>
+          <span class="free-badge">Free Class</span>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <ion-button 
+        expand="block" 
+        color="success" 
+        size="large"
+        [disabled]="processing || spotsLeft === 0"
+        (click)="acceptInvitation()">
+        <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+        {{ spotsLeft === 0 ? 'Class is Full' : 'Accept & Join' }}
+      </ion-button>
+      
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        color="medium"
+        size="large"
+        [disabled]="processing"
+        (click)="declineInvitation()">
+        <ion-icon name="close-circle" slot="start"></ion-icon>
+        Decline
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div class="error-container" *ngIf="!loading && !classData">
+    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+    <p>Unable to load class invitation details</p>
+    <ion-button fill="outline" (click)="close()">Close</ion-button>
+  </div>
+</ion-content>
+

@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 export interface Notification {
   _id: string;
   userId: string;
-  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled';
+  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted';
   title: string;
   message: string;
   data: any;

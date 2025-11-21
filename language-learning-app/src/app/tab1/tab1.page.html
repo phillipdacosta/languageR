@@ -28,6 +28,56 @@
       <input type="text" placeholder="Search for a tutor" readonly class="search-input">
     </div>
 
+    <!-- Pending Class Invitations for Students -->
+    <div class="invitations-section" *ngIf="currentUser?.userType === 'student' && !isLoadingInvitations && pendingClassInvitations.length > 0">
+      <div class="section-header-new">
+        <h2>Class Invitations</h2>
+        <span class="invitation-count">{{ pendingClassInvitations.length }}</span>
+      </div>
+      
+      <div class="invitations-list">
+        <div 
+          class="invitation-card" 
+          *ngFor="let invitation of pendingClassInvitations"
+          (click)="openClassInvitation(invitation._id)">
+          <div class="invitation-badge">
+            <ion-icon name="mail-outline"></ion-icon>
+            <span>INVITED</span>
+          </div>
+          
+          <div class="invitation-content">
+            <div class="invitation-header">
+              <ion-avatar class="tutor-avatar-small">
+                <img *ngIf="invitation.tutorId.picture" [src]="invitation.tutorId.picture" [alt]="invitation.tutorId.name" />
+                <ion-icon *ngIf="!invitation.tutorId.picture" name="person"></ion-icon>
+              </ion-avatar>
+              <div class="invitation-info">
+                <h3 class="class-name">{{ invitation.name }}</h3>
+                <p class="tutor-name">with {{ invitation.tutorId.name }}</p>
+              </div>
+            </div>
+            
+            <div class="invitation-details">
+              <div class="detail-item">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span>{{ formatClassDate(invitation.startTime) }}</span>
+              </div>
+              <div class="detail-item">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ formatClassTime(invitation.startTime) }}</span>
+              </div>
+              <div class="detail-item" *ngIf="invitation.price === 0">
+                <ion-icon name="gift-outline"></ion-icon>
+                <span class="free-tag">Free</span>
+              </div>
+            </div>
+          </div>
+          
+          <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+        </div>
+      </div>
+    </div>
+
     <!-- Tutor Insights Panel -->
     <div class="insights-panel" *ngIf="isTutor()">
       <div class="insight-metric">

@@ -60,6 +60,10 @@ const notificationRoutes = require('./routes/notifications');
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
 
+// Also create a global mapping by MongoDB user ID for easier lookup
+// Maps MongoDB ObjectId string -> socket.id
+global.userSockets = {};
+
 // Middleware to attach io and connectedUsers to request
 app.use((req, res, next) => {
   req.io = io;
@@ -145,13 +149,28 @@ io.use(async (socket, next) => {
   }
 });
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   const userId = socket.userId;
   console.log(`✅ User connected: ${userId}, socket.id: ${socket.id}`);
   
-  // Store user connection
+  // Store user connection by Auth0 ID
   connectedUsers.set(userId, socket.id);
   socket.join(`user:${userId}`);
+  
+  // Also store by MongoDB user ID for easier lookup in routes
+  try {
+    const User = require('./models/User');
+    const user = await User.findOne({ auth0Id: userId });
+    if (user) {
+      global.userSockets[user._id.toString()] = socket.id;
+      socket.mongoUserId = user._id.toString(); // Store for later cleanup
+      console.log(`📝 Mapped MongoDB user ID ${user._id} to socket ${socket.id}`);
+    } else {
+      console.warn(`⚠️ No MongoDB user found for Auth0 ID: ${userId}`);
+    }
+  } catch (error) {
+    console.error('❌ Error looking up MongoDB user ID:', error);
+  }
   
   console.log(`📊 Total connected users: ${connectedUsers.size}`);
   console.log(`📊 Connected users list:`, Array.from(connectedUsers.keys()));
@@ -251,10 +270,15 @@ io.on('connection', (socket) => {
   // Handle disconnect
   socket.on('disconnect', () => {
     const userId = socket.userId;
+    const mongoUserId = socket.mongoUserId;
     console.log(`❌ User disconnected: ${userId}`);
     if (userId) {
       connectedUsers.delete(userId);
       console.log(`📊 Remaining connected users: ${connectedUsers.size}`);
+    }
+    if (mongoUserId && global.userSockets) {
+      delete global.userSockets[mongoUserId];
+      console.log(`📝 Removed MongoDB user ID ${mongoUserId} from socket mapping`);
     }
   });
 });

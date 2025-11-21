@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 // Rate limiters for public endpoints
 const publicProfileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per IP
+  max: 1000, // 1000 requests per IP (increased for development - adjust lower for production)
   message: 'Too many requests, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
@@ -812,7 +812,12 @@ router.put('/availability', verifyToken, async (req, res) => {
   try {
     const { availabilityBlocks } = req.body;
     
+    console.log('🔧 PUT /api/users/availability called');
+    console.log('🔧 User auth0Id:', req.user.sub);
+    console.log('🔧 Received blocks:', JSON.stringify(availabilityBlocks, null, 2));
+    
     if (!availabilityBlocks || !Array.isArray(availabilityBlocks)) {
+      console.log('❌ Invalid availability blocks');
       return res.status(400).json({ error: 'Availability blocks are required' });
     }
 
@@ -1008,6 +1013,13 @@ router.get('/availability', verifyToken, async (req, res) => {
 
     if (user.userType !== 'tutor') {
       return res.status(403).json({ message: 'Only tutors can view availability' });
+    }
+
+    console.log('🔧 GET /api/users/availability (current user)');
+    console.log('🔧 User:', user.email, user.name);
+    console.log('🔧 Availability blocks count:', user.availability?.length || 0);
+    if (user.availability && user.availability.length > 0) {
+      console.log('🔧 First 3 blocks:', JSON.stringify(user.availability.slice(0, 3), null, 2));
     }
 
     res.json({ 

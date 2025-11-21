@@ -1,11 +1,12 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../../services/class.service';
 import { UserService } from '../../services/user.service';
 import { LessonService } from '../../services/lesson.service';
+import { TutorAvailabilityViewerComponent } from '../../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 
@@ -22,7 +23,7 @@ interface Student {
   templateUrl: './schedule-class.page.html',
   styleUrls: ['./schedule-class.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule]
+  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy {
   classType: 'one' | 'recurring' = 'one';
@@ -52,7 +53,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     private toast: ToastController,
     private classService: ClassService,
     private userService: UserService,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private modalController: ModalController
   ) {
     // Update validators based on class type
     this.updateFormValidators();
@@ -239,6 +241,37 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     });
   }
 
+  async openAvailabilityPicker() {
+    const currentUser = this.userService.getCurrentUserValue();
+    if (!currentUser?.id) {
+      return;
+    }
+
+    const modal = await this.modalController.create({
+      component: TutorAvailabilityViewerComponent,
+      componentProps: {
+        tutorId: currentUser.id,
+        tutorName: currentUser.name || 'You',
+        currentUserAuth0Id: currentUser.auth0Id,
+        tutorAuth0Id: currentUser.auth0Id,
+        inline: false,
+        selectionMode: true  // Enable selection mode for own availability
+      },
+      cssClass: 'availability-picker-modal'
+    });
+
+    await modal.present();
+    
+    const { data } = await modal.onWillDismiss();
+    if (data?.selectedDate && data?.selectedTime) {
+      // Fill in the form with the selected date/time
+      this.form.patchValue({
+        date: data.selectedDate,
+        time: data.selectedTime
+      });
+    }
+  }
+
   async submit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -305,7 +338,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
           recurrence: {
             type: (recurrenceType as any) || 'none',
             count: Number(recurrenceCount) || 1
-          }
+          },
+          invitedStudentIds: this.form.value.studentIds || []
         };
 
         this.classService.createClass(payload).subscribe({

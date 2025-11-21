@@ -2,7 +2,7 @@
 <ng-container *ngIf="!inline; else inlineTpl">
   <ion-header>
     <ion-toolbar>
-      <ion-title>{{ tutorName }}'s Availability</ion-title>
+      <ion-title>Your Availability</ion-title>
       <ion-buttons slot="end">
         <ion-button (click)="close()">
           <ion-icon name="close"></ion-icon>
@@ -63,12 +63,13 @@
       <div class="day-slots" *ngFor="let date of weekDates">
         <div 
           class="slot" 
-          [class.available]="!slot.booked && !isCurrentUserTutor()"
+          [class.available]="!slot.booked && !slot.isPast && (!isCurrentUserTutor() || selectionMode)"
           [class.booked]="slot.booked"
-          [class.disabled]="isCurrentUserTutor() && !slot.booked"
+          [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
+          [class.past]="slot.isPast"
           *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
-          <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>
+          <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
         <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
           No times
@@ -150,12 +151,13 @@
       <div class="day-slots" *ngFor="let date of weekDates">
         <div 
           class="slot" 
-          [class.available]="!slot.booked && !isCurrentUserTutor()"
+          [class.available]="!slot.booked && !slot.isPast && (!isCurrentUserTutor() || selectionMode)"
           [class.booked]="slot.booked"
-          [class.disabled]="isCurrentUserTutor() && !slot.booked"
+          [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
+          [class.past]="slot.isPast"
           *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
-          <span [class.crossed-out]="slot.booked">{{ slot.label }}</span>
+          <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
         <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
           No times

@@ -85,6 +85,19 @@ router.post('/', verifyToken, async (req, res) => {
     // Check for time slot conflicts with existing lessons for this tutor
     const requestedStart = new Date(startTime);
     const requestedEnd = new Date(endTime);
+    const now = new Date();
+
+    // Validate that the lesson is not in the past
+    if (requestedStart < now) {
+      console.log('⚠️ Attempt to book lesson in the past:', {
+        requestedStart: requestedStart.toISOString(),
+        now: now.toISOString()
+      });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot book lessons in the past. Please select a future time slot.' 
+      });
+    }
 
     console.log('🔍 Checking for conflicts:', {
       tutorId,
@@ -326,6 +339,18 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
     console.log(`⏱️ [Lessons By Tutor] DB query took: ${dbDuration}ms`);
 
     console.log(`📅 Found ${lessons.length} lessons for tutor ${tutorId}`);
+    
+    // Debug: Log isTrialLesson values
+    lessons.forEach(lesson => {
+      if (lesson.startTime && new Date(lesson.startTime).getHours() === 12) {
+        console.log('🔍 12PM Lesson:', {
+          id: lesson._id,
+          isTrialLesson: lesson.isTrialLesson,
+          hasField: lesson.hasOwnProperty('isTrialLesson'),
+          rawValue: lesson.toObject().isTrialLesson
+        });
+      }
+    });
 
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Lessons By Tutor] Total request time: ${totalDuration}ms`);

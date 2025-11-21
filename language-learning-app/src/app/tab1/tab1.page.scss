@@ -372,6 +372,193 @@ ion-content {
   }
 }
 
+// Class Invitations Section
+.invitations-section {
+  margin-bottom: 32px;
+  
+  .section-header-new {
+    position: relative;
+    
+    .invitation-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+  }
+  
+  .invitations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .invitation-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 2px solid #667eea;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+    
+    .invitation-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+    
+    .invitation-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .invitation-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      
+      .tutor-avatar-small {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        
+        ion-icon {
+          font-size: 20px;
+          color: #94a3b8;
+        }
+      }
+      
+      .invitation-info {
+        flex: 1;
+        min-width: 0;
+        
+        .class-name {
+          font-size: 16px;
+          font-weight: 700;
+          color: #1e293b;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .tutor-name {
+          font-size: 13px;
+          color: #64748b;
+          margin: 2px 0 0 0;
+        }
+      }
+    }
+    
+    .invitation-details {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      
+      .detail-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        color: #475569;
+        
+        ion-icon {
+          font-size: 16px;
+          color: #667eea;
+        }
+        
+        .free-tag {
+          color: #10b981;
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .chevron {
+      font-size: 20px;
+      color: #cbd5e1;
+      flex-shrink: 0;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    .invitation-card {
+      padding: 14px;
+      
+      .invitation-badge {
+        font-size: 10px;
+        padding: 5px 8px;
+        
+        ion-icon {
+          font-size: 12px;
+        }
+      }
+      
+      .invitation-header {
+        .class-name {
+          font-size: 15px;
+        }
+        
+        .tutor-name {
+          font-size: 12px;
+        }
+      }
+      
+      .invitation-details {
+        gap: 8px;
+        
+        .detail-item {
+          font-size: 12px;
+          
+          ion-icon {
+            font-size: 14px;
+          }
+        }
+      }
+    }
+  }
+}
+
 // Tutor Insights Panel (single card)
 .insights-panel {
   background: #fff;
