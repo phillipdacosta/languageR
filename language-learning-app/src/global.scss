@@ -36,6 +36,27 @@
 @import "@ionic/angular/css/palettes/dark.class.css";
 /* @import "@ionic/angular/css/palettes/dark.system.css"; */
 
+// Fix for ion-popover positioning
+// Ionic popover should automatically position using getBoundingClientRect(),
+// but parent containers can interfere. We ensure proper viewport-relative positioning.
+// ion-popover {
+//   --offset-x: 0;
+//   --offset-y: 8px;
+  
+//   // Force popover to use fixed positioning relative to viewport
+//   // This ensures it positions correctly regardless of parent container positioning
+//   &::part(content) {
+//     position: fixed !important;
+//   }
+// }
+
+// Ensure parent containers allow popovers to position correctly
+// The key is ensuring overflow: visible so popovers aren't clipped
+.next-class-card,
+.timeline-container {
+  overflow: visible;
+}
+
 /* Ensure dark mode applies to entire app */
 html.ion-palette-dark {
   color-scheme: dark;

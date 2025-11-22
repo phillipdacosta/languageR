@@ -1,0 +1,100 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Reschedule Lesson</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding reschedule-modal-content">
+  <!-- Calendar View -->
+  <div class="view-container" *ngIf="!showConfirmation" [@slideInOut]="animationDirection">
+    <!-- Participant Info -->
+    <div class="participant-section">
+      <ion-avatar class="participant-avatar">
+        <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName" referrerpolicy="no-referrer">
+        <ion-icon *ngIf="!participantAvatar" name="person" class="avatar-placeholder"></ion-icon>
+      </ion-avatar>
+      <div class="participant-info">
+        <h3>{{ formattedParticipantName }}</h3>
+        <p>Select a new time from available slots</p>
+      </div>
+    </div>
+
+    <!-- Availability Calendar (Inline) -->
+    <div class="calendar-section" *ngIf="!isLoadingMutualAvailability">
+      <app-tutor-availability-viewer
+        [tutorId]="tutorId"
+        [tutorName]="formattedParticipantName"
+        [inline]="true"
+        [selectionMode]="true"
+        [refreshTrigger]="refreshTrigger"
+        [studentBusySlots]="studentBusySlots"
+        (slotSelected)="onTimeSlotSelected($event)">
+      </app-tutor-availability-viewer>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="isLoadingMutualAvailability">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Finding available times...</p>
+    </div>
+
+    <!-- Info Message -->
+    <div class="info-message" *ngIf="!isLoadingMutualAvailability">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <p *ngIf="studentBusySlots.size > 0">
+        Only showing times when both you and {{ formattedParticipantName }} are available. 
+        {{ studentBusySlots.size }} time slot(s) excluded due to {{ formattedParticipantName }}'s other lessons.
+      </p>
+      <p *ngIf="studentBusySlots.size === 0">
+        Select any available time slot to reschedule your lesson with {{ formattedParticipantName }}.
+      </p>
+    </div>
+  </div>
+
+  <!-- Confirmation View -->
+  <div class="view-container confirmation-view" *ngIf="showConfirmation" [@slideInOut]="animationDirection">
+    <div class="confirmation-header">
+      <ion-icon name="calendar-outline" class="confirmation-icon"></ion-icon>
+      <h2>Confirm Reschedule</h2>
+    </div>
+
+    <div class="confirmation-content">
+      <div class="selected-time-card">
+        <div class="time-display">
+          <div class="date-display">{{ selectedDateFormatted }}</div>
+          <div class="time-display-value">{{ selectedTimeFormatted }}</div>
+        </div>
+        
+        <div class="participant-info-confirmation">
+          <ion-avatar class="confirmation-avatar">
+            <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="formattedParticipantName" referrerpolicy="no-referrer">
+            <ion-icon *ngIf="!participantAvatar" name="person" class="avatar-placeholder"></ion-icon>
+          </ion-avatar>
+          <p>with {{ formattedParticipantName }}</p>
+        </div>
+      </div>
+
+      <div class="confirmation-message">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <p>{{ formattedParticipantName }} will be notified of this time change.</p>
+      </div>
+    </div>
+
+    <div class="confirmation-actions">
+      <ion-button fill="outline" expand="block" (click)="goBack()">
+        <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
+        Go Back
+      </ion-button>
+      <ion-button expand="block" color="primary" (click)="confirmReschedule()">
+        <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+        Confirm Reschedule
+      </ion-button>
+    </div>
+  </div>
+</ion-content>
+

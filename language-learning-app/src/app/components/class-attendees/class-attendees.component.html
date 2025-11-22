@@ -1,0 +1,35 @@
+<div class="class-attendees" *ngIf="attendees && attendees.length > 0">
+  <div class="attendees-label">Going</div>
+  <div class="avatars-stack">
+    <!-- Display up to maxDisplay avatars -->
+    <div 
+      *ngFor="let attendee of getDisplayedAttendees(); let i = index" 
+      class="avatar-stacked"
+      [style.z-index]="maxDisplay - i"
+      [attr.title]="getAttendeeName(attendee)">
+      <img 
+        *ngIf="attendee.picture" 
+        [src]="attendee.picture" 
+        [alt]="getAttendeeName(attendee)"
+        referrerpolicy="no-referrer">
+      <div 
+        *ngIf="!attendee.picture" 
+        class="avatar-initials">
+        {{ getAttendeeInitials(attendee) }}
+      </div>
+    </div>
+    
+    <!-- Show "+X" for extra attendees -->
+    <div 
+      *ngIf="getExtraCount() > 0" 
+      class="avatar-stacked extra-count"
+      [style.z-index]="0"
+      [attr.title]="'+' + getExtraCount() + ' more'">
+      <div class="extra-count-text">+{{ getExtraCount() }}</div>
+    </div>
+  </div>
+  <div class="capacity-text" *ngIf="capacity">
+    {{ attendees?.length || 0 }}/{{ capacity }}
+  </div>
+</div>
+

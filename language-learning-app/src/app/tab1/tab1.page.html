@@ -47,29 +47,29 @@
           
           <div class="invitation-content">
             <div class="invitation-header">
-              <ion-avatar class="tutor-avatar-small">
-                <img *ngIf="invitation.tutorId.picture" [src]="invitation.tutorId.picture" [alt]="invitation.tutorId.name" />
-                <ion-icon *ngIf="!invitation.tutorId.picture" name="person"></ion-icon>
-              </ion-avatar>
+              <ion-icon name="people" class="class-icon"></ion-icon>
               <div class="invitation-info">
-                <h3 class="class-name">{{ invitation.name }}</h3>
-                <p class="tutor-name">with {{ invitation.tutorId.name }}</p>
+                <h3 class="class-name">{{ invitation?.name || 'Group Class' }}</h3>
+                <p class="tutor-name" *ngIf="invitation?.tutorId?.name">with {{ invitation.tutorId.name }}</p>
+                <p class="tutor-name" *ngIf="!invitation?.tutorId?.name">Group Class Invitation</p>
               </div>
             </div>
             
             <div class="invitation-details">
               <div class="detail-item">
                 <ion-icon name="calendar-outline"></ion-icon>
-                <span>{{ formatClassDate(invitation.startTime) }}</span>
+                <span>{{ formatClassDate(invitation?.startTime) }}</span>
               </div>
               <div class="detail-item">
                 <ion-icon name="time-outline"></ion-icon>
-                <span>{{ formatClassTime(invitation.startTime) }}</span>
+                <span>{{ formatClassTime(invitation?.startTime) }}</span>
               </div>
-              <div class="detail-item" *ngIf="invitation.price === 0">
-                <ion-icon name="gift-outline"></ion-icon>
-                <span class="free-tag">Free</span>
-              </div>
+            </div>
+            
+            <div class="invitation-actions">
+              <ion-button fill="outline" size="small" (click)="openClassInvitation(invitation._id); $event.stopPropagation()">
+                View Details
+              </ion-button>
             </div>
           </div>
           
@@ -182,25 +182,76 @@
     </ion-card>
 
     <!-- Next Class Info Card -->
-    <ion-card class="next-class-card" *ngIf="isTutor() && !isLoadingLessons && getFirstLessonForSelectedDate()">
+    <ion-card class="next-class-card" *ngIf="isTutor() && !isLoadingLessons && firstLessonForSelectedDate">
       <!-- Hidden reference to countdownTick to trigger change detection -->
       <span style="display: none;">{{ countdownTick }}</span>
       <ion-card-content>
-        <div class="card-inner" *ngIf="getFirstLessonForSelectedDate() as nextClass">
+        <div class="card-inner" *ngIf="firstLessonForSelectedDate as nextClass">
           <!-- Badge Row -->
           <div class="badge-row">
-            <!-- NEXT CLASS Badge -->
-            <div class="next-class-badge">
-              <span *ngIf="nextClass.isInProgress">NOW</span>
-              <span *ngIf="!nextClass.isInProgress && nextClass.isNextClass">NEXT CLASS</span>
-              <span *ngIf="!nextClass.isInProgress && !nextClass.isNextClass">{{ nextClass.dateTag }}</span>
+            <div class="badge-row-left">
+              <!-- NEXT CLASS Badge -->
+              <div class="next-class-badge">
+                <span *ngIf="nextClass.isInProgress">NOW</span>
+                <span *ngIf="!nextClass.isInProgress && nextClass.isNextClass">NEXT CLASS</span>
+                <span *ngIf="!nextClass.isInProgress && !nextClass.isNextClass">{{ nextClass.dateTag }}</span>
+              </div>
+              
+              <!-- Trial Lesson Badge -->
+              <div class="trial-lesson-badge" *ngIf="nextClass.lesson?.isTrialLesson">
+                <ion-icon name="star"></ion-icon>
+                <span>TRIAL</span>
+              </div>
             </div>
             
-            <!-- Trial Lesson Badge -->
-            <div class="trial-lesson-badge" *ngIf="nextClass.lesson?.isTrialLesson">
-              <ion-icon name="star"></ion-icon>
-              <span>TRIAL</span>
-            </div>
+            <!-- Lesson/Class Menu Button (three dots) -->
+            <!-- Mobile: click handler for action sheet -->
+            <ion-button 
+              *ngIf="isMobile"
+              fill="clear" 
+              size="small" 
+              class="class-menu-btn"
+              (click)="openMobileLessonMenu($event, nextClass.lesson)">
+              <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+            </ion-button>
+            
+            <!-- Desktop: trigger for popover -->
+            <ion-button 
+              *ngIf="!isMobile"
+              [id]="'next-class-menu-' + nextClass.lesson._id"
+              fill="clear" 
+              size="small" 
+              class="class-menu-btn">
+              <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+            </ion-button>
+            
+            <!-- Popover for desktop only -->
+            <ion-popover 
+              *ngIf="!isMobile"
+              [trigger]="'next-class-menu-' + nextClass.lesson._id"
+              triggerAction="click"
+              side="start"
+              alignment="start"
+              [dismissOnSelect]="true">
+              <ng-template>
+                <ion-content class="ion-padding">
+                  <ion-list>
+                    <ion-item [button]="true" (click)="inviteStudentToClass(nextClass.lesson._id)" *ngIf="nextClass.lesson?.isClass" [detail]="false">
+                      <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                      <ion-label>Invite student</ion-label>
+                    </ion-item>
+                    <ion-item [button]="true" (click)="nextClass.lesson?.isClass ? rescheduleClass(nextClass.lesson._id, nextClass.lesson) : rescheduleLesson(nextClass.lesson._id, nextClass.lesson)" [detail]="false">
+                      <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                      <ion-label>Reschedule</ion-label>
+                    </ion-item>
+                    <ion-item [button]="true" (click)="nextClass.lesson?.isClass ? cancelClass(nextClass.lesson._id, nextClass.lesson) : cancelLesson(nextClass.lesson._id, nextClass.lesson)" class="ion-text-danger" [detail]="false">
+                      <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+                      <ion-label>Cancel lesson</ion-label>
+                    </ion-item>
+                  </ion-list>
+                </ion-content>
+              </ng-template>
+            </ion-popover>
           </div>
           
           <!-- Main Content Row -->
@@ -209,17 +260,24 @@
             <div class="student-section">
               <ion-avatar class="student-avatar">
                 <img
-                  *ngIf="getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
+                  *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
                   [src]="getOtherParticipantAvatar(nextClass.lesson)"
                   [alt]="formatStudentDisplayName(nextClass)"
                   referrerpolicy="no-referrer"
                 />
-                <ion-icon *ngIf="!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png'" name="person" class="avatar-placeholder-icon"></ion-icon>
+                <ion-icon *ngIf="nextClass.lesson?.isClass" name="people" class="avatar-placeholder-icon"></ion-icon>
+                <ion-icon *ngIf="!nextClass.lesson?.isClass && (!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png')" name="person" class="avatar-placeholder-icon"></ion-icon>
               </ion-avatar>
               
               <div class="student-details">
-                <h3 class="student-name">{{ formatStudentDisplayName(nextClass) }}</h3>
-                <p class="lesson-subject">{{ nextClass.subject }} Student</p>
+                <h3 class="student-name">
+                  <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || 'Group Class' }}</span>
+                  <span *ngIf="!nextClass.lesson?.isClass">{{ formatStudentDisplayName(nextClass) }}</span>
+                </h3>
+                <p class="lesson-subject">
+                  <span *ngIf="nextClass.lesson?.isClass">Group Class</span>
+                  <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }} Student</span>
+                </p>
                 <div class="lesson-time" [class.is-today]="nextClass.isToday">
                   <ion-icon name="time-outline"></ion-icon>
                   <span *ngIf="nextClass.isToday" class="today-label">Today ·</span>
@@ -228,6 +286,14 @@
                 <p class="starts-in" *ngIf="!nextClass.isInProgress">
                   Starts in {{ getTimeUntilLesson(nextClass.lesson) }}
                 </p>
+                
+                <!-- Class Attendees (if it's a class) -->
+                <app-class-attendees 
+                  *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.attendees"
+                  [attendees]="nextClass.lesson.attendees"
+                  [capacity]="nextClass.lesson.capacity"
+                  [maxDisplay]="3">
+                </app-class-attendees>
               </div>
             </div>
             
@@ -246,7 +312,7 @@
     </ion-card>
 
     <!-- Empty State: No Classes Today / No More Classes Today -->
-    <div class="next-class-empty-state" *ngIf="isTutor() && !isLoadingLessons && !getFirstLessonForSelectedDate()">
+    <div class="next-class-empty-state" *ngIf="isTutor() && !isLoadingLessons && !firstLessonForSelectedDate">
       <div class="empty-state-content">
         <ion-icon name="calendar-outline" class="empty-state-icon"></ion-icon>
         
@@ -296,30 +362,30 @@
         <div class="tutor-card" *ngFor="let student of getOtherStudentsForDate()">
           <div class="tutor-card-content">
             <ion-avatar class="tutor-avatar">
-              <img *ngIf="student.profilePicture || student.picture" [src]="student.profilePicture || student.picture" alt="{{ student.name }}" referrerpolicy="no-referrer">
-              <ion-icon *ngIf="!student.profilePicture && !student.picture" name="person" class="avatar-placeholder-icon"></ion-icon>
-              <div class="presence-indicator" *ngIf="hasParticipantJoinedById(student.lessonId)">
+              <img *ngIf="student && (student.profilePicture || student.picture)" [src]="student.profilePicture || student.picture" alt="{{ student?.name }}" referrerpolicy="no-referrer">
+              <ion-icon *ngIf="!student || (!student.profilePicture && !student.picture)" name="person" class="avatar-placeholder-icon"></ion-icon>
+              <div class="presence-indicator" *ngIf="student?.lessonId && hasParticipantJoinedById(student.lessonId)">
                 <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
               </div>
             </ion-avatar>
-            <div class="rating-badge" *ngIf="!student.isClass">
+            <div class="rating-badge" *ngIf="student && !student.isClass">
               <ion-icon name="star"></ion-icon>
-              <span>{{ student.rating || '4.5' }}</span>
+              <span>{{ student?.rating || '4.5' }}</span>
             </div>
           </div>
           <div class="tutor-info">
-            <h3>{{ student.name }}</h3>
-            <p class="subject">{{ student.subject }}</p>
-            <p class="lesson-time" *ngIf="student.lessonTime">
+            <h3>{{ student?.name || 'Student' }}</h3>
+            <p class="subject">{{ student?.subject || '' }}</p>
+            <p class="lesson-time" *ngIf="student?.lessonTime">
               <ion-icon name="time-outline"></ion-icon>
               {{ student.lessonTime }}
             </p>
             <!-- Presence indicator text for student card -->
-            <div class="presence-text" *ngIf="hasParticipantJoinedById(student.lessonId)">
+            <div class="presence-text" *ngIf="student?.lessonId && hasParticipantJoinedById(student.lessonId)">
               <ion-icon name="person-circle-outline" class="presence-icon-small"></ion-icon>
               <span>{{ getPresenceDataById(student.lessonId)?.participantName || 'Student' }} has joined lesson</span>
             </div>
-            <div class="student-card-actions" *ngIf="student.lessonId">
+            <div class="student-card-actions" *ngIf="student?.lessonId">
               <ion-button fill="clear" size="small" class="action-icon-btn message">
                 <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
               </ion-button>
@@ -340,7 +406,7 @@
     </div>
 
     <!-- Coming Up Next Timeline (for tutors) -->
-    <div class="timeline-section" *ngIf="isTutor() && getTimelineEvents().length > 0">
+    <div class="timeline-section" *ngIf="isTutor() && timelineEvents.length > 0">
       <div class="section-header-new">
         <h2>Coming Up Next</h2>
         <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
@@ -349,7 +415,7 @@
       <ion-card class="timeline-card">
         <ion-card-content>
           <div class="timeline-container">
-            <div class="timeline-item" *ngFor="let event of getTimelineEvents(); let last = last; let first = first" [class.last]="last" [class.first]="first">
+            <div class="timeline-item" *ngFor="let event of timelineEvents; let last = last; let first = first" [class.last]="last" [class.first]="first">
               <div class="timeline-dot"></div>
               <div class="timeline-line" *ngIf="!last"></div>
               <div class="timeline-content" [class.has-join-button]="first && event.lesson" (click)="!first || !event.lesson ? navigateToLesson(event.lesson) : null">
@@ -359,19 +425,83 @@
                     <span class="timeline-end-time" *ngIf="event.endTime">{{ event.endTime }}</span>
                     <span class="timeline-date" [class.is-today]="event.date === 'Today'">{{ event.date }}</span>
                   </div>
-                  <ion-avatar class="timeline-avatar" *ngIf="event.avatar">
-                    <img [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
-                  </ion-avatar>
+                  <div class="timeline-header-right">
+                    <ion-avatar class="timeline-avatar" *ngIf="event.avatar && !event.lesson?.isClass">
+                      <img [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
+                    </ion-avatar>
+                    <!-- Lesson/Class Menu Button (three dots) -->
+                    <!-- Mobile: click handler for action sheet -->
+                    <ion-button 
+                      *ngIf="event.lesson && isMobile"
+                      fill="clear" 
+                      size="small" 
+                      class="class-menu-btn timeline-menu-btn"
+                      (click)="openMobileLessonMenu($event, event.lesson)">
+                      <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+                    </ion-button>
+                    
+                    <!-- Desktop: trigger for popover -->
+                    <ion-button 
+                      *ngIf="event.lesson && !isMobile"
+                      [id]="'timeline-menu-' + event.lesson._id"
+                      fill="clear" 
+                      size="small" 
+                      class="class-menu-btn timeline-menu-btn">
+                      <ion-icon name="ellipsis-vertical" slot="icon-only"></ion-icon>
+                    </ion-button>
+                    
+                    <!-- Popover for desktop only -->
+                    <ion-popover 
+                      *ngIf="event.lesson && !isMobile"
+                      [trigger]="'timeline-menu-' + event.lesson._id"
+                      triggerAction="click"
+                      side="start"
+                      alignment="start"
+                      [dismissOnSelect]="true">
+                      <ng-template>
+                        <ion-content class="ion-padding">
+                          <ion-list>
+                            <ion-item [button]="true" (click)="inviteStudentToClass(event.lesson._id)" *ngIf="event.lesson?.isClass" [detail]="false">
+                              <ion-icon name="person-add-outline" slot="start"></ion-icon>
+                              <ion-label>Invite student</ion-label>
+                            </ion-item>
+                            <ion-item [button]="true" (click)="event.lesson?.isClass ? rescheduleClass(event.lesson._id, event.lesson) : rescheduleLesson(event.lesson._id, event.lesson)" [detail]="false">
+                              <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                              <ion-label>Reschedule</ion-label>
+                            </ion-item>
+                            <ion-item [button]="true" (click)="event.lesson?.isClass ? cancelClass(event.lesson._id, event.lesson) : cancelLesson(event.lesson._id, event.lesson)" class="ion-text-danger" [detail]="false">
+                              <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+                              <ion-label>Cancel lesson</ion-label>
+                            </ion-item>
+                          </ion-list>
+                        </ion-content>
+                      </ng-template>
+                    </ion-popover>
+                  </div>
                 </div>
             <div class="timeline-details">
               <div class="timeline-name-row">
-                <h4 class="timeline-name">{{ event.name }}</h4>
+                <h4 class="timeline-name">
+                  <span *ngIf="event.lesson?.isClass">{{ event.lesson.className || event.lesson.subject || 'Group Class' }}</span>
+                  <span *ngIf="!event.lesson?.isClass">{{ event.name }}</span>
+                </h4>
                 <div class="timeline-trial-badge" *ngIf="event.isTrialLesson">
                   <ion-icon name="star"></ion-icon>
                   <span>Trial</span>
                 </div>
               </div>
-              <p class="timeline-subject">{{ event.subject }}</p>
+              <p class="timeline-subject">
+                <span *ngIf="event.lesson?.isClass">Group Class</span>
+                <span *ngIf="!event.lesson?.isClass">{{ event.subject }}</span>
+              </p>
+              
+              <!-- Class Attendees (if it's a class) -->
+              <app-class-attendees 
+                *ngIf="event.lesson?.isClass && event.lesson?.attendees"
+                [attendees]="event.lesson.attendees"
+                [capacity]="event.lesson.capacity"
+                [maxDisplay]="3">
+              </app-class-attendees>
             </div>
                 <!-- Join button for first timeline card -->
                 <div class="timeline-join-button" *ngIf="first && event.lesson">
@@ -425,11 +555,12 @@
         <div class="upcoming-lesson-row">
             <ion-avatar class="lesson-avatar-large">
             <img 
-              *ngIf="upcomingLesson && getPresenceAvatar(upcomingLesson)" 
+              *ngIf="upcomingLesson && !upcomingLesson.isClass && getPresenceAvatar(upcomingLesson)" 
               [src]="getPresenceAvatar(upcomingLesson)" 
               alt="Avatar" 
               referrerpolicy="no-referrer" />
-            <ion-icon *ngIf="!upcomingLesson || !getPresenceAvatar(upcomingLesson)" name="person" class="avatar-placeholder-icon"></ion-icon>
+            <ion-icon *ngIf="upcomingLesson?.isClass" name="people" class="avatar-placeholder-icon"></ion-icon>
+            <ion-icon *ngIf="!upcomingLesson || (!upcomingLesson.isClass && !getPresenceAvatar(upcomingLesson))" name="person" class="avatar-placeholder-icon"></ion-icon>
             <div class="presence-indicator" *ngIf="hasParticipantJoined(upcomingLesson)">
               <ion-icon name="checkmark-circle" class="presence-icon"></ion-icon>
             </div>
@@ -437,6 +568,14 @@
           <div class="lesson-details">
             <h3>{{ upcomingLesson ? getOtherParticipantName(upcomingLesson) : '' }}</h3>
             <p class="lesson-specialty">{{ upcomingLesson ? getOtherParticipantSpecialty(upcomingLesson) : '' }}</p>
+            
+            <!-- Class Attendees (if it's a class) -->
+            <app-class-attendees 
+              *ngIf="upcomingLesson?.isClass && upcomingLesson?.attendees"
+              [attendees]="upcomingLesson.attendees"
+              [capacity]="upcomingLesson.capacity"
+              [maxDisplay]="3">
+            </app-class-attendees>
             <div class="lesson-datetime">
               <ion-icon name="calendar-outline"></ion-icon>
               <span>{{ upcomingLesson ? formatLessonTime(upcomingLesson) : '' }}</span>
@@ -478,11 +617,11 @@
                 class="stacked-avatar" 
                 *ngFor="let tutor of pastTutors.slice(0, 5); trackBy: trackByTutorId">
                 <img 
-                  *ngIf="tutor.picture"
+                  *ngIf="tutor && tutor.picture"
                   [src]="tutor.picture" 
                   [alt]="tutor.name"
                   referrerpolicy="no-referrer">
-                <ion-icon *ngIf="!tutor.picture" name="person" style="font-size: 24px; color: #94a3b8;"></ion-icon>
+                <ion-icon *ngIf="!tutor || !tutor.picture" name="person" style="font-size: 24px; color: #94a3b8;"></ion-icon>
               </div>
             </div>
             <p class="past-tutors-label">Or</p>

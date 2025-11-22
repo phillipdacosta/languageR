@@ -766,6 +766,8 @@ ion-content {
 .timeline-container {
   position: relative;
   padding-left: 0;
+  // Allow popovers to position correctly
+  overflow: visible;
 }
 
 // Continuous vertical line that spans all timeline items (STATIC - always visible)
@@ -1113,6 +1115,30 @@ ion-content {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+
+  .timeline-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+}
+
+.timeline-menu-btn {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --color: #6b7280;
+  margin: 0;
+  height: 28px;
+  width: 28px;
+  
+  &:hover {
+    --color: #374151;
+    background: rgba(0, 0, 0, 0.04);
+  }
+  
+  ion-icon {
+    font-size: 18px;
+  }
 }
 
 .timeline-date-group {
@@ -1492,6 +1518,16 @@ ion-content {
    .timeline-avatar {
      width: 44px;
      height: 44px;
+   }
+
+   .timeline-class-icon {
+     width: 44px;
+     height: 44px;
+     font-size: 24px;
+     color: var(--ion-color-primary);
+     display: flex;
+     align-items: center;
+     justify-content: center;
    }
 
    .timeline-name {
@@ -2177,6 +2213,7 @@ ion-content {
 .badge-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 16px;
   flex-wrap: wrap;
@@ -2184,6 +2221,31 @@ ion-content {
   @media (max-width: 600px) {
     gap: 8px;
     margin-bottom: 14px;
+  }
+
+  .badge-row-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+}
+
+.class-menu-btn {
+  --padding-start: 4px;
+  --padding-end: 4px;
+  --color: #6b7280;
+  margin: 0;
+  height: 32px;
+  width: 32px;
+  
+  &:hover {
+    --color: #374151;
+    background: rgba(0, 0, 0, 0.04);
+  }
+  
+  ion-icon {
+    font-size: 20px;
   }
 }
 
@@ -4006,5 +4068,26 @@ ion-content {
         }
       }
     }
+  }
+}
+
+// Popover positioning fix
+// ::ng-deep ion-popover {
+//   --offset-x: 0;
+//   --offset-y: 8px;
+  
+//   // Ensure popover positions correctly relative to trigger
+//   .popover-wrapper {
+//     position: fixed !important;
+//   }
+// }
+
+// Ensure parent containers don't interfere with popover positioning
+.next-class-card,
+.timeline-content {
+  position: relative;
+  
+  ion-popover {
+    position: fixed !important;
   }
 }

@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ModalController, LoadingController, ToastController } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
@@ -10,10 +10,14 @@ import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { ClassMenuPopoverComponent } from '../components/class-menu-popover/class-menu-popover.component';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { NotificationService } from '../services/notification.service';
 import { MessagingService } from '../services/messaging.service';
+import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
+import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
+import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 
 @Component({
   selector: 'app-tab1',
@@ -71,6 +75,12 @@ export class Tab1Page implements OnInit, OnDestroy {
   private cachedStudentsDate: Date | null = null;
   private cachedStudentsLessonsHash: string = '';
   
+  // Cached computed properties to prevent re-computation during change detection
+  private _cachedFirstLesson: any | null = null;
+  private _cachedFirstLessonHash: string = '';
+  private _cachedTimelineEvents: any[] = [];
+  private _cachedTimelineEventsHash: string = '';
+  
   // Featured tutors for students (mock data - replace with real data)
   featuredTutors: any[] = [];
 
@@ -97,7 +107,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     private toastController: ToastController,
     private websocketService: WebSocketService,
     private notificationService: NotificationService,
-    private messagingService: MessagingService
+    private messagingService: MessagingService,
+    private actionSheetController: ActionSheetController,
+    private popoverController: PopoverController
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     this.userService.currentUser$
@@ -360,22 +372,34 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
   }
 
-  formatClassDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
+  formatClassDate(dateString: string | null | undefined): string {
+    if (!dateString) return 'Date TBD';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Date TBD';
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch {
+      return 'Date TBD';
+    }
   }
 
-  formatClassTime(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+  formatClassTime(dateString: string | null | undefined): string {
+    if (!dateString) return 'Time TBD';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'Time TBD';
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+    } catch {
+      return 'Time TBD';
+    }
   }
 
   ngOnDestroy() {
@@ -647,17 +671,21 @@ export class Tab1Page implements OnInit, OnDestroy {
       }
       // Handle regular lessons with students
       else if (l.studentId && typeof l.studentId === 'object') {
-        const studentId = (l.studentId as any)._id;
+        const studentId = (l.studentId as any)?._id;
+        if (!studentId) return; // Skip if no valid studentId
+        
         const existing = studentLessonMap.get(studentId);
         
         // If no existing entry, or this lesson is earlier, use this lesson
         if (!existing || new Date(l.startTime) < new Date(existing.lesson.startTime)) {
           const studentData = l.studentId as any;
+          if (!studentData) return; // Skip if studentData is null
+          
           // Build full name from firstName and lastName if available
-          let fullName = studentData.name || studentData.email;
-          if (studentData.firstName && studentData.lastName) {
+          let fullName = studentData?.name || studentData?.email || 'Student';
+          if (studentData?.firstName && studentData?.lastName) {
             fullName = `${studentData.firstName} ${studentData.lastName}`;
-          } else if (studentData.firstName) {
+          } else if (studentData?.firstName) {
             fullName = studentData.firstName;
           }
           
@@ -665,11 +693,11 @@ export class Tab1Page implements OnInit, OnDestroy {
             student: {
               id: studentId,
               name: fullName,
-              firstName: studentData.firstName,
-              lastName: studentData.lastName,
-              profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
-              email: studentData.email,
-              rating: studentData.rating || 4.5,
+              firstName: studentData?.firstName,
+              lastName: studentData?.lastName,
+              profilePicture: studentData?.picture || studentData?.profilePicture || 'assets/avatar.png',
+              email: studentData?.email,
+              rating: studentData?.rating || 4.5,
             },
             lesson: l,
             isNext: false // Will be set correctly below
@@ -703,23 +731,25 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
     
     // Convert map to array and calculate join labels
-    const students = Array.from(studentLessonMap.values()).map(({ student, lesson, isNext }) => {
-      const currentLessonId = String(lesson._id);
-      
-      // Pre-calculate join label to prevent flashing
-      const joinLabel = this.calculateJoinLabel(lesson);
-      
-      return {
-        ...student,
-        lessonId: String(lesson._id), // Convert to string to match backend format
-        lesson: lesson, // Include full lesson object for join functionality
-        lessonTime: this.formatLessonTime(lesson),
-        subject: this.formatSubject(lesson.subject),
-        isNextClass: isNext,
-        startTime: lesson.startTime, // Keep for sorting if needed
-        joinLabel: joinLabel // Pre-calculated label
-      };
-    });
+    const students = Array.from(studentLessonMap.values())
+      .filter(({ student }) => student != null) // Filter out any null students
+      .map(({ student, lesson, isNext }) => {
+        const currentLessonId = String(lesson._id);
+        
+        // Pre-calculate join label to prevent flashing
+        const joinLabel = this.calculateJoinLabel(lesson);
+        
+        return {
+          ...student,
+          lessonId: String(lesson._id), // Convert to string to match backend format
+          lesson: lesson, // Include full lesson object for join functionality
+          lessonTime: this.formatLessonTime(lesson),
+          subject: this.formatSubject(lesson.subject),
+          isNextClass: isNext,
+          startTime: lesson.startTime, // Keep for sorting if needed
+          joinLabel: joinLabel // Pre-calculated label
+        };
+      });
     
     
     // Sort by lesson time
@@ -825,7 +855,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   // Get students for date excluding the next class one
   getOtherStudentsForDate(): any[] {
     const students = this.getStudentsForDate();
-    return students.filter(s => !s.isNextClass);
+    return students.filter(s => s && !s.isNextClass); // Filter out null/undefined entries
   }
 
   // Check if there were completed lessons earlier today
@@ -878,8 +908,26 @@ export class Tab1Page implements OnInit, OnDestroy {
     return completedLessonsToday.length > 0;
   }
 
-  // Get first lesson for the selected date
-  getFirstLessonForSelectedDate(): any | null {
+  // Get first lesson for the selected date (cached for performance)
+  get firstLessonForSelectedDate(): any | null {
+    // Create a hash of the inputs to detect changes
+    const selectedDateStr = this.selectedDate ? this.selectedDate.toISOString() : 'null';
+    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const currentHash = `${selectedDateStr}:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    
+    // Return cached value if inputs haven't changed
+    if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
+      return this._cachedFirstLesson;
+    }
+    
+    // Compute and cache the result
+    this._cachedFirstLessonHash = currentHash;
+    this._cachedFirstLesson = this.computeFirstLessonForSelectedDate();
+    return this._cachedFirstLesson;
+  }
+  
+  // Internal method to compute first lesson (called by cached getter)
+  private computeFirstLessonForSelectedDate(): any | null {
     if (!this.selectedDate) {
       return null;
     }
@@ -1050,13 +1098,31 @@ export class Tab1Page implements OnInit, OnDestroy {
     return tutor.id;
   }
 
-  // Get timeline events for "Coming Up Next" section
-  getTimelineEvents() {
+  // Get timeline events for "Coming Up Next" section (cached for performance)
+  get timelineEvents(): any[] {
+    // Create a hash of the inputs to detect changes
+    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}`).join(',');
+    const firstLessonId = this.firstLessonForSelectedDate?.lessonId || 'null';
+    const currentHash = `${lessonsHash}:${firstLessonId}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    
+    // Return cached value if inputs haven't changed
+    if (this._cachedTimelineEventsHash === currentHash && this._cachedTimelineEvents.length >= 0) {
+      return this._cachedTimelineEvents;
+    }
+    
+    // Compute and cache the result
+    this._cachedTimelineEventsHash = currentHash;
+    this._cachedTimelineEvents = this.computeTimelineEvents();
+    return this._cachedTimelineEvents;
+  }
+  
+  // Internal method to compute timeline events (called by cached getter)
+  private computeTimelineEvents(): any[] {
     const upcomingLessons = this.getUpcomingLessons();
     const now = new Date();
     
     // Get the next class being shown in the text section (if tutor view)
-    const nextClassLesson = this.isTutor() ? this.getFirstLessonForSelectedDate() : null;
+    const nextClassLesson = this.isTutor() ? this.firstLessonForSelectedDate : null;
     // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
@@ -1076,14 +1142,21 @@ export class Tab1Page implements OnInit, OnDestroy {
         const startTime = new Date(lesson.startTime);
         const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
         const student = lesson.studentId as any;
+        const isClass = (lesson as any).isClass;
         
         return {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
           date: this.formatRelativeDate(startTime),
-          name: this.formatStudentDisplayName(student),
-          subject: this.formatSubject(lesson.subject),
-          avatar: student?.picture || student?.profilePicture || null,
+          name: isClass 
+            ? ((lesson as any).className || lesson.subject || 'Group Class')
+            : (student ? this.formatStudentDisplayName(student) : 'Unknown'),
+          subject: isClass 
+            ? 'Group Class'
+            : this.formatSubject(lesson.subject),
+          avatar: isClass 
+            ? null // Classes don't have a single avatar, they show multiple in attendees component
+            : (student?.picture || student?.profilePicture || null),
           lesson: lesson,
           isTrialLesson: lesson.isTrialLesson || false
         };
@@ -1250,11 +1323,40 @@ export class Tab1Page implements OnInit, OnDestroy {
   getOtherParticipantAvatar(lesson: Lesson): string | null {
     if (!this.currentUser || !lesson) return null;
     
+    // Classes don't have a single participant avatar
+    if ((lesson as any).isClass) {
+      return null;
+    }
+    
     // Use lesson ID + participant ID as cache key
-    const isTutor = lesson.tutorId?._id === this.currentUser.id;
-    const participantId = isTutor 
-      ? (lesson.studentId as any)?._id || (lesson.studentId as any)?.id
-      : (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id;
+    // Safely check if current user is the tutor
+    // Handle case where tutorId/studentId might be a string ID or an object
+    let tutorId: string | null = null;
+    if (lesson.tutorId) {
+      if (typeof lesson.tutorId === 'string') {
+        tutorId = lesson.tutorId;
+      } else if (typeof lesson.tutorId === 'object' && lesson.tutorId !== null) {
+        tutorId = (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || null;
+      }
+    }
+    
+    const isTutor = tutorId && this.currentUser?.id ? tutorId === this.currentUser.id : false;
+    
+    let participantId: string | null = null;
+    if (isTutor) {
+      // Get student ID
+      if (lesson.studentId) {
+        if (typeof lesson.studentId === 'string') {
+          participantId = lesson.studentId;
+        } else if (typeof lesson.studentId === 'object' && lesson.studentId !== null) {
+          participantId = (lesson.studentId as any)?._id || (lesson.studentId as any)?.id || null;
+        }
+      }
+    } else {
+      participantId = tutorId;
+    }
+    
+    if (!participantId) return null; // No valid participant ID
     
     const cacheKey = `${lesson._id}-${participantId}`;
     
@@ -1267,9 +1369,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     const other = isTutor ? lesson.studentId : lesson.tutorId;
     let avatarUrl: string | null = null;
     
-    if (typeof other === 'object' && other) {
-      avatarUrl = (other as any).picture || (other as any).profilePicture || null;
+    // Safely access picture property - handle both object and string ID cases
+    if (other != null && typeof other === 'object' && other !== null) {
+      // other is an object with potential picture property
+      avatarUrl = (other as any)?.picture || (other as any)?.profilePicture || null;
     }
+    // If other is a string ID, we can't get the picture from it directly
+    // (would need to fetch user data, but that's handled elsewhere)
     
     // Cache the result
     this._avatarCache.set(cacheKey, avatarUrl);
@@ -1281,6 +1387,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   getOtherParticipantSpecialty(lesson: Lesson): string {
     if (!this.currentUser) return 'Language Learning';
     
+    // Handle classes
+    if ((lesson as any).isClass) {
+      return 'Group Class';
+    }
+    
     const isTutor = lesson.tutorId?._id === this.currentUser.id;
     
     if (isTutor) {
@@ -1288,7 +1399,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     } else {
       const tutor = lesson.tutorId;
       if (typeof tutor === 'object' && tutor) {
-        return (tutor as any).specialty || 'Language Tutor';
+        return (tutor as any)?.specialty || 'Language Tutor';
       }
       return 'Language Tutor';
     }
@@ -1302,33 +1413,41 @@ export class Tab1Page implements OnInit, OnDestroy {
         const now = Date.now();
         let allLessons = [...resp.lessons];
 
-        // For tutors, also load classes from availability
+        // For tutors, also load classes with attendee information
         if (this.isTutor()) {
-          const availResp = await this.userService.getAvailability().toPromise();
-          if (availResp?.availability) {
-            // Find class blocks in availability
-            const classBlocks = availResp.availability.filter((b: any) => b.type === 'class');
-            
-            // Convert class blocks to lesson-like objects
-            const classLessons = classBlocks.map((cls: any) => ({
-              _id: cls.id,
-              tutorId: (this.currentUser as any)?._id || (this.currentUser as any)?.id,
-              studentId: null as any, // Classes don't have a specific student
-              startTime: cls.absoluteStart || cls.startTime,
-              endTime: cls.absoluteEnd || cls.endTime,
-              status: 'scheduled' as const,
-              subject: cls.title || cls.name || 'Class',
-              channelName: `class_${cls.id}`,
-              price: 0, // Classes don't have individual pricing
-              duration: 60, // Default duration
-              createdAt: cls.createdAt || new Date(),
-              updatedAt: cls.updatedAt || new Date(),
-              isClass: true, // Mark as class to differentiate
-              className: cls.title || cls.name
-            } as any));
-            
-            // Merge classes with lessons
-            allLessons = [...allLessons, ...classLessons];
+          const tutorId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
+          if (tutorId) {
+            try {
+              const classesResp = await this.classService.getClassesForTutor(tutorId).toPromise();
+              if (classesResp?.success && classesResp.classes) {
+                // Convert classes to lesson-like objects with attendee info
+                const classLessons = classesResp.classes.map((cls: any) => ({
+                  _id: cls._id,
+                  tutorId: tutorId,
+                  studentId: null as any, // Classes don't have a single student
+                  startTime: cls.startTime,
+                  endTime: cls.endTime,
+                  status: 'scheduled' as const,
+                  subject: cls.name || 'Class',
+                  channelName: `class_${cls._id}`,
+                  price: cls.price || 0,
+                  duration: Math.round((new Date(cls.endTime).getTime() - new Date(cls.startTime).getTime()) / 60000),
+                  createdAt: cls.createdAt || new Date(),
+                  updatedAt: cls.updatedAt || new Date(),
+                  isClass: true, // Mark as class to differentiate
+                  className: cls.name,
+                  classData: cls, // Store full class data including attendees
+                  attendees: cls.attendees || [], // Confirmed students who are going
+                  capacity: cls.capacity,
+                  invitationStats: cls.invitationStats
+                } as any));
+                
+                // Merge classes with lessons
+                allLessons = [...allLessons, ...classLessons];
+              }
+            } catch (error) {
+              console.error('Error loading tutor classes:', error);
+            }
           }
         }
 
@@ -1381,6 +1500,12 @@ export class Tab1Page implements OnInit, OnDestroy {
 
         // Clear avatar cache when lessons reload to get fresh images
         this._avatarCache.clear();
+        
+        // Clear computed caches to force recalculation with new data
+        this._cachedFirstLessonHash = '';
+        this._cachedFirstLesson = undefined;
+        this._cachedTimelineEventsHash = '';
+        this._cachedTimelineEvents = [];
 
         // Set upcoming lesson (first future lesson)
         this.upcomingLesson = this.lessons.length > 0 ? this.lessons[0] : null;
@@ -1624,9 +1749,20 @@ export class Tab1Page implements OnInit, OnDestroy {
           
           // Determine who the other participant is
           const isTutor = this.currentUser.userType === 'tutor';
-          const otherParticipantId = isTutor 
-            ? detailedLesson.studentId?._id 
-            : detailedLesson.tutorId?._id;
+          
+          // Safely get the other participant ID
+          let otherParticipantId: string | undefined = undefined;
+          if (isTutor) {
+            const student = detailedLesson.studentId;
+            if (student && typeof student === 'object') {
+              otherParticipantId = (student as any)?._id || (student as any)?.id;
+            }
+          } else {
+            const tutor = detailedLesson.tutorId;
+            if (tutor && typeof tutor === 'object') {
+              otherParticipantId = (tutor as any)?._id || (tutor as any)?.id;
+            }
+          }
           
           if (otherParticipantId && detailedLesson.participants) {
             const otherParticipantKey = String(otherParticipantId);
@@ -1637,13 +1773,30 @@ export class Tab1Page implements OnInit, OnDestroy {
               
               // Set presence in our map
               const normalizedLessonId = String(lesson._id);
+              
+              // Safely get participant picture
+              let participantPicture: string | undefined = undefined;
+              if (isTutor) {
+                const student = detailedLesson.studentId;
+                if (student && typeof student === 'object') {
+                  participantPicture = (student as any)?.picture || (student as any)?.profilePicture;
+                }
+              } else {
+                const tutor = detailedLesson.tutorId;
+                if (tutor && typeof tutor === 'object') {
+                  participantPicture = (tutor as any)?.picture || (tutor as any)?.profilePicture;
+                }
+              }
+              
               this.lessonPresence.set(normalizedLessonId, {
                 participantName: isTutor 
-                  ? (detailedLesson.studentId?.name || 'Student')
-                  : (detailedLesson.tutorId?.name || 'Tutor'),
-                participantPicture: isTutor 
-                  ? detailedLesson.studentId?.picture 
-                  : detailedLesson.tutorId?.picture,
+                  ? (detailedLesson.studentId && typeof detailedLesson.studentId === 'object' 
+                      ? (detailedLesson.studentId as any)?.name || 'Student'
+                      : 'Student')
+                  : (detailedLesson.tutorId && typeof detailedLesson.tutorId === 'object'
+                      ? (detailedLesson.tutorId as any)?.name || 'Tutor'
+                      : 'Tutor'),
+                participantPicture: participantPicture,
                 participantRole: isTutor ? 'student' : 'tutor',
                 joinedAt: typeof participantData.joinedAt === 'string' 
                   ? participantData.joinedAt 
@@ -1662,11 +1815,17 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   getOtherParticipantName(lesson: Lesson): string {
     if (!this.currentUser) return '';
+    
+    // Handle classes
+    if ((lesson as any).isClass) {
+      return (lesson as any).className || lesson.subject || 'Group Class';
+    }
+    
     const isTutor = lesson.tutorId?._id === this.currentUser.id;
     const other = isTutor ? lesson.studentId : lesson.tutorId;
     
     if (typeof other === 'object' && other) {
-      return (other as any).name || (other as any).email || 'Unknown';
+      return (other as any)?.name || (other as any)?.email || 'Unknown';
     }
     
     return 'Unknown';
@@ -1753,6 +1912,9 @@ export class Tab1Page implements OnInit, OnDestroy {
  
   selectDate(d: Date) {
     this.selectedDate = this.startOfDay(new Date(d));
+    // Clear cached computations when date changes
+    this._cachedFirstLessonHash = '';
+    this.cachedStudentsDate = null;
     this.updateAvailabilitySummary();
   }
 
@@ -2031,4 +2193,417 @@ export class Tab1Page implements OnInit, OnDestroy {
   messageStudent(student: any) {
     // TODO: Implement message functionality
   }
+
+  async openMobileLessonMenu(event: Event, lesson: Lesson) {
+    event.stopPropagation();
+    
+    if (!lesson) {
+      return;
+    }
+
+    const isClass = lesson.isClass || false;
+    const itemId = lesson._id || (lesson.classData?._id);
+    if (!itemId) {
+      console.error('Lesson/Class ID not found');
+      return;
+    }
+
+    // Use Action Sheet for mobile
+    const buttons: any[] = [];
+    
+    // Only show "Invite Student" for classes
+    if (isClass) {
+      buttons.push({
+        text: 'Invite Student',
+        icon: 'person-add-outline',
+        handler: () => {
+          this.inviteStudentToClass(itemId);
+        }
+      });
+    }
+    
+    buttons.push(
+      {
+        text: 'Reschedule',
+        icon: 'calendar-outline',
+        handler: () => {
+          if (isClass) {
+            this.rescheduleClass(itemId, lesson);
+          } else {
+            this.rescheduleLesson(itemId, lesson);
+          }
+        }
+      },
+      {
+        text: 'Cancel',
+        icon: 'close-circle-outline',
+        role: 'destructive',
+        handler: () => {
+          if (isClass) {
+            this.cancelClass(itemId, lesson);
+          } else {
+            this.cancelLesson(itemId, lesson);
+          }
+        }
+      },
+      {
+        text: 'Close',
+        icon: 'close',
+        role: 'cancel'
+      }
+    );
+
+    const actionSheet = await this.actionSheetController.create({
+      header: isClass ? 'Class Options' : 'Lesson Options',
+      buttons: buttons
+    });
+    await actionSheet.present();
+  }
+
+  async openLessonMenu(event: Event, lesson: Lesson) {
+    event.stopPropagation();
+    
+    if (!lesson) {
+      return;
+    }
+
+    const isClass = lesson.isClass || false;
+    const itemId = lesson._id || (lesson.classData?._id);
+    if (!itemId) {
+      console.error('Lesson/Class ID not found');
+      return;
+    }
+
+    if (this.isMobile) {
+      this.openMobileLessonMenu(event, lesson);
+    } else {
+      // Use Popover for desktop
+      // Get the button element (currentTarget should be the ion-button)
+      const buttonElement = (event.currentTarget as HTMLElement) || (event.target as HTMLElement).closest('ion-button') as HTMLElement;
+      
+      if (!buttonElement) {
+        console.error('Could not find button element for popover');
+        return;
+      }
+      
+      // Get button's position in viewport (accounts for scroll automatically)
+      const rect = buttonElement.getBoundingClientRect();
+      
+      // Use the original event but ensure coordinates are from button center-bottom
+      const popoverEvent = {
+        ...event,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.bottom,
+        target: buttonElement,
+        currentTarget: buttonElement
+      };
+      
+      const popover = await this.popoverController.create({
+        component: ClassMenuPopoverComponent,
+        event: popoverEvent as any,
+        componentProps: {
+          classId: itemId,
+          lesson: lesson,
+          isClass: isClass
+        },
+        showBackdrop: true,
+        alignment: 'start',
+        side: 'bottom',
+        size: 'auto'
+      });
+      await popover.present();
+      const { data } = await popover.onWillDismiss();
+      if (data) {
+        if (data.action === 'invite' && isClass) {
+          this.inviteStudentToClass(itemId);
+        } else if (data.action === 'reschedule') {
+          if (isClass) {
+            this.rescheduleClass(itemId, lesson);
+          } else {
+            this.rescheduleLesson(itemId, lesson);
+          }
+        } else if (data.action === 'cancel') {
+          if (isClass) {
+            this.cancelClass(itemId, lesson);
+          } else {
+            this.cancelLesson(itemId, lesson);
+          }
+        }
+      }
+    }
+  }
+
+  async inviteStudentToClass(classId: string) {
+    console.log('🟢 inviteStudentToClass called for:', classId);
+    
+    try {
+      // Find the lesson/class to get the name and full class data
+      const lesson = this.lessons.find(l => l._id === classId || l.classData?._id === classId);
+      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      const classData = lesson?.classData || lesson;
+      
+      console.log('🟢 Creating modal...');
+      const modal = await this.modalCtrl.create({
+        component: InviteStudentModalComponent,
+        componentProps: {
+          className: className,
+          classId: classId,
+          classData: classData  // Pass full class data including invitedStudents
+        },
+        cssClass: 'invite-student-modal'
+      });
+
+      console.log('🟢 Presenting modal...');
+      await modal.present();
+      console.log('✅ Modal presented successfully');
+      
+      const { data } = await modal.onWillDismiss();
+      if (data && data.invited) {
+        // Refresh lessons to show updated invitations
+        this.loadLessons();
+      }
+    } catch (error) {
+      console.error('❌ Error opening invite modal:', error);
+    }
+  }
+
+  async rescheduleClass(classId: string, lesson: Lesson) {
+    console.log('🟡 rescheduleClass called for:', classId);
+    
+    try {
+      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      
+      console.log('🟡 Creating modal...');
+      const modal = await this.modalCtrl.create({
+        component: ConfirmActionModalComponent,
+        componentProps: {
+          title: 'Reschedule Class',
+          message: `Do you want to reschedule "${className}"? All invited students will be notified of this change.`,
+          confirmText: 'Reschedule',
+          cancelText: 'Cancel',
+          confirmColor: 'primary',
+          icon: 'calendar',
+          iconColor: 'primary'
+        },
+        cssClass: 'confirm-action-modal'
+      });
+
+      console.log('🟡 Presenting modal...');
+      await modal.present();
+      console.log('✅ Reschedule class modal presented');
+      
+      const { data } = await modal.onWillDismiss();
+      if (data && data.confirmed) {
+        // TODO: Implement class reschedule with availability calendar
+        const toast = await this.toastController.create({
+          message: 'Reschedule functionality coming soon',
+          duration: 2000,
+          position: 'bottom'
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('❌ Error opening reschedule class modal:', error);
+    }
+  }
+
+  async rescheduleLesson(lessonId: string, lesson: Lesson) {
+    console.log('🟡 rescheduleLesson called for:', lessonId);
+    
+    try {
+      // Get participant info
+      const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+      const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+      
+      // Format participant name using the participant object directly (not the .name string)
+      // This ensures we use firstName/lastName for proper formatting
+      const participantName = this.formatStudentDisplayName(otherParticipant);
+      
+      // Get participant avatar
+      const participantAvatar = this.getOtherParticipantAvatar(lesson);
+      
+      console.log('🟡 Creating modal...');
+      const modal = await this.modalCtrl.create({
+        component: ConfirmActionModalComponent,
+        componentProps: {
+          title: 'Reschedule Lesson',
+          message: 'Do you want to reschedule your lesson?',
+          notificationMessage: `${participantName} will be notified of this change.`,
+          confirmText: 'Reschedule',
+          cancelText: 'Cancel',
+          confirmColor: 'primary',
+          icon: 'calendar',
+          iconColor: 'primary',
+          participantName: participantName,
+          participantAvatar: participantAvatar
+        },
+        cssClass: 'confirm-action-modal'
+      });
+
+      console.log('🟡 Presenting modal...');
+      await modal.present();
+      console.log('✅ Reschedule lesson modal presented');
+      
+      const { data } = await modal.onWillDismiss();
+      if (data && data.confirmed) {
+        // Open reschedule modal with raw participant object (not formatted name)
+        // Pass the participant object so modal can format it properly
+        this.openRescheduleModal(lessonId, lesson, otherParticipant, participantAvatar);
+      }
+    } catch (error) {
+      console.error('❌ Error opening reschedule lesson modal:', error);
+    }
+  }
+
+  async cancelClass(classId: string, lesson: Lesson) {
+    console.log('🔴 cancelClass called for:', classId);
+    
+    try {
+      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      
+      console.log('🔴 Creating modal...');
+      const modal = await this.modalCtrl.create({
+        component: ConfirmActionModalComponent,
+        componentProps: {
+          title: 'Cancel Class',
+          message: `Are you sure you want to cancel "${className}"? All invited students will be notified and this action cannot be undone.`,
+          confirmText: 'Cancel Class',
+          cancelText: 'Keep Class',
+          confirmColor: 'danger',
+          icon: 'close-circle',
+          iconColor: 'danger'
+        },
+        cssClass: 'confirm-action-modal'
+      });
+
+      console.log('🔴 Presenting modal...');
+      await modal.present();
+      console.log('✅ Cancel class modal presented');
+      
+      const { data } = await modal.onWillDismiss();
+      if (data && data.confirmed) {
+        // TODO: Implement class cancellation
+        const toast = await this.toastController.create({
+          message: 'Cancel functionality coming soon',
+          duration: 2000,
+          position: 'bottom'
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('❌ Error opening cancel class modal:', error);
+    }
+  }
+
+  async cancelLesson(lessonId: string, lesson: Lesson) {
+    console.log('🔴 cancelLesson called for:', lessonId);
+    
+    try {
+      // Get participant info
+      const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+      const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+      
+      // Format participant name using the participant object directly (not the .name string)
+      // This ensures we use firstName/lastName for proper formatting
+      const participantName = this.formatStudentDisplayName(otherParticipant);
+      
+      // Get participant avatar
+      const participantAvatar = this.getOtherParticipantAvatar(lesson);
+      
+      console.log('🔴 Creating modal...');
+      const modal = await this.modalCtrl.create({
+        component: ConfirmActionModalComponent,
+        componentProps: {
+          title: 'Cancel Lesson',
+          message: 'Are you sure you want to cancel your lesson?',
+          notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
+          confirmText: 'Cancel Lesson',
+          cancelText: 'Keep Lesson',
+          confirmColor: 'danger',
+          icon: 'close-circle',
+          iconColor: 'danger',
+          participantName: participantName,
+          participantAvatar: participantAvatar
+        },
+        cssClass: 'confirm-action-modal'
+      });
+
+      console.log('🔴 Presenting modal...');
+      await modal.present();
+      console.log('✅ Cancel lesson modal presented');
+      
+      const { data } = await modal.onWillDismiss();
+      if (data && data.confirmed) {
+        // TODO: Implement lesson cancellation
+        const toast = await this.toastController.create({
+          message: 'Cancel functionality coming soon',
+          duration: 2000,
+          position: 'bottom'
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('❌ Error opening cancel lesson modal:', error);
+    }
+  }
+
+  // Open reschedule modal with embedded availability calendar
+  async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null) {
+    console.log('📅 Opening reschedule modal for lesson:', lessonId);
+    
+    // Get the other participant's ID
+    const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+    let otherParticipantId: string | null = null;
+    
+    // Use the passed participant object, or extract from lesson
+    let otherParticipant = participantObject;
+    if (!otherParticipant) {
+      otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+    }
+    
+    if (otherParticipant && typeof otherParticipant === 'object') {
+      otherParticipantId = (otherParticipant as any)?._id || (otherParticipant as any)?.id;
+    } else if (typeof otherParticipant === 'string') {
+      otherParticipantId = otherParticipant;
+    }
+    
+    if (!otherParticipantId || !this.currentUser?.id) {
+      const toast = await this.toastController.create({
+        message: 'Could not find participant information',
+        duration: 2000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await toast.present();
+      return;
+    }
+    
+    // Pass the raw participant object so the modal can format it properly using firstName/lastName
+    // If it's a string, pass it as-is (will be formatted in modal)
+    const participantNameForModal = otherParticipant || 'Student';
+    
+    // Open reschedule modal
+    const modal = await this.modalCtrl.create({
+      component: RescheduleLessonModalComponent,
+      componentProps: {
+        lessonId: lessonId,
+        lesson: lesson,
+        participantId: otherParticipantId,
+        participantName: participantNameForModal, // Pass raw object/name for proper formatting
+        participantAvatar: participantAvatar,
+        currentUserId: this.currentUser.id,
+        isTutor: isTutor
+      },
+      cssClass: 'reschedule-lesson-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data && data.rescheduled) {
+      // Lesson was successfully rescheduled, reload lessons
+      this.loadLessons();
+    }
+  }
+
 }

@@ -1697,7 +1697,58 @@ ion-content {
 // FORCE MOBILE VIBRANT STYLING - Highest Priority
 @media (max-width: 768px) {
   ion-content.tutor-calendar-page,
-  .tutor-calendar-page {
+  // Reschedule Mode Banner
+.reschedule-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  
+  .reschedule-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    
+    ion-icon {
+      font-size: 32px;
+      flex-shrink: 0;
+    }
+    
+    .reschedule-text {
+      strong {
+        display: block;
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      
+      p {
+        margin: 0;
+        font-size: 13px;
+        opacity: 0.9;
+      }
+    }
+  }
+  
+  ion-button {
+    --color: white;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+}
+
+.tutor-calendar-page {
     ion-content {
       --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     }

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges, Output, EventEmitter } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -8,6 +8,8 @@ import { LessonService, Lesson } from '../../services/lesson.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
+import { detectUserTimezone } from '../../shared/timezone.constants';
+import { getTimezoneLabel } from '../../shared/timezone.utils';
 
 interface AvailabilityBlock {
   id: string;
@@ -41,10 +43,15 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() tutorAuth0Id?: string;
   // When true, allow tutors to select from their own availability (for scheduling classes)
   @Input() selectionMode = false;
+  // Student's busy time slots - filter these out when showing availability
+  @Input() studentBusySlots?: Set<string>;
+  // Emit event when slot is selected (instead of dismissing modal)
+  @Output() slotSelected = new EventEmitter<{ selectedDate: string; selectedTime: string }>();
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
-  timezone: string = 'America/New_York';
+  timezone: string = 'America/New_York'; // Tutor's timezone
+  viewerTimezone: string = ''; // Viewer's timezone (detected from browser)
   currentWeekStart: Date = new Date();
   isLoading = false;
   
@@ -57,6 +64,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   // Fast lookup for booked slots: key = `${day}-${HH:mm}`
   bookedSlots: Set<string> = new Set();
   private slotsCache: Map<string, { label: string; time: string; booked: boolean; isPast: boolean }[]> = new Map();
+  // Pre-computed slots for each date in the current week (to avoid function calls in template)
+  dateSlotsMap: Map<string, { label: string; time: string; booked: boolean; isPast: boolean }[]> = new Map();
   
   constructor(
     private userService: UserService,
@@ -77,6 +86,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   async ngOnInit() {
+    // Detect viewer's timezone
+    this.viewerTimezone = detectUserTimezone();
+    console.log('🌍 Viewer timezone detected:', this.viewerTimezone);
+    
     this.recomputeWeekDates();
     await Promise.all([
       this.loadAvailability(),
@@ -110,6 +123,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           });
         }, 100);
       }
+    }
+    
+    // Recompute slots if studentBusySlots changes
+    if (changes['studentBusySlots']) {
+      console.log('🔄 Student busy slots changed, recomputing date slots...');
+      this.precomputeDateSlots();
     }
   }
 
@@ -186,6 +205,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           
           console.log(`⏱️ [Availability] Caches cleared, rebuilding...`);
           this.buildAvailabilitySet();
+          // Recompute date slots after availability is loaded
+          this.precomputeDateSlots();
           this.isLoading = false;
           if (loading) loading.dismiss();
         },
@@ -292,6 +313,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     
     this.bookedSlots = set;
     this.slotsCache.clear();
+    // Recompute date slots after booked lessons are loaded
+    this.precomputeDateSlots();
   }
 
   private buildAvailabilitySet() {
@@ -375,6 +398,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.availabilitySet = set;
     this.slotsCache.clear();
+    // Recompute date slots after availability set is built
+    this.precomputeDateSlots();
   }
 
   private timeToMinutes(time: string): number {
@@ -391,6 +416,24 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.weekDates = dates;
     this.slotsCache.clear();
+    // Pre-compute slots for all dates to avoid function calls in template
+    this.precomputeDateSlots();
+  }
+
+  // Pre-compute slots for all dates in the current week
+  private precomputeDateSlots() {
+    this.dateSlotsMap.clear();
+    for (const date of this.weekDates) {
+      const dateKey = this.dateKey(date);
+      const slots = this.computeAvailableTimeLabelsForDate(date);
+      this.dateSlotsMap.set(dateKey, slots);
+    }
+  }
+
+  // Get pre-computed slots for a date (used in template)
+  getSlotsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
+    const dateKey = this.dateKey(date);
+    return this.dateSlotsMap.get(dateKey) || [];
   }
 
   getWeekRange(): string {
@@ -418,6 +461,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     this.buildAvailabilitySet();
     // Reload booked lessons for the new week
     this.loadBookedLessons();
+    // precomputeDateSlots is called by recomputeWeekDates
   }
 
   goToToday() {
@@ -427,6 +471,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     this.buildAvailabilitySet();
     // Reload booked lessons for the current week
     this.loadBookedLessons();
+    // precomputeDateSlots is called by recomputeWeekDates
   }
 
   formatTime(time: string): string {
@@ -479,8 +524,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     return slotDateTime < now;
   }
 
-  // Return list of available slots with both label and 24h time for a given date
-  getAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
+  // Internal method to compute slots (called by precomputeDateSlots)
+  private computeAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
     // Only show availability within the displayed 7-day window
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
@@ -496,9 +541,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return [];
     }
     
+    // Don't cache when studentBusySlots is provided (for mutual availability)
+    const shouldCache = !this.studentBusySlots || this.studentBusySlots.size === 0;
+    
     // Re-enable caching with a timestamp to invalidate every minute
     const cacheKey = this.dateKey(date) + '_' + Math.floor(Date.now() / 60000); // Cache for 1 minute
-    const cached = this.slotsCache.get(cacheKey);
+    const cached = shouldCache ? this.slotsCache.get(cacheKey) : undefined;
     if (cached) {
       return cached;
     }
@@ -558,6 +606,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     });
     
     const slots: { label: string; time: string; booked: boolean; isPast: boolean }[] = [];
+    const dateKeyStr = this.dateKey(dateToCheck);
+    
     for (let i = 0; i < this.timeSlots.length; i++) {
       const key = `${dayIndex}-${this.timeSlots[i]}`;
       
@@ -572,13 +622,49 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       if (hasAvailability) {
         const isBooked = this.bookedSlots.has(key);
         const isPast = this.isSlotInPast(date, this.timeSlots[i]);
-        slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked, isPast: isPast });
+        
+        // Check if student is busy at this time (if studentBusySlots provided)
+        const isStudentBusy = this.isStudentBusyAtSlot(dayIndex, this.timeSlots[i], dateKeyStr);
+        
+        // Only show slot if student is NOT busy (or no busy slots provided)
+        if (!isStudentBusy) {
+          slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked, isPast: isPast });
+        }
       }
     }
     
     // Cache with timestamp key (auto-invalidates after 1 minute)
-    this.slotsCache.set(cacheKey, slots);
+    if (shouldCache) {
+      this.slotsCache.set(cacheKey, slots);
+    }
     return slots;
+  }
+
+  // Check if student has a conflicting lesson at this time slot
+  private isStudentBusyAtSlot(dayIndex: number, timeSlot: string, dateKey: string): boolean {
+    if (!this.studentBusySlots || this.studentBusySlots.size === 0) {
+      return false;
+    }
+    
+    // Check both day-based and date-specific keys
+    const dayBasedKey = `${dayIndex}-${timeSlot}`;
+    const dateSpecificKey = `${dateKey}-${timeSlot}`;
+    
+    const isBusy = this.studentBusySlots.has(dayBasedKey) || this.studentBusySlots.has(dateSpecificKey);
+    
+    if (isBusy) {
+      console.log('🔴 Filtering out busy slot:', {
+        dateKey,
+        dayIndex,
+        timeSlot,
+        dayBasedKey,
+        dateSpecificKey,
+        matchedDayBased: this.studentBusySlots.has(dayBasedKey),
+        matchedDateSpecific: this.studentBusySlots.has(dateSpecificKey)
+      });
+    }
+    
+    return isBusy;
   }
 
   isCurrentUserTutor(): boolean {
@@ -598,14 +684,15 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return;
     }
     
-    // If in selection mode, close modal with selected date/time
+    // If in selection mode, emit event instead of dismissing modal
     if (this.selectionMode) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       
-      this.modalController.dismiss({
+      // Emit event for parent component to handle
+      this.slotSelected.emit({
         selectedDate: dateString,
         selectedTime: slot.time
       });
@@ -627,6 +714,30 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         time: slot.time
       }
     });
+  }
+  
+  /**
+   * Get formatted timezone label
+   */
+  getTimezoneLabel(timezone: string): string {
+    return getTimezoneLabel(timezone);
+  }
+  
+  /**
+   * Check if viewer's timezone matches tutor's timezone
+   */
+  isViewerTimezoneSameAsTutor(): boolean {
+    return this.viewerTimezone === this.timezone;
+  }
+  
+  /**
+   * Get timezone display message
+   */
+  getTimezoneMessage(): string {
+    if (this.isViewerTimezoneSameAsTutor()) {
+      return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
+    }
+    return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
   }
   
 }

@@ -4,8 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, NavController } from '@ionic/angular';
 import { Router, NavigationExtras } from '@angular/router';
 import { UserService } from '../../services/user.service';
+import { LessonService } from '../../services/lesson.service';
+import { ClassService } from '../../services/class.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { getTimezoneLabel } from '../../shared/timezone.utils';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 
 interface TimeSlot {
   index: number; // 0..47 (30-minute increments)
@@ -31,7 +35,18 @@ interface SelectedSlot {
   templateUrl: './availability-setup.component.html',
   styleUrls: ['./availability-setup.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule],
+  animations: [
+    trigger('slideUp', [
+      transition(':enter', [
+        style({ transform: 'translateY(100%)', opacity: 0 }),
+        animate('300ms ease-out', style({ transform: 'translateY(0)', opacity: 1 }))
+      ]),
+      transition(':leave', [
+        animate('300ms ease-in', style({ transform: 'translateY(100%)', opacity: 0 }))
+      ])
+    ])
+  ]
 })
 export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
@@ -42,6 +57,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   
   // Single day mode flag
   isSingleDayMode = false;
+  
+  // Tutor's timezone
+  tutorTimezone: string = '';
 
   // UI State
   activeTab = 'availability';
@@ -50,6 +68,128 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   currentWeek: Date = new Date(); // First day currently shown in grid
   hasUnsavedChanges = false;
   initialSelectedSlotsCount = 0; // Track initial count when page loads
+  initialSelectedSlots = new Set<string>(); // Track which slots were initially selected
+
+  // Getter for new slots count (only newly selected, not already saved)
+  get newSlotsCount(): number {
+    let count = 0;
+    this.selectedSlots.forEach(slot => {
+      if (!this.initialSelectedSlots.has(slot)) {
+        count++;
+      }
+    });
+    return count;
+  }
+
+  // Getter to convert slots to hours
+  get newHoursCount(): number {
+    return this.newSlotsCount * 0.5; // Each slot is 30 minutes = 0.5 hours
+  }
+
+  // Helper to get the target date for week calculations (based on selected slots or displayed days)
+  private getTargetDateForWeek(): Date | null {
+    // Find a date from the newly selected slots (not initial slots)
+    let targetDate: Date | null = null;
+    
+    // Look for a newly selected slot (one that wasn't in the initial set)
+    for (const slotKey of this.selectedSlots) {
+      if (!this.initialSelectedSlots.has(slotKey)) {
+        // Parse the date from the slot key (format: YYYY-MM-DD-slotIndex)
+        const [year, month, day] = slotKey.split('-').slice(0, 3).map(Number);
+        targetDate = new Date(year, month - 1, day);
+        break;
+      }
+    }
+    
+    // If no new slots, fall back to any selected slot
+    if (!targetDate && this.selectedSlots.size > 0) {
+      const firstSlotKey = Array.from(this.selectedSlots)[0];
+      const [year, month, day] = firstSlotKey.split('-').slice(0, 3).map(Number);
+      targetDate = new Date(year, month - 1, day);
+    }
+    
+    // If still no date, use the first displayed day
+    if (!targetDate) {
+      const daysToCheck = this.displayedWeekDays.length > 0 ? this.displayedWeekDays : this.weekDays;
+      if (daysToCheck.length > 0) {
+        targetDate = daysToCheck[0].date;
+      }
+    }
+    
+    return targetDate;
+  }
+
+  // Getter for total weekly hours (saved + new selections for the current week)
+  get totalWeeklyHours(): number {
+    const targetDate = this.getTargetDateForWeek();
+    if (!targetDate) return 0;
+
+    // Calculate the Sunday-Saturday week containing this date
+    const weekStartDate = this.getStartOfWeek(targetDate);
+    weekStartDate.setHours(0, 0, 0, 0);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    weekEndDate.setHours(23, 59, 59, 999);
+
+    // Count all slots within this week range (both saved and new)
+    const allSlots = new Set<string>();
+    
+    // Add initial (saved) slots
+    this.initialSelectedSlots.forEach(slot => {
+      const [year, month, day] = slot.split('-').slice(0, 3).map(Number);
+      const slotDate = new Date(year, month - 1, day);
+      slotDate.setHours(12, 0, 0, 0);
+      if (slotDate >= weekStartDate && slotDate <= weekEndDate) {
+        allSlots.add(slot);
+      }
+    });
+    
+    // Add currently selected slots (includes both saved and new)
+    this.selectedSlots.forEach(slot => {
+      const [year, month, day] = slot.split('-').slice(0, 3).map(Number);
+      const slotDate = new Date(year, month - 1, day);
+      slotDate.setHours(12, 0, 0, 0);
+      if (slotDate >= weekStartDate && slotDate <= weekEndDate) {
+        allSlots.add(slot);
+      }
+    });
+
+    return allSlots.size * 0.5; // Convert to hours
+  }
+
+  // Getter for the week range display (e.g., "Nov 23-29")
+  get weekRangeDisplay(): string {
+    const targetDate = this.getTargetDateForWeek();
+    if (!targetDate) return '';
+
+    // Calculate the Sunday of the week that contains this date
+    const weekStartDate = this.getStartOfWeek(targetDate);
+    // End is Saturday of that week (6 days after Sunday)
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+    const startMonth = weekStartDate.toLocaleDateString('en-US', { month: 'short' });
+    const startDay = weekStartDate.getDate();
+    const endMonth = weekEndDate.toLocaleDateString('en-US', { month: 'short' });
+    const endDay = weekEndDate.getDate();
+
+    // If same month, show "Nov 23-29", otherwise "Nov 23 - Dec 5"
+    if (startMonth === endMonth) {
+      return `${startMonth} ${startDay}-${endDay}`;
+    } else {
+      return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+    }
+  }
+
+  // Helper to get start of week (Sunday)
+  private getStartOfWeek(date: Date): Date {
+    const d = new Date(date);
+    const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diff = day; // Distance from Sunday (0 = already Sunday, 1 = go back 1 day, etc.)
+    d.setDate(d.getDate() - diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
 
   // Now indicator state
   showNowIndicator = false;
@@ -73,6 +213,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   isSelecting = false;
   selectionStart: SelectedSlot | null = null;
   selectedSlots = new Set<string>();
+  bookedSlots = new Set<string>(); // New: Track booked lessons/classes
 
   // Data
   weekDays: WeekDay[] = [];
@@ -97,6 +238,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     private navController: NavController,
     private location: Location,
     private userService: UserService,
+    private lessonService: LessonService,
+    private classService: ClassService,
     private toastController: ToastController,
     private loadingController: LoadingController,
     private alertController: AlertController,
@@ -229,6 +372,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngOnInit() {
+    // Load tutor's timezone
+    this.userService.getUserTimezone().pipe(takeUntil(this.destroy$)).subscribe(timezone => {
+      this.tutorTimezone = timezone;
+      console.log('🌍 Tutor timezone loaded:', this.tutorTimezone);
+    });
+    
     // Check if we're in single day mode
     if (this.targetDate) {
       this.isSingleDayMode = true;
@@ -261,8 +410,10 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   forceRefreshAvailability() {
     console.log('🔄 Force refreshing availability data...');
     this.selectedSlots.clear();
+    this.bookedSlots.clear();
     this.selectedSlotsCount = 0;
     this.loadExistingAvailability();
+    this.loadBookedSlots();
   }
 
   // Force scroll to current time indicator on page entry
@@ -735,6 +886,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               const slotKey = `${dateStr}-${idx}`;
               console.log(`🔧 Adding slot: ${slotKey}`);
               this.selectedSlots.add(slotKey);
+              this.initialSelectedSlots.add(slotKey); // Track as initially selected
             }
           });
           this.updateSelectedCount();
@@ -752,6 +904,95 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         console.error('Error loading existing availability:', error);
       }
     });
+  }
+  
+  // Load booked lessons and classes to mark slots as unavailable
+  private loadBookedSlots() {
+    const currentUser = this.userService.getCurrentUserValue();
+    if (!currentUser?.id) {
+      console.error('No current user found');
+      return;
+    }
+    
+    console.log('📅 Loading booked lessons and classes...');
+    
+    // Load lessons
+    this.lessonService.getMyLessons(currentUser.id).subscribe({
+      next: (response: any) => {
+        console.log('✅ Lessons loaded:', response?.lessons?.length || 0);
+        
+        if (response && response.success && response.lessons) {
+          response.lessons.forEach((lesson: any) => {
+            // Only count non-cancelled lessons
+            if (lesson.status !== 'cancelled') {
+              this.addBookedSlot(lesson.startTime, lesson.endTime);
+            }
+          });
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading lessons:', error);
+      }
+    });
+    
+    // Load classes (if user is a tutor)
+    if (currentUser.userType === 'tutor') {
+      this.classService.getClassesForTutor(currentUser.id).subscribe({
+        next: (response: any) => {
+          console.log('✅ Classes loaded:', response?.classes?.length || 0);
+          
+          if (response && response.success && response.classes) {
+            response.classes.forEach((cls: any) => {
+              // Only count upcoming/active classes
+              const classDate = new Date(cls.startTime);
+              if (classDate >= new Date()) {
+                this.addBookedSlot(cls.startTime, cls.endTime);
+              }
+            });
+          }
+        },
+        error: (error) => {
+          console.error('❌ Error loading classes:', error);
+        }
+      });
+    }
+  }
+  
+  // Helper to add a booked time slot
+  private addBookedSlot(startTime: string, endTime: string) {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    // Get the date key
+    const dateStr = this.formatDateKey(start);
+    
+    // Calculate slot indices
+    const startHour = start.getHours();
+    const startMinute = start.getMinutes();
+    const endHour = end.getHours();
+    const endMinute = end.getMinutes();
+    
+    const startIndex = startHour * 2 + (startMinute >= 30 ? 1 : 0);
+    const endIndex = endHour * 2 + (endMinute >= 30 ? 1 : 0);
+    
+    console.log(`📅 Marking booked: ${dateStr} from ${startHour}:${startMinute} to ${endHour}:${endMinute} (indices ${startIndex}-${endIndex})`);
+    
+    // Mark all slots in this time range as booked
+    for (let idx = startIndex; idx < endIndex; idx++) {
+      const slotKey = `${dateStr}-${idx}`;
+      this.bookedSlots.add(slotKey);
+      console.log(`🔒 Booked slot: ${slotKey}`);
+    }
+  }
+  
+  // Check if a slot is booked
+  isSlotBooked(dayIndex: number, slotIndex: number): boolean {
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    const day = dayArray?.find(d => d.index === dayIndex);
+    if (!day) return false;
+    
+    const dateStr = this.formatDateKey(day.date);
+    return this.bookedSlots.has(`${dateStr}-${slotIndex}`);
   }
   
   private dayNameToIndex(dayName: string): number {
@@ -928,7 +1169,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Selection logic
   startSelection(dayIndex: number, slotIndex: number, event: MouseEvent) {
     event.preventDefault();
-    if (this.isPastSlot(dayIndex, slotIndex)) return;
+    if (this.isPastSlot(dayIndex, slotIndex) || this.isSlotBooked(dayIndex, slotIndex)) return;
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
@@ -956,7 +1197,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       const dateStr = this.formatDateKey(dayObj.date);
       
       for (let idx = startIdx; idx <= endIdx; idx++) {
-        if (this.isPastSlot(day, idx)) continue;
+        if (this.isPastSlot(day, idx) || this.isSlotBooked(day, idx)) continue;
         this.selectedSlots.add(`${dateStr}-${idx}`);
       }
     }
@@ -971,7 +1212,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   private toggleSlot(dayIndex: number, slotIndex: number) {
-    if (this.isPastSlot(dayIndex, slotIndex)) return;
+    if (this.isPastSlot(dayIndex, slotIndex) || this.isSlotBooked(dayIndex, slotIndex)) return;
     
     // Find the specific date for this dayIndex
     const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
@@ -1459,14 +1700,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           await toast.present();
           
           this.hasUnsavedChanges = false;
-          // Update initial count to reflect saved state
+          // Update initial count and slots to reflect saved state
           this.initialSelectedSlotsCount = this.selectedSlotsCount;
+          this.initialSelectedSlots = new Set(this.selectedSlots);
           
           // Navigate back to calendar with refresh parameter
-          console.log('🔄 Navigating back to calendar with refresh flag...');
-          this.router.navigate(['/tabs/tutor-calendar'], { 
-            queryParams: { refreshAvailability: 'true' } 
-          });
+          // console.log('🔄 Navigating back to calendar with refresh flag...');
+          // this.router.navigate(['/tabs/tutor-calendar'], { 
+          //   queryParams: { refreshAvailability: 'true' } 
+          // });
         },
         error: async (error) => {
           await loading.dismiss();
@@ -1585,5 +1827,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     });
     
     return blocks;
+  }
+  
+  /**
+   * Get formatted timezone label
+   */
+  getTimezoneLabel(timezone: string): string {
+    return getTimezoneLabel(timezone);
   }
 }

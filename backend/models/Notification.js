@@ -9,7 +9,18 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['lesson_created', 'message', 'lesson_reminder', 'lesson_cancelled', 'potential_student', 'class_invitation', 'class_accepted'],
+    enum: [
+      'lesson_created', 
+      'message', 
+      'lesson_reminder', 
+      'lesson_cancelled', 
+      'potential_student', 
+      'class_invitation', 
+      'class_accepted',
+      'class_removed',
+      'invitation_cancelled',
+      'lesson_rescheduled'
+    ],
     required: true
   },
   title: {

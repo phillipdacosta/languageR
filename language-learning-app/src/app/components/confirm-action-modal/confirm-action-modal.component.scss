@@ -1,0 +1,113 @@
+.confirm-content {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.participant-avatar {
+  margin-bottom: 24px;
+  
+  .modal-avatar {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 12px;
+    
+    img {
+      object-fit: cover;
+    }
+    
+    .avatar-placeholder {
+      font-size: 48px;
+      color: #94a3b8;
+    }
+  }
+  
+  .participant-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+  }
+}
+
+.icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &.has-avatar {
+    width: 64px;
+    height: 64px;
+    margin: 16px auto 24px;
+    
+    ion-icon {
+      font-size: 36px;
+    }
+  }
+  
+  ion-icon {
+    font-size: 48px;
+  }
+
+  &.warning {
+    background: rgba(251, 191, 36, 0.1);
+    
+    ion-icon {
+      color: #f59e0b;
+    }
+  }
+
+  &.danger {
+    background: rgba(239, 68, 68, 0.1);
+    
+    ion-icon {
+      color: #ef4444;
+    }
+  }
+
+  &.primary {
+    background: rgba(102, 126, 234, 0.1);
+    
+    ion-icon {
+      color: #667eea;
+    }
+  }
+}
+
+.message-wrapper {
+  .main-message {
+    font-size: 16px;
+    line-height: 1.6;
+    color: #475569;
+    margin: 0 0 12px 0;
+    font-weight: 500;
+  }
+  
+  .notification-message {
+    font-size: 14px;
+    line-height: 1.5;
+    color: #64748b;
+    margin: 0;
+    // font-style: italic;
+  }
+}
+
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+
+  ion-button {
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+  }
+}
+

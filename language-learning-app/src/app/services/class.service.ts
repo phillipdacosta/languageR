@@ -31,12 +31,19 @@ export interface ClassInvitation {
   startTime: string;
   endTime: string;
   invitedStudents: Array<{
-    studentId: string;
+    studentId: any;
     status: 'pending' | 'accepted' | 'declined';
     invitedAt: string;
     respondedAt?: string;
   }>;
-  confirmedStudents: string[];
+  confirmedStudents: any[];
+  attendees?: any[]; // Populated confirmed students
+  invitationStats?: {
+    total: number;
+    accepted: number;
+    pending: number;
+    declined: number;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -81,6 +88,43 @@ export class ClassService {
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(`${this.apiUrl}/classes/invitations/pending`, { headers });
+      })
+    );
+  }
+
+  getClassesForTutor(tutorId: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(`${this.apiUrl}/classes/tutor/${tutorId}`, { headers });
+      })
+    );
+  }
+
+  inviteStudentsToClass(classId: string, studentIds: string[]): Observable<{ success: boolean; message: string; newInvitationsCount: number }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; message: string; newInvitationsCount: number }>(
+          `${this.apiUrl}/classes/${classId}/invite`,
+          { studentIds },
+          { headers }
+        );
+      })
+    );
+  }
+
+  removeStudentFromClass(classId: string, studentId: string): Observable<{ success: boolean; message: string }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.delete<{ success: boolean; message: string }>(
+          `${this.apiUrl}/classes/${classId}/student/${studentId}`,
+          { headers }
+        );
       })
     );
   }

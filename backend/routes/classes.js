@@ -19,6 +19,32 @@ function nextOccurrence(start, i, type) {
   return d;
 }
 
+// Format user name as "FirstName L." (e.g., "Phillip D.")
+function formatDisplayName(user) {
+  if (!user) return 'User';
+  
+  const firstName = user.firstName;
+  const lastName = user.lastName;
+  const fullName = user.name;
+  
+  if (firstName && lastName) {
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  if (fullName) {
+    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+      return `${first} ${lastInitial}.`;
+    }
+    return fullName;
+  }
+  
+  return 'User';
+}
+
 // POST /api/classes - create class (supports simple recurrence by count)
 router.post('/', verifyToken, async (req, res) => {
   try {
@@ -261,15 +287,17 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         hour12: true 
       });
 
+      const studentDisplayName = formatDisplayName(student);
+      
       await Notification.create({
         userId: cls.tutorId._id,
         type: 'class_accepted',
         title: 'Class Invitation Accepted',
-        message: `${student.name} accepted your invitation to ${cls.name} on ${formattedDate} at ${formattedTime}`,
+        message: `${studentDisplayName} accepted your invitation to ${cls.name} on ${formattedDate} at ${formattedTime}`,
         data: {
           classId: cls._id,
           studentId: student._id,
-          studentName: student.name,
+          studentName: studentDisplayName,
           className: cls.name,
           date: formattedDate,
           time: formattedTime
@@ -282,7 +310,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         if (tutorSocketId) {
           req.io.to(tutorSocketId).emit('new_notification', {
             type: 'class_accepted',
-            message: `${student.name} accepted your invitation to ${cls.name}`
+            message: `${studentDisplayName} accepted your invitation to ${cls.name}`
           });
           console.log('✅ WebSocket notification sent to tutor about class acceptance');
         }
@@ -353,6 +381,258 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
     res.json({ success: true, classes });
   } catch (error) {
     console.error('Error fetching pending invitations:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/classes/:classId/invite - Invite students to a class
+router.post('/:classId/invite', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { studentIds } = req.body;
+    
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Student IDs array is required' });
+    }
+    
+    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    
+    const cls = await ClassModel.findById(classId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    
+    // Verify tutor owns this class
+    if (cls.tutorId.toString() !== tutor._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    let newInvitationsCount = 0;
+    const tutorName = tutor.name || 'Your tutor';
+    
+    // Add new invitations
+    for (const studentId of studentIds) {
+      // Check if student already invited
+      const existingInvitation = cls.invitedStudents.find(
+        inv => inv.studentId.toString() === studentId
+      );
+      
+      if (!existingInvitation) {
+        // Add new invitation
+        cls.invitedStudents.push({
+          studentId,
+          status: 'pending',
+          invitedAt: new Date()
+        });
+        newInvitationsCount++;
+        
+        // Send notification to student
+        try {
+          const student = await User.findById(studentId);
+          if (student) {
+            const startDate = new Date(cls.startTime);
+            const endDate = new Date(cls.endTime);
+            
+            const formattedDate = startDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+            
+            const formattedStartTime = startDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+            
+            const formattedEndTime = endDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+            
+            await Notification.create({
+              userId: student._id,
+              type: 'class_invitation',
+              title: `Class Invitation: ${cls.name}`,
+              message: `${tutorName} invited you to join "${cls.name}" on ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.`,
+              relatedId: cls._id,
+              relatedModel: 'Class',
+              metadata: {
+                classId: cls._id,
+                className: cls.name,
+                tutorId: tutor._id,
+                tutorName: tutorName,
+                startTime: cls.startTime,
+                endTime: cls.endTime
+              }
+            });
+            
+            console.log(`📧 Sent class invitation notification to ${student.name || student.email}`);
+          }
+        } catch (notifError) {
+          console.error(`Failed to send notification to student ${studentId}:`, notifError);
+          // Continue even if notification fails
+        }
+      }
+    }
+    
+    await cls.save();
+    
+    res.json({
+      success: true,
+      message: `Successfully invited ${newInvitationsCount} student${newInvitationsCount !== 1 ? 's' : ''}`,
+      newInvitationsCount,
+      class: cls
+    });
+  } catch (error) {
+    console.error('Error inviting students to class:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/classes/tutor/:tutorId - Get all classes for a tutor with confirmed student details
+router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    
+    const tutor = await User.findById(tutorId);
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+
+    // Find all classes for this tutor
+    const classes = await ClassModel.find({
+      tutorId: tutor._id,
+      startTime: { $gte: new Date() } // Only future classes
+    })
+    .populate('tutorId', 'name email picture')
+    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
+    .populate('invitedStudents.studentId', 'name email picture firstName lastName') // Populate invited students
+    .sort({ startTime: 1 });
+
+    // Format the response to include attendance info
+    const formattedClasses = classes.map(cls => {
+      const classObj = cls.toObject();
+      
+      // Get confirmed students details
+      classObj.attendees = classObj.confirmedStudents || [];
+      
+      // Get invitation stats
+      const invitationStats = {
+        total: classObj.invitedStudents?.length || 0,
+        accepted: classObj.invitedStudents?.filter(inv => inv.status === 'accepted').length || 0,
+        pending: classObj.invitedStudents?.filter(inv => inv.status === 'pending').length || 0,
+        declined: classObj.invitedStudents?.filter(inv => inv.status === 'declined').length || 0
+      };
+      
+      classObj.invitationStats = invitationStats;
+      
+      return classObj;
+    });
+
+    res.json({ success: true, classes: formattedClasses });
+  } catch (error) {
+    console.error('Error fetching tutor classes:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// DELETE /api/classes/:classId/student/:studentId - Remove a student from a class
+router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
+  try {
+    const { classId, studentId } = req.params;
+    
+    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    
+    const cls = await ClassModel.findById(classId);
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    
+    // Verify tutor owns this class
+    if (cls.tutorId.toString() !== tutor._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    // Find the student
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    
+    // Find the invitation
+    const invitationIndex = cls.invitedStudents.findIndex(
+      inv => inv.studentId.toString() === studentId
+    );
+    
+    if (invitationIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Student is not invited to this class' });
+    }
+    
+    const invitation = cls.invitedStudents[invitationIndex];
+    const wasAccepted = invitation.status === 'accepted';
+    
+    // Remove from invitedStudents array
+    cls.invitedStudents.splice(invitationIndex, 1);
+    
+    // If they had accepted, also remove from confirmedStudents
+    if (wasAccepted) {
+      cls.confirmedStudents = cls.confirmedStudents.filter(
+        id => id.toString() !== studentId
+      );
+    }
+    
+    await cls.save();
+    
+    // Send notification to student
+    try {
+      const tutorDisplayName = formatDisplayName(tutor);
+      const startDate = new Date(cls.startTime);
+      
+      const formattedDate = startDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      
+      const formattedStartTime = startDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      const notificationMessage = wasAccepted 
+        ? `${tutorDisplayName} removed you from "${cls.name}" on ${formattedDate} at ${formattedStartTime}.`
+        : `${tutorDisplayName} cancelled your invitation to "${cls.name}" on ${formattedDate} at ${formattedStartTime}.`;
+      
+      await Notification.create({
+        userId: student._id,
+        type: wasAccepted ? 'class_removed' : 'invitation_cancelled',
+        title: wasAccepted ? 'Removed from Class' : 'Class Invitation Cancelled',
+        message: notificationMessage,
+        relatedId: cls._id,
+        relatedModel: 'Class',
+        metadata: {
+          classId: cls._id,
+          className: cls.name,
+          tutorId: tutor._id,
+          tutorName: tutorDisplayName,
+          startTime: cls.startTime,
+          wasAccepted
+        }
+      });
+      
+      console.log(`📧 Sent removal notification to ${student.name || student.email}`);
+    } catch (notifError) {
+      console.error(`Failed to send notification to student ${studentId}:`, notifError);
+      // Continue even if notification fails
+    }
+    
+    const actionText = wasAccepted ? 'removed from' : 'uninvited from';
+    res.json({
+      success: true,
+      message: `${student.name || student.email} has been ${actionText} the class`,
+      class: cls
+    });
+  } catch (error) {
+    console.error('Error removing student from class:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

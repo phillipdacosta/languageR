@@ -588,14 +588,14 @@
       flex: 1;
 
       h1 {
-        font-size: 23px;
+        font-size: 20px; // Reduced from 23px
         font-weight: 700;
-        margin: 0 0 8px 0;
+        margin: 0 0 4px 0;
         line-height: 1.2;
       }
 
       p {
-        font-size: 14px;
+        font-size: 13px; // Reduced from 14px
         opacity: 0.9;
         margin: 0;
         line-height: 1.4;
@@ -632,7 +632,8 @@
 }
 
 .week-navigation {
-  padding: 16px 40px;
+  padding: 12px 40px; // Reduced from 16px
+  margin-bottom: 16px; // Reduced from 24px
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fa;
 
@@ -675,6 +676,18 @@
         font-size: 14px;
         font-weight: 500;
         height: 32px;
+      }
+      
+      .timezone-info {
+        font-size: 12px;
+        color: #718096;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        
+        ion-icon {
+          font-size: 14px;
+        }
       }
     }
   }
@@ -719,53 +732,102 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+// Booked timeslots (lessons/classes already scheduled)
+.time-grid .day-columns .day-column.booked {
+  background: repeating-linear-gradient(
+    45deg,
+    #fee2e2,
+    #fee2e2 10px,
+    #fecaca 10px,
+    #fecaca 20px
+  );
+  opacity: 0.7;
+  cursor: not-allowed;
+  border-color: #f87171;
+  position: relative;
+  
+  &:hover {
+    background: repeating-linear-gradient(
+      45deg,
+      #fee2e2,
+      #fee2e2 10px,
+      #fecaca 10px,
+      #fecaca 20px
+    );
+    border-color: #f87171;
+    transform: none;
+    box-shadow: 0 1px 3px rgba(248, 113, 113, 0.2);
+  }
+  
+  &::before {
+    display: none; // Disable shine effect on booked slots
+  }
+  
+  .booked-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 18px;
+    color: #dc2626;
+    z-index: 2;
+  }
+}
+
+.time-grid .day-columns .day-column.booked.selected {
+  // Prevent selection of booked slots
+  background: repeating-linear-gradient(
+    45deg,
+    #fee2e2,
+    #fee2e2 10px,
+    #fecaca 10px,
+    #fecaca 20px
+  );
+  border-color: #f87171;
+  transform: none;
+  box-shadow: 0 1px 3px rgba(248, 113, 113, 0.2);
+}
+
 .day-headers {
   display: flex;
-  margin-bottom: 0; // Remove gap between headers and time grid
+  margin-bottom: 0;
   position: sticky;
   top: -26px;
-  z-index: 110; // Higher than now-indicator (100) to stay on top
+  z-index: 110;
   background: white;
-  padding-top: 8px;
-  padding-bottom: 22px; // Add padding to extend header down and cover time labels
+  padding-top: 6px; // Reduced from 8px
+  padding-bottom: 6px; // Reduced from 8px
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  align-items: stretch; // Make all children same height
-  min-height: 80px; // Ensure enough height to cover time labels
+  align-items: stretch;
+  min-height: 64px; // Reduced from 80px
 
   .time-column-header {
     width: 80px;
     flex-shrink: 0;
-    padding-right: 16px; // Match time-label padding
-    background: white; // Ensure background covers the time label area
-    padding-bottom: 0; // Padding handled by parent
+    padding-right: 16px;
+    background: white;
+    padding-bottom: 0;
     display: flex;
     align-items: center;
     position: relative;
-    height: 100%; // Fill parent height
+    height: 100%;
     
-    // Add an overlay to completely block time labels
+    // Remove or simplify the ::after overlay to reduce visual noise
     &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: -22px; // Extend below to cover time labels (matches padding-bottom)
-      background: #f8f9fa;
-      z-index: 1;
+      display: none; // Remove the double-line effect
     }
   }
 
   .day-header {
     flex: 1;
     text-align: center;
-    padding: 16px 8px 12px 8px;
+    padding: 10px 8px; // Reduced from 16px 8px 12px 8px
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 12px 12px 0 0;
+    border-radius: 12px;
     margin: 0 1px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px; // Reduced from 6px
     margin-bottom: 0;
     position: relative;
     height: 100%;
@@ -784,24 +846,13 @@
       transform: translateY(0);
     }
     
-    // Ensure day headers extend down to cover time labels
+    // Remove the ::after element that creates the double-line effect
     &::after {
-      content: '';
-      position: absolute;
-      bottom: -22px;
-      left: 0;
-      right: 0;
-      height: 22px;
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      border-radius: 0 0 8px 8px;
-      z-index: 1;
-      border-left: 1px solid rgba(102, 126, 234, 0.1);
-      border-right: 1px solid rgba(102, 126, 234, 0.1);
-      border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+      display: none;
     }
 
     .day-name {
-      font-size: 13px;
+      font-size: 11px; // Reduced from 13px
       font-weight: 600;
       color: #667eea;
       text-transform: uppercase;
@@ -815,13 +866,13 @@
       gap: 2px;
 
       .day-number {
-        font-size: 20px;
+        font-size: 18px; // Reduced from 20px
         font-weight: 700;
         color: #2d3748;
       }
 
       .day-month {
-        font-size: 11px;
+        font-size: 10px; // Reduced from 11px
         font-weight: 500;
         color: #718096;
         text-transform: uppercase;
@@ -835,7 +886,7 @@
       border-color: rgba(102, 126, 234, 0.1);
       
       .day-name {
-        color: #fbbf24;
+        color: #ff118a;
         font-weight: 600;
       }
       
@@ -894,16 +945,16 @@
   display: flex;
   align-items: center;
   margin-bottom: 2px;
-  height: 40px;
+  height: 32px; // Reduced from 40px for compact grid
 
   .time-label {
-    width: 80px;
+    width: 70px; // Slightly reduced
     flex-shrink: 0;
-    font-size: 13px;
+    font-size: 12px; // Smaller font
     color: #64748b;
     font-weight: 600;
     text-align: right;
-    padding-right: 16px;
+    padding-right: 12px; // Reduced padding
     letter-spacing: 0.3px;
   }
 
@@ -914,14 +965,14 @@
 
     .day-column {
       flex: 1;
-      height: 42px;
+      height: 32px; // Reduced from 42px for more compact grid
       background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-      border-radius: 10px;
+      border-radius: 8px; // Slightly reduced for compact look
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      border: 2px solid #e2e8f0;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      border: 1.5px solid #e2e8f0; // Thinner border
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); // Subtler shadow
       overflow: hidden;
       
       // In single day mode, make the column wider
@@ -1037,6 +1088,13 @@
   pointer-events: none;
 }
 
+// Keyframe for subtle number change animation
+@keyframes numberChange {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
 .action-bar {
   display: flex;
   align-items: center;
@@ -1044,11 +1102,50 @@
   padding: 20px 40px;
   border-top: 1px solid #e9ecef;
   background: #f8f9fa;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 
   .selected-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
     font-size: 14px;
-    color: #6c757d;
     font-weight: 500;
+
+    .new-hours {
+      color: #1976d2;
+      font-weight: 600;
+      padding: 4px 12px;
+      background: rgba(25, 118, 210, 0.1);
+      border-radius: 20px;
+      font-size: 13px;
+      min-width: 85px; // Fixed width to prevent shifting (adjusted for decimals)
+      text-align: center;
+      transition: all 0.3s ease;
+      font-variant-numeric: tabular-nums; // Monospace numbers for consistent width
+      
+      &:empty {
+        display: none;
+      }
+    }
+
+    .total-weekly-hours {
+      color: #495057;
+      font-size: 14px;
+      min-width: 180px; // Increased to accommodate date range
+      transition: all 0.3s ease;
+      font-variant-numeric: tabular-nums; // Monospace numbers for consistent width
+      
+      &::before {
+        content: '•';
+        margin-right: 8px;
+        color: #dee2e6;
+      }
+    }
   }
 
   .action-buttons {
@@ -1137,7 +1234,7 @@
 
   .time-grid-container {
     flex: 1;
-    padding: 16px 24px; // Reduce padding significantly (was 24px 40px)
+    padding: 16px 24px 120px; // Add bottom padding for fixed footer
     overflow: auto;
     min-height: 0;
     display: flex;
@@ -1162,8 +1259,8 @@
     }
 
     .day-columns .day-column {
-      height: 40px; // Match row height
-      min-height: 40px;
+      height: 32px; // Match row height - already compact
+      min-height: 32px;
     }
   }
 
@@ -1449,8 +1546,32 @@
     gap: 12px;
 
     .selected-info {
-      font-size: 12px;
+      font-size: 11px;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start;
+      
+      .new-hours {
+        font-size: 11px;
+        padding: 2px 8px;
+        min-width: 75px; // Fixed width for mobile (adjusted for decimals)
+        text-align: center;
+        transition: all 0.3s ease;
+        font-variant-numeric: tabular-nums; // Monospace numbers
+      }
+
+      .total-weekly-hours {
+        font-size: 11px;
+        min-width: 150px; // Increased for mobile to accommodate date range
+        transition: all 0.3s ease;
+        font-variant-numeric: tabular-nums; // Monospace numbers
+        
+        &::before {
+          display: none; // Hide bullet on mobile for space
+        }
+      }
     }
 
     .action-buttons {
@@ -1497,13 +1618,15 @@
   }
 
   .day-headers {
-    padding: 6px 0 12px;
-    box-shadow: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     border-bottom: 1px solid #e9ecef;
     position: sticky;
-    top: 56px;
-    z-index: 110; // Higher than now-indicator (100) to stay on top
+    top: 0;
+    z-index: 110;
     background: #f8f9fa;
+    margin-left: -12px; // Counteract container padding
+    margin-right: -12px; // Counteract container padding
+    padding: 12px 0px 12px;
 
     .time-column-header {
       width: 56px;

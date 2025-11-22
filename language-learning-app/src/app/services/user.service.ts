@@ -604,4 +604,74 @@ export class UserService {
       })
     );
   }
+
+  /**
+   * Detect and save user's timezone automatically
+   * This should be called on login or when the app starts
+   */
+  detectAndSaveTimezone(): Observable<boolean> {
+    try {
+      const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log('🌍 Detected timezone:', detectedTimezone);
+      
+      // Get current user to check existing timezone
+      return this.getCurrentUser().pipe(
+        take(1),
+        switchMap(user => {
+          const currentTimezone = user?.profile?.timezone;
+          
+          // Only update if timezone changed or doesn't exist
+          if (!currentTimezone || currentTimezone !== detectedTimezone) {
+            console.log('🌍 Updating timezone from', currentTimezone, 'to', detectedTimezone);
+            return this.updateProfile({ timezone: detectedTimezone }).pipe(
+              map(() => true),
+              catchError(error => {
+                console.error('❌ Failed to save timezone:', error);
+                return of(false);
+              })
+            );
+          } else {
+            console.log('🌍 Timezone already up to date:', currentTimezone);
+            return of(false); // No update needed
+          }
+        }),
+        catchError(error => {
+          console.error('❌ Error detecting/saving timezone:', error);
+          return of(false);
+        })
+      );
+    } catch (error) {
+      console.error('❌ Error in detectAndSaveTimezone:', error);
+      return of(false);
+    }
+  }
+
+  /**
+   * Get user's timezone (from profile or detect from browser)
+   */
+  getUserTimezone(): Observable<string> {
+    return this.getCurrentUser().pipe(
+      take(1),
+      map(user => {
+        const timezone = user?.profile?.timezone;
+        if (timezone) {
+          return timezone;
+        }
+        // Fallback to detected timezone
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone;
+        } catch {
+          return 'UTC';
+        }
+      }),
+      catchError(() => {
+        // Fallback on error
+        try {
+          return of(Intl.DateTimeFormat().resolvedOptions().timeZone);
+        } catch {
+          return of('UTC');
+        }
+      })
+    );
+  }
 }

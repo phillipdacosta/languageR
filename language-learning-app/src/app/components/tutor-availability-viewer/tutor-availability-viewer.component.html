@@ -28,17 +28,10 @@
         
         <div class="week-display">
           <h2>{{ getWeekRange() }}</h2>
-        </div>
-        
-        <div class="timezone-display">
-          <ion-select [(ngModel)]="timezone" interface="popover" placeholder="Select timezone">
-            <ion-select-option value="America/New_York">America/New_York (GMT -4:00)</ion-select-option>
-            <ion-select-option value="America/Los_Angeles">America/Los_Angeles (GMT -7:00)</ion-select-option>
-            <ion-select-option value="Europe/London">Europe/London (GMT +0:00)</ion-select-option>
-            <ion-select-option value="Europe/Paris">Europe/Paris (GMT +1:00)</ion-select-option>
-            <ion-select-option value="Asia/Tokyo">Asia/Tokyo (GMT +9:00)</ion-select-option>
-            <ion-select-option value="UTC">UTC (GMT +0:00)</ion-select-option>
-          </ion-select>
+          <p class="timezone-info">
+            <ion-icon name="globe-outline"></ion-icon>
+            {{ getTimezoneMessage() }}
+          </p>
         </div>
       </div>
 
@@ -67,11 +60,11 @@
           [class.booked]="slot.booked"
           [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
           [class.past]="slot.isPast"
-          *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
+          *ngFor="let slot of getSlotsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
           <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
-        <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
+        <div class="empty" *ngIf="getSlotsForDate(date).length === 0">
           No times
         </div>
       </div>
@@ -112,17 +105,10 @@
       
       <div class="week-display">
         <h2>{{ getWeekRange() }}</h2>
-      </div>
-      
-      <div class="timezone-display">
-        <ion-select [(ngModel)]="timezone" interface="popover" placeholder="Select timezone">
-          <ion-select-option value="America/New_York">America/New_York (GMT -4:00)</ion-select-option>
-          <ion-select-option value="America/Los_Angeles">America/Los_Angeles (GMT -7:00)</ion-select-option>
-          <ion-select-option value="Europe/London">Europe/London (GMT +0:00)</ion-select-option>
-          <ion-select-option value="Europe/Paris">Europe/Paris (GMT +1:00)</ion-select-option>
-          <ion-select-option value="Asia/Tokyo">Asia/Tokyo (GMT +9:00)</ion-select-option>
-          <ion-select-option value="UTC">UTC (GMT +0:00)</ion-select-option>
-        </ion-select>
+        <p class="timezone-info">
+          <ion-icon name="globe-outline"></ion-icon>
+          {{ getTimezoneMessage() }}
+        </p>
       </div>
     </div>
 
@@ -155,11 +141,11 @@
           [class.booked]="slot.booked"
           [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
           [class.past]="slot.isPast"
-          *ngFor="let slot of getAvailableTimeLabelsForDate(date)" 
+          *ngFor="let slot of getSlotsForDate(date)" 
           (click)="onSelectSlot(date, slot)">
           <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
-        <div class="empty" *ngIf="getAvailableTimeLabelsForDate(date).length === 0">
+        <div class="empty" *ngIf="getSlotsForDate(date).length === 0">
           No times
         </div>
       </div>

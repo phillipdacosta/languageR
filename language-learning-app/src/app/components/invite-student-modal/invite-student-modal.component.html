@@ -1,0 +1,195 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ showRemovalConfirmation ? 'Remove Student' : 'Invite Students' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding invite-modal-content">
+  <div class="view-container">
+    <!-- Main View -->
+    <div class="main-view" *ngIf="!showRemovalConfirmation" [@slideInOut]="{ value: '', params: { direction: -100 } }">
+      <div class="modal-content">
+    <div class="class-info">
+      <ion-icon name="people" class="class-icon"></ion-icon>
+      <div class="class-details">
+        <h2>{{ className }}</h2>
+        <p>Select students to invite to this class</p>
+      </div>
+    </div>
+
+    <!-- Student Selection -->
+    <div class="student-select-wrapper">
+      <ion-label position="stacked" class="student-label">Students</ion-label>
+      <div 
+        class="student-select-trigger multi-select-trigger" 
+        [class.disabled]="loadingStudents || students.length === 0"
+        (click)="toggleStudentDropdown()">
+        <div class="trigger-content" *ngIf="getSelectedStudentsCount() > 0; else multiPlaceholder">
+          <div class="selected-students-preview">
+            <ion-avatar 
+              *ngFor="let student of getSelectedStudents().slice(0, 3)" 
+              class="preview-avatar-small">
+              <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer">
+              <div *ngIf="!student.picture" class="avatar-placeholder-small">
+                {{ student.name.charAt(0).toUpperCase() }}
+              </div>
+            </ion-avatar>
+            <div class="more-count" *ngIf="getSelectedStudentsCount() > 3">
+              +{{ getSelectedStudentsCount() - 3 }}
+            </div>
+          </div>
+          <span class="trigger-text">{{ getSelectedStudentsCount() }} student{{ getSelectedStudentsCount() !== 1 ? 's' : '' }} selected</span>
+          <ion-icon 
+            name="close-circle" 
+            class="clear-icon"
+            (click)="clearAllStudents($event)"
+            title="Clear all selections">
+          </ion-icon>
+        </div>
+        <ng-template #multiPlaceholder>
+          <span class="trigger-placeholder">
+            {{ loadingStudents ? 'Loading students...' : (students.length === 0 ? 'No students found' : 'Select students') }}
+          </span>
+        </ng-template>
+        <div class="trigger-icons">
+          <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
+        </div>
+      </div>
+      
+      <!-- Multi-Select Dropdown -->
+      <div class="student-dropdown multi-select-dropdown" *ngIf="showStudentDropdown && students.length > 0">
+        <div class="dropdown-header">
+          <h3>Select Student</h3>
+          <span class="selected-count" *ngIf="getSelectedStudentsCount() > 0">
+            {{ getSelectedStudentsCount() }} selected
+          </span>
+        </div>
+        <div class="dropdown-list">
+          <div 
+            *ngFor="let student of students" 
+            class="student-option multi-option"
+            [class.selected]="isStudentSelected(student._id)"
+            [class.accepted]="student.invitationStatus === 'accepted'"
+            [class.disabled]="student.invitationStatus === 'accepted'"
+            (click)="toggleStudentSelection(student._id)">
+            <ion-avatar class="option-avatar">
+              <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer">
+              <div *ngIf="!student.picture" class="avatar-placeholder-option">
+                {{ student.name.charAt(0).toUpperCase() }}
+              </div>
+            </ion-avatar>
+            <div class="option-info">
+              <span class="option-name">{{ student.name }}</span>
+              <span class="option-role" *ngIf="!student.invitationStatus">Student</span>
+              <span 
+                class="invitation-status" 
+                *ngIf="student.invitationStatus"
+                [class.status-accepted]="student.invitationStatus === 'accepted'"
+                [class.status-pending]="student.invitationStatus === 'pending'">
+                {{ getStudentInvitationLabel(student) }}
+              </span>
+            </div>
+            <div class="checkbox-wrapper">
+              <!-- Show remove icon for invited students -->
+              <ion-icon 
+                *ngIf="student.invitationStatus"
+                name="close-circle" 
+                class="remove-icon"
+                (click)="removeStudent($event, student)"
+                title="Remove from class">
+              </ion-icon>
+              <!-- Show checkbox for non-invited students -->
+              <div *ngIf="!student.invitationStatus" class="custom-checkbox" [class.checked]="isStudentSelected(student._id)">
+                <ion-icon *ngIf="isStudentSelected(student._id)" name="checkmark" class="checkmark-icon"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Backdrop -->
+      <div class="dropdown-backdrop" *ngIf="showStudentDropdown" (click)="toggleStudentDropdown()"></div>
+    </div>
+
+    <ion-note *ngIf="loadingStudents" color="medium">Loading students...</ion-note>
+    <ion-note *ngIf="!loadingStudents && students.length === 0" color="medium">
+      No students found. Students will appear here after you have lessons with them.
+    </ion-note>
+      </div>
+    </div>
+
+    <!-- Removal Confirmation View -->
+    <div class="removal-confirmation-view" *ngIf="showRemovalConfirmation && studentToRemove" [@slideInOut]="{ value: '', params: { direction: 100 } }">
+      <div class="confirmation-header">
+        <ion-icon name="person-remove" class="confirmation-icon danger"></ion-icon>
+        <h2>Remove Student</h2>
+      </div>
+
+      <div class="student-card">
+        <ion-avatar class="student-avatar">
+          <img *ngIf="studentToRemove.picture" [src]="studentToRemove.picture" [alt]="studentToRemove.name" referrerpolicy="no-referrer">
+          <div *ngIf="!studentToRemove.picture" class="avatar-placeholder">
+            {{ studentToRemove.name.charAt(0).toUpperCase() }}
+          </div>
+        </ion-avatar>
+        <div class="student-details">
+          <h3>{{ studentToRemove.name }}</h3>
+          <p class="status-text">{{ getRemovalStatusText() }}</p>
+        </div>
+      </div>
+
+      <div class="confirmation-message danger">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <div class="message-text">
+          <p class="main-message">Are you sure you want to {{ getRemovalActionText() }}?</p>
+          <p class="sub-message">They will be notified of this change.</p>
+        </div>
+      </div>
+
+      <div class="confirmation-actions">
+        <ion-button 
+          expand="block" 
+          fill="outline" 
+          (click)="cancelRemoval()"
+          [disabled]="removing">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          Go Back
+        </ion-button>
+        <ion-button 
+          expand="block" 
+          color="danger"
+          (click)="confirmRemoval()"
+          [disabled]="removing">
+          <ion-spinner *ngIf="removing" name="crescent" slot="start"></ion-spinner>
+          <ion-icon *ngIf="!removing" name="person-remove" slot="start"></ion-icon>
+          {{ removing ? 'Removing...' : 'Remove Student' }}
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer *ngIf="!showRemovalConfirmation">
+  <ion-toolbar>
+    <ion-button 
+      expand="block" 
+      [disabled]="shouldDisableInviteButton()" 
+      (click)="invite()"
+      class="invite-btn"
+      [class.confirmed-only]="getAcceptedCount() > 0 && getNewInvitationsCount() === 0 && getPendingCount() === 0">
+      <ion-icon 
+        [name]="getAcceptedCount() > 0 && getNewInvitationsCount() === 0 && getPendingCount() === 0 ? 'checkmark-circle' : 'paper-plane'" 
+        slot="start" 
+        *ngIf="!inviting"></ion-icon>
+      <ion-spinner *ngIf="inviting" name="crescent" slot="start"></ion-spinner>
+      <span *ngIf="!inviting">{{ getInviteButtonText() }}</span>
+      <span *ngIf="inviting">Sending...</span>
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>
+

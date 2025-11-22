@@ -1,4 +1,18 @@
 <ion-content [fullscreen]="true" class="tutor-calendar-page" [class.disable-scroll]="isScreenLocked()">
+  <!-- Reschedule Mode Banner -->
+  <div class="reschedule-banner" *ngIf="rescheduleMode">
+    <div class="reschedule-banner-content">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <div class="reschedule-text">
+        <strong>Reschedule Mode</strong>
+        <p>Select a time that works for both you and your student</p>
+      </div>
+    </div>
+    <ion-button fill="clear" size="small" (click)="router.navigate(['/tabs/home'])">
+      <ion-icon name="close" slot="icon-only"></ion-icon>
+    </ion-button>
+  </div>
+  
   <ng-container *ngIf="isMobileView; else desktopCalendar">
     <div class="mobile-header">
       <!-- <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">
@@ -156,15 +170,23 @@
                       <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
                         <ion-icon name="star"></ion-icon>
                       </div>
-                      <div class="card-header" [class.has-avatar]="item.avatarUrl">
-                        <ng-container *ngIf="item.avatarUrl">
+                      <div class="card-header" [class.has-avatar]="item.avatarUrl && !item.isClass">
+                        <ng-container *ngIf="item.avatarUrl && !item.isClass">
                           <img [src]="item.avatarUrl" alt="" class="card-avatar" />
                         </ng-container>
+                        <ion-icon *ngIf="item.isClass" name="people" class="card-avatar class-icon"></ion-icon>
                         <div class="card-text">
                           <div class="title">{{ item.title }}</div>
                           <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
                         </div>
                       </div>
+                      <!-- Class Attendees (if it's a class) -->
+                      <app-class-attendees 
+                        *ngIf="item.isClass && item.attendees"
+                        [attendees]="item.attendees"
+                        [capacity]="item.capacity"
+                        [maxDisplay]="3">
+                      </app-class-attendees>
                       <div class="location" *ngIf="item.location">{{ item.location }}</div>
                     </div>
                   </div>
@@ -242,15 +264,23 @@
                         </div>
                         <div class="time-range" *ngIf="item.type !== 'free'">{{ formatTime(item.start) }} • {{ formatTime(item.end) }}</div>
                         <ng-container *ngIf="item.type === 'event'; else agendaFreeBlock">
-                          <div class="card-header" [class.has-avatar]="item.avatarUrl">
-                            <ng-container *ngIf="item.avatarUrl">
+                          <div class="card-header" [class.has-avatar]="item.avatarUrl && !item.isClass">
+                            <ng-container *ngIf="item.avatarUrl && !item.isClass">
                               <img [src]="item.avatarUrl" alt="" class="card-avatar" />
                             </ng-container>
+                            <ion-icon *ngIf="item.isClass" name="people" class="card-avatar class-icon"></ion-icon>
                             <div class="card-text">
                               <div class="title">{{ item.title }}</div>
                               <div class="subtitle" *ngIf="item.subtitle">{{ item.subtitle }}</div>
                             </div>
                           </div>
+                          <!-- Class Attendees (if it's a class) -->
+                          <app-class-attendees 
+                            *ngIf="item.isClass && item.attendees"
+                            [attendees]="item.attendees"
+                            [capacity]="item.capacity"
+                            [maxDisplay]="3">
+                          </app-class-attendees>
                           <div class="meta" *ngIf="item.meta">{{ item.meta }}</div>
                           <div class="location" *ngIf="item.location">{{ item.location }}</div>
                         </ng-container>

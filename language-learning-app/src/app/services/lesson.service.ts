@@ -41,6 +41,19 @@ export interface Lesson {
   };
   createdAt: string;
   updatedAt: string;
+  
+  // Class-specific properties (when lesson is actually a group class)
+  isClass?: boolean;
+  className?: string;
+  attendees?: any[]; // Confirmed students attending the class
+  capacity?: number;
+  invitationStats?: {
+    total: number;
+    accepted: number;
+    pending: number;
+    declined: number;
+  };
+  classData?: any; // Full class data from backend
 }
 
 export interface LessonCreateRequest {
@@ -214,5 +227,27 @@ export class LessonService {
   // Get lessons from cache
   getCachedLessons(): Lesson[] {
     return this.lessonsSubject.value;
+  }
+
+  // Reschedule lesson to a new time
+  rescheduleLesson(lessonId: string, newStartTime: string, newEndTime: string): Observable<{ success: boolean; lesson: Lesson; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const body = {
+      startTime: newStartTime,
+      endTime: newEndTime
+    };
+    return this.http.put<{ success: boolean; lesson: Lesson; message: string }>(`${this.baseUrl}/${lessonId}/reschedule`, body, { headers });
+  }
+
+  // Get lessons by student ID (for checking availability conflicts)
+  getLessonsByStudent(studentId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const url = `${this.baseUrl}/student/${studentId}`;
+    
+    if (all) {
+      return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { params: { all: 'true' }, headers });
+    } else {
+      return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
+    }
   }
 }

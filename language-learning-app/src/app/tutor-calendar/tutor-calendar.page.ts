@@ -1,9 +1,10 @@
 import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -12,6 +13,7 @@ import { filter } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
+import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 
 interface MobileDayContext {
   date: Date;
@@ -37,6 +39,9 @@ interface TimelineEntry {
   avatarUrl?: string;
   isPast?: boolean;
   isTrialLesson?: boolean;
+  isClass?: boolean;
+  attendees?: any[];
+  capacity?: number;
 }
 
 interface AgendaSection {
@@ -53,7 +58,7 @@ interface AgendaSection {
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule],
+  imports: [CommonModule, IonicModule, FormsModule, ClassAttendeesComponent],
   animations: [
     trigger('slideInUp', [
       state('void', style({})),
@@ -126,6 +131,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isLoadingMobileData = true; // Track loading state to prevent empty state flash
   private availabilityLoaded = false;
   private lessonsLoaded = false;
+  
+  // Reschedule mode state
+  rescheduleMode = false;
+  rescheduleLessonId: string | null = null;
+  rescheduleParticipantId: string | null = null;
+  rescheduleOriginalStartTime: string | null = null;
+  rescheduleOriginalEndTime: string | null = null;
+  participantAvailability: any[] = [];
 
   private viewportResizeHandler = () => this.evaluateViewport();
 
@@ -252,11 +265,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     return parts.join(' ');
   }
 
+  private classesMap: Map<string, any> = new Map(); // Map class ID to class data with attendees
+
   constructor(
     private userService: UserService,
     private lessonService: LessonService,
-    private router: Router,
-    private platformService: PlatformService
+    private classService: ClassService,
+    public router: Router,
+    private platformService: PlatformService,
+    private route: ActivatedRoute
   ) { }
 
   private evaluateViewport() {
@@ -505,7 +522,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const extended = (event.extendedProps as any) || {};
     const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
     const isLesson = Boolean(extended.lessonId);
-    const isClass = event.title && event.title !== 'Available' && event.title.includes('Class');
+    const isClass = extended.isClass || (event.title && event.title !== 'Available' && event.title.includes('Class'));
     
     // Debug logging for the 12:00-1:00 PM slot
     const debugStartTimeStr = start.toLocaleTimeString();
@@ -527,6 +544,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const now = new Date();
     const isPast = end.getTime() < now.getTime();
 
+    // Look up class data from classesMap if this is a class
+    let attendees: any[] | undefined = undefined;
+    let capacity: number | undefined = undefined;
+    if (isClass && extended.classId) {
+      const classId = String(extended.classId); // Ensure string for lookup
+      const classData = this.classesMap.get(classId);
+      if (classData) {
+        // Get confirmed students (attendees) - these are the students who accepted
+        attendees = classData.attendees || classData.confirmedStudents || [];
+        capacity = classData.capacity || 1;
+      }
+    }
+
     return {
       type: 'event',
       start: new Date(start.getTime()),
@@ -539,7 +569,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       location,
       avatarUrl,
       isPast,
-      isTrialLesson
+      isTrialLesson,
+      isClass: isClass || false,
+      attendees,
+      capacity
     };
   }
 
@@ -584,6 +617,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     };
   }
   ngOnInit() {
+    // Check if we're in reschedule mode
+    this.route.queryParams.subscribe(params => {
+      if (params['mode'] === 'reschedule') {
+        this.rescheduleMode = true;
+        this.rescheduleLessonId = params['lessonId'] || null;
+        this.rescheduleParticipantId = params['participantId'] || null;
+        this.rescheduleOriginalStartTime = params['originalStartTime'] || null;
+        this.rescheduleOriginalEndTime = params['originalEndTime'] || null;
+        
+        console.log('📅 Reschedule mode activated:', {
+          lessonId: this.rescheduleLessonId,
+          participantId: this.rescheduleParticipantId
+        });
+        
+        // Load participant's availability
+        if (this.rescheduleParticipantId) {
+          this.loadParticipantAvailability(this.rescheduleParticipantId);
+        }
+      }
+    });
+    
     this.evaluateViewport();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this.viewportResizeHandler);
@@ -759,6 +813,29 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         // Mark lessons as loaded (even on error)
         this.lessonsLoaded = true;
         this.checkIfBothLoaded();
+      }
+    });
+    
+    // Also load classes with attendees data
+    this.loadClasses(tutorId);
+  }
+
+  private loadClasses(tutorId: string) {
+    this.classService.getClassesForTutor(tutorId).subscribe({
+      next: (response) => {
+        if (response.success && response.classes) {
+          // Store classes in map for quick lookup (use string ID for consistency)
+          this.classesMap.clear();
+          response.classes.forEach((cls: any) => {
+            const classId = String(cls._id); // Convert to string for consistent lookup
+            this.classesMap.set(classId, cls);
+          });
+          // Update calendar events to include attendees data
+          this.updateCalendarEvents();
+        }
+      },
+      error: (error) => {
+        console.error('📅 Error loading classes:', error);
       }
     });
   }
@@ -1453,7 +1530,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       classNames: [
         isClass ? 'calendar-class-event' : (isAvailability ? 'calendar-availability-event' : 'calendar-other-event'),
         isPast ? 'is-past' : 'is-future'
-      ]
+      ],
+      extendedProps: {
+        ...(b.extendedProps || {}),
+        ...(isClass ? {
+          classId: b.id, // b.id contains the class _id
+          isClass: true
+        } : {})
+      }
     };
     
     // Log class events for debugging
@@ -1744,6 +1828,37 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   isScreenLocked(): boolean {
     return this.showMobileSettings || this.panelAnimating;
+  }
+  
+  // Load participant's availability for reschedule mode
+  private loadParticipantAvailability(participantId: string) {
+    console.log('📅 Loading availability for participant:', participantId);
+    
+    this.userService.getTutorAvailability(participantId).subscribe({
+      next: (response) => {
+        if (response.success && response.availability) {
+          this.participantAvailability = response.availability;
+          console.log('✅ Loaded participant availability:', this.participantAvailability);
+          
+          // Refresh calendar to show mutual availability
+          this.refreshCalendarForReschedule();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading participant availability:', error);
+      }
+    });
+  }
+  
+  // Refresh calendar to show only mutual availability slots
+  private refreshCalendarForReschedule() {
+    // TODO: Filter calendar events to show only times when both tutor and student are available
+    // This would involve:
+    // 1. Getting current user's (tutor's) availability
+    // 2. Comparing with participant's availability
+    // 3. Only showing time slots where both are available
+    // 4. Highlighting these mutual slots in the calendar
+    console.log('📅 Refreshing calendar for reschedule mode');
   }
 }
 

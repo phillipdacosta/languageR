@@ -4,6 +4,7 @@ import { ThemeService } from './services/theme.service';
 import { WebSocketService } from './services/websocket.service';
 import { MessagingService } from './services/messaging.service';
 import { AuthService } from './services/auth.service';
+import { UserService } from './services/user.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter } from 'rxjs';
 
@@ -24,6 +25,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private websocketService: WebSocketService,
     private messagingService: MessagingService,
     private authService: AuthService,
+    private userService: UserService,
     private router: Router
   ) {}
 
@@ -80,6 +82,18 @@ export class AppComponent implements OnInit, OnDestroy {
     this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
       if (user?.email) {
         this.currentUserId = `dev-user-${user.email}`;
+        
+        // Detect and save timezone automatically
+        this.userService.detectAndSaveTimezone().subscribe({
+          next: (updated) => {
+            if (updated) {
+              console.log('🌍 Timezone auto-detected and saved');
+            }
+          },
+          error: (error) => {
+            console.error('❌ Error detecting/saving timezone:', error);
+          }
+        });
         
         // Now that we have user, connect to WebSocket
         this.websocketService.connect();

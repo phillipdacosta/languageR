@@ -6,8 +6,11 @@ import { ThemeService } from '../services/theme.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
+import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
+import { detectUserTimezone } from '../shared/timezone.constants';
+import { getTimezoneLabel } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-profile',
@@ -36,7 +39,8 @@ export class ProfilePage implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private modalController: ModalController
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -331,6 +335,81 @@ export class ProfilePage implements OnInit {
     if (fileInput) {
       fileInput.click();
     }
+  }
+
+  /**
+   * Open timezone selector modal
+   */
+  async openTimezoneSelector() {
+    const modal = await this.modalController.create({
+      component: TimezoneSelectorComponent,
+      componentProps: {
+        selectedTimezone: this.currentUser?.profile?.timezone || detectUserTimezone()
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    
+    if (data && data.timezone) {
+      await this.updateTimezone(data.timezone);
+    }
+  }
+
+  /**
+   * Update user's timezone
+   */
+  private async updateTimezone(timezone: string) {
+    const loading = await this.loadingController.create({
+      message: 'Updating timezone...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.userService.updateProfile({ timezone })
+        .pipe(take(1))
+        .toPromise();
+      
+      // Update current user
+      if (this.currentUser) {
+        if (!this.currentUser.profile) {
+          this.currentUser.profile = { bio: '', timezone: '', preferredLanguage: '' };
+        }
+        this.currentUser.profile.timezone = timezone;
+      }
+      
+      const alert = await this.alertController.create({
+        header: 'Success',
+        message: 'Timezone updated successfully!',
+        buttons: ['OK']
+      });
+      await alert.present();
+      
+    } catch (error) {
+      console.error('Error updating timezone:', error);
+      
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'Failed to update timezone. Please try again.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  /**
+   * Get formatted timezone label
+   */
+  getTimezoneLabel(): string {
+    const timezone = this.currentUser?.profile?.timezone;
+    if (!timezone) {
+      return 'Auto-detected';
+    }
+    return getTimezoneLabel(timezone);
   }
 
 }

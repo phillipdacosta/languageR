@@ -1,0 +1,52 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ title }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="confirm-content">
+    <!-- Avatar Section (if provided) -->
+    <div class="participant-avatar" *ngIf="participantAvatar || participantName">
+      <ion-avatar class="modal-avatar">
+        <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
+        <ion-icon *ngIf="!participantAvatar" name="person" class="avatar-placeholder"></ion-icon>
+      </ion-avatar>
+      <h3 class="participant-name" *ngIf="participantName">{{ participantName }}</h3>
+    </div>
+    
+    <div class="icon-wrapper" [class]="iconColor" [class.has-avatar]="participantAvatar || participantName">
+      <ion-icon [name]="icon"></ion-icon>
+    </div>
+    
+    <div class="message-wrapper">
+      <p class="main-message">{{ message }}</p>
+      <p class="notification-message" *ngIf="notificationMessage">{{ notificationMessage }}</p>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="dismiss()">
+        {{ cancelText }}
+      </ion-button>
+      <ion-button 
+        expand="block" 
+        [color]="confirmColor"
+        (click)="confirm()">
+        {{ confirmText }}
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>
+

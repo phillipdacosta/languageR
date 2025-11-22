@@ -193,6 +193,66 @@
       ion-icon {
         margin-right: 1rem;
       }
+      
+      // Enhanced timezone item styling
+      &.timezone-item {
+        --padding-start: 0;
+        --padding-end: 0;
+        --inner-padding-end: 0;
+        
+        .timezone-content {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          padding: 16px;
+          
+          .timezone-icon-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--ion-color-light);
+            margin-right: 16px;
+            flex-shrink: 0;
+            
+            ion-icon {
+              font-size: 24px;
+              color: var(--ion-color-primary);
+              margin: 0;
+            }
+          }
+          
+          .timezone-info {
+            flex: 1;
+            
+            h3 {
+              margin: 0 0 4px 0;
+              font-size: 14px;
+              font-weight: 600;
+              color: var(--ion-color-primary-shade);
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            
+            .timezone-value {
+              margin: 0;
+              font-size: 16px;
+              font-weight: 500;
+              color: var(--ion-color-dark);
+              line-height: 1.3;
+            }
+          }
+          
+          .chevron-icon {
+            font-size: 20px;
+            color: var(--ion-color-medium);
+            margin: 0;
+            flex-shrink: 0;
+          }
+        }
+      }
     }
   }
 }
@@ -273,6 +333,30 @@
         .stat-info {
           .stat-number {
             color: var(--ion-color-light);
+          }
+        }
+      }
+    }
+  }
+  
+  .settings-card {
+    ion-list {
+      ion-item {
+        &.timezone-item {
+          .timezone-content {
+            .timezone-icon-wrapper {
+              background: rgba(var(--ion-color-primary-rgb), 0.15);
+            }
+            
+            .timezone-info {
+              h3 {
+                color: var(--ion-color-primary);
+              }
+              
+              .timezone-value {
+                color: var(--ion-color-light);
+              }
+            }
           }
         }
       }

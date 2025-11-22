@@ -1,0 +1,47 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Select Timezone</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Search Bar -->
+  <ion-searchbar
+    [(ngModel)]="searchTerm"
+    placeholder="Search timezones..."
+    (ionInput)="onSearchChange($event)"
+    debounce="300"
+    show-clear-button="focus">
+  </ion-searchbar>
+
+  <!-- Timezone List -->
+  <ion-list>
+    <ion-item
+      *ngFor="let timezone of getAllFilteredTimezones()"
+      button
+      (click)="selectTimezone(timezone)"
+      [class.selected]="isSelected(timezone)">
+      <ion-label>
+        <h2>{{ timezone.label }}</h2>
+        <p>{{ timezone.offset }}</p>
+      </ion-label>
+      <ion-icon 
+        *ngIf="isSelected(timezone)" 
+        name="checkmark" 
+        color="primary"
+        slot="end">
+      </ion-icon>
+    </ion-item>
+  </ion-list>
+
+  <!-- No Results -->
+  <div *ngIf="getAllFilteredTimezones().length === 0 && searchTerm.trim()" class="no-results">
+    <p>No timezones found matching "{{ searchTerm }}"</p>
+  </div>
+</ion-content>
+

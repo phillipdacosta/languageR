@@ -504,6 +504,58 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
   }
 });
 
+// Get lessons by student ID (for checking availability conflicts)
+// IMPORTANT: This must come BEFORE the /:id route to avoid conflicts
+router.get('/student/:studentId', verifyToken, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const all = req.query.all === 'true';
+
+    console.log('📅 Fetching lessons for student:', studentId);
+
+    // Build query to find lessons where user is the student
+    const query = { studentId };
+    
+    if (!all) {
+      // By default, only return future lessons
+      query.startTime = { $gte: new Date() };
+    }
+
+    const lessons = await Lesson.find(query)
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('studentId', 'name email picture firstName lastName')
+      .sort({ startTime: 1 });
+
+    console.log(`✅ Found ${lessons.length} lessons for student ${studentId}`);
+
+    res.json({ 
+      success: true, 
+      lessons: lessons.map(lesson => ({
+        _id: lesson._id,
+        tutorId: lesson.tutorId,
+        studentId: lesson.studentId,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        status: lesson.status,
+        subject: lesson.subject,
+        channelName: lesson.channelName,
+        price: lesson.price,
+        duration: lesson.duration,
+        isTrialLesson: lesson.isTrialLesson,
+        bookingData: lesson.bookingData,
+        createdAt: lesson.createdAt,
+        updatedAt: lesson.updatedAt
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching lessons by student:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch lessons' 
+    });
+  }
+});
+
 // Get lesson details (protected - contains sensitive data)
 router.get('/:id', verifyToken, async (req, res) => {
   try {
