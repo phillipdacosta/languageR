@@ -508,6 +508,7 @@
   background: white;
   overflow: hidden;
   min-height: 0;
+  padding-bottom: 84px; // Add space for action bar (height + some margin)
 }
 
 .content-header {
@@ -1104,7 +1105,7 @@
   background: #f8f9fa;
   position: fixed;
   bottom: 0;
-  left: 0;
+  left: 280px; // Offset by sidebar width on desktop
   right: 0;
   z-index: 100;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
@@ -1307,6 +1308,7 @@
     flex-shrink: 0;
     border-top: 1px solid #e9ecef;
     background: white;
+    left: 240px; // Offset by tablet sidebar width
 
     .selected-info {
       font-size: 13px; // Slightly smaller

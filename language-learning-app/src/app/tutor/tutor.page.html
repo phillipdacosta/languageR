@@ -1,11 +1,11 @@
 <ion-header>
   <ion-toolbar>
-    <!-- <ion-buttons slot="start">
-      <ion-back-button 
+    <ion-buttons slot="start">
+      <ion-button 
         *ngIf="!cameFromModal && !justLoggedIn"
-        defaultHref="/tabs/home" 
-        text="">
-      </ion-back-button>
+        (click)="goBackToSearch()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
       <ion-button 
         *ngIf="!cameFromModal && justLoggedIn"
         (click)="navigateToHome()">
@@ -16,7 +16,7 @@
         (click)="handleBackClick($event)">
         <ion-icon name="arrow-back"></ion-icon>
       </ion-button>
-    </ion-buttons> -->
+    </ion-buttons>
     <ion-title>Tutor Profile</ion-title>
   </ion-toolbar>
 </ion-header>
@@ -82,11 +82,17 @@
             <h2>Introduction Video</h2>
           </div>
           <div class="video-wrapper-compact" (click)="openVideoModal($event)">
+            <!-- Show thumbnail if available, otherwise show video element -->
             <img 
               *ngIf="tutor.videoThumbnail" 
               [src]="tutor.videoThumbnail" 
               alt="Video preview" 
               class="video-thumbnail">
+            <video 
+              *ngIf="!tutor.videoThumbnail && tutor.introductionVideo" 
+              [src]="tutor.introductionVideo" 
+              class="video-thumbnail"
+              preload="metadata"></video>
             <div class="video-play-overlay">
               <ion-icon name="play"></ion-icon>
             </div>

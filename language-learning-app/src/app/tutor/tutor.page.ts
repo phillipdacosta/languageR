@@ -241,6 +241,12 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate(['/tabs/home']);
   }
   
+  goBackToSearch() {
+    console.log('🔙 Going back to tutor search - localStorage should have the ID');
+    // Simply navigate back - localStorage already has returnToTutorId
+    this.router.navigate(['/tabs/tutor-search']);
+  }
+  
   async reopenSearchModal() {
     // Get the tutor ID from query params to restore scroll position
     const tutorIdToScroll = this.route.snapshot.queryParamMap.get('tutorId') || this.tutorId;

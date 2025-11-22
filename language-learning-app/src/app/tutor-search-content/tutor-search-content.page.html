@@ -176,8 +176,9 @@
       <div class="tutor-card-modern" 
            *ngFor="let tutor of tutors; trackBy: trackByTutorId; let i = index"
            [attr.data-tutor-id]="tutor.id"
-           [@slideInUp]
-           [style.animation-delay]="isTransitioning ? '0s' : (i < 10 ? i * 0.04 : 0.4) + 's'"
+           [class.highlighted]="highlightedTutorId === tutor.id"
+           [class.no-animation]="isReturningFromProfile"
+           [style.animation-delay]="isReturningFromProfile || isTransitioning ? '0s' : (i < 10 ? i * 0.04 : 0.4) + 's'"
            >
         
         <!-- Card Main Content -->
@@ -225,14 +226,16 @@
             
             <!-- Bio Section - Center Priority -->
             <div class="bio-section-inline" *ngIf="tutor.bio">
-              <p class="bio-text" [class.truncated]="tutor.bio.length > 200">
+              <p class="bio-text" 
+                 [class.truncated]="tutor.bio.length > 200 && !isBioExpanded(tutor.id)"
+                 [class.expanded]="isBioExpanded(tutor.id)">
                 {{ tutor.bio }}
               </p>
               <button class="learn-more-btn" 
-                      (click)="openTutorProfile(tutor, $event)" 
+                      (click)="toggleBioExpansion(tutor.id, $event)" 
                       *ngIf="tutor.bio && tutor.bio.length > 200">
-                Learn more
-                <ion-icon name="arrow-forward-outline"></ion-icon>
+                {{ isBioExpanded(tutor.id) ? 'Show less' : 'Learn more' }}
+                <ion-icon [name]="isBioExpanded(tutor.id) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
               </button>
             </div>
             
@@ -255,7 +258,12 @@
           <!-- Right: Video Thumbnail (only show in list view) -->
           <div class="right-section" *ngIf="(tutor.videoThumbnail || tutor.introductionVideo) && viewMode === 'list'">
             <div class="video-thumbnail-wrapper" (click)="onVideoThumbnailClick(tutor, $event)">
+              <!-- Show thumbnail if available, otherwise show video element -->
               <img *ngIf="tutor.videoThumbnail" [src]="tutor.videoThumbnail" alt="Video preview" class="video-thumbnail-image">
+              <video *ngIf="!tutor.videoThumbnail && tutor.introductionVideo" 
+                     [src]="tutor.introductionVideo" 
+                     class="video-thumbnail-image"
+                     preload="metadata"></video>
               <div class="video-play-overlay">
                 <ion-icon name="play"></ion-icon>
               </div>
@@ -265,11 +273,15 @@
         
         <!-- Action Buttons -->
         <div class="card-actions" (click)="$event.stopPropagation()">
-          <ion-button class="action-btn secondary" fill="outline" size="small" (click)="saveTutor(tutor, $event)">
+          <ion-button class="action-btn secondary" fill="clear" size="small" (click)="saveTutor(tutor, $event)">
             <ion-icon name="heart-outline" slot="icon-only"></ion-icon>
           </ion-button>
-          <ion-button class="action-btn secondary" fill="outline" size="small" (click)="messageTutor(tutor)">
+          <ion-button class="action-btn secondary" fill="clear" size="small" (click)="messageTutor(tutor)">
             <ion-icon name="chatbubble-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          <ion-button class="action-btn secondary" fill="outline" size="small" (click)="openTutorProfile(tutor, $event)">
+            <ion-icon name="person-outline" slot="start"></ion-icon>
+            View profile
           </ion-button>
           <ion-button class="action-btn primary" fill="solid" size="small" (click)="bookLesson(tutor, $event)">
             <ion-icon name="calendar" slot="start"></ion-icon>

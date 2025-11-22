@@ -1,11 +1,11 @@
 // tutor-search-content.page.ts
-import { Component, OnInit, OnDestroy, HostListener, Input, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, Input, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } from '../services/user.service';
 import { Subject, timer } from 'rxjs';
-import { takeUntil, debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { takeUntil, debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
 import { ModalController, ViewWillEnter, AnimationController } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
@@ -87,6 +87,9 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   private readonly FILTER_STORAGE_KEY = 'tutor_search_filters';
   private readonly WATCHED_VIDEOS_KEY = 'watched_tutor_videos';
   private watchedVideos: Set<string> = new Set();
+  expandedBios: Set<string> = new Set(); // Track which tutor bios are expanded
+  highlightedTutorId: string | null = null; // Track which tutor is highlighted
+  isReturningFromProfile = false; // Track if we're returning from a profile to prevent animations
 
   // Available languages for the dropdown
   availableLanguages = [
@@ -127,8 +130,10 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     private userService: UserService,
     private modalController: ModalController,
     private router: Router,
+    private route: ActivatedRoute,
     private messagingService: MessagingService,
-    private animationCtrl: AnimationController
+    private animationCtrl: AnimationController,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -145,15 +150,120 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     ).subscribe(() => {
       this.performSearch();
     });
+    
+    // Listen for router events to detect navigation
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      takeUntil(this.destroy$)
+    ).subscribe((event: any) => {
+      console.log('🔄 Navigation event detected:', event.url);
+      if (event.url.includes('/tabs/tutor-search')) {
+        console.log('🎯 Navigated to tutor-search, checking localStorage');
+        // Small delay to ensure view is ready
+        setTimeout(() => {
+          this.checkForReturnNavigation();
+        }, 200);
+      }
+    });
+    
+    // Also check immediately on init in case we're already on the page
+    setTimeout(() => {
+      console.log('🚀 Initial check for return navigation on init');
+      this.checkForReturnNavigation();
+    }, 300);
   }
   
   ionViewWillEnter() {
+    console.log('🔍 ionViewWillEnter - Checking for return navigation');
+    const handledReturn = this.checkForReturnNavigation();
+    
+    // If we handled a return navigation with existing tutors, stop here
+    if (handledReturn) {
+      console.log('✅ Return navigation handled, skipping normal load');
+      return;
+    }
+    
     // Only load tutors on first view entry
     if (!this.hasLoadedOnce) {
+      console.log('📥 Loading tutors for first time in ionViewWillEnter');
       this.getCurrentUser();
       this.hasLoadedOnce = true;
     }
-    // On subsequent visits, use cached data to avoid unnecessary API calls
+  }
+  
+  ionViewDidEnter() {
+    console.log('🔍 ionViewDidEnter - Double checking return navigation');
+    const handledReturn = this.checkForReturnNavigation();
+    
+    // If we handled a return navigation with existing tutors, stop here
+    if (handledReturn) {
+      console.log('✅ Return navigation handled in didEnter, skipping normal load');
+      return;
+    }
+  }
+  
+  private checkForReturnNavigation() {
+    // Check localStorage for returnToTutorId
+    const returnToTutorId = localStorage.getItem('returnToTutorId');
+    
+    console.log('🔍 localStorage returnToTutorId:', returnToTutorId);
+    console.log('🔍 Current URL:', this.router.url);
+    console.log('🔍 Existing tutors count:', this.tutors.length);
+    console.log('🔍 hasLoadedOnce:', this.hasLoadedOnce);
+    
+    if (returnToTutorId) {
+      console.log('🔙 FOUND returnToTutorId in localStorage:', returnToTutorId);
+      
+      // Set flag to prevent card animations when returning
+      this.isReturningFromProfile = true;
+      console.log('🚩 Set isReturningFromProfile to TRUE');
+      
+      // Clear from localStorage immediately
+      localStorage.removeItem('returnToTutorId');
+      
+      // Set up scroll target
+      this.scrollToTutorId = returnToTutorId;
+      this.hasScrolledToTutor = false;
+      
+      // If tutors are already loaded, scroll immediately and DO NOT reload
+      if (this.tutors.length > 0) {
+        console.log('✅ Tutors already loaded, scrolling immediately WITHOUT reloading');
+        setTimeout(() => {
+          this.scrollToTutorCard(returnToTutorId);
+          setTimeout(() => {
+            this.highlightTutorCard(returnToTutorId);
+            // Don't clear isReturningFromProfile flag - it will be cleared when user interacts with filters
+          }, 500);
+        }, 100);
+        
+        // CRITICAL: Return early to prevent any reload
+        return true; // Signal that we handled return navigation
+      } else {
+        console.log('⏳ Tutors not loaded yet, will scroll after they load');
+        // Wait for tutors to load, then scroll
+        const checkInterval = setInterval(() => {
+          if (this.tutors.length > 0) {
+            console.log('✅ Tutors loaded! Now scrolling...');
+            clearInterval(checkInterval);
+            setTimeout(() => {
+              this.scrollToTutorCard(returnToTutorId);
+              setTimeout(() => {
+                this.highlightTutorCard(returnToTutorId);
+                // Don't clear isReturningFromProfile flag - it will be cleared when user interacts with filters
+              }, 500);
+            }, 100);
+          }
+        }, 100);
+        
+        // Stop checking after 5 seconds - don't clear flag, let it persist
+        setTimeout(() => {
+          clearInterval(checkInterval);
+        }, 5000);
+      }
+    }
+    
+    console.log('🔍 No return navigation detected');
+    return false; // Signal that we didn't handle return navigation
   }
   
   private loadSavedFilters() {
@@ -205,27 +315,54 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   ngAfterViewChecked() {
     // Scroll to the specified tutor card if we haven't already
     if (this.scrollToTutorId && !this.hasScrolledToTutor && !this.isLoading && this.tutors.length > 0) {
+      console.log('🎯 ngAfterViewChecked - Ready to scroll to:', this.scrollToTutorId);
       // Use requestAnimationFrame for immediate execution after DOM update
       requestAnimationFrame(() => {
         this.scrollToTutorCard(this.scrollToTutorId!);
         this.hasScrolledToTutor = true;
+        
+        // Highlight the tutor card briefly after a small delay
+        setTimeout(() => {
+          this.highlightTutorCard(this.scrollToTutorId!);
+        }, 300);
       });
     }
   }
   
   private scrollToTutorCard(tutorId: string) {
+    console.log('📜 Scrolling to tutor card:', tutorId);
     // Find the tutor card element
-    const tutorCard = document.querySelector(`[data-tutor-id="${tutorId}"]`);
+    const tutorCard = document.querySelector(`[data-tutor-id="${tutorId}"]`) as HTMLElement;
+    console.log('📜 Found tutor card element:', tutorCard);
+    
     if (tutorCard) {
       tutorCard.scrollIntoView({ 
-        behavior: 'auto', // Instant scroll, no animation
+        behavior: 'smooth', // Smooth scroll animation
         block: 'center',
         inline: 'nearest'
       });
       console.log('✅ Scrolled to tutor card:', tutorId);
     } else {
       console.warn('⚠️ Tutor card not found:', tutorId);
+      console.warn('Available tutor IDs:', this.tutors.map(t => t.id));
     }
+  }
+  
+  private highlightTutorCard(tutorId: string) {
+    console.log('✨ Highlighting tutor card:', tutorId);
+    
+    // Set the highlighted tutor ID - this will add the CSS class via [class.highlighted]
+    this.highlightedTutorId = tutorId;
+    this.cdr.detectChanges(); // Manually trigger change detection
+    console.log('✅ Set highlightedTutorId to:', tutorId);
+    
+    // Remove highlight after animation completes (brief 800ms highlight)
+    setTimeout(() => {
+      this.highlightedTutorId = null;
+      console.log('✅ Removed highlight from card');
+      // Use markForCheck instead of detectChanges to avoid re-rendering everything
+      this.cdr.markForCheck();
+    }, 800);
   }
 
   ngOnDestroy() {
@@ -286,6 +423,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   private performSearch() {
     const hasExistingContent = this.tutors.length > 0 || (!this.isLoading && this.tutors.length === 0);
     const isFirstLoad = this.isLoading && this.tutors.length === 0;
+    
+    // CRITICAL: Don't search if we're returning from a profile
+    if (this.isReturningFromProfile) {
+      console.log('🚫 BLOCKED search - returning from profile, keeping existing tutors');
+      return;
+    }
     
     if (hasExistingContent && !isFirstLoad) {
       // If we have existing content (tutors OR empty state), use smooth transition
@@ -362,6 +505,9 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     this.scrollToTutorId = undefined;
     this.hasScrolledToTutor = false;
     
+    // Clear the returning from profile flag since user is now actively filtering
+    this.isReturningFromProfile = false;
+    
     this.saveFilters(); // Save filters when applied
     this.searchTutors();
   }
@@ -387,6 +533,10 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     // Clear scroll target when filters are cleared
     this.scrollToTutorId = undefined;
     this.hasScrolledToTutor = false;
+    
+    // Clear the returning from profile flag since user is now actively filtering
+    this.isReturningFromProfile = false;
+    
     this.saveFilters(); // Save cleared filters
     this.searchTutors();
   }
@@ -449,6 +599,9 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     // This prevents unwanted scrolling when changing filters
     this.scrollToTutorId = undefined;
     this.hasScrolledToTutor = false;
+    
+    // Clear the returning from profile flag since user is now actively filtering
+    this.isReturningFromProfile = false;
     
     this.saveFilters(); // Save language change
     this.searchSubject$.next();
@@ -1024,8 +1177,18 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     const url = `/tutor/${tutor.id}`;
     const isMobile = window.innerWidth <= 768;
     
+    console.log('🔗 openTutorProfile called for tutor:', tutor.id, 'isMobile:', isMobile);
+    
     if (isMobile) {
-      // Navigate in the same window on mobile
+      // Store tutor ID in localStorage for return navigation
+      localStorage.setItem('returnToTutorId', tutor.id);
+      console.log('💾 Saved returnToTutorId to localStorage:', tutor.id);
+      
+      // Verify it was saved
+      const saved = localStorage.getItem('returnToTutorId');
+      console.log('✅ Verified localStorage value:', saved);
+      
+      // Navigate to tutor profile
       this.router.navigate([url]);
     } else {
       // Open in new tab on desktop
@@ -1108,5 +1271,23 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     } catch (error) {
       console.warn('Failed to save watched video:', error);
     }
+  }
+
+  // Toggle bio expansion
+  toggleBioExpansion(tutorId: string, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    if (this.expandedBios.has(tutorId)) {
+      this.expandedBios.delete(tutorId);
+    } else {
+      this.expandedBios.add(tutorId);
+    }
+  }
+
+  // Check if bio is expanded
+  isBioExpanded(tutorId: string): boolean {
+    return this.expandedBios.has(tutorId);
   }
 }
