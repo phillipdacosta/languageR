@@ -600,6 +600,45 @@
       </ion-card-content>
     </ion-card>
 
+    <!-- Additional Upcoming Lessons for Students -->
+    <div class="additional-lessons-section" *ngIf="!isTutor() && !isLoadingLessons && getUpcomingLessons().length > 1">
+      <div class="additional-lessons-list">
+        <ion-card 
+          class="additional-lesson-card" 
+          *ngFor="let additionalLesson of getUpcomingLessons().slice(1, 6); trackBy: trackByLessonId">
+          <ion-card-content>
+            <div class="additional-lesson-row">
+              <ion-avatar class="lesson-avatar-small">
+                <img 
+                  *ngIf="!additionalLesson.isClass && getPresenceAvatar(additionalLesson)" 
+                  [src]="getPresenceAvatar(additionalLesson)" 
+                  alt="Avatar" 
+                  referrerpolicy="no-referrer" />
+                <ion-icon *ngIf="additionalLesson.isClass" name="people" class="avatar-placeholder-icon"></ion-icon>
+                <ion-icon *ngIf="!additionalLesson.isClass && !getPresenceAvatar(additionalLesson)" name="person" class="avatar-placeholder-icon"></ion-icon>
+              </ion-avatar>
+              <div class="lesson-info">
+                <h4>{{ additionalLesson.isClass ? (additionalLesson.className || additionalLesson.subject) : getOtherParticipantName(additionalLesson) }}</h4>
+                <p class="lesson-type">{{ additionalLesson.isClass ? 'Group Class' : getOtherParticipantSpecialty(additionalLesson) }}</p>
+                <div class="lesson-time-small">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>{{ formatLessonTime(additionalLesson) }}</span>
+                  <span class="status-badge in-progress" *ngIf="isLessonInProgress(additionalLesson)">In progress</span>
+                </div>
+              </div>
+              <ion-button 
+                class="join-btn-small" 
+                [color]="isLessonInProgress(additionalLesson) ? 'success' : 'primary'"
+                [disabled]="!canJoinLesson(additionalLesson) && !isLessonInProgress(additionalLesson)" 
+                (click)="navigateToLesson(additionalLesson); $event.stopPropagation()">
+                <ion-icon name="call-outline" slot="icon-only"></ion-icon>
+              </ion-button>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    </div>
+
     <!-- No Lessons State -->
     <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && getUpcomingLessons().length === 0 && !isTutor()">
       <ion-card-content>

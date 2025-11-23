@@ -1205,49 +1205,34 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // Navigate to lesson details or join
   navigateToLesson(lesson: Lesson) {
-    // For now, we could navigate to the call page if it's time to join
-    // Or show lesson details. Let's make it joinable if within time window
+    // Navigate to pre-call page - let pre-call handle the join logic
     const now = new Date();
     const startTime = new Date(lesson.startTime);
     const canJoin = this.canJoinLessonByTime(startTime);
     
     if (canJoin) {
-      this.joinLessonById(lesson._id);
+      this.joinLessonById(lesson);
     }
   }
 
-  // Helper to join lesson by ID
-  async joinLessonById(lessonId: string) {
-    const loading = await this.loadingController.create({
-      message: 'Joining lesson...',
+  // Helper to navigate to pre-call for lesson or class
+  async joinLessonById(lesson: Lesson) {
+    const isClass = (lesson as any).isClass;
+    const role = this.isTutor() ? 'tutor' : 'student';
+    
+    console.log('🎯 TAB1: Navigating to pre-call:', {
+      sessionId: lesson._id,
+      isClass: isClass,
+      role: role
     });
-    await loading.present();
-
-    this.lessonService.joinLesson(lessonId, 'tutor', this.currentUser?.['id']).subscribe({
-      next: async (response) => {
-        await loading.dismiss();
-        
-        if (response.success) {
-          // Navigate to call page with lesson data
-          this.router.navigate(['/call'], {
-            state: {
-              agora: response.agora,
-              lesson: response.lesson,
-              role: 'tutor'
-            }
-          });
-        }
-      },
-      error: async (error) => {
-        await loading.dismiss();
-        console.error('Error joining lesson:', error);
-        
-        const toast = await this.toastController.create({
-          message: error.error?.message || 'Failed to join lesson',
-          duration: 3000,
-          color: 'danger'
-        });
-        toast.present();
+    
+    // Navigate directly to pre-call - don't call backend join yet
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: lesson._id,
+        role: role,
+        lessonMode: 'true',
+        isClass: isClass ? 'true' : 'false'
       }
     });
   }
@@ -1448,6 +1433,40 @@ export class Tab1Page implements OnInit, OnDestroy {
             } catch (error) {
               console.error('Error loading tutor classes:', error);
             }
+          }
+        }
+
+        // For students, also load their accepted/confirmed classes
+        if (!this.isTutor()) {
+          try {
+            const classesResp = await this.classService.getAcceptedClasses().toPromise();
+            if (classesResp?.success && classesResp.classes) {
+              // Convert accepted classes to lesson-like objects
+              const classLessons = classesResp.classes.map((cls: any) => ({
+                _id: cls._id,
+                tutorId: cls.tutorId, // Already populated with tutor details
+                studentId: null as any, // Classes don't have a single student
+                startTime: cls.startTime,
+                endTime: cls.endTime,
+                status: 'scheduled' as const,
+                subject: cls.name || 'Class',
+                channelName: `class_${cls._id}`,
+                price: cls.price || 0,
+                duration: Math.round((new Date(cls.endTime).getTime() - new Date(cls.startTime).getTime()) / 60000),
+                createdAt: cls.createdAt || new Date(),
+                updatedAt: cls.updatedAt || new Date(),
+                isClass: true, // Mark as class to differentiate
+                className: cls.name,
+                classData: cls, // Store full class data
+                attendees: cls.confirmedStudents || [], // Other confirmed students
+                capacity: cls.capacity
+              } as any));
+              
+              // Merge classes with lessons
+              allLessons = [...allLessons, ...classLessons];
+            }
+          } catch (error) {
+            console.error('Error loading student classes:', error);
           }
         }
 
@@ -1842,6 +1861,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this.lessonService.canJoinLesson(this.upcomingLesson);
   }
 
+  // Helper to check if any lesson can be joined
+  canJoinLesson(lesson: Lesson): boolean {
+    if (!lesson) return false;
+    if (this.isLessonInProgress(lesson)) return true;
+    return this.lessonService.canJoinLesson(lesson);
+  }
+
   upcomingJoinCountdown(): string {
     if (!this.upcomingLesson) return '';
     // Reference countdownTick to trigger change detection updates
@@ -1877,13 +1903,21 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (!this.upcomingLesson || !this.currentUser) return;
     
     const role = this.getUserRole(this.upcomingLesson);
+    const isClass = (this.upcomingLesson as any).isClass || false;
+    
+    console.log('🎯 TAB1: Joining upcoming session:', {
+      sessionId: this.upcomingLesson._id,
+      isClass: isClass,
+      role: role
+    });
     
     // Navigate to pre-call page first
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: this.upcomingLesson._id,
         role,
-        lessonMode: 'true'
+        lessonMode: 'true',
+        isClass: isClass ? 'true' : 'false'
       }
     });
   }
@@ -2179,13 +2213,15 @@ export class Tab1Page implements OnInit, OnDestroy {
   async joinStudentLesson(student: any) {
     if (!student.lesson || !this.currentUser) return;
     const lesson = student.lesson as Lesson;
+    const isClass = (lesson as any).isClass || false;
     
     // Navigate to pre-call page first
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
         role: 'tutor',
-        lessonMode: 'true'
+        lessonMode: 'true',
+        isClass: isClass ? 'true' : 'false'
       }
     });
   }

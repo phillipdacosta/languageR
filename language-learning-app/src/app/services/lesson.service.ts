@@ -79,13 +79,25 @@ export interface LessonJoinResponse {
     token: string;
     uid: number;
   };
-  lesson: {
-    id: string;
+  lesson?: {
+    id?: string;
+    _id?: string;
     startTime: string;
     endTime: string;
     tutor: any;
     student: any;
     subject: string;
+  };
+  class?: {
+    id?: string;
+    _id?: string;
+    name?: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    tutor: any;
+    students?: any[];
+    capacity?: number;
   };
   userRole: 'tutor' | 'student';
   serverTime: string;

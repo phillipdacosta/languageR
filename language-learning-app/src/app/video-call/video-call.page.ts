@@ -24,6 +24,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('localVideo', { static: false }) localVideoRef!: ElementRef<HTMLDivElement>;
   @ViewChild('remoteVideo', { static: false }) remoteVideoRef!: ElementRef<HTMLDivElement>;
   @ViewChild('remoteVideoTile', { static: false }) remoteVideoTileRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('tutorMainVideo', { static: false }) tutorMainVideoRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('localVideoGallery', { static: false }) localVideoGalleryRef!: ElementRef<HTMLDivElement>;
   @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef!: ElementRef<HTMLDivElement>;
 
   // Listen for window resize to adjust canvas size
@@ -46,16 +48,55 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   remoteUserCount = 0;
   userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
   remoteUserStates: Map<any, { isMuted?: boolean; isVideoOff?: boolean }> = new Map(); // Track remote user states
+  remoteUserIdentities: Map<any, { userId: string; isTutor: boolean; name: string; profilePicture?: string }> = new Map(); // Track who each remote user actually is
+  
+  // Class support (multi-participant)
+  isClass = false; // Track if this is a class vs 1:1 lesson
+  allParticipants: Array<{
+    uid: any;
+    name: string;
+    isLocal: boolean;
+    isMuted: boolean;
+    isVideoOff: boolean;
+    userId?: string;
+    isSpeaking?: boolean;
+    isTutor?: boolean;
+    agoraUid?: any; // Store Agora UID for proper identification
+    profilePicture?: string; // Profile picture URL
+  }> = [];
   
   // Speaking detection
   isLocalUserSpeaking = false;
   isRemoteUserSpeaking = false;
   private speakingTimeout: any = null;
+  // Track speaking state per participant (for classes)
+  participantSpeakingStates: Map<any, boolean> = new Map();
+  private participantSpeakingTimeouts: Map<any, any> = new Map();
+  
+  // Web Audio API for smooth speaking detection (like pre-call)
+  private audioContexts: Map<any, AudioContext> = new Map();
+  private analysers: Map<any, AnalyserNode> = new Map();
+  private audioMonitoringFrames: Map<any, number> = new Map();
+  private audioLevels: Map<any, number> = new Map();
   
   // Participant names
   tutorName: string = '';
   studentName: string = '';
+  tutorUserId: string = ''; // Store tutor's user ID for proper identification
+  studentUserId: string = ''; // Store student's user ID
+  tutorProfilePicture: string = ''; // Store tutor's profile picture
+  studentProfilePicture: string = ''; // Store student's profile picture
+  myProfilePicture: string = ''; // Store current user's profile picture
+  // currentUserId is already defined in chat properties below
   isTrialLesson: boolean = false;
+  
+  // My identity info (from query params)
+  myAgoraUid: any = ''; // Store my Agora UID
+  myName: string = ''; // Store my display name
+  
+  // Participant Registry: Maps Agora UID → User Info (from query params)
+  // This allows immediate identification without waiting for broadcasts
+  participantRegistry: Map<any, { userId: string; name: string; isTutor: boolean; agoraUid: any; profilePicture?: string }> = new Map();
 
   // Virtual background properties
   showVirtualBackgroundControls = false;
@@ -153,6 +194,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async ngOnInit() {
     const qp = this.route.snapshot.queryParams as any;
 
+    // Detect if this is a class
+    this.isClass = qp?.isClass === 'true';
+    console.log('🎓 VIDEO-CALL: isClass =', this.isClass);
+
     // Set up real-time messaging callbacks first
     this.agoraService.onWhiteboardMessage = (data) => {
       this.handleRemoteWhiteboardData(data);
@@ -168,6 +213,34 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     this.agoraService.onVolumeIndicator = (volumes) => {
       this.handleVolumeIndicator(volumes);
+    };
+    
+    this.agoraService.onParticipantIdentity = (uid, identity) => {
+      console.log('👤 ===== RECEIVED PARTICIPANT IDENTITY =====');
+      console.log('👤 UID:', uid);
+      console.log('👤 Identity:', identity);
+      console.log('👤 Current remoteUserIdentities before:', Array.from(this.remoteUserIdentities.entries()));
+      
+      this.remoteUserIdentities.set(uid, identity);
+      
+      // ALSO add to participantRegistry for consistency
+      this.participantRegistry.set(uid, {
+        userId: identity.userId,
+        name: identity.name,
+        isTutor: identity.isTutor,
+        agoraUid: uid,
+        profilePicture: (identity as any).profilePicture || ''
+      });
+      
+      console.log('👤 Current remoteUserIdentities after:', Array.from(this.remoteUserIdentities.entries()));
+      console.log('👤 Updated participantRegistry:', Array.from(this.participantRegistry.entries()));
+      console.log('👤 ==========================================');
+      
+      // Rebuild participants list with correct identities
+      if (this.isClass) {
+        console.log('👥 Updating participants list after receiving identity');
+        this.updateParticipantsList();
+      }
     };
 
     // Add beforeunload listener to handle browser close/refresh
@@ -235,6 +308,29 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const me = await firstValueFrom(this.userService.getCurrentUser());
       const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
       this.userRole = role; // Store user role for participant labeling
+      this.currentUserId = me?.id || ''; // Store current user's MongoDB ID
+      
+      // SIMPLE SOLUTION: Use query params for immediate identification
+      this.myAgoraUid = qp.agoraUid || '';
+      this.myName = qp.userName || (role === 'tutor' ? 'Tutor' : 'Student');
+      const myUserId = qp.userId || me?.id || '';
+      const iAmTutor = role === 'tutor';
+      
+      console.log('🆔 ===== MY IDENTITY FROM QUERY PARAMS =====');
+      console.log('🆔 Role:', role);
+      console.log('🆔 Name:', this.myName);
+      console.log('🆔 Database ID:', myUserId);
+      console.log('🆔 Agora UID:', this.myAgoraUid);
+      console.log('🆔 =========================================');
+      
+      // Store my own identity in registry (will broadcast to others when connected)
+      this.participantRegistry.set(this.myAgoraUid, {
+        userId: myUserId,
+        name: this.myName,
+        isTutor: iAmTutor,
+        agoraUid: this.myAgoraUid,
+        profilePicture: this.myProfilePicture
+      });
 
       // Load lesson data to get participant names and IDs
       if (qp.lessonId) {
@@ -246,13 +342,42 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           
           const lessonResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
           console.log('🎓 VIDEO-CALL: API Response:', lessonResponse);
+          console.log('🎓 VIDEO-CALL: Response check:', {
+            hasResponse: !!lessonResponse,
+            hasSuccess: !!lessonResponse?.success,
+            hasLesson: !!lessonResponse?.lesson,
+            successValue: lessonResponse?.success,
+            lessonValue: lessonResponse?.lesson
+          });
           
           if (lessonResponse?.success && lessonResponse.lesson) {
             const lesson = lessonResponse.lesson;
+            
+            console.log('🔍 ===== LESSON DATA INSPECTION =====');
+            console.log('🔍 Full lesson object:', lesson);
+            console.log('🔍 lesson.tutorId:', lesson.tutorId);
+            console.log('🔍 lesson.studentId:', lesson.studentId);
+            console.log('🔍 lesson.tutorId?._id:', lesson.tutorId?._id);
+            console.log('🔍 lesson.studentId?._id:', lesson.studentId?._id);
+            console.log('🔍 typeof lesson.tutorId:', typeof lesson.tutorId);
+            console.log('🔍 typeof lesson.studentId:', typeof lesson.studentId);
+            console.log('🔍 ===================================');
+            
             // Extract first names from tutor and student objects
             this.tutorName = this.getFirstName(lesson.tutorId) || 'Tutor';
             this.studentName = this.getFirstName(lesson.studentId) || 'Student';
             this.isTrialLesson = lesson.isTrialLesson || false;
+            
+            // Store tutor and student user IDs for proper role identification
+            this.tutorUserId = lesson.tutorId?._id || '';
+            this.studentUserId = lesson.studentId?._id || '';
+            
+            // Store profile pictures
+            this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
+            this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
+            
+            // Store my own profile picture based on role
+            this.myProfilePicture = this.userRole === 'tutor' ? this.tutorProfilePicture : this.studentProfilePicture;
             
             console.log('🎓 VIDEO-CALL: Lesson loaded', {
               lessonId: lesson._id,
@@ -260,7 +385,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               isTrialLessonComponent: this.isTrialLesson,
               role: this.userRole,
               tutorName: this.tutorName,
-              studentName: this.studentName
+              studentName: this.studentName,
+              tutorUserId: this.tutorUserId,
+              studentUserId: this.studentUserId,
+              tutorProfilePicture: this.tutorProfilePicture,
+              studentProfilePicture: this.studentProfilePicture,
+              myProfilePicture: this.myProfilePicture
+            });
+            
+            console.log('🖼️ PROFILE PICTURE DEBUG:', {
+              tutorIdObject: lesson.tutorId,
+              studentIdObject: lesson.studentId,
+              tutorHasPicture: !!lesson.tutorId?.picture,
+              studentHasPicture: !!lesson.studentId?.picture,
+              tutorHasProfilePicture: !!(lesson.tutorId as any)?.profilePicture,
+              studentHasProfilePicture: !!(lesson.studentId as any)?.profilePicture
             });
             
             // Get the other participant's email to look up their auth0Id
@@ -281,9 +420,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
                 console.error('Error looking up other user:', userError);
               }
             }
+          } else {
+            console.error('❌ VIDEO-CALL: Invalid lesson response format:', {
+              lessonResponse,
+              hasSuccess: !!lessonResponse?.success,
+              hasLesson: !!lessonResponse?.lesson
+            });
           }
         } catch (error) {
-          console.error('Error loading lesson data:', error);
+          console.error('❌ VIDEO-CALL: Error loading lesson data:', error);
           // Fallback to default labels
           this.tutorName = 'Tutor';
           this.studentName = 'Student';
@@ -356,6 +501,100 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Begin monitoring remote users
       this.monitorRemoteUsers();
       this.isConnected = true;
+      
+      // Initialize participants list for classes
+      if (this.isClass) {
+        console.log('🎓 CLASS: Initializing participants list on connect');
+        
+        // Get my ACTUAL Agora UID (assigned by Agora, not from query params!)
+        const myActualAgoraUid = this.agoraService.getLocalUID();
+        console.log('🆔 My ACTUAL Agora UID after connecting:', myActualAgoraUid);
+        
+        // Update registry with actual UID
+        if (myActualAgoraUid && this.myAgoraUid && myActualAgoraUid !== this.myAgoraUid) {
+          const oldInfo = this.participantRegistry.get(this.myAgoraUid);
+          if (oldInfo) {
+            console.log('🔄 Updating registry: moving from query param UID to actual UID');
+            this.participantRegistry.delete(this.myAgoraUid); // Remove old entry
+            this.participantRegistry.set(myActualAgoraUid, {
+              ...oldInfo,
+              agoraUid: myActualAgoraUid,
+              profilePicture: this.myProfilePicture // Ensure profile picture is included
+            }); // Add with actual UID
+          }
+          this.myAgoraUid = myActualAgoraUid; // Update stored UID
+        } else if (myActualAgoraUid) {
+          this.myAgoraUid = myActualAgoraUid;
+        }
+        
+        // Broadcast my identity to other participants IMMEDIATELY
+        // Do this BEFORE updating participants list so others receive it right away
+        // Use userRole as primary indicator (more reliable than ID comparison)
+        const myInfo = this.participantRegistry.get(this.myAgoraUid);
+        const iAmTheTutor = this.userRole === 'tutor';
+        const myNameForBroadcast = myInfo?.name || (iAmTheTutor ? this.tutorName : this.studentName);
+        
+        console.log('📤 ===== BROADCASTING MY IDENTITY =====');
+        console.log('📤 User Role:', this.userRole);
+        console.log('📤 My Agora UID:', this.myAgoraUid);
+        console.log('📤 My Name:', myNameForBroadcast);
+        console.log('📤 Am I the tutor?', iAmTheTutor);
+        console.log('📤 Channel:', this.channelName);
+        console.log('📤 ====================================');
+        
+        // Send identity immediately (no delay)
+        this.agoraService.sendParticipantIdentity(
+          this.currentUserId,
+          iAmTheTutor,
+          myNameForBroadcast,
+          this.myProfilePicture
+        ).then(() => {
+          console.log('✅ Successfully broadcasted my identity');
+        }).catch(error => {
+          console.error('❌ Failed to broadcast identity:', error);
+        });
+        
+        // Broadcast initial mute and video state
+        // Use minimal delay to ensure tracks are published but fast enough to avoid flicker
+        setTimeout(() => {
+          console.log('📤 Broadcasting initial state:', { isMuted: this.isMuted, isVideoOff: this.isVideoOff });
+          
+          // Send mute state
+          this.agoraService.sendMuteStateUpdate(this.isMuted).then(() => {
+            console.log('✅ Successfully broadcasted initial mute state:', this.isMuted);
+          }).catch(error => {
+            console.error('❌ Failed to broadcast initial mute state:', error);
+          });
+          
+          // Send video state
+          this.agoraService.sendVideoStateUpdate(this.isVideoOff).then(() => {
+            console.log('✅ Successfully broadcasted initial video state:', this.isVideoOff);
+          }).catch(error => {
+            console.error('❌ Failed to broadcast initial video state:', error);
+          });
+        }, 150); // Minimal delay - tracks are already published with correct muted state
+        
+        // Update participants list
+        this.updateParticipantsList();
+        
+        // Start Web Audio monitoring for local user
+        console.log('🎤 Starting Web Audio monitoring for local user');
+        setTimeout(() => {
+          console.log('🎤 Attempting to start local audio monitoring now...');
+          const localAudioTrack = this.agoraService.getLocalAudioTrack();
+          console.log('🎤 Local audio track exists?', !!localAudioTrack);
+          if (localAudioTrack) {
+            console.log('🎤 Local audio track details:', {
+              enabled: localAudioTrack.enabled,
+              muted: localAudioTrack.muted
+            });
+          }
+          
+          // IMPORTANT: Use 'local' as the UID for monitoring
+          // The updateParticipantsList will update the UI based on this.isLocalUserSpeaking
+          this.startAudioMonitoringForParticipant('local', null);
+        }, 1000); // Increased delay to ensure audio track is ready
+      }
       
       // Force change detection to show participant tiles immediately
       this.cdr.detectChanges();
@@ -512,7 +751,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           
           // Only setup video display if video track exists and is not off
           if (localVideoTrack && !this.isVideoOff) {
-            this.setupLocalVideoDisplay();
+            // For tutor in gallery mode, use gallery setup; otherwise use standard setup
+            if (this.isClass && this.userRole === 'tutor' && !this.showWhiteboard) {
+              console.log('🎓 Setting up tutor gallery view on initial connect');
+              setTimeout(() => {
+                this.playVideosInTutorGallery();
+              }, 200);
+            } else {
+              this.setupLocalVideoDisplay();
+            }
           }
           
           // Force change detection to show participant box
@@ -574,6 +821,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔍 Current state:', {
       isConnected: this.isConnected,
       isVideoOff: this.isVideoOff,
+      isClass: this.isClass,
       localVideoRef: !!this.localVideoRef
     });
     
@@ -590,8 +838,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      if (!this.localVideoRef) {
-        console.log(`⏳ Waiting for localVideoRef (attempt ${attempts + 1})`);
+      // For classes, find the local video element using querySelector (since it's in *ngFor)
+      let localVideoElement: HTMLElement | null = null;
+      if (this.isClass) {
+        localVideoElement = document.querySelector('[data-participant-uid="local"] .participant-video') as HTMLElement;
+        console.log('🎥 CLASS: Found local video element:', !!localVideoElement);
+      } else if (this.localVideoRef) {
+        localVideoElement = this.localVideoRef.nativeElement;
+      }
+
+      if (!localVideoElement) {
+        console.log(`⏳ Waiting for local video element (attempt ${attempts + 1})`);
         setTimeout(() => attemptSetup(attempts + 1), 100);
         return;
       }
@@ -606,17 +863,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           isVideoOff: this.isVideoOff,
           actualVideoState: actualVideoState,
           trackMuted: localVideoTrack.muted,
-          elementExists: !!this.localVideoRef?.nativeElement,
-          isConnected: this.isConnected
+          elementExists: !!localVideoElement,
+          isConnected: this.isConnected,
+          isClass: this.isClass
         });
 
-        if (!this.isVideoOff && this.localVideoRef) {
+        if (!this.isVideoOff && localVideoElement) {
           try {
-            console.log('🎬 Playing local video in participant tile (top-right corner)');
-            this.localVideoRef.nativeElement.innerHTML = '';
+            console.log('🎬 Playing local video in participant tile');
+            localVideoElement.innerHTML = '';
             // Disable mirroring to prevent video from flipping
-            localVideoTrack.play(this.localVideoRef.nativeElement, { mirror: false });
-            console.log('✅ Local video setup complete - should be visible in top-right corner');
+            localVideoTrack.play(localVideoElement, { mirror: false });
+            console.log('✅ Local video setup complete - should be visible');
             
             // Force change detection
             this.cdr.detectChanges();
@@ -657,23 +915,103 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           hasAudio: !!user.audioTrack
         })));
         
+        // For classes: When a new participant joins, re-broadcast my identity AND current state
+        if (this.isClass && this.remoteUserCount > previousCount) {
+          console.log('🔄 New participant joined, re-broadcasting my identity and current state...');
+          const iAmTheTutor = this.userRole === 'tutor';
+          const myInfo = this.participantRegistry.get(this.myAgoraUid);
+          const myNameForBroadcast = myInfo?.name || (iAmTheTutor ? this.tutorName : this.studentName);
+          
+          setTimeout(() => {
+            // Re-broadcast identity
+            this.agoraService.sendParticipantIdentity(
+              this.currentUserId,
+              iAmTheTutor,
+              myNameForBroadcast,
+              this.myProfilePicture
+            ).then(() => {
+              console.log('📤 Re-broadcasted my identity for new participant:', { userId: this.currentUserId, isTutor: iAmTheTutor, name: myNameForBroadcast });
+            });
+            
+            // Re-broadcast current mute state
+            this.agoraService.sendMuteStateUpdate(this.isMuted).then(() => {
+              console.log('📤 Re-broadcasted my mute state for new participant:', this.isMuted);
+            }).catch(error => {
+              console.error('❌ Failed to re-broadcast mute state:', error);
+            });
+            
+            // Re-broadcast current video state
+            this.agoraService.sendVideoStateUpdate(this.isVideoOff).then(() => {
+              console.log('📤 Re-broadcasted my video state for new participant:', this.isVideoOff);
+            }).catch(error => {
+              console.error('❌ Failed to re-broadcast video state:', error);
+            });
+          }, 500); // Small delay to ensure new participant's polling is ready
+        }
+        
         // Force change detection when remote user count changes
         this.cdr.detectChanges();
         
-        // When remote user count changes from 0 to >0, wait for the element to render
-        if (previousCount === 0 && this.remoteUserCount > 0) {
-          console.log('🎬 New remote user detected - waiting for element to render...');
+        // When a new remote user joins (count increases), play their video
+        if (this.remoteUserCount > previousCount) {
+          console.log('🎬 Remote user count increased - new user joined, playing videos...');
           setTimeout(() => {
-            this.playRemoteVideoInCorrectContainer();
+            if (this.isClass) {
+              if (this.userRole === 'tutor' && !this.showWhiteboard) {
+                // Tutor with whiteboard closed: use gallery view
+                console.log('🎓 Using tutor gallery view');
+                this.playVideosInTutorGallery();
+              } else {
+                // Student view or whiteboard open: use participant tiles
+                console.log('👥 Using participant tiles');
+                this.playRemoteVideosInParticipantTiles();
+              }
+            } else {
+              this.playRemoteVideoInCorrectContainer();
+            }
           }, 100);
           
-          // Sync whiteboard state to the new participant
-          this.syncWhiteboardToNewParticipant();
+          // Sync whiteboard state to the new participant (only if count was 0 before)
+          if (previousCount === 0) {
+            this.syncWhiteboardToNewParticipant();
+          }
+        }
+        
+        // Update participants list for multi-user classes ONLY when count changes
+        if (this.isClass && this.remoteUserCount > 0) {
+          console.log('👥 CLASS: Updating participants list due to user count change');
+          this.updateParticipantsList();
+        } else if (this.isClass) {
+          // Even with no remote users, update list to show local user
+          console.log('👥 CLASS: Updating participants list (no remote users yet)');
+          this.updateParticipantsList();
+        }
+        
+        // For classes: Start Web Audio monitoring for new remote participants
+        if (this.isClass) {
+          remoteUsers.forEach((user, uid) => {
+            if (user.audioTrack && !this.analysers.has(uid)) {
+              console.log('🎤 Starting monitoring for new remote participant:', uid);
+              this.startAudioMonitoringForParticipant(uid, user.audioTrack);
+            }
+          });
+          
+          // Stop monitoring for participants who left
+          this.analysers.forEach((_, uid) => {
+            if (uid !== 'local' && !remoteUsers.has(uid)) {
+              console.log('🛑 Stopping monitoring for departed participant:', uid);
+              this.stopAudioMonitoringForParticipant(uid);
+            }
+          });
         }
       }
 
-      if (remoteUsers.size > 0) {
-        // Ensure remote video is playing in the correct container
+      // For classes, NEVER call playRemoteVideoInCorrectContainer repeatedly
+      // Videos should only be attached when:
+      // 1. User count changes (handled above)
+      // 2. Video state changes from off to on (handled in handleRemoteUserStateChange)
+      if (remoteUsers.size > 0 && !this.isClass) {
+        // For 1:1 lessons only, use the original behavior
         this.playRemoteVideoInCorrectContainer();
       }
     }, 1000);
@@ -683,6 +1021,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const remoteUsers = this.agoraService.getRemoteUsers();
     if (remoteUsers.size === 0) return;
 
+    // CLASS: If this is a class, play each remote user in their participant tile
+    if (this.isClass) {
+      this.playRemoteVideosInParticipantTiles();
+      return;
+    }
+
+    // 1:1 LESSON: Original logic for single remote user
     // Get the first remote user's video
     const firstRemoteUser = Array.from(remoteUsers.values())[0];
     
@@ -720,10 +1065,441 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  // Play remote videos in participant tiles for multi-participant classes
+  private playRemoteVideosInParticipantTiles() {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    
+    console.log('🎬 CLASS: Playing remote videos in participant tiles for', remoteUsers.size, 'participants');
+    console.log('🎬 CLASS: Remote user UIDs:', Array.from(remoteUsers.keys()));
+    console.log('🎬 CLASS: Whiteboard open:', this.showWhiteboard);
+    
+    // Get the tutor participant to handle them specially
+    const tutorParticipant = this.tutorParticipant;
+    
+    remoteUsers.forEach((user, uid) => {
+      console.log(`🎬 CLASS: Processing participant ${uid}`, {
+        hasVideoTrack: !!user.videoTrack,
+        hasAudioTrack: !!user.audioTrack,
+        isVideoOff: user.isVideoOff
+      });
+      
+      if (!user.videoTrack) {
+        console.log(`⚠️ No video track for participant ${uid}`);
+        return;
+      }
+      
+      // Check if this is the tutor
+      const isTutor = tutorParticipant && tutorParticipant.uid === uid && !tutorParticipant.isLocal;
+      
+      // If this is the tutor and whiteboard is NOT open, play in main view instead of tile
+      if (isTutor && !this.showWhiteboard) {
+        console.log(`🎓 Playing tutor video in MAIN view (whiteboard closed)`);
+        this.playTutorVideoInMainView(user);
+        return;
+      }
+      
+      // Otherwise, play in tile (for students always, and tutor when whiteboard is open)
+      const tileElement = document.querySelector(`[data-participant-uid="${uid}"] .participant-video`) as HTMLElement;
+      
+      if (!tileElement) {
+        console.log(`⚠️ Participant tile not found for participant ${uid}`);
+        console.log(`⚠️ Available tiles:`, Array.from(document.querySelectorAll('.participant-tile')).map(el => el.getAttribute('data-participant-uid')));
+        return;
+      }
+      
+      console.log(`✅ Found tile element for participant ${uid}`, { 
+        element: tileElement, 
+        innerHTML: tileElement.innerHTML.substring(0, 100) 
+      });
+      
+      try {
+        // IMPORTANT: Check if video is ALREADY playing properly in this container
+        const existingVideo = tileElement.querySelector('video');
+        if (existingVideo) {
+          // Check if the video element is playing and has the correct source
+          const isPlaying = !existingVideo.paused && existingVideo.readyState >= 2;
+          if (isPlaying) {
+            console.log(`⏭️ Video already playing properly for participant ${uid}, skipping re-attach`);
+            return;
+          }
+          console.log(`🔄 Video exists but not playing properly for ${uid}`, {
+            paused: existingVideo.paused,
+            readyState: existingVideo.readyState,
+            videoWidth: existingVideo.videoWidth,
+            videoHeight: existingVideo.videoHeight
+          });
+        }
+        
+        // Clear the container before playing to avoid duplicates
+        console.log(`🧹 Clearing container for participant ${uid} before playing`);
+        tileElement.innerHTML = '';
+        
+        // Play the video track in the tile
+        user.videoTrack.play(tileElement);
+        console.log(`✅ Playing video for participant ${uid} in participant tile`);
+        
+        // Verify video element was created
+        setTimeout(() => {
+          const videoElement = tileElement.querySelector('video');
+          if (videoElement) {
+            console.log(`✅ Video element confirmed for participant ${uid}`, {
+              src: videoElement.src,
+              readyState: videoElement.readyState,
+              paused: videoElement.paused,
+              width: videoElement.videoWidth,
+              height: videoElement.videoHeight
+            });
+          } else {
+            console.error(`❌ No video element found after play() for participant ${uid}`);
+          }
+        }, 500);
+      } catch (error) {
+        console.error(`❌ Error playing video for participant ${uid}:`, error);
+      }
+    });
+  }
+
+  // Play tutor video in the main view (for classes when whiteboard is closed)
+  private playTutorVideoInMainView(user: any) {
+    // Wait for ViewChild to be available
+    const attemptPlay = (attempts = 0) => {
+      if (attempts > 10) {
+        console.error('❌ Failed to play tutor video in main view after 10 attempts');
+        return;
+      }
+
+      if (!this.tutorMainVideoRef) {
+        console.log(`⏳ Waiting for tutor main video ref (attempt ${attempts + 1})`);
+        setTimeout(() => attemptPlay(attempts + 1), 100);
+        return;
+      }
+
+      const mainVideoElement = this.tutorMainVideoRef.nativeElement;
+      
+      if (!mainVideoElement) {
+        console.log(`⏳ Waiting for tutor main video element (attempt ${attempts + 1})`);
+        setTimeout(() => attemptPlay(attempts + 1), 100);
+        return;
+      }
+
+      try {
+        // Check if video is already playing
+        const existingVideo = mainVideoElement.querySelector('video');
+        if (existingVideo) {
+          const isPlaying = !existingVideo.paused && existingVideo.readyState >= 2;
+          if (isPlaying) {
+            console.log('⏭️ Tutor video already playing in main view, skipping re-attach');
+            return;
+          }
+        }
+
+        // Clear the container and play
+        console.log('🧹 Clearing tutor main view container');
+        mainVideoElement.innerHTML = '';
+        
+        console.log('🎬 Playing tutor video in main view');
+        user.videoTrack.play(mainVideoElement);
+        console.log('✅ Tutor video setup complete in main view');
+        
+        // Force change detection
+        this.cdr.detectChanges();
+      } catch (error) {
+        console.error('❌ Error playing tutor video in main view:', error);
+      }
+    };
+
+    attemptPlay();
+  }
+
+  // Play all videos in the tutor gallery view (tutor view with whiteboard closed)
+  private playVideosInTutorGallery() {
+    if (!this.isClass || this.userRole !== 'tutor' || this.showWhiteboard) {
+      console.log('⚠️ Not showing tutor gallery:', { isClass: this.isClass, userRole: this.userRole, showWhiteboard: this.showWhiteboard });
+      return;
+    }
+    
+    console.log('🎬 TUTOR GALLERY: Setting up gallery view for all participants');
+    
+    // Set up local video in gallery
+    this.setupLocalVideoInGallery();
+    
+    // Set up remote videos in gallery
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    console.log(`🎬 TUTOR GALLERY: Found ${remoteUsers.size} remote participants`);
+    
+    remoteUsers.forEach((user, uid) => {
+      if (!user.videoTrack) {
+        console.log(`⚠️ No video track for participant ${uid} in gallery`);
+        return;
+      }
+      
+      const galleryElement = document.querySelector(`[data-gallery-uid="${uid}"] .video-display`) as HTMLElement;
+      
+      if (!galleryElement) {
+        console.log(`⚠️ Gallery tile not found for participant ${uid}`);
+        console.log(`Available gallery tiles:`, Array.from(document.querySelectorAll('[data-gallery-uid]')).map(el => el.getAttribute('data-gallery-uid')));
+        return;
+      }
+      
+      try {
+        // Check if already playing
+        const existingVideo = galleryElement.querySelector('video');
+        if (existingVideo && !existingVideo.paused && existingVideo.readyState >= 2) {
+          console.log(`⏭️ Video already playing in gallery for ${uid}`);
+          return;
+        }
+        
+        galleryElement.innerHTML = '';
+        user.videoTrack.play(galleryElement);
+        console.log(`✅ Playing video in gallery for participant ${uid}`);
+      } catch (error) {
+        console.error(`❌ Error playing video in gallery for ${uid}:`, error);
+      }
+    });
+  }
+
+  // Setup local video in tutor gallery
+  private setupLocalVideoInGallery() {
+    const attemptSetup = (attempts = 0) => {
+      if (attempts > 10) {
+        console.error('❌ Failed to setup local video in gallery after 10 attempts');
+        return;
+      }
+      
+      const galleryElement = document.querySelector('[data-gallery-uid="local"] .video-display') as HTMLElement;
+      
+      if (!galleryElement) {
+        console.log(`⏳ Waiting for local gallery element (attempt ${attempts + 1})`);
+        setTimeout(() => attemptSetup(attempts + 1), 100);
+        return;
+      }
+      
+      const localVideoTrack = this.agoraService.getLocalVideoTrack();
+      
+      if (!localVideoTrack) {
+        console.log('⚠️ No local video track for gallery yet');
+        setTimeout(() => attemptSetup(attempts + 1), 200);
+        return;
+      }
+      
+      // IMPORTANT: Sync UI state with actual Agora track state before displaying
+      const actualVideoState = this.agoraService.isVideoEnabled();
+      this.isVideoOff = !actualVideoState;
+      
+      console.log('✅ Synced video state for gallery:', {
+        isVideoOff: this.isVideoOff,
+        actualVideoState: actualVideoState,
+        trackMuted: localVideoTrack.muted
+      });
+      
+      if (!this.isVideoOff) {
+        try {
+          console.log('🎬 Playing local video in tutor gallery');
+          galleryElement.innerHTML = '';
+          localVideoTrack.play(galleryElement, { mirror: false });
+          console.log('✅ Local video in gallery setup complete');
+          this.cdr.detectChanges();
+          
+          // Apply virtual background after video display is ready
+          setTimeout(() => {
+            this.applyVirtualBackgroundAfterVideoSetup();
+          }, 500);
+        } catch (error) {
+          console.error('❌ Error playing local video in gallery:', error);
+        }
+      } else {
+        console.log('📹 Video is OFF in gallery - showing placeholder instead');
+      }
+    };
+    
+    attemptSetup();
+  }
+
   // Method to manually refresh video display
   refreshVideoDisplay() {
     console.log('🔄 Manually refreshing video display...');
     this.setupLocalVideoDisplay();
+  }
+
+  // Update the list of all participants for class view
+  private updateParticipantsList() {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    
+    console.log('👥 CLASS: Updating participants list', {
+      remoteUserCount: remoteUsers.size,
+      userRole: this.userRole,
+      remoteUIDs: Array.from(remoteUsers.keys())
+    });
+    
+    // IN-PLACE UPDATE: Only modify what changed, don't rebuild entire array
+    // This prevents flashing when participants join/leave or change state
+    
+    // Step 1: Update local participant (always first in logic, position determined later by sorting)
+    const iAmActuallyTheTutor = this.userRole === 'tutor';
+    let localName = 'You';
+    if (iAmActuallyTheTutor && this.tutorName) {
+      localName = `${this.tutorName} (You)`;
+    } else if (!iAmActuallyTheTutor && this.studentName) {
+      localName = `${this.studentName} (You)`;
+    }
+    
+    let localParticipant = this.allParticipants.find(p => p.uid === 'local');
+    if (!localParticipant) {
+      // Local participant doesn't exist, create it
+      localParticipant = {
+        uid: 'local',
+        name: localName,
+        isLocal: true,
+        isMuted: this.isMuted,
+        isVideoOff: this.isVideoOff,
+        isSpeaking: this.isLocalUserSpeaking,
+        isTutor: iAmActuallyTheTutor,
+        userId: this.currentUserId,
+        profilePicture: this.myProfilePicture
+      };
+      this.allParticipants.push(localParticipant);
+    } else {
+      // Update existing local participant in-place
+      localParticipant.name = localName;
+      localParticipant.isMuted = this.isMuted;
+      localParticipant.isVideoOff = this.isVideoOff;
+      localParticipant.isSpeaking = this.isLocalUserSpeaking;
+      localParticipant.isTutor = iAmActuallyTheTutor;
+      localParticipant.profilePicture = this.myProfilePicture;
+    }
+    
+    // Step 2: Update remote participants
+    const remoteUIDs = Array.from(remoteUsers.keys());
+    let remoteIndex = 1;
+    
+    // Remove participants who left (not in remoteUsers anymore)
+    this.allParticipants = this.allParticipants.filter(p => {
+      if (p.isLocal) return true; // Keep local
+      return remoteUIDs.includes(p.uid); // Keep if still in remote users
+    });
+    
+    remoteUsers.forEach((user, uid) => {
+      // Get state from both remoteUserStates and the remoteUsers map
+      const stateFromMap = this.remoteUserStates.get(uid) || {};
+      const stateFromUser = {
+        isVideoOff: user.isVideoOff !== undefined ? user.isVideoOff : (!user.videoTrack),
+        isMuted: user.isMuted !== undefined ? user.isMuted : (!user.audioTrack)
+      };
+      
+      // Merge states, preferring stateFromMap if available
+      const finalState = {
+        isVideoOff: stateFromMap.isVideoOff !== undefined ? stateFromMap.isVideoOff : stateFromUser.isVideoOff,
+        isMuted: stateFromMap.isMuted !== undefined ? stateFromMap.isMuted : stateFromUser.isMuted
+      };
+      
+      // Determine if this remote user is the tutor
+      const registryInfo = this.participantRegistry.get(uid);
+      const broadcastIdentity = this.remoteUserIdentities.get(uid);
+      
+      let isTutor = false;
+      let participantName;
+      
+      if (registryInfo) {
+        isTutor = registryInfo.isTutor;
+        participantName = registryInfo.name;
+        if (isTutor) {
+          participantName = `${participantName} (Tutor)`;
+        }
+      } else if (broadcastIdentity) {
+        isTutor = broadcastIdentity.isTutor;
+        participantName = broadcastIdentity.name;
+        if (isTutor) {
+          participantName = `${participantName} (Tutor)`;
+        }
+      } else {
+        isTutor = false;
+        participantName = `Participant ${remoteIndex}`;
+      }
+      
+      // Find existing participant or create new one
+      let existingParticipant = this.allParticipants.find(p => p.uid === uid);
+      
+      // Get profile picture from registry or broadcast identity
+      const profilePicture = registryInfo?.profilePicture || broadcastIdentity?.profilePicture || '';
+      
+      if (!existingParticipant) {
+        // New participant - add to array
+        this.allParticipants.push({
+          uid,
+          name: participantName,
+          isLocal: false,
+          isMuted: finalState.isMuted,
+          isVideoOff: finalState.isVideoOff,
+          isSpeaking: this.participantSpeakingStates.get(uid) || false,
+          isTutor: isTutor,
+          profilePicture: profilePicture
+        });
+      } else {
+        // Update existing participant in-place
+        existingParticipant.name = participantName;
+        existingParticipant.isMuted = finalState.isMuted;
+        existingParticipant.isVideoOff = finalState.isVideoOff;
+        existingParticipant.isSpeaking = this.participantSpeakingStates.get(uid) || false;
+        existingParticipant.isTutor = isTutor;
+        existingParticipant.profilePicture = profilePicture;
+      }
+      
+      remoteIndex++;
+    });
+    
+    // Step 3: Sort participants (tutor first, then by original order)
+    this.allParticipants.sort((a, b) => {
+      // Tutor always first
+      if (a.isTutor && !b.isTutor) return -1;
+      if (!a.isTutor && b.isTutor) return 1;
+      
+      // If I'm a student, put local user after tutor
+      if (!iAmActuallyTheTutor) {
+        if (a.isLocal && !b.isLocal && !b.isTutor) return -1;
+        if (!a.isLocal && b.isLocal && !a.isTutor) return 1;
+      }
+      
+      // If I'm tutor, put local user first (already handled by isTutor check above)
+      
+      // Maintain original order for others
+      return 0;
+    });
+    
+    console.log('👥 CLASS: Final participants list:', this.allParticipants.map(p => ({
+      uid: p.uid,
+      name: p.name,
+      isLocal: p.isLocal,
+      isVideoOff: p.isVideoOff,
+      isMuted: p.isMuted,
+      isTutor: p.isTutor,
+      isSpeaking: p.isSpeaking
+    })));
+    
+    // Force change detection
+    this.cdr.detectChanges();
+  }
+
+  // Check if we should show grid view (class with 2+ participants)
+  shouldShowGridView(): boolean {
+    const shouldShow = this.isClass && (this.remoteUserCount + 1) >= 2; // 1 local + 1+ remote = 2+ total
+    if (shouldShow) {
+      console.log('✅ CLASS: Showing grid view', {
+        isClass: this.isClass,
+        remoteUserCount: this.remoteUserCount,
+        totalParticipants: this.remoteUserCount + 1,
+        allParticipants: this.allParticipants.length
+      });
+    }
+    return shouldShow;
+  }
+
+  // Get participant video element ref
+  getParticipantVideoRef(participant: any): ElementRef | null {
+    if (participant.isLocal) {
+      return this.localVideoRef;
+    }
+    // For remote users, we'll need to create dynamic refs
+    return null;
   }
 
   // Get the label for the remote participant based on current user's role
@@ -733,6 +1509,44 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       return this.studentName || 'Student';
     } else {
       return this.tutorName || 'Tutor';
+    }
+  }
+
+  // Get the profile picture for the remote participant based on current user's role
+  // Using a getter to avoid multiple function calls in template
+  get remoteParticipantProfilePicture(): string {
+    if (this.userRole === 'tutor') {
+      return this.studentProfilePicture || '';
+    } else {
+      return this.tutorProfilePicture || '';
+    }
+  }
+
+  // Get the tutor participant for class view
+  // Using a getter to avoid multiple function calls in template
+  get tutorParticipant() {
+    if (!this.isClass) return null;
+    return this.allParticipants.find(p => p.isTutor);
+  }
+
+  // Check if tutor gallery view should be shown
+  shouldShowTutorGallery(): boolean {
+    return this.isClass && this.userRole === 'tutor' && !this.showWhiteboard;
+  }
+
+  // Filter participants based on whiteboard state
+  // When whiteboard is closed: show only students
+  // When whiteboard is open: show everyone
+  // Using a getter to avoid multiple function calls in template
+  get filteredParticipants() {
+    if (!this.isClass) return this.allParticipants;
+    
+    if (this.showWhiteboard) {
+      // Whiteboard is open: show all participants in tiles
+      return this.allParticipants;
+    } else {
+      // Whiteboard is closed: show only students (tutor is in main view)
+      return this.allParticipants.filter(p => !p.isTutor);
     }
   }
 
@@ -796,6 +1610,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isMuted = await this.agoraService.toggleMute();
       console.log('🎤 Mute toggled successfully:', this.isMuted ? 'Muted' : 'Unmuted');
       console.log('🎤 Should send mute state update to other users now...');
+      
+      // Update participants list for classes to reflect new mute state
+      if (this.isClass) {
+        this.updateParticipantsList();
+      }
+      
+      // Force change detection to update UI
+      this.cdr.detectChanges();
     } catch (error) {
       console.error('❌ Error toggling mute:', error);
     }
@@ -811,16 +1633,37 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Force change detection to update DOM (show/hide video element)
       this.cdr.detectChanges();
       
+      // Update participants list for classes to reflect new video state
+      if (this.isClass) {
+        this.updateParticipantsList();
+      }
+      
       // Refresh video display after toggling and DOM updates
       setTimeout(() => {
         if (!this.isVideoOff) {
-          // Video was turned ON - setup display
+          // Video was turned ON - setup display based on current view mode
           console.log('📹 Video turned ON, setting up display...');
-          this.setupLocalVideoDisplay();
+          
+          // Check if we should be in tutor gallery mode
+          if (this.isClass && this.userRole === 'tutor' && !this.showWhiteboard) {
+            console.log('🎓 Tutor in gallery mode - refreshing gallery view');
+            this.playVideosInTutorGallery();
+          } else {
+            // Regular mode or student mode
+            this.setupLocalVideoDisplay();
+          }
         } else {
-          // Video was turned OFF - clear the video element
+          // Video was turned OFF - clear the video element(s)
+          console.log('🚫 Turning video OFF - clearing display');
+          
+          // Clear gallery view if applicable
+          const galleryElement = document.querySelector('[data-gallery-uid="local"] .video-display') as HTMLElement;
+          if (galleryElement) {
+            galleryElement.innerHTML = '';
+          }
+          
+          // Clear regular tile view if applicable
           if (this.localVideoRef) {
-            console.log('🚫 Turning video OFF - clearing display');
             this.localVideoRef.nativeElement.innerHTML = '';
           }
         }
@@ -845,7 +1688,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.cdr.detectChanges();
     
     if (this.showWhiteboard) {
-      // Wait for animation to start, then initialize
+      // Whiteboard is OPENING
       setTimeout(() => {
         this.initializeWhiteboard();
         // Adjust canvas size after panel animation completes
@@ -853,12 +1696,35 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           this.adjustCanvasSize();
         }, 100);
         
-        // Move remote video to participant tile
-        this.moveRemoteVideoToTile();
+        // Handle video movement based on lesson type
+        if (this.isClass) {
+          // For classes: Move everyone to tiles (including tutor if they were in gallery)
+          console.log('📹 Whiteboard opened - moving all participants to tiles');
+          this.playRemoteVideosInParticipantTiles();
+          this.setupLocalVideoDisplay(); // This will put local in tile too
+        } else {
+          // For 1:1 lessons: Move remote video to participant tile
+          this.moveRemoteVideoToTile();
+        }
       }, 50);
     } else {
-      // Move remote video back to main area
-      this.moveRemoteVideoToMain();
+      // Whiteboard is CLOSING
+      if (this.isClass) {
+        setTimeout(() => {
+          if (this.userRole === 'tutor') {
+            // Tutor: Show gallery view
+            console.log('📹 Whiteboard closed - showing tutor gallery view');
+            this.playVideosInTutorGallery();
+          } else {
+            // Student: Show tutor on big screen, students in tiles
+            console.log('📹 Whiteboard closed - student view: tutor on main, students in tiles');
+            this.playRemoteVideosInParticipantTiles();
+          }
+        }, 100);
+      } else {
+        // For 1:1 lessons: Move remote video back to main area
+        this.moveRemoteVideoToMain();
+      }
     }
   }
   
@@ -2333,14 +3199,43 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             // Tutor opened - auto-open for student
             console.log('🎨 Tutor opened whiteboard - auto-opening for student');
             this.showWhiteboard = true;
+            
+            // Force change detection
+            this.cdr.detectChanges();
+            
             setTimeout(() => {
               this.initializeWhiteboard();
               this.adjustCanvasSize();
+              
+              // Reposition videos based on lesson type
+              if (this.isClass) {
+                // For classes: Move tutor to tiles (students already in tiles)
+                console.log('📹 Remote whiteboard opened - moving tutor to tiles');
+                this.playRemoteVideosInParticipantTiles();
+              } else {
+                // For 1:1: Move remote to tile
+                this.moveRemoteVideoToTile();
+              }
             }, 100);
           } else if (!data.isOpen && this.showWhiteboard) {
             // Tutor closed - auto-close for student
             console.log('🎨 Tutor closed whiteboard - auto-closing for student');
             this.showWhiteboard = false;
+            
+            // Force change detection
+            this.cdr.detectChanges();
+            
+            // Reposition videos based on lesson type
+            if (this.isClass) {
+              setTimeout(() => {
+                // For classes: Move tutor back to main view (students stay in tiles)
+                console.log('📹 Remote whiteboard closed - moving tutor to main view');
+                this.playRemoteVideosInParticipantTiles();
+              }, 100);
+            } else {
+              // For 1:1: Move remote back to main
+              this.moveRemoteVideoToMain();
+            }
           }
         }
         // Student can close independently, but doesn't affect tutor
@@ -2351,9 +3246,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         if (!this.showWhiteboard) {
           console.log('🎨 Received drawing data - auto-opening whiteboard');
           this.showWhiteboard = true;
+          this.cdr.detectChanges();
+          
           setTimeout(() => {
             this.initializeWhiteboard();
             this.adjustCanvasSize();
+            
+            // Reposition videos when whiteboard auto-opens
+            if (this.isClass) {
+              console.log('📹 Auto-opening whiteboard (draw) - moving videos to tiles');
+              this.playRemoteVideosInParticipantTiles();
+            } else {
+              this.moveRemoteVideoToTile();
+            }
           }, 100);
         }
         
@@ -2374,9 +3279,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         if (!this.showWhiteboard) {
           console.log('🎨 Received text data - auto-opening whiteboard');
           this.showWhiteboard = true;
+          this.cdr.detectChanges();
+          
           setTimeout(() => {
             this.initializeWhiteboard();
             this.adjustCanvasSize();
+            
+            // Reposition videos when whiteboard auto-opens
+            if (this.isClass) {
+              console.log('📹 Auto-opening whiteboard (text) - moving videos to tiles');
+              this.playRemoteVideosInParticipantTiles();
+            } else {
+              this.moveRemoteVideoToTile();
+            }
           }, 100);
         }
         
@@ -2497,11 +3412,101 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       videoOff: state.isVideoOff !== undefined ? (state.isVideoOff ? 'CAMERA OFF' : 'CAMERA ON') : 'NO CHANGE'
     });
     
+    // For classes, check if we need to start audio monitoring for this user
+    if (this.isClass && state.isMuted !== undefined) {
+      console.log('🎤 Checking if we need to start audio monitoring for:', uid);
+      console.log('🎤 isMuted:', state.isMuted);
+      console.log('🎤 Already has analyser?', this.analysers.has(uid));
+      
+      const remoteUsers = this.agoraService.getRemoteUsers();
+      const user = remoteUsers.get(uid);
+      
+      console.log('🎤 User from remoteUsers:', {
+        exists: !!user,
+        hasAudioTrack: !!user?.audioTrack
+      });
+      
+      if (user && user.audioTrack && !this.analysers.has(uid)) {
+        console.log('✅ All conditions met! Starting audio monitoring for user:', uid);
+        this.startAudioMonitoringForParticipant(uid, user.audioTrack);
+      } else {
+        console.log('❌ Cannot start monitoring. Missing:', {
+          noUser: !user,
+          noAudioTrack: !user?.audioTrack,
+          alreadyHasAnalyser: this.analysers.has(uid)
+        });
+      }
+    }
+    
+    // For classes, update ONLY the specific participant's state (in-place)
+    // This avoids rebuilding the entire list and re-attaching videos
+    if (this.isClass) {
+      console.log('🔄 CLASS: Updating specific participant state in-place (no rebuild)');
+      const participant = this.allParticipants.find(p => p.uid === uid);
+      if (participant) {
+        // Update state in-place
+        if (state.isMuted !== undefined) {
+          participant.isMuted = state.isMuted;
+          console.log(`🔄 Updated participant ${uid} muted state to ${state.isMuted}`);
+        }
+        if (state.isVideoOff !== undefined) {
+          participant.isVideoOff = state.isVideoOff;
+          console.log(`🔄 Updated participant ${uid} video state to ${state.isVideoOff}`);
+          
+          // If video just turned ON, play it in the appropriate view
+          if (!state.isVideoOff) {
+            setTimeout(() => {
+              console.log('🎬 Video turned on for remote user, refreshing video displays for:', uid);
+              
+              // Check which view mode we're in
+              if (this.userRole === 'tutor' && !this.showWhiteboard) {
+                // Tutor viewing gallery - refresh gallery view
+                console.log('🎓 Tutor in gallery mode - refreshing gallery');
+                this.playVideosInTutorGallery();
+              } else {
+                // Viewing tiles (student view or whiteboard open)
+                console.log('👥 Refreshing participant tiles');
+                this.playRemoteVideosInParticipantTiles();
+              }
+            }, 100);
+          } else {
+            // Video turned OFF - clear the video element
+            console.log('🚫 Video turned off for remote user:', uid);
+            
+            // Clear from gallery if in gallery mode
+            if (this.userRole === 'tutor' && !this.showWhiteboard) {
+              const galleryElement = document.querySelector(`[data-gallery-uid="${uid}"] .video-display`) as HTMLElement;
+              if (galleryElement) {
+                galleryElement.innerHTML = '';
+              }
+            }
+            
+            // Clear from tile
+            const tileElement = document.querySelector(`[data-participant-uid="${uid}"] .participant-video`) as HTMLElement;
+            if (tileElement) {
+              tileElement.innerHTML = '';
+            }
+          }
+        }
+      } else {
+        console.log('⚠️ Participant not found in list, rebuilding list');
+        this.updateParticipantsList();
+      }
+    }
+    
     // Force change detection to update UI immediately
     this.cdr.detectChanges();
   }
 
   handleVolumeIndicator(volumes: { uid: any; level: number }[]) {
+    // NOTE: This method is now deprecated in favor of Web Audio API monitoring
+    // Keeping for 1:1 lessons as fallback
+    if (this.isClass) {
+      // For classes, we use Web Audio API instead (smoother detection)
+      return;
+    }
+    
+    // Original logic for 1:1 lessons
     // Clear previous timeout
     if (this.speakingTimeout) {
       clearTimeout(this.speakingTimeout);
@@ -2513,8 +3518,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Process volume levels
     volumes.forEach(({ uid, level }) => {
-      // Level is from 0-100, consider speaking if > 10
-      const isSpeaking = level > 10;
+      // Level is from 0-100, consider speaking if > 30
+      const isSpeaking = level > 30;
       
       if (uid === 0 || uid === this.agoraService.getClient()?.uid) {
         // Local user (uid is 0 in volume indicator for local user)
@@ -2534,6 +3539,199 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Trigger change detection
     this.cdr.detectChanges();
+  }
+
+  // Start Web Audio API monitoring for a participant (smooth detection like pre-call)
+  private startAudioMonitoringForParticipant(uid: any, audioTrack: any): void {
+    try {
+      console.log('🎤 Starting Web Audio monitoring for participant:', uid);
+      
+      // Stop any existing monitoring for this participant
+      this.stopAudioMonitoringForParticipant(uid);
+      
+      // Get MediaStreamTrack from the audio track
+      let mediaStreamTrack: MediaStreamTrack;
+      if (uid === 'local') {
+        // Local Agora track
+        const agoraTrack = this.agoraService.getLocalAudioTrack();
+        if (!agoraTrack) {
+          console.log('⚠️ No local audio track available');
+          return;
+        }
+        mediaStreamTrack = agoraTrack.getMediaStreamTrack();
+      } else {
+        // Remote Agora track
+        if (!audioTrack) {
+          console.log('⚠️ No audio track provided for participant:', uid);
+          return;
+        }
+        mediaStreamTrack = audioTrack.getMediaStreamTrack();
+      }
+      
+      if (!mediaStreamTrack) {
+        console.log('⚠️ Could not get MediaStreamTrack for participant:', uid);
+        return;
+      }
+      
+      console.log('🔍 MediaStreamTrack state:', {
+        uid,
+        enabled: mediaStreamTrack.enabled,
+        muted: mediaStreamTrack.muted,
+        readyState: mediaStreamTrack.readyState
+      });
+      
+      // Create MediaStream from the track
+      const audioStream = new MediaStream([mediaStreamTrack]);
+      
+      // Create audio context and analyser
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(audioStream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      
+      // Store references
+      this.audioContexts.set(uid, audioContext);
+      this.analysers.set(uid, analyser);
+      
+      // Start the monitoring loop
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let lastSpeakingTime = 0; // Track when we last detected speaking
+      
+      const updateLevel = () => {
+        const currentAnalyser = this.analysers.get(uid);
+        if (!currentAnalyser) {
+          // Monitoring was stopped
+          this.audioLevels.set(uid, 0);
+          return;
+        }
+        
+        currentAnalyser.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume (same as pre-call)
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        
+        // Convert to percentage (0-100)
+        const level = Math.min(100, (average / 128) * 100);
+        this.audioLevels.set(uid, level);
+        
+        // Threshold: consider speaking if level > 15 (more sensitive than 30, but smoother)
+        const isCurrentlySpeaking = level > 15;
+        const wasAlreadySpeaking = this.participantSpeakingStates.get(uid);
+        const currentTime = Date.now();
+        
+        if (isCurrentlySpeaking) {
+          // Update last speaking time
+          lastSpeakingTime = currentTime;
+          
+          // If not already marked as speaking, mark them
+          if (!wasAlreadySpeaking) {
+            this.participantSpeakingStates.set(uid, true);
+            
+            // Update participant in the list
+            // For 'local' uid, find the local participant in the list
+            const participant = uid === 'local' 
+              ? this.allParticipants.find(p => p.isLocal)
+              : this.allParticipants.find(p => p.uid === uid);
+            
+            console.log('🗣️ Setting speaking state for participant:', {
+              uid,
+              isLocal: uid === 'local',
+              participantFound: !!participant,
+              participantName: participant?.name,
+              participantUID: participant?.uid
+            });
+            
+            if (participant) {
+              participant.isSpeaking = true;
+              
+              // Also update the dedicated local speaking flag for backward compatibility
+              if (uid === 'local') {
+                this.isLocalUserSpeaking = true;
+              }
+            } else {
+              console.warn('⚠️ Cannot set speaking state - participant not found in allParticipants!');
+            }
+            
+            // Trigger change detection only on state change
+            this.cdr.detectChanges();
+          }
+        } else {
+          // Not currently speaking, but check if we should keep the indicator on
+          // Add 400ms grace period for natural speech pauses (like "one... two")
+          const timeSinceLastSpeak = currentTime - lastSpeakingTime;
+          const shouldStillShowSpeaking = wasAlreadySpeaking && timeSinceLastSpeak < 400;
+          
+          if (wasAlreadySpeaking && !shouldStillShowSpeaking) {
+            // Mark as not speaking after grace period
+            this.participantSpeakingStates.set(uid, false);
+            
+            // Update participant in the list
+            // For 'local' uid, find the local participant in the list
+            const participant = uid === 'local'
+              ? this.allParticipants.find(p => p.isLocal)
+              : this.allParticipants.find(p => p.uid === uid);
+            
+            if (participant) {
+              participant.isSpeaking = false;
+              
+              // Also update the dedicated local speaking flag for backward compatibility
+              if (uid === 'local') {
+                this.isLocalUserSpeaking = false;
+              }
+            }
+            
+            // Trigger change detection only on state change
+            this.cdr.detectChanges();
+          }
+        }
+        
+        // Continue monitoring
+        const frameId = requestAnimationFrame(updateLevel);
+        this.audioMonitoringFrames.set(uid, frameId);
+      };
+      
+      updateLevel();
+      console.log('✅ Web Audio monitoring started for participant:', uid);
+    } catch (error) {
+      console.error('❌ Failed to start Web Audio monitoring for participant:', uid, error);
+    }
+  }
+
+  // Stop Web Audio API monitoring for a participant
+  private stopAudioMonitoringForParticipant(uid: any): void {
+    // Cancel animation frame
+    const frameId = this.audioMonitoringFrames.get(uid);
+    if (frameId) {
+      cancelAnimationFrame(frameId);
+      this.audioMonitoringFrames.delete(uid);
+    }
+    
+    // Close audio context
+    const audioContext = this.audioContexts.get(uid);
+    if (audioContext) {
+      audioContext.close();
+      this.audioContexts.delete(uid);
+    }
+    
+    // Remove analyser
+    this.analysers.delete(uid);
+    
+    // Reset audio level
+    this.audioLevels.delete(uid);
+    
+    console.log('🛑 Web Audio monitoring stopped for participant:', uid);
+  }
+
+  // Stop all audio monitoring (cleanup on destroy)
+  private stopAllAudioMonitoring(): void {
+    console.log('🛑 Stopping all Web Audio monitoring...');
+    const allUids = Array.from(this.audioContexts.keys());
+    allUids.forEach(uid => this.stopAudioMonitoringForParticipant(uid));
   }
 
   // Get the mute state for the first remote user (for display in main video overlay)
@@ -2677,6 +3875,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
+    
+    // Stop all Web Audio monitoring
+    this.stopAllAudioMonitoring();
     
     // Clean up messaging subscriptions
     this.destroy$.next();

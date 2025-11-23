@@ -178,13 +178,17 @@
     </div> -->
 
     <!-- Main video area (fullscreen) -->
-    <div class="main-video">
-      <div #remoteVideo class="video-container-remote" [class.speaking]="isRemoteUserSpeaking" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
+    <!-- 1:1 Lesson View - UNCHANGED from original -->
+    <div class="main-video" *ngIf="!isClass">
+      <div #remoteVideo class="video-container-remote" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
         <!-- Remote video will be displayed here -->
         
         <!-- Camera Off placeholder for main view -->
         <div class="video-placeholder" *ngIf="getRemoteUserVideoOffState()">
-          <ion-icon name="videocam-off-outline"></ion-icon>
+          <ion-avatar class="avatar-placeholder">
+            <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
+            <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
+          </ion-avatar>
           <p>Camera Off</p>
         </div>
         
@@ -203,6 +207,92 @@
           <p>Waiting for other participants...</p>
         </div>
       </ng-template>
+    </div>
+
+    <!-- Class View - Different layouts for tutor vs students -->
+    <div class="main-video" *ngIf="isClass && !showWhiteboard">
+      <!-- TUTOR VIEW: Grid of all participants -->
+      <ng-container *ngIf="userRole === 'tutor'">
+        <div class="tutor-gallery-view" [class.grid-2]="allParticipants.length === 2"
+                                         [class.grid-3]="allParticipants.length === 3"
+                                         [class.grid-4]="allParticipants.length === 4"
+                                         [class.grid-5-plus]="allParticipants.length >= 5">
+          <div class="gallery-tile" 
+               *ngFor="let participant of allParticipants"
+               [class.local-tile]="participant.isLocal"
+               [class.remote-tile]="!participant.isLocal"
+               [class.speaking]="participant.isSpeaking"
+               [attr.data-gallery-uid]="participant.uid">
+            
+            <!-- Video container for local participant -->
+            <div *ngIf="participant.isLocal" class="gallery-video">
+              <div #localVideoGallery class="video-display"></div>
+              <!-- Video placeholder shown only when video is off -->
+              <div class="video-placeholder" *ngIf="isVideoOff">
+                <ion-avatar class="avatar-placeholder">
+                  <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
+                  <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
+                </ion-avatar>
+                <p>Camera Off</p>
+              </div>
+            </div>
+            
+            <!-- Video container for remote participants -->
+            <div *ngIf="!participant.isLocal" class="gallery-video">
+              <div class="video-display" [attr.id]="'gallery-video-' + participant.uid"></div>
+              <!-- Video placeholder shown only when video is off -->
+              <div class="video-placeholder" *ngIf="participant.isVideoOff">
+                <ion-avatar class="avatar-placeholder">
+                  <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
+                  <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
+                </ion-avatar>
+                <p>Camera Off</p>
+              </div>
+            </div>
+            
+            <!-- Participant label -->
+            <div class="gallery-label">
+              <ion-icon [name]="(participant.isLocal ? isMuted : participant.isMuted) ? 'mic-off-outline' : 'mic-outline'" 
+                        [class.muted]="participant.isLocal ? isMuted : participant.isMuted"></ion-icon>
+              <span>{{ participant.isLocal ? 'You' : participant.name }}</span>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+      
+      <!-- STUDENT VIEW: Show tutor on big screen -->
+      <ng-container *ngIf="userRole === 'student'">
+        <div class="tutor-main-container" *ngIf="isConnected && tutorParticipant; else tutorMainPlaceholder">
+          <!-- Video container -->
+          <div #tutorMainVideo class="video-container-remote" *ngIf="!tutorParticipant?.isVideoOff">
+            <!-- Tutor video will be displayed here -->
+          </div>
+          
+          <!-- Camera Off placeholder for tutor main view -->
+          <div class="video-placeholder" *ngIf="tutorParticipant?.isVideoOff">
+            <ion-avatar class="avatar-placeholder">
+              <img *ngIf="tutorParticipant?.profilePicture" [src]="tutorParticipant?.profilePicture" alt="{{ tutorParticipant?.name }}" referrerpolicy="no-referrer">
+              <ion-icon *ngIf="!tutorParticipant?.profilePicture" name="person" class="avatar-icon"></ion-icon>
+            </ion-avatar>
+            <p>Camera Off</p>
+          </div>
+          
+          <!-- Tutor info overlay (always visible, shows on top of video or placeholder) -->
+          <div class="remote-user-info">
+            <div class="remote-user-label">
+              <ion-icon [name]="tutorParticipant?.isMuted ? 'mic-off-outline' : 'mic-outline'" 
+                        [class.muted]="tutorParticipant?.isMuted"></ion-icon>
+              <span>{{tutorParticipant?.name || 'Tutor'}}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #tutorMainPlaceholder>
+          <div class="video-placeholder">
+            <ion-icon name="person"></ion-icon>
+            <p>Waiting for tutor...</p>
+          </div>
+        </ng-template>
+      </ng-container>
     </div>
 
     <!-- Virtual Background Controls Panel -->
@@ -250,38 +340,93 @@
       </div>
     </div>
 
-    <!-- Participants Grid (positioned outside video-container to stay visible) -->
-    <div class="participants-grid">
-      <!-- Remote participant tile (only show when whiteboard is open) -->
-      <div class="participant-tile remote-participant" [class.speaking]="isRemoteUserSpeaking" *ngIf="isConnected && remoteUserCount > 0 && showWhiteboard">
-        <div #remoteVideoTile class="participant-video" *ngIf="!getRemoteUserVideoOffState()">
-          <!-- Remote video will be cloned here when whiteboard is open -->
+    <!-- Participants Grid (positioned in top-right corner) -->
+    <!-- Hide when tutor is viewing gallery (isClass && userRole==='tutor' && !showWhiteboard) -->
+    <div class="participants-grid" *ngIf="isConnected && !shouldShowTutorGallery()">
+      <!-- For classes: show students only when whiteboard is closed, all participants when whiteboard is open -->
+      <ng-container *ngIf="isClass">
+        <!-- Iterate through filtered participants -->
+        <div class="participant-tile" 
+             *ngFor="let participant of filteredParticipants"
+             [class.local-participant]="participant.isLocal"
+             [class.remote-participant]="!participant.isLocal"
+             [class.speaking]="participant.isSpeaking"
+             [attr.data-participant-uid]="participant.uid">
+          
+          <!-- Video container for local participant -->
+          <div *ngIf="participant.isLocal" #localVideo class="participant-video">
+            <!-- Local video will be displayed here -->
+            <!-- Video placeholder shown only when video is off -->
+            <div class="video-placeholder small" *ngIf="isVideoOff">
+              <ion-avatar class="avatar-placeholder small">
+                <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
+                <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
+              </ion-avatar>
+              <p>Camera Off</p>
+            </div>
+          </div>
+          
+          <!-- Video container for remote participants -->
+          <div *ngIf="!participant.isLocal" class="participant-video" [attr.id]="'remote-video-' + participant.uid">
+            <!-- Remote video will be displayed here -->
+            <!-- Video placeholder shown only when video is off -->
+            <div class="video-placeholder small" *ngIf="participant.isVideoOff">
+              <ion-avatar class="avatar-placeholder small">
+                <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}" referrerpolicy="no-referrer">
+                <ion-icon *ngIf="!participant.profilePicture" name="person" class="avatar-icon"></ion-icon>
+              </ion-avatar>
+              <p>Camera Off</p>
+            </div>
+          </div>
+          
+          <!-- Participant label -->
+          <div class="participant-label">
+            <ion-icon [name]="(participant.isLocal ? isMuted : participant.isMuted) ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="participant.isLocal ? isMuted : participant.isMuted"></ion-icon>
+            <span>{{ participant.isLocal ? 'You' : participant.name }}</span>
+          </div>
         </div>
-        <div class="video-placeholder small" *ngIf="getRemoteUserVideoOffState()">
-          <ion-icon name="videocam-off-outline"></ion-icon>
-          <p>Camera Off</p>
-        </div>
-        <div class="participant-label">
-          <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
-                    [class.muted]="getRemoteUserMuteState()"></ion-icon>
-          <span>{{getRemoteParticipantLabel()}}</span>
-        </div>
-      </div>
+      </ng-container>
       
-      <!-- Local participant tile (always show when connected) -->
-      <div class="participant-tile local-participant" [class.speaking]="isLocalUserSpeaking" *ngIf="isConnected">
-        <div #localVideo class="participant-video" [class.hidden]="isVideoOff">
-          <!-- Local video will be displayed here -->
+      <!-- For 1:1 lessons: show remote participant (when whiteboard is open) and local participant -->
+      <ng-container *ngIf="!isClass">
+        <!-- Remote participant tile (only show when whiteboard is open) -->
+        <div class="participant-tile remote-participant" *ngIf="remoteUserCount > 0 && showWhiteboard">
+          <div #remoteVideoTile class="participant-video" *ngIf="!getRemoteUserVideoOffState()">
+            <!-- Remote video will be cloned here when whiteboard is open -->
+          </div>
+          <div class="video-placeholder small" *ngIf="getRemoteUserVideoOffState()">
+            <ion-avatar class="avatar-placeholder small">
+              <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
+              <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
+            </ion-avatar>
+            <p>Camera Off</p>
+          </div>
+          <div class="participant-label">
+            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="getRemoteUserMuteState()"></ion-icon>
+            <span>{{getRemoteParticipantLabel()}}</span>
+          </div>
         </div>
-        <div class="video-placeholder small" *ngIf="isVideoOff">
-          <ion-icon name="videocam-off-outline"></ion-icon>
-          <p>Camera Off</p>
+        
+        <!-- Local participant tile (always show) -->
+        <div class="participant-tile local-participant">
+          <div #localVideo class="participant-video" [class.hidden]="isVideoOff">
+            <!-- Local video will be displayed here -->
+          </div>
+          <div class="video-placeholder small" *ngIf="isVideoOff">
+            <ion-avatar class="avatar-placeholder small">
+              <img *ngIf="myProfilePicture" [src]="myProfilePicture" alt="You" referrerpolicy="no-referrer">
+              <ion-icon *ngIf="!myProfilePicture" name="person" class="avatar-icon"></ion-icon>
+            </ion-avatar>
+            <p>Camera Off</p>
+          </div>
+          <div class="participant-label">
+            <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
+            <span>You</span>
+          </div>
         </div>
-        <div class="participant-label">
-          <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'"></ion-icon>
-          <span>You</span>
-        </div>
-      </div>
+      </ng-container>
     </div>
 
     <!-- Note: Whiteboard will appear as overlay, positioned via CSS -->

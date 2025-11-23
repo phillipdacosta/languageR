@@ -128,6 +128,60 @@ export class ClassService {
       })
     );
   }
+
+  joinClass(classId: string, role: string, userId?: string): Observable<any> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<any>(
+          `${this.apiUrl}/classes/${classId}/join`,
+          { role, userId },
+          { headers }
+        );
+      })
+    );
+  }
+
+  getClass(classId: string): Observable<{ success: boolean; class: any }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; class: any }>(
+          `${this.apiUrl}/classes/${classId}`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  leaveClass(classId: string): Observable<{ success: boolean; message: string }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean; message: string }>(
+          `${this.apiUrl}/classes/${classId}/leave`,
+          {},
+          { headers }
+        );
+      })
+    );
+  }
+
+  getAcceptedClasses(): Observable<{ success: boolean; classes: ClassInvitation[] }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(
+          `${this.apiUrl}/classes/student/accepted`,
+          { headers }
+        );
+      })
+    );
+  }
 }
 
 

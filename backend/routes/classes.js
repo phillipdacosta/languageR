@@ -4,6 +4,15 @@ const ClassModel = require('../models/Class');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { RtcRole, RtcTokenBuilder } = require('agora-token');
+
+const AGORA_APP_ID = process.env.AGORA_APP_ID;
+const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
+
+// Time windows for joining classes (same as lessons)
+const JOIN_EARLY_MINUTES = 15; // Can join 15 minutes early
+const END_GRACE_MINUTES = 5;   // Can join up to 5 minutes after end
+const TOKEN_TTL_SECONDS = 60 * 60; // 1 hour token validity
 
 function addMinutes(date, minutes) {
   const d = new Date(date);
@@ -366,6 +375,7 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student has a pending invitation
+    // Show classes that haven't ended yet (not just future classes)
     const classes = await ClassModel.find({
       'invitedStudents': {
         $elemMatch: {
@@ -373,7 +383,7 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
           status: 'pending'
         }
       },
-      startTime: { $gte: new Date() } // Only future classes
+      endTime: { $gte: new Date() } // Show classes that haven't ended yet
     })
     .populate('tutorId', 'name email picture')
     .sort({ startTime: 1 });
@@ -381,6 +391,28 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
     res.json({ success: true, classes });
   } catch (error) {
     console.error('Error fetching pending invitations:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/classes/student/accepted - Get accepted classes for current student
+router.get('/student/accepted', verifyToken, async (req, res) => {
+  try {
+    const student = await User.findOne({ auth0Id: req.user.sub });
+    if (!student) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Find all classes where this student is in confirmedStudents (meaning they accepted the invitation)
+    const classes = await ClassModel.find({
+      confirmedStudents: student._id,
+      endTime: { $gte: new Date() } // Show classes that haven't ended yet
+    })
+    .populate('tutorId', 'name email picture firstName lastName')
+    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate all confirmed students
+    .sort({ startTime: 1 });
+
+    res.json({ success: true, classes });
+  } catch (error) {
+    console.error('Error fetching accepted classes:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -491,6 +523,39 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/classes/:classId - Get a single class by ID
+router.get('/:classId', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
+    const cls = await ClassModel.findById(classId)
+      .populate('tutorId', 'name email picture firstName lastName')
+      .populate('confirmedStudents', 'name email picture firstName lastName')
+      .populate('invitedStudents.studentId', 'name email picture firstName lastName');
+    
+    if (!cls) {
+      return res.status(404).json({ success: false, message: 'Class not found' });
+    }
+    
+    // Verify user has access to this class (tutor, confirmed student, or invited student)
+    const isTutor = cls.tutorId._id.toString() === user._id.toString();
+    const isConfirmedStudent = cls.confirmedStudents.some(s => s._id.toString() === user._id.toString());
+    const isInvitedStudent = cls.invitedStudents.some(inv => inv.studentId._id.toString() === user._id.toString());
+    
+    if (!isTutor && !isConfirmedStudent && !isInvitedStudent) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this class' });
+    }
+    
+    res.json({ success: true, class: cls });
+  } catch (error) {
+    console.error('Error fetching class:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // GET /api/classes/tutor/:tutorId - Get all classes for a tutor with confirmed student details
 router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
   try {
@@ -500,9 +565,10 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
 
     // Find all classes for this tutor
+    // Show classes that haven't ended yet (not just future classes)
     const classes = await ClassModel.find({
       tutorId: tutor._id,
-      startTime: { $gte: new Date() } // Only future classes
+      endTime: { $gte: new Date() } // Show classes that haven't ended yet
     })
     .populate('tutorId', 'name email picture')
     .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
@@ -533,6 +599,319 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching tutor classes:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/classes/:classId/join - Join a class (for video call)
+router.post('/:classId/join', verifyToken, async (req, res) => {
+  console.log('🚀🚀🚀 CLASS JOIN ENDPOINT CALLED 🚀🚀🚀');
+  console.log('🚀 Request params:', req.params);
+  console.log('🚀 Request body:', req.body);
+  console.log('🚀 Request user:', req.user);
+  
+  try {
+    // Get user ID from auth token
+    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
+    if (!user) {
+      console.log('❌ User not found for auth0Id:', req.user.sub);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+    const userId = user._id;
+    const userIdStr = userId.toString();
+
+    console.log('📅 User attempting to join class:', { userId, classId: req.params.classId });
+
+    const cls = await ClassModel.findById(req.params.classId)
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('confirmedStudents', 'name email picture firstName lastName auth0Id');
+
+    if (!cls) {
+      console.log('❌ Class not found:', req.params.classId);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Class not available' 
+      });
+    }
+
+    // Verify user is part of this class (either tutor or confirmed student)
+    const isTutor = cls.tutorId._id.toString() === userIdStr;
+    const isConfirmedStudent = cls.confirmedStudents.some(student => 
+      student._id.toString() === userIdStr
+    );
+
+    console.log('📅 Authorization check:', {
+      userIdStr,
+      tutorId: cls.tutorId._id.toString(),
+      confirmedStudentIds: cls.confirmedStudents.map(s => s._id.toString()),
+      isTutor,
+      isConfirmedStudent
+    });
+
+    if (!isTutor && !isConfirmedStudent) {
+      console.log('❌ User not authorized to join class');
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to join this class. You must be invited and accept the invitation first.' 
+      });
+    }
+
+    const now = new Date();
+    const start = new Date(cls.startTime);
+    const end = new Date(cls.endTime);
+
+    const earliestJoin = new Date(start.getTime() - JOIN_EARLY_MINUTES * 60000);
+    const latestJoin = new Date(end.getTime() + END_GRACE_MINUTES * 60000);
+
+    if (now < earliestJoin) {
+      const minutesUntilJoin = Math.ceil((earliestJoin.getTime() - now.getTime()) / 60000);
+      return res.status(403).json({ 
+        success: false, 
+        message: `Too early to join. Please wait ${minutesUntilJoin} more minutes.` 
+      });
+    }
+
+    if (now > latestJoin) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Class window has ended' 
+      });
+    }
+
+    // Determine Agora role - all participants can publish
+    const agoraRole = RtcRole.PUBLISHER;
+
+    // Generate channel name for this class
+    const channelName = `class_${cls._id}`;
+    
+    // Use a stable string user account for Web SDK tokens
+    const uidAccount = userId.toString();
+    const tokenExpiry = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
+
+    console.log('📅 Token generation parameters:', {
+      appId: AGORA_APP_ID,
+      channelName,
+      uidAccount,
+      agoraRole,
+      tokenExpiry,
+      currentTime: Math.floor(Date.now() / 1000)
+    });
+
+    // Generate Agora token
+    let token;
+    
+    // For development, prefer temp token; for production, use certificate
+    // DISABLED: Temp token limits concurrent users to 2. For classes, we need unlimited users.
+    // Force use of certificate-based tokens for all class joins.
+    const TEMP_TOKEN = null; // Explicitly disabled for classes
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const hasValidTempToken = false; // Always false for classes to support unlimited users
+    
+    console.log('🔍 DEBUG Token generation:', {
+      isDevelopment,
+      hasTempToken: !!TEMP_TOKEN,
+      hasValidTempToken,
+      tempTokenLength: TEMP_TOKEN ? TEMP_TOKEN.length : 0,
+      channelName,
+      NODE_ENV: process.env.NODE_ENV
+    });
+    
+    if (isDevelopment && hasValidTempToken) {
+      console.log('⚠️ WARNING: Using TEMP TOKEN - This limits concurrent users to 2!');
+      console.log('🔧 DEV: Using temporary token from environment for channel:', channelName);
+      console.log('❌ This will cause issues with 3+ users in classes!');
+      // For dev with temp token, use fixed channel name
+      token = TEMP_TOKEN;
+    } else if (AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here') {
+      token = RtcTokenBuilder.buildTokenWithUserAccount(
+        AGORA_APP_ID,
+        AGORA_APP_CERT,
+        channelName,
+        uidAccount,
+        agoraRole,
+        tokenExpiry
+      );
+      console.log('✅ Generated certificate-based token for class channel:', channelName);
+      console.log('📝 Token generation method: CERTIFICATE (unlimited users supported)');
+    } else {
+      console.warn('⚠️ No valid token method available; proceeding with null token');
+      token = null;
+    }
+
+    console.log('📅 Generated Agora token for class:', { 
+      classId: cls._id, 
+      channelName, 
+      userId, 
+      role: isTutor ? 'tutor' : 'student',
+      token: token ? `${token.substring(0, 20)}...` : 'null',
+      appId: AGORA_APP_ID,
+      certExists: !!AGORA_APP_CERT && AGORA_APP_CERT !== 'your-agora-app-certificate-here'
+    });
+
+    // Emit WebSocket event for class presence to all other participants
+    console.log('📡 Attempting to emit class presence event...');
+    console.log('📡 req.io exists:', !!req.io);
+    console.log('📡 req.connectedUsers exists:', !!req.connectedUsers);
+    
+    if (req.io && req.connectedUsers) {
+      // Get all other participants (tutor + all confirmed students except current user)
+      const allParticipants = [cls.tutorId, ...cls.confirmedStudents];
+      const otherParticipants = allParticipants.filter(p => 
+        p._id.toString() !== userIdStr
+      );
+
+      console.log('📡 Total participants:', allParticipants.length);
+      console.log('📡 Other participants to notify:', otherParticipants.length);
+
+      for (const participant of otherParticipants) {
+        const participantAuth0Id = participant.auth0Id;
+        if (!participantAuth0Id) {
+          console.log('⚠️ Participant missing auth0Id:', participant._id);
+          continue;
+        }
+
+        const participantSocketId = req.connectedUsers.get(participantAuth0Id);
+        
+        if (participantSocketId) {
+          const presenceEvent = {
+            classId: cls._id.toString(),
+            participantId: userId.toString(),
+            participantRole: isTutor ? 'tutor' : 'student',
+            participantName: formatDisplayName(user),
+            participantPicture: user.picture,
+            joinedAt: now.toISOString()
+          };
+          console.log('📡 Emitting class_participant_joined event to:', participantAuth0Id);
+          
+          req.io.to(participantSocketId).emit('class_participant_joined', presenceEvent);
+          
+          console.log('✅ Successfully emitted class_participant_joined to:', participantAuth0Id);
+        } else {
+          console.log('⚠️ Participant not connected:', participantAuth0Id);
+        }
+      }
+    } else {
+      console.log('⚠️ req.io or req.connectedUsers is missing');
+    }
+
+    res.json({
+      success: true,
+      agora: {
+        appId: AGORA_APP_ID,
+        channelName: isDevelopment && TEMP_TOKEN ? 'languageRoom' : channelName,
+        token,
+        uid: uidAccount
+      },
+      class: {
+        id: cls._id,
+        name: cls.name,
+        description: cls.description,
+        startTime: cls.startTime,
+        endTime: cls.endTime,
+        tutor: cls.tutorId,
+        students: cls.confirmedStudents,
+        capacity: cls.capacity
+      },
+      userRole: isTutor ? 'tutor' : 'student',
+      serverTime: now.toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Error joining class:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to join class',
+      error: error.message 
+    });
+  }
+});
+
+// POST /api/classes/:classId/leave - Mark participant leaving the class
+router.post('/:classId/leave', verifyToken, async (req, res) => {
+  console.log('🚪🚪🚪 CLASS LEAVE ENDPOINT CALLED 🚪🚪🚪');
+  console.log('🚪 Request params:', req.params);
+  console.log('🚪 Request user:', req.user);
+  
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
+    if (!user) {
+      console.log('❌ User not found for auth0Id:', req.user.sub);
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const userId = user._id;
+    const userIdStr = userId.toString();
+    
+    const cls = await ClassModel.findById(req.params.classId)
+      .populate('tutorId', 'name email picture firstName lastName auth0Id')
+      .populate('confirmedStudents', 'name email picture firstName lastName auth0Id');
+    
+    if (!cls) {
+      console.log('❌ Class not found:', req.params.classId);
+      return res.status(404).json({ success: false, message: 'Class not found' });
+    }
+    
+    // Determine if user is tutor or confirmed student
+    const isTutor = cls.tutorId._id.toString() === userIdStr;
+    const isConfirmedStudent = cls.confirmedStudents.some(student => 
+      student._id.toString() === userIdStr
+    );
+    
+    if (!isTutor && !isConfirmedStudent) {
+      return res.status(403).json({ success: false, message: 'User is not a participant in this class' });
+    }
+    
+    console.log('🚪 User leaving class:', { userId, classId: cls._id, role: isTutor ? 'tutor' : 'student' });
+
+    // Emit WebSocket event for class presence left to all other participants
+    console.log('🚪 Attempting to emit class presence left event...');
+    console.log('🚪 req.io exists:', !!req.io);
+    console.log('🚪 req.connectedUsers exists:', !!req.connectedUsers);
+    
+    if (req.io && req.connectedUsers) {
+      // Get all other participants (tutor + all confirmed students except current user)
+      const allParticipants = [cls.tutorId, ...cls.confirmedStudents];
+      const otherParticipants = allParticipants.filter(p => 
+        p._id.toString() !== userIdStr
+      );
+
+      console.log('🚪 Total participants:', allParticipants.length);
+      console.log('🚪 Other participants to notify:', otherParticipants.length);
+
+      for (const participant of otherParticipants) {
+        const participantAuth0Id = participant.auth0Id;
+        if (!participantAuth0Id) {
+          console.log('⚠️ Participant missing auth0Id:', participant._id);
+          continue;
+        }
+
+        const participantSocketId = req.connectedUsers.get(participantAuth0Id);
+        
+        if (participantSocketId) {
+          const leaveEvent = {
+            classId: cls._id.toString(),
+            participantId: userId.toString(),
+            participantRole: isTutor ? 'tutor' : 'student',
+            participantName: formatDisplayName(user),
+            leftAt: new Date().toISOString()
+          };
+          console.log('🚪 Emitting class_participant_left event to:', participantAuth0Id);
+          
+          req.io.to(participantSocketId).emit('class_participant_left', leaveEvent);
+          
+          console.log('✅ Successfully emitted class_participant_left to:', participantAuth0Id);
+        } else {
+          console.log('⚠️ Participant not connected:', participantAuth0Id);
+        }
+      }
+    } else {
+      console.log('⚠️ req.io or req.connectedUsers is missing');
+    }
+
+    res.json({ success: true, message: 'Left class recorded' });
+  } catch (error) {
+    console.error('❌ Error leaving class:', error);
+    res.status(500).json({ success: false, message: 'Failed to record leave' });
   }
 });
 

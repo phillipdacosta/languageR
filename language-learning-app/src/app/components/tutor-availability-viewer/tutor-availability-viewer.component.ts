@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
 import { UserService } from '../../services/user.service';
 import { LessonService, Lesson } from '../../services/lesson.service';
+import { ClassService } from '../../services/class.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
@@ -70,6 +71,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   constructor(
     private userService: UserService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private modalController: ModalController,
     private loadingController: LoadingController,
     private router: Router
@@ -231,15 +233,56 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   async loadBookedLessons() {
     const startTime = performance.now();
     console.log(`⏱️ [Booked Lessons] Starting to load for tutor: ${this.tutorId}`);
+    console.log(`🔑 [Booked Lessons] Tutor ID type: ${typeof this.tutorId}, value: "${this.tutorId}"`);
     
     try {
-      const response = await firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));
+      // Load both lessons and classes for the tutor
+      const [lessonsResponse, classesResponse] = await Promise.all([
+        firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId)),
+        firstValueFrom(this.classService.getClassesForTutor(this.tutorId))
+      ]);
       
       const duration = performance.now() - startTime;
-      console.log(`⏱️ [Booked Lessons] Data received in ${duration.toFixed(2)}ms - ${response.lessons?.length || 0} lessons`);
+      console.log(`⏱️ [Booked Lessons] Data received in ${duration.toFixed(2)}ms - ${lessonsResponse.lessons?.length || 0} lessons, ${classesResponse.classes?.length || 0} classes`);
+      console.log(`📊 [Booked Lessons] Lessons response:`, lessonsResponse);
+      console.log(`📊 [Booked Lessons] Classes response:`, classesResponse);
       
-      if (response.success && response.lessons) {
-        this.buildBookedSlotsSet(response.lessons);
+      // Combine lessons and classes into a single array
+      const allBookedSlots: any[] = [];
+      
+      if (lessonsResponse.success && lessonsResponse.lessons) {
+        console.log('📚 Lessons loaded:', lessonsResponse.lessons.map((l: any) => ({
+          startTime: l.startTime,
+          endTime: l.endTime,
+          status: l.status,
+          subject: l.subject
+        })));
+        allBookedSlots.push(...lessonsResponse.lessons);
+      }
+      
+      // Convert classes to lesson-like format for processing
+      if (classesResponse.success && classesResponse.classes) {
+        console.log('🎓 Classes loaded:', classesResponse.classes.map((c: any) => ({
+          name: c.name,
+          startTime: c.startTime,
+          endTime: c.endTime
+        })));
+        const classesAsLessons = classesResponse.classes.map((cls: any) => ({
+          startTime: cls.startTime,
+          endTime: cls.endTime,
+          status: 'scheduled' // Classes are scheduled events
+        }));
+        allBookedSlots.push(...classesAsLessons);
+      }
+      
+      console.log(`📊 Total booked slots to process: ${allBookedSlots.length}`);
+      
+      if (allBookedSlots.length > 0) {
+        this.buildBookedSlotsSet(allBookedSlots);
+        console.log(`✅ Booked slots Set now contains ${this.bookedSlots.size} entries:`, Array.from(this.bookedSlots));
+      } else {
+        console.warn('⚠️ No booked lessons or classes found - all slots will show as available');
+        this.bookedSlots = new Set();
       }
     } catch (error) {
       const duration = performance.now() - startTime;
@@ -260,6 +303,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
     
+    console.log(`📅 Building booked slots for week: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
+    console.log(`📅 Current week dates:`, this.weekDates.map(d => d.toDateString()));
+    
     // Create a map of dates to their index in weekDates array (0-6)
     const dateToIndexMap = new Map<string, number>();
     for (let i = 0; i < this.weekDates.length; i++) {
@@ -267,17 +313,26 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       dateToIndexMap.set(dateKey, i);
     }
     
+    let processedCount = 0;
+    let skippedCount = 0;
+    
     for (const lesson of lessons) {
       // Only consider scheduled or in_progress lessons
       if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
+        console.log(`⏭️ Skipping lesson with status: ${lesson.status}`);
+        skippedCount++;
         continue;
       }
 
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
       
+      console.log(`🔍 Processing lesson: ${startTime.toISOString()} to ${endTime.toISOString()}`);
+      
       // Only include lessons that fall within the current week being displayed
       if (endTime < weekStart || startTime > weekEnd) {
+        console.log(`⏭️ Lesson outside current week range, skipping`);
+        skippedCount++;
         continue;
       }
       
@@ -286,10 +341,13 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       lessonDate.setHours(0, 0, 0, 0);
       const lessonDateKey = this.dateKey(lessonDate);
       
+      console.log(`📅 Lesson date key: ${lessonDateKey}`);
+      
       // Find which column (0-6) this date corresponds to in the displayed week
       const weekIndex = dateToIndexMap.get(lessonDateKey);
       if (weekIndex === undefined) {
-        console.log('⚠️ Lesson date not in current week:', lessonDateKey);
+        console.log(`⚠️ Lesson date not in current week: ${lessonDateKey}`);
+        skippedCount++;
         continue;
       }
       
@@ -297,19 +355,29 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       // This matches how availability is stored (by day of week, not specific date)
       const dayIndex = lessonDate.getDay();
       
+      console.log(`✅ Marking slots for day index ${dayIndex} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dayIndex]})`);
+      
       // Generate 30-minute slots between start and end
       let currentTime = new Date(startTime);
+      const slotsMarked: string[] = [];
       while (currentTime < endTime) {
         const hours = currentTime.getHours().toString().padStart(2, '0');
         const minutes = currentTime.getMinutes().toString().padStart(2, '0');
         const timeSlot = `${hours}:${minutes}`;
         const key = `${dayIndex}-${timeSlot}`;
         set.add(key);
+        slotsMarked.push(key);
         
         // Move to next 30-minute slot
         currentTime.setMinutes(currentTime.getMinutes() + 30);
       }
+      
+      console.log(`  ✓ Marked ${slotsMarked.length} slots: ${slotsMarked.join(', ')}`);
+      processedCount++;
     }
+    
+    console.log(`📊 Booked slots summary: ${processedCount} processed, ${skippedCount} skipped, ${set.size} total slots marked`);
+    console.log(`📊 All booked slot keys:`, Array.from(set));
     
     this.bookedSlots = set;
     this.slotsCache.clear();
@@ -684,18 +752,28 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return;
     }
     
-    // If in selection mode, emit event instead of dismissing modal
+    // If in selection mode, emit event AND dismiss modal with data
     if (this.selectionMode) {
+      console.log('selectionMode', this.selectionMode);
+      console.log('slot', slot, 'booked', slot.booked, 'isPast', slot.isPast);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       
-      // Emit event for parent component to handle
+      // Emit event for parent component to handle (for inline usage)
       this.slotSelected.emit({
         selectedDate: dateString,
         selectedTime: slot.time
       });
+      
+      // If used as a modal, also dismiss with data
+      if (!this.inline) {
+        this.modalController.dismiss({
+          selectedDate: dateString,
+          selectedTime: slot.time
+        });
+      }
       return;
     }
     

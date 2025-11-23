@@ -182,15 +182,20 @@
             <div class="dropdown-header">
               <h3>Select Students</h3>
               <span class="selected-count" *ngIf="getSelectedStudentsCount() > 0">
-                {{ getSelectedStudentsCount() }} selected
+                {{ getSelectedStudentsCount() }} of {{ form.value.maxStudents }} selected
               </span>
+            </div>
+            <div class="selection-limit-info" *ngIf="form.value.maxStudents">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <span>Maximum {{ form.value.maxStudents }} student{{ form.value.maxStudents > 1 ? 's' : '' }} for this class</span>
             </div>
             <div class="dropdown-list">
               <div 
                 *ngFor="let student of students" 
                 class="student-option multi-option"
                 [class.selected]="isStudentSelected(student._id)"
-                (click)="toggleMultiStudentSelection(student._id)">
+                [class.disabled]="isStudentDisabled(student._id)"
+                (click)="!isStudentDisabled(student._id) && toggleMultiStudentSelection(student._id)">
                 <ion-avatar class="option-avatar">
                   <img *ngIf="student.picture" [src]="student.picture" [alt]="student.name">
                   <div *ngIf="!student.picture" class="avatar-placeholder-option">

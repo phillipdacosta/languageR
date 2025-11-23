@@ -359,6 +359,27 @@
           }
         }
 
+        .selection-limit-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 20px;
+          background: #f0f9ff;
+          border-bottom: 1px solid #e0f2fe;
+          
+          ion-icon {
+            font-size: 18px;
+            color: #0284c7;
+            flex-shrink: 0;
+          }
+          
+          span {
+            font-size: 13px;
+            color: #0c4a6e;
+            font-weight: 500;
+          }
+        }
+
         .dropdown-list {
           padding: 8px;
         }
@@ -372,6 +393,22 @@
           cursor: pointer;
           transition: all 0.2s ease;
           position: relative;
+
+          &.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+            
+            .option-name,
+            .option-role {
+              color: #94a3b8;
+            }
+            
+            .custom-checkbox {
+              border-color: #cbd5e1;
+              background: #f1f5f9;
+            }
+          }
 
           &:hover {
             background: rgba(102, 126, 234, 0.05);

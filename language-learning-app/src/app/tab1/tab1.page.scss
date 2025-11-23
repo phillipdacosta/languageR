@@ -3010,6 +3010,119 @@ ion-content {
   }
 }
 
+// Additional Lessons Section (for students)
+.additional-lessons-section {
+  margin: 20px 0;
+  
+  .additional-lessons-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .additional-lesson-card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    margin: 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #fff;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+    
+    ion-card-content {
+      padding: 16px;
+    }
+    
+    .additional-lesson-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      
+      .lesson-avatar-small {
+        width: 48px;
+        height: 48px;
+        flex-shrink: 0;
+        
+        .avatar-placeholder-icon {
+          font-size: 24px;
+          color: #94a3b8;
+        }
+        
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      }
+      
+      .lesson-info {
+        flex: 1;
+        min-width: 0;
+        
+        h4 {
+          font-size: 16px;
+          font-weight: 600;
+          color: #1e293b;
+          margin: 0 0 4px 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .lesson-type {
+          font-size: 13px;
+          color: #64748b;
+          margin: 0 0 6px 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        
+        .lesson-time-small {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          color: #64748b;
+          
+          ion-icon {
+            font-size: 14px;
+            color: #94a3b8;
+          }
+          
+          .status-badge {
+            margin-left: 8px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            
+            &.in-progress {
+              background: rgba(34, 197, 94, 0.1);
+              color: #16a34a;
+            }
+          }
+        }
+      }
+      
+      .join-btn-small {
+        --padding-start: 12px;
+        --padding-end: 12px;
+        height: 40px;
+        flex-shrink: 0;
+        
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+    }
+  }
+}
+
 // Upcoming Lesson Card
 .upcoming-lesson-card {
   border-radius: 24px;

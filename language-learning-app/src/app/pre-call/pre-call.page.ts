@@ -4,6 +4,7 @@ import { Location } from '@angular/common';
 import { AlertController, LoadingController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { firstValueFrom } from 'rxjs';
@@ -30,6 +31,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   errorMessage: string = '';
   isTutor: boolean = false;
   isTrialLesson: boolean = false;
+  isClass: boolean = false; // Track if this is a class or 1:1 lesson
   otherParticipantJoined: boolean = false;
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
@@ -52,6 +54,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private location: Location,
     private userService: UserService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private agoraService: AgoraService,
     private alertController: AlertController,
     private loadingController: LoadingController,
@@ -61,14 +64,22 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   async ngOnInit() {
     const params = this.route.snapshot.queryParams;
     this.lessonId = params['lessonId'] || '';
+    this.isClass = params['isClass'] === 'true';
+    
+    console.log('🎯 PRE-CALL ngOnInit:', {
+      lessonId: this.lessonId,
+      isClass: this.isClass,
+      isClassParam: params['isClass'],
+      allParams: params
+    });
     
     if (!this.lessonId) {
-      this.errorMessage = 'Lesson ID is required';
+      this.errorMessage = this.isClass ? 'Class ID is required' : 'Lesson ID is required';
       this.isLoading = false;
       return;
     }
 
-    // Load lesson details
+    // Load lesson/class details
     await this.loadLessonDetails();
 
     // Connect to WebSocket and listen for lesson presence
@@ -115,17 +126,25 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       this.isTutor = role === 'tutor';
       
-      console.log('🎓 PRE-CALL: Loading lesson details', { 
-        lessonId: this.lessonId, 
+      console.log('🎓 PRE-CALL: Loading session details', { 
+        sessionId: this.lessonId, 
+        isClass: this.isClass,
         role, 
         isTutor: this.isTutor 
       });
       
-      const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      // Load lesson or class details based on isClass flag
+      const response = this.isClass 
+        ? await firstValueFrom(this.classService.getClass(this.lessonId))
+        : await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      
       console.log('🎓 PRE-CALL: API Response:', response);
       
-      if (response?.success && response.lesson) {
-        const lesson = response.lesson;
+      // Handle both lesson and class responses
+      const session = (response as any)?.lesson || (response as any)?.class;
+      
+      if (response?.success && session) {
+        const lesson = session;
         // Use the entire user object for proper formatting (firstName, lastName, etc.)
         this.tutorName = this.formatName(lesson.tutorId);
         this.studentName = this.formatName(lesson.studentId);
@@ -177,11 +196,13 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     } catch (error) {
-      console.error('Error loading lesson details:', error);
-      this.lessonTitle = 'Language Lesson';
+      console.error('Error loading session details:', error);
+      this.lessonTitle = this.isClass ? 'Language Class' : 'Language Lesson';
       this.tutorName = 'Tutor';
       this.studentName = 'Student';
       this.participantName = this.isTutor ? this.studentName : this.tutorName;
+    } finally {
+      this.isLoading = false;
     }
   }
 
@@ -320,11 +341,16 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.agoraService.initializeClient();
       }
 
-      // Get current user and join lesson
+      // Get current user and join lesson/class
       const currentUser = await firstValueFrom(this.userService.getCurrentUser());
       const params = this.route.snapshot.queryParams;
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       
+      console.log('🎯 PRE-CALL: Attempting to join session:', {
+        sessionId: this.lessonId,
+        isClass: this.isClass,
+        role: role
+      });
       
       const joinResponse = await this.agoraService.joinLesson(
         this.lessonId,
@@ -332,14 +358,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         currentUser?.id,
         {
           micEnabled: !this.isMuted,
-          videoEnabled: !this.isVideoOff
+          videoEnabled: !this.isVideoOff,
+          isClass: this.isClass
         }
       );
       
 
       await loading.dismiss();
 
-      // Navigate to video-call with lesson info
+      // Get user's first name for display
+      const firstName = currentUser?.firstName || currentUser?.name?.split(' ')[0] || 'User';
+      
+      // Navigate to video-call with lesson info AND user identity
       this.router.navigate(['/video-call'], {
         queryParams: {
           lessonId: this.lessonId,
@@ -347,7 +377,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
           role,
           lessonMode: 'true',
           micOn: !this.isMuted,
-          videoOn: !this.isVideoOff
+          videoOn: !this.isVideoOff,
+          isClass: this.isClass ? 'true' : 'false', // Pass isClass flag
+          userId: currentUser?.id, // Pass user's database ID
+          userName: firstName, // Pass user's first name
+          agoraUid: joinResponse.agora.uid // Pass Agora UID for matching
         }
       });
     } catch (error: any) {
@@ -407,10 +441,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Continue with navigation even if cleanup fails
     }
     
-    // Call leave endpoint if we have a lessonId
+    // Call leave endpoint if we have a lessonId/classId
     if (this.lessonId) {
       try {
-        const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+        if (this.isClass) {
+          await firstValueFrom(this.classService.leaveClass(this.lessonId));
+        } else {
+          await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+        }
       } catch (error) {
         console.error('🚪 PreCall: Error calling leave endpoint:', error);
         // Continue with navigation even if leave fails
@@ -471,7 +509,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Call leave endpoint when leaving the pre-call page (if not already called via goBack)
     // Note: We can't use async/await in ngOnDestroy, so we fire and forget
     if (this.lessonId) {
-      firstValueFrom(this.lessonService.leaveLesson(this.lessonId))
+      const leaveObservable = this.isClass 
+        ? this.classService.leaveClass(this.lessonId)
+        : this.lessonService.leaveLesson(this.lessonId);
+      
+      firstValueFrom(leaveObservable)
         .then(() => {
         })
         .catch((error) => {

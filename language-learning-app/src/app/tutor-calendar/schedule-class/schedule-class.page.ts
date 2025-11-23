@@ -430,6 +430,11 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       // Remove if already selected
       currentIds.splice(index, 1);
     } else {
+      // Check if we can add more students
+      if (!this.canSelectMoreStudents()) {
+        this.showMaxStudentsReachedToast();
+        return;
+      }
       // Add if not selected
       currentIds.push(studentId);
     }
@@ -437,6 +442,30 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     this.form.patchValue({ studentIds: [...currentIds] });
     this.form.controls.studentIds.markAsTouched();
     // Don't close dropdown - allow multiple selections
+  }
+
+  canSelectMoreStudents(): boolean {
+    const currentIds = this.form.value.studentIds || [];
+    const maxStudents = this.form.value.maxStudents || 1;
+    return currentIds.length < maxStudents;
+  }
+
+  isStudentDisabled(studentId: string): boolean {
+    const currentIds = this.form.value.studentIds || [];
+    const isSelected = currentIds.indexOf(studentId) > -1;
+    // Student is disabled if not selected AND max capacity reached
+    return !isSelected && !this.canSelectMoreStudents();
+  }
+
+  async showMaxStudentsReachedToast() {
+    const maxStudents = this.form.value.maxStudents || 1;
+    const toast = await this.toast.create({
+      message: `Maximum of ${maxStudents} student${maxStudents > 1 ? 's' : ''} can be selected`,
+      duration: 2000,
+      position: 'top',
+      color: 'warning'
+    });
+    await toast.present();
   }
 
   isStudentSelected(studentId: string): boolean {

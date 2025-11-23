@@ -12,6 +12,7 @@ import VirtualBackgroundExtension from 'agora-extension-virtual-background';
 import { environment } from '../../environments/environment';
 import { TokenGeneratorService } from './token-generator.service';
 import { LessonService, LessonJoinResponse } from './lesson.service';
+import { ClassService } from './class.service';
 import { UserService } from './user.service';
 
 @Injectable({
@@ -50,6 +51,7 @@ export class AgoraService {
   public onChatMessage?: (message: any) => void;
   public onRemoteUserStateChange?: (uid: UID, state: { isMuted?: boolean; isVideoOff?: boolean }) => void;
   public onVolumeIndicator?: (volumes: { uid: UID; level: number }[]) => void;
+  public onParticipantIdentity?: (uid: UID, identity: { userId: string; isTutor: boolean; name: string }) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -67,6 +69,7 @@ export class AgoraService {
   constructor(
     private tokenGenerator: TokenGeneratorService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private userService: UserService
   ) {
     // Set Agora SDK log level to ERROR only (suppress INFO/DEBUG logs)
@@ -486,7 +489,23 @@ export class AgoraService {
   private setupEventListeners() {
     if (!this.client) return;
 
-    // Listen for remote user joining
+    // Listen for remote user joining the channel
+    this.client.on("user-joined", (user) => {
+      console.log("👋 User joined channel:", user.uid);
+      console.log("👥 Total users in channel (including me):", this.remoteUsers.size + 1);
+      
+      // IMPORTANT: Pre-add user to remoteUsers map when they join, even before publishing
+      // This ensures they appear in participant list immediately
+      if (!this.remoteUsers.has(user.uid)) {
+        this.remoteUsers.set(user.uid, { 
+          isVideoOff: true,  // Assume video off until we get the track
+          isMuted: true      // Assume muted until we get the track
+        });
+        console.log("📝 Pre-registered user in remoteUsers map:", user.uid);
+      }
+    });
+
+    // Listen for remote user publishing media
     this.client.on("user-published", async (user, mediaType) => {
       console.log("🎉 User published:", user.uid, mediaType);
       console.log("📊 User details:", {
@@ -502,28 +521,34 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
-          // For remote users, we assume video is ON when published (they'll send a message if it's muted)
-          // This is important because muted video tracks are still published (keeps them in the call)
+          // Default to ON, will be quickly corrected via messaging if camera is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
             videoTrack: user.videoTrack,
-            isVideoOff: false // Default to false, will be updated via messaging if needed
+            isVideoOff: false // Default to ON, messaging will correct if needed
           });
           console.log("📹 Added video track for user:", user.uid);
           
-          // Notify the UI about video state (assume on initially)
+          // Notify the UI (default to ON)
           if (this.onRemoteUserStateChange) {
             this.onRemoteUserStateChange(user.uid, { isVideoOff: false });
           }
         }
         
         if (mediaType === "audio") {
+          // Default to unmuted, will be quickly corrected via messaging if mic is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
-            audioTrack: user.audioTrack 
+            audioTrack: user.audioTrack,
+            isMuted: false // Default to unmuted, messaging will correct if needed
           });
           user.audioTrack?.play();
           console.log("🔊 Added audio track for user:", user.uid);
+          
+          // Notify the UI (default to unmuted)
+          if (this.onRemoteUserStateChange) {
+            this.onRemoteUserStateChange(user.uid, { isMuted: false });
+          }
         }
         
         console.log("👥 Total remote users:", this.remoteUsers.size);
@@ -695,16 +720,28 @@ export class AgoraService {
    * Join a scheduled lesson using the secure backend endpoint
    * This method gets the Agora token from the lesson service only if within the allowed time window
    */
-  async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string, options?: { micEnabled?: boolean; videoEnabled?: boolean }): Promise<LessonJoinResponse> {
+  async joinLesson(lessonId: string, role: 'tutor' | 'student', userId?: string, options?: { micEnabled?: boolean; videoEnabled?: boolean; isClass?: boolean }): Promise<LessonJoinResponse> {
     if (!this.client) {
       throw new Error("Client not initialized");
     }
+
+    const isClass = options?.isClass || false;
 
     // Check if client is already connected to avoid double join
     if (this.client.connectionState === 'CONNECTED' || this.client.connectionState === 'CONNECTING') {
       console.log('⚠️ Client already connected/connecting, skipping join');
       // Return a mock response since we're already connected
-      return {
+      const mockSession = {
+        _id: lessonId,
+        id: lessonId,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
+        tutor: { id: 'mock-tutor', name: 'Mock Tutor' },
+        student: { id: 'mock-student', name: 'Mock Student' },
+        subject: 'Mock Subject'
+      };
+      
+      const mockResponse: LessonJoinResponse = {
         success: true,
         agora: {
           appId: this.APP_ID,
@@ -712,25 +749,38 @@ export class AgoraService {
           token: 'already-connected',
           uid: this.UID || 0 // Use 0 as fallback if UID is null
         },
-        lesson: {
-          id: lessonId,
-          startTime: new Date().toISOString(),
-          endTime: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour from now
-          tutor: { id: 'mock-tutor', name: 'Mock Tutor' },
-          student: { id: 'mock-student', name: 'Mock Student' },
-          subject: 'Mock Subject'
-        },
         userRole: role,
         serverTime: new Date().toISOString()
       };
+      
+      // Add the appropriate property based on isClass flag
+      if (isClass) {
+        mockResponse.class = mockSession;
+      } else {
+        mockResponse.lesson = mockSession;
+      }
+      
+      return mockResponse;
     }
 
     try {
-      console.log('📅 Attempting to join lesson:', { lessonId, role, userId });
+      console.log('📅 AGORA SERVICE: Attempting to join session:', { 
+        sessionId: lessonId, 
+        role, 
+        userId,
+        isClass: isClass,
+        options: options 
+      });
 
       // Get secure Agora credentials from backend
       const joinResponse = await new Promise<LessonJoinResponse>((resolve, reject) => {
-        this.lessonService.joinLesson(lessonId, role, userId).subscribe({
+        console.log('📅 AGORA SERVICE: Calling service -', isClass ? 'classService.joinClass' : 'lessonService.joinLesson');
+        
+        const joinObservable = isClass 
+          ? this.classService.joinClass(lessonId, role, userId)
+          : this.lessonService.joinLesson(lessonId, role, userId);
+        
+        joinObservable.subscribe({
           next: resolve,
           error: reject
         });
@@ -740,8 +790,17 @@ export class AgoraService {
         throw new Error('Failed to get lesson access');
       }
 
+      // Handle both lesson and class responses
       const { agora, lesson, userRole } = joinResponse;
-      console.log('📅 Received Agora credentials for lesson:', lesson.id);
+      const classData = (joinResponse as any).class;
+      const sessionData = lesson || classData;
+      
+      if (!sessionData) {
+        throw new Error('No session data received from backend');
+      }
+      
+      const sessionId = (sessionData as any)._id || (sessionData as any).id;
+      console.log('📅 Received Agora credentials for session:', sessionId);
 
       // Create local tracks based on user preferences from pre-call screen
       const micEnabled = options?.micEnabled !== false; // Default to true if not specified
@@ -823,7 +882,34 @@ export class AgoraService {
       console.log("Successfully joined lesson channel:", agora.channelName);
 
       // Publish both tracks (they both exist now)
-      console.log("📤 Publishing local tracks...", {
+      // IMPORTANT: Apply user preferences BEFORE publishing
+      // This prevents other participants from briefly seeing video/audio enabled
+      console.log("🔧 Applying user preferences before publishing...");
+      
+      if (!micEnabled) {
+        this.localAudioTrack!.setMuted(true);
+        console.log("🎤 Microphone track muted per user preference (before publishing)");
+      } else {
+        console.log("🎤 Microphone track will be active");
+      }
+      
+      if (!videoEnabled) {
+        this.localVideoTrack!.setMuted(true);
+        this.videoEnabledState = false; // Track state
+        console.log("📹 Video track muted (camera off) per user preference (before publishing)");
+      } else {
+        this.videoEnabledState = true; // Track state
+        console.log("📹 Video track will be active (camera on)");
+      }
+      
+      console.log("📊 Track states before publishing:", {
+        audioMuted: this.localAudioTrack?.muted,
+        videoMuted: this.localVideoTrack?.muted,
+        videoEnabledState: this.videoEnabledState
+      });
+      
+      // Now publish tracks with correct muted state
+      console.log("📤 Publishing local tracks with correct muted state...", {
         hasAudioTrack: !!this.localAudioTrack,
         hasVideoTrack: !!this.localVideoTrack,
         micEnabled,
@@ -832,47 +918,18 @@ export class AgoraService {
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
       console.log("✅ Successfully published local tracks to channel");
       
-      // CRITICAL: Wait 1 second before muting to ensure other participants receive "user-published" events
-      // Muting immediately can prevent events from firing on the remote side
-      // If both audio and video are off, we need extra time for the events to propagate
-      console.log("⏳ Waiting 1 second for user-published events to propagate...");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("✅ Delay complete, now applying user preferences");
-      
-      // Apply user preferences after publishing AND after delay
-      // Use setMuted() to keep tracks published (so other participants see we're in the call)
-      if (!micEnabled) {
-        this.localAudioTrack!.setMuted(true);
-        console.log("🎤 Microphone track muted per user preference");
-      } else {
-        console.log("🎤 Microphone track active");
-      }
-      
-      if (!videoEnabled) {
-        // Mute video track (camera appears off but track stays published)
-        this.localVideoTrack!.setMuted(true);
-        this.videoEnabledState = false; // Track state
-        console.log("📹 Video track muted (camera off) per user preference");
-        
-        // Send video state to notify others
-        setTimeout(async () => {
-          await this.sendVideoStateUpdate(true); // true = video is OFF
-          console.log("📤 Sent video off state to other participants");
-        }, 1500);
-      } else {
-        this.videoEnabledState = true; // Track state
-        console.log("📹 Video track active (camera on)");
-      }
-      
-      console.log("📊 Final track states:", {
+      console.log("📊 Final published track states:", {
         audioMuted: this.localAudioTrack?.muted,
         videoMuted: this.localVideoTrack?.muted,
         videoEnabledState: this.videoEnabledState
       });
+      
+      // Note: State broadcasting (mute/video) is handled by video-call.page.ts
+      // to ensure consistent timing and avoid race conditions
 
-      // Initialize real-time messaging for the lesson
+      // Initialize real-time messaging for the lesson/class
       this.channelName = agora.channelName;
-      this.currentLessonId = lesson.id;
+      this.currentLessonId = (sessionData as any)._id || (sessionData as any).id;
       this.startMessagePolling();
 
       // Virtual background was already applied before publishing tracks above
@@ -984,6 +1041,15 @@ export class AgoraService {
       } else if (message.type === 'videoState') {
         console.log('📹 Processing video state message:', message.payload);
         this.handleRemoteVideoStateUpdate(message.payload);
+      } else if (message.type === 'participantIdentity') {
+        console.log('👤 Processing participant identity message:', message.payload);
+        if (this.onParticipantIdentity) {
+          this.onParticipantIdentity(message.payload.uid, {
+            userId: message.payload.userId,
+            isTutor: message.payload.isTutor,
+            name: message.payload.name
+          });
+        }
       } else {
         console.log('⚠️ Unknown message type:', message.type);
       }
@@ -1151,6 +1217,13 @@ export class AgoraService {
   getLocalAudioTrack(): IMicrophoneAudioTrack | null {
     return this.localAudioTrack;
   }
+  
+  // Get the current user's Agora UID
+  getLocalUID(): UID | null {
+    const uid = this.client?.uid ?? null;
+    console.log('🆔 getLocalUID called, returning:', uid);
+    return uid;
+  }
 
   isVideoEnabled(): boolean {
     return this.videoEnabledState;
@@ -1268,57 +1341,45 @@ export class AgoraService {
 
   private handleRemoteMuteStateUpdate(payload: { uid: UID; isMuted: boolean; timestamp: string }): void {
     console.log('🎤 Received remote mute state update:', payload);
+    console.log('🎤 Current remote users UIDs:', Array.from(this.remoteUsers.keys()));
     
-    // Try to find the remote user by UID first
-    let remoteUser = this.remoteUsers.get(payload.uid);
-    let targetUid = payload.uid;
-    
-    // If not found by UID (or UID is null), use the first available remote user
-    if (!remoteUser && this.remoteUsers.size > 0) {
-      const firstRemoteEntry = Array.from(this.remoteUsers.entries())[0];
-      targetUid = firstRemoteEntry[0];
-      remoteUser = firstRemoteEntry[1];
-      console.log(`🎤 UID ${payload.uid} not found, using first remote user: ${targetUid}`);
-    }
+    // Try to find the remote user by UID
+    const remoteUser = this.remoteUsers.get(payload.uid);
     
     if (remoteUser) {
       remoteUser.isMuted = payload.isMuted;
-      console.log(`✅ Updated remote user ${targetUid} mute state to: ${payload.isMuted ? 'muted' : 'unmuted'}`);
+      console.log(`✅ Updated remote user ${payload.uid} mute state to: ${payload.isMuted ? 'muted' : 'unmuted'}`);
       
       // Notify the video call component if callback is set
       if (this.onRemoteUserStateChange) {
-        this.onRemoteUserStateChange(targetUid, { isMuted: payload.isMuted });
+        this.onRemoteUserStateChange(payload.uid, { isMuted: payload.isMuted });
       }
     } else {
-      console.log('⚠️ No remote users found to update mute state');
+      console.warn(`⚠️ Remote user with UID ${payload.uid} not found in remoteUsers map`);
+      console.warn('Available UIDs:', Array.from(this.remoteUsers.keys()));
+      console.warn('Received UID type:', typeof payload.uid, 'Value:', payload.uid);
     }
   }
 
   private handleRemoteVideoStateUpdate(payload: { uid: UID; isVideoOff: boolean; timestamp: string }): void {
     console.log('📹 Received remote video state update:', payload);
+    console.log('📹 Current remote users UIDs:', Array.from(this.remoteUsers.keys()));
     
-    // Try to find the remote user by UID first
-    let remoteUser = this.remoteUsers.get(payload.uid);
-    let targetUid = payload.uid;
-    
-    // If not found by UID (or UID is null), use the first available remote user
-    if (!remoteUser && this.remoteUsers.size > 0) {
-      const firstRemoteEntry = Array.from(this.remoteUsers.entries())[0];
-      targetUid = firstRemoteEntry[0];
-      remoteUser = firstRemoteEntry[1];
-      console.log(`📹 UID ${payload.uid} not found, using first remote user: ${targetUid}`);
-    }
+    // Try to find the remote user by UID
+    const remoteUser = this.remoteUsers.get(payload.uid);
     
     if (remoteUser) {
       remoteUser.isVideoOff = payload.isVideoOff;
-      console.log(`✅ Updated remote user ${targetUid} video state to: ${payload.isVideoOff ? 'off' : 'on'}`);
+      console.log(`✅ Updated remote user ${payload.uid} video state to: ${payload.isVideoOff ? 'off' : 'on'}`);
       
       // Notify the video call component if callback is set
       if (this.onRemoteUserStateChange) {
-        this.onRemoteUserStateChange(targetUid, { isVideoOff: payload.isVideoOff });
+        this.onRemoteUserStateChange(payload.uid, { isVideoOff: payload.isVideoOff });
       }
     } else {
-      console.log('⚠️ No remote users found to update video state');
+      console.warn(`⚠️ Remote user with UID ${payload.uid} not found in remoteUsers map`);
+      console.warn('Available UIDs:', Array.from(this.remoteUsers.keys()));
+      console.warn('Received UID type:', typeof payload.uid, 'Value:', payload.uid);
     }
   }
 
@@ -1378,10 +1439,13 @@ export class AgoraService {
 
   // Send mute state update to other users
   async sendMuteStateUpdate(isMuted: boolean): Promise<void> {
+    const actualUID = this.getLocalUID();
+    
     console.log('📤 Attempting to send mute state update:', { 
       isMuted, 
       channelName: this.channelName, 
-      uid: this.UID 
+      actualUID: actualUID,
+      configUID: this.UID
     });
 
     if (!this.channelName || this.channelName === 'default') {
@@ -1389,11 +1453,16 @@ export class AgoraService {
       return;
     }
 
+    if (!actualUID) {
+      console.warn("❌ Cannot send mute state: no local UID available");
+      return;
+    }
+
     try {
       const payload = {
         type: 'muteState',
         payload: {
-          uid: this.UID,
+          uid: actualUID,
           isMuted: isMuted,
           timestamp: new Date().toISOString()
         }
@@ -1423,8 +1492,22 @@ export class AgoraService {
 
   // Send video state update to other users
   async sendVideoStateUpdate(isVideoOff: boolean): Promise<void> {
+    const actualUID = this.getLocalUID();
+    
+    console.log('📤 Attempting to send video state update:', {
+      isVideoOff,
+      channelName: this.channelName,
+      actualUID: actualUID,
+      configUID: this.UID
+    });
+    
     if (!this.channelName || this.channelName === 'default') {
-      console.warn("Cannot send video state: no active channel");
+      console.warn("❌ Cannot send video state: no active channel");
+      return;
+    }
+
+    if (!actualUID) {
+      console.warn("❌ Cannot send video state: no local UID available");
       return;
     }
 
@@ -1435,7 +1518,7 @@ export class AgoraService {
         body: JSON.stringify({
           type: 'videoState',
           payload: {
-            uid: this.UID,
+            uid: actualUID,
             isVideoOff: isVideoOff,
             timestamp: new Date().toISOString()
           }
@@ -1449,6 +1532,56 @@ export class AgoraService {
       }
     } catch (error) {
       console.error("Error sending video state:", error);
+    }
+  }
+
+  // Send participant identity to other users (for proper role identification in classes)
+  async sendParticipantIdentity(userId: string, isTutor: boolean, name: string, profilePicture?: string): Promise<void> {
+    if (!this.channelName || this.channelName === 'default') {
+      console.warn("❌ Cannot send participant identity: no active channel");
+      return;
+    }
+
+    console.log('📤 Sending participant identity via API:', {
+      channel: this.channelName,
+      clientUID: this.client?.uid,
+      thisUID: this.UID,
+      userId,
+      isTutor,
+      name,
+      profilePicture,
+      url: `${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`
+    });
+
+    try {
+      // Use client.uid if available, otherwise fall back to this.UID
+      const uidToSend = this.client?.uid ?? this.UID;
+      console.log('📤 Using UID for broadcast:', uidToSend);
+      
+      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          type: 'participantIdentity',
+          payload: {
+            uid: uidToSend,
+            userId: userId,
+            isTutor: isTutor,
+            name: name,
+            profilePicture: profilePicture || '',
+            timestamp: new Date().toISOString()
+          }
+        })
+      });
+
+      if (response.ok) {
+        console.log("✅ Participant identity sent successfully:", { userId, isTutor, name, profilePicture, uid: uidToSend });
+      } else {
+        console.error("❌ Failed to send participant identity:", response.statusText, await response.text());
+      }
+    } catch (error) {
+      console.error("❌ Error sending participant identity:", error);
+      throw error;
     }
   }
 }
