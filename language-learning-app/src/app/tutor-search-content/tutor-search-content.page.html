@@ -261,7 +261,7 @@
               <!-- Show thumbnail if available, otherwise show video element -->
               <img *ngIf="tutor.videoThumbnail" [src]="tutor.videoThumbnail" alt="Video preview" class="video-thumbnail-image">
               <video *ngIf="!tutor.videoThumbnail && tutor.introductionVideo" 
-                     [src]="tutor.introductionVideo" 
+                     src="{{tutor.introductionVideo}}#t=0.001" 
                      class="video-thumbnail-image"
                      preload="metadata"></video>
               <div class="video-play-overlay">

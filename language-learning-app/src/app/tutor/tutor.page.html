@@ -90,7 +90,7 @@
               class="video-thumbnail">
             <video 
               *ngIf="!tutor.videoThumbnail && tutor.introductionVideo" 
-              [src]="tutor.introductionVideo" 
+              src="{{tutor.introductionVideo}}#t=0.001" 
               class="video-thumbnail"
               preload="metadata"></video>
             <div class="video-play-overlay">

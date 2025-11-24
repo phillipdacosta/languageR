@@ -152,7 +152,7 @@
         <video 
           #videoElement
           *ngIf="!thumbnailUrl || !showThumbnailOverlay"
-          [src]="videoUrl" 
+          src="{{videoUrl}}#t=0.001" 
           controls 
           preload="metadata" 
           class="preview-video">
