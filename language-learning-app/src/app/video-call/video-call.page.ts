@@ -90,6 +90,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // currentUserId is already defined in chat properties below
   isTrialLesson: boolean = false;
   
+  // Next event warning (for tutors)
+  showNextEventWarning: boolean = false;
+  nextEventMinutesAway: number = 0;
+  nextEventType: string = '';
+  private nextEventCheckInterval: any = null;
+  
   // My identity info (from query params)
   myAgoraUid: any = ''; // Store my Agora UID
   myName: string = ''; // Store my display name
@@ -175,6 +181,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   canvasHeight = 600;
 
   lessonId: string = '';
+  
+  // Office hours timer tracking
+  isOfficeHours: boolean = false;
+  bookedDuration: number = 0; // Booked duration in minutes
+  perMinuteRate: number = 0; // Rate per minute
+  callStartTime: Date | null = null;
+  elapsedSeconds: number = 0;
+  elapsedMinutes: number = 0;
+  currentCost: number = 0;
+  showOverageWarning: boolean = false;
+  private timerInterval: any = null;
 
   constructor(
     private router: Router,
@@ -257,6 +274,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Set up WebSocket for messaging
     this.setupMessaging();
+    
+    // Start checking for next event warnings (tutors only)
+    if (qp?.role === 'tutor') {
+      this.startNextEventCheck();
+    }
   }
 
   private queryParams: any;
@@ -367,6 +389,23 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.tutorName = this.getFirstName(lesson.tutorId) || 'Tutor';
             this.studentName = this.getFirstName(lesson.studentId) || 'Student';
             this.isTrialLesson = lesson.isTrialLesson || false;
+            
+            // Check if this is an office hours session and extract billing info
+            this.isOfficeHours = lesson.isOfficeHours || false;
+            if (this.isOfficeHours) {
+              this.bookedDuration = lesson.duration || 7; // Default to 7 minutes if not specified
+              
+              // Calculate per-minute rate from lesson price and duration
+              if (lesson.price && lesson.duration) {
+                this.perMinuteRate = Math.round((lesson.price / lesson.duration) * 100) / 100;
+              }
+              
+              console.log('⏱️ Office hours session detected:', {
+                bookedDuration: this.bookedDuration,
+                bookedPrice: lesson.price,
+                perMinuteRate: this.perMinuteRate
+              });
+            }
             
             // Store tutor and student user IDs for proper role identification
             this.tutorUserId = lesson.tutorId?._id || '';
@@ -501,6 +540,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Begin monitoring remote users
       this.monitorRemoteUsers();
       this.isConnected = true;
+      
+      // For office hours, check if both participants are present before starting timer
+      if (this.isOfficeHours) {
+        // Wait a moment for remote user detection, then check
+        setTimeout(() => {
+          this.checkAndStartOfficeHoursTimer();
+        }, 2000);
+      }
       
       // Initialize participants list for classes
       if (this.isClass) {
@@ -955,6 +1002,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // When a new remote user joins (count increases), play their video
         if (this.remoteUserCount > previousCount) {
           console.log('🎬 Remote user count increased - new user joined, playing videos...');
+          
+          // For office hours: Start synchronized timer when second participant joins
+          if (this.isOfficeHours && previousCount === 0 && this.remoteUserCount === 1) {
+            console.log('⏱️ Second participant joined office hours session, starting timer...');
+            setTimeout(() => {
+              this.checkAndStartOfficeHoursTimer();
+            }, 1000);
+          }
+          
           setTimeout(() => {
             if (this.isClass) {
               if (this.userRole === 'tutor' && !this.showWhiteboard) {
@@ -2533,6 +2589,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Show typing indicator (implement if needed)
       }
     });
+
+    // Listen for lesson cancelled events
+    this.websocketService.lessonCancelled$.pipe(takeUntil(this.destroy$)).subscribe(async (cancellation) => {
+      console.log('🚫 Received lesson_cancelled event in video-call:', cancellation);
+      const normalizedEventId = String(cancellation.lessonId);
+      const normalizedCurrentId = String(this.lessonId);
+      if (normalizedEventId === normalizedCurrentId) {
+        console.log('❌ Current lesson has been cancelled by:', cancellation.cancelledBy);
+        await this.handleLessonCancellation(cancellation);
+      }
+    });
   }
 
   // Load messages for the current conversation
@@ -3803,12 +3870,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await new Promise(resolve => setTimeout(resolve, 500));
       console.log('🚪 VideoCall: Camera/mic released, navigating...');
 
+      // Navigate to tabs after ending call
+      console.log('🚪 VideoCall: Navigating to tabs after ending call');
       this.router.navigate(['/tabs']);
     } catch (error) {
       console.error('Error ending call:', error);
       // Even on error, try to cleanup media
       this.cleanupAllMediaElements();
       await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate to tabs after ending call (error case)
+      console.log('🚪 VideoCall: Navigating to tabs after ending call (error case)');
       this.router.navigate(['/tabs']);
     }
   }
@@ -3875,6 +3947,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
+    
+    // Stop office hours timer
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
     
     // Stop all Web Audio monitoring
     this.stopAllAudioMonitoring();
@@ -3950,6 +4028,92 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Remove beforeunload listener
     window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    
+    // Stop next event checking
+    if (this.nextEventCheckInterval) {
+      clearInterval(this.nextEventCheckInterval);
+    }
+  }
+
+  /**
+   * Start checking for upcoming events (tutors only)
+   */
+  private startNextEventCheck() {
+    console.log('📅 Starting next event check for tutor');
+    
+    // Check immediately
+    this.checkForNextEvent();
+    
+    // Check every 30 seconds for more accurate countdown
+    this.nextEventCheckInterval = setInterval(() => {
+      this.checkForNextEvent();
+    }, 30000);
+  }
+
+  /**
+   * Check if tutor has an upcoming event within 10 minutes
+   */
+  private async checkForNextEvent() {
+    try {
+      // Get all upcoming lessons for this tutor
+      const response = await firstValueFrom(this.lessonService.getMyLessons());
+      
+      if (!response.success || !response.lessons) {
+        return;
+      }
+
+      const now = new Date();
+      const WARNING_THRESHOLD = 10 * 60 * 1000; // 10 minutes in milliseconds
+      
+      // Filter for scheduled lessons that start soon OR have already started (excluding current lesson)
+      // Keep showing warning for lessons that have started but tutor is still in current call
+      const relevantLessons = response.lessons
+        .filter(lesson => {
+          if (lesson._id === this.lessonId) return false; // Skip current lesson
+          if (lesson.status !== 'scheduled') return false;
+          
+          const startTime = new Date(lesson.startTime);
+          const timeUntilStart = startTime.getTime() - now.getTime();
+          
+          // Show warning if lesson is within 10 minutes OR has already started (negative time)
+          return timeUntilStart <= WARNING_THRESHOLD;
+        })
+        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+      if (relevantLessons.length > 0) {
+        const nextLesson = relevantLessons[0];
+        const startTime = new Date(nextLesson.startTime);
+        const minutesUntil = Math.round((startTime.getTime() - now.getTime()) / (60 * 1000));
+        
+        this.nextEventMinutesAway = minutesUntil;
+        this.nextEventType = nextLesson.isClass ? 'class' : 'lesson';
+        this.showNextEventWarning = true;
+        
+        if (minutesUntil <= 0) {
+          console.log(`🚨 ${this.nextEventType} should have started ${Math.abs(minutesUntil)} minutes ago!`);
+        } else {
+          console.log(`⚠️ Next ${this.nextEventType} in ${minutesUntil} minutes`);
+        }
+      } else {
+        this.showNextEventWarning = false;
+      }
+    } catch (error) {
+      console.error('Error checking for next event:', error);
+    }
+  }
+
+  /**
+   * Get formatted display time for next event warning
+   * Shows minutes only, with special handling for urgent cases
+   */
+  getNextEventDisplayTime(): string {
+    if (this.nextEventMinutesAway <= 0) {
+      return 'NOW!';
+    } else if (this.nextEventMinutesAway === 1) {
+      return '1 minute';
+    } else {
+      return `${this.nextEventMinutesAway} minutes`;
+    }
   }
 
   private handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -4001,4 +4165,204 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     await alert.present();
   }
 
+  async handleLessonCancellation(cancellation: {
+    lessonId: string;
+    cancelledBy: 'tutor' | 'student';
+    cancellerName: string;
+    reason: string;
+  }) {
+    console.log('🚫 Handling lesson cancellation in video-call:', cancellation);
+
+    // End the call immediately
+    try {
+      await this.agoraService.leaveChannel();
+    } catch (error) {
+      console.error('Error leaving channel during cancellation:', error);
+    }
+
+    // Show alert to user
+    const alert = await this.alertController.create({
+      header: 'Session Ended',
+      message: cancellation.cancelledBy === 'tutor' 
+        ? `Something came up for this tutor and they had to leave. Don't worry—you haven't been charged! Try finding another available tutor in the search.`
+        : this.userRole === 'tutor' 
+          ? `The student didn't enter the classroom in time, so the session was cancelled to avoid wasting your time.`
+          : `The student has left the session.`,
+      buttons: [
+        {
+          text: this.userRole === 'tutor' ? 'Back to Waiting Room' : 'Find Tutors',
+          handler: () => {
+            if (this.userRole === 'tutor') {
+              // Tutor: Return to pre-call waiting room with office hours enabled
+              this.router.navigate(['/pre-call'], {
+                queryParams: {
+                  role: 'tutor',
+                  officeHours: 'true'
+                }
+              });
+            } else {
+              // Student: Navigate to tutor search
+              // Clear any stale data to force refresh in tutor search
+              localStorage.removeItem('returnToTutorId');
+              localStorage.removeItem('tutorSearchHasLoadedOnce');
+              localStorage.setItem('forceRefreshTutors', 'true');
+              
+              this.router.navigate(['/tabs/tutor-search']);
+            }
+          }
+        }
+      ],
+      backdropDismiss: false
+    });
+
+    await alert.present();
+  }
+
+  /**
+   * Check if both participants are in call, then start synchronized timer
+   */
+  private async checkAndStartOfficeHoursTimer() {
+    if (this.timerInterval) {
+      console.log('⏱️ Timer already running, skipping');
+      return;
+    }
+    
+    // Check if remote user is connected
+    const hasRemoteUser = this.remoteUserCount > 0;
+    console.log('⏱️ Checking office hours timer conditions:', {
+      hasRemoteUser,
+      remoteUserCount: this.remoteUserCount,
+      lessonId: this.lessonId
+    });
+    
+    if (hasRemoteUser && this.lessonId) {
+      console.log('⏱️ Both participants present, fetching server start time...');
+      
+      // Fetch the actual call start time from server
+      try {
+        const billingResponse = await firstValueFrom(
+          this.lessonService.getBillingSummary(this.lessonId)
+        );
+        
+        if (billingResponse?.success && billingResponse.billing?.callStartTime) {
+          const serverStartTime = new Date(billingResponse.billing.callStartTime);
+          console.log('⏱️ Server call start time:', serverStartTime);
+          
+          // Calculate elapsed time from server timestamp
+          const now = new Date();
+          const elapsedMs = now.getTime() - serverStartTime.getTime();
+          const elapsedSec = Math.floor(elapsedMs / 1000);
+          
+          console.log('⏱️ Starting timer from server time:', {
+            serverStartTime,
+            elapsedSeconds: elapsedSec
+          });
+          
+          this.startOfficeHoursTimer(serverStartTime, elapsedSec);
+        } else {
+          console.log('⏱️ No server start time yet, will retry when remote user joins');
+        }
+      } catch (error) {
+        console.error('⏱️ Error fetching billing summary:', error);
+      }
+    } else {
+      console.log('⏱️ Waiting for both participants to join before starting timer');
+      // Timer will be started when remote user joins (see user-published handler)
+    }
+  }
+  
+  /**
+   * Start office hours timer - tracks elapsed time and calculates cost
+   */
+  private startOfficeHoursTimer(startTime?: Date, initialElapsedSeconds: number = 0) {
+    if (this.timerInterval) {
+      console.log('⏱️ Timer already running');
+      return;
+    }
+    
+    this.callStartTime = startTime || new Date();
+    this.elapsedSeconds = initialElapsedSeconds;
+    this.elapsedMinutes = Math.ceil(this.elapsedSeconds / 60);
+    this.currentCost = Math.round(this.perMinuteRate * this.elapsedMinutes * 100) / 100;
+    this.showOverageWarning = false;
+    
+    console.log('⏱️ Starting office hours timer:', {
+      startTime: this.callStartTime,
+      initialElapsedSeconds: this.elapsedSeconds,
+      bookedDuration: this.bookedDuration,
+      perMinuteRate: this.perMinuteRate
+    });
+    
+    // Update timer every second
+    this.timerInterval = setInterval(() => {
+      this.elapsedSeconds++;
+      this.elapsedMinutes = Math.ceil(this.elapsedSeconds / 60);
+      
+      // Don't show negative values during grace period
+      if (this.elapsedSeconds < 0) {
+        this.elapsedSeconds = 0;
+        this.elapsedMinutes = 0;
+      }
+      
+      // Calculate current cost (only if time has actually started)
+      if (this.elapsedSeconds >= 0) {
+        this.currentCost = Math.round(this.perMinuteRate * this.elapsedMinutes * 100) / 100;
+      } else {
+        this.currentCost = 0;
+      }
+      
+      // Check if we're 1 minute away from booked duration
+      if (this.elapsedSeconds > 0) {
+        const secondsUntilBookedEnd = (this.bookedDuration * 60) - this.elapsedSeconds;
+        if (secondsUntilBookedEnd === 60 && !this.showOverageWarning) {
+          this.showBookedTimeEndingWarning();
+        }
+      }
+      
+      // Force change detection to update UI
+      this.cdr.detectChanges();
+    }, 1000);
+  }
+  
+  /**
+   * Show warning when booked time is about to expire
+   */
+  private async showBookedTimeEndingWarning() {
+    // Only show warning to students (they're the ones being charged)
+    if (this.userRole !== 'student') {
+      return;
+    }
+    
+    this.showOverageWarning = true;
+    
+    const alert = await this.alertController.create({
+      header: 'Time Warning',
+      message: `Your booked ${this.bookedDuration} minutes is ending soon. You'll be charged $${this.perMinuteRate.toFixed(2)}/minute if you continue.`,
+      buttons: ['OK']
+    });
+    
+    await alert.present();
+    console.log('⚠️ Showed booked time ending warning to student');
+  }
+  
+  /**
+   * Get formatted elapsed time string (MM:SS)
+   */
+  getFormattedElapsedTime(): string {
+    // During grace period, show 0:00
+    if (this.elapsedSeconds < 0) {
+      return '0:00';
+    }
+    
+    const minutes = Math.floor(this.elapsedSeconds / 60);
+    const seconds = this.elapsedSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+  
+  /**
+   * Check if session is in overage (past booked duration)
+   */
+  isInOverage(): boolean {
+    return this.elapsedMinutes > this.bookedDuration;
+  }
 }

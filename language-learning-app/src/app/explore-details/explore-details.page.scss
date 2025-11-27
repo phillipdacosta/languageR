@@ -19,32 +19,6 @@
   }
 }
 
-.error-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem 2rem;
-  min-height: 70vh;
-  text-align: center;
-
-  ion-icon {
-    font-size: 4rem;
-    color: var(--ion-color-danger);
-    margin-bottom: 1.5rem;
-  }
-
-  p {
-    color: var(--ion-color-medium);
-    font-size: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  ion-button {
-    --border-radius: 12px;
-  }
-}
-
 .class-details-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -111,10 +85,6 @@
       &.invited {
         background: var(--ion-color-tertiary);
       }
-
-      &.trial {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
-      }
       
       ion-icon {
         font-size: 1.3rem;
@@ -158,23 +128,6 @@
       font-size: 1.75rem;
     }
   }
-
-  .level-badge-display {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    border-radius: 20px;
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-
-    ion-icon {
-      font-size: 1.2rem;
-    }
-  }
   
   .tutor-card {
     display: flex;
@@ -183,10 +136,17 @@
     padding: 1.25rem;
     background: var(--ion-color-light);
     border-radius: 16px;
-    cursor: default;
+    cursor: pointer;
     transition: all 0.3s ease;
     border: 1px solid rgba(0, 0, 0, 0.05);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    
+    &:hover {
+      background: var(--ion-color-light-shade);
+      transform: translateX(6px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      border-color: var(--ion-color-primary);
+    }
     
     .tutor-avatar-large {
       width: 64px;
@@ -222,6 +182,12 @@
         color: var(--ion-color-medium);
         margin: 0;
       }
+    }
+    
+    .chevron-icon {
+      font-size: 1.5rem;
+      color: var(--ion-color-medium);
+      flex-shrink: 0;
     }
   }
 }
@@ -422,46 +388,6 @@
   }
 }
 
-// Revenue Section (for classes)
-.revenue-section {
-  margin-bottom: 2.5rem;
-
-  .revenue-card {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
-
-    ion-icon {
-      font-size: 2.5rem;
-      color: white;
-    }
-
-    .revenue-info {
-      flex: 1;
-
-      .revenue-label {
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.9);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-        margin: 0 0 0.5rem 0;
-      }
-
-      .revenue-amount {
-        font-size: 2rem;
-        font-weight: 800;
-        color: white;
-        margin: 0;
-      }
-    }
-  }
-}
-
 // Actions Section
 .actions-section {
   display: flex;
@@ -486,3 +412,4 @@
     }
   }
 }
+

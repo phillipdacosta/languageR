@@ -1,147 +1,258 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-button fill="clear" (click)="goBack()">
-        <ion-icon name="chevron-back-outline"></ion-icon>
-      </ion-button>
+      <ion-back-button (click)="goBack()" text=""></ion-back-button>
     </ion-buttons>
-    <ion-title>Lesson Details</ion-title>
+    <ion-title>{{ isClass ? 'Class Details' : 'Lesson Details' }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true" class="event-details-content">
-  <div class="content-wrapper">
-    
-    <!-- Loading State -->
-    <div *ngIf="loading" class="loading-container">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Loading lesson details...</p>
-    </div>
+<ion-content [fullscreen]="true">
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading details...</p>
+  </div>
 
-    <!-- Error State -->
-    <div *ngIf="error && !loading" class="error-container">
-      <ion-icon name="alert-circle-outline"></ion-icon>
-      <p>{{ error }}</p>
-      <ion-button fill="outline" (click)="goBack()">Go Back</ion-button>
-    </div>
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-icon name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button fill="outline" (click)="goBack()">Go Back</ion-button>
+  </div>
 
-    <!-- Lesson Details -->
-    <div *ngIf="lesson && !loading" class="lesson-details-card">
-      
-      <!-- Status Badge and Join Button Container -->
-      <div class="status-action-container">
+  <!-- Lesson Details -->
+  <div class="class-details-container" *ngIf="lesson && !loading">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="thumbnail-container">
+        <div class="thumbnail-placeholder-large">
+          <ion-icon name="book-outline"></ion-icon>
+        </div>
+        
         <!-- Status Badge -->
-        <div class="status-badge" [style.background-color]="getStatusInfo().color">
+        <div class="status-badge-large" [style.background]="getStatusInfo().color">
           <span>{{ getStatusInfo().label }}</span>
         </div>
         
-        <!-- Trial Lesson Badge -->
-        <div class="trial-badge" *ngIf="lesson.isTrialLesson">
+        <!-- Trial Badge -->
+        <div class="status-badge-large trial" *ngIf="lesson.isTrialLesson" style="top: 80px;">
           <ion-icon name="star"></ion-icon>
           <span>Trial Lesson</span>
         </div>
+      </div>
+    </div>
 
-        <!-- Join Button (for upcoming and in-progress lessons) -->
+    <!-- Main Content -->
+    <div class="content-section">
+      <!-- Title Section -->
+      <div class="title-section">
+        <h1 class="class-title">{{ lesson.subject || 'Language Lesson' }}</h1>
+        
+        <!-- Student Card -->
+        <div class="tutor-card">
+          <ion-avatar class="tutor-avatar-large">
+            <img 
+              *ngIf="lesson.studentId?.picture" 
+              [src]="lesson.studentId.picture" 
+              [alt]="lesson.studentId.name">
+            <div *ngIf="!lesson.studentId?.picture" class="avatar-placeholder-large">
+              {{ lesson.studentId?.name?.charAt(0)?.toUpperCase() || 'S' }}
+            </div>
+          </ion-avatar>
+          <div class="tutor-info">
+            <h3 class="tutor-name">{{ lesson.studentId?.name || 'Student' }}</h3>
+            <p class="tutor-label">{{ lesson.studentId?.email || '' }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lesson Info -->
+      <div class="info-grid">
+        <div class="info-card">
+          <ion-icon name="calendar-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Date</p>
+            <p class="info-value">{{ formatDate(lesson.startTime) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="time-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Time</p>
+            <p class="info-value">{{ formatTimeRange(lesson.startTime, lesson.endTime) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="hourglass-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Duration</p>
+            <p class="info-value">{{ lesson.duration || 60 }} minutes</p>
+          </div>
+        </div>
+
+        <div class="info-card" *ngIf="lesson.price">
+          <ion-icon name="cash-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Price</p>
+            <p class="info-value">${{ lesson.price.toFixed(2) }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes Section -->
+      <div class="description-section" *ngIf="lesson.notes">
+        <h2 class="section-title">Notes</h2>
+        <div class="description-content">
+          <p>{{ lesson.notes }}</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions-section" *ngIf="shouldShowJoinButton()">
         <ion-button 
-          *ngIf="shouldShowJoinButton()"
-          class="join-lesson-btn"
+          expand="block" 
+          size="large"
           [disabled]="!canJoinLesson()"
           (click)="joinLesson()">
           <ion-icon name="videocam-outline" slot="start"></ion-icon>
           {{ getJoinLabel() }}
         </ion-button>
       </div>
+    </div>
+  </div>
 
-      <!-- Student Info -->
-      <div class="detail-section">
-        <h3>Student</h3>
-        <div class="student-info">
-          <div class="student-avatar" *ngIf="lesson.studentId?.picture">
-            <img [src]="lesson.studentId.picture" [alt]="lesson.studentId.name">
+  <!-- Class Details -->
+  <div class="class-details-container" *ngIf="classData && !loading && isClass">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="thumbnail-container">
+        <img 
+          *ngIf="classData.thumbnail" 
+          [src]="classData.thumbnail" 
+          [alt]="classData.name"
+          class="class-thumbnail-large">
+        <div *ngIf="!classData.thumbnail" class="thumbnail-placeholder-large">
+          <ion-icon name="people-outline"></ion-icon>
+        </div>
+        
+        <!-- Public Badge -->
+        <div class="status-badge-large" *ngIf="classData.isPublic">
+          <ion-icon name="globe-outline"></ion-icon>
+          <span>Public Class</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-section">
+      <!-- Title Section -->
+      <div class="title-section">
+        <h1 class="class-title">{{ classData.name }}</h1>
+        
+        <!-- Level Badge (as a visual element) -->
+        <div class="level-badge-display" *ngIf="classData.level">
+          <ion-icon name="bar-chart-outline"></ion-icon>
+          <span>{{ getLevelLabel(classData.level) }}</span>
+        </div>
+      </div>
+
+      <!-- Class Info -->
+      <div class="info-grid">
+        <div class="info-card">
+          <ion-icon name="calendar-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Date</p>
+            <p class="info-value">{{ formatDate(classData.startTime) }}</p>
           </div>
-          <div class="student-details">
-            <p class="student-name">{{ lesson.studentId.name || 'Unknown Student' }}</p>
-            <p class="student-email">{{ lesson.studentId.email || '' }}</p>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="time-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Time</p>
+            <p class="info-value">{{ formatTimeRange(classData.startTime, classData.endTime) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="hourglass-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Duration</p>
+            <p class="info-value">{{ classData.duration || 60 }} minutes</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="people-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Students</p>
+            <p class="info-value">{{ classData.studentIds?.length || 0 }} / {{ classData.maxStudents }}</p>
+          </div>
+        </div>
+
+        <div class="info-card" *ngIf="classData.price && classData.price > 0">
+          <ion-icon name="cash-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Price</p>
+            <p class="info-value">${{ classData.price.toFixed(2) }} per student</p>
+          </div>
+        </div>
+
+        <div class="info-card" *ngIf="classData.recurrenceType && classData.recurrenceType !== 'none'">
+          <ion-icon name="repeat-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Recurrence</p>
+            <p class="info-value">{{ classData.recurrenceType }} ({{ classData.recurrenceCount }} sessions)</p>
           </div>
         </div>
       </div>
 
-      <!-- Lesson Info -->
-      <div class="detail-section">
-        <h3>Lesson Information</h3>
-        <div class="info-grid">
-          <div class="info-item">
-            <ion-icon name="book-outline"></ion-icon>
-            <div class="info-content">
-              <label>Subject</label>
-              <p>{{ lesson.subject || 'Language Lesson' }}</p>
-            </div>
-          </div>
+      <!-- Class Description -->
+      <div class="description-section" *ngIf="classData.description">
+        <h2 class="section-title">About This Class</h2>
+        <div class="description-content" [innerHTML]="sanitizedDescription"></div>
+      </div>
 
-          <div class="info-item">
-            <ion-icon name="calendar-outline"></ion-icon>
-            <div class="info-content">
-              <label>Date</label>
-              <p>{{ formatDate(lesson.startTime) }}</p>
-            </div>
+      <!-- Enrolled Students Avatar Stack -->
+      <div class="students-section" *ngIf="classData.studentIds && classData.studentIds.length > 0">
+        <h2 class="section-title">
+          Enrolled Students
+          <span class="student-count">{{ classData.studentIds.length }} / {{ classData.maxStudents }}</span>
+        </h2>
+        <div class="avatar-stack">
+          <div 
+            class="avatar-item" 
+            *ngFor="let student of classData.studentIds.slice(0, 5); let i = index"
+            [style.z-index]="10 - i">
+            <ion-avatar class="stack-avatar">
+              <img 
+                *ngIf="student.picture" 
+                [src]="student.picture" 
+                [alt]="student.name">
+              <div *ngIf="!student.picture" class="avatar-placeholder">
+                {{ student.name?.charAt(0)?.toUpperCase() || 'S' }}
+              </div>
+            </ion-avatar>
           </div>
-
-          <div class="info-item">
-            <ion-icon name="time-outline"></ion-icon>
-            <div class="info-content">
-              <label>Time</label>
-              <p>{{ formatTime(lesson.startTime) }} - {{ formatTime(lesson.endTime) }}</p>
-            </div>
-          </div>
-
-          <div class="info-item">
-            <ion-icon name="hourglass-outline"></ion-icon>
-            <div class="info-content">
-              <label>Duration</label>
-              <p>{{ lesson.duration || 60 }} minutes</p>
-            </div>
+          <div class="avatar-more" *ngIf="classData.studentIds.length > 5">
+            <span>+{{ classData.studentIds.length - 5 }}</span>
           </div>
         </div>
       </div>
 
-      <!-- Pricing -->
-      <div class="detail-section pricing-section" *ngIf="lesson.price">
-        <h3>Pricing</h3>
-        <div class="price-display">
-          <span class="price-amount">${{ lesson.price.toFixed(2) }}</span>
-          <span class="price-label">Total Lesson Price</span>
-        </div>
-      </div>
-
-      <!-- Notes -->
-      <div class="detail-section notes-section" *ngIf="lesson.notes">
-        <h3>Notes</h3>
-        <div class="notes-content">
-          <p>{{ lesson.notes }}</p>
-        </div>
-      </div>
-
-      <!-- Booking Data (if available) -->
-      <div class="detail-section booking-section" *ngIf="lesson.bookingData">
-        <h3>Booking Information</h3>
-        <div class="info-grid">
-          <div class="info-item" *ngIf="lesson.bookingData.selectedDate">
-            <ion-icon name="calendar-number-outline"></ion-icon>
-            <div class="info-content">
-              <label>Selected Date</label>
-              <p>{{ formatDate(lesson.bookingData.selectedDate) }}</p>
-            </div>
-          </div>
-          <div class="info-item" *ngIf="lesson.bookingData.timeRange">
-            <ion-icon name="time-outline"></ion-icon>
-            <div class="info-content">
-              <label>Time Range</label>
-              <p>{{ lesson.bookingData.timeRange }}</p>
-            </div>
+      <!-- Total Revenue -->
+      <div class="revenue-section" *ngIf="classData.price && classData.studentIds?.length">
+        <div class="revenue-card">
+          <ion-icon name="trending-up-outline"></ion-icon>
+          <div class="revenue-info">
+            <p class="revenue-label">Total Revenue</p>
+            <p class="revenue-amount">${{ (classData.price * classData.studentIds.length).toFixed(2) }}</p>
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </ion-content>

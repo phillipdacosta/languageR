@@ -224,6 +224,12 @@
               </div>
             </div>
             
+            <!-- Office Hours Badge -->
+            <div class="office-hours-badge-modern" *ngIf="tutor.isActivelyAvailable">
+              <ion-icon name="flash"></ion-icon>
+              <span>Available Now - Book Instantly</span>
+            </div>
+            
             <!-- Bio Section - Center Priority -->
             <div class="bio-section-inline" *ngIf="tutor.bio">
               <p class="bio-text" 
@@ -282,6 +288,15 @@
           <ion-button class="action-btn secondary" fill="outline" size="small" (click)="openTutorProfile(tutor, $event)">
             <ion-icon name="person-outline" slot="start"></ion-icon>
             View profile
+          </ion-button>
+          <ion-button 
+            *ngIf="tutor.isActivelyAvailable" 
+            class="action-btn office-hours" 
+            fill="solid" 
+            size="small" 
+            (click)="bookOfficeHours(tutor, $event)">
+            <ion-icon name="flash" slot="start"></ion-icon>
+            Quick Session
           </ion-button>
           <ion-button class="action-btn primary" fill="solid" size="small" (click)="bookLesson(tutor, $event)">
             <ion-icon name="calendar" slot="start"></ion-icon>

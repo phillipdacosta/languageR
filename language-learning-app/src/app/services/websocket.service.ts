@@ -41,6 +41,21 @@ export class WebSocketService {
   }>();
   public lessonPresenceLeft$ = this.lessonPresenceLeftSubject.asObservable();
 
+  private lessonCancelledSubject = new Subject<{
+    lessonId: string;
+    cancelledBy: 'tutor' | 'student';
+    cancellerName: string;
+    reason: string;
+  }>();
+  public lessonCancelled$ = this.lessonCancelledSubject.asObservable();
+
+  private officeHoursAcceptedSubject = new Subject<{
+    lessonId: string;
+    tutorName: string;
+    message: string;
+  }>();
+  public officeHoursAccepted$ = this.officeHoursAcceptedSubject.asObservable();
+
   private newNotificationSubject = new Subject<any>();
   public newNotification$ = this.newNotificationSubject.asObservable();
 
@@ -62,11 +77,14 @@ export class WebSocketService {
     // Remove any existing listeners first to prevent duplicates
     this.socket.off('lesson_participant_joined');
     this.socket.off('lesson_participant_left');
+    this.socket.off('lesson_cancelled');
+    this.socket.off('office_hours_accepted');
     this.socket.off('new_message');
     this.socket.off('message_sent');
     this.socket.off('user_typing');
     this.socket.off('message_error');
     this.socket.off('new_notification');
+    this.socket.off('office_hours_booking');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
@@ -98,9 +116,35 @@ export class WebSocketService {
       this.lessonPresenceLeftSubject.next(data);
     });
 
+    // Listen for lesson cancelled events
+    this.socket.on('lesson_cancelled', (data: any) => {
+      console.log('🚫 Lesson cancelled event received:', data);
+      this.lessonCancelledSubject.next(data);
+    });
+
+    // Listen for office hours accepted events
+    this.socket.on('office_hours_accepted', (data: any) => {
+      console.log('✅ Office hours accepted event received:', data);
+      console.log('✅ Event details:', {
+        lessonId: data.lessonId,
+        tutorName: data.tutorName,
+        message: data.message
+      });
+      this.officeHoursAcceptedSubject.next(data);
+    });
+
     // Listen for new notifications
     this.socket.on('new_notification', (data: any) => {
       this.newNotificationSubject.next(data);
+    });
+
+    // Listen for office hours bookings (urgent notifications)
+    this.socket.on('office_hours_booking', (data: any) => {
+      console.log('⚡ Office hours booking received:', data);
+      this.newNotificationSubject.next({
+        ...data,
+        urgent: true
+      });
     });
 
     this.listenersSetup = true;
@@ -137,9 +181,12 @@ export class WebSocketService {
         timeout: 5000  // 5 second timeout
       });
 
+      console.log('🔌 WebSocket: Attempting to connect...', { socketUrl, token });
+
       this.socket.on('connect', () => {
         this.isConnected = true;
         this.connectionSubject.next(true);
+        console.log('✅ WebSocket: Connected successfully!', { socketId: this.socket?.id });
         // Set up listeners after connection is established
         this.setupEventListeners();
       });
@@ -148,6 +195,7 @@ export class WebSocketService {
         this.isConnected = false;
         this.connectionSubject.next(false);
         this.listenersSetup = false; // Reset so listeners are set up again on reconnect
+        console.log('❌ WebSocket: Disconnected');
       });
 
       this.socket.on('connect_error', (error) => {

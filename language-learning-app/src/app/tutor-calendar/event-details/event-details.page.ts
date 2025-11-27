@@ -3,8 +3,10 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LessonService, Lesson } from '../../services/lesson.service';
+import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
 import { PlatformService } from '../../services/platform.service';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-event-details',
@@ -14,12 +16,15 @@ import { PlatformService } from '../../services/platform.service';
   imports: [CommonModule, IonicModule]
 })
 export class EventDetailsPage implements OnInit, OnDestroy {
-  lessonId: string | null = null;
+  eventId: string | null = null;
   lesson: Lesson | null = null;
+  classData: any = null; // For class events
+  isClass = false;
   currentUser: User | null = null;
   loading = true;
   error: string | null = null;
   countdownTick = Date.now();
+  sanitizedDescription: SafeHtml = '';
   private countdownInterval: any;
   private returnUrl: string | null = null;
 
@@ -27,12 +32,14 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private lessonService: LessonService,
+    private classService: ClassService,
     private userService: UserService,
-    private platformService: PlatformService
+    private platformService: PlatformService,
+    private sanitizer: DomSanitizer
   ) { }
 
   ngOnInit() {
-    this.lessonId = this.route.snapshot.paramMap.get('id');
+    this.eventId = this.route.snapshot.paramMap.get('id');
     const fromParam = this.route.snapshot.queryParamMap.get('from');
     const shouldReturnToNotifications = (this.platformService.isMobile() || this.platformService.isSmallScreen()) && fromParam === 'notifications';
     this.returnUrl = shouldReturnToNotifications ? '/tabs/notifications' : '/tabs/tutor-calendar';
@@ -41,43 +48,72 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
-        if (this.lessonId) {
-          this.loadLessonDetails();
+        if (this.eventId) {
+          this.loadEventDetails();
         } else {
-          this.error = 'No lesson ID provided';
+          this.error = 'No event ID provided';
           this.loading = false;
         }
       },
       error: () => {
         // Continue even if user load fails
-        if (this.lessonId) {
-          this.loadLessonDetails();
+        if (this.eventId) {
+          this.loadEventDetails();
         } else {
-          this.error = 'No lesson ID provided';
+          this.error = 'No event ID provided';
           this.loading = false;
         }
       }
     });
   }
 
-  loadLessonDetails() {
-    if (!this.lessonId) return;
+  loadEventDetails() {
+    if (!this.eventId) return;
 
     this.loading = true;
-    this.lessonService.getLesson(this.lessonId).subscribe({
+    
+    // Try loading as a lesson first
+    this.lessonService.getLesson(this.eventId).subscribe({
       next: (response) => {
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
+          this.isClass = false;
           this.loading = false;
           this.startCountdown();
         } else {
-          this.error = 'Lesson not found';
+          // If lesson not found, try as a class
+          this.loadClassDetails();
+        }
+      },
+      error: () => {
+        // If lesson fails, try loading as a class
+        this.loadClassDetails();
+      }
+    });
+  }
+
+  loadClassDetails() {
+    if (!this.eventId) return;
+
+    this.classService.getClass(this.eventId).subscribe({
+      next: (response) => {
+        if (response.success && response.class) {
+          this.classData = response.class;
+          this.isClass = true;
+          // Pre-sanitize description to avoid calling function in template
+          if (this.classData?.description) {
+            this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
+          }
+          this.loading = false;
+          this.startCountdown();
+        } else {
+          this.error = 'Event not found';
           this.loading = false;
         }
       },
       error: (error) => {
-        console.error('Error loading lesson:', error);
-        this.error = 'Failed to load lesson details';
+        console.error('Error loading event:', error);
+        this.error = 'Failed to load event details';
         this.loading = false;
       }
     });
@@ -240,6 +276,32 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   formatTime(dateString: string): string {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  formatTimeRange(startTime: string, endTime: string): string {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const startStr = start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    const endStr = end.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    return `${startStr} - ${endStr}`;
+  }
+
+  getLevelLabel(level: string): string {
+    const levelMap: { [key: string]: string } = {
+      'any': 'Any Level',
+      'beginner': 'Beginner',
+      'intermediate': 'Intermediate',
+      'advanced': 'Advanced'
+    };
+    return levelMap[level] || 'Any Level';
   }
 }
 

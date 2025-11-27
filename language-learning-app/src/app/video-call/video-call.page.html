@@ -16,6 +16,22 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
+  <!-- Office Hours Timer (Top Center) - Always visible during office hours -->
+  <div class="office-hours-timer" *ngIf="isOfficeHours">
+    <div class="timer-display" [class.overage]="isInOverage()">
+      <ion-icon name="time-outline"></ion-icon>
+      <span class="time">{{ getFormattedElapsedTime() }}</span>
+      <span class="overage-label" *ngIf="isInOverage()">Over booked time</span>
+    </div>
+    
+    <!-- Next Lesson Warning (Tutors Only) - Right of timer -->
+    <div class="next-lesson-warning" *ngIf="showNextEventWarning && userRole === 'tutor'">
+      <span class="warning-text" [class.urgent]="nextEventMinutesAway <= 0">
+        Your next lesson starts in {{ getNextEventDisplayTime() }}
+      </span>
+    </div>
+  </div>
+
   <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
     <!-- Main Content Area (above controls) -->
     <div class="main-content-area">

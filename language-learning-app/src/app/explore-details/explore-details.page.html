@@ -1,0 +1,194 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/home/explore" text=""></ion-back-button>
+    </ion-buttons>
+    <ion-title>Class Details</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="isLoading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading class details...</p>
+  </div>
+
+  <!-- Class Details -->
+  <div class="class-details-container" *ngIf="!isLoading && classDetails">
+    <!-- Hero Section with Thumbnail -->
+    <div class="hero-section">
+      <div class="thumbnail-container">
+        <img 
+          *ngIf="classDetails.thumbnail" 
+          [src]="classDetails.thumbnail" 
+          [alt]="classDetails.name"
+          class="class-thumbnail-large">
+        <div *ngIf="!classDetails.thumbnail" class="thumbnail-placeholder-large">
+          <ion-icon name="image-outline"></ion-icon>
+        </div>
+        
+        <!-- Status Badge -->
+        <div class="status-badge-large" *ngIf="classDetails.isEnrolled">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          <span>Enrolled</span>
+        </div>
+        <div class="status-badge-large invited" *ngIf="!classDetails.isEnrolled && classDetails.hasInvitation && classDetails.invitationStatus === 'pending'">
+          <ion-icon name="mail"></ion-icon>
+          <span>Invited</span>
+        </div>
+        <div class="status-badge-large full" *ngIf="classDetails.isFull && !classDetails.isEnrolled && !classDetails.hasInvitation">
+          <span>Class Full</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content-section">
+      <!-- Class Title and Basic Info -->
+      <div class="title-section">
+        <h1 class="class-title">{{ classDetails.name }}</h1>
+        
+        <!-- Tutor Info Card -->
+        <div class="tutor-card" (click)="viewTutorProfile()">
+          <ion-avatar class="tutor-avatar-large">
+            <img 
+              *ngIf="classDetails.tutorId?.picture" 
+              [src]="classDetails.tutorId.picture" 
+              [alt]="classDetails.tutorId.name">
+            <div *ngIf="!classDetails.tutorId?.picture" class="avatar-placeholder-large">
+              {{ classDetails.tutorId?.name?.charAt(0)?.toUpperCase() || 'T' }}
+            </div>
+          </ion-avatar>
+          <div class="tutor-info">
+            <h3 class="tutor-name">{{ classDetails.tutorId?.name || 'Tutor' }}</h3>
+            <p class="tutor-label">Class Instructor</p>
+          </div>
+          <ion-icon name="chevron-forward-outline" class="chevron-icon"></ion-icon>
+        </div>
+      </div>
+
+      <!-- Class Schedule Info -->
+      <div class="info-grid">
+        <div class="info-card">
+          <ion-icon name="calendar-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Date</p>
+            <p class="info-value">{{ formatDate(classDetails.startTime) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="time-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Time</p>
+            <p class="info-value">{{ formatTimeRange(classDetails.startTime, classDetails.endTime) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="hourglass-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Duration</p>
+            <p class="info-value">{{ classDetails.duration || 60 }} minutes</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="bar-chart-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Level</p>
+            <p class="info-value">{{ getLevelLabel(classDetails.level) }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <ion-icon name="people-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Students</p>
+            <p class="info-value">{{ classDetails.confirmedStudents?.length || 0 }} / {{ classDetails.capacity }}</p>
+          </div>
+        </div>
+
+        <div class="info-card" *ngIf="classDetails.price && classDetails.price > 0">
+          <ion-icon name="cash-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Price</p>
+            <p class="info-value">${{ classDetails.price }}</p>
+          </div>
+        </div>
+
+        <div class="info-card" *ngIf="classDetails.recurrence && classDetails.recurrence.type !== 'none'">
+          <ion-icon name="repeat-outline" class="info-icon"></ion-icon>
+          <div class="info-content">
+            <p class="info-label">Recurrence</p>
+            <p class="info-value">{{ classDetails.recurrence.type }} ({{ classDetails.recurrence.count }} sessions)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Class Description -->
+      <div class="description-section" *ngIf="classDetails.description">
+        <h2 class="section-title">About This Class</h2>
+        <div class="description-content" [innerHTML]="sanitizedDescription"></div>
+      </div>
+
+      <!-- Enrolled Students Avatar Stack -->
+      <div class="students-section" *ngIf="classDetails.confirmedStudents && classDetails.confirmedStudents.length > 0">
+        <h2 class="section-title">
+          Enrolled Students
+          <span class="student-count">{{ classDetails.confirmedStudents.length }} / {{ classDetails.capacity }}</span>
+        </h2>
+        <div class="avatar-stack">
+          <div 
+            class="avatar-item" 
+            *ngFor="let student of classDetails.confirmedStudents.slice(0, 5); let i = index"
+            [style.z-index]="10 - i">
+            <ion-avatar class="stack-avatar">
+              <img 
+                *ngIf="student.picture" 
+                [src]="student.picture" 
+                [alt]="student.name">
+              <div *ngIf="!student.picture" class="avatar-placeholder">
+                {{ student.name?.charAt(0)?.toUpperCase() || 'S' }}
+              </div>
+            </ion-avatar>
+          </div>
+          <div class="avatar-more" *ngIf="classDetails.confirmedStudents.length > 5">
+            <span>+{{ classDetails.confirmedStudents.length - 5 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="actions-section">
+        <ion-button 
+          expand="block" 
+          size="large"
+          [fill]="classDetails.isEnrolled ? 'outline' : 'solid'"
+          [disabled]="classDetails.isFull && !classDetails.isEnrolled"
+          [color]="classDetails.hasInvitation && classDetails.invitationStatus === 'pending' ? 'warning' : 'primary'"
+          (click)="enrollInClass()">
+          <ion-icon 
+            [name]="classDetails.isEnrolled ? 'checkmark-circle' : (classDetails.hasInvitation && classDetails.invitationStatus === 'pending' ? 'mail' : (classDetails.isFull ? 'lock-closed' : 'add-circle'))" 
+            slot="start">
+          </ion-icon>
+          <span *ngIf="classDetails.isEnrolled">Enrolled</span>
+          <span *ngIf="!classDetails.isEnrolled && classDetails.hasInvitation && classDetails.invitationStatus === 'pending'">You Have an Invite</span>
+          <span *ngIf="!classDetails.isEnrolled && !classDetails.hasInvitation && !classDetails.isFull">Join Class</span>
+          <span *ngIf="!classDetails.isEnrolled && !classDetails.hasInvitation && classDetails.isFull">Class Full</span>
+        </ion-button>
+
+        <ion-button 
+          expand="block" 
+          fill="outline"
+          size="large"
+          (click)="messageTutor()">
+          <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
+          Message Tutor
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>
+

@@ -34,6 +34,7 @@ export interface User {
     bio: string;
     timezone: string;
     preferredLanguage: string;
+    officeHoursEnabled?: boolean;
   };
   stats?: {
     totalLessons: number;
@@ -91,6 +92,10 @@ export interface Tutor {
   totalLessons: number;
   totalHours: number;
   joinedDate: string;
+  profile?: {
+    officeHoursEnabled?: boolean;
+  };
+  isActivelyAvailable?: boolean; // True only if tutor is on pre-call page with recent heartbeat
   // UI state properties
   isOnline?: boolean;
   expanded?: boolean;
@@ -328,6 +333,29 @@ export class UserService {
       map(response => response.user),
       tap(user => this.currentUserSubject.next(user))
     );
+  }
+
+  /**
+   * Toggle office hours on/off
+   */
+  toggleOfficeHours(enabled: boolean): Observable<User> {
+    return this.updateProfile({ officeHoursEnabled: enabled });
+  }
+
+  /**
+   * Get office hours status
+   */
+  getOfficeHoursStatus(): boolean {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.officeHoursEnabled || false;
+  }
+
+  /**
+   * Send heartbeat to backend to indicate tutor is actively on pre-call page
+   */
+  sendOfficeHoursHeartbeat(): Observable<any> {
+    const headers = this.getAuthHeadersSync();
+    return this.http.post<any>(`${this.apiUrl}/users/office-hours-heartbeat`, {}, { headers });
   }
 
   /**

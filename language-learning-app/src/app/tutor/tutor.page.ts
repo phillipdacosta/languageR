@@ -1252,6 +1252,84 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  async bookOfficeHours() {
+    if (!this.tutor) {
+      return;
+    }
+
+    try {
+      // Check authentication first
+      const isAuth = await firstValueFrom(this.authService.isAuthenticated$);
+      
+      if (!isAuth) {
+        // Store where they wanted to go
+        const currentUrl = this.router.url;
+        localStorage.setItem('returnUrl', currentUrl);
+        console.log('🔄 Saving returnUrl for after login (office hours):', currentUrl);
+        
+        // Show friendly prompt
+        const alert = await this.alertController.create({
+          header: 'Login Required',
+          message: `Please log in to book office hours with ${this.tutor.name}.`,
+          buttons: [
+            {
+              text: 'Cancel',
+              role: 'cancel'
+            },
+            {
+              text: 'Log In',
+              handler: async () => {
+                await this.router.navigate(['/login'], { replaceUrl: true });
+              }
+            }
+          ]
+        });
+        await alert.present();
+        return;
+      }
+      
+      const currentUser = await firstValueFrom(this.authService.user$);
+      
+      if (!currentUser) {
+        console.log('User not authenticated');
+        return;
+      }
+      
+      // Check if user is a student
+      if (currentUser.userType !== 'student') {
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can book office hours. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+
+      // Import the modal component dynamically
+      const { OfficeHoursBookingComponent } = await import('../modals/office-hours-booking/office-hours-booking.component');
+      
+      const modal = await this.modalController.create({
+        component: OfficeHoursBookingComponent,
+        componentProps: {
+          tutorId: this.tutor.id,
+          tutorName: this.tutor.name,
+          tutorPicture: this.tutor.picture,
+          hourlyRate: this.tutor.hourlyRate
+        }
+      });
+
+      await modal.present();
+
+      const { data } = await modal.onWillDismiss();
+      if (data?.success) {
+        console.log('Office hours booked successfully:', data.lesson);
+      }
+    } catch (error) {
+      console.error('Error booking office hours:', error);
+    }
+  }
+
   // Format student display name as "First L."
   formatStudentDisplayName(studentOrName: any): string {
     // Handle if it's a student object with firstName and lastName

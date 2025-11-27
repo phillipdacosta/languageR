@@ -1,6 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ClassService, ClassInvitation } from '../../services/class.service';
 
 @Component({
@@ -17,11 +18,13 @@ export class ClassInvitationModalComponent implements OnInit {
   classData: ClassInvitation | null = null;
   loading = true;
   processing = false;
+  sanitizedDescription: SafeHtml = '';
 
   constructor(
     private modalCtrl: ModalController,
     private classService: ClassService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
@@ -44,6 +47,7 @@ export class ClassInvitationModalComponent implements OnInit {
         invitedStudents: [],
         confirmedStudents: []
       } as ClassInvitation;
+      this.updateSanitizedDescription();
       this.loading = false;
     } else if (this.classId) {
       // Otherwise, fetch from API
@@ -60,6 +64,7 @@ export class ClassInvitationModalComponent implements OnInit {
       next: (response) => {
         if (response.success) {
           this.classData = response.classes.find(c => c._id === this.classId) || null;
+          this.updateSanitizedDescription();
         }
         this.loading = false;
       },
@@ -68,6 +73,14 @@ export class ClassInvitationModalComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  private updateSanitizedDescription() {
+    if (this.classData?.description) {
+      this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
+    } else {
+      this.sanitizedDescription = '';
+    }
   }
 
   get formattedDate(): string {
@@ -128,12 +141,22 @@ export class ClassInvitationModalComponent implements OnInit {
       },
       error: async (error) => {
         console.error('Error accepting invitation:', error);
+        
+        // Handle scheduling conflicts (409) with more detailed message
+        const isConflict = error.status === 409;
         const message = error.error?.message || 'Failed to accept invitation';
+        
         const toast = await this.toastController.create({
           message,
-          duration: 2500,
-          color: 'danger',
-          position: 'top'
+          duration: isConflict ? 5000 : 2500, // Longer duration for conflict messages
+          color: isConflict ? 'warning' : 'danger',
+          position: 'top',
+          buttons: isConflict ? [
+            {
+              text: 'OK',
+              role: 'cancel'
+            }
+          ] : undefined
         });
         await toast.present();
         this.processing = false;

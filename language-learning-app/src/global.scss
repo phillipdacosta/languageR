@@ -33,488 +33,54 @@
  */
 
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
-@import "@ionic/angular/css/palettes/dark.class.css";
-/* @import "@ionic/angular/css/palettes/dark.system.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+@import "@ionic/angular/css/palettes/dark.system.css";
 
-// Fix for ion-popover positioning
-// Ionic popover should automatically position using getBoundingClientRect(),
-// but parent containers can interfere. We ensure proper viewport-relative positioning.
-// ion-popover {
-//   --offset-x: 0;
-//   --offset-y: 8px;
+// Office Hours Warning Alert Custom Styling
+.office-hours-warning-alert {
+  --width: 90%;
+  --max-width: 500px;
   
-//   // Force popover to use fixed positioning relative to viewport
-//   // This ensures it positions correctly regardless of parent container positioning
-//   &::part(content) {
-//     position: fixed !important;
-//   }
-// }
-
-// Ensure parent containers allow popovers to position correctly
-// The key is ensuring overflow: visible so popovers aren't clipped
-.next-class-card,
-.timeline-container {
-  overflow: visible;
-}
-
-/* Ensure dark mode applies to entire app */
-html.ion-palette-dark {
-  color-scheme: dark;
-}
-
-html.ion-palette-dark body {
-  background-color: var(--ion-background-color, #121212);
-  color: var(--ion-text-color, #ffffff);
-}
-
-/* Force dark mode styles on all ion components */
-html.ion-palette-dark ion-app {
-  background-color: var(--ion-background-color, #121212);
-  color: var(--ion-text-color, #ffffff);
-}
-
-/* Ensure all pages respect dark mode */
-html.ion-palette-dark {
-  ion-content {
-    --background: var(--ion-background-color, #121212);
-    --color: var(--ion-text-color, #ffffff);
+  .alert-wrapper {
+    border-radius: 16px !important;
   }
   
-  ion-toolbar {
-    --background: var(--ion-toolbar-background, #1f1f1f);
-    --color: var(--ion-text-color, #ffffff);
-  }
-  
-  ion-header {
-    --background: var(--ion-toolbar-background, #1f1f1f);
-  }
-  
-  /* Override any hardcoded white backgrounds */
-  .custom-header ion-toolbar,
-  .filters-container,
-  .tutor-card,
-  .student-card,
-  .lesson-card,
-  .filter-item,
-  .tutor-info-card,
-  .availability-card,
-  .booking-card,
-  .pre-call-container,
-  .video-controls,
-  .insights-panel,
-  .insight-metric,
-  .student-card-content,
-  .tutor-info {
-    background: var(--ion-item-background, #1e1e1e) !important;
-    color: var(--ion-text-color, #ffffff) !important;
-  }
-  
-  /* Darker cards for better contrast in dark mode */
-  .insights-panel,
-  .student-card,
-  .tutor-card {
-    background: #2a2a2a !important;
-    border: 1px solid #3a3a3a !important;
-  }
-  
-  /* Section headers and titles */
-  .section-header,
-  .upcoming-classes-header,
-  h2, h3, h4 {
-    color: var(--ion-text-color, #ffffff) !important;
-  }
-  
-  /* Ensure borders and dividers are visible in dark mode */
-  .border,
-  .divider,
-  hr {
-    border-color: var(--ion-color-medium, #4a4a4a) !important;
-  }
-  
-  /* Fix text colors that might be hardcoded */
-  h1, h2, h3, h4, h5, h6, p, span, div {
-    color: var(--ion-text-color, #ffffff) !important;
-  }
-  
-  /* Date strip styling for dark mode */
-  .date-strip .date-item {
-    background: #2a2a2a !important;
-    color: var(--ion-text-color, #ffffff) !important;
-    border: 1px solid #3a3a3a !important;
+  .alert-head {
+    padding: 20px 20px 16px 20px !important;
     
-    &.selected {
-      background: var(--ion-color-primary, #4d8dff) !important;
-      color: #ffffff !important;
+    h2 {
+      font-size: 20px !important;
+      font-weight: 700 !important;
+      color: #f59e0b !important;
     }
   }
-}
-
-/* FullCalendar styles - Basic styling */
-.fc {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  height: 100% !important;
-  display: flex;
-  flex-direction: column;
   
-  // Desktop: maintain height but ensure view harness can scroll
-  @media (min-width: 769px) {
-    height: 100% !important;
-  }
-}
-
-.fc-view-harness {
-  flex: 1;
-  min-height: 0;
-}
-
-.fc-view-harness-active {
-  flex: 1;
-  min-height: 0;
-}
-
-.fc-toolbar {
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.03) 100%);
-  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
-  margin-bottom: 0;
-  font-size: 14.5px;
-}
-
-@media (max-width: 768px) {
-  .fc-toolbar {
-    font-size: inherit;
-  }
-}
-
-.fc-toolbar-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #667eea;
-  letter-spacing: -0.02em;
-}
-.fc-timegrid-event .fc-event-main {
-  padding: 1px 1px 0px;
-  align-items: center;
-  text-align: center;
-}
-.fc-button {
-  background: transparent;
-  border: 1px solid #e5e7eb;
-  color: #6b7280;
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.813rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.fc-button:hover {
-  background: rgba(102, 126, 234, 0.1);
-  border-color: rgba(102, 126, 234, 0.3);
-  color: #667eea;
-}
-
-.fc-button-primary:not(:disabled):active {
-  background: rgba(102, 126, 234, 0.15);
-  border-color: rgba(102, 126, 234, 0.4);
-  color: #667eea;
-}
-
-.fc-button-primary:not(:disabled).fc-button-active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: #667eea;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
-}
-
-.fc-daygrid-day {
-  background: white;
-  border: 1px solid #dee2e6;
-}
-
-.fc-daygrid-day-number {
-  color: #495057;
-  font-weight: 500;
-}
-
-.fc-timegrid-slot {
-  border-color: #e9ecef;
-}
-
-.fc-timegrid-slot-label {
-  color: #6c757d;
-  font-size: 0.75rem;
-}
-
-.fc-event {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  color: white;
-  font-weight: 500;
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
-}
-
-.fc-event:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #6a4190 100%);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  transform: translateY(-1px);
-}
-
-.fc-timegrid-event {
-  border-radius: 0.25rem;
-}
-
-.fc-timegrid-event-harness {
-  margin: 1px;
-}
-
-.fc-col-header-cell {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.04) 0%, rgba(118, 75, 162, 0.02) 100%);
-  border-color: #e5e7eb;
-  color: #667eea;
-  font-weight: 600;
-  padding: 0.5rem 0.5rem;
-  font-size: 0.913rem;
-  height: 3em;
-}
-
-.fc-col-header-cell-cushion {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  top: 10px;
-}
-
-
-
-.fc-scrollgrid-sync-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.fc-scrollgrid {
-  border-color: #dee2e6;
-}
-
-.fc-scrollgrid-sync-table {
-  border-color: #dee2e6;
-}
-
-// Tutor Availability Modal
-.tutor-availability-modal {
-  --width: 95%;
-  --max-width: 1200px;
-  --height: 90%;
-  --border-radius: 16px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  
-  @media (max-width: 768px) {
-    --width: 100%;
-    --height: 95%;
-    --border-radius: 0;
-  }
-}
-
-// Availability Picker Modal (for tutors scheduling classes)
-.availability-picker-modal {
-  --width: 90%;
-  --max-width: 1200px;
-  --height: 85%;
-  --border-radius: 20px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  
-  @media (max-width: 768px) {
-    --width: 100%;
-    --height: 100%;
-    --border-radius: 0;
+  .alert-message {
+    padding: 0 20px 20px 20px !important;
+    font-size: 14px !important;
+    line-height: 1.8 !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    white-space: pre-line !important;
+    text-align: left !important;
   }
   
-  // Keep the same natural sizing as the inline view
-  .availability-container {
-    max-width: 1200px;
-  }
-}
-
-// standard th {
-//   border: 1px solid var(--fc-border-color);
-//   height: 3em;
-// }
-
-.fc .fc-timegrid-slot {
-  border-bottom: 0px;
-  height: 3.0em;
-}
-.fc .fc-button-primary:disabled {
-  background-color: transparent;
-  border-color: #e5e7eb;
-  color: #9ca3af;
-  opacity: 0.5;
-}
-
-.fc .fc-button-group > .fc-button {
-  margin: 0 2px;
-  border-radius: 10px;
-}
-
-.fc .fc-toolbar-title {
-  font-size: 1.1rem;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.fc .fc-toolbar.fc-header-toolbar{
-  margin-bottom: 0;
-}
-
-.day-headers .time-column-header[_ngcontent-ng-c1301825033]::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: -22px;
-  background: #f8f9fa !important;
-  z-index: 1;
-}
-
-@media (min-width: 769px) {
-  .day-headers[_ngcontent-ng-c1301825033] .time-column-header[_ngcontent-ng-c1301825033]::after {
-      bottom: -16px;
-      background: white !important;
-  }
-}
-
-.fc-button-group {
-  display: inline-flex;
-  border-radius: 6px;
-  overflow: hidden;
-  // border: 1px solid rgba(102, 126, 234, 0.2);
-  
-  .fc-button {
-    border: none;
-    border-radius: 0;
-    margin: 0;
+  .alert-button-group {
+    padding: 0 20px 20px 20px !important;
     
-    &:not(:last-child) {
-      border-right: 1px solid rgba(102, 126, 234, 0.2);
+    button {
+      border-radius: 10px !important;
+      font-weight: 600 !important;
+      height: 44px !important;
+      
+      &.alert-button-role-cancel {
+        color: #64748b !important;
+      }
+      
+      &:not(.alert-button-role-cancel) {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+        color: white !important;
+      }
     }
-  }
-}
-
-// Today highlighting with purple theme
-.fc-day-today {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%) !important;
-  
-  .fc-daygrid-day-number {
-    color: #667eea;
-    font-weight: 600;
-  }
-}
-
-.fc .fc-col-header-cell-cushion {
-  // display: inline-block;
-  // padding: 2px 4px;
-  color: #000000;
-}
-
-.fc .fc-col-header-cell-cushion {
-  // display: inline-block;
-  padding: 2px 15px;
-}
-
-/* Distinct style for class events */
-.fc .calendar-class-event {
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%) !important;
-  border: 2px solid #7c3aed !important;
-  border-radius: 10px !important;
-  box-shadow: 0 6px 18px rgba(107, 70, 193, 0.25) !important;
-  min-height: 20px !important;
-  height: auto !important;
-  padding: 4px 8px !important;
-}
-.fc .calendar-class-event .fc-event-main {
-  color: #ffffff !important;
-  font-weight: 600;
-  font-size: 0.8rem !important;
-}
-.fc .calendar-class-event .fc-event-title {
-  color: #ffffff !important;
-  font-weight: 600 !important;
-}
-
-/* Availability blocks (subtle purple) */
-.fc .calendar-availability-event {
-  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%) !important; /* teal */
-  border: 1px solid rgba(13, 148, 136, 0.7) !important;
-  color: #ffffff !important;
-}
-
-/* Single lessons (blue) */
-.fc .calendar-lesson-event {
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%) !important;
-  border: 1px solid rgba(37, 99, 235, 0.7) !important;
-  color: #ffffff !important;
-}
-
-/* Past state modifier */
-.fc .is-past {
-  filter: grayscale(20%);
-  opacity: 0.85; /* slightly transparent for past items */
-}
-
-.fc .is-past:hover {
-  opacity: 0.95;
-}
-
-/* Message Context Menu Modal */
-.message-context-menu-modal {
-  --background: transparent;
-  --box-shadow: none;
-}
-
-.message-context-menu-modal .modal-wrapper {
-  background: transparent;
-  box-shadow: none;
-}
-
-/* Video Player Modal */
-.video-player-modal {
-  --background: rgba(0, 0, 0, 0.95);
-  --width: 90%;
-  --height: 85%;
-  --border-radius: 12px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.video-player-modal .modal-wrapper {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-.video-player-modal ion-header {
-  background: rgba(0, 0, 0, 0.9);
-}
-
-.video-player-modal ion-toolbar {
-  --background: rgba(0, 0, 0, 0.9);
-  --color: #fff;
-}
-
-.video-player-modal ion-title {
-  font-weight: 600;
-}
-
-@media (max-width: 768px) {
-  .video-player-modal {
-    --width: 100%;
-    --height: 100%;
-    --border-radius: 0;
   }
 }

@@ -4,7 +4,7 @@ import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } fro
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
-import { ModalController, ViewWillEnter, AnimationController } from '@ionic/angular';
+import { ModalController, ViewWillEnter, AnimationController, AlertController } from '@ionic/angular';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
@@ -133,7 +133,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     private route: ActivatedRoute,
     private messagingService: MessagingService,
     private animationCtrl: AnimationController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -159,7 +160,27 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       console.log('🔄 Navigation event detected:', event.url);
       if (event.url.includes('/tabs/tutor-search')) {
         console.log('🎯 Navigated to tutor-search, checking localStorage');
-        // Small delay to ensure view is ready
+
+        // Handle forced refresh after a cancelled quick session
+        const forceRefresh = localStorage.getItem('forceRefreshTutors');
+        if (forceRefresh === 'true') {
+          console.log('🔄 Force refresh (router event) - reloading tutors with fresh data');
+          localStorage.removeItem('forceRefreshTutors');
+
+          // Clear cache so we always hit backend
+          this.isReturningFromProfile = false;
+          this.hasLoadedOnce = false;
+          this.tutors = [];
+
+          // Small delay to let backend finish any profile updates
+          setTimeout(() => {
+            console.log('✅ Triggering fresh search after office hours update (router event)');
+            this.getCurrentUser();
+          }, 500);
+          return;
+        }
+
+        // Normal return-navigation handling (scroll/highlight)
         setTimeout(() => {
           this.checkForReturnNavigation();
         }, 200);
@@ -175,6 +196,27 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   
   ionViewWillEnter() {
     console.log('🔍 ionViewWillEnter - Checking for return navigation');
+    
+    // Check if we need to force refresh (e.g., after lesson cancellation)
+    const forceRefresh = localStorage.getItem('forceRefreshTutors');
+    if (forceRefresh === 'true') {
+      console.log('🔄 Force refresh requested - reloading tutors with fresh data');
+      localStorage.removeItem('forceRefreshTutors');
+      
+      // Clear the cache and reload
+      this.isReturningFromProfile = false;
+      this.hasLoadedOnce = false;
+      this.tutors = []; // Clear existing tutors to show fresh data
+      
+      // Add a delay to ensure backend has fully updated office hours status
+      console.log('⏳ Waiting 1500ms for backend to sync office hours status...');
+      setTimeout(() => {
+        console.log('✅ Triggering fresh search after office hours update');
+        this.getCurrentUser();
+      }, 1500);
+      return;
+    }
+    
     const handledReturn = this.checkForReturnNavigation();
     
     // If we handled a return navigation with existing tutors, stop here
@@ -443,11 +485,39 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     
     console.log('🔍 Searching tutors with filters:', this.filters);
     
+    const lastCancelledTutorId = localStorage.getItem('lastCancelledTutorId');
     this.userService.searchTutors(this.filters)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
           console.log('🔍 Tutor search successful:', response);
+          console.log('🔍 Total tutors returned:', response.tutors.length);
+          
+          // Log office hours status for tutors and apply client-side guard
+          response.tutors = response.tutors.map((tutor, index) => {
+            const isCancelledTutor = lastCancelledTutorId && String(tutor.id) === String(lastCancelledTutorId);
+            const effectiveIsActivelyAvailable = tutor.isActivelyAvailable && !isCancelledTutor;
+            
+            if (index < 5 && (tutor.isActivelyAvailable || tutor.profile?.officeHoursEnabled || isCancelledTutor)) {
+              console.log(`🔍 Tutor ${index}: ${tutor.name}`, {
+                originalIsActivelyAvailable: tutor.isActivelyAvailable,
+                officeHoursEnabled: tutor.profile?.officeHoursEnabled,
+                isCancelledTutor,
+                effectiveIsActivelyAvailable
+              });
+            }
+            
+            return {
+              ...tutor,
+              isActivelyAvailable: effectiveIsActivelyAvailable
+            } as Tutor;
+          });
+
+          // Clear the cancelled tutor guard after one refresh
+          if (lastCancelledTutorId) {
+            localStorage.removeItem('lastCancelledTutorId');
+          }
+          
           console.log('🔍 First tutor video data:', response.tutors[0] ? {
             name: response.tutors[0].name,
             hasVideo: !!response.tutors[0].introductionVideo,
@@ -854,6 +924,77 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       }
     } catch (error) {
       console.error('Error creating potential student conversation:', error);
+    }
+  }
+
+  /**
+   * Book a quick office hours session with a tutor (from search results)
+   */
+  async bookOfficeHours(tutor: Tutor, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    if (!tutor || !this.currentUser) {
+      console.log('❌ Cannot book office hours: missing tutor or currentUser');
+      return;
+    }
+
+    // Only students can book office hours
+    if (this.currentUser.userType !== 'student') {
+      console.log('Only students can book office hours');
+      return;
+    }
+
+    try {
+      console.log('⚡ Checking tutor availability before opening modal...', {
+        id: tutor.id,
+        auth0Id: tutor.auth0Id,
+        name: tutor.name
+      });
+
+      // Verify tutor is still available for office hours with a fresh API call
+      const tutorProfileResponse = await this.userService.getTutorPublic(tutor.id).pipe(takeUntil(this.destroy$)).toPromise();
+      
+      if (!tutorProfileResponse?.success || !tutorProfileResponse?.tutor?.profile?.officeHoursEnabled) {
+        console.log('❌ Tutor no longer available for office hours');
+        
+        // Show alert to user
+        const alert = await this.alertController.create({
+          header: 'Tutor Unavailable',
+          message: `${tutor.name} is no longer available for quick sessions. Please try booking a scheduled lesson instead or find another tutor.`,
+          buttons: ['OK']
+        });
+        await alert.present();
+        
+        // Refresh the tutor list to show updated availability
+        this.performSearch();
+        return;
+      }
+
+      console.log('✅ Tutor is available for office hours, opening modal...');
+
+      // Dynamically import the office hours booking modal
+      const { OfficeHoursBookingComponent } = await import('../modals/office-hours-booking/office-hours-booking.component');
+
+      const modal = await this.modalController.create({
+        component: OfficeHoursBookingComponent,
+        componentProps: {
+          tutorId: tutor.id,
+          tutorName: tutor.name,
+          tutorPicture: (tutor as any).picture,
+          hourlyRate: (tutor as any).hourlyRate
+        }
+      });
+
+      await modal.present();
+
+      const { data } = await modal.onWillDismiss();
+      if (data?.success) {
+        console.log('⚡ Office hours booked successfully from search:', data.lesson);
+      }
+    } catch (error) {
+      console.error('❌ Error booking office hours from search:', error);
     }
   }
 

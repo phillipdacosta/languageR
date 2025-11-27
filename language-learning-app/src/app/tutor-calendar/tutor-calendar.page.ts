@@ -1,15 +1,17 @@
 import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ViewWillEnter, ViewDidEnter } from '@ionic/angular';
+import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
+import { WebSocketService } from '../services/websocket.service';
 import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { filter } from 'rxjs/operators';
+import { filter, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
@@ -40,8 +42,12 @@ interface TimelineEntry {
   isPast?: boolean;
   isTrialLesson?: boolean;
   isClass?: boolean;
+  isOfficeHours?: boolean; // True if this is an office hours session
   attendees?: any[];
   capacity?: number;
+  id?: string; // Lesson ID or Class ID
+  isLesson?: boolean; // True if this is a 1:1 lesson
+  thumbnail?: string; // Thumbnail image for classes
 }
 
 interface AgendaSection {
@@ -266,6 +272,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private classesMap: Map<string, any> = new Map(); // Map class ID to class data with attendees
+  private destroy$ = new Subject<void>();
 
   constructor(
     private userService: UserService,
@@ -273,7 +280,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private classService: ClassService,
     public router: Router,
     private platformService: PlatformService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private actionSheetController: ActionSheetController,
+    private modalController: ModalController,
+    private toastController: ToastController,
+    private alertController: AlertController,
+    private websocketService: WebSocketService
   ) { }
 
   private evaluateViewport() {
@@ -486,7 +498,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === 'Open time slot';
-      return !isGenericAvailability && !isFreeSlot;
+      // Exclude past events (end time has passed)
+      const now = new Date();
+      const isPastEvent = item.end.getTime() < now.getTime();
+      return !isGenericAvailability && !isFreeSlot && !isPastEvent;
     });
     
     // Assign all at once to prevent intermediate empty states
@@ -523,6 +538,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
     const isLesson = Boolean(extended.lessonId);
     const isClass = extended.isClass || (event.title && event.title !== 'Available' && event.title.includes('Class'));
+    const isOfficeHours = Boolean(extended.isOfficeHours);
     
     // Debug logging for the 12:00-1:00 PM slot
     const debugStartTimeStr = start.toLocaleTimeString();
@@ -533,9 +549,21 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
-    // Classes and lessons should be green (#10b981), availability blocks blue (#007bff)
-    // Override the purple color that classes get from blockToEvent
-    const color = (isLesson || isClass) ? '#10b981' : '#007bff';
+    
+    // Color coding:
+    // Office hours: Gold (#f59e0b)
+    // Classes: Purple (#8b5cf6)  
+    // Regular lessons: Green (#10b981)
+    // Availability: Blue (#007bff)
+    let color = '#007bff'; // Default to availability blue
+    if (isOfficeHours) {
+      color = '#f59e0b'; // Gold for office hours
+    } else if (isClass) {
+      color = '#8b5cf6'; // Purple for classes
+    } else if (isLesson) {
+      color = '#10b981'; // Green for regular lessons
+    }
+    
     const location = extended.location || extended.platform;
     const avatarUrl = isLesson ? extended.studentAvatar : undefined;
     const isTrialLesson = isLesson ? (extended.isTrialLesson || false) : false;
@@ -547,6 +575,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Look up class data from classesMap if this is a class
     let attendees: any[] | undefined = undefined;
     let capacity: number | undefined = undefined;
+    let thumbnail: string | undefined = undefined;
     if (isClass && extended.classId) {
       const classId = String(extended.classId); // Ensure string for lookup
       const classData = this.classesMap.get(classId);
@@ -554,6 +583,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         // Get confirmed students (attendees) - these are the students who accepted
         attendees = classData.attendees || classData.confirmedStudents || [];
         capacity = classData.capacity || 1;
+        thumbnail = classData.thumbnail; // Extract thumbnail for mobile display
       }
     }
 
@@ -571,8 +601,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       isPast,
       isTrialLesson,
       isClass: isClass || false,
+      isOfficeHours: isOfficeHours || false,
       attendees,
-      capacity
+      capacity,
+      thumbnail,
+      id: extended.lessonId || extended.classId, // Store the ID for navigation
+      isLesson: isLesson
     };
   }
 
@@ -670,8 +704,54 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
     // Start updater for custom now indicator
     setTimeout(() => this.updateCustomNowIndicator());
-    this.customNowInterval = setInterval(() => this.updateCustomNowIndicator(), 60_000);
+    this.customNowInterval = setInterval(() => {
+      this.updateCustomNowIndicator();
+      // Also refresh mobile timeline more frequently to handle short office hours sessions
+      if (this.isMobileView && this.selectedMobileDay) {
+        this.buildMobileTimeline();
+      }
+    }, 60_000); // Every 60 seconds
     window.addEventListener('resize', this.updateCustomNowIndicatorBound);
+    
+    // Subscribe to office hours notifications for real-time calendar updates
+    this.websocketService.newNotification$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(async (notification) => {
+        if (notification.type === 'office_hours_booking' && notification.urgent) {
+          console.log('⚡ Received urgent office hours booking notification');
+          
+          // Don't show toast if tutor is currently on pre-call page (they already see the modal)
+          const currentUrl = this.router.url;
+          if (currentUrl.includes('/pre-call')) {
+            console.log('⚡ Skipping toast - tutor is on pre-call page');
+            return;
+          }
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'New office hours session booked!',
+            duration: 5000,
+            color: 'warning',
+            icon: 'flash',
+            position: 'top',
+            buttons: [
+              {
+                text: 'View',
+                handler: () => {
+                  if (notification.lessonId || notification.data?.lessonId) {
+                    const lessonId = notification.lessonId || notification.data?.lessonId;
+                    this.router.navigate(['/tabs/tutor-calendar/event', lessonId]);
+                  }
+                }
+              }
+            ]
+          });
+          toast.present();
+          
+          // Refresh calendar to show the new booking
+          this.refreshCalendar();
+        }
+      });
     
   }
   
@@ -692,6 +772,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   ngOnDestroy() {
+    // Clean up subscriptions
+    this.destroy$.next();
+    this.destroy$.complete();
+    
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.viewportResizeHandler);
     }
@@ -842,8 +926,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
     // Convert lessons to events but don't replace existing events (availability/classes)
+    // Filter out cancelled lessons to avoid cluttering the calendar
+    const activeAndCompletedLessons = lessons.filter(lesson => lesson.status !== 'cancelled');
     
-    const lessonEvents = lessons.map(lesson => {
+    const lessonEvents = activeAndCompletedLessons.map(lesson => {
       const student = lesson.studentId as any;
       const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
       const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
@@ -856,31 +942,37 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (debugStartTime.getHours() === 12 && debugStartTime.getMinutes() === 0) {
       }
       
-      // Determine color based on status
+      // Determine color based on type and status
       let backgroundColor = '#667eea'; // Default purple
       let borderColor = '#5568d3';
       
-      switch (lesson.status) {
-        case 'scheduled':
-          backgroundColor = '#10b981'; // Green - booked lesson
-          borderColor = '#059669';
-          break;
-        case 'in_progress':
-          backgroundColor = '#10b981'; // Green - happening now
-          borderColor = '#059669';
-          break;
-        case 'completed':
-          backgroundColor = '#6b7280'; // Gray - completed
-          borderColor = '#4b5563';
-          break;
-        case 'cancelled':
-          backgroundColor = '#ef4444'; // Red - cancelled
-          borderColor = '#dc2626';
-          break;
-        default:
-          backgroundColor = '#10b981';
-          borderColor = '#059669';
-          break;
+      // Office hours get gold color regardless of status
+      if (lesson.isOfficeHours) {
+        backgroundColor = '#f59e0b'; // Gold for office hours
+        borderColor = '#d97706';
+      } else {
+        switch (lesson.status) {
+          case 'scheduled':
+            backgroundColor = '#10b981'; // Green - booked lesson
+            borderColor = '#059669';
+            break;
+          case 'in_progress':
+            backgroundColor = '#10b981'; // Green - happening now
+            borderColor = '#059669';
+            break;
+          case 'completed':
+            backgroundColor = '#6b7280'; // Gray - completed
+            borderColor = '#4b5563';
+            break;
+          case 'cancelled':
+            backgroundColor = '#ef4444'; // Red - cancelled
+            borderColor = '#dc2626';
+            break;
+          default:
+            backgroundColor = '#10b981';
+            borderColor = '#059669';
+            break;
+        }
       }
       
       // Format time for display (12-hour format like availability-setup)
@@ -909,7 +1001,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           price: lesson.price,
           duration: lesson.duration,
           notes: lesson.notes,
-          isTrialLesson: lesson.isTrialLesson || false
+          isTrialLesson: lesson.isTrialLesson || false,
+          isOfficeHours: lesson.isOfficeHours || false,
+          officeHoursType: lesson.officeHoursType || null
         }
       } as EventInput;
       
@@ -1592,15 +1686,264 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.router.navigate(['/tabs/tutor-calendar/schedule-class']);
   }
 
-  onAddTimeOff() {
-    // TODO: Implement time off modal
+  async onAddTimeOff(date?: Date, timeSlot?: TimelineEntry) {
+    const { BlockTimeComponent } = await import('../modals/block-time/block-time.component');
+    
+    const modal = await this.modalController.create({
+      component: BlockTimeComponent,
+      componentProps: {
+        date: date || new Date(),
+        startTime: timeSlot?.start,
+        endTime: timeSlot?.end,
+        durationMinutes: timeSlot?.durationMinutes
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.success) {
+      // Refresh calendar to show the new time-off block
+      this.refreshCalendar();
+    }
   }
 
   onAddExtraSlots() {
     // TODO: Implement extra slots modal
   }
 
-  onSetUpAvailability(date?: Date) {
+  async onFreeSlotClick(date: Date, timeSlot?: TimelineEntry) {
+    // Check current office hours status to show correct button text
+    const officeHoursEnabled = this.userService.getOfficeHoursStatus();
+    
+    // Show action sheet for managing this open time slot
+    const actionSheet = await this.actionSheetController.create({
+      header: 'Manage This Time Slot',
+      cssClass: 'availability-action-sheet',
+      buttons: [
+        {
+          text: 'Set Regular Availability',
+          icon: 'time-outline',
+          handler: async () => {
+            // Delay to let action sheet dismiss first
+            setTimeout(() => {
+              this.onSetUpAvailability(date, timeSlot);
+            }, 100);
+            return true; // Allow action sheet to dismiss
+          }
+        },
+        {
+          text: officeHoursEnabled ? 'Disable Office Hours' : 'Enable Office Hours',
+          icon: 'flash-outline',
+          handler: async () => {
+            // Delay to let action sheet dismiss first
+            setTimeout(() => {
+              this.onEnableOfficeHours();
+            }, 100);
+            return true; // Allow action sheet to dismiss
+          }
+        },
+        {
+          text: 'Block This Time',
+          icon: 'ban-outline',
+          handler: async () => {
+            // Delay to let action sheet dismiss first
+            setTimeout(() => {
+              this.onAddTimeOff(date, timeSlot);
+            }, 100);
+            return true; // Allow action sheet to dismiss
+          }
+        },
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          icon: 'close-outline'
+        }
+      ]
+    });
+
+    await actionSheet.present();
+  }
+
+  async onEnableOfficeHours() {
+    const currentStatus = this.userService.getOfficeHoursStatus();
+    console.log('🎯 onEnableOfficeHours called, current status:', currentStatus);
+    
+    // Check for schedule conflicts before enabling
+    if (!currentStatus) {
+      const conflict = this.checkOfficeHoursConflicts();
+      
+      if (conflict.hasConflict) {
+        // Show error alert
+        const alert = await this.alertController.create({
+          header: '⚠️ Schedule Conflict',
+          message: conflict.message,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return; // Stop here
+      }
+    }
+    
+    if (currentStatus) {
+      // If currently enabled, just show simple confirmation to disable
+      const alert = await this.alertController.create({
+        header: 'Disable Office Hours?',
+        message: 'Students will no longer be able to instantly book sessions with you.',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              console.log('❌ Office hours disable cancelled');
+            }
+          },
+          {
+            text: 'Disable',
+            handler: async () => {
+              console.log('✅ Disabling office hours');
+              try {
+                await this.userService.toggleOfficeHours(false).toPromise();
+                console.log('✅ Office hours disabled');
+                
+                const toast = await this.toastController.create({
+                  message: 'Office Hours disabled',
+                  duration: 3000,
+                  color: 'success',
+                  icon: 'checkmark-circle'
+                });
+                toast.present();
+              } catch (error) {
+                console.error('❌ Error disabling office hours:', error);
+                const toast = await this.toastController.create({
+                  message: 'Failed to update office hours settings',
+                  duration: 3000,
+                  color: 'danger'
+                });
+                toast.present();
+              }
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      // Show warning modal before enabling
+      const alert = await this.alertController.create({
+        header: '⚡ Enable Office Hours',
+        message: `⚠️ Only enable this when you're ready to accept calls immediately!
+
+When enabled:
+• Students can join instantly
+• You must respond within a minute
+• You'll be taken to the Pre-Call Waiting Room
+• You must stay on that page to remain available
+
+💡 You'll get a full-screen prompt when a student tries to join`,
+        cssClass: 'office-hours-warning-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              console.log('❌ Office hours enable cancelled');
+            }
+          },
+          {
+            text: 'Enable & Go to Waiting Room',
+            handler: async () => {
+              console.log('✅ Enabling office hours and navigating to pre-call');
+              try {
+                await this.userService.toggleOfficeHours(true).toPromise();
+                console.log('✅ Office hours enabled');
+                
+                // Show success toast
+                const toast = await this.toastController.create({
+                  message: '⚡ Office Hours enabled! Taking you to waiting room...',
+                  duration: 2000,
+                  color: 'success',
+                  icon: 'flash'
+                });
+                await toast.present();
+                
+                // Navigate to pre-call page after short delay
+                // For office hours, we navigate without a specific lessonId
+                // The pre-call page will handle office hours mode differently
+                setTimeout(() => {
+                  this.router.navigate(['/pre-call'], {
+                    queryParams: {
+                      role: 'tutor',
+                      officeHours: 'true'
+                    }
+                  });
+                }, 2000);
+              } catch (error) {
+                console.error('❌ Error enabling office hours:', error);
+                const toast = await this.toastController.create({
+                  message: 'Failed to enable office hours',
+                  duration: 3000,
+                  color: 'danger'
+                });
+                toast.present();
+              }
+            }
+          }
+        ]
+      });
+      await alert.present();
+    }
+  }
+
+  /**
+   * Check if tutor has any schedule conflicts that would prevent office hours
+   */
+  private checkOfficeHoursConflicts(): { hasConflict: boolean; message?: string; nextEvent?: TimelineEntry } {
+    const now = new Date();
+    const BUFFER_MINUTES = 5; // Minimum time before next event
+    const bufferTime = new Date(now.getTime() + BUFFER_MINUTES * 60 * 1000);
+
+    console.log('🔍 Checking office hours conflicts...', {
+      now: now.toISOString(),
+      bufferTime: bufferTime.toISOString(),
+      eventsCount: this.mobileTimelineEvents.length
+    });
+
+    // Check all timeline events for conflicts
+    for (const event of this.mobileTimelineEvents) {
+      if (!event.start || !event.end) continue;
+      
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+
+      // Check if currently in an event
+      if (now >= eventStart && now <= eventEnd) {
+        console.log('⚠️ Conflict: Currently in event', event);
+        const eventType = event.isClass ? 'class' : 'lesson';
+        return {
+          hasConflict: true,
+          message: `You're currently in a ${eventType}. Please finish it before enabling office hours.`,
+          nextEvent: event
+        };
+      }
+
+      // Check if event starts within buffer period
+      if (eventStart > now && eventStart <= bufferTime) {
+        const minutesUntil = Math.round((eventStart.getTime() - now.getTime()) / (60 * 1000));
+        console.log('⚠️ Conflict: Event starting soon', { event, minutesUntil });
+        const eventType = event.isClass ? 'class' : 'lesson';
+        return {
+          hasConflict: true,
+          message: `You have a ${eventType} starting in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}. Please wait until after it ends.`,
+          nextEvent: event
+        };
+      }
+    }
+
+    console.log('✅ No conflicts found');
+    return { hasConflict: false };
+  }
+
+  onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
     
     if (date) {
       // Format date as YYYY-MM-DD using local timezone to avoid UTC conversion issues
@@ -1609,7 +1952,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const dayOfMonth = String(date.getDate()).padStart(2, '0');
       const dateStr = `${year}-${month}-${dayOfMonth}`;
       
-      this.router.navigate(['/tabs/availability-setup', dateStr]);
+      // Build query params to pre-populate the form
+      const queryParams: any = {};
+      
+      if (timeSlot) {
+        // Add time slot information as query params
+        if (timeSlot.start) {
+          const startTime = timeSlot.start;
+          queryParams.startHour = startTime.getHours();
+          queryParams.startMinute = startTime.getMinutes();
+        }
+        if (timeSlot.end) {
+          const endTime = timeSlot.end;
+          queryParams.endHour = endTime.getHours();
+          queryParams.endMinute = endTime.getMinutes();
+        }
+        if (timeSlot.durationMinutes) {
+          queryParams.duration = timeSlot.durationMinutes;
+        }
+      }
+      
+      this.router.navigate(['/tabs/availability-setup', dateStr], { queryParams });
     } else {
       // Fallback to general availability setup if no date provided
       this.router.navigate(['/tabs/availability-setup']);
@@ -1859,6 +2222,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // 3. Only showing time slots where both are available
     // 4. Highlighting these mutual slots in the calendar
     console.log('📅 Refreshing calendar for reschedule mode');
+  }
+
+  // Navigate to event details page
+  onEventClick(item: TimelineEntry) {
+    if (!item.id || item.type === 'free') {
+      return; // Don't navigate for free slots or items without ID
+    }
+    
+    // Navigate to the event details page
+    this.router.navigate(['/tabs/tutor-calendar/event', item.id]);
   }
 }
 

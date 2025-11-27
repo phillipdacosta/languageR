@@ -1,0 +1,439 @@
+.booking-container,
+.confirmation-container {
+  max-width: 550px;
+  margin: 0 auto;
+}
+
+.tutor-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 16px;
+  margin-bottom: 24px;
+  border: 2px solid #fbbf24;
+
+  &.compact {
+    padding: 14px;
+    margin-bottom: 20px;
+    
+    .tutor-avatar {
+      width: 48px;
+      height: 48px;
+    }
+    
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #92400e;
+    }
+    
+    .session-type {
+      font-size: 13px;
+      color: #d97706;
+      font-weight: 500;
+    }
+  }
+
+  .tutor-avatar {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border: 3px solid #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .tutor-info {
+    flex: 1;
+
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #92400e;
+    }
+
+    .office-hours-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #d97706;
+
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+  }
+}
+
+.rate-info-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #10b981;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  
+  ion-icon {
+    font-size: 24px;
+    color: #059669;
+    flex-shrink: 0;
+  }
+  
+  strong {
+    display: block;
+    color: #065f46;
+    font-size: 16px;
+  }
+  
+  p {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    color: #047857;
+  }
+}
+
+.booking-type-selector {
+  margin-bottom: 24px;
+
+  ion-segment {
+    --background: var(--ion-color-light);
+    border-radius: 12px;
+    padding: 4px;
+
+    ion-segment-button {
+      --indicator-color: #f59e0b;
+      --color-checked: #ffffff;
+      min-height: 48px;
+      font-weight: 600;
+
+      ion-icon {
+        margin-bottom: 4px;
+      }
+    }
+  }
+}
+
+.duration-section {
+  margin-bottom: 24px;
+
+  .section-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin-bottom: 12px;
+  }
+
+  .duration-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .duration-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: var(--ion-color-light);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:has(ion-radio:checked) {
+      background: #fef3c7;
+      border-color: #f59e0b;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+
+    ion-radio {
+      margin: 0;
+    }
+
+    .option-content {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .duration-label {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--ion-color-dark);
+      }
+
+      .duration-price {
+        font-size: 16px;
+        font-weight: 700;
+        color: #d97706;
+      }
+    }
+  }
+}
+
+.scheduled-time-section {
+  margin-bottom: 24px;
+
+  ion-item {
+    --background: var(--ion-color-light);
+    --border-radius: 12px;
+    margin-bottom: 8px;
+  }
+
+  .time-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: var(--ion-color-medium);
+    font-size: 13px;
+
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+}
+
+.instant-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+  border-radius: 12px;
+  margin-bottom: 24px;
+
+  ion-icon {
+    font-size: 24px;
+    color: #3b82f6;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  strong {
+    display: block;
+    color: #1e40af;
+    margin-bottom: 4px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: #1e40af;
+    line-height: 1.4;
+  }
+}
+
+.notes-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 24px;
+
+  ion-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  ion-textarea {
+    --background: var(--ion-color-light);
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    border-radius: 12px;
+  }
+}
+
+.price-summary {
+  background: var(--ion-color-light);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    margin-bottom: 8px;
+
+    &.total {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 2px solid rgba(0, 0, 0, 0.1);
+      margin-bottom: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ion-color-dark);
+
+      .price {
+        font-size: 24px;
+        font-weight: 700;
+        color: #d97706;
+      }
+    }
+  }
+}
+
+.book-button {
+  --background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --border-radius: 12px;
+  --box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  height: 56px;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+
+  ion-spinner {
+    margin-right: 8px;
+  }
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+ion-button[fill="clear"] {
+  --color: var(--ion-color-medium);
+  font-weight: 600;
+}
+
+// Confirmation View Styles
+.confirmation-header {
+  text-align: center;
+  margin-bottom: 24px;
+  
+  .confirmation-icon {
+    font-size: 48px;
+    color: #10b981;
+    margin-bottom: 12px;
+  }
+  
+  h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ion-color-dark);
+  }
+}
+
+.price-breakdown {
+  background: var(--ion-color-light);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  
+  h4 {
+    margin: 0 0 16px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ion-color-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 15px;
+    color: var(--ion-color-dark);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    
+    &:last-child {
+      border-bottom: none;
+    }
+    
+    &.highlight {
+      margin-top: 8px;
+      padding-top: 16px;
+      border-top: 2px solid #f59e0b;
+      border-bottom: none;
+      font-weight: 700;
+      
+      .price {
+        font-size: 24px;
+        color: #d97706;
+      }
+    }
+  }
+}
+
+.billing-notice {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  border: 1px solid #3b82f6;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  
+  ion-icon {
+    font-size: 24px;
+    color: #3b82f6;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #1e40af;
+    line-height: 1.5;
+    
+    strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+  }
+}
+
+.scheduled-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: #fef3c7;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400e;
+  
+  ion-icon {
+    font-size: 20px;
+    color: #d97706;
+  }
+}
+
+.confirm-button {
+  --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --border-radius: 12px;
+  --box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  height: 56px;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+
+  ion-spinner {
+    margin-right: 8px;
+  }
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+

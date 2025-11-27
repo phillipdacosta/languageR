@@ -1,0 +1,338 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start" *ngIf="showFiltersView">
+      <ion-button (click)="closeFilters()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ showFiltersView ? 'Filters' : 'Explore Classes' }}</ion-title>
+    <ion-buttons slot="end" *ngIf="showFiltersView">
+      <ion-button (click)="clearFilters()">Clear</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="explore-container">
+    <!-- Header Section -->
+    <div class="header-section">
+      <h1>Discover Public Classes</h1>
+      <p>Join group classes and learn with other students</p>
+    </div>
+
+    <!-- Main Content View -->
+    <div class="main-content-view" *ngIf="!showFiltersView">
+      <!-- Filters Container -->
+      <div class="filters-container">
+        <!-- Top Row Filters - Always visible -->
+        <div class="top-filters">
+          <!-- Language Search - Always visible -->
+          <div class="filter-item language-filter" 
+               [class.dropdown-open]="showLanguageDropdown"
+               (click)="toggleLanguageDropdown(); $event.stopPropagation()">
+            <label>Language</label>
+            <div class="filter-value-wrapper">
+              <span class="filter-value">{{ getCurrentLanguageLabel() }}</span>
+              <app-flag-icon *ngIf="filters.language && filters.language !== 'any'" [language]="filters.language" [size]="16" cssClass="filter-flag"></app-flag-icon>
+              <ion-icon name="close-outline" class="clear-icon" *ngIf="filters.language && filters.language !== 'any'" (click)="selectLanguage('any'); $event.stopPropagation()"></ion-icon>
+              <ion-icon name="chevron-down-outline" [class.rotated]="showLanguageDropdown" *ngIf="!filters.language || filters.language === 'any'"></ion-icon>
+            </div>
+            
+            <!-- Language Dropdown -->
+            <div class="language-dropdown" *ngIf="showLanguageDropdown" (click)="$event.stopPropagation()">
+              <div class="dropdown-option" 
+                   *ngFor="let lang of availableLanguages" 
+                   [class.selected]="filters.language === lang.value"
+                   (click)="selectLanguage(lang.value); $event.stopPropagation()">
+                <span>{{ lang.label }}</span>
+                <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="14" cssClass="dropdown-flag"></app-flag-icon>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desktop Filters - Hidden on mobile -->
+          <div class="desktop-only-filters">
+            <div class="filter-item price-filter">
+              <label>Price per student</label>
+              <div class="price-display">${{ filters.priceMin }} – ${{ filters.priceMax }}</div>
+              <div class="price-slider-container">
+                <ion-range 
+                  [value]="priceRange" 
+                  (ionChange)="onPriceRangeChange($event)" 
+                  dual-knobs="true" 
+                  min="0" 
+                  max="200" 
+                  pin="true"
+                  class="price-range-slider">
+                  <ion-label slot="start">$0</ion-label>
+                  <ion-label slot="end">$200+</ion-label>
+                </ion-range>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Filter Button - Only visible on mobile -->
+          <ion-button class="mobile-filters-btn" fill="outline" (click)="openFiltersView()">
+            <ion-icon slot="start" name="options-outline"></ion-icon>
+            Filters
+            <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
+          </ion-button>
+        </div>
+
+        <!-- Secondary Filters Row - Collapsible -->
+        <div class="secondary-filters-toggle">
+          <ion-button fill="clear" size="small" (click)="toggleSecondaryFilters()" class="more-filters-btn">
+            <ion-icon [name]="showSecondaryFilters ? 'chevron-up-outline' : 'chevron-down-outline'" slot="start"></ion-icon>
+            {{ showSecondaryFilters ? 'Less filters' : 'More filters' }}
+            <ion-badge *ngIf="getActiveFilterCount() > 0" class="filter-badge" color="primary">{{ getActiveFilterCount() }}</ion-badge>
+          </ion-button>
+          
+          <ion-button fill="clear" size="small" (click)="clearFilters()" class="clear-filters-btn" [disabled]="getActiveFilterCount() === 0">
+            <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+            Clear Filters
+          </ion-button>
+        </div>
+
+        <!-- Secondary Filters Row -->
+        <div class="secondary-filters" *ngIf="showSecondaryFilters">
+          <div class="filter-item date-filter">
+            <label>Date from</label>
+            <ion-input type="date" [(ngModel)]="filters.dateFrom" (ionInput)="applyFilters()"></ion-input>
+          </div>
+          
+          <div class="filter-item date-filter">
+            <label>Date to</label>
+            <ion-input type="date" [(ngModel)]="filters.dateTo" (ionInput)="applyFilters()"></ion-input>
+          </div>
+
+          <ion-button class="filter-chip" fill="outline" size="small" (click)="filters.sortBy = 'date_asc'; applyFilters()">
+            Sort: Date ↑
+          </ion-button>
+
+          <ion-button class="filter-chip" fill="outline" size="small" (click)="filters.sortBy = 'date_desc'; applyFilters()">
+            Sort: Date ↓
+          </ion-button>
+
+          <ion-button class="filter-chip" fill="outline" size="small" (click)="filters.sortBy = 'price_asc'; applyFilters()">
+            Sort: Price ↑
+          </ion-button>
+
+          <ion-button class="filter-chip" fill="outline" size="small" (click)="filters.sortBy = 'price_desc'; applyFilters()">
+            Sort: Price ↓
+          </ion-button>
+
+          <div class="search-input-wrapper">
+            <ion-icon name="search-outline" class="search-icon"></ion-icon>
+            <input type="text" placeholder="Search by name" class="search-input" [(ngModel)]="filters.searchQuery" (input)="applyFilters()">
+          </div>
+        </div>
+      </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading classes...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="!isLoading && filteredClasses.length === 0 && publicClasses.length > 0">
+      <ion-icon name="search-outline"></ion-icon>
+      <h2>No classes match your filters</h2>
+      <p>Try adjusting your filters to find more classes.</p>
+      <ion-button fill="outline" (click)="clearFilters()">
+        Clear Filters
+      </ion-button>
+    </div>
+
+    <div class="empty-state" *ngIf="!isLoading && publicClasses.length === 0">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <h2>No Public Classes Yet</h2>
+      <p>Check back later for new classes</p>
+    </div>
+
+    <!-- Classes Grid -->
+    <div class="classes-grid" *ngIf="!isLoading && filteredClasses.length > 0">
+      <div 
+        class="class-card" 
+        *ngFor="let classItem of filteredClasses">
+        
+        <!-- Card Main Content -->
+        <div class="card-main">
+          <!-- Left Section - Thumbnail -->
+          <div class="left-section">
+            <div class="class-thumbnail-container">
+              <div class="class-thumbnail-image" [style.background-image]="classItem.thumbnail ? 'url(' + classItem.thumbnail + ')' : 'none'">
+                <div *ngIf="!classItem.thumbnail" class="thumbnail-placeholder">
+                  <ion-icon name="image-outline"></ion-icon>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Middle Section - Info -->
+          <div class="middle-section">
+            <!-- Header Row -->
+            <div class="header-row">
+              <div class="name-section">
+                <h3 class="class-name">{{ classItem.name }}</h3>
+                <div class="class-meta-inline">
+                  <!-- Tutor with Avatar -->
+                  <div class="tutor-badge-inline">
+                    <ion-avatar class="tutor-avatar-small">
+                      <img 
+                        *ngIf="classItem.tutorId?.picture" 
+                        [src]="classItem.tutorId.picture" 
+                        [alt]="classItem.tutorId.name">
+                      <div *ngIf="!classItem.tutorId?.picture" class="avatar-placeholder-small">
+                        {{ classItem.tutorId?.name?.charAt(0)?.toUpperCase() || 'T' }}
+                      </div>
+                    </ion-avatar>
+                    <span>{{ formatTutorName(classItem.tutorId) }}</span>
+                  </div>
+                  <!-- Level Badge -->
+                  <div class="level-badge-inline">
+                    <ion-icon name="bar-chart-outline"></ion-icon>
+                    <span>{{ getLevelLabel(classItem.level) }}</span>
+                  </div>
+                  <!-- Status Badge -->
+                  <div class="status-badge-inline" *ngIf="classItem.isEnrolled">
+                    <ion-icon name="checkmark-circle"></ion-icon>
+                    <span>Enrolled</span>
+                  </div>
+                </div>
+              </div>
+              <div class="price-badge-compact">
+                <div class="price-amount">${{ (classItem.price || 0).toFixed(2) }}</div>
+                <div class="price-label">per student</div>
+              </div>
+            </div>
+
+            <!-- Class Details -->
+            <div class="class-details-inline">
+              <div class="detail-item">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span>{{ formatDate(classItem.startTime) }}</span>
+              </div>
+              <div class="detail-item">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ formatTime(classItem.startTime) }} · {{ classItem.duration || 60 }}min</span>
+              </div>
+              <div class="detail-item">
+                <ion-icon name="people-outline"></ion-icon>
+                <span>{{ classItem.confirmedStudents?.length || 0 }}/{{ classItem.capacity }} spots</span>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div class="bio-section-inline" *ngIf="classItem.plainTextDescription">
+              <div class="bio-text truncated">{{ classItem.plainTextDescription }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card Actions -->
+        <div class="card-actions">
+          <ion-button 
+            fill="clear" 
+            size="default" 
+            class="action-btn secondary" 
+            (click)="viewClassDetails(classItem); $event.stopPropagation()">
+            <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+
+          <ion-button 
+            fill="outline" 
+            size="default" 
+            class="action-btn secondary view-profile-btn"
+            (click)="viewClassDetails(classItem); $event.stopPropagation()">
+            <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+            View Details
+          </ion-button>
+
+          <ion-button 
+            fill="solid" 
+            size="default" 
+            class="action-btn primary"
+            [disabled]="classItem.isFull && !classItem.isEnrolled && !classItem.hasInvitation"
+            [color]="classItem.hasInvitation && classItem.invitationStatus === 'pending' ? 'warning' : 'primary'"
+            (click)="handleClassAction(classItem, $event)">
+            <ion-icon 
+              [name]="classItem.isEnrolled ? 'checkmark-circle' : (classItem.hasInvitation && classItem.invitationStatus === 'pending' ? 'mail' : (classItem.isFull ? 'lock-closed' : 'calendar'))" 
+              slot="start">
+            </ion-icon>
+            <span *ngIf="classItem.isEnrolled">Enrolled</span>
+            <span *ngIf="!classItem.isEnrolled && classItem.hasInvitation && classItem.invitationStatus === 'pending'">Respond</span>
+            <span *ngIf="!classItem.isEnrolled && !classItem.hasInvitation && !classItem.isFull">Join Class</span>
+            <span *ngIf="!classItem.isEnrolled && !classItem.hasInvitation && classItem.isFull">Full</span>
+          </ion-button>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Filters View (Mobile Only) -->
+    <div class="filters-view" [class.visible]="showFiltersView">
+      <div class="filters-content">
+        <!-- Price Filter -->
+        <div class="filter-section">
+          <h3>Price per student</h3>
+          <div class="price-display">${{ priceRange.lower }} – ${{ priceRange.upper }}</div>
+          <div class="filter-option">
+            <ion-range 
+              [value]="priceRange" 
+              (ionChange)="onPriceRangeChange($event)" 
+              dual-knobs="true" 
+              min="0" 
+              max="200" 
+              pin="true">
+              <ion-label slot="start">$0</ion-label>
+              <ion-label slot="end">$200+</ion-label>
+            </ion-range>
+          </div>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="filter-section">
+          <h3>Date from</h3>
+          <ion-input type="date" [(ngModel)]="filters.dateFrom" (ionInput)="applyFilters()"></ion-input>
+        </div>
+
+        <div class="filter-section">
+          <h3>Date to</h3>
+          <ion-input type="date" [(ngModel)]="filters.dateTo" (ionInput)="applyFilters()"></ion-input>
+        </div>
+
+        <!-- Sort Filter -->
+        <div class="filter-section">
+          <h3>Sort by</h3>
+          <ion-select [(ngModel)]="filters.sortBy" interface="action-sheet" placeholder="Select sort order" (ionChange)="applyFilters()">
+            <ion-select-option value="date_asc">Date (earliest first)</ion-select-option>
+            <ion-select-option value="date_desc">Date (latest first)</ion-select-option>
+            <ion-select-option value="price_asc">Price (low to high)</ion-select-option>
+            <ion-select-option value="price_desc">Price (high to low)</ion-select-option>
+            <ion-select-option value="name_asc">Name (A-Z)</ion-select-option>
+          </ion-select>
+        </div>
+
+        <!-- Search Filter -->
+        <div class="filter-section">
+          <h3>Search</h3>
+          <ion-input 
+            type="text" 
+            placeholder="Search by class name, tutor, or description" 
+            [(ngModel)]="filters.searchQuery" 
+            (ionInput)="applyFilters()">
+          </ion-input>
+        </div>
+      </div>
+
+      <!-- Apply Button -->
+      <div class="filters-footer">
+        <ion-button expand="block" (click)="closeFilters()">
+          Apply Filters
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>
+

@@ -129,13 +129,16 @@
         </ion-item>
         
         <ion-item>
-          <ion-label position="stacked">Hourly Rate (USD)</ion-label>
+          <ion-label position="stacked">Your Rate (USD)</ion-label>
           <ion-input 
             [(ngModel)]="hourlyRate"
             type="number"
             placeholder="25">
           </ion-input>
         </ion-item>
+        <ion-note color="medium" style="padding: 0 16px; font-size: 13px;">
+          This is your rate for a standard 50-minute lesson. 25-minute lessons will be priced at 50% of this rate.
+        </ion-note>
       </div>
     </div>
 

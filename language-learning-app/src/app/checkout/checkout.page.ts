@@ -38,6 +38,8 @@ export class CheckoutPage {
     this.tutorId = qp.get('tutorId') || '';
     this.dateIso = qp.get('date') || '';
     this.time = qp.get('time') || '';
+    // Read duration from query params (default to 25 if not provided)
+    this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
     
     // Load tutor and current user data
     this.loadData();
@@ -220,8 +222,9 @@ export class CheckoutPage {
 
   get pricePerLesson(): number {
     const rate = this.tutor?.hourlyRate ?? this.tutor?.onboardingData?.hourlyRate ?? 20;
-    // 50-minute lesson priced proportionally to hourlyRate
-    return Math.round((rate * (this.lessonMinutes / 60)) * 100) / 100;
+    // Rate is for standard 50-minute lesson, not hourly (60 min)
+    const STANDARD_LESSON_DURATION = 50;
+    return Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
   }
 
   get processingFee(): number { return 0; }

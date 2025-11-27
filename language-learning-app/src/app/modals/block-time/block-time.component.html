@@ -1,0 +1,102 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Block Time</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="block-time-container">
+    <!-- Date Display -->
+    <div class="date-display">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <h2>{{ formatDateString(date) }}</h2>
+    </div>
+
+    <!-- Time Range -->
+    <div class="time-range-section">
+      <h3>Time Range</h3>
+      <div class="time-inputs">
+        <ion-item>
+          <ion-label position="stacked">Start Time</ion-label>
+          <ion-datetime-button datetime="start-time"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime 
+                id="start-time" 
+                presentation="time" 
+                [(ngModel)]="selectedStartTime"
+                [preferWheel]="true">
+              </ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </ion-item>
+
+        <ion-item>
+          <ion-label position="stacked">End Time</ion-label>
+          <ion-datetime-button datetime="end-time"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime 
+                id="end-time" 
+                presentation="time" 
+                [(ngModel)]="selectedEndTime"
+                [preferWheel]="true">
+              </ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </ion-item>
+      </div>
+    </div>
+
+    <!-- Title/Label -->
+    <ion-item>
+      <ion-label position="stacked">Label (Optional)</ion-label>
+      <ion-input 
+        [(ngModel)]="title" 
+        placeholder="e.g., Doctor's appointment"
+        maxlength="50">
+      </ion-input>
+    </ion-item>
+
+    <!-- Reason Selection -->
+    <div class="reason-section">
+      <ion-label class="section-label">Reason *</ion-label>
+      <ion-radio-group [(ngModel)]="reason">
+        <ion-item *ngFor="let option of reasonOptions" lines="none" class="reason-option">
+          <ion-radio slot="start" [value]="option.value"></ion-radio>
+          <ion-label>{{ option.label }}</ion-label>
+        </ion-item>
+      </ion-radio-group>
+    </div>
+
+    <!-- Info Note -->
+    <ion-note class="info-note">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <span>This time will be marked as unavailable in your calendar and students won't be able to book lessons during this period.</span>
+    </ion-note>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <ion-button 
+        expand="block" 
+        (click)="blockTime()"
+        [disabled]="!reason || isLoading">
+        <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+        <span *ngIf="!isLoading">Block This Time</span>
+      </ion-button>
+
+      <ion-button 
+        expand="block" 
+        fill="clear" 
+        (click)="dismiss()"
+        [disabled]="isLoading">
+        Cancel
+      </ion-button>
+    </div>
+  </div>
+</ion-content>
