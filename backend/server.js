@@ -35,8 +35,20 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// IMPORTANT: Skip JSON/URL parsing for file upload routes
+// Multer handles multipart/form-data, express.json() should not touch it
+app.use((req, res, next) => {
+  // Skip body parsing for upload endpoints - multer will handle them
+  if (req.path.includes('upload')) {
+    return next();
+  }
+  // For all other routes, parse JSON and URL-encoded bodies
+  express.json({ limit: '10mb' })(req, res, (err) => {
+    if (err) return next(err);
+    express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
+  });
+});
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/language-learning-app')
@@ -84,10 +96,15 @@ app.use('/api/notifications', notificationRoutes);
 app.use((err, req, res, next) => {
   console.error('🔍 Error details:', err);
   console.error('🔍 Error stack:', err.stack);
-  res.status(500).json({ 
-    message: 'Something went wrong!',
-    error: err.message,
-    stack: err.stack
+  console.error('🔍 Request path:', req.path);
+  console.error('🔍 Request method:', req.method);
+  console.error('🔍 Content-Type:', req.get('content-type'));
+  
+  // Don't expose stack traces in production
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Something went wrong!',
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
 

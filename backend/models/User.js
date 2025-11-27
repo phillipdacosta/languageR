@@ -121,6 +121,14 @@ const userSchema = new mongoose.Schema({
     preferredLanguage: {
       type: String,
       default: 'en'
+    },
+    officeHoursEnabled: {
+      type: Boolean,
+      default: false
+    },
+    officeHoursLastActive: {
+      type: Date,
+      default: null
     }
   },
   stats: {

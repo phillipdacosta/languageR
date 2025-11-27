@@ -26,14 +26,15 @@ const LessonSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'], 
+    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled'], 
     default: 'scheduled' 
   },
   subject: {
     type: String,
     default: 'Language Lesson'
   },
-  notes: String,
+  description: String, // Detailed description of the lesson
+  notes: String, // Private notes for the tutor
   price: {
     type: Number,
     required: true
@@ -47,6 +48,43 @@ const LessonSchema = new mongoose.Schema({
   isTrialLesson: {
     type: Boolean,
     default: false
+  },
+  // Office Hours flags
+  isOfficeHours: {
+    type: Boolean,
+    default: false
+  },
+  officeHoursType: {
+    type: String,
+    enum: ['quick', 'scheduled', null],
+    default: null
+  },
+  bookingType: {
+    type: String,
+    enum: ['scheduled', 'instant', 'office_hours'],
+    default: 'scheduled'
+  },
+  // Per-minute billing tracking (for office hours)
+  actualCallStartTime: {
+    type: Date,
+    default: null
+  },
+  actualCallEndTime: {
+    type: Date,
+    default: null
+  },
+  actualDurationMinutes: {
+    type: Number,
+    default: null
+  },
+  actualPrice: {
+    type: Number,
+    default: null
+  },
+  billingStatus: {
+    type: String,
+    enum: ['pending', 'authorized', 'charged', 'refunded', null],
+    default: null
   },
   // Track participant join/leave history for rejoin logic
   participants: {
