@@ -5,7 +5,8 @@ import { UserService, OnboardingData, TutorOnboardingData, User } from '../servi
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
-import { LoadingController, AlertController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 
 @Component({
   selector: 'app-onboarding',
@@ -193,6 +194,7 @@ export class OnboardingPage implements OnInit {
     private router: Router,
     private loadingController: LoadingController,
     private alertController: AlertController,
+    private modalController: ModalController,
     private onboardingGuard: OnboardingGuard
   ) {
     this.user$ = this.authService.user$;
@@ -301,6 +303,27 @@ export class OnboardingPage implements OnInit {
   // Tutor-specific methods
   setTutorCountry(country: string) {
     this.tutorCountry = country;
+  }
+
+  // Open country selection modal
+  async openCountryModal() {
+    const modal = await this.modalController.create({
+      component: CountrySelectModalComponent,
+      componentProps: {
+        countries: this.tutorCountryOptions,
+        selectedCountry: this.tutorCountry
+      },
+      cssClass: 'country-select-modal',
+      showBackdrop: true,
+      backdropDismiss: true
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data && data.selectedCountry) {
+      this.tutorCountry = data.selectedCountry;
+    }
   }
 
   setTutorExperience(experience: string) {

@@ -125,19 +125,21 @@
         <p class="section-hint">This helps students find tutors from specific regions</p>
         <ion-item class="country-select-item">
           <ion-label position="stacked">Country</ion-label>
-          <ion-select 
-            [(ngModel)]="tutorCountry" 
-            placeholder="Select your country"
-            interface="action-sheet">
-            <ion-select-option *ngFor="let country of tutorCountryOptions" [value]="country.name">
-              {{ country.name }}
-            </ion-select-option>
-          </ion-select>
+          <ion-button 
+            fill="outline" 
+            expand="block"
+            (click)="openCountryModal()"
+            class="country-select-button">
+            <span *ngIf="tutorCountry; else noCountrySelected" style="display: flex; align-items: center; gap: 8px;">
+              <app-flag-icon [country]="tutorCountry" [size]="20"></app-flag-icon>
+              <span>{{ tutorCountry }}</span>
+            </span>
+            <ng-template #noCountrySelected>
+              Select your country
+            </ng-template>
+            <ion-icon name="chevron-down" slot="end"></ion-icon>
+          </ion-button>
         </ion-item>
-        <div class="selected-country" *ngIf="tutorCountry" style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-          <app-flag-icon [country]="tutorCountry" [size]="24" class="country-flag-display"></app-flag-icon>
-          <span class="country-name-display">{{ tutorCountry }}</span>
-        </div>
       </div>
       
       <!-- Tutor Experience -->
