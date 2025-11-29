@@ -1,0 +1,138 @@
+.block-time-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.date-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--ion-color-primary-tint), var(--ion-color-secondary-tint));
+  border-radius: 16px;
+  margin-bottom: 24px;
+
+  ion-icon {
+    font-size: 32px;
+    color: white;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+  }
+}
+
+.time-range-section {
+  margin-bottom: 24px;
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin: 0 0 12px 0;
+  }
+
+  .time-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 576px) {
+      grid-template-columns: 1fr;
+    }
+
+    ion-item {
+      --background: var(--ion-color-light);
+      --border-radius: 12px;
+      margin-bottom: 0;
+    }
+  }
+}
+
+.reason-section {
+  margin: 24px 0;
+
+  .section-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+    margin-bottom: 12px;
+  }
+
+  ion-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .reason-option {
+    --background: var(--ion-color-light);
+    --border-radius: 12px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --inner-padding-end: 12px;
+    margin-bottom: 4px;
+
+    ion-radio {
+      margin-right: 12px;
+    }
+
+    &:hover {
+      --background: var(--ion-color-light-shade);
+    }
+  }
+}
+
+.info-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 12px;
+  margin: 24px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #856404;
+
+  ion-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+}
+
+.action-buttons {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  ion-button {
+    --border-radius: 12px;
+    height: 48px;
+    font-weight: 600;
+
+    ion-spinner {
+      margin-right: 8px;
+    }
+  }
+}
+
+ion-item {
+  --background: transparent;
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 16px;
+
+  ion-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+}
+

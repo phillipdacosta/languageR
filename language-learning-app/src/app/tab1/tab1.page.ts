@@ -242,6 +242,10 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Only update if minute has changed or it's the first update
       if (currentMinute !== lastMinute || this.lastLabelUpdateTime === 0) {
         this.lastLabelUpdateTime = now;
+        
+        // Recalculate upcoming lesson in case current one ended
+        this.recalculateUpcomingLesson();
+        
         // Update join labels for all displayed students
         this.updateStudentJoinLabels();
         // Update countdownTick after labels are updated to trigger single change detection
@@ -712,9 +716,13 @@ export class Tab1Page implements OnInit, OnDestroy {
       .filter(l => {
         if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
         const startTime = new Date(l.startTime);
-        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        // Include lessons that are upcoming or started within the last hour (still active)
-        return startTime >= oneHourAgo;
+        const endTime = new Date(l.endTime);
+        // Include lessons that are in progress (started but not ended yet)
+        if (startTime <= now && now < endTime) {
+          return true;
+        }
+        // Include lessons that haven't started yet (upcoming)
+        return startTime > now;
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
@@ -944,9 +952,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     const activeLessons = lessonsForDate.filter(l => {
       if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
       const startTime = new Date(l.startTime);
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      // Include lessons that are upcoming or started within the last hour (still active)
-      return startTime >= oneHourAgo;
+      const endTime = new Date(l.endTime);
+      // Include lessons that are in progress (started but not ended yet)
+      if (startTime <= now && now < endTime) {
+        return true;
+      }
+      // Include lessons that haven't started yet (upcoming)
+      return startTime > now;
     }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     if (activeLessons.length === 0) {
@@ -960,8 +972,13 @@ export class Tab1Page implements OnInit, OnDestroy {
       .filter(l => {
         if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
         const startTime = new Date(l.startTime);
-        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        return startTime >= oneHourAgo;
+        const endTime = new Date(l.endTime);
+        // Include lessons that are in progress (started but not ended yet)
+        if (startTime <= now && now < endTime) {
+          return true;
+        }
+        // Include lessons that haven't started yet (upcoming)
+        return startTime > now;
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
@@ -1155,7 +1172,7 @@ export class Tab1Page implements OnInit, OnDestroy {
             ? 'Group Class'
             : this.formatSubject(lesson.subject),
           avatar: isClass 
-            ? null // Classes don't have a single avatar, they show multiple in attendees component
+            ? ((lesson as any).classData?.thumbnail || null) // Show class thumbnail if available
             : (student?.picture || student?.profilePicture || null),
           lesson: lesson,
           isTrialLesson: lesson.isTrialLesson || false
@@ -1474,6 +1491,11 @@ export class Tab1Page implements OnInit, OnDestroy {
         const today = this.startOfDay(new Date());
         this.lessons = allLessons
           .filter(l => {
+            // Exclude cancelled lessons
+            if (l.status === 'cancelled') {
+              return false;
+            }
+            
             const endTime = new Date(l.endTime).getTime();
             const lessonDate = new Date(l.startTime);
             const lessonDay = this.startOfDay(lessonDate);
@@ -1526,8 +1548,9 @@ export class Tab1Page implements OnInit, OnDestroy {
         this._cachedTimelineEventsHash = '';
         this._cachedTimelineEvents = [];
 
-        // Set upcoming lesson (first future lesson)
-        this.upcomingLesson = this.lessons.length > 0 ? this.lessons[0] : null;
+        // Set upcoming lesson (most relevant: in progress, next upcoming, or most recent)
+        // Reuse 'now' variable already declared at the top of this function
+        this.upcomingLesson = this.selectMostRelevantLesson(now);
         
         // Check for existing presence in lessons
         await this.checkExistingPresence();
@@ -2639,6 +2662,79 @@ export class Tab1Page implements OnInit, OnDestroy {
     if (data && data.rescheduled) {
       // Lesson was successfully rescheduled, reload lessons
       this.loadLessons();
+    }
+  }
+
+  /**
+   * Select the most relevant lesson from this.lessons
+   * Priority: 1) In progress, 2) Next upcoming, 3) Most recent past (only from today)
+   */
+  private selectMostRelevantLesson(now: number): Lesson | null {
+    if (!this.lessons || this.lessons.length === 0) {
+      return null;
+    }
+
+    // First priority: Find any lesson currently in progress
+    const inProgressLesson = this.lessons.find(l => {
+      const startTime = new Date(l.startTime).getTime();
+      const endTime = new Date(l.endTime).getTime();
+      return startTime <= now && now < endTime;
+    });
+    
+    if (inProgressLesson) {
+      return inProgressLesson;
+    }
+    
+    // Second priority: Find the next upcoming lesson (future lessons only)
+    const upcomingLessons = this.lessons.filter(l => {
+      const startTime = new Date(l.startTime).getTime();
+      return startTime > now;
+    });
+    
+    if (upcomingLessons.length > 0) {
+      // Return the soonest upcoming lesson (lessons are already sorted by startTime)
+      return upcomingLessons[0];
+    }
+    
+    // Third priority: If no upcoming lessons, show the most recent past lesson from today only
+    // This ensures we don't show old lessons from earlier today after they've ended
+    const today = this.startOfDay(new Date());
+    const pastLessonsToday = this.lessons.filter(l => {
+      const endTime = new Date(l.endTime).getTime();
+      const lessonDate = new Date(l.startTime);
+      const lessonDay = this.startOfDay(lessonDate);
+      
+      // Only include lessons that ended in the past but happened today
+      return endTime < now && lessonDay.getTime() === today.getTime();
+    });
+    
+    if (pastLessonsToday.length > 0) {
+      // Find the lesson with the most recent end time from today
+      return pastLessonsToday.reduce((mostRecent, current) => {
+        const currentEnd = new Date(current.endTime).getTime();
+        const mostRecentEnd = new Date(mostRecent.endTime).getTime();
+        return currentEnd > mostRecentEnd ? current : mostRecent;
+      });
+    }
+    
+    return null;
+  }
+
+  /**
+   * Recalculate upcoming lesson (called periodically to update as time passes)
+   */
+  private recalculateUpcomingLesson(): void {
+    const now = Date.now();
+    const newUpcomingLesson = this.selectMostRelevantLesson(now);
+    
+    // Only update if it actually changed (to avoid unnecessary change detection)
+    if (newUpcomingLesson?._id !== this.upcomingLesson?._id) {
+      this.upcomingLesson = newUpcomingLesson;
+      console.log('📅 Upcoming lesson changed:', {
+        lessonId: this.upcomingLesson?._id,
+        startTime: this.upcomingLesson?.startTime,
+        endTime: this.upcomingLesson?.endTime
+      });
     }
   }
 

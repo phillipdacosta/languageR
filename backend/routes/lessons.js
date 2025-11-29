@@ -54,18 +54,28 @@ router.post('/', verifyToken, async (req, res) => {
       startTime, 
       endTime, 
       subject, 
+      description,
       price, 
       duration,
       bookingData 
     } = req.body;
 
-    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, user: req.user });
+    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, duration, user: req.user });
 
     // Validate required fields
     if (!tutorId || !studentId || !startTime || !endTime || !price) {
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields' 
+      });
+    }
+
+    // Validate lesson duration
+    const allowedDurations = [25, 50];
+    if (duration && !allowedDurations.includes(duration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid lesson duration. Must be 25 or 50 minutes.'
       });
     }
 
@@ -85,7 +95,24 @@ router.post('/', verifyToken, async (req, res) => {
     // Check for time slot conflicts with existing lessons for this tutor
     const requestedStart = new Date(startTime);
     const requestedEnd = new Date(endTime);
+    
+    // Calculate buffer time based on lesson duration
+    const lessonDuration = duration || 60;
+    const bufferMinutes = lessonDuration === 25 ? 5 : lessonDuration === 50 ? 10 : 10;
+    
+    // Extend end time to include buffer for conflict checking
+    const requestedEndWithBuffer = new Date(requestedEnd);
+    requestedEndWithBuffer.setMinutes(requestedEndWithBuffer.getMinutes() + bufferMinutes);
+    
     const now = new Date();
+
+    console.log('⏰ Lesson timing:', {
+      duration: lessonDuration,
+      buffer: bufferMinutes,
+      start: requestedStart.toISOString(),
+      end: requestedEnd.toISOString(),
+      endWithBuffer: requestedEndWithBuffer.toISOString()
+    });
 
     // Validate that the lesson is not in the past
     if (requestedStart < now) {
@@ -99,10 +126,11 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
-    console.log('🔍 Checking for conflicts:', {
+    console.log('🔍 Checking for conflicts (including buffer):', {
       tutorId,
       requestedStart: requestedStart.toISOString(),
-      requestedEnd: requestedEnd.toISOString()
+      requestedEnd: requestedEnd.toISOString(),
+      requestedEndWithBuffer: requestedEndWithBuffer.toISOString()
     });
 
     // First, let's see all existing lessons for this tutor
@@ -111,18 +139,41 @@ router.post('/', verifyToken, async (req, res) => {
       id: l._id,
       start: l.startTime,
       end: l.endTime,
+      duration: l.duration,
       status: l.status
     })));
 
-    // Find any existing lessons for this tutor that overlap with the requested time
-    // Overlap occurs when: existingStart < requestedEnd AND existingEnd > requestedStart
-    const conflictingLesson = await Lesson.findOne({
+    // Find any existing lessons for this tutor that overlap with the requested time (including buffer)
+    // We need to check if any existing lesson (with its buffer) conflicts with the new lesson (with its buffer)
+    const existingLessons = await Lesson.find({
       tutorId: tutorId,
-      status: { $in: ['scheduled', 'in_progress'] }, // Only check active lessons
-      // Existing lesson starts before requested end and ends after requested start
-      startTime: { $lt: requestedEnd },
-      endTime: { $gt: requestedStart }
+      status: { $in: ['scheduled', 'in_progress'] }
     });
+
+    let conflictingLesson = null;
+    for (const lesson of existingLessons) {
+      const existingStart = new Date(lesson.startTime);
+      const existingEnd = new Date(lesson.endTime);
+      const existingDuration = lesson.duration || 60;
+      const existingBuffer = existingDuration === 25 ? 5 : existingDuration === 50 ? 10 : 10;
+      const existingEndWithBuffer = new Date(existingEnd);
+      existingEndWithBuffer.setMinutes(existingEndWithBuffer.getMinutes() + existingBuffer);
+
+      // Check for overlap: existing lesson (with buffer) overlaps with new lesson (with buffer)
+      // Overlap if: existingStart < requestedEndWithBuffer AND existingEndWithBuffer > requestedStart
+      if (existingStart < requestedEndWithBuffer && existingEndWithBuffer > requestedStart) {
+        conflictingLesson = lesson;
+        console.log('⚠️ Conflict detected with existing lesson:', {
+          existingId: lesson._id,
+          existingStart: existingStart.toISOString(),
+          existingEnd: existingEnd.toISOString(),
+          existingEndWithBuffer: existingEndWithBuffer.toISOString(),
+          existingDuration,
+          existingBuffer
+        });
+        break;
+      }
+    }
 
     console.log('🔍 Conflict query result:', conflictingLesson ? {
       id: conflictingLesson._id,
@@ -132,19 +183,20 @@ router.post('/', verifyToken, async (req, res) => {
     } : 'No conflicts found');
 
     if (conflictingLesson) {
-      console.log('⚠️ Time slot conflict detected:', {
+      console.log('⚠️ Time slot conflict detected (including buffer times):', {
         tutorId,
-        requestedTime: { start: requestedStart, end: requestedEnd },
+        requestedTime: { start: requestedStart, end: requestedEnd, endWithBuffer: requestedEndWithBuffer },
         conflictingLesson: {
           id: conflictingLesson._id,
           start: conflictingLesson.startTime,
-          end: conflictingLesson.endTime
+          end: conflictingLesson.endTime,
+          duration: conflictingLesson.duration
         }
       });
 
       return res.status(409).json({ 
         success: false, 
-        message: 'This time slot is no longer available. It may have been booked by another student. Please select a different time.',
+        message: `This time slot is no longer available. Please note that ${lessonDuration}-minute lessons require a ${bufferMinutes}-minute buffer. Please select a different time.`,
         code: 'TIME_SLOT_CONFLICT',
         conflict: {
           startTime: conflictingLesson.startTime,
@@ -237,10 +289,12 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
     
-    // Check if this is the first lesson between this student and tutor (trial lesson)
+    // Check if this is the first SCHEDULED lesson between this student and tutor
+    // (Exclude office hours from trial eligibility - they're a different product)
     const previousLessons = await Lesson.countDocuments({
       tutorId: tutorId,
       studentId: studentId,
+      isOfficeHours: { $ne: true }, // Exclude office hours
       status: { $in: ['scheduled', 'in_progress', 'completed'] }
     });
     
@@ -249,8 +303,9 @@ router.post('/', verifyToken, async (req, res) => {
     console.log('🎓 Trial lesson check:', {
       tutorId,
       studentId,
-      previousLessons,
-      isTrialLesson
+      previousScheduledLessons: previousLessons,
+      isTrialLesson,
+      note: 'Office hours sessions excluded from trial eligibility'
     });
 
     const lesson = await Lesson.create({
@@ -259,6 +314,7 @@ router.post('/', verifyToken, async (req, res) => {
       startTime: new Date(startTime),
       endTime: new Date(endTime),
       subject: subject || 'Language Lesson',
+      description: description || '',
       price,
       duration: duration || 60,
       isTrialLesson,
@@ -384,6 +440,216 @@ router.post('/', verifyToken, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to create lesson',
+      error: error.message 
+    });
+  }
+});
+
+// Create office hours instant booking
+router.post('/office-hours', verifyToken, async (req, res) => {
+  try {
+    const { tutorId, duration, startTime, instant } = req.body;
+    const studentId = req.user.sub; // Current user is the student
+
+    console.log('⚡ Creating office hours booking:', { tutorId, studentId, duration, startTime, instant });
+
+    // Validate required fields
+    if (!tutorId || !duration) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields (tutorId, duration)' 
+      });
+    }
+
+    // Validate duration (7, 15, or 30 minutes for office hours)
+    const allowedDurations = [7, 15, 30];
+    if (!allowedDurations.includes(duration)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid office hours duration. Must be 7, 15, or 30 minutes.'
+      });
+    }
+
+    // Verify tutor exists and has office hours enabled
+    const tutor = await User.findById(tutorId);
+    if (!tutor) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Tutor not found' 
+      });
+    }
+
+    if (!tutor.profile?.officeHoursEnabled) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'This tutor does not have office hours enabled' 
+      });
+    }
+
+    // For instant bookings, verify tutor is actively available (recent heartbeat)
+    if (instant) {
+      const lastActive = tutor.profile?.officeHoursLastActive;
+      const activeThreshold = 60 * 1000; // 60 seconds
+      const now = new Date();
+      
+      if (!lastActive || (now - new Date(lastActive)) > activeThreshold) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Tutor is not actively available right now. Please try again later or schedule a session.',
+          code: 'TUTOR_NOT_ACTIVE'
+        });
+      }
+    }
+
+    // Verify student exists
+    const student = await User.findOne({ auth0Id: studentId });
+    if (!student) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Student not found' 
+      });
+    }
+
+    // Determine start and end times
+    let lessonStartTime, lessonEndTime;
+    
+    if (instant) {
+      // For instant bookings, start in 2 minutes (give tutor time to prepare)
+      lessonStartTime = new Date();
+      lessonStartTime.setMinutes(lessonStartTime.getMinutes() + 2);
+      lessonEndTime = new Date(lessonStartTime);
+      lessonEndTime.setMinutes(lessonEndTime.getMinutes() + duration);
+    } else if (startTime) {
+      // For scheduled office hours
+      lessonStartTime = new Date(startTime);
+      lessonEndTime = new Date(lessonStartTime);
+      lessonEndTime.setMinutes(lessonEndTime.getMinutes() + duration);
+    } else {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Start time required for scheduled bookings' 
+      });
+    }
+
+    // Validate that the lesson is not in the past
+    const now = new Date();
+    if (lessonStartTime < now) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot book sessions in the past' 
+      });
+    }
+
+    // Check for conflicts with existing lessons
+    const existingLessons = await Lesson.find({
+      tutorId: tutorId,
+      status: { $in: ['scheduled', 'in_progress'] },
+      startTime: { $lt: lessonEndTime },
+      endTime: { $gt: lessonStartTime }
+    });
+
+    if (existingLessons.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Tutor is busy at this time. Please choose another slot.',
+        code: 'TIME_CONFLICT'
+      });
+    }
+
+    // Calculate price based on tutor's hourly rate
+    const standardRate = tutor.onboardingData?.hourlyRate || 25;
+    const standardDuration = 50; // Standard lesson duration
+    const price = Math.round((standardRate / standardDuration) * duration * 100) / 100;
+
+    // Create the lesson
+    const lesson = new Lesson({
+      tutorId: tutor._id,
+      studentId: student._id,
+      startTime: lessonStartTime,
+      endTime: lessonEndTime,
+      subject: 'Office Hours',
+      price: price,
+      duration: duration,
+      status: 'scheduled',
+      isTrialLesson: false, // Office hours are never trials
+      isOfficeHours: true,
+      officeHoursType: instant ? 'quick' : 'scheduled',
+      bookingType: instant ? 'instant' : 'office_hours',
+      channelName: `lesson_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    });
+
+    await lesson.save();
+    console.log('✅ Office hours session created:', lesson._id);
+
+    // Populate tutor and student details for response
+    await lesson.populate('tutorId studentId');
+
+    // Create notification for tutor
+    const tutorDisplayName = formatDisplayName(student);
+    const formattedTime = lessonStartTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      hour12: true 
+    });
+    const formattedDate = lessonStartTime.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    const timeUntilStart = Math.round((lessonStartTime - new Date()) / 60000); // minutes
+
+    const notification = new Notification({
+      userId: tutor._id,
+      type: instant ? 'office_hours_booking' : 'lesson_created',
+      title: instant ? '⚡ New Office Hours Session!' : 'Office Hours Scheduled',
+      message: instant 
+        ? `${tutorDisplayName} just booked a ${duration}-minute session starting ${timeUntilStart < 5 ? 'NOW' : `in ${timeUntilStart} minutes`}!`
+        : `${tutorDisplayName} scheduled a ${duration}-minute office hours session for ${formattedDate} at ${formattedTime}`,
+      data: {
+        lessonId: lesson._id,
+        studentName: tutorDisplayName,
+        startTime: lessonStartTime,
+        duration: duration,
+        urgent: instant || timeUntilStart < 10
+      },
+      read: false
+    });
+
+    await notification.save();
+    console.log('📬 Notification created for tutor:', notification._id);
+
+    // Send real-time notification via socket if tutor is online
+    if (req.io) {
+      const tutorAuth0Id = tutor.auth0Id;
+      const tutorSocketId = req.connectedUsers?.get(tutorAuth0Id);
+      
+      if (tutorSocketId) {
+        req.io.to(tutorSocketId).emit('office_hours_booking', {
+          type: 'office_hours_booking',
+          message: notification.message,
+          lessonId: lesson._id.toString(),
+          data: {
+            lessonId: lesson._id.toString(),
+            studentName: student.firstName || student.name || 'Student',
+            duration: duration
+          },
+          urgent: instant || timeUntilStart < 10,
+          notificationId: notification._id
+        });
+        console.log('🔔 Real-time notification sent to tutor, lessonId:', lesson._id.toString());
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      lesson,
+      message: instant ? 'Session starting soon! Tutor has been notified.' : 'Office hours scheduled successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error creating office hours booking:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create office hours booking',
       error: error.message 
     });
   }
@@ -605,7 +871,7 @@ router.get('/:id/status', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
     
-    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
+    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'confirmed' && lesson.status !== 'in_progress')) {
       return res.status(404).json({ 
         success: false, 
         message: 'Lesson not available' 
@@ -687,7 +953,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       .populate('tutorId', 'name email picture firstName lastName')
       .populate('studentId', 'name email picture firstName lastName');
 
-    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'in_progress')) {
+    if (!lesson || (lesson.status !== 'scheduled' && lesson.status !== 'confirmed' && lesson.status !== 'in_progress')) {
       return res.status(404).json({ 
         success: false, 
         message: 'Lesson not available' 
@@ -793,11 +1059,12 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     }
 
     // Update lesson status to in_progress if this is the first join
-    if (lesson.status === 'scheduled') {
+    if (lesson.status === 'scheduled' || lesson.status === 'confirmed') {
       lesson.status = 'in_progress';
+      console.log(`✅ Updated lesson status to in_progress`);
     }
 
-    // Record participant join
+    // Record participant join FIRST (before checking for start time)
     if (!lesson.participants) lesson.participants = new Map();
     const key = userId.toString();
     const prev = lesson.participants.get(key) || { joinCount: 0 };
@@ -805,6 +1072,25 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     prev.leftAt = null;
     prev.joinCount = (prev.joinCount || 0) + 1;
     lesson.participants.set(key, prev);
+    
+    // Count active participants (joined but not left)
+    const activeParticipants = Array.from(lesson.participants.values())
+      .filter(p => p.joinedAt && !p.leftAt).length;
+    
+    console.log(`👥 Active participants count: ${activeParticipants}`);
+
+    // Record actual call start time ONLY when BOTH participants are present
+    // This ensures billing only starts when both users are actually in the call
+    // Add a 4-second grace period after second participant joins
+    if (!lesson.actualCallStartTime && activeParticipants >= 2) {
+      const startTimeWithDelay = new Date(now.getTime() + 4000); // 4 seconds delay
+      lesson.actualCallStartTime = startTimeWithDelay;
+      lesson.billingStatus = 'authorized';
+      console.log(`⏱️ ✅ Recorded actualCallStartTime (BOTH participants present + 4s grace period): ${startTimeWithDelay}`);
+      console.log(`⏱️ This is when billing starts - both tutor and student are in the call`);
+    } else if (!lesson.actualCallStartTime) {
+      console.log(`⏱️ ⏳ Waiting for second participant before recording start time (current: ${activeParticipants})`);
+    }
     
     await lesson.save();
 
@@ -952,6 +1238,203 @@ router.post('/:id/end', verifyToken, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Failed to end lesson' 
+    });
+  }
+});
+
+// Update lesson status (PATCH)
+router.patch('/:id/status', verifyToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const lesson = await Lesson.findById(req.params.id);
+    
+    if (!lesson) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not found' 
+      });
+    }
+
+    // Only tutor or student can update status
+    const isTutor = lesson.tutorId.toString() === user._id.toString();
+    const isStudent = lesson.studentId.toString() === user._id.toString();
+
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to update this lesson' 
+      });
+    }
+
+    // Update status
+    lesson.status = status;
+    await lesson.save();
+
+    console.log(`✅ Lesson ${lesson._id} status updated to: ${status}`);
+
+    // If lesson is confirmed (tutor accepted office hours), notify student
+    if (status === 'confirmed' && req.io && lesson.isOfficeHours) {
+      console.log('✅ Office hours accepted, preparing to notify student...');
+      
+      // Populate tutor and student to get auth0Ids
+      await lesson.populate([
+        { path: 'tutorId', select: 'auth0Id name firstName lastName' },
+        { path: 'studentId', select: 'auth0Id name firstName lastName' }
+      ]);
+
+      const studentAuth0Id = lesson.studentId?.auth0Id;
+      const studentMongoId = lesson.studentId?._id;
+      const tutorName = lesson.tutorId?.name || lesson.tutorId?.firstName || 'Tutor';
+      const studentSocketId = req.connectedUsers?.get(studentAuth0Id);
+      
+      console.log('🔍 Student notification info:', {
+        studentAuth0Id,
+        studentSocketId,
+        tutorName,
+        lessonId: lesson._id.toString()
+      });
+
+      // Create persistent database notification
+      try {
+        await Notification.create({
+          userId: studentMongoId,
+          type: 'office_hours_accepted',
+          title: 'Tutor Ready!',
+          message: `${tutorName} is ready for your session! Join now.`,
+          data: {
+            lessonId: lesson._id,
+            tutorName: tutorName
+          }
+        });
+        console.log(`📬 Created persistent notification for student ${studentAuth0Id}`);
+      } catch (notifError) {
+        console.error('❌ Error creating acceptance notification:', notifError);
+      }
+
+      // Send real-time WebSocket event to navigate student to pre-call
+      if (studentSocketId) {
+        console.log(`🔔 Emitting office_hours_accepted event to student ${studentAuth0Id}`);
+        req.io.to(studentSocketId).emit('office_hours_accepted', {
+          lessonId: lesson._id.toString(),
+          tutorName: tutorName,
+          message: `${tutorName} is ready for your session!`
+        });
+        console.log('✅ office_hours_accepted event emitted successfully');
+      } else {
+        console.log(`⚠️ Student ${studentAuth0Id} not connected to WebSocket`);
+      }
+    }
+
+    // If lesson is cancelled, emit WebSocket event to notify the other participant
+    if (status === 'cancelled' && req.io) {
+      console.log('🚫 Lesson cancelled, preparing to notify participants...');
+      
+      // Populate tutor and student to get auth0Ids
+      await lesson.populate([
+        { path: 'tutorId', select: 'auth0Id name firstName lastName' },
+        { path: 'studentId', select: 'auth0Id name firstName lastName' }
+      ]);
+
+      const tutorAuth0Id = lesson.tutorId?.auth0Id;
+      const studentAuth0Id = lesson.studentId?.auth0Id;
+      const cancellerAuth0Id = user.auth0Id;
+      
+      console.log('🔍 Cancellation details:', {
+        tutorAuth0Id,
+        studentAuth0Id,
+        cancellerAuth0Id,
+        lessonId: lesson._id.toString()
+      });
+      
+      // Get tutor and student MongoDB IDs
+      const tutorMongoId = lesson.tutorId?._id;
+      const studentMongoId = lesson.studentId?._id;
+
+      // Determine who to notify (the other participant)
+      const recipientAuth0Id = cancellerAuth0Id === tutorAuth0Id ? studentAuth0Id : tutorAuth0Id;
+      const recipientMongoId = cancellerAuth0Id === tutorAuth0Id ? studentMongoId : tutorMongoId;
+      const recipientSocketId = req.connectedUsers?.get(recipientAuth0Id);
+      
+      console.log('🔍 Recipient info:', {
+        recipientAuth0Id,
+        recipientSocketId,
+        totalConnectedUsers: req.connectedUsers?.size,
+        allConnectedUsers: Array.from(req.connectedUsers?.keys() || [])
+      });
+
+      // Format lesson date/time for notification message
+      const startTime = new Date(lesson.startTime);
+      const formattedDate = startTime.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const formattedTime = startTime.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit', 
+        hour12: true 
+      });
+
+      // Create persistent database notification
+      try {
+        const cancellerName = user.name || 'Participant';
+        const notificationMessage = isTutor 
+          ? `Your session scheduled for ${formattedDate} at ${formattedTime} has been cancelled. You have not been charged.`
+          : `The student cancelled the session scheduled for ${formattedDate} at ${formattedTime}.`;
+
+        await Notification.create({
+          userId: recipientMongoId,
+          type: 'lesson_cancelled',
+          title: 'Session Cancelled',
+          message: notificationMessage,
+          data: {
+            lessonId: lesson._id,
+            cancelledBy: isTutor ? 'tutor' : 'student',
+            cancellerName: cancellerName,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime
+          }
+        });
+        console.log(`📬 Created persistent notification for ${recipientAuth0Id}`);
+      } catch (notifError) {
+        console.error('❌ Error creating cancellation notification:', notifError);
+      }
+
+      // Send real-time WebSocket event (for immediate notification in pre-call/video-call)
+      if (recipientSocketId) {
+        console.log(`🔔 Emitting lesson_cancelled event to ${recipientAuth0Id} via socket ${recipientSocketId}`);
+        req.io.to(recipientSocketId).emit('lesson_cancelled', {
+          lessonId: lesson._id.toString(),
+          cancelledBy: isTutor ? 'tutor' : 'student',
+          cancellerName: user.name || 'Participant',
+          reason: 'The lesson has been cancelled'
+        });
+        console.log('✅ lesson_cancelled event emitted successfully');
+      } else {
+        console.log(`⚠️ Recipient ${recipientAuth0Id} not connected to WebSocket`);
+        console.log('⚠️ This means the student will only see the database notification later');
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Lesson ${status}`,
+      lesson 
+    });
+  } catch (error) {
+    console.error('Error updating lesson status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update lesson status' 
     });
   }
 });
@@ -1155,6 +1638,120 @@ router.post('/:id/leave-beacon', async (req, res) => {
   } catch (error) {
     console.error('❌ Error in beacon leave endpoint:', error);
     res.status(500).json({ success: false, message: 'Failed to record leave via beacon' });
+  }
+});
+
+// POST /api/lessons/:id/call-start - Record when the call actually starts (both parties connected)
+router.post('/:id/call-start', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Only record if not already started
+    if (!lesson.actualCallStartTime) {
+      lesson.actualCallStartTime = new Date();
+      lesson.billingStatus = 'authorized';
+      await lesson.save();
+      console.log(`⏱️ Call started for lesson ${lesson._id}`);
+    }
+
+    res.json({ 
+      success: true, 
+      actualCallStartTime: lesson.actualCallStartTime 
+    });
+  } catch (error) {
+    console.error('Error recording call start:', error);
+    res.status(500).json({ success: false, message: 'Failed to record call start' });
+  }
+});
+
+// POST /api/lessons/:id/call-end - Record when the call ends and calculate actual billing
+router.post('/:id/call-end', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Only calculate if call was started and not already ended
+    if (lesson.actualCallStartTime && !lesson.actualCallEndTime) {
+      const now = new Date();
+      lesson.actualCallEndTime = now;
+      
+      // Calculate actual duration in minutes
+      const durationMs = now - new Date(lesson.actualCallStartTime);
+      const actualMinutes = Math.ceil(durationMs / (1000 * 60)); // Round up to nearest minute
+      lesson.actualDurationMinutes = actualMinutes;
+      
+      // Calculate actual price (for per-minute billing)
+      if (lesson.isOfficeHours) {
+        // Get tutor's rate
+        const tutor = await User.findById(lesson.tutorId);
+        const standardRate = tutor?.onboardingData?.hourlyRate || 25;
+        const standardDuration = 50; // Standard lesson duration
+        const perMinuteRate = standardRate / standardDuration;
+        
+        // Calculate actual price based on actual time used (no cap)
+        // This ensures tutors are paid fairly for all time worked
+        const calculatedPrice = Math.round(perMinuteRate * actualMinutes * 100) / 100;
+        lesson.actualPrice = calculatedPrice;
+        lesson.billingStatus = 'charged';
+        
+        // Log if student stayed longer than booked duration
+        const bookedMinutes = lesson.duration || 7;
+        if (actualMinutes > bookedMinutes) {
+          console.log(`💰 Office hours billing: ${actualMinutes} minutes (${actualMinutes - bookedMinutes} min over) = $${lesson.actualPrice} (booked: ${bookedMinutes} min for $${lesson.price})`);
+        } else {
+          console.log(`💰 Office hours billing: ${actualMinutes} minutes = $${lesson.actualPrice} (booked: ${bookedMinutes} min for $${lesson.price})`);
+        }
+      } else {
+        // For regular lessons, use the full price
+        lesson.actualPrice = lesson.price;
+        lesson.billingStatus = 'charged';
+      }
+      
+      await lesson.save();
+      console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
+    }
+
+    res.json({ 
+      success: true, 
+      actualCallEndTime: lesson.actualCallEndTime,
+      actualDurationMinutes: lesson.actualDurationMinutes,
+      actualPrice: lesson.actualPrice
+    });
+  } catch (error) {
+    console.error('Error recording call end:', error);
+    res.status(500).json({ success: false, message: 'Failed to record call end' });
+  }
+});
+
+// GET /api/lessons/:id/billing - Get billing summary for a lesson
+router.get('/:id/billing', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    res.json({
+      success: true,
+      billing: {
+        estimatedPrice: lesson.price,
+        actualPrice: lesson.actualPrice,
+        estimatedDuration: lesson.duration,
+        actualDuration: lesson.actualDurationMinutes,
+        status: lesson.billingStatus,
+        callStartTime: lesson.actualCallStartTime,
+        callEndTime: lesson.actualCallEndTime,
+        isOfficeHours: lesson.isOfficeHours
+      }
+    });
+  } catch (error) {
+    console.error('Error getting billing summary:', error);
+    res.status(500).json({ success: false, message: 'Failed to get billing summary' });
   }
 });
 

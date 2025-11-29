@@ -9,6 +9,7 @@ export interface CreateClassRequest {
   description?: string;
   capacity: number;
   isPublic: boolean;
+  thumbnail?: string;
   price?: number;
   startTime: string; // ISO
   endTime: string;   // ISO
@@ -177,6 +178,19 @@ export class ClassService {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(
           `${this.apiUrl}/classes/student/accepted`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  getPublicClasses(): Observable<{ success: boolean; classes: any[] }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; classes: any[] }>(
+          `${this.apiUrl}/classes/public/all`,
           { headers }
         );
       })

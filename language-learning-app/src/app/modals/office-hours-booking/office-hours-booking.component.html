@@ -1,0 +1,203 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="showConfirmation ? backToSelection() : dismiss()">
+        <ion-icon [name]="showConfirmation ? 'arrow-back-outline' : 'close-outline'"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ showConfirmation ? 'Confirm Booking' : 'Quick Session' }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Selection View -->
+  <div class="booking-container" *ngIf="!showConfirmation">
+    <!-- Tutor Card -->
+    <div class="tutor-card">
+      <ion-avatar class="tutor-avatar">
+        <img [src]="tutorPicture || 'assets/avatar.png'" [alt]="tutorName" referrerpolicy="no-referrer">
+      </ion-avatar>
+      <div class="tutor-info">
+        <h2>{{ tutorName }}</h2>
+        <div class="office-hours-badge">
+          <ion-icon name="flash"></ion-icon>
+          <span>Available Now</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-Minute Rate Info -->
+    <div class="rate-info-card">
+      <ion-icon name="pricetag-outline"></ion-icon>
+      <div>
+        <strong>${{ perMinuteRate.toFixed(2) }}/minute</strong>
+        <p>You only pay for the time used</p>
+      </div>
+    </div>
+
+    <!-- Booking Type Selector -->
+    <div class="booking-type-selector">
+      <ion-segment [(ngModel)]="bookingType">
+        <ion-segment-button value="instant">
+          <ion-icon name="flash-outline"></ion-icon>
+          <ion-label>Start Now</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="scheduled">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <ion-label>Schedule</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <!-- Duration Selection -->
+    <div class="duration-section">
+      <ion-label class="section-label">Session Duration</ion-label>
+      <ion-radio-group [(ngModel)]="selectedDuration">
+        <div class="duration-options">
+          <div class="duration-option" *ngFor="let option of durationOptions">
+            <ion-radio [value]="option.value"></ion-radio>
+            <div class="option-content">
+              <span class="duration-label">{{ option.label }}</span>
+              <span class="duration-price">${{ option.price.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+      </ion-radio-group>
+    </div>
+
+    <!-- Scheduled Time (only for scheduled bookings) -->
+    <div class="scheduled-time-section" *ngIf="bookingType === 'scheduled'">
+      <ion-item>
+        <ion-label position="stacked">When would you like to start?</ion-label>
+        <ion-datetime
+          [(ngModel)]="scheduledTime"
+          presentation="date-time"
+          [min]="minScheduledTime"
+          [max]="maxScheduledTime"
+          [minuteValues]="[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]">
+        </ion-datetime>
+      </ion-item>
+      <ion-note class="time-note">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <span>Available within the next 24 hours</span>
+      </ion-note>
+    </div>
+
+    <!-- Instant Booking Info -->
+    <div class="instant-info" *ngIf="bookingType === 'instant'">
+      <ion-icon name="time-outline"></ion-icon>
+      <div>
+        <strong>Session starts around {{ getEstimatedStartTime() }}</strong>
+        <p>The tutor will be notified immediately and join within 2-3 minutes</p>
+      </div>
+    </div>
+
+    <!-- Notes (optional) -->
+    <ion-item class="notes-item">
+      <ion-label position="stacked">Topic or Questions (Optional)</ion-label>
+      <ion-textarea
+        [(ngModel)]="notes"
+        placeholder="What would you like to discuss?"
+        rows="2"
+        maxlength="200">
+      </ion-textarea>
+    </ion-item>
+
+    <!-- Continue Button -->
+    <ion-button
+      expand="block"
+      size="large"
+      (click)="proceedToConfirmation()"
+      [disabled]="bookingType === 'scheduled' && !scheduledTime"
+      class="book-button">
+      Continue to Confirm
+      <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+    </ion-button>
+
+    <!-- Cancel Button -->
+    <ion-button
+      expand="block"
+      fill="clear"
+      (click)="dismiss()">
+      Cancel
+    </ion-button>
+  </div>
+
+  <!-- Confirmation View -->
+  <div class="confirmation-container" *ngIf="showConfirmation">
+    <div class="confirmation-header">
+      <ion-icon name="shield-checkmark" class="confirmation-icon"></ion-icon>
+      <h2>Confirm Your Booking</h2>
+    </div>
+
+    <!-- Tutor Info (compact) -->
+    <div class="tutor-card compact">
+      <ion-avatar class="tutor-avatar">
+        <img [src]="tutorPicture || 'assets/avatar.png'" [alt]="tutorName" referrerpolicy="no-referrer">
+      </ion-avatar>
+      <div class="tutor-info">
+        <h3>{{ tutorName }}</h3>
+        <span class="session-type">{{ bookingType === 'instant' ? 'Starting Now' : 'Scheduled' }}</span>
+      </div>
+    </div>
+
+    <!-- Price Breakdown -->
+    <div class="price-breakdown">
+      <h4>Price Details</h4>
+      
+      <div class="breakdown-row">
+        <span>Per-minute rate</span>
+        <span>${{ perMinuteRate.toFixed(2) }}/min</span>
+      </div>
+      
+      <div class="breakdown-row">
+        <span>Selected duration</span>
+        <span>{{ selectedDuration }} minutes</span>
+      </div>
+      
+      <div class="breakdown-row highlight">
+        <span>Estimated cost</span>
+        <span class="price">${{ selectedPrice.toFixed(2) }}</span>
+      </div>
+    </div>
+
+    <!-- Important Notice -->
+    <div class="billing-notice">
+      <ion-icon name="information-circle"></ion-icon>
+      <p>
+        <strong>Pay only for time used.</strong><br>
+        Your payment method will be authorized for ${{ selectedPrice.toFixed(2) }}. 
+        You'll only be charged for the actual session time if it ends early.
+      </p>
+    </div>
+
+    <!-- If scheduled, show time -->
+    <div class="scheduled-summary" *ngIf="bookingType === 'scheduled' && scheduledTime">
+      <ion-icon name="calendar"></ion-icon>
+      <span>{{ scheduledTime | date:'EEE, MMM d, y h:mm a' }}</span>
+    </div>
+
+    <!-- Confirm Button -->
+    <ion-button
+      expand="block"
+      size="large"
+      (click)="bookSession()"
+      [disabled]="isLoading"
+      class="confirm-button">
+      <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+      <span *ngIf="!isLoading">
+        <ion-icon name="flash" slot="start"></ion-icon>
+        {{ bookingType === 'instant' ? 'Confirm & Start Session' : 'Confirm Booking' }}
+      </span>
+    </ion-button>
+
+    <!-- Back Button -->
+    <ion-button
+      expand="block"
+      fill="clear"
+      (click)="backToSelection()"
+      [disabled]="isLoading">
+      Back to Options
+    </ion-button>
+  </div>
+</ion-content>

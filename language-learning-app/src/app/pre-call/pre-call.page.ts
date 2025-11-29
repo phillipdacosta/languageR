@@ -1,7 +1,7 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Location } from '@angular/common';
-import { AlertController, LoadingController } from '@ionic/angular';
+import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
@@ -36,10 +36,35 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   otherParticipantName: string = '';
   otherParticipantPicture: string = '';
   private destroy$ = new Subject<void>();
+  // Track the tutor for this session so we can adjust tutor-search UI after cancellations
+  private lessonTutorId: string | null = null;
+  
+  // Office Hours waiting room
+  isOfficeHoursWaitingRoom: boolean = false;
+  waitingForTutorAcceptance: boolean = false; // Student waiting for tutor to accept
+  tutorHasAccepted: boolean = false; // Tutor has accepted, student can now enter
+  showOfficeHoursRequestModal: boolean = false;
+  pendingOfficeHoursRequest: any = null;
+  officeHoursRequestTimeout: any = null;
+  requestTimeRemaining: number = 30;
+  requestCountdownInterval: any = null;
+  heartbeatInterval: any = null;
+  
+  // Track all active intervals to ensure complete cleanup
+  private activeIntervals: Set<any> = new Set();
+  private isCountdownActive: boolean = false;
+
+  // Student entry countdown (after tutor accepts)
+  studentEntryCountdown: number = 60; // 1 minute
+  studentEntryTimeout: any = null;
+  showStudentEntryCountdown: boolean = false;
 
   // Virtual background properties
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
+  
+  // Error recovery
+  showRetryButton = false;
   
   // Audio level monitoring
   audioLevel: number = 0;
@@ -58,20 +83,164 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private agoraService: AgoraService,
     private alertController: AlertController,
     private loadingController: LoadingController,
-    private websocketService: WebSocketService
+    private toastController: ToastController,
+    private websocketService: WebSocketService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
     const params = this.route.snapshot.queryParams;
     this.lessonId = params['lessonId'] || '';
     this.isClass = params['isClass'] === 'true';
+    const isOfficeHours = params['officeHours'] === 'true';
+    const waitingForTutor = params['waitingForTutor'] === 'true';
+    const role = params['role'];
     
-    console.log('🎯 PRE-CALL ngOnInit:', {
-      lessonId: this.lessonId,
-      isClass: this.isClass,
-      isClassParam: params['isClass'],
-      allParams: params
-    });
+
+    
+    // Handle student waiting for tutor to accept office hours request
+    if (isOfficeHours && role === 'student' && waitingForTutor && this.lessonId) {
+      console.log('⏳ Student waiting for tutor acceptance');
+      console.log('⏳ Lesson ID:', this.lessonId);
+      this.isTutor = false;
+      this.waitingForTutorAcceptance = true;
+      this.tutorHasAccepted = false;
+      this.lessonTitle = 'Waiting for Tutor...';
+      this.participantName = 'Tutor will join soon';
+      
+      // Connect to WebSocket to listen for tutor acceptance
+      console.log('🔌 Connecting to WebSocket...');
+      this.websocketService.connect();
+      
+      // Wait for connection before setting up listeners
+      setTimeout(() => {
+        console.log('🔌 WebSocket connected, setting up office hours listener');
+        
+        // Listen for office hours accepted event
+        this.websocketService.officeHoursAccepted$
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(async (acceptance) => {
+            console.log('✅ Received office hours accepted event:', acceptance);
+            console.log('✅ Comparing lessonIds:', {
+              eventLessonId: acceptance.lessonId,
+              currentLessonId: this.lessonId,
+              match: acceptance.lessonId === this.lessonId
+            });
+            
+            if (acceptance.lessonId === this.lessonId) {
+              console.log('✅ Lesson IDs match! Enabling classroom entry');
+              this.tutorHasAccepted = true;
+              this.waitingForTutorAcceptance = false;
+              this.participantName = acceptance.tutorName;
+              
+              // Start student entry countdown (1 minute to enter classroom)
+              this.startStudentEntryCountdown();
+              
+              // Force change detection
+              this.cdr.detectChanges();
+              
+              // Show success notification
+              const toast = await this.toastController.create({
+                message: `${acceptance.tutorName} is ready! You can now enter the classroom.`,
+                duration: 4000,
+                color: 'success',
+                icon: 'checkmark-circle',
+                position: 'top'
+              });
+              await toast.present();
+            }
+          });
+        
+        // Also listen for tutor joining the video call
+        this.websocketService.lessonPresence$
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(presence => {
+            console.log('👋 Received lesson_participant_joined event (student pre-call):', presence);
+            const normalizedEventId = String(presence.lessonId);
+            const normalizedCurrentId = String(this.lessonId);
+            if (normalizedEventId === normalizedCurrentId && presence.participantRole === 'tutor') {
+              console.log('✅ Tutor joined the video call!');
+              this.otherParticipantJoined = true;
+              this.otherParticipantName = presence.participantName;
+              this.otherParticipantPicture = presence.participantPicture || '';
+              this.cdr.detectChanges();
+            }
+          });
+        
+        // Listen for tutor leaving
+        this.websocketService.lessonPresenceLeft$
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(presence => {
+            console.log('👋 Received lesson_participant_left event (student pre-call):', presence);
+            const normalizedEventId = String(presence.lessonId);
+            const normalizedCurrentId = String(this.lessonId);
+            if (normalizedEventId === normalizedCurrentId) {
+              console.log('❌ Tutor left the video call');
+              this.otherParticipantJoined = false;
+              this.otherParticipantName = '';
+              this.otherParticipantPicture = '';
+              this.cdr.detectChanges();
+            }
+          });
+        
+        // IMPORTANT: Listen for lesson cancelled events (when tutor declines)
+        this.websocketService.lessonCancelled$
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(async (cancellation) => {
+            console.log('🚫 Received lesson_cancelled event (student waiting):', cancellation);
+            const normalizedEventId = String(cancellation.lessonId);
+            const normalizedCurrentId = String(this.lessonId);
+            if (normalizedEventId === normalizedCurrentId) {
+              console.log('❌ Lesson cancelled by tutor - handling cancellation');
+              await this.handleLessonCancellation(cancellation);
+            }
+          });
+      }, 1000); // Give WebSocket time to connect
+      
+      // Load lesson details to get tutor name
+      await this.loadLessonDetails();
+      this.isLoading = false;
+      return;
+    }
+    
+    // Handle office hours waiting room (tutor waiting for students)
+    if (isOfficeHours && role === 'tutor' && !this.lessonId) {
+      console.log('⚡ Office Hours Waiting Room Mode');
+      this.isTutor = true;
+      this.isOfficeHoursWaitingRoom = true;
+      this.lessonTitle = 'Office Hours - Waiting Room';
+      this.participantName = 'Waiting for student...';
+      this.isLoading = false;
+      
+      // Ensure office hours are enabled when entering waiting room
+      try {
+        await this.userService.toggleOfficeHours(true).toPromise();
+        console.log('✅ Office hours enabled for waiting room');
+      } catch (error) {
+        console.error('❌ Error enabling office hours:', error);
+      }
+      
+      // Connect to WebSocket to listen for office hours bookings
+      this.websocketService.connect();
+      
+      // Start heartbeat to indicate tutor is actively available
+      this.startHeartbeat();
+      
+      // Listen for office hours booking requests
+      this.websocketService.newNotification$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(notification => {
+          console.log('🔔 Notification received in pre-call:', notification);
+          if (notification.type === 'office_hours_booking' && notification.urgent) {
+            this.handleOfficeHoursRequest(notification);
+          }
+        });
+      
+      // Note: Media setup will happen in ngAfterViewInit via setupPreview()
+      return;
+    }
+    
+    console.log('✅ Pre-call in regular mode (not waiting room), lessonId:', this.lessonId, 'isOfficeHoursWaitingRoom:', this.isOfficeHoursWaitingRoom);
     
     if (!this.lessonId) {
       this.errorMessage = this.isClass ? 'Class ID is required' : 'Lesson ID is required';
@@ -85,13 +254,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Connect to WebSocket and listen for lesson presence
     this.websocketService.connect();
     
+    console.log('🔌 WebSocket connected, setting up presence listeners for lesson:', this.lessonId);
+    console.log('🔌 WebSocket connection status:', this.websocketService.getConnectionStatus());
+    
     // Listen for participant joined events
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
+        console.log('👋 Received lesson_participant_joined event:', presence);
         const normalizedEventId = String(presence.lessonId);
         const normalizedCurrentId = String(this.lessonId);
+        console.log('🔍 Comparing lesson IDs:', { eventId: normalizedEventId, currentId: normalizedCurrentId, match: normalizedEventId === normalizedCurrentId });
         if (normalizedEventId === normalizedCurrentId) {
+          console.log('✅ Other participant joined!', presence.participantName);
           this.otherParticipantJoined = true;
           this.otherParticipantName = presence.participantName;
           this.otherParticipantPicture = presence.participantPicture || '';
@@ -102,12 +277,31 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.websocketService.lessonPresenceLeft$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {
+        console.log('👋 Received lesson_participant_left event:', presence);
         const normalizedEventId = String(presence.lessonId);
         const normalizedCurrentId = String(this.lessonId);
         if (normalizedEventId === normalizedCurrentId) {
+          console.log('❌ Other participant left');
           this.otherParticipantJoined = false;
           this.otherParticipantName = '';
           this.otherParticipantPicture = '';
+        }
+      });
+
+    // Listen for lesson cancelled events
+    console.log('🚫 Setting up lesson_cancelled listener for lessonId:', this.lessonId);
+    this.websocketService.lessonCancelled$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(async (cancellation) => {
+        console.log('🚫 Received lesson_cancelled event:', cancellation);
+        const normalizedEventId = String(cancellation.lessonId);
+        const normalizedCurrentId = String(this.lessonId);
+        console.log('🔍 Comparing lessonIds:', { eventId: normalizedEventId, currentId: normalizedCurrentId });
+        if (normalizedEventId === normalizedCurrentId) {
+          console.log('❌ Lesson has been cancelled by:', cancellation.cancelledBy);
+          await this.handleLessonCancellation(cancellation);
+        } else {
+          console.log('⚠️ Lesson ID mismatch, ignoring cancellation');
         }
       });
   }
@@ -149,6 +343,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.tutorName = this.formatName(lesson.tutorId);
         this.studentName = this.formatName(lesson.studentId);
         this.isTrialLesson = lesson.isTrialLesson || false;
+        // Cache tutor id for later use (e.g., after cancellations)
+        this.lessonTutorId = lesson.tutorId?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || null;
         
         console.log('🎓 PRE-CALL: Lesson loaded', {
           lessonId: lesson._id,
@@ -171,6 +367,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         
         // Check if the other participant has already joined
         // The lesson.participants object contains join/leave info
+        console.log('👥 Checking participant presence:', {
+          hasParticipants: !!lesson.participants,
+          participants: lesson.participants,
+          studentId: lesson.studentId?._id,
+          tutorId: lesson.tutorId?._id,
+          isTutor: this.isTutor
+        });
+        
         if (lesson.participants && typeof lesson.participants === 'object') {
           const otherParticipantId = this.isTutor 
             ? lesson.studentId?._id 
@@ -180,9 +384,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
             const otherParticipantKey = String(otherParticipantId);
             const participantData = lesson.participants[otherParticipantKey];
             
+            console.log('👥 Checking participant data:', {
+              otherParticipantKey,
+              participantData
+            });
+            
             // If the other participant has joined (has joinedAt) and hasn't left (no leftAt or leftAt is null)
             if (participantData && participantData.joinedAt && !participantData.leftAt) {
               // Other participant has already joined
+              console.log('✅ Other participant already in lesson:', {
+                isTutor: this.isTutor,
+                otherParticipantName: this.isTutor ? this.studentName : this.tutorName,
+                joinedAt: participantData.joinedAt
+              });
               this.otherParticipantJoined = true;
               if (this.isTutor) {
                 this.otherParticipantName = this.studentName;
@@ -191,6 +405,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
                 this.otherParticipantName = this.tutorName;
                 this.otherParticipantPicture = lesson.tutorId?.picture || '';
               }
+            } else {
+              console.log('⏳ Other participant not yet in lesson');
             }
           }
         }
@@ -203,6 +419,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.participantName = this.isTutor ? this.studentName : this.tutorName;
     } finally {
       this.isLoading = false;
+      console.log('✅ loadLessonDetails complete:', {
+        isLoading: this.isLoading,
+        errorMessage: this.errorMessage,
+        isOfficeHoursWaitingRoom: this.isOfficeHoursWaitingRoom,
+        buttonShouldBeEnabled: !this.isLoading && !this.errorMessage && !this.isOfficeHoursWaitingRoom
+      });
     }
   }
 
@@ -233,13 +455,26 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isLoading = false;
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        this.errorMessage = 'Camera and microphone permissions are required. Please allow access and refresh.';
+        this.errorMessage = 'Camera and microphone permissions are required. Please allow access and try again.';
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        this.errorMessage = 'No camera or microphone found. Please connect a device.';
+        this.errorMessage = 'No camera or microphone found. Please connect a device and try again.';
       } else {
-        this.errorMessage = 'Unable to access camera or microphone. Please check your device settings.';
+        this.errorMessage = 'Unable to access camera or microphone. Please check your device settings and try again.';
       }
+      
+      // Add retry button functionality
+      this.showRetryButton = true;
     }
+  }
+
+  /**
+   * Retry camera/microphone setup after error
+   */
+  async retrySetup() {
+    console.log('🔄 Retrying camera/microphone setup...');
+    this.errorMessage = '';
+    this.showRetryButton = false;
+    await this.setupPreview();
   }
 
   async toggleMicrophone() {
@@ -323,6 +558,20 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async enterClassroom() {
+    // Clear student entry countdown since they're entering
+    if (this.studentEntryTimeout) {
+      clearTimeout(this.studentEntryTimeout);
+      this.studentEntryTimeout = null;
+      this.showStudentEntryCountdown = false;
+      console.log('✅ Cleared student entry countdown - entering classroom');
+    }
+    
+    // Don't allow entering classroom if in office hours waiting mode
+    if (this.isOfficeHoursWaitingRoom) {
+      console.log('⚠️ Cannot enter classroom while in office hours waiting mode');
+      return;
+    }
+    
     const loading = await this.loadingController.create({
       message: 'Entering classroom...',
       spinner: 'crescent'
@@ -332,56 +581,48 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       // Stop preview stream - it will be recreated in video-call page
       if (this.localStream) {
-        this.localStream.getTracks().forEach(track => track.stop());
+        console.log('🛑 Stopping pre-call MediaStream before entering classroom');
+        this.localStream.getTracks().forEach(track => {
+          track.stop();
+          console.log(`🛑 Stopped ${track.kind} track`);
+        });
         this.localStream = null;
       }
 
-      // Initialize Agora client if needed
-      if (!this.agoraService.getClient()) {
-        await this.agoraService.initializeClient();
-      }
+      // DON'T join Agora or initialize client here
+      // Let video-call page handle the entire Agora lifecycle
+      // This prevents track/DOM attachment issues when navigating
+      console.log('🎯 Navigating to video-call - video-call will handle Agora join');
 
-      // Get current user and join lesson/class
+      // Get current user for navigation params
       const currentUser = await firstValueFrom(this.userService.getCurrentUser());
       const params = this.route.snapshot.queryParams;
       const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
       
-      console.log('🎯 PRE-CALL: Attempting to join session:', {
+      console.log('🎯 PRE-CALL: Navigating to video-call:', {
         sessionId: this.lessonId,
         isClass: this.isClass,
         role: role
       });
-      
-      const joinResponse = await this.agoraService.joinLesson(
-        this.lessonId,
-        role,
-        currentUser?.id,
-        {
-          micEnabled: !this.isMuted,
-          videoEnabled: !this.isVideoOff,
-          isClass: this.isClass
-        }
-      );
-      
 
       await loading.dismiss();
 
       // Get user's first name for display
       const firstName = currentUser?.firstName || currentUser?.name?.split(' ')[0] || 'User';
       
-      // Navigate to video-call with lesson info AND user identity
+      // Navigate to video-call with lesson info - video-call will handle Agora join
       this.router.navigate(['/video-call'], {
         queryParams: {
           lessonId: this.lessonId,
-          channelName: joinResponse.agora.channelName,
+          channelName: 'languageRoom', // Fixed channel name
           role,
           lessonMode: 'true',
           micOn: !this.isMuted,
           videoOn: !this.isVideoOff,
-          isClass: this.isClass ? 'true' : 'false', // Pass isClass flag
-          userId: currentUser?.id, // Pass user's database ID
-          userName: firstName, // Pass user's first name
-          agoraUid: joinResponse.agora.uid // Pass Agora UID for matching
+          isClass: this.isClass ? 'true' : 'false',
+          userId: currentUser?.id,
+          userName: firstName,
+          agoraUid: currentUser?.id // Use MongoDB ID as Agora UID
         }
       });
     } catch (error: any) {
@@ -406,6 +647,21 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async goBack() {
     console.log('🚪 PreCall: goBack() called - cleaning up resources...');
+    
+    // If in office hours waiting mode, disable office hours
+    if (this.isOfficeHoursWaitingRoom) {
+      console.log('🔒 Disabling office hours - tutor leaving waiting room');
+      try {
+        await this.userService.toggleOfficeHours(false).toPromise();
+        
+        // If there's a pending request, decline it
+        if (this.showOfficeHoursRequestModal && this.pendingOfficeHoursRequest) {
+          await this.declineOfficeHoursRequest();
+        }
+      } catch (error) {
+        console.error('Error disabling office hours:', error);
+      }
+    }
     
     // Stop audio monitoring
     this.stopAudioMonitoring();
@@ -461,6 +717,31 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnDestroy() {
     console.log('🚪 PreCall: ngOnDestroy() called - cleaning up resources...');
+    
+    // If in office hours waiting mode, disable office hours
+    // (tutor is navigating away without accepting a booking)
+    if (this.isOfficeHoursWaitingRoom) {
+      console.log('🔒 Disabling office hours - component destroyed');
+      this.userService.toggleOfficeHours(false).subscribe({
+        next: () => console.log('✅ Office hours disabled on destroy'),
+        error: (err) => console.error('❌ Error disabling office hours on destroy:', err)
+      });
+    }
+    
+    // Clear office hours timeout and all countdown intervals
+    if (this.officeHoursRequestTimeout) {
+      clearTimeout(this.officeHoursRequestTimeout);
+    }
+    this.clearAllCountdownIntervals();
+    
+    // Clear student entry timeout
+    if (this.studentEntryTimeout) {
+      clearTimeout(this.studentEntryTimeout);
+      this.studentEntryTimeout = null;
+    }
+    
+    // Stop heartbeat
+    this.stopHeartbeat();
     
     // Clean up subscriptions
     this.destroy$.next();
@@ -897,6 +1178,632 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   private capitalize(value: string): string {
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
+  // Clear all countdown intervals with detailed logging
+  private clearAllCountdownIntervals() {
+    console.log('🧹 Clearing all countdown intervals');
+    console.log('🧹 Before cleanup - activeIntervals size:', this.activeIntervals.size);
+    console.log('🧹 Before cleanup - requestCountdownInterval:', this.requestCountdownInterval);
+    
+    // Clear the main tracked interval
+    if (this.requestCountdownInterval) {
+      console.log('🧹 Clearing main countdown interval:', this.requestCountdownInterval);
+      clearInterval(this.requestCountdownInterval);
+      this.activeIntervals.delete(this.requestCountdownInterval);
+      this.requestCountdownInterval = null;
+    }
+    
+    // Clear all tracked intervals
+    this.activeIntervals.forEach(intervalId => {
+      console.log('🧹 Clearing tracked interval:', intervalId);
+      clearInterval(intervalId);
+    });
+    this.activeIntervals.clear();
+    
+    // Reset timer state and flag
+    this.requestTimeRemaining = 30;
+    this.isCountdownActive = false;
+    
+    console.log('✅ Cleanup complete - activeIntervals size:', this.activeIntervals.size);
+    console.log('✅ Cleanup complete - requestCountdownInterval:', this.requestCountdownInterval);
+    console.log('✅ Cleanup complete - isCountdownActive:', this.isCountdownActive);
+    console.log('✅ Timer reset to:', this.requestTimeRemaining);
+  }
+
+  // Handle incoming office hours booking request
+  async handleOfficeHoursRequest(notification: any) {
+    console.log('⚡ Office Hours Request:', notification);
+    
+    // Aggressively clear ALL countdown intervals first
+    this.clearAllCountdownIntervals();
+    
+    // Clear any existing timeout
+    if (this.officeHoursRequestTimeout) {
+      console.log('🧹 Clearing previous office hours timeout');
+      clearTimeout(this.officeHoursRequestTimeout);
+      this.officeHoursRequestTimeout = null;
+    }
+    
+    // Reset modal state
+    this.showOfficeHoursRequestModal = false;
+    this.pendingOfficeHoursRequest = null;
+    
+    // Small delay to ensure UI state is clean
+    setTimeout(() => {
+      console.log('🔄 Setting up new office hours request with fresh timer');
+      this.pendingOfficeHoursRequest = notification;
+      this.showOfficeHoursRequestModal = true;
+      this.requestTimeRemaining = 30;
+      
+      // Prevent multiple intervals with flag check
+      if (this.isCountdownActive) {
+        console.error('❌ COUNTDOWN ALREADY ACTIVE! Preventing duplicate interval creation');
+        return;
+      }
+      
+      console.log('✅ Creating new countdown interval...');
+      this.isCountdownActive = true;
+      
+      // Start countdown timer and track it
+      this.requestCountdownInterval = setInterval(() => {
+        this.requestTimeRemaining--;
+        console.log('⏰ Countdown:', this.requestTimeRemaining, 'active flag:', this.isCountdownActive, 'intervals tracked:', this.activeIntervals.size);
+      }, 1000);
+      
+      // Add to tracked intervals
+      this.activeIntervals.add(this.requestCountdownInterval);
+      console.log('✅ Started new countdown, interval ID:', this.requestCountdownInterval, 'total intervals:', this.activeIntervals.size);
+      
+      // Auto-decline after 30 seconds
+      this.officeHoursRequestTimeout = setTimeout(async () => {
+        this.clearAllCountdownIntervals();
+        if (this.showOfficeHoursRequestModal) {
+          console.log('⏰ Office hours request timed out');
+          await this.handleRequestTimeout();
+        }
+      }, 30000);
+    }, 100);
+  }
+
+  // Start student entry countdown after tutor accepts
+  startStudentEntryCountdown() {
+    console.log('⏰ Starting student entry countdown (60 seconds)');
+    this.showStudentEntryCountdown = true;
+    this.studentEntryCountdown = 60;
+    
+    // Update countdown every second
+    const countdownInterval = setInterval(() => {
+      this.studentEntryCountdown--;
+      this.cdr.detectChanges();
+      
+      if (this.studentEntryCountdown <= 0) {
+        clearInterval(countdownInterval);
+      }
+    }, 1000);
+    
+    // Auto-cancel session after 60 seconds if student doesn't enter
+    this.studentEntryTimeout = setTimeout(async () => {
+      clearInterval(countdownInterval);
+      if (this.showStudentEntryCountdown) {
+        console.log('⏰ Student entry timeout - cancelling session');
+        await this.handleStudentEntryTimeout();
+      }
+    }, 60000);
+  }
+
+  // Handle student entry timeout
+  async handleStudentEntryTimeout() {
+    this.showStudentEntryCountdown = false;
+    
+    // Cancel the lesson
+    if (this.lessonId) {
+      try {
+        await this.lessonService.updateLessonStatus(this.lessonId, 'cancelled').toPromise();
+        console.log('✅ Lesson cancelled due to student entry timeout');
+      } catch (error) {
+        console.error('Error cancelling lesson on student timeout:', error);
+      }
+    }
+    
+    // Show alert to student
+    const alert = await this.alertController.create({
+      header: 'Session Expired',
+      message: 'You took too long to enter the classroom. The session has been cancelled to avoid wasting the tutor\'s time. You have not been charged.',
+      buttons: [
+        {
+          text: 'Find Another Tutor',
+          handler: async () => {
+            console.log('🚪 Student timeout - using goBack() logic');
+            
+            // Stop audio monitoring
+            this.stopAudioMonitoring();
+            
+            // Clear video element srcObject first to release camera
+            const videoElement = this.videoPreviewRef?.nativeElement;
+            if (videoElement) {
+              console.log('🎥 Clearing video element srcObject...');
+              videoElement.srcObject = null;
+              videoElement.load(); // Reset the video element
+            }
+            
+            // Stop preview stream before navigating away
+            if (this.localStream) {
+              console.log('🛑 Stopping preview MediaStream tracks...');
+              this.localStream.getTracks().forEach(track => {
+                track.stop();
+                console.log('  ⏹️ Stopped track:', track.kind, track.label);
+              });
+              this.localStream = null;
+            }
+            
+            // Clean up Agora tracks if they were created for virtual background
+            try {
+              const videoTrack = this.agoraService.getLocalVideoTrack();
+              const audioTrack = this.agoraService.getLocalAudioTrack();
+              if (videoTrack || audioTrack) {
+                console.log('🧹 Cleaning up Agora tracks created for virtual background...');
+                await this.agoraService.cleanupLocalTracks();
+              }
+            } catch (error) {
+              console.error('❌ Error cleaning up Agora tracks:', error);
+              // Continue with navigation even if cleanup fails
+            }
+            
+            // Call leave endpoint if we have a lessonId/classId
+            if (this.lessonId) {
+              try {
+                if (this.isClass) {
+                  await firstValueFrom(this.classService.leaveClass(this.lessonId));
+                } else {
+                  await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+                }
+              } catch (error) {
+                console.error('🚪 PreCall: Error calling leave endpoint:', error);
+                // Continue with navigation even if leave fails
+              }
+            }
+            
+            // Navigate to tutor search and force refresh data
+            // Clear any stale data to force refresh in tutor search
+            localStorage.removeItem('tutorSearchHasLoadedOnce');
+            localStorage.setItem('forceRefreshTutors', 'true');
+            
+            this.router.navigate(['/tabs/tutor-search']);
+            
+            return true; // Allow alert to dismiss
+          }
+        }
+      ],
+      backdropDismiss: false
+    });
+    await alert.present();
+  }
+
+  // Start sending heartbeat to backend
+  startHeartbeat() {
+    console.log('💓 Starting office hours heartbeat...');
+    
+    // Send initial heartbeat immediately
+    this.userService.sendOfficeHoursHeartbeat().subscribe({
+      next: (res) => console.log('💓 Initial heartbeat sent:', res),
+      error: (err) => this.handleHeartbeatError(err)
+    });
+    
+    // Send heartbeat every 30 seconds
+    this.heartbeatInterval = setInterval(() => {
+      this.userService.sendOfficeHoursHeartbeat().subscribe({
+        next: (res) => console.log('💓 Heartbeat sent:', res),
+        error: (err) => this.handleHeartbeatError(err)
+      });
+    }, 30000);
+  }
+
+  // Handle heartbeat errors (e.g., schedule conflicts)
+  async handleHeartbeatError(err: any) {
+    console.error('💓 Heartbeat error:', err);
+    
+    // If there's a schedule conflict (409), show alert and redirect
+    if (err.status === 409) {
+      this.stopHeartbeat();
+      
+      const alert = await this.alertController.create({
+        header: '⚠️ Schedule Conflict',
+        message: err.error?.message || 'You have a lesson/class starting soon. Office Hours have been disabled.',
+        buttons: [
+          {
+            text: 'OK',
+            handler: () => {
+              this.router.navigate(['/tabs/tutor-calendar']);
+            }
+          }
+        ]
+      });
+      await alert.present();
+    }
+  }
+
+  // Stop heartbeat
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      console.log('💓 Stopping office hours heartbeat...');
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  async handleRequestTimeout() {
+    const lessonId = this.pendingOfficeHoursRequest?.lessonId || this.pendingOfficeHoursRequest?.data?.lessonId;
+    console.log('⏰ Office hours request timed out, lessonId:', lessonId);
+    
+    this.showOfficeHoursRequestModal = false;
+    this.pendingOfficeHoursRequest = null;
+    
+    // Cancel the lesson to notify the student
+    if (lessonId) {
+      try {
+        await this.lessonService.updateLessonStatus(lessonId, 'cancelled').toPromise();
+        console.log('✅ Lesson cancelled due to timeout');
+      } catch (error) {
+        console.error('Error cancelling lesson on timeout:', error);
+      }
+    }
+    
+    // Disable office hours since tutor didn't respond
+    try {
+      await this.userService.toggleOfficeHours(false).toPromise();
+      
+      const alert = await this.alertController.create({
+        header: 'Office Hours Disabled',
+        message: 'You missed a student request. Office Hours have been automatically disabled. Please only enable when you\'re actively monitoring.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      
+      // Navigate back to calendar
+      this.router.navigate(['/tabs/tutor-calendar']);
+    } catch (error) {
+      console.error('Error disabling office hours:', error);
+    }
+  }
+
+  async acceptOfficeHoursRequest() {
+    if (!this.pendingOfficeHoursRequest) return;
+    
+    // Clear timeout and all countdown intervals
+    if (this.officeHoursRequestTimeout) {
+      clearTimeout(this.officeHoursRequestTimeout);
+      this.officeHoursRequestTimeout = null;
+    }
+    this.clearAllCountdownIntervals();
+    
+    const lessonId = this.pendingOfficeHoursRequest.lessonId || this.pendingOfficeHoursRequest.data?.lessonId;
+    console.log('✅ Accepting office hours request, lessonId:', lessonId);
+    
+    this.showOfficeHoursRequestModal = false;
+    
+    // Update lesson status to 'confirmed' on backend (this will notify the student)
+    try {
+      await this.lessonService.updateLessonStatus(lessonId, 'confirmed').toPromise();
+      console.log('✅ Lesson status updated to confirmed, student has been notified');
+    } catch (error) {
+      console.error('Error updating lesson status:', error);
+    }
+    
+    // Disable office hours to prevent double bookings
+    // (tutor is now committed to this session)
+    console.log('🔒 Disabling office hours - tutor committed to session');
+    try {
+      await this.userService.toggleOfficeHours(false).toPromise();
+    } catch (error) {
+      console.error('Error disabling office hours:', error);
+    }
+    
+    // Clean up waiting room state
+    this.stopHeartbeat();
+    this.isOfficeHoursWaitingRoom = false;
+    this.showOfficeHoursRequestModal = false;
+    
+    // Update the current route query params and manually reinitialize
+    console.log('🔄 Transitioning from waiting room to lesson session, lessonId:', lessonId);
+    
+    // Update query params using replaceUrl to avoid navigation history issues
+    await this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: lessonId,
+        role: 'tutor',
+        lessonMode: 'true',
+        officeHours: 'true'
+      },
+      replaceUrl: true // Replace current URL instead of adding to history
+    });
+    
+    // Manually trigger re-initialization after navigation
+    setTimeout(async () => {
+      console.log('🔄 Manually re-initializing pre-call page with lessonId:', lessonId);
+      this.lessonId = lessonId;
+      this.isOfficeHoursWaitingRoom = false;
+      await this.loadLessonDetails();
+      
+      // Restart camera preview for tutor after acceptance
+      console.log('📹 Restarting camera preview after acceptance...');
+      try {
+        await this.setupPreview();
+      } catch (error) {
+        console.error('⚠️ Failed to restart camera preview after acceptance:', error);
+        // Don't block the flow - user can manually retry or continue without preview
+        this.errorMessage = 'Camera preview failed to restart. You can still enter the classroom.';
+      }
+      
+      // Setup presence listeners (these weren't set up in waiting room mode)
+      this.websocketService.connect();
+      console.log('🔌 WebSocket connected, setting up presence listeners for lesson:', this.lessonId);
+      
+      // Listen for participant joined events
+      this.websocketService.lessonPresence$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(presence => {
+          console.log('👋 Received lesson_participant_joined event (after accept):', presence);
+          const normalizedEventId = String(presence.lessonId);
+          const normalizedCurrentId = String(this.lessonId);
+          console.log('🔍 Comparing lesson IDs:', { eventId: normalizedEventId, currentId: normalizedCurrentId, match: normalizedEventId === normalizedCurrentId });
+          if (normalizedEventId === normalizedCurrentId) {
+            console.log('✅ Other participant joined!', presence.participantName);
+            this.otherParticipantJoined = true;
+            this.otherParticipantName = presence.participantName;
+            this.otherParticipantPicture = presence.participantPicture || '';
+          }
+        });
+      
+      // Listen for participant left events
+      this.websocketService.lessonPresenceLeft$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(presence => {
+          console.log('👋 Received lesson_participant_left event (after accept):', presence);
+          const normalizedEventId = String(presence.lessonId);
+          const normalizedCurrentId = String(this.lessonId);
+          if (normalizedEventId === normalizedCurrentId) {
+            console.log('❌ Other participant left');
+            this.otherParticipantJoined = false;
+            this.otherParticipantName = '';
+            this.otherParticipantPicture = '';
+          }
+        });
+      
+      // Listen for lesson cancelled events (IMPORTANT: Added for office hours acceptance flow)
+      this.websocketService.lessonCancelled$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(async (cancellation) => {
+          console.log('🚫 Received lesson_cancelled event (after accept):', cancellation);
+          const normalizedEventId = String(cancellation.lessonId);
+          const normalizedCurrentId = String(this.lessonId);
+          if (normalizedEventId === normalizedCurrentId) {
+            console.log('❌ Lesson has been cancelled by:', cancellation.cancelledBy);
+            await this.handleLessonCancellation(cancellation);
+          }
+        });
+    }, 200);
+  }
+
+  async declineOfficeHoursRequest() {
+    if (!this.pendingOfficeHoursRequest) return;
+    
+    // Clear timeout and all countdown intervals
+    if (this.officeHoursRequestTimeout) {
+      clearTimeout(this.officeHoursRequestTimeout);
+      this.officeHoursRequestTimeout = null;
+    }
+    this.clearAllCountdownIntervals();
+    
+    const lessonId = this.pendingOfficeHoursRequest.lessonId || this.pendingOfficeHoursRequest.data?.lessonId;
+    console.log('❌ Declining office hours request, lessonId:', lessonId);
+    
+    this.showOfficeHoursRequestModal = false;
+    this.pendingOfficeHoursRequest = null;
+    
+    // Call backend to cancel the lesson
+    try {
+      await this.lessonService.updateLessonStatus(lessonId, 'cancelled').toPromise();
+      console.log('✅ Lesson cancelled');
+    } catch (error) {
+      console.error('Error cancelling lesson:', error);
+    }
+    
+    // Auto-disable office hours to prevent student confusion
+    // (Student won't see you as "still available" after being declined)
+    try {
+      console.log('🔒 Disabling office hours...');
+      const result = await this.userService.toggleOfficeHours(false).toPromise();
+      console.log('✅ Office hours disabled successfully');
+      console.log('✅ Updated user officeHoursEnabled:', result?.profile?.officeHoursEnabled);
+      
+      // Add extra delay to ensure backend has propagated the change
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('✅ Waited 500ms for backend sync');
+      
+      // Show clear notification to tutor
+      const alert = await this.alertController.create({
+        header: 'Office Hours Disabled',
+        message: 'Your Office Hours have been automatically disabled to prevent student confusion. You can re-enable them anytime from your calendar.',
+        buttons: [
+          {
+            text: 'OK',
+            handler: () => {
+              this.router.navigate(['/tabs/tutor-calendar']);
+            }
+          },
+          {
+            text: 'Re-enable Now',
+            handler: async () => {
+              try {
+                await this.userService.toggleOfficeHours(true).toPromise();
+                console.log('✅ Office hours re-enabled by tutor');
+                // Navigate to calendar and show success
+                this.router.navigate(['/tabs/tutor-calendar']);
+                
+                const toast = await this.toastController.create({
+                  message: '✅ Office Hours re-enabled',
+                  duration: 2000,
+                  color: 'success',
+                  position: 'top'
+                });
+                await toast.present();
+              } catch (error) {
+                console.error('Error re-enabling office hours:', error);
+              }
+            }
+          }
+        ]
+      });
+      await alert.present();
+      
+    } catch (error) {
+      console.error('Error disabling office hours:', error);
+      // Navigate to calendar even if disable fails
+      this.router.navigate(['/tabs/tutor-calendar']);
+    }
+  }
+
+  async handleLessonCancellation(cancellation: {
+    lessonId: string;
+    cancelledBy: 'tutor' | 'student';
+    cancellerName: string;
+    reason: string;
+  }) {
+    console.log('🚫 Handling lesson cancellation:', cancellation);
+
+    // Only stop media if tutor is not continuing to wait for other students
+    // (i.e., if this is not a student timeout where tutor stays in waiting room)
+    const tutorContinuesWaiting = this.isTutor && cancellation.cancelledBy === 'student';
+    
+    if (!tutorContinuesWaiting && this.localStream) {
+      console.log('🛑 Stopping preview MediaStream tracks due to cancellation...');
+      this.localStream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`🛑 Stopped ${track.kind} track`);
+      });
+      this.localStream = null;
+    } else if (tutorContinuesWaiting) {
+      console.log('📹 Keeping camera/microphone active - tutor continues waiting for other students');
+    }
+
+    // Show alert to user
+    const alert = await this.alertController.create({
+      header: this.isTutor ? 'Session Cancelled' : 'Session Unavailable',
+      message: this.isTutor
+        ? (cancellation.cancelledBy === 'student' 
+            ? `The student didn't enter the classroom in time, so the session was cancelled. You can continue waiting for other students.`
+            : `The session has been cancelled.`)
+        : (cancellation.cancelledBy === 'tutor' 
+            ? `Something came up for this tutor and they're unable to join right now. Don't worry—you haven't been charged! Try finding another available tutor in the search.`
+            : `The student has cancelled this session.`),
+      buttons: [
+        {
+          text: this.isTutor 
+            ? (cancellation.cancelledBy === 'student' ? 'OK' : 'Continue Waiting')
+            : 'Find Tutors',
+          handler: async () => {
+            if (this.isTutor) {
+              // Tutor: Stay in waiting room and re-enable office hours if student timed out
+              if (cancellation.cancelledBy === 'student') {
+                console.log('🔄 Re-enabling office hours after student timeout');
+                try {
+                  await this.userService.toggleOfficeHours(true).toPromise();
+                  console.log('✅ Office hours re-enabled');
+                  
+                  // Restore waiting room state to listen for new requests
+                  console.log('🔄 Restoring office hours waiting room state');
+                  this.isOfficeHoursWaitingRoom = true;
+                  this.lessonTitle = 'Office Hours - Waiting Room';
+                  this.participantName = 'Waiting for student...';
+                  this.lessonId = ''; // Clear the cancelled lesson ID
+                  
+                  // Restart heartbeat to show as actively available in tutor search
+                  console.log('💓 Restarting heartbeat after student timeout');
+                  this.startHeartbeat();
+                  
+                  // Re-setup notification listeners for new office hours requests
+                  console.log('🔔 Re-setting up notification listeners');
+                  this.websocketService.newNotification$
+                    .pipe(takeUntil(this.destroy$))
+                    .subscribe(notification => {
+                      console.log('🔔 Notification received after timeout:', notification);
+                      if (notification.type === 'office_hours_booking' && notification.urgent) {
+                        this.handleOfficeHoursRequest(notification);
+                      }
+                    });
+                } catch (error) {
+                  console.error('❌ Error re-enabling office hours:', error);
+                }
+              }
+              console.log('✅ Tutor staying in waiting room after student timeout');
+              return;
+              } else {
+                // Student: Use same logic as goBack() method
+                console.log('🚪 Student cancellation - using goBack() logic');
+                
+                // Stop audio monitoring
+                this.stopAudioMonitoring();
+                
+                // Clear video element srcObject first to release camera
+                const videoElement = this.videoPreviewRef?.nativeElement;
+                if (videoElement) {
+                  console.log('🎥 Clearing video element srcObject...');
+                  videoElement.srcObject = null;
+                  videoElement.load(); // Reset the video element
+                }
+                
+                // Stop preview stream before navigating away
+                if (this.localStream) {
+                  console.log('🛑 Stopping preview MediaStream tracks...');
+                  this.localStream.getTracks().forEach(track => {
+                    track.stop();
+                    console.log('  ⏹️ Stopped track:', track.kind, track.label);
+                  });
+                  this.localStream = null;
+                }
+                
+                // Clean up Agora tracks if they were created for virtual background
+                try {
+                  const videoTrack = this.agoraService.getLocalVideoTrack();
+                  const audioTrack = this.agoraService.getLocalAudioTrack();
+                  if (videoTrack || audioTrack) {
+                    console.log('🧹 Cleaning up Agora tracks created for virtual background...');
+                    await this.agoraService.cleanupLocalTracks();
+                  }
+                } catch (error) {
+                  console.error('❌ Error cleaning up Agora tracks:', error);
+                  // Continue with navigation even if cleanup fails
+                }
+                
+                // Call leave endpoint if we have a lessonId/classId
+                if (this.lessonId) {
+                  try {
+                    if (this.isClass) {
+                      await firstValueFrom(this.classService.leaveClass(this.lessonId));
+                    } else {
+                      await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
+                    }
+                  } catch (error) {
+                    console.error('🚪 PreCall: Error calling leave endpoint:', error);
+                    // Continue with navigation even if leave fails
+                  }
+                }
+                
+                // Navigate to tutor search and force refresh data
+                // Clear any stale data to force refresh in tutor search
+                localStorage.removeItem('tutorSearchHasLoadedOnce');
+                localStorage.setItem('forceRefreshTutors', 'true');
+                
+                this.router.navigate(['/tabs/tutor-search']);
+              }
+          }
+        }
+      ],
+      backdropDismiss: false
+    });
+
+    await alert.present();
   }
 }
 

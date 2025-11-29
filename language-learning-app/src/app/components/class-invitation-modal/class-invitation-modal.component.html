@@ -45,9 +45,9 @@
           <span>{{ formattedTime }} ({{ duration }} minutes)</span>
         </div>
         
-        <div class="detail-row" *ngIf="classData.description">
+        <div class="detail-row description-row" *ngIf="classData.description">
           <ion-icon name="document-text-outline"></ion-icon>
-          <span>{{ classData.description }}</span>
+          <div class="description-content" [innerHTML]="sanitizedDescription"></div>
         </div>
         
         <div class="detail-row">

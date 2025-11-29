@@ -35,6 +35,26 @@
         </div>
       </div>
 
+      <!-- Duration Selector -->
+      <div class="duration-selector segmented" *ngIf="showDurationSelector && !isCurrentUserTutor()">
+        <div class="selector-header">
+          <ion-icon name="hourglass-outline"></ion-icon>
+          <span>Lesson Duration</span>
+        </div>
+        <div class="segmented-control">
+          <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
+            <ion-icon name="flash"></ion-icon>
+            <span class="label">Quick</span>
+            <span class="time">25 min</span>
+          </button>
+          <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
+            <ion-icon name="book"></ion-icon>
+            <span class="label">Deep</span>
+            <span class="time">50 min</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Legend -->
       <div class="legend">
         <div class="legend-item">
@@ -109,6 +129,26 @@
           <ion-icon name="globe-outline"></ion-icon>
           {{ getTimezoneMessage() }}
         </p>
+      </div>
+    </div>
+
+    <!-- Duration Selector -->
+    <div class="duration-selector segmented" *ngIf="showDurationSelector && !isCurrentUserTutor()">
+      <div class="selector-header">
+        <ion-icon name="hourglass-outline"></ion-icon>
+        <span>Lesson Duration</span>
+      </div>
+      <div class="segmented-control">
+        <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
+          <ion-icon name="flash"></ion-icon>
+          <span class="label">Quick</span>
+          <span class="time">25 min</span>
+        </button>
+        <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
+          <ion-icon name="book"></ion-icon>
+          <span class="label">Deep</span>
+          <span class="time">50 min</span>
+        </button>
       </div>
     </div>
 

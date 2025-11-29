@@ -78,6 +78,22 @@
       </div>
     </div>
 
+    <!-- Explore Public Classes Card (Students only) -->
+    <div class="explore-section" *ngIf="currentUser?.userType === 'student'">
+      <ion-card class="explore-card" [routerLink]="['/tabs/home/explore']">
+        <div class="explore-card-content">
+          <div class="explore-icon">
+            <ion-icon name="compass"></ion-icon>
+          </div>
+          <div class="explore-info">
+            <h3>Explore Public Classes</h3>
+            <p>Discover and join group classes from tutors</p>
+          </div>
+          <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
+        </div>
+      </ion-card>
+    </div>
+
     <!-- Tutor Insights Panel -->
     <div class="insights-panel" *ngIf="isTutor()">
       <div class="insight-metric">
@@ -259,13 +275,23 @@
             <!-- Left: Avatar & Info -->
             <div class="student-section">
               <ion-avatar class="student-avatar">
+                <!-- Class with thumbnail -->
+                <img
+                  *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.classData?.thumbnail"
+                  [src]="nextClass.lesson.classData.thumbnail"
+                  [alt]="nextClass.lesson.className || 'Class'"
+                  referrerpolicy="no-referrer"
+                />
+                <!-- Regular lesson with avatar -->
                 <img
                   *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
                   [src]="getOtherParticipantAvatar(nextClass.lesson)"
                   [alt]="formatStudentDisplayName(nextClass)"
                   referrerpolicy="no-referrer"
                 />
-                <ion-icon *ngIf="nextClass.lesson?.isClass" name="people" class="avatar-placeholder-icon"></ion-icon>
+                <!-- Class without thumbnail - show people icon -->
+                <ion-icon *ngIf="nextClass.lesson?.isClass && !nextClass.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder-icon"></ion-icon>
+                <!-- Regular lesson without avatar - show person icon -->
                 <ion-icon *ngIf="!nextClass.lesson?.isClass && (!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png')" name="person" class="avatar-placeholder-icon"></ion-icon>
               </ion-avatar>
               
@@ -426,7 +452,7 @@
                     <span class="timeline-date" [class.is-today]="event.date === 'Today'">{{ event.date }}</span>
                   </div>
                   <div class="timeline-header-right">
-                    <ion-avatar class="timeline-avatar" *ngIf="event.avatar && !event.lesson?.isClass">
+                    <ion-avatar class="timeline-avatar" *ngIf="event.avatar">
                       <img [src]="event.avatar" [alt]="event.name" referrerpolicy="no-referrer">
                     </ion-avatar>
                     <!-- Lesson/Class Menu Button (three dots) -->
@@ -700,7 +726,7 @@
         <div class="tab-icon consultant">
           <ion-icon name="people"></ion-icon>
         </div>
-        <span>Conversation</span>
+        <span>Explore</span>
       </div>
     </div>
 

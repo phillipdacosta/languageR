@@ -134,6 +134,7 @@
               [tutorId]="tutorId" 
               [tutorName]="tutor.name"
               [inline]="true"
+              [showDurationSelector]="true"
               [refreshTrigger]="availabilityRefreshTrigger"
               [currentUserAuth0Id]="currentUserAuth0Id"
               [tutorAuth0Id]="tutor?.auth0Id">
@@ -156,6 +157,23 @@
               <span>Trial lesson available</span>
             </div>
           </div>
+
+          <!-- Office Hours Badge (if enabled) -->
+          <div class="office-hours-available-badge" *ngIf="tutor?.isActivelyAvailable">
+            <ion-icon name="flash"></ion-icon>
+            <span>Available Now</span>
+          </div>
+
+          <!-- Office Hours Button -->
+          <ion-button 
+            *ngIf="tutor?.isActivelyAvailable" 
+            expand="block" 
+            size="large" 
+            class="book-btn-office-hours" 
+            (click)="bookOfficeHours()">
+            <ion-icon name="flash" slot="start"></ion-icon>
+            Quick Session (7-30 min)
+          </ion-button>
 
           <!-- Book Button -->
           <ion-button expand="block" size="large" class="book-btn-primary" (click)="bookLesson()">

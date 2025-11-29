@@ -6,6 +6,7 @@ import AgoraRTC, {
   IMicrophoneAudioTrack,
   IRemoteVideoTrack,
   IRemoteAudioTrack,
+  ILocalTrack,
   UID
 } from 'agora-rtc-sdk-ng';
 import VirtualBackgroundExtension from 'agora-extension-virtual-background';
@@ -22,8 +23,10 @@ export class AgoraService {
   private client: IAgoraRTCClient | null = null;
   private localVideoTrack: ICameraVideoTrack | ILocalVideoTrack | null = null;
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
+  private screenTrack: ILocalVideoTrack | null = null;
   private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean }> = new Map();
   private videoEnabledState: boolean = true; // Track video enabled state
+  private isScreenSharing: boolean = false;
 
   // Virtual background properties (following official example)
   private extension: any = null;
@@ -1138,6 +1141,19 @@ export class AgoraService {
         this.localAudioTrack = null;
       }
 
+      // Stop screen sharing if active
+      if (this.screenTrack) {
+        try {
+          console.log('🖥️ Stopping screen sharing track...');
+          this.screenTrack.stop();
+          this.screenTrack.close();
+          this.screenTrack = null;
+          this.isScreenSharing = false;
+        } catch (error) {
+          console.warn('⚠️ Error stopping screen track:', error);
+        }
+      }
+
       // Clean up virtual background processor
       if (this.processor) {
         try {
@@ -1299,6 +1315,20 @@ export class AgoraService {
         console.warn('⚠️ Error cleaning up audio track:', error);
       }
       this.localAudioTrack = null;
+    }
+
+    // Stop and close screen track
+    if (this.screenTrack) {
+      try {
+        console.log('🛑 Stopping and closing screen track...');
+        this.screenTrack.stop();
+        this.screenTrack.close();
+        console.log('✅ Screen track cleaned up');
+      } catch (error) {
+        console.warn('⚠️ Error cleaning up screen track:', error);
+      }
+      this.screenTrack = null;
+      this.isScreenSharing = false;
     }
 
     console.log('✅ Local tracks cleanup complete');
@@ -1583,5 +1613,213 @@ export class AgoraService {
       console.error("❌ Error sending participant identity:", error);
       throw error;
     }
+  }
+
+  /**
+   * Create screen video track for screen sharing
+   */
+  async createScreenVideoTrack(): Promise<ILocalVideoTrack> {
+    try {
+      console.log('🖥️ Creating screen video track...');
+      const screenTrack = await AgoraRTC.createScreenVideoTrack({
+        // Optimize for ultra-smooth cursor movement and detail visibility
+        encoderConfig: {
+          width: 1920,
+          height: 1080,
+          frameRate: 100, // Ultra-smooth cursor at 100 FPS
+          bitrateMin: 3000,
+          bitrateMax: 12000 // Increased for higher quality at 100 FPS
+        },
+        optimizationMode: "detail" // Better for text/cursor visibility
+      });
+      
+      console.log('✅ Screen video track created successfully');
+      
+      // Handle the case where createScreenVideoTrack returns an array [video, audio] or just video
+      if (Array.isArray(screenTrack)) {
+        return screenTrack[0]; // Return just the video track
+      }
+      return screenTrack;
+    } catch (error: any) {
+      console.error('❌ Failed to create screen track:', error);
+      throw new Error(`Failed to create screen track: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start screen sharing
+   */
+  async startScreenShare(customStream?: MediaStream): Promise<void> {
+    try {
+      console.log('🖥️ Starting screen share...');
+      
+      if (this.isScreenSharing) {
+        console.log('⚠️ Screen sharing already active');
+        return;
+      }
+
+      if (!this.client) {
+        throw new Error('Agora client not initialized');
+      }
+
+      // Stop existing screen share if any
+      if (this.screenTrack) {
+        await this.stopScreenShare();
+      }
+
+      // Unpublish camera video track before publishing screen track
+      // Agora doesn't allow multiple video tracks to be published simultaneously
+      if (this.localVideoTrack) {
+        console.log('📹 Unpublishing camera video track for screen sharing...');
+        await this.client.unpublish(this.localVideoTrack);
+      }
+
+      // Create screen track (either from custom stream or display capture)
+      if (customStream) {
+        console.log('🎨 Using custom stream for screen sharing (e.g., canvas)');
+        // Create track from custom stream with optimized settings for canvas
+        this.screenTrack = await AgoraRTC.createCustomVideoTrack({
+          mediaStreamTrack: customStream.getVideoTracks()[0],
+          // Optimize for canvas content - use correct Agora SDK properties
+          optimizationMode: 'detail' // Better for drawing/text content vs 'motion'
+        });
+        
+        // Apply additional encoding optimizations after track creation
+        if (this.screenTrack && 'setEncoderConfiguration' in this.screenTrack) {
+          try {
+            // Set ultra-high-quality encoding for canvas content
+            await (this.screenTrack as any).setEncoderConfiguration({
+              width: 1280,
+              height: 720,
+              frameRate: 120,
+              bitrateMin: 3000,
+              bitrateMax: 12000
+            });
+            console.log('✅ Applied high-quality encoding for canvas');
+          } catch (encError) {
+            console.warn('⚠️ Could not apply encoder config, using defaults:', encError);
+          }
+        }
+      } else {
+        // Create normal screen capture track
+        this.screenTrack = await this.createScreenVideoTrack();
+      }
+      
+      // Publish screen track
+      await this.client.publish(this.screenTrack);
+      this.isScreenSharing = true;
+      
+      console.log('✅ Screen sharing started successfully');
+
+      // Listen for screen share end (when user clicks "Stop sharing" in browser)
+      this.screenTrack.on("track-ended", () => {
+        console.log('🖥️ Screen sharing ended by user');
+        this.stopScreenShare();
+      });
+
+      // Monitor and optimize screen sharing performance
+      this.monitorScreenSharePerformance();
+
+    } catch (error: any) {
+      console.error('❌ Failed to start screen sharing:', error);
+      this.isScreenSharing = false;
+      
+      // If screen sharing failed, restore camera video track
+      if (this.localVideoTrack && this.client) {
+        try {
+          console.log('🔄 Restoring camera video track after screen share failure...');
+          await this.client.publish(this.localVideoTrack);
+        } catch (restoreError) {
+          console.error('❌ Failed to restore camera video track:', restoreError);
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Stop screen sharing
+   */
+  async stopScreenShare(): Promise<void> {
+    try {
+      console.log('🖥️ Stopping screen share...');
+      
+      if (this.screenTrack && this.client) {
+        // Unpublish screen track
+        await this.client.unpublish(this.screenTrack);
+        
+        // Stop and close the track
+        this.screenTrack.stop();
+        this.screenTrack.close();
+        this.screenTrack = null;
+      }
+      
+      // Restore camera video track after stopping screen share
+      if (this.localVideoTrack && this.client) {
+        console.log('📹 Restoring camera video track after screen sharing...');
+        await this.client.publish(this.localVideoTrack);
+      }
+      
+      this.isScreenSharing = false;
+      console.log('✅ Screen sharing stopped successfully');
+      
+    } catch (error: any) {
+      console.error('❌ Error stopping screen share:', error);
+      this.isScreenSharing = false;
+      throw error;
+    }
+  }
+
+  /**
+   * Get screen sharing status
+   */
+  getScreenSharingStatus(): boolean {
+    return this.isScreenSharing;
+  }
+
+  /**
+   * Get screen track for UI display
+   */
+  getScreenTrack(): ILocalVideoTrack | null {
+    return this.screenTrack;
+  }
+
+
+  /**
+   * Monitor screen sharing performance and adjust quality if needed
+   */
+  private monitorScreenSharePerformance(): void {
+    if (!this.screenTrack || !this.client) return;
+
+    // Monitor performance every 5 seconds
+    const performanceInterval = setInterval(() => {
+      if (!this.isScreenSharing || !this.screenTrack) {
+        clearInterval(performanceInterval);
+        return;
+      }
+
+      try {
+        // Get connection stats using the correct Agora API
+        const remoteUsers = this.client?.remoteUsers || [];
+        console.log('📊 Screen share active with', remoteUsers.length, 'remote users');
+        
+        // Log basic performance info
+        if (this.screenTrack) {
+          const mediaTrack = this.screenTrack.getMediaStreamTrack();
+          if (mediaTrack) {
+            const settings = mediaTrack.getSettings();
+            console.log('📈 Current screen share quality:', {
+              width: settings.width,
+              height: settings.height,
+              frameRate: settings.frameRate,
+              enabled: !this.screenTrack.muted
+            });
+          }
+        }
+      } catch (error) {
+        console.log('ℹ️ Performance monitoring error:', error);
+      }
+    }, 5000);
   }
 }

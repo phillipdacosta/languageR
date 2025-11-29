@@ -27,6 +27,9 @@ export interface Lesson {
   price: number;
   duration: number;
   isTrialLesson?: boolean;
+  isOfficeHours?: boolean;
+  officeHoursType?: 'quick' | 'scheduled' | null;
+  bookingType?: 'scheduled' | 'instant' | 'office_hours';
   bookingData?: {
     selectedDate: string;
     selectedTime: string;
@@ -54,6 +57,13 @@ export interface Lesson {
     declined: number;
   };
   classData?: any; // Full class data from backend
+  
+  // Per-minute billing tracking (for office hours)
+  actualCallStartTime?: string;
+  actualCallEndTime?: string;
+  actualDurationMinutes?: number;
+  actualPrice?: number;
+  billingStatus?: 'pending' | 'authorized' | 'charged' | 'refunded' | null;
 }
 
 export interface LessonCreateRequest {
@@ -138,6 +148,70 @@ export class LessonService {
     return this.http.post<{ success: boolean; lesson: Lesson }>(`${this.baseUrl}`, lessonData, { headers });
   }
 
+  // Create office hours instant booking
+  createOfficeHoursBooking(bookingData: {
+    tutorId: string;
+    duration: number;
+    startTime?: string; // Optional - defaults to "now" if not provided
+    instant?: boolean; // True if booking for immediate session
+  }): Observable<{ success: boolean; lesson: Lesson }> {
+    console.log('⚡ Creating office hours booking:', bookingData);
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; lesson: Lesson }>(
+      `${this.baseUrl}/office-hours`,
+      bookingData,
+      { headers }
+    );
+  }
+
+  // Record when the call actually starts (both parties connected)
+  recordCallStart(lessonId: string): Observable<{ success: boolean; actualCallStartTime: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; actualCallStartTime: string }>(
+      `${this.baseUrl}/${lessonId}/call-start`,
+      {},
+      { headers }
+    );
+  }
+
+  // Record when the call ends and calculate actual billing
+  recordCallEnd(lessonId: string): Observable<{
+    success: boolean;
+    actualCallEndTime: string;
+    actualDurationMinutes: number;
+    actualPrice: number;
+  }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{
+      success: boolean;
+      actualCallEndTime: string;
+      actualDurationMinutes: number;
+      actualPrice: number;
+    }>(
+      `${this.baseUrl}/${lessonId}/call-end`,
+      {},
+      { headers }
+    );
+  }
+
+  // Get billing summary for a lesson
+  getBillingSummary(lessonId: string): Observable<{
+    success: boolean;
+    billing: {
+      estimatedPrice: number;
+      actualPrice: number;
+      estimatedDuration: number;
+      actualDuration: number;
+      status: string;
+      callStartTime: string;
+      callEndTime: string;
+      isOfficeHours: boolean;
+    };
+  }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<any>(`${this.baseUrl}/${lessonId}/billing`, { headers });
+  }
+
   // Get lessons by tutor ID (requires authentication)
   getLessonsByTutor(tutorId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
     const url = all ? `${this.baseUrl}/by-tutor/${tutorId}?all=true` : `${this.baseUrl}/by-tutor/${tutorId}`;
@@ -184,6 +258,16 @@ export class LessonService {
     const body = userId ? { userId } : {};
     const headers = this.userService.getAuthHeadersSync();
     return this.http.post<{ success: boolean; message: string }>(`${this.baseUrl}/${lessonId}/end`, body, { headers });
+  }
+
+  // Update lesson status (cancel, reschedule, etc.)
+  updateLessonStatus(lessonId: string, status: 'cancelled' | 'completed' | 'scheduled' | 'in_progress' | 'confirmed'): Observable<{ success: boolean; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.patch<{ success: boolean; message: string }>(
+      `${this.baseUrl}/${lessonId}/status`,
+      { status },
+      { headers }
+    );
   }
 
   // Record that the current user left the lesson (but did not end it)

@@ -38,6 +38,15 @@
         <div class="error-message" *ngIf="errorMessage">
           <ion-icon name="alert-circle-outline"></ion-icon>
           <p>{{ errorMessage }}</p>
+          <ion-button 
+            *ngIf="showRetryButton" 
+            fill="outline" 
+            size="small" 
+            (click)="retrySetup()"
+            class="retry-button">
+            <ion-icon name="refresh-outline" slot="start"></ion-icon>
+            Try Again
+          </ion-button>
         </div>
       </div>
 
@@ -166,14 +175,74 @@
         </div>
       </div>
       
+      <!-- Student Entry Countdown (after tutor accepts) -->
+      <div class="entry-countdown" *ngIf="showStudentEntryCountdown && tutorHasAccepted">
+        <div class="countdown-content">
+          <ion-icon name="time-outline" [class.urgent]="studentEntryCountdown <= 10"></ion-icon>
+          <div class="countdown-text">
+            <p class="countdown-message">Please enter the classroom soon!</p>
+            <p class="countdown-timer" [class.urgent]="studentEntryCountdown <= 10">
+              {{ studentEntryCountdown }}s remaining
+            </p>
+          </div>
+        </div>
+      </div>
+      
       <ion-button 
         class="enter-button" 
         expand="block" 
         (click)="enterClassroom()"
-        [disabled]="isLoading || !!errorMessage">
-        Enter classroom
+        [disabled]="isLoading || !!errorMessage || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
+        <span *ngIf="!isOfficeHoursWaitingRoom && !waitingForTutorAcceptance">Enter classroom</span>
+        <span *ngIf="isOfficeHoursWaitingRoom">Waiting for student...</span>
+        <span *ngIf="waitingForTutorAcceptance">
+          <ion-spinner name="dots"></ion-spinner>
+          Waiting for tutor to accept...
+        </span>
       </ion-button>
+      
+      <!-- Show message when tutor accepts (stays visible even after tutor joins) -->
+      <div class="tutor-ready-message" *ngIf="tutorHasAccepted">
+        <ion-icon name="checkmark-circle" color="success"></ion-icon>
+        <p>Tutor is ready! You can enter when ready.</p>
+      </div>
     </div>
   </div>
 </ion-content>
+
+<!-- Office Hours Request Modal (Full Screen, Unavoidable) -->
+<div class="office-hours-request-overlay" *ngIf="showOfficeHoursRequestModal && isOfficeHoursWaitingRoom">
+  <div class="office-hours-request-modal">
+    <div class="modal-icon">
+      <ion-icon name="flash"></ion-icon>
+    </div>
+    <h2>⚡ A Student Wants to Join!</h2>
+    <p class="student-info">{{ pendingOfficeHoursRequest?.data?.studentName || 'A student' }} is requesting an office hours session</p>
+    <p class="duration-info">Duration: {{ pendingOfficeHoursRequest?.data?.duration || 15 }} minutes</p>
+    <p class="warning-text">⏰ {{ requestTimeRemaining }} seconds remaining</p>
+    
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        size="large" 
+        color="success" 
+        class="accept-button"
+        (click)="acceptOfficeHoursRequest()">
+        <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+        Accept
+      </ion-button>
+      
+      <ion-button 
+        expand="block" 
+        size="large" 
+        fill="outline" 
+        color="danger" 
+        class="decline-button"
+        (click)="declineOfficeHoursRequest()">
+        <ion-icon name="close-circle" slot="start"></ion-icon>
+        Decline
+      </ion-button>
+    </div>
+  </div>
+</div>
 

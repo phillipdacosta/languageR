@@ -7,7 +7,7 @@ import { environment } from '../../environments/environment';
 export interface Notification {
   _id: string;
   userId: string;
-  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted';
+  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted' | 'office_hours_booking' | 'office_hours_starting';
   title: string;
   message: string;
   data: any;
@@ -15,6 +15,7 @@ export interface Notification {
   readAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  urgent?: boolean; // For time-sensitive office hours notifications
 }
 
 @Injectable({

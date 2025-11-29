@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Lesson = require('../models/Lesson');
 const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
 const rateLimit = require('express-rate-limit');
 
@@ -396,7 +397,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled } = req.body;
+    console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -404,12 +406,17 @@ router.put('/profile', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled);
+    
     // Update profile data
     user.profile = {
-      bio: bio || user.profile.bio,
-      timezone: timezone || user.profile.timezone,
-      preferredLanguage: preferredLanguage || user.profile.preferredLanguage
+      bio: bio !== undefined ? bio : user.profile.bio,
+      timezone: timezone !== undefined ? timezone : user.profile.timezone,
+      preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : user.profile.preferredLanguage,
+      officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : user.profile.officeHoursEnabled
     };
+    
+    console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled);
     
     // Update userType if provided
     if (userType) {
@@ -447,6 +454,69 @@ router.put('/profile', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/users/office-hours-heartbeat - Update last active timestamp for office hours
+router.post('/office-hours-heartbeat', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check for schedule conflicts before allowing heartbeat
+    const now = new Date();
+    const BUFFER_MINUTES = 5; // Minimum time before next event
+    const bufferTime = new Date(now.getTime() + BUFFER_MINUTES * 60 * 1000);
+
+    const conflictingLessons = await Lesson.find({
+      tutorId: user._id,
+      status: { $in: ['scheduled', 'in_progress'] },
+      isOfficeHours: { $ne: true }, // Exclude office hours lessons from conflict check
+      $or: [
+        // Currently in progress
+        { startTime: { $lte: now }, endTime: { $gte: now } },
+        // Starting within buffer period
+        { startTime: { $gt: now, $lte: bufferTime } }
+      ]
+    }).limit(1);
+
+    if (conflictingLessons.length > 0) {
+      const conflict = conflictingLessons[0];
+      const isCurrently = new Date(conflict.startTime) <= now && new Date(conflict.endTime) >= now;
+      const minutesUntil = isCurrently ? 0 : Math.round((new Date(conflict.startTime) - now) / (60 * 1000));
+      
+      console.log('⚠️ Office hours heartbeat blocked due to schedule conflict:', {
+        userId: user._id,
+        email: user.email,
+        conflictingLesson: conflict._id,
+        isCurrently,
+        minutesUntil
+      });
+
+      // Auto-disable office hours if there's a conflict
+      user.profile.officeHoursEnabled = false;
+      user.profile.officeHoursLastActive = null;
+      await user.save();
+
+      return res.status(409).json({ 
+        error: 'Schedule conflict',
+        message: isCurrently 
+          ? 'You are currently in a lesson/class' 
+          : `You have a lesson/class starting in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}`,
+        autoDisabled: true
+      });
+    }
+
+    // Update last active timestamp
+    user.profile.officeHoursLastActive = new Date();
+    await user.save();
+
+    res.json({ success: true, lastActive: user.profile.officeHoursLastActive });
+  } catch (error) {
+    console.error('Error updating office hours heartbeat:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -688,30 +758,52 @@ router.get('/tutors', verifyToken, async (req, res) => {
     const totalCount = await User.countDocuments(filterQuery);
 
     // Format response
-    const formattedTutors = tutors.map(tutor => ({
-      id: tutor._id,
-      auth0Id: tutor.auth0Id,
-      name: tutor.name,
-      firstName: tutor.firstName || tutor.onboardingData?.firstName || '',
-      lastName: tutor.lastName || tutor.onboardingData?.lastName || '',
-      email: tutor.email,
-      picture: tutor.picture,
-      languages: tutor.onboardingData?.languages || [],
-      hourlyRate: tutor.onboardingData?.hourlyRate || 25,
-      experience: tutor.onboardingData?.experience || 'Beginner',
-      schedule: tutor.onboardingData?.schedule || 'Flexible',
-      bio: tutor.onboardingData?.bio || '',
-      introductionVideo: tutor.onboardingData?.introductionVideo || '',
-      videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
-      videoType: tutor.onboardingData?.videoType || 'upload',
-      country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
-      gender: tutor.profile?.gender || 'Not specified',
-      nativeSpeaker: tutor.profile?.nativeSpeaker || false,
-      rating: tutor.stats?.rating || 0,
-      totalLessons: tutor.stats?.totalLessons || 0,
-      totalHours: tutor.stats?.totalHours || 0,
-      joinedDate: tutor.createdAt
-    }));
+    const now = new Date();
+    const activeThreshold = 60 * 1000; // 60 seconds for heartbeat validity
+    
+    const formattedTutors = tutors.map(tutor => {
+      const lastActive = tutor.profile?.officeHoursLastActive;
+      const officeHoursEnabled = tutor.profile?.officeHoursEnabled;
+      const timeSinceActive = lastActive ? (now - new Date(lastActive)) : null;
+      const isActivelyAvailable = officeHoursEnabled && 
+        lastActive && 
+        timeSinceActive < activeThreshold;
+      
+      // Debug log for office hours - ALWAYS log, not just when enabled
+      console.log(`🔍 Tutor ${tutor.email}:`, {
+        officeHoursEnabled,
+        lastActive,
+        timeSinceActive: timeSinceActive ? `${Math.round(timeSinceActive / 1000)}s` : 'N/A',
+        isActivelyAvailable
+      });
+      
+      return {
+        id: tutor._id,
+        auth0Id: tutor.auth0Id,
+        name: tutor.name,
+        firstName: tutor.firstName || tutor.onboardingData?.firstName || '',
+        lastName: tutor.lastName || tutor.onboardingData?.lastName || '',
+        email: tutor.email,
+        picture: tutor.picture,
+        languages: tutor.onboardingData?.languages || [],
+        hourlyRate: tutor.onboardingData?.hourlyRate || 25,
+        experience: tutor.onboardingData?.experience || 'Beginner',
+        schedule: tutor.onboardingData?.schedule || 'Flexible',
+        bio: tutor.onboardingData?.bio || '',
+        introductionVideo: tutor.onboardingData?.introductionVideo || '',
+        videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
+        videoType: tutor.onboardingData?.videoType || 'upload',
+        country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
+        gender: tutor.profile?.gender || 'Not specified',
+        nativeSpeaker: tutor.profile?.nativeSpeaker || false,
+        rating: tutor.stats?.rating || 0,
+        totalLessons: tutor.stats?.totalLessons || 0,
+        totalHours: tutor.stats?.totalHours || 0,
+        joinedDate: tutor.createdAt,
+        profile: tutor.profile, // Include full profile object for officeHoursEnabled and other features
+        isActivelyAvailable // Only true if tutor has recent heartbeat
+      };
+    });
 
     res.json({
       success: true,

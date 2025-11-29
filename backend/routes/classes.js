@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const ClassModel = require('../models/Class');
 const User = require('../models/User');
+const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
-const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { verifyToken, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
+
+// POST /api/classes/upload-thumbnail - Upload class thumbnail image
+router.post('/upload-thumbnail', verifyToken, uploadImage.single('thumbnail'), uploadImageToGCS);
 
 // Time windows for joining classes (same as lessons)
 const JOIN_EARLY_MINUTES = 15; // Can join 15 minutes early
@@ -57,10 +61,15 @@ function formatDisplayName(user) {
 // POST /api/classes - create class (supports simple recurrence by count)
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { name, description, capacity, isPublic, price, startTime, endTime, recurrence, invitedStudentIds } = req.body;
+    const { name, description, capacity, level, duration, isPublic, price, useSuggestedPricing, suggestedPrice, startTime, endTime, recurrence, invitedStudentIds, thumbnail } = req.body;
 
     if (!name || !startTime || !endTime) {
       return res.status(400).json({ success: false, message: 'name, startTime and endTime are required' });
+    }
+    
+    // Require thumbnail for public classes
+    if (isPublic && !thumbnail) {
+      return res.status(400).json({ success: false, message: 'Thumbnail is required for public classes' });
     }
 
     const tutor = await User.findOne({ auth0Id: req.user.sub });
@@ -93,8 +102,13 @@ router.post('/', verifyToken, async (req, res) => {
         name,
         description: description || '',
         capacity: capacity || 1,
+        level: level || 'any',
+        duration: duration || 60,
         isPublic: !!isPublic,
+        thumbnail: thumbnail || null,
         price: price || 0,
+        useSuggestedPricing: useSuggestedPricing !== undefined ? useSuggestedPricing : true,
+        suggestedPrice: suggestedPrice || 0,
         startTime: s,
         endTime: e,
         recurrence: { type: recType, count },
@@ -271,6 +285,111 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     // Check if class is full
     if (cls.confirmedStudents.length >= cls.capacity) {
       return res.status(400).json({ success: false, message: 'Class is already full' });
+    }
+
+    // Check for scheduling conflicts with other classes
+    const conflictingClasses = await ClassModel.find({
+      confirmedStudents: student._id,
+      _id: { $ne: cls._id }, // Exclude current class
+      $or: [
+        // Check if another class starts during this class
+        { 
+          startTime: { $gte: cls.startTime, $lt: cls.endTime }
+        },
+        // Check if another class ends during this class
+        { 
+          endTime: { $gt: cls.startTime, $lte: cls.endTime }
+        },
+        // Check if another class completely overlaps this class
+        { 
+          startTime: { $lte: cls.startTime },
+          endTime: { $gte: cls.endTime }
+        }
+      ]
+    }).select('name startTime endTime');
+
+    if (conflictingClasses.length > 0) {
+      const conflictClass = conflictingClasses[0];
+      const conflictDate = new Date(conflictClass.startTime).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return res.status(409).json({ 
+        success: false, 
+        message: `You already have a class "${conflictClass.name}" scheduled at ${conflictDate}. Please decline that class first or choose a different time.`,
+        conflict: {
+          type: 'class',
+          name: conflictClass.name,
+          startTime: conflictClass.startTime,
+          endTime: conflictClass.endTime
+        }
+      });
+    }
+
+    // Check for scheduling conflicts with lessons
+    const conflictingLessons = await Lesson.find({
+      studentId: student._id,
+      status: { $nin: ['cancelled', 'completed'] }, // Only check active/scheduled lessons
+      $or: [
+        // Check if a lesson starts during this class
+        { 
+          startTime: { $gte: cls.startTime, $lt: cls.endTime }
+        },
+        // Check if a lesson ends during this class
+        { 
+          endTime: { $gt: cls.startTime, $lte: cls.endTime }
+        },
+        // Check if a lesson completely overlaps this class
+        { 
+          startTime: { $lte: cls.startTime },
+          endTime: { $gte: cls.endTime }
+        }
+      ]
+    }).populate('tutorId', 'name firstName lastName').select('subject startTime endTime tutorId');
+
+    if (conflictingLessons.length > 0) {
+      const conflictLesson = conflictingLessons[0];
+      const conflictDate = new Date(conflictLesson.startTime).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      // Format tutor name as "FirstName LastInitial."
+      let tutorName = 'a tutor';
+      if (conflictLesson.tutorId) {
+        if (conflictLesson.tutorId.firstName && conflictLesson.tutorId.lastName) {
+          const lastInitial = conflictLesson.tutorId.lastName.charAt(0).toUpperCase();
+          tutorName = `${conflictLesson.tutorId.firstName} ${lastInitial}.`;
+        } else if (conflictLesson.tutorId.name) {
+          // Fallback to parsing name field
+          const names = conflictLesson.tutorId.name.trim().split(' ');
+          if (names.length >= 2) {
+            const lastName = names[names.length - 1];
+            const lastInitial = lastName.charAt(0).toUpperCase();
+            tutorName = `${names[0]} ${lastInitial}.`;
+          } else {
+            tutorName = conflictLesson.tutorId.name;
+          }
+        }
+      }
+      
+      return res.status(409).json({ 
+        success: false, 
+        message: `You already have a lesson with ${tutorName} scheduled at ${conflictDate}. Please reschedule that lesson first.`,
+        conflict: {
+          type: 'lesson',
+          subject: conflictLesson.subject,
+          tutorName: tutorName,
+          startTime: conflictLesson.startTime,
+          endTime: conflictLesson.endTime
+        }
+      });
     }
 
     // Update invitation status
@@ -540,16 +659,37 @@ router.get('/:classId', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Class not found' });
     }
     
-    // Verify user has access to this class (tutor, confirmed student, or invited student)
+    // For public classes, allow anyone to view
+    // For private classes, verify user has access (tutor, confirmed student, or invited student)
     const isTutor = cls.tutorId._id.toString() === user._id.toString();
     const isConfirmedStudent = cls.confirmedStudents.some(s => s._id.toString() === user._id.toString());
     const isInvitedStudent = cls.invitedStudents.some(inv => inv.studentId._id.toString() === user._id.toString());
     
-    if (!isTutor && !isConfirmedStudent && !isInvitedStudent) {
+    if (!cls.isPublic && !isTutor && !isConfirmedStudent && !isInvitedStudent) {
       return res.status(403).json({ success: false, message: 'Not authorized to view this class' });
     }
     
-    res.json({ success: true, class: cls });
+    // Format the response to include stats and user status
+    const classObj = cls.toObject();
+    
+    // Calculate available spots
+    classObj.availableSpots = classObj.capacity - (classObj.confirmedStudents?.length || 0);
+    classObj.isFull = classObj.availableSpots <= 0;
+    
+    // Check if current user is already enrolled
+    classObj.isEnrolled = classObj.confirmedStudents?.some(
+      s => s._id.toString() === user._id.toString()
+    ) || false;
+    
+    // Check if current user has been invited
+    const invitation = classObj.invitedStudents?.find(
+      inv => inv.studentId._id.toString() === user._id.toString()
+    );
+    
+    classObj.hasInvitation = !!invitation;
+    classObj.invitationStatus = invitation?.status || null;
+    
+    res.json({ success: true, class: classObj });
   } catch (error) {
     console.error('Error fetching class:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -561,8 +701,15 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
   try {
     const { tutorId } = req.params;
     
+    console.log(`📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: ${tutorId}`);
+    
     const tutor = await User.findById(tutorId);
-    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    if (!tutor) {
+      console.log(`❌ [GET /api/classes/tutor/:tutorId] Tutor not found: ${tutorId}`);
+      return res.status(404).json({ success: false, message: 'Tutor not found' });
+    }
+
+    console.log(`✅ [GET /api/classes/tutor/:tutorId] Tutor found: ${tutor.name} (${tutor._id})`);
 
     // Find all classes for this tutor
     // Show classes that haven't ended yet (not just future classes)
@@ -574,6 +721,11 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
     .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
     .populate('invitedStudents.studentId', 'name email picture firstName lastName') // Populate invited students
     .sort({ startTime: 1 });
+
+    console.log(`📊 [GET /api/classes/tutor/:tutorId] Found ${classes.length} classes:`);
+    classes.forEach((cls, index) => {
+      console.log(`  ${index + 1}. ${cls.name} - ${cls.startTime} to ${cls.endTime}`);
+    });
 
     // Format the response to include attendance info
     const formattedClasses = classes.map(cls => {
@@ -1012,6 +1164,52 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error removing student from class:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// GET /api/classes/public/all - Get all public classes for explore page
+router.get('/public/all', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Find all public classes that haven't ended yet
+    const classes = await ClassModel.find({
+      isPublic: true,
+      endTime: { $gte: new Date() } // Only show classes that haven't ended
+    })
+    .populate('tutorId', 'name email picture firstName lastName')
+    .populate('confirmedStudents', 'name email picture firstName lastName')
+    .sort({ startTime: 1 });
+
+    // Format the response to include stats
+    const formattedClasses = classes.map(cls => {
+      const classObj = cls.toObject();
+      
+      // Calculate available spots
+      classObj.availableSpots = classObj.capacity - (classObj.confirmedStudents?.length || 0);
+      classObj.isFull = classObj.availableSpots <= 0;
+      
+      // Check if current user is already enrolled (accepted invitation)
+      classObj.isEnrolled = classObj.confirmedStudents?.some(
+        s => s._id.toString() === user._id.toString()
+      ) || false;
+      
+      // Check if current user has been invited (any status)
+      const invitation = classObj.invitedStudents?.find(
+        inv => inv.studentId.toString() === user._id.toString()
+      );
+      
+      classObj.hasInvitation = !!invitation;
+      classObj.invitationStatus = invitation?.status || null; // 'pending', 'accepted', 'declined', or null
+      
+      return classObj;
+    });
+
+    res.json({ success: true, classes: formattedClasses });
+  } catch (error) {
+    console.error('Error fetching public classes:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

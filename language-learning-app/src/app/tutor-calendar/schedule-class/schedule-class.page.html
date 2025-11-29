@@ -133,10 +133,210 @@
           Class name is required
         </ion-note>
 
+        <!-- Class Description with Quill Editor -->
+        <div class="description-field">
+          <ion-label position="stacked">Class Description *</ion-label>
+          <div class="quill-editor-container">
+            <quill-editor 
+              formControlName="description"
+              [modules]="quillConfig"
+              [styles]="{height: '150px', width: '100%', maxWidth: '100%'}"
+              placeholder="Describe what students will learn, what materials they need, and any prerequisites...">
+            </quill-editor>
+          </div>
+          <ion-note color="danger" *ngIf="form.controls.description.touched && form.controls.description.invalid">
+            <span *ngIf="form.controls.description.errors?.['required']">Description is required</span>
+            <span *ngIf="form.controls.description.errors?.['minlength']">Description must be at least 20 characters</span>
+          </ion-note>
+          <ion-note color="medium">
+            Provide clear details about the class content, objectives, and requirements
+          </ion-note>
+        </div>
+
+        <!-- Class Level -->
         <ion-item *ngIf="classType === 'recurring'">
-          <ion-label position="stacked">Number of students</ion-label>
+          <ion-label position="stacked">Class Level *</ion-label>
+          <ion-select formControlName="level" interface="popover" placeholder="Select level">
+            <ion-select-option *ngFor="let level of levelOptions" [value]="level.value">
+              {{ level.label }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-note color="danger" *ngIf="classType === 'recurring' && form.controls.level.touched && form.controls.level.invalid">
+          Please select a class level
+        </ion-note>
+
+        <!-- Lesson Duration -->
+        <ion-item *ngIf="classType === 'recurring'">
+          <ion-label position="stacked">Lesson Duration *</ion-label>
+          <ion-select formControlName="duration" interface="popover" placeholder="Select duration">
+            <ion-select-option *ngFor="let duration of durationOptions" [value]="duration.value">
+              {{ duration.label }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <ion-note color="danger" *ngIf="classType === 'recurring' && form.controls.duration.touched && form.controls.duration.invalid">
+          Please select a lesson duration
+        </ion-note>
+      </div>
+
+      <!-- Class Economics Calculator (Consolidated Pricing & Capacity) -->
+      <div class="form-section economics-calculator-section" *ngIf="classType === 'recurring' && form.value.duration">
+        <div class="section-header">
+          <ion-icon name="calculator-outline"></ion-icon>
+          <h3>Class Economics Calculator</h3>
+        </div>
+
+        <!-- 1:1 Rate Display -->
+        <div class="rate-display">
+          <div class="rate-info">
+            <ion-icon name="person-outline"></ion-icon>
+            <div class="rate-details">
+              <span class="rate-label">Your 1:1 rate ({{ form.value.duration }}min)</span>
+              <span class="rate-amount">${{ calculate1on1EarningsGross().toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Price per Student -->
+        <div class="price-input-section">
+          <ion-label class="section-label">Price per Student</ion-label>
+          
+          <div class="suggested-price-row" *ngIf="suggestedPrice > 0">
+            <div class="suggested-badge">
+              <ion-icon name="sparkles"></ion-icon>
+              <span>Suggested: ${{ suggestedPrice.toFixed(2) }}</span>
+            </div>
+            <ion-note>
+              Based on {{ form.value.duration }}min, {{ getLevelLabel(form.value.level) }} level
+            </ion-note>
+          </div>
+
+          <div class="price-toggle-row">
+            <ion-item lines="none">
+              <ion-label>Use suggested pricing</ion-label>
+              <ion-toggle 
+                formControlName="useSuggestedPricing" 
+                (ionChange)="onPricingToggleChange()">
+              </ion-toggle>
+            </ion-item>
+          </div>
+
+          <ion-item *ngIf="!form.value.useSuggestedPricing" class="custom-price-input">
+            <ion-label position="stacked">Custom Price *</ion-label>
+            <ion-input 
+              type="number" 
+              formControlName="customPrice" 
+              min="1" 
+              step="0.50"
+              placeholder="Enter price">
+            </ion-input>
+          </ion-item>
+          <ion-note color="danger" *ngIf="!form.value.useSuggestedPricing && form.controls.customPrice?.touched && form.controls.customPrice?.invalid">
+            <span *ngIf="form.controls.customPrice?.errors?.['required']">Custom price is required</span>
+            <span *ngIf="form.controls.customPrice?.errors?.['min']">Price must be at least $1</span>
+          </ion-note>
+        </div>
+
+        <!-- Max Students -->
+        <ion-item>
+          <ion-label position="stacked">Maximum Students</ion-label>
           <ion-input type="number" formControlName="maxStudents" min="1" max="50"></ion-input>
         </ion-item>
+
+        <!-- Minimum Students -->
+        <div class="minimum-students-section" *ngIf="form.value.maxStudents">
+          <ion-item>
+            <ion-label position="stacked">Minimum Students Required</ion-label>
+            <ion-input 
+              type="number" 
+              formControlName="minStudents" 
+              min="1" 
+              [max]="form.value.maxStudents || 50">
+            </ion-input>
+          </ion-item>
+          <ion-note color="danger" *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid">
+            <span *ngIf="form.controls.minStudents.errors?.['required']">Minimum students is required</span>
+            <span *ngIf="form.controls.minStudents.errors?.['max']">Cannot exceed maximum students</span>
+          </ion-note>
+
+          <!-- Recommendation Box -->
+          <div class="recommendation-box" *ngIf="getFinalPrice() > 0">
+            <ion-icon name="bulb-outline"></ion-icon>
+            <div class="recommendation-content">
+              <strong>Recommended minimum: {{ getRecommendedMinimum() }} students</strong>
+              <p>This matches or exceeds your 1:1 net earnings</p>
+            </div>
+          </div>
+
+          <!-- See Why Toggle Button -->
+          <div class="see-why-toggle" *ngIf="getFinalPrice() > 0" (click)="showEarningsBreakdown = !showEarningsBreakdown">
+            <span class="toggle-text">See why</span>
+            <ion-icon [name]="showEarningsBreakdown ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          </div>
+
+          <!-- Earnings Breakdown (Collapsible) -->
+          <div class="earnings-breakdown-wrapper" *ngIf="showEarningsBreakdown && getFinalPrice() > 0" [@slideDown]>
+            <div class="earnings-table">
+              <div class="table-header">
+                <span class="header-label">If You Get:</span>
+                <span class="header-value">You Earn:</span>
+              </div>
+              
+              <div class="table-row baseline-row">
+                <span class="row-label">
+                  <ion-icon name="person-outline"></ion-icon>
+                  1:1 lesson
+                </span>
+                <div class="row-value">
+                  <span class="gross-amount">${{ calculate1on1EarningsGross().toFixed(2) }}</span>
+                  <span class="net-amount">${{ calculate1on1EarningsNet().toFixed(2) }} net</span>
+                </div>
+              </div>
+
+              <div class="table-row" 
+                   *ngFor="let count of getStudentCountRange()"
+                   [class.break-even]="isBreakEven(count)"
+                   [class.profitable]="isProfitable(count)"
+                   [class.below-target]="!isProfitable(count)">
+                <span class="row-label">
+                  <ion-icon name="people-outline"></ion-icon>
+                  {{ count }} students
+                </span>
+                <div class="row-value">
+                  <span class="gross-amount">${{ calculateGroupEarnings(count).toFixed(2) }}</span>
+                  <span class="net-amount">${{ calculateGroupEarningsNet(count).toFixed(2) }} net</span>
+                  <span class="badge" *ngIf="isProfitable(count)">
+                    <ion-icon name="arrow-up"></ion-icon>
+                    {{ getEarningsPercentage(count) }}%
+                  </span>
+                  <span class="badge warning" *ngIf="!isProfitable(count)">
+                    <ion-icon name="arrow-down"></ion-icon>
+                    {{ getEarningsPercentage(count) }}%
+                  </span>
+                </div>
+              </div>
+
+              <div class="fee-note">
+                <ion-icon name="information-circle-outline"></ion-icon>
+                <span>Net earnings after {{ PLATFORM_FEE_PERCENTAGE }}% platform fee</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flexible Minimum Toggle -->
+          <ion-item lines="none" class="flexible-toggle">
+            <ion-label>
+              <h3>Flexible Minimum</h3>
+              <p>Run class even if minimum not met</p>
+            </ion-label>
+            <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
+          </ion-item>
+          <ion-note *ngIf="form.value.flexibleMinimum" color="warning">
+            <ion-icon name="warning-outline"></ion-icon>
+            You'll earn less with fewer students, but class won't auto-cancel
+          </ion-note>
+        </div>
 
         <!-- Multiple Students Dropdown -->
         <div class="student-select-wrapper" *ngIf="classType === 'recurring'">
@@ -231,10 +431,15 @@
           expand="block" 
           fill="outline" 
           class="availability-picker-button"
+          [disabled]="classType === 'recurring' && !form.value.duration"
           (click)="openAvailabilityPicker()">
           <ion-icon name="calendar" slot="start"></ion-icon>
           Choose from your availability
         </ion-button>
+        
+        <ion-note *ngIf="classType === 'recurring' && !form.value.duration" color="medium">
+          Please select a lesson duration above to see available time slots
+        </ion-note>
 
         <div class="datetime-row">
           <ion-item>
@@ -285,6 +490,64 @@
           <ion-toggle formControlName="isPublic"></ion-toggle>
         </ion-item>
         <ion-note>Private by default (toggle ON to make public)</ion-note>
+      </div>
+
+      <!-- Thumbnail Upload (Public Classes only) -->
+      <div class="form-section" *ngIf="classType === 'recurring' && form.value.isPublic">
+        <div class="section-header">
+          <ion-icon name="image-outline"></ion-icon>
+          <h3>Class Thumbnail</h3>
+        </div>
+        
+        <div class="thumbnail-upload-section">
+          <div class="upload-info">
+            <ion-icon name="images-outline"></ion-icon>
+            <div class="info-text">
+              <p class="upload-description">
+                Upload an attractive image that represents your class
+              </p>
+              <p class="upload-specs">
+                Recommended: 1200×630px • Max 5MB
+              </p>
+            </div>
+          </div>
+          
+          <!-- Thumbnail Preview -->
+          <div class="thumbnail-preview" *ngIf="thumbnailPreview">
+            <img [src]="thumbnailPreview" alt="Class thumbnail preview">
+            <ion-button 
+              fill="clear" 
+              color="danger" 
+              class="remove-thumbnail-btn"
+              (click)="removeThumbnail()">
+              <ion-icon name="close-circle" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+          
+          <!-- Upload Button -->
+          <input 
+            type="file" 
+            #thumbnailInput 
+            accept="image/*" 
+            (change)="onThumbnailSelected($event)" 
+            style="display: none;">
+          
+          <ion-button 
+            expand="block" 
+            fill="solid" 
+            class="upload-btn"
+            (click)="thumbnailInput.click()"
+            [disabled]="isUploadingThumbnail"
+            *ngIf="!thumbnailPreview">
+            <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+            Upload Thumbnail Image
+          </ion-button>
+          
+          <div class="error-note" *ngIf="form.value.isPublic && !thumbnailPreview && (form.touched || form.controls.thumbnail?.touched)">
+            <ion-icon name="alert-circle"></ion-icon>
+            <span>Thumbnail is required for public classes</span>
+          </div>
+        </div>
       </div>
 
       <!-- Submit Button -->

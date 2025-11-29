@@ -1222,6 +1222,36 @@
   }
 }
 
+// Office Hours Badge
+.office-hours-badge-modern {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin: 8px 0;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1.5px solid #fbbf24;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.1);
+  
+  ion-icon {
+    font-size: 16px;
+    color: #f59e0b;
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 11px;
+    padding: 5px 10px;
+    
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+}
+
 // Card Actions
 .card-actions {
   display: flex;
@@ -1313,6 +1343,30 @@
       max-width: 140px;
       font-size: 13px;
       margin-left: auto; // Right-align on mobile
+    }
+    
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+
+  &.office-hours {
+    --border-radius: 10px;
+    --background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    --background-hover: #f59e0b;
+    --background-activated: #d97706;
+    --color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    min-width: auto;
+    max-width: 150px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    
+    @media (max-width: 600px) {
+      max-width: 120px;
+      font-size: 12px;
     }
     
     ion-icon {

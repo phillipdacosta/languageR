@@ -19,7 +19,9 @@ const NotificationSchema = new mongoose.Schema({
       'class_accepted',
       'class_removed',
       'invitation_cancelled',
-      'lesson_rescheduled'
+      'lesson_rescheduled',
+      'office_hours_booking',
+      'office_hours_starting'
     ],
     required: true
   },

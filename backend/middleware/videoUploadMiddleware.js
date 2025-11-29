@@ -417,7 +417,11 @@ async function uploadImageToGCS(req, res) {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
     const fileExtension = req.file.originalname.split('.').pop();
-    const fileName = `profile-pictures/${req.user.sub}/${timestamp}-${randomString}.${fileExtension}`;
+    
+    // Determine path based on route (profile pictures vs class thumbnails)
+    const isClassThumbnail = req.path.includes('classes') || req.path.includes('thumbnail');
+    const folder = isClassThumbnail ? 'class-thumbnails' : 'profile-pictures';
+    const fileName = `${folder}/${req.user.sub}/${timestamp}-${randomString}.${fileExtension}`;
 
     // Create file in bucket
     const file = bucket.file(fileName);
