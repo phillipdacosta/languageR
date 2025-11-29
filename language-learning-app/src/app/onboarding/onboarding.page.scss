@@ -175,6 +175,11 @@
 .tutor-country-section {
   .country-select-item {
     margin-bottom: 1rem;
+    
+    // Fix for Windows flag emoji display
+    ion-select-option {
+      font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif;
+    }
   }
   
   .selected-country {
@@ -190,6 +195,8 @@
       margin-right: 1rem;
       display: inline-block;
       line-height: 1;
+      // Fix for Windows flag emoji display
+      font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif;
     }
     
     .country-name-display {

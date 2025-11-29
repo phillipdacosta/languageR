@@ -84,3 +84,14 @@
     }
   }
 }
+
+// Fix Windows emoji flag display (especially in dropdowns)
+// Windows Chrome doesn't render flag emojis properly without the right font
+ion-select-popover,
+ion-alert,
+ion-action-sheet,
+.action-sheet-group,
+.alert-radio-group,
+.select-interface-option {
+  font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif !important;
+}
