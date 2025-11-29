@@ -56,6 +56,7 @@ import { FlagService } from '../../services/flag.service';
 })
 export class FlagIconComponent implements OnInit, OnChanges {
   @Input() language: string = '';
+  @Input() country: string = ''; // Added for country name support
   @Input() size: number = 20;
   @Input() cssClass: string = '';
   @Input() altText: string = '';
@@ -71,30 +72,47 @@ export class FlagIconComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['language']) {
+    if (changes['language'] || changes['country']) {
       this.updateFlag();
     }
   }
 
   private updateFlag() {
     this.hasError = false;
-    this.flagPath = this.flagService.getFlagPath(this.language);
     
-    // Generate placeholder text from language name
-    if (this.language) {
+    // Prioritize country input over language input
+    if (this.country) {
+      this.flagPath = this.flagService.getFlagPathFromCountryName(this.country);
+      
+      // Generate placeholder text from country name
+      this.placeholderText = this.country
+        .split(' ')
+        .map(word => word.charAt(0))
+        .join('')
+        .substring(0, 2)
+        .toUpperCase();
+      
+      // Set default alt text if not provided
+      if (!this.altText) {
+        this.altText = `${this.country} flag`;
+      }
+    } else if (this.language) {
+      this.flagPath = this.flagService.getFlagPath(this.language);
+      
+      // Generate placeholder text from language name
       this.placeholderText = this.language
         .split(' ')
         .map(word => word.charAt(0))
         .join('')
         .substring(0, 2)
         .toUpperCase();
+      
+      // Set default alt text if not provided
+      if (!this.altText) {
+        this.altText = `${this.language} flag`;
+      }
     } else {
       this.placeholderText = '??';
-    }
-
-    // Set default alt text if not provided
-    if (!this.altText && this.language) {
-      this.altText = `${this.language} flag`;
     }
   }
 

@@ -241,12 +241,6 @@ export class TutorOnboardingPage implements OnInit {
     this.selectedSchedule = schedule;
   }
 
-  // Get flag emoji for selected country
-  getCountryFlag(countryName: string): string {
-    const country = this.countryOptions.find(c => c.name === countryName);
-    return country ? country.flag : '';
-  }
-
   // Open country selection modal
   async openCountryModal() {
     const modal = await this.modalController.create({

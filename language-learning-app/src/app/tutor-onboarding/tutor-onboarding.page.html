@@ -45,8 +45,9 @@
             expand="block"
             (click)="openCountryModal()"
             class="country-select-button">
-            <span *ngIf="country; else noCountrySelected">
-              {{ getCountryFlag(country) }} {{ country }}
+            <span *ngIf="country; else noCountrySelected" style="display: flex; align-items: center; gap: 8px;">
+              <app-flag-icon [country]="country" [size]="20"></app-flag-icon>
+              <span>{{ country }}</span>
             </span>
             <ng-template #noCountrySelected>
               Select your country
@@ -56,7 +57,7 @@
         </ion-item>
         
         <div class="selected-country" *ngIf="country">
-          <span class="country-flag">{{ getCountryFlag(country) }}</span>
+          <app-flag-icon [country]="country" [size]="24" class="country-flag"></app-flag-icon>
           <span class="country-name">{{ country }}</span>
         </div>
       </div>
