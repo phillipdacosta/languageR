@@ -61,13 +61,48 @@ export class AgoraService {
   private readonly UID = environment.agora.uid;
 
   // High-quality video encoder configuration
+  // Using Full HD 1080p for maximum clarity
   private readonly encoderConfig = {
-    resolution: { width: 1280, height: 720 }, // HD 720p
+    resolution: { width: 1920, height: 1080 }, // Full HD 1080p
     frameRate: 30, // 30 fps for smooth video
-    bitrateMax: 2000, // 2000 kbps for high quality
-    bitrateMin: 600,  // 600 kbps minimum
+    bitrateMax: 4000, // 4000 kbps for high quality 1080p
+    bitrateMin: 1000,  // 1000 kbps minimum to maintain quality
     optimizationMode: 'detail' as const // Prioritize quality over latency
   };
+
+  // Alternative quality presets for different network conditions
+  private readonly qualityPresets = {
+    ultra: {
+      resolution: { width: 1920, height: 1080 },
+      frameRate: 30,
+      bitrateMax: 4000,
+      bitrateMin: 1000,
+      optimizationMode: 'detail' as const
+    },
+    high: {
+      resolution: { width: 1280, height: 720 },
+      frameRate: 30,
+      bitrateMax: 2000,
+      bitrateMin: 600,
+      optimizationMode: 'detail' as const
+    },
+    medium: {
+      resolution: { width: 960, height: 540 },
+      frameRate: 24,
+      bitrateMax: 1200,
+      bitrateMin: 400,
+      optimizationMode: 'balanced' as const
+    },
+    low: {
+      resolution: { width: 640, height: 360 },
+      frameRate: 15,
+      bitrateMax: 600,
+      bitrateMin: 200,
+      optimizationMode: 'motion' as const
+    }
+  };
+  
+  private currentQuality: 'ultra' | 'high' | 'medium' | 'low' = 'ultra';
 
   constructor(
     private tokenGenerator: TokenGeneratorService,
@@ -1821,5 +1856,69 @@ export class AgoraService {
         console.log('ℹ️ Performance monitoring error:', error);
       }
     }, 5000);
+  }
+
+  /**
+   * Set video quality dynamically
+   * @param quality - Quality preset to use (ultra, high, medium, low)
+   */
+  async setVideoQuality(quality: 'ultra' | 'high' | 'medium' | 'low'): Promise<void> {
+    if (!this.localVideoTrack) {
+      console.warn('No local video track to adjust quality');
+      return;
+    }
+
+    try {
+      this.currentQuality = quality;
+      const preset = this.qualityPresets[quality];
+      
+      console.log(`🎥 Setting video quality to ${quality}:`, preset);
+      
+      // Apply encoder configuration to existing track
+      await this.localVideoTrack.setEncoderConfiguration(preset);
+      
+      console.log(`✅ Video quality set to ${quality} successfully`);
+    } catch (error) {
+      console.error('❌ Error setting video quality:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current video quality setting
+   */
+  getCurrentQuality(): 'ultra' | 'high' | 'medium' | 'low' {
+    return this.currentQuality;
+  }
+
+  /**
+   * Monitor network quality and suggest quality adjustments
+   * Call this from video-call page to enable adaptive quality
+   */
+  enableAdaptiveQuality(): void {
+    if (!this.client) {
+      console.warn('Client not initialized, cannot enable adaptive quality');
+      return;
+    }
+
+    this.client.on('network-quality', (stats) => {
+      // stats.uplinkNetworkQuality: 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
+      const uplink = stats.uplinkNetworkQuality;
+      
+      console.log(`📡 Network quality - Uplink: ${uplink}, Downlink: ${stats.downlinkNetworkQuality}`);
+
+      // Auto-adjust quality based on network conditions
+      if (uplink >= 4 && this.currentQuality !== 'low') {
+        console.log('⚠️ Poor network detected, suggesting quality reduction');
+        // Optionally auto-reduce quality
+        // this.setVideoQuality('low');
+      } else if (uplink <= 2 && this.currentQuality !== 'ultra') {
+        console.log('✅ Good network detected, quality can be increased');
+        // Optionally auto-increase quality
+        // this.setVideoQuality('ultra');
+      }
+    });
+
+    console.log('📊 Adaptive quality monitoring enabled');
   }
 }

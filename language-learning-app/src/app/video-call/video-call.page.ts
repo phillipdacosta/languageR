@@ -756,6 +756,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.agoraService.joinChannel(this.channelName);
         this.isConnected = true;
         this.cdr.detectChanges(); // Force UI update
+        
+        // Enable adaptive quality monitoring for better video quality
+        this.agoraService.enableAdaptiveQuality();
+        console.log('📊 Adaptive video quality enabled');
       }
 
       // Set up local video display - wait for tracks to be ready
