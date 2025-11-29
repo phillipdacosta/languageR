@@ -8,13 +8,15 @@ import { TutorOnboardingPageRoutingModule } from './tutor-onboarding-routing.mod
 
 import { TutorOnboardingPage } from './tutor-onboarding.page';
 import { CountrySelectModalComponent } from './country-select-modal.component';
+import { SharedModule } from '../shared/shared.module';
 
 @NgModule({
   imports: [
     CommonModule,
     FormsModule,
     IonicModule,
-    TutorOnboardingPageRoutingModule
+    TutorOnboardingPageRoutingModule,
+    SharedModule
   ],
   declarations: [TutorOnboardingPage, CountrySelectModalComponent]
 })

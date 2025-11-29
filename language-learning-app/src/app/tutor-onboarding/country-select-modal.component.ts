@@ -3,7 +3,7 @@ import { ModalController } from '@ionic/angular';
 
 export interface Country {
   name: string;
-  flag: string;
+  flag: string; // Keeping for backward compatibility but will use SVG flags
 }
 
 @Component({
@@ -38,8 +38,14 @@ export interface Country {
           button
           (click)="selectCountry(country.name)"
           [class.selected]="selectedCountry === country.name">
+          <app-flag-icon 
+            [country]="country.name" 
+            [size]="24"
+            slot="start"
+            style="margin-right: 12px;">
+          </app-flag-icon>
           <ion-label>
-            <h2>{{ country.flag }} {{ country.name }}</h2>
+            <h2>{{ country.name }}</h2>
           </ion-label>
           <ion-icon 
             *ngIf="selectedCountry === country.name" 
