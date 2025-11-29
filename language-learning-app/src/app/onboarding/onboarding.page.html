@@ -130,12 +130,12 @@
             placeholder="Select your country"
             interface="action-sheet">
             <ion-select-option *ngFor="let country of tutorCountryOptions" [value]="country.name">
-              {{ country.flag }} {{ country.name }}
+              {{ country.name }}
             </ion-select-option>
           </ion-select>
         </ion-item>
-        <div class="selected-country" *ngIf="tutorCountry">
-          <span class="country-flag-display">{{ getCountryFlag(tutorCountry) }}</span>
+        <div class="selected-country" *ngIf="tutorCountry" style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+          <app-flag-icon [country]="tutorCountry" [size]="24" class="country-flag-display"></app-flag-icon>
           <span class="country-name-display">{{ tutorCountry }}</span>
         </div>
       </div>
