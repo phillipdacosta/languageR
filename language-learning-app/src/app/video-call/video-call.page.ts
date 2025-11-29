@@ -4,11 +4,15 @@ import { AgoraService } from '../services/agora.service';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
 import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
+import { WhiteboardService } from '../services/whiteboard.service';
+import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-video-call',
@@ -20,7 +24,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private initializationComplete = false;
 
-  @ViewChild('whiteboardCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('whiteboardContainer', { static: false }) whiteboardContainerRef!: ElementRef<HTMLDivElement>;
   @ViewChild('localVideo', { static: false }) localVideoRef!: ElementRef<HTMLDivElement>;
   @ViewChild('remoteVideo', { static: false }) remoteVideoRef!: ElementRef<HTMLDivElement>;
   @ViewChild('remoteVideoTile', { static: false }) remoteVideoTileRef!: ElementRef<HTMLDivElement>;
@@ -58,8 +62,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private lastPoint: {x: number; y: number} | null = null;
   private lastSentPoint: {x: number; y: number} | null = null;
   private lastSendTime = 0;
-  private readonly MAX_SEND_RATE = 60; // Max 60fps for network efficiency
-  private readonly MIN_SEND_INTERVAL = 1000 / this.MAX_SEND_RATE; // ~16ms
+  private readonly MAX_SEND_RATE = 120; // Increased to 120fps for better stroke accuracy
+  private readonly MIN_SEND_INTERVAL = 1000 / this.MAX_SEND_RATE; // ~8ms
   private incomingDrawQueue: any[] = []; // Legacy batch support
   private isProcessingDrawQueue = false;
   
@@ -165,7 +169,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   contextMenuPosition: { top: number; left: number; showBelow: boolean; arrowOffset: number } | null = null;
   longPressTimer: any = null;
 
-  // Whiteboard properties
+  // Agora Fastboard properties
+  fastboardApp: FastboardApp | null = null; // Made public for template access
+  whiteboardRoomUUID: string = '';
+  whiteboardRoomToken: string = '';
+  isWhiteboardLoading = false;
+  
+  // Legacy whiteboard properties (for fallback/compatibility)
   private canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
   currentColor = '#000000';
@@ -208,6 +218,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   canvasHeight = 600;
 
   lessonId: string = '';
+  classId: string = '';
   
   // Office hours timer tracking
   isOfficeHours: boolean = false;
@@ -226,11 +237,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private agoraService: AgoraService,
     private userService: UserService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private alertController: AlertController,
     private loadingController: LoadingController,
     private messagingService: MessagingService,
     private websocketService: WebSocketService,
     private authService: AuthService,
+    private whiteboardService: WhiteboardService,
     private cdr: ChangeDetectorRef,
     private modalController: ModalController,
     private toastController: ToastController
@@ -298,6 +311,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (qp?.lessonId) {
       this.lessonId = qp.lessonId;
       console.log('📚 VideoCall: Stored lessonId:', this.lessonId);
+    }
+    
+    // Store classId if available
+    if (qp?.classId) {
+      this.classId = qp.classId;
+      console.log('🎓 VideoCall: Stored classId:', this.classId);
     }
 
     // Set up WebSocket for messaging
@@ -1790,6 +1809,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async toggleWhiteboard() {
     this.showWhiteboard = !this.showWhiteboard;
     
+    if (this.showWhiteboard && !this.fastboardApp) {
+      // Initialize Agora Fastboard when first opened
+      await this.initializeWhiteboard();
+    }
+    
     // Send whiteboard state change to other participant
     this.agoraService.sendWhiteboardData({
       type: 'toggle',
@@ -1819,11 +1843,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.cleanupStaleRemoteCursors();
       }, 5000); // Clean up every 5 seconds
       
-      setTimeout(() => {
-        this.initializeWhiteboard();
-        // Adjust canvas size after panel animation completes
+      setTimeout(async () => {
+        await this.initializeWhiteboard();
+        // Canvas size adjustment is handled by Fastboard
         setTimeout(() => {
-          this.adjustCanvasSize();
+          // Legacy canvas adjustment removed
         }, 100);
         
         // Handle video movement based on lesson type
@@ -1956,24 +1980,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  initializeWhiteboard() {
-    console.log('Initializing whiteboard...');
-    if (this.canvasRef) {
-      this.canvas = this.canvasRef.nativeElement;
-      this.ctx = this.canvas.getContext('2d');
-      if (this.ctx) {
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.strokeStyle = this.currentColor;
-        this.ctx.lineWidth = this.currentBrushSize;
-        console.log('Whiteboard initialized successfully');
-      } else {
-        console.error('Failed to get 2D context');
-      }
-    } else {
-      console.error('Canvas reference not found');
-    }
-  }
+  // Legacy initializeWhiteboard removed - now using Agora Fastboard
 
   clearWhiteboard() {
     if (this.ctx && this.canvas) {
@@ -2643,10 +2650,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const now = performance.now();
     const timeSinceLastSend = now - this.lastSendTime;
     
-    // Always send if enough time has passed OR if this is a significant movement
+    // Reduced threshold to capture more stroke detail (1px instead of 2px)
+    // This preserves the original drawing style better
     const significantMovement = !this.lastSentPoint || 
-      Math.abs(currentX - this.lastSentPoint.x) >= 2 || 
-      Math.abs(currentY - this.lastSentPoint.y) >= 2;
+      Math.abs(currentX - this.lastSentPoint.x) >= 1 || 
+      Math.abs(currentY - this.lastSentPoint.y) >= 1;
     
     if (timeSinceLastSend >= this.MIN_SEND_INTERVAL || significantMovement) {
       // Send individual point for ultra-smooth remote experience
@@ -2757,9 +2765,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.ctx.beginPath();
     this.ctx.moveTo(lastPoint.x, lastPoint.y);
     
-    // If points are far apart (network delay), interpolate for smoothness
-    if (distance > 10) {
-      const steps = Math.ceil(distance / 5); // Interpolate every 5 pixels
+    // Reduced interpolation to preserve original drawing style
+    // Only interpolate for very large gaps (network issues)
+    if (distance > 20) {
+      const steps = Math.ceil(distance / 3); // Less aggressive interpolation
       for (let i = 1; i <= steps; i++) {
         const t = i / steps;
         const interpX = lastPoint.x + (dx * t);
@@ -2767,7 +2776,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.ctx.lineTo(interpX, interpY);
       }
     } else {
-      // Direct line for close points
+      // Direct line for close points - preserves original stroke style
       this.ctx.lineTo(currentPoint.x, currentPoint.y);
     }
     
@@ -3895,9 +3904,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             // Force change detection
             this.cdr.detectChanges();
             
-            setTimeout(() => {
-              this.initializeWhiteboard();
-              this.adjustCanvasSize();
+            setTimeout(async () => {
+              await this.initializeWhiteboard();
+              // Canvas size adjustment handled by Fastboard
               
               // Reposition videos based on lesson type
               if (this.isClass) {
@@ -4096,10 +4105,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (data.isWhiteboardOpen && this.whiteboardElements.length > 0) {
             if (!this.showWhiteboard) {
               this.showWhiteboard = true;
-              setTimeout(() => {
-                this.initializeWhiteboard();
-                this.adjustCanvasSize();
-                this.redrawCanvas();
+              setTimeout(async () => {
+                await this.initializeWhiteboard();
+                // Canvas operations handled by Fastboard
+                // this.redrawCanvas(); // Not needed for Fastboard
               }, 100);
             } else {
               this.redrawCanvas();
@@ -4626,6 +4635,172 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  // ==================== AGORA WHITEBOARD METHODS ====================
+  
+  /**
+   * Initialize Agora Fastboard whiteboard
+   */
+  async initializeWhiteboard() {
+    if (this.fastboardApp || this.isWhiteboardLoading) {
+      console.log('🎨 Whiteboard already initialized or loading');
+      return;
+    }
+
+    this.isWhiteboardLoading = true;
+    console.log('🎨 Initializing Agora Fastboard...');
+
+    try {
+      // First, try to get existing whiteboard room UUID from the lesson/class
+      if (!this.whiteboardRoomUUID) {
+        console.log('🎨 Checking if lesson/class has existing whiteboard room...');
+        
+        try {
+          const lessonId = this.lessonId || this.classId;
+          if (lessonId) {
+            // Fetch the lesson/class to check for existing whiteboard room
+            let lessonData: any;
+            
+            if (this.isClass && this.classId) {
+              // Fetch class data
+              const classResponse = await this.classService.getClass(this.classId).toPromise();
+              lessonData = classResponse?.class;
+            } else if (this.lessonId) {
+              // Fetch lesson data
+              const lessonResponse = await this.lessonService.getLesson(this.lessonId).toPromise();
+              lessonData = lessonResponse?.lesson;
+            }
+            
+            if (lessonData?.whiteboardRoomUUID) {
+              console.log('✅ Found existing whiteboard room:', lessonData.whiteboardRoomUUID);
+              this.whiteboardRoomUUID = lessonData.whiteboardRoomUUID;
+              
+              // Generate a new room token for this user
+              const tokenResponse = await this.whiteboardService.getRoomToken(
+                this.whiteboardRoomUUID,
+                'writer'
+              ).toPromise();
+              
+              if (tokenResponse?.success) {
+                this.whiteboardRoomToken = tokenResponse.roomToken;
+                console.log('✅ Got room token for existing room');
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not fetch existing whiteboard room:', error);
+        }
+      }
+
+      // Create whiteboard room if we still don't have one
+      if (!this.whiteboardRoomUUID) {
+        console.log('🎨 Creating new whiteboard room...');
+        const roomResponse = await this.whiteboardService.createRoom().toPromise();
+        
+        if (roomResponse?.success) {
+          this.whiteboardRoomUUID = roomResponse.roomUUID;
+          this.whiteboardRoomToken = roomResponse.roomToken;
+          console.log('✅ Whiteboard room created:', this.whiteboardRoomUUID);
+          
+          // Save the whiteboard room UUID to the lesson/class
+          const lessonId = this.lessonId || this.classId;
+          if (lessonId) {
+            try {
+              const updateData = {
+                whiteboardRoomUUID: this.whiteboardRoomUUID,
+                whiteboardCreatedAt: new Date()
+              };
+              
+              if (this.isClass && this.classId) {
+                // Update class
+                await this.classService.updateClass(this.classId, updateData).toPromise();
+                console.log('✅ Saved whiteboard room UUID to class');
+              } else if (this.lessonId) {
+                // Update lesson
+                await this.lessonService.updateLesson(this.lessonId, updateData).toPromise();
+                console.log('✅ Saved whiteboard room UUID to lesson');
+              }
+            } catch (error) {
+              console.error('❌ Failed to save whiteboard room UUID:', error);
+            }
+          }
+        } else {
+          throw new Error('Failed to create whiteboard room');
+        }
+      }
+
+      // Wait for container to be available
+      if (!this.whiteboardContainerRef?.nativeElement) {
+        console.log('⏳ Waiting for whiteboard container...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      const container = this.whiteboardContainerRef?.nativeElement;
+      if (!container) {
+        throw new Error('Whiteboard container not found');
+      }
+
+      // Initialize Agora Fastboard
+      console.log('🎨 Creating Fastboard instance...');
+      this.fastboardApp = await createFastboard({
+        sdkConfig: {
+          appIdentifier: environment.agoraWhiteboard.appId,
+          region: environment.agoraWhiteboard.region,
+        },
+        joinRoom: {
+          uuid: this.whiteboardRoomUUID,
+          roomToken: this.whiteboardRoomToken,
+          uid: this.currentUserId,
+          userPayload: {
+            nickName: this.myName || 'User',
+          }
+        }
+        // DO NOT pass managerConfig - let mount() handle it
+      });
+
+      // Mount the UI - this will create both the canvas AND the toolbar
+      const ui = mount(this.fastboardApp, container);
+      
+      console.log('✅ Agora Fastboard mounted with full UI', ui);
+      
+      // Optional: Listen for whiteboard events
+      this.fastboardApp.manager.emitter.on('ready', () => {
+        console.log('🎨 Whiteboard ready with full toolbar');
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to initialize whiteboard:', error);
+      
+      // Show error toast
+      const toast = await this.toastController.create({
+        message: 'Failed to load whiteboard. Please try again.',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+      
+      // Fall back to hiding whiteboard
+      this.showWhiteboard = false;
+    } finally {
+      this.isWhiteboardLoading = false;
+    }
+  }
+
+  /**
+   * Cleanup whiteboard resources
+   */
+  async destroyWhiteboard() {
+    if (this.fastboardApp) {
+      console.log('🧹 Destroying Agora Fastboard...');
+      try {
+        await this.fastboardApp.destroy();
+        this.fastboardApp = null;
+        console.log('✅ Whiteboard destroyed');
+      } catch (error) {
+        console.error('❌ Error destroying whiteboard:', error);
+      }
+    }
+  }
+
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
     
@@ -4725,6 +4900,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🧹 VideoCall: No lesson connection, but cleaning up any media elements...');
       this.cleanupAllMediaElements();
     }
+
+    // Cleanup whiteboard
+    await this.destroyWhiteboard();
 
     // Remove beforeunload listener
     window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));

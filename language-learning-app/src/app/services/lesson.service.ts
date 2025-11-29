@@ -270,6 +270,16 @@ export class LessonService {
     );
   }
 
+  // Update lesson data (e.g., whiteboard room UUID)
+  updateLesson(lessonId: string, data: any): Observable<{ success: boolean; lesson: Lesson }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.patch<{ success: boolean; lesson: Lesson }>(
+      `${this.baseUrl}/${lessonId}`,
+      data,
+      { headers }
+    );
+  }
+
   // Record that the current user left the lesson (but did not end it)
   leaveLesson(lessonId: string): Observable<{ success: boolean; message: string }> {
     const headers = this.userService.getAuthHeadersSync();

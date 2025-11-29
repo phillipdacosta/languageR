@@ -42,8 +42,8 @@
           <div class="header-left">
             <h3>Whiteboard</h3>
             
-            <!-- Compact toolbar in header -->
-            <div class="header-toolbar">
+            <!-- Agora Fastboard has its own built-in toolbar -->
+            <div class="header-toolbar" style="display: none;">
               <!-- Tool Selection -->
               <button class="tool-btn" [class.active]="currentTool === 'draw'" (click)="setTool('draw')" title="Draw">
                 <ion-icon name="brush-outline"></ion-icon>
@@ -153,47 +153,19 @@
         </div>
         
         <div class="whiteboard-content-fixed">
-          <div class="canvas-container">
-            <canvas 
-              #whiteboardCanvas 
-              [width]="canvasWidth"
-              [height]="canvasHeight"
-              [class.text-cursor]="currentTool === 'text'"
-              [class.move-cursor]="currentTool === 'move'"
-              (mousedown)="handleCanvasClick($event)"
-              (mousemove)="handleCanvasMove($event)"
-              (mouseup)="handleCanvasMouseUp($event)"
-              (mouseleave)="handleCanvasMouseLeave($event)">
-            </canvas>
+          <!-- Agora Fastboard Container -->
+          <div class="whiteboard-container" #whiteboardContainer>
+            <!-- Loading indicator -->
+            <div class="whiteboard-loading" *ngIf="isWhiteboardLoading">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>Loading whiteboard...</p>
+            </div>
             
-            <!-- Inline text input - Rich text editor -->
-            <div 
-              #textInput
-              *ngIf="showInlineTextInput"
-              contenteditable="true"
-              [style.left.px]="textInputX"
-              [style.top.px]="textInputY"
-              [style.font-size.px]="currentTextSize"
-              [style.text-align]="textAlign"
-              class="inline-text-input rich-text-input"
-              [attr.data-placeholder]="'Type text here...'"
-              (input)="onRichTextInput($event)"
-              (blur)="onTextInputBlur()"
-              (keydown)="handleTextInputKeydown($event)"
-              (mouseup)="updateFormattingState()"
-              (keyup)="updateFormattingState()"
-              spellcheck="false"></div>
-            
-            <!-- Remote cursors display (optimized for smoothness) -->
-            <div 
-              *ngFor="let cursor of remoteCursors | keyvalue; trackBy: trackCursor"
-              class="remote-cursor"
-              [style.transform]="'translate3d(' + cursor.value.x + 'px, ' + cursor.value.y + 'px, 0)'"
-              [style.border-color]="cursor.value.color">
-              <div class="cursor-pointer" [style.background-color]="cursor.value.color"></div>
-              <div class="cursor-label" [style.background-color]="cursor.value.color">
-                {{ cursor.value.name }}
-              </div>
+            <!-- Fallback message if whiteboard fails to load -->
+            <div class="whiteboard-error" *ngIf="!fastboardApp && !isWhiteboardLoading && showWhiteboard">
+              <ion-icon name="warning-outline"></ion-icon>
+              <p>Whiteboard unavailable</p>
+              <ion-button size="small" (click)="initializeWhiteboard()">Retry</ion-button>
             </div>
           </div>
         </div>

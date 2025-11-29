@@ -26,7 +26,15 @@ const ClassSchema = new mongoose.Schema({
     invitedAt: { type: Date, default: Date.now },
     respondedAt: { type: Date }
   }],
-  confirmedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }] // Students who accepted
+  confirmedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Students who accepted
+  whiteboardRoomUUID: {
+    type: String,
+    default: null
+  },
+  whiteboardCreatedAt: {
+    type: Date,
+    default: null
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Class', ClassSchema);

@@ -101,6 +101,15 @@ const LessonSchema = new mongoose.Schema({
     selectedDate: String,
     selectedTime: String,
     timeRange: String
+  },
+  // Agora Interactive Whiteboard room info
+  whiteboardRoomUUID: {
+    type: String,
+    default: null
+  },
+  whiteboardCreatedAt: {
+    type: Date,
+    default: null
   }
 }, { 
   timestamps: true 

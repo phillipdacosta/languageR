@@ -546,7 +546,72 @@
   align-items: stretch;
   justify-content: stretch;
   
+  // Agora Fastboard Container
+  .whiteboard-container {
+    position: relative !important;
+    flex: 1;
+    background: white;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    
+    // Let Fastboard handle ALL its own styling
+    > div {
+      width: 100%;
+      height: 100%;
+    }
+    
+    // DON'T override Fastboard's internal styles - just ensure visibility
+    ::ng-deep {
+      .fastboard {
+        width: 100% !important;
+        height: 100% !important;
+      }
+    }
+    
+    .whiteboard-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ion-color-medium);
+      
+      ion-spinner {
+        margin-bottom: 12px;
+      }
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+      }
+    }
+    
+    .whiteboard-error {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--ion-color-danger);
+      text-align: center;
+      
+      ion-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.6;
+      }
+      
+      p {
+        margin: 0 0 16px 0;
+        font-size: 14px;
+      }
+    }
+  }
+
+  // Legacy canvas container (hidden when using Fastboard)
   .canvas-container {
+    display: none; // Hide legacy canvas
     position: relative;
     flex: 1;
     border-radius: 8px;

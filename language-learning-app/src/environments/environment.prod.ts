@@ -7,6 +7,10 @@ export const environment = {
     channel: 'language-class-001',
     uid: null // Let Agora assign a random UID
   },
+  agoraWhiteboard: {
+    appId: 'LlbHYLHIEfCEJZXtHZ664A/hz-fQn1QNhGOwQ', // From Agora Console Whiteboard
+    region: 'us-sv' // us-sv, ap-sg, eu, or cn-hz
+  },
   auth0: {
     domain: 'dev-h6q8nxbfbq8psb4k.us.auth0.com',
     clientId: 'veJihab93y2EdvOK10ve1TvwSffMTflj',
