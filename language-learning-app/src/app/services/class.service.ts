@@ -157,6 +157,15 @@ export class ClassService {
     );
   }
 
+  updateClass(classId: string, data: any): Observable<{ success: boolean; class: any }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.patch<{ success: boolean; class: any }>(
+      `${this.apiUrl}/classes/${classId}`,
+      data,
+      { headers }
+    );
+  }
+
   leaveClass(classId: string): Observable<{ success: boolean; message: string }> {
     return this.userService.currentUser$.pipe(
       take(1),

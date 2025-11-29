@@ -1214,6 +1214,69 @@ router.get('/public/all', verifyToken, async (req, res) => {
   }
 });
 
+// Update class data (e.g., whiteboard room UUID)
+router.patch('/:id', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const classObj = await ClassModel.findById(req.params.id);
+    
+    if (!classObj) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Class not found' 
+      });
+    }
+
+    // Only tutor or confirmed students can update class
+    const isTutor = classObj.tutorId.toString() === user._id.toString();
+    const isStudent = classObj.confirmedStudents.some(
+      s => s.toString() === user._id.toString()
+    );
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to update this class' 
+      });
+    }
+
+    // Update allowed fields
+    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt'];
+    const updates = {};
+    
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    // Apply updates
+    Object.assign(classObj, updates);
+    await classObj.save();
+
+    console.log(`✅ Class ${classObj._id} updated by ${user.email}`);
+    
+    res.json({ 
+      success: true, 
+      class: classObj 
+    });
+  } catch (error) {
+    console.error('❌ Error updating class:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update class' 
+    });
+  }
+});
+
 module.exports = router;
 
 

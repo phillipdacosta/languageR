@@ -1242,6 +1242,67 @@ router.post('/:id/end', verifyToken, async (req, res) => {
   }
 });
 
+// Update lesson data (e.g., whiteboard room UUID)
+router.patch('/:id', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const lesson = await Lesson.findById(req.params.id);
+    
+    if (!lesson) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Lesson not found' 
+      });
+    }
+
+    // Only tutor or student can update lesson
+    const isTutor = lesson.tutorId.toString() === user._id.toString();
+    const isStudent = lesson.studentId.toString() === user._id.toString();
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to update this lesson' 
+      });
+    }
+
+    // Update allowed fields
+    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt'];
+    const updates = {};
+    
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    // Apply updates
+    Object.assign(lesson, updates);
+    await lesson.save();
+
+    console.log(`✅ Lesson ${lesson._id} updated by ${user.email}`);
+    
+    res.json({ 
+      success: true, 
+      lesson 
+    });
+  } catch (error) {
+    console.error('❌ Error updating lesson:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update lesson' 
+    });
+  }
+});
+
 // Update lesson status (PATCH)
 router.patch('/:id/status', verifyToken, async (req, res) => {
   try {
