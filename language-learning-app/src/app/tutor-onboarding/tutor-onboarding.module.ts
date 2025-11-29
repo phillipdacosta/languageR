@@ -7,7 +7,6 @@ import { IonicModule } from '@ionic/angular';
 import { TutorOnboardingPageRoutingModule } from './tutor-onboarding-routing.module';
 
 import { TutorOnboardingPage } from './tutor-onboarding.page';
-import { CountrySelectModalComponent } from './country-select-modal.component';
 import { SharedModule } from '../shared/shared.module';
 
 @NgModule({
@@ -18,6 +17,6 @@ import { SharedModule } from '../shared/shared.module';
     TutorOnboardingPageRoutingModule,
     SharedModule
   ],
-  declarations: [TutorOnboardingPage, CountrySelectModalComponent]
+  declarations: [TutorOnboardingPage]
 })
 export class TutorOnboardingPageModule {}
