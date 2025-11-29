@@ -6,7 +6,7 @@ import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController } from '@ionic/angular';
-import { CountrySelectModalComponent } from './country-select-modal.component';
+import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 
 @Component({
   selector: 'app-tutor-onboarding',
