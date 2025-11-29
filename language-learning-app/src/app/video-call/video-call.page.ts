@@ -1,7 +1,7 @@
 import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AgoraService } from '../services/agora.service';
-import { AlertController, LoadingController, ModalController } from '@ionic/angular';
+import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { MessagingService, Message } from '../services/messaging.service';
@@ -27,6 +27,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('tutorMainVideo', { static: false }) tutorMainVideoRef!: ElementRef<HTMLDivElement>;
   @ViewChild('localVideoGallery', { static: false }) localVideoGalleryRef!: ElementRef<HTMLDivElement>;
   @ViewChild('chatMessagesContainer', { static: false }) chatMessagesRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('screenShareVideo', { static: false }) screenShareVideoRef!: ElementRef<HTMLDivElement>;
+  @ViewChild('localVideoPip', { static: false }) localVideoPipRef!: ElementRef<HTMLDivElement>;
 
   // Listen for window resize to adjust canvas size
   @HostListener('window:resize')
@@ -44,6 +46,31 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showChat = false;
   isDrawing = false;
   isConnected = false;
+  isScreenSharing = false;
+  isRemoteScreenSharing = false; // Track if someone else is sharing
+  
+  // Whiteboard cursor sharing
+  remoteCursors: Map<string, { x: number; y: number; name: string; color: string; lastUpdate: number }> = new Map();
+  private cursorCleanupInterval: any = null;
+  
+  // Professional streaming properties
+  private batchInterval: any = null; // Keep for cleanup only
+  private lastPoint: {x: number; y: number} | null = null;
+  private lastSentPoint: {x: number; y: number} | null = null;
+  private lastSendTime = 0;
+  private readonly MAX_SEND_RATE = 60; // Max 60fps for network efficiency
+  private readonly MIN_SEND_INTERVAL = 1000 / this.MAX_SEND_RATE; // ~16ms
+  private incomingDrawQueue: any[] = []; // Legacy batch support
+  private isProcessingDrawQueue = false;
+  
+  // Remote path tracking for continuous strokes
+  private remoteActivePaths: Map<string, {
+    points: {x: number; y: number}[];
+    color: string;
+    size: number;
+    lastPoint?: {x: number; y: number};
+  }> = new Map();
+  
   channelName = 'languageRoom'; // Default channel name - must match AgoraService hardcoded value
   remoteUserCount = 0;
   userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
@@ -205,7 +232,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private websocketService: WebSocketService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private toastController: ToastController
   ) { }
 
   async ngOnInit() {
@@ -953,6 +981,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
 
+      // Check for remote screen sharing
+      this.checkRemoteScreenSharing();
+
       // Log when remote user count changes
       if (previousCount !== this.remoteUserCount) {
         console.log(`👥 Remote user count changed: ${previousCount} → ${this.remoteUserCount}`);
@@ -961,6 +992,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           hasVideo: !!user.videoTrack,
           hasAudio: !!user.audioTrack
         })));
+        console.log(`🔍 DEBUG: allParticipants count: ${this.allParticipants.length}`);
+        console.log(`🔍 DEBUG: isClass: ${this.isClass}, showWhiteboard: ${this.showWhiteboard}`);
         
         // For classes: When a new participant joins, re-broadcast my identity AND current state
         if (this.isClass && this.remoteUserCount > previousCount) {
@@ -1071,6 +1104,30 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.playRemoteVideoInCorrectContainer();
       }
     }, 1000);
+  }
+
+  private checkRemoteScreenSharing() {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    let someoneElseSharing = false;
+
+    // Check if any remote user has a screen sharing track
+    remoteUsers.forEach((user, uid) => {
+      // Screen sharing tracks typically have different properties
+      // Check if the video track is a screen share (usually larger resolution)
+      if (user.videoTrack) {
+        const track = user.videoTrack.getMediaStreamTrack();
+        if (track) {
+          const settings = track.getSettings();
+          // Screen shares typically have displaySurface property or very high resolution
+          if (settings.displaySurface || (settings.width && settings.width > 1280)) {
+            someoneElseSharing = true;
+            console.log(`📺 Remote user ${uid} is screen sharing`);
+          }
+        }
+      }
+    });
+
+    this.isRemoteScreenSharing = someoneElseSharing;
   }
 
   private playRemoteVideoInCorrectContainer() {
@@ -1730,7 +1787,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  toggleWhiteboard() {
+  async toggleWhiteboard() {
     this.showWhiteboard = !this.showWhiteboard;
     
     // Send whiteboard state change to other participant
@@ -1740,11 +1797,28 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       initiatedBy: this.userRole  // 'tutor' or 'student'
     });
     
+    // Show enhanced sharing messages
+    if (this.showWhiteboard) {
+      const toast = await this.toastController.create({
+        message: '🎨 Whiteboard opened - both users can collaborate in real-time! You can see each other\'s cursors.',
+        duration: 4000,
+        color: 'success',
+        position: 'top',
+        cssClass: 'whiteboard-toast'
+      });
+      await toast.present();
+    }
+    
     // Force change detection to update the DOM
     this.cdr.detectChanges();
     
     if (this.showWhiteboard) {
       // Whiteboard is OPENING
+      // Start cursor cleanup interval
+      this.cursorCleanupInterval = setInterval(() => {
+        this.cleanupStaleRemoteCursors();
+      }, 5000); // Clean up every 5 seconds
+      
       setTimeout(() => {
         this.initializeWhiteboard();
         // Adjust canvas size after panel animation completes
@@ -2274,7 +2348,24 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           } else {
             this.renderPlainText(element);
           }
+        } else if (element.type === 'path') {
+          // Render smooth paths
+          if (element.points && element.points.length > 1) {
+            this.ctx.strokeStyle = element.color;
+            this.ctx.lineWidth = element.size;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            this.ctx.beginPath();
+            this.ctx.moveTo(element.points[0].x, element.points[0].y);
+            
+            for (let i = 1; i < element.points.length; i++) {
+              this.ctx.lineTo(element.points[i].x, element.points[i].y);
+            }
+            
+            this.ctx.stroke();
+          }
         } else if (element.type === 'draw') {
+          // Legacy support for old draw format
           this.ctx.strokeStyle = element.color;
           this.ctx.lineWidth = element.size;
           this.ctx.lineCap = 'round';
@@ -2453,6 +2544,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     } else if (this.currentTool === 'move') {
       this.handleDragging(event);
     }
+    
+    // Broadcast cursor position for whiteboard collaboration
+    if (this.showWhiteboard && this.canvas) {
+      this.broadcastCursorPosition(event);
+    }
   }
 
   handleCanvasMouseUp(event: MouseEvent) {
@@ -2508,6 +2604,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }, 0);
   }
 
+  private currentPath: any = null;
+  
   draw(event: MouseEvent) {
     if (!this.isDrawingActive || !this.ctx || !this.canvas) return;
 
@@ -2515,24 +2613,56 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const currentX = event.clientX - rect.left;
     const currentY = event.clientY - rect.top;
 
+    // Set drawing properties for immediate local drawing
+    this.ctx.strokeStyle = this.currentColor;
+    this.ctx.lineWidth = this.currentBrushSize;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+
+    // Draw immediately for local responsiveness
     this.ctx.beginPath();
     this.ctx.moveTo(this.lastX, this.lastY);
     this.ctx.lineTo(currentX, currentY);
     this.ctx.stroke();
 
-    const strokeElement = {
-      type: 'draw',
-      fromX: this.lastX,
-      fromY: this.lastY,
-      toX: currentX,
-      toY: currentY,
-      color: this.currentColor,
-      size: this.currentBrushSize,
-      id: Date.now() + Math.random()
-    };
-
-    this.whiteboardElements.push(strokeElement);
-    this.agoraService.sendWhiteboardData(strokeElement);
+    // Initialize current path if needed
+    if (!this.currentPath) {
+      this.currentPath = {
+        type: 'path',
+        points: [{ x: this.lastX, y: this.lastY }],
+        color: this.currentColor,
+        size: this.currentBrushSize,
+        id: Date.now() + Math.random()
+      };
+    }
+    
+    // Add current point to path
+    this.currentPath.points.push({ x: currentX, y: currentY });
+    
+    // PROFESSIONAL STREAMING: Adaptive rate with guaranteed smoothness
+    const now = performance.now();
+    const timeSinceLastSend = now - this.lastSendTime;
+    
+    // Always send if enough time has passed OR if this is a significant movement
+    const significantMovement = !this.lastSentPoint || 
+      Math.abs(currentX - this.lastSentPoint.x) >= 2 || 
+      Math.abs(currentY - this.lastSentPoint.y) >= 2;
+    
+    if (timeSinceLastSend >= this.MIN_SEND_INTERVAL || significantMovement) {
+      // Send individual point for ultra-smooth remote experience
+      this.agoraService.sendWhiteboardData({
+        type: 'draw_point',
+        pathId: this.currentPath?.id || Date.now(),
+        point: { x: currentX, y: currentY },
+        fromPoint: { x: this.lastX, y: this.lastY }, // For line continuity
+        color: this.currentColor,
+        size: this.currentBrushSize,
+        timestamp: now // For remote smoothing
+      });
+      
+      this.lastSentPoint = { x: currentX, y: currentY };
+      this.lastSendTime = now;
+    }
 
     this.lastX = currentX;
     this.lastY = currentY;
@@ -2541,8 +2671,158 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   stopDrawing() {
     if (this.isDrawingActive) {
       this.isDrawingActive = false;
+      
+      // Clear any pending timeouts (no more batching needed)
+      if (this.batchInterval) {
+        clearTimeout(this.batchInterval);
+        this.batchInterval = null;
+      }
+      
+      // Finalize the current path
+      if (this.currentPath) {
+        this.whiteboardElements.push(this.currentPath);
+        
+        // Send stroke complete notification
+        this.agoraService.sendWhiteboardData({
+          type: 'stroke_complete',
+          pathId: this.currentPath.id
+        });
+        
+        this.currentPath = null;
+      }
+      
+      // Reset drawing state
+      this.lastPoint = null;
+      this.lastSentPoint = null;
+      
       // Save to history when drawing stops
       this.saveToHistory();
+    }
+  }
+
+  // Helper method removed - now using adaptive rate limiting instead
+
+  // Legacy batch method (no longer used in streaming mode)
+  private sendPointBatch() {
+    // No-op in streaming mode - points are sent individually
+  }
+
+  // Process incoming draw queue with immediate rendering for ultra-smooth drawing
+  private processDrawQueue() {
+    // Process all queued batches immediately for maximum responsiveness
+    while (this.incomingDrawQueue.length > 0) {
+      const batch = this.incomingDrawQueue.shift();
+      this.drawBatchToCanvas(batch);
+    }
+    this.isProcessingDrawQueue = false;
+    
+    // If more batches arrive while processing, schedule another frame
+    if (this.incomingDrawQueue.length > 0) {
+      requestAnimationFrame(() => this.processDrawQueue());
+    }
+  }
+
+  // Draw individual point with professional smoothing (like Preply)
+  private drawPointToCanvas(pointData: any) {
+    if (!this.ctx || !pointData.point || !pointData.fromPoint) return;
+    
+    this.ctx.strokeStyle = pointData.color;
+    this.ctx.lineWidth = pointData.size;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+    
+    const pathId = pointData.pathId;
+    let activePath = this.remoteActivePaths.get(pathId);
+    
+    if (!activePath) {
+      // Start new stroke
+      activePath = {
+        points: [pointData.fromPoint],
+        color: pointData.color,
+        size: pointData.size,
+        lastPoint: pointData.fromPoint
+      };
+      this.remoteActivePaths.set(pathId, activePath);
+    }
+    
+    // For maximum smoothness, check if we need to interpolate
+    const lastPoint = activePath.lastPoint || pointData.fromPoint;
+    const currentPoint = pointData.point;
+    
+    // Calculate distance between points
+    const dx = currentPoint.x - lastPoint.x;
+    const dy = currentPoint.y - lastPoint.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    this.ctx.beginPath();
+    this.ctx.moveTo(lastPoint.x, lastPoint.y);
+    
+    // If points are far apart (network delay), interpolate for smoothness
+    if (distance > 10) {
+      const steps = Math.ceil(distance / 5); // Interpolate every 5 pixels
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const interpX = lastPoint.x + (dx * t);
+        const interpY = lastPoint.y + (dy * t);
+        this.ctx.lineTo(interpX, interpY);
+      }
+    } else {
+      // Direct line for close points
+      this.ctx.lineTo(currentPoint.x, currentPoint.y);
+    }
+    
+    this.ctx.stroke();
+    
+    // Update tracking
+    activePath.points.push(currentPoint);
+    activePath.lastPoint = currentPoint;
+  }
+
+  // Draw a batch of points to canvas with continuous stroke tracking
+  private drawBatchToCanvas(batch: any) {
+    if (!this.ctx || !batch.points || batch.points.length === 0) return;
+    
+    const pathId = batch.pathId;
+    let activePath = this.remoteActivePaths.get(pathId);
+    
+    // Initialize path if it doesn't exist
+    if (!activePath) {
+      activePath = {
+        points: [],
+        color: batch.color,
+        size: batch.size
+      };
+      this.remoteActivePaths.set(pathId, activePath);
+    }
+    
+    this.ctx.strokeStyle = batch.color;
+    this.ctx.lineWidth = batch.size;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+    
+    // Draw continuous lines from last point to new points
+    this.ctx.beginPath();
+    
+    if (activePath.lastPoint && batch.points.length > 0) {
+      // Continue from where we left off
+      this.ctx.moveTo(activePath.lastPoint.x, activePath.lastPoint.y);
+      this.ctx.lineTo(batch.points[0].x, batch.points[0].y);
+    } else if (batch.points.length > 0) {
+      // Start new path
+      this.ctx.moveTo(batch.points[0].x, batch.points[0].y);
+    }
+    
+    // Draw all points in the batch
+    for (let i = 1; i < batch.points.length; i++) {
+      this.ctx.lineTo(batch.points[i].x, batch.points[i].y);
+    }
+    
+    this.ctx.stroke();
+    
+    // Update the last point for continuity
+    if (batch.points.length > 0) {
+      activePath.lastPoint = batch.points[batch.points.length - 1];
+      activePath.points.push(...batch.points);
     }
   }
 
@@ -3094,9 +3374,296 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   }
 
-  shareScreen() {
-    console.log('Screen sharing not implemented yet');
-    alert('Screen sharing feature coming soon!');
+  async shareScreen() {
+    try {
+      if (this.isScreenSharing) {
+        // Stop screen sharing
+        await this.stopScreenShare();
+      } else {
+        // Start screen sharing
+        await this.startScreenShare();
+      }
+    } catch (error: any) {
+      console.error('❌ Screen sharing error:', error);
+      
+      let errorMessage = 'Failed to share screen';
+      if (error.message?.includes('Permission denied')) {
+        errorMessage = 'Screen sharing permission was denied. Please allow screen sharing and try again.';
+      } else if (error.message?.includes('NotAllowedError')) {
+        errorMessage = 'Screen sharing is not allowed. Please check your browser permissions.';
+      } else if (error.message?.includes('NotSupportedError')) {
+        errorMessage = 'Screen sharing is not supported in this browser.';
+      }
+      
+      const alert = await this.alertController.create({
+        header: 'Screen Sharing Error',
+        message: errorMessage,
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  async startScreenShare() {
+    console.log('🖥️ Starting screen share...');
+    
+    // Start screen sharing directly without modal
+    await this.proceedWithScreenShare();
+  }
+
+  private async proceedWithScreenShare() {
+    const loading = await this.loadingController.create({
+      message: 'Starting screen share...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      await this.agoraService.startScreenShare();
+      this.isScreenSharing = true;
+      console.log('✅ Screen sharing started successfully');
+      
+      // Display the screen share video
+      setTimeout(() => {
+        this.displayScreenShare();
+      }, 500);
+
+      
+      // Show success message with cursor tip
+      const toast = await this.toastController.create({
+        message: 'Screen sharing started. For cursor visibility, share "Entire Screen" not browser tabs.',
+        duration: 4000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+      
+    } catch (error) {
+      console.error('❌ Failed to start screen sharing:', error);
+      throw error;
+    } finally {
+      await loading.dismiss();
+    }
+  }
+
+  async stopScreenShare() {
+    console.log('🖥️ Stopping screen share...');
+    
+    try {
+      await this.agoraService.stopScreenShare();
+      this.isScreenSharing = false;
+      console.log('✅ Screen sharing stopped successfully');
+      
+      // Clear the screen share display
+      if (this.screenShareVideoRef?.nativeElement) {
+        this.screenShareVideoRef.nativeElement.innerHTML = '';
+      }
+      
+      // Clear PiP displays
+      if (this.localVideoPipRef?.nativeElement) {
+        this.localVideoPipRef.nativeElement.innerHTML = '';
+      }
+      
+      
+      // Restore normal video layout
+      setTimeout(() => {
+        this.playRemoteVideoInCorrectContainer();
+      }, 500);
+      
+      // Show success message
+      const toast = await this.toastController.create({
+        message: 'Screen sharing stopped',
+        duration: 2000,
+        color: 'primary',
+        position: 'top'
+      });
+      await toast.present();
+      
+    } catch (error) {
+      console.error('❌ Failed to stop screen sharing:', error);
+      throw error;
+    }
+  }
+
+  private displayScreenShare() {
+    try {
+      const screenTrack = this.agoraService.getScreenTrack();
+      if (screenTrack && this.screenShareVideoRef?.nativeElement) {
+        console.log('🖥️ Displaying screen share video in full screen mode');
+        screenTrack.play(this.screenShareVideoRef.nativeElement);
+        
+        // Also display local camera in PiP
+        this.displayLocalVideoPip();
+        
+        // Display remote participants in PiP
+        this.displayRemoteParticipantsPip();
+      }
+    } catch (error) {
+      console.error('❌ Error displaying screen share:', error);
+    }
+  }
+
+  private displayLocalVideoPip() {
+    try {
+      const localTrack = this.agoraService.getLocalVideoTrack();
+      if (localTrack && this.localVideoPipRef?.nativeElement) {
+        console.log('📹 Displaying local camera in PiP');
+        localTrack.play(this.localVideoPipRef.nativeElement);
+      }
+    } catch (error) {
+      console.error('❌ Error displaying local video PiP:', error);
+    }
+  }
+
+  private displayRemoteParticipantsPip() {
+    try {
+      // Wait a bit for DOM to update
+      setTimeout(() => {
+        const remoteUsers = this.agoraService.getRemoteUsers();
+        remoteUsers.forEach((user: any, uid: any) => {
+          if (user.videoTrack) {
+            const pipElement = document.getElementById(`pip-remote-${uid}`);
+            if (pipElement) {
+              const videoContainer = pipElement.querySelector('.pip-video-element');
+              if (videoContainer) {
+                console.log(`📹 Displaying remote participant ${uid} in PiP`);
+                user.videoTrack.play(videoContainer as HTMLElement);
+              }
+            }
+          }
+        });
+      }, 100);
+    } catch (error) {
+      console.error('❌ Error displaying remote participants PiP:', error);
+    }
+  }
+
+  getRemoteParticipants() {
+    return this.allParticipants.filter((p: any) => !p.isLocal);
+  }
+
+  isMyScreenShare(): boolean {
+    // Return true if the current user is the one sharing screen
+    // This prevents showing their own camera PiP overlay
+    return this.isScreenSharing;
+  }
+
+  // Whiteboard Screen Sharing Methods
+  async shareWhiteboardScreen() {
+    try {
+      if (this.isScreenSharing) {
+        // Already sharing - stop current share
+        await this.stopScreenShare();
+        return;
+      }
+
+      // Show options for whiteboard sharing
+      const alert = await this.alertController.create({
+        header: 'Share Whiteboard',
+        message: 'How would you like to share the whiteboard?',
+        buttons: [
+          {
+            text: 'Share Canvas Only',
+            handler: () => this.shareCanvasAsVideo()
+          },
+          {
+            text: 'Share Full Screen',
+            handler: () => this.shareScreenWithWhiteboard()
+          },
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          }
+        ]
+      });
+
+      await alert.present();
+
+    } catch (error) {
+      console.error('❌ Whiteboard screen sharing error:', error);
+      
+      const toast = await this.toastController.create({
+        message: 'Failed to start whiteboard sharing. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    }
+  }
+
+  private async shareCanvasAsVideo() {
+    try {
+      if (!this.canvas) {
+        throw new Error('Whiteboard canvas not available');
+      }
+
+      console.log('🎨 Starting canvas video share...');
+      
+      // Capture canvas as video stream at 120fps for ultra-smooth drawing
+      const canvasStream = this.canvas.captureStream(120);
+      
+      if (!canvasStream) {
+        throw new Error('Failed to capture canvas stream');
+      }
+
+      // Use existing Agora screen share infrastructure with canvas stream
+      await this.agoraService.startScreenShare(canvasStream);
+      this.isScreenSharing = true;
+      
+      // Display the shared canvas in screen share mode
+      setTimeout(() => {
+        this.displayScreenShare();
+      }, 500);
+
+      console.log('✅ Canvas sharing started successfully');
+      
+      const toast = await this.toastController.create({
+        message: '🎨 Whiteboard canvas is now being shared!',
+        duration: 3000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+
+    } catch (error) {
+      console.error('❌ Canvas sharing failed:', error);
+      
+      const toast = await this.toastController.create({
+        message: 'Failed to share canvas. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    }
+  }
+
+  private async shareScreenWithWhiteboard() {
+    try {
+      // Guide user to avoid mirror effect
+      const toast = await this.toastController.create({
+        message: '💡 Tip: Select "Entire Screen" when prompted to avoid mirror effect',
+        duration: 4000,
+        color: 'primary',
+        position: 'top'
+      });
+      await toast.present();
+      
+      // Use existing screen share method
+      await this.startScreenShare();
+
+    } catch (error) {
+      console.error('❌ Full screen sharing failed:', error);
+      
+      const errorToast = await this.toastController.create({
+        message: 'Failed to share screen. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'top'
+      });
+      await errorToast.present();
+    }
   }
 
   // Virtual Background Methods (following official Agora example)
@@ -3255,10 +3822,68 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
 
 
+  // Broadcast cursor position to other participants (immediate like Preply)
+  private broadcastCursorPosition(event: MouseEvent) {
+    if (!this.canvas) return;
+    
+    const rect = this.canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Get user info for cursor display
+    const myInfo = this.participantRegistry.get(this.myAgoraUid);
+    const userName = myInfo?.name || this.myName || 'User';
+    const userColor = this.userRole === 'tutor' ? '#4CAF50' : '#2196F3'; // Green for tutor, blue for student
+    
+    // Send immediately for Preply-like smoothness
+    this.agoraService.sendWhiteboardData({
+      type: 'cursor',
+      x: x,
+      y: y,
+      userId: this.currentUserId,
+      name: userName,
+      color: userColor,
+      timestamp: Date.now()
+    });
+  }
+  
+  // Track cursors for better Angular performance
+  trackCursor(index: number, item: any) {
+    return item.key; // Track by userId
+  }
+  
+  // Clean up remote cursors that haven't been updated recently
+  private cleanupStaleRemoteCursors() {
+    const now = Date.now();
+    const CURSOR_TIMEOUT = 2000; // 2 seconds
+    
+    for (const [userId, cursor] of this.remoteCursors.entries()) {
+      if (now - cursor.lastUpdate > CURSOR_TIMEOUT) {
+        this.remoteCursors.delete(userId);
+      }
+    }
+  }
+
   handleRemoteWhiteboardData(data: any) {
     console.log('Received remote whiteboard data:', data);
 
     switch (data.type) {
+      case 'cursor':
+        // Handle remote cursor position updates (immediate like Preply)
+        if (data.userId !== this.currentUserId && this.showWhiteboard) {
+          this.remoteCursors.set(data.userId, {
+            x: data.x,
+            y: data.y,
+            name: data.name || 'User',
+            color: data.color || '#666666',
+            lastUpdate: Date.now()
+          });
+          
+          // Immediate change detection for smooth cursor movement
+          this.cdr.detectChanges();
+        }
+        break;
+        
       case 'toggle':
         // Tutor controls whiteboard state for both participants
         if (data.initiatedBy === 'tutor') {
@@ -3308,10 +3933,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Student can close independently, but doesn't affect tutor
         break;
 
-      case 'draw':
-        // Auto-open whiteboard if receiving draw data while closed
+      case 'draw_point':
+        // Handle individual point streaming (like Preply/Figma)
         if (!this.showWhiteboard) {
-          console.log('🎨 Received drawing data - auto-opening whiteboard');
+          console.log('🎨 Received draw point - auto-opening whiteboard');
           this.showWhiteboard = true;
           this.cdr.detectChanges();
           
@@ -3321,7 +3946,6 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Reposition videos when whiteboard auto-opens
             if (this.isClass) {
-              console.log('📹 Auto-opening whiteboard (draw) - moving videos to tiles');
               this.playRemoteVideosInParticipantTiles();
             } else {
               this.moveRemoteVideoToTile();
@@ -3329,7 +3953,64 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           }, 100);
         }
         
-        // Wait for canvas to be ready if it was just opened
+        // Draw individual point immediately for maximum smoothness
+        this.drawPointToCanvas(data);
+        break;
+
+      case 'draw_batch':
+        // Legacy support for batch format
+        this.incomingDrawQueue.push(data);
+        if (!this.isProcessingDrawQueue) {
+          this.isProcessingDrawQueue = true;
+          requestAnimationFrame(() => this.processDrawQueue());
+        }
+        break;
+
+      case 'path_update':
+        // Legacy support - convert to batch format
+        if (data.points && data.points.length > 0) {
+          this.incomingDrawQueue.push({
+            type: 'draw_batch',
+            points: data.points,
+            color: data.color,
+            size: data.size
+          });
+          if (!this.isProcessingDrawQueue) {
+            this.isProcessingDrawQueue = true;
+            requestAnimationFrame(() => this.processDrawQueue());
+          }
+        }
+        break;
+        
+      case 'stroke_complete':
+        // Stroke is complete - clean up active path tracking
+        console.log('Remote stroke completed:', data.pathId);
+        if (data.pathId && this.remoteActivePaths.has(data.pathId)) {
+          const completedPath = this.remoteActivePaths.get(data.pathId);
+          if (completedPath) {
+            // Add to whiteboard elements for history/undo
+            this.whiteboardElements.push({
+              type: 'path',
+              points: completedPath.points,
+              color: completedPath.color,
+              size: completedPath.size,
+              id: data.pathId
+            });
+          }
+          // Remove from active tracking
+          this.remoteActivePaths.delete(data.pathId);
+        }
+        break;
+
+      case 'path_complete':
+        // Legacy support - Add completed path to elements
+        if (data.path && this.ctx && this.canvas) {
+          this.whiteboardElements.push(data.path);
+        }
+        break;
+
+      case 'draw':
+        // Legacy support for old draw format
         const addDrawElement = () => {
           if (this.ctx && this.canvas) {
             this.whiteboardElements.push(data);
@@ -3954,8 +4635,27 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.timerInterval = null;
     }
     
+    // Clean up drawing batch timeout
+    if (this.batchInterval) {
+      clearTimeout(this.batchInterval);
+      this.batchInterval = null;
+    }
+    
+    // Clean up cursor cleanup interval
+    if (this.cursorCleanupInterval) {
+      clearInterval(this.cursorCleanupInterval);
+      this.cursorCleanupInterval = null;
+    }
+    
     // Stop all Web Audio monitoring
     this.stopAllAudioMonitoring();
+    
+    // Clean up cursor broadcasting
+    if (this.cursorCleanupInterval) {
+      clearInterval(this.cursorCleanupInterval);
+      this.cursorCleanupInterval = null;
+    }
+    this.remoteCursors.clear();
     
     // Clean up messaging subscriptions
     this.destroy$.next();
@@ -4358,6 +5058,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     const seconds = this.elapsedSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
+
   
   /**
    * Check if session is in overage (past booked duration)

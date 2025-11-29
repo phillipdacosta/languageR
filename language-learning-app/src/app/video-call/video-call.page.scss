@@ -576,6 +576,65 @@
     }
   }
   
+  // Remote cursor styles for whiteboard collaboration (Preply-like smoothness)
+  .remote-cursor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 1000;
+    will-change: transform; // Optimize for animations
+    backface-visibility: hidden; // Hardware acceleration
+    contain: layout style paint; // Optimize rendering performance
+    
+    .cursor-pointer {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      position: relative;
+      
+      // Create cursor arrow shape
+      &::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        width: 0;
+        height: 0;
+        border-left: 10px solid;
+        border-left-color: inherit;
+        border-right: 6px solid transparent;
+        border-bottom: 10px solid transparent;
+        border-top: 6px solid transparent;
+      }
+    }
+    
+    .cursor-label {
+      position: absolute;
+      top: 18px;
+      left: 8px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: white;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      
+      // Add small arrow pointing to cursor
+      &::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: 8px;
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+        border-bottom: 4px solid;
+        border-bottom-color: inherit;
+      }
+    }
+  }
+  
   .inline-text-input {
     position: absolute;
     background: rgba(255, 255, 255, 0.95);
@@ -2704,3 +2763,172 @@
     }
   }
 }
+
+// Screen Sharing Mode - Full Screen Layout
+.screen-share-mode {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  
+  .screen-share-main {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .screen-share-display {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      video {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        background: #000;
+      }
+    }
+    
+    .screen-share-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      color: white;
+      z-index: 10;
+      
+      .control-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        
+        ion-icon {
+          font-size: 18px;
+          color: var(--ion-color-primary);
+        }
+      }
+      
+      ion-button {
+        --padding-start: 12px;
+        --padding-end: 12px;
+        
+        ion-icon {
+          margin-right: 6px;
+        }
+      }
+    }
+  }
+  
+  // Picture-in-Picture Container
+  .pip-container {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 15;
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+    
+    .pip-video {
+      position: relative;
+      width: 200px;
+      height: 150px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #1a1a1a;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: var(--ion-color-primary);
+        transform: scale(1.05);
+      }
+      
+      &.local-pip {
+        border-color: var(--ion-color-success);
+      }
+      
+      .pip-video-element {
+        width: 100%;
+        height: 100%;
+        
+        video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      }
+      
+      .pip-label {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        text-align: center;
+        backdrop-filter: blur(5px);
+      }
+      
+      .pip-placeholder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #2a2a2a;
+        
+        ion-avatar {
+          width: 60px;
+          height: 60px;
+          
+          ion-icon {
+            font-size: 30px;
+            color: #666;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Enhanced whiteboard toast styling
+:host ::ng-deep {
+  .whiteboard-toast {
+    --background: #4CAF50;
+    --color: white;
+    
+    .toast-message {
+      font-weight: 500;
+      font-size: 14px;
+    }
+  }
+}
+

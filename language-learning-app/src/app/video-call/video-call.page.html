@@ -135,6 +135,17 @@
             </div>
           </div>
           <div class="whiteboard-controls">
+            <!-- Share Whiteboard Button (Tutor Only) -->
+            <ion-button 
+              *ngIf="userRole === 'tutor'" 
+              (click)="shareWhiteboardScreen()" 
+              size="small" 
+              fill="clear" 
+              [color]="isScreenSharing ? 'primary' : 'medium'"
+              title="Share Whiteboard">
+              <ion-icon name="share-outline"></ion-icon>
+            </ion-button>
+            
             <ion-button (click)="toggleWhiteboard()" size="small" fill="clear" title="Close">
               <ion-icon name="close-outline"></ion-icon>
             </ion-button>
@@ -172,20 +183,24 @@
               (mouseup)="updateFormattingState()"
               (keyup)="updateFormattingState()"
               spellcheck="false"></div>
+            
+            <!-- Remote cursors display (optimized for smoothness) -->
+            <div 
+              *ngFor="let cursor of remoteCursors | keyvalue; trackBy: trackCursor"
+              class="remote-cursor"
+              [style.transform]="'translate3d(' + cursor.value.x + 'px, ' + cursor.value.y + 'px, 0)'"
+              [style.border-color]="cursor.value.color">
+              <div class="cursor-pointer" [style.background-color]="cursor.value.color"></div>
+              <div class="cursor-label" [style.background-color]="cursor.value.color">
+                {{ cursor.value.name }}
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
     <div class="video-container">
-        <!-- Debug info -->
-        <!-- <div class="debug-info" *ngIf="isConnected">
-          <p>Channel: {{channelName}} | Remote Users: {{remoteUserCount}} | Role: {{userRole}}</p>
-          <div style="display: flex; gap: 4px; margin-top: 4px;">
-            <button (click)="debugConnectionStatus()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px;">Debug</button>
-            <button (click)="testMuteSync()" style="background: rgba(255,165,0,0.7); border: none; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px;">Test Mute</button>
-          </div>
-        </div> -->
 
     <!-- Speaker View Toggle -->
     <!-- <div class="speaker-view-toggle">
@@ -193,9 +208,59 @@
       <span>Speaker View</span>
     </div> -->
 
+    <!-- Screen Sharing Mode - Full Screen Layout -->
+    <div class="screen-share-mode" *ngIf="isScreenSharing">
+      <!-- Main screen share area (full screen) -->
+      <div class="screen-share-main">
+        <div #screenShareVideo class="screen-share-display">
+          <!-- Screen share video will be displayed here -->
+        </div>
+        
+        <!-- Screen share controls overlay -->
+        <div class="screen-share-controls">
+          <div class="control-item">
+            <ion-icon name="desktop"></ion-icon>
+            <span>Screen Sharing</span>
+          </div>
+          <ion-button (click)="stopScreenShare()" color="danger" fill="clear" size="small">
+            <ion-icon name="stop-circle"></ion-icon>
+            Stop Sharing
+          </ion-button>
+        </div>
+      </div>
+      
+      <!-- Picture-in-Picture camera feeds -->
+      <div class="pip-container">
+        <!-- Local camera (your camera) - Only show to remote viewers, not to the sharer -->
+        <div class="pip-video local-pip" *ngIf="!isVideoOff && !isMyScreenShare()">
+          <div #localVideoPip class="pip-video-element">
+            <!-- Local camera feed will be displayed here -->
+          </div>
+          <div class="pip-label">You</div>
+        </div>
+        
+        <!-- Remote participants cameras -->
+        <div class="pip-video remote-pip" 
+             *ngFor="let participant of getRemoteParticipants()" 
+             [attr.id]="'pip-remote-' + participant.uid">
+          <div class="pip-video-element">
+            <!-- Remote camera feed will be displayed here -->
+          </div>
+          <div class="pip-label">{{ participant.name || 'Participant' }}</div>
+          <!-- Camera off placeholder -->
+          <div class="pip-placeholder" *ngIf="participant.isVideoOff">
+            <ion-avatar>
+              <img *ngIf="participant.profilePicture" [src]="participant.profilePicture" alt="{{ participant.name }}">
+              <ion-icon *ngIf="!participant.profilePicture" name="person"></ion-icon>
+            </ion-avatar>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Main video area (fullscreen) -->
     <!-- 1:1 Lesson View - UNCHANGED from original -->
-    <div class="main-video" *ngIf="!isClass">
+    <div class="main-video" *ngIf="!isClass && !isScreenSharing">
       <div #remoteVideo class="video-container-remote" *ngIf="isConnected && remoteUserCount > 0; else remoteMainPlaceholder">
         <!-- Remote video will be displayed here -->
         
@@ -342,12 +407,6 @@
           <span>Normal</span>
         </button>
         
-        <button 
-          class="bg-option-btn debug-option"
-          (click)="debugForceRestore()">
-          <ion-icon name="refresh-outline"></ion-icon>
-          <span>Force Restore</span>
-        </button>
       </div>
       
       <div class="status-info" *ngIf="isVirtualBackgroundEnabled">
@@ -636,8 +695,13 @@
         <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'"></ion-icon>
       </ion-button>
       
-      <ion-button (click)="shareScreen()" color="medium" fill="clear" title="Share Screen">
-        <ion-icon name="desktop-outline"></ion-icon>
+      <ion-button 
+        *ngIf="!isRemoteScreenSharing || isScreenSharing" 
+        (click)="shareScreen()" 
+        [color]="isScreenSharing ? 'primary' : 'medium'" 
+        fill="clear" 
+        [title]="isScreenSharing ? 'Stop Screen Share' : 'Share Screen'">
+        <ion-icon [name]="isScreenSharing ? 'stop-circle-outline' : 'desktop-outline'"></ion-icon>
       </ion-button>
       
       <ion-button (click)="toggleVirtualBackgroundControls()" [color]="showVirtualBackgroundControls ? 'primary' : 'medium'" fill="clear" title="Virtual Background">
