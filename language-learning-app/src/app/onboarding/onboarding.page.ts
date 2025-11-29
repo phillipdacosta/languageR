@@ -34,7 +34,6 @@ export class OnboardingPage implements OnInit {
   tutorSchedule = '';
   tutorBio = '';
   tutorHourlyRate = 25;
-  tutorIntroductionVideo = '';
 
   // Available options
   availableLanguages = [
@@ -342,14 +341,6 @@ export class OnboardingPage implements OnInit {
     this.tutorHourlyRate = rate;
   }
 
-  onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
-    this.tutorIntroductionVideo = data.url;
-  }
-
-  onVideoRemoved() {
-    this.tutorIntroductionVideo = '';
-  }
-
   // Helper method to check if user is a tutor (from localStorage)
   isTutorOnboarding(): boolean {
     return localStorage.getItem('selectedUserType') === 'tutor';
@@ -399,8 +390,7 @@ export class OnboardingPage implements OnInit {
           experience: this.tutorExperience,
           schedule: this.tutorSchedule,
           bio: this.tutorBio,
-          hourlyRate: this.tutorHourlyRate,
-          introductionVideo: this.tutorIntroductionVideo
+          hourlyRate: this.tutorHourlyRate
         };
 
         console.log('💾 Saving tutor onboarding data (user will be created if needed)');
@@ -459,7 +449,6 @@ export class OnboardingPage implements OnInit {
         schedule: this.tutorSchedule,
         bio: this.tutorBio,
         hourlyRate: this.tutorHourlyRate,
-        introductionVideo: this.tutorIntroductionVideo,
         completedAt: new Date().toISOString()
       } : {
         languages: this.selectedLanguages,

@@ -28,6 +28,7 @@ export class TutorOnboardingPage implements OnInit {
   selectedSchedule = '';
   profileBio = '';
   hourlyRate = 25;
+  introductionVideo = ''; // Introduction video URL
 
   // Available options
   availableLanguages = [
@@ -262,6 +263,16 @@ export class TutorOnboardingPage implements OnInit {
     }
   }
 
+  onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    this.introductionVideo = data.url;
+    console.log('✅ Video uploaded:', data.url);
+  }
+
+  onVideoRemoved() {
+    this.introductionVideo = '';
+    console.log('🗑️ Video removed');
+  }
+
   async completeOnboarding() {
     const loading = await this.loadingController.create({
       message: 'Completing setup...',
@@ -296,7 +307,8 @@ export class TutorOnboardingPage implements OnInit {
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
         bio: this.profileBio,
-        hourlyRate: this.hourlyRate
+        hourlyRate: this.hourlyRate,
+        introductionVideo: this.introductionVideo // Include introduction video
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);
