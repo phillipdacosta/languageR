@@ -6,7 +6,6 @@ import { IonicModule } from '@ionic/angular';
 import { OnboardingPageRoutingModule } from './onboarding-routing.module';
 import { OnboardingPage } from './onboarding.page';
 import { SharedModule } from '../shared/shared.module';
-import { CountrySelectModalComponent } from '../tutor-onboarding/country-select-modal.component';
 
 @NgModule({
   imports: [
@@ -16,6 +15,6 @@ import { CountrySelectModalComponent } from '../tutor-onboarding/country-select-
     OnboardingPageRoutingModule,
     SharedModule
   ],
-  declarations: [OnboardingPage, CountrySelectModalComponent]
+  declarations: [OnboardingPage]
 })
 export class OnboardingPageModule {}
