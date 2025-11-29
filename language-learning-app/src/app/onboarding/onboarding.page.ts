@@ -303,12 +303,6 @@ export class OnboardingPage implements OnInit {
     this.tutorCountry = country;
   }
 
-  // Get flag emoji for selected country
-  getCountryFlag(countryName: string): string {
-    const country = this.tutorCountryOptions.find(c => c.name === countryName);
-    return country ? country.flag : '';
-  }
-
   setTutorExperience(experience: string) {
     this.tutorExperience = experience;
   }
