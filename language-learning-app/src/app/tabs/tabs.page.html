@@ -1,7 +1,7 @@
 <ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs">
 
   <!-- Desktop Web Navigation (Top Toolbar) -->
-  <ion-header *ngIf="isWeb() && !showTabs">
+  <ion-header *ngIf="!showTabs">
     <ion-toolbar class="desktop-nav-toolbar">
       <!-- App Icon -->
       <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
@@ -194,12 +194,14 @@
   <!-- Tab Content is loaded automatically by ion-tabs -->
 
   <!-- Platform Debug Info (only in development) -->
-  <div class="platform-debug" *ngIf="isWeb()" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
+  <div class="platform-debug" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
     Platform: {{ currentPlatform }}<br>
     Screen: {{ platformService.getScreenSize() }}<br>
     Touch: {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}<br>
     Show Tabs: {{ showTabs ? 'Yes' : 'No' }}<br>
-    Mobile Viewport: {{ isMobileViewport() ? 'Yes' : 'No' }}
+    Mobile Viewport: {{ isMobileViewport() ? 'Yes' : 'No' }}<br>
+    isWeb(): {{ isWeb() ? 'Yes' : 'No' }}<br>
+    Window Width: {{ platformService.getScreenSize() }}
   </div>
 
 </ion-tabs>

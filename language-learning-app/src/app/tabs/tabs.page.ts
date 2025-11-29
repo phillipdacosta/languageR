@@ -221,7 +221,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   // Determine if tabs should be shown
   shouldShowTabs(): boolean {
     // Force desktop navigation for larger screens (prevents Windows/Chrome from showing mobile tabs)
-    if (window.innerWidth >= 992) {
+    // If screen is wide, we should use desktop nav regardless of platform detection
+    const screenWidth = window.innerWidth;
+    if (screenWidth >= 992) {
       return false; // Always use desktop nav on large screens
     }
     
@@ -235,8 +237,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       return this.isMobileViewport();
     }
     
-    // Default to showing tabs
-    return true;
+    // Default: if screen is narrow, show tabs; otherwise use desktop nav
+    return screenWidth < 768;
   }
 
   // Check if current viewport is mobile-sized
