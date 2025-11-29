@@ -220,6 +220,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   // Determine if tabs should be shown
   shouldShowTabs(): boolean {
+    // Force desktop navigation for larger screens (prevents Windows/Chrome from showing mobile tabs)
+    if (window.innerWidth >= 992) {
+      return false; // Always use desktop nav on large screens
+    }
+    
     // Always show tabs on mobile platforms (iOS/Android)
     if (this.isMobile()) {
       return true;
