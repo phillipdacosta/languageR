@@ -389,11 +389,19 @@ async loadPreviousLessonNotes() {
 
 ## 📊 Data Privacy
 
-- **Consent required** before any recording
-- **Transcripts stored** only with permission
-- **Student can opt-out** at any time
-- **Only participants** can access their analyses
-- **GDPR/CCPA compliant** (right to deletion)
+- **No consent modal** - Disclosure in Terms & Privacy Policy
+- **Automatic enrollment** - All lessons analyzed by default
+- **Transparent disclosure** - Clear explanation of AI processing in Terms
+- **User rights** - Can request data deletion at any time
+- **GDPR/CCPA compliant** - Right to deletion, access, and export
+- **Secure storage** - Encrypted transcripts and analyses
+- **Limited access** - Only student and tutor can view lesson data
+
+### Terms & Privacy Disclosure
+Added prominent section in Terms & Privacy page:
+> "During lessons, audio may be analyzed by AI to provide pronunciation and fluency feedback. By using this platform, you consent to this processing."
+
+Route: `/legal/terms-privacy`
 
 ## 💰 Cost Estimates
 

@@ -77,6 +77,10 @@ const routes: Routes = [
     path: 'availability-setup',
     loadComponent: () => import('./pages/availability-setup/availability-setup.page').then( m => m.AvailabilitySetupPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'terms-privacy',
+    loadChildren: () => import('./legal/terms-privacy/terms-privacy.module').then( m => m.TermsPrivacyPageModule)
   }
 ];
 @NgModule({
