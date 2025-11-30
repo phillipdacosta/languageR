@@ -7,6 +7,7 @@ import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
+import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -63,6 +64,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
   
+  // AI Previous Lesson Notes (for tutors)
+  previousLessonNotes: LessonAnalysis | null = null;
+  loadingPreviousNotes = false;
+  
   // Error recovery
   showRetryButton = false;
   
@@ -84,6 +89,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private alertController: AlertController,
     private loadingController: LoadingController,
     private toastController: ToastController,
+    private transcriptionService: TranscriptionService,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -250,6 +256,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Load lesson/class details
     await this.loadLessonDetails();
+
+    // Load previous lesson notes for tutors
+    if (this.isTutor) {
+      this.loadPreviousLessonNotes();
+    }
 
     // Connect to WebSocket and listen for lesson presence
     this.websocketService.connect();
@@ -713,6 +724,64 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Navigate back to previous page
     this.location.back();
+  }
+
+  /**
+   * Load previous lesson notes for tutors
+   * Shows AI analysis from last lesson with this student
+   */
+  private async loadPreviousLessonNotes() {
+    if (!this.isTutor || !this.lessonId) {
+      return;
+    }
+
+    this.loadingPreviousNotes = true;
+
+    try {
+      // Get current user and lesson data
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      let lesson: any;
+      
+      if (this.isClass) {
+        const classResponse = await firstValueFrom(this.classService.getClass(this.lessonId));
+        lesson = (classResponse as any)?.class;
+      } else {
+        const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+        lesson = (lessonResponse as any)?.lesson;
+      }
+      
+      if (!lesson || !currentUser) {
+        console.log('⏭️ Missing lesson or user data for previous notes');
+        return;
+      }
+
+      const studentId = lesson.studentId?._id || lesson.studentId;
+      const tutorId = (currentUser as any)._id;
+
+      if (!studentId || !tutorId) {
+        console.log('⏭️ Missing IDs for previous notes', { studentId, tutorId });
+        return;
+      }
+
+      console.log(`📋 Loading previous lesson notes for student ${studentId}...`);
+
+      this.transcriptionService.getLatestAnalysis(studentId, tutorId).subscribe({
+        next: (analysis) => {
+          this.previousLessonNotes = analysis;
+          this.loadingPreviousNotes = false;
+          console.log('✅ Previous lesson notes loaded:', analysis.lessonDate);
+        },
+        error: (error) => {
+          // No previous lessons - that's okay
+          console.log('ℹ️ No previous lesson notes available (first lesson or no analyses yet)');
+          this.previousLessonNotes = null;
+          this.loadingPreviousNotes = false;
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error loading previous lesson notes:', error);
+      this.loadingPreviousNotes = false;
+    }
   }
 
   ngOnDestroy() {

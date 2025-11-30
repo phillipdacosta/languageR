@@ -11,6 +11,8 @@ import { AuthService } from '../services/auth.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { WhiteboardService } from '../services/whiteboard.service';
+import { TranscriptionService } from '../services/transcription.service';
+import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
 import { environment } from '../../environments/environment';
 
@@ -139,6 +141,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
 
+  // AI Transcription & Analysis properties
+  private isTranscriptionEnabled = false;
+  private lessonLanguage = 'en'; // Will be set from lesson data
+
   // Chat properties
   chatMessages: Message[] = [];
   messages: Message[] = [];  // Alias for compatibility
@@ -246,7 +252,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private whiteboardService: WhiteboardService,
     private cdr: ChangeDetectorRef,
     private modalController: ModalController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private transcriptionService: TranscriptionService
   ) { }
 
   async ngOnInit() {
@@ -773,6 +780,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Set up remote video monitoring
       this.monitorRemoteUsers();
+
+      // Start AI transcription for scheduled lessons (students only)
+      await this.startLessonTranscription();
 
       console.log('Successfully connected to video call');
 
@@ -4541,6 +4551,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         try {
           const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
           console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
+          
+          // Complete transcription and show summary (async, don't wait)
+          this.completeLessonWithSummary();
+          
         } catch (leaveError: any) {
           console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
           console.error('🚪 VideoCall: Error details:', leaveError?.error || leaveError?.message || 'Unknown error');
@@ -5247,5 +5261,102 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    */
   isInOverage(): boolean {
     return this.elapsedMinutes > this.bookedDuration;
+  }
+
+  // ========================================
+  // AI TRANSCRIPTION & ANALYSIS
+  // ========================================
+
+  /**
+   * Start lesson transcription for AI analysis
+   * Only starts for scheduled lessons with students
+   */
+  private async startLessonTranscription() {
+    // Only transcribe if:
+    // 1. This is a scheduled lesson (not office hours, not trial)
+    // 2. User is a student
+    // 3. We have a lessonId
+    if (!this.lessonId || this.userRole !== 'student' || this.isOfficeHours || this.isTrialLesson) {
+      console.log('⏭️ Skipping transcription:', {
+        hasLessonId: !!this.lessonId,
+        userRole: this.userRole,
+        isOfficeHours: this.isOfficeHours,
+        isTrialLesson: this.isTrialLesson
+      });
+      return;
+    }
+
+    try {
+      // Get lesson details to find language being learned
+      const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      const lesson = lessonResponse?.lesson;
+      
+      if (!lesson) {
+        console.warn('⚠️ Could not load lesson for transcription');
+        return;
+      }
+
+      // Determine language being learned
+      this.lessonLanguage = lesson.subject || 'en';
+      
+      console.log(`🎙️ Starting AI transcription for ${this.lessonLanguage} lesson`);
+      
+      this.transcriptionService.startTranscription(this.lessonId, this.lessonLanguage)
+        .subscribe({
+          next: (response) => {
+            this.isTranscriptionEnabled = true;
+            console.log('✅ Transcription started successfully');
+          },
+          error: (error) => {
+            console.error('❌ Failed to start transcription:', error);
+            // Fail silently - don't interrupt the lesson
+          }
+        });
+        
+    } catch (error) {
+      console.error('❌ Error starting transcription:', error);
+      // Fail silently - don't interrupt the lesson
+    }
+  }
+
+  /**
+   * Complete transcription and show lesson summary
+   */
+  private async completeLessonWithSummary() {
+    if (!this.isTranscriptionEnabled) {
+      return;
+    }
+
+    try {
+      console.log('🎯 Completing transcription and generating analysis...');
+      
+      this.transcriptionService.completeTranscription().subscribe({
+        next: async (response) => {
+          console.log('✅ Transcription completed, showing summary in 3 seconds...');
+          
+          // Wait a moment before showing modal (let user see call ended screen)
+          setTimeout(async () => {
+            const modal = await this.modalController.create({
+              component: LessonSummaryComponent,
+              componentProps: {
+                lessonId: this.lessonId,
+                transcriptId: response.transcriptId
+              },
+              backdropDismiss: false,
+              cssClass: 'lesson-summary-modal'
+            });
+
+            await modal.present();
+          }, 3000);
+        },
+        error: (error) => {
+          console.error('❌ Error completing transcription:', error);
+          // Fail silently - don't interrupt the end-of-lesson flow
+        }
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in completeLessonWithSummary:', error);
+    }
   }
 }

@@ -175,6 +175,54 @@
         </div>
       </div>
       
+      <!-- Previous Lesson Notes (for tutors) -->
+      <div class="previous-notes-card" *ngIf="isTutor && (previousLessonNotes || loadingPreviousNotes)">
+        <div class="notes-header">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <h3>Last Lesson Notes</h3>
+        </div>
+        
+        <div *ngIf="loadingPreviousNotes" class="loading-notes">
+          <ion-spinner name="crescent" color="primary"></ion-spinner>
+          <span>Loading previous lesson...</span>
+        </div>
+        
+        <div *ngIf="previousLessonNotes && !loadingPreviousNotes" class="notes-content">
+          <div class="notes-date">
+            <ion-icon name="calendar-outline"></ion-icon>
+            {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
+          </div>
+          
+          <div class="notes-summary">
+            <p class="summary-text">{{ previousLessonNotes.studentSummary }}</p>
+          </div>
+          
+          <div class="notes-focus" *ngIf="previousLessonNotes.recommendedFocus?.length">
+            <h4>
+              <ion-icon name="flag-outline"></ion-icon>
+              Focus Areas
+            </h4>
+            <ul>
+              <li *ngFor="let focus of previousLessonNotes.recommendedFocus.slice(0, 3)">
+                {{ focus }}
+              </li>
+            </ul>
+          </div>
+          
+          <div class="notes-improvements" *ngIf="previousLessonNotes.areasForImprovement?.length">
+            <h4>
+              <ion-icon name="trending-up-outline"></ion-icon>
+              Work On
+            </h4>
+            <ul>
+              <li *ngFor="let area of previousLessonNotes.areasForImprovement.slice(0, 2)">
+                {{ area }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
       <!-- Student Entry Countdown (after tutor accepts) -->
       <div class="entry-countdown" *ngIf="showStudentEntryCountdown && tutorHasAccepted">
         <div class="countdown-content">

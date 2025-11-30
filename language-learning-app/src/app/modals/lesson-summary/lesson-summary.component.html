@@ -1,0 +1,152 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Lesson Complete! 🎉</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div *ngIf="analysis; else loading">
+    <!-- Overall Summary -->
+    <div class="summary-card">
+      <h2 class="summary-message">{{ analysis.studentSummary }}</h2>
+      <div class="level-display">
+        <div class="level-badge">
+          <span class="level-text">{{ analysis.overallAssessment.proficiencyLevel }}</span>
+          <span class="confidence-text">{{ analysis.overallAssessment.confidence }}% confident</span>
+        </div>
+        <div class="progress-note" *ngIf="analysis.overallAssessment.progressFromLastLesson">
+          <ion-icon name="trending-up" color="success"></ion-icon>
+          {{ analysis.overallAssessment.progressFromLastLesson }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Strengths -->
+    <ion-card color="success" class="strengths-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="checkmark-circle"></ion-icon>
+          Your Strengths
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ul>
+          <li *ngFor="let strength of analysis.strengths">
+            <ion-icon name="star" color="warning"></ion-icon>
+            {{ strength }}
+          </li>
+        </ul>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Areas for Improvement -->
+    <ion-card color="warning" class="improvement-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="bulb"></ion-icon>
+          Let's Work On
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ul>
+          <li *ngFor="let area of analysis.areasForImprovement">
+            <ion-icon name="arrow-forward"></ion-icon>
+            {{ area }}
+          </li>
+        </ul>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Grammar Analysis -->
+    <ion-card *ngIf="analysis.grammarAnalysis?.mistakeTypes?.length" class="detail-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="create"></ion-icon>
+          Grammar Insights
+        </ion-card-title>
+        <div class="accuracy-score">
+          Score: {{ analysis.grammarAnalysis.accuracyScore }}%
+        </div>
+      </ion-card-header>
+      <ion-card-content>
+        <div *ngFor="let mistake of analysis.grammarAnalysis.mistakeTypes.slice(0, 3)" class="mistake-item">
+          <h4>{{ mistake.type }}</h4>
+          <p class="examples">{{ mistake.examples.join(', ') }}</p>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Vocabulary -->
+    <ion-card *ngIf="analysis.vocabularyAnalysis?.suggestedWords?.length" class="detail-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="book"></ion-icon>
+          Vocabulary to Learn
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <div class="vocab-chips">
+          <ion-chip *ngFor="let word of analysis.vocabularyAnalysis.suggestedWords.slice(0, 8)" color="primary">
+            <ion-label>{{ word }}</ion-label>
+          </ion-chip>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Next Lesson Focus -->
+    <ion-card class="focus-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="calendar"></ion-icon>
+          Next Lesson Focus
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ul>
+          <li *ngFor="let focus of analysis.recommendedFocus">
+            <ion-icon name="flag" color="primary"></ion-icon>
+            {{ focus }}
+          </li>
+        </ul>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Homework Suggestions -->
+    <ion-card *ngIf="analysis.homeworkSuggestions?.length" class="homework-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="document-text"></ion-icon>
+          Homework
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ul>
+          <li *ngFor="let homework of analysis.homeworkSuggestions">
+            <ion-icon name="checkbox"></ion-icon>
+            {{ homework }}
+          </li>
+        </ul>
+      </ion-card-content>
+    </ion-card>
+
+    <div class="action-buttons">
+      <ion-button expand="block" (click)="dismiss()" color="primary" size="large">
+        Got it! 👍
+      </ion-button>
+    </div>
+  </div>
+
+  <ng-template #loading>
+    <div class="loading-state">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <h3>Analyzing your lesson...</h3>
+      <p>Our AI is reviewing your performance and preparing personalized feedback.</p>
+      <ion-progress-bar type="indeterminate" color="primary"></ion-progress-bar>
+    </div>
+  </ng-template>
+</ion-content>

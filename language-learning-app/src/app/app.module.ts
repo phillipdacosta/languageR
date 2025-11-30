@@ -19,9 +19,10 @@ import { TokenGeneratorService } from './services/token-generator.service';
 import { PlatformService } from './services/platform.service';
 import { CustomUrlSerializerService } from './services/custom-url-serializer.service';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
+import { LessonSummaryComponent } from './modals/lesson-summary/lesson-summary.component';
 
 @NgModule({
-  declarations: [AppComponent, GlobalLoadingComponent],
+  declarations: [AppComponent, GlobalLoadingComponent, LessonSummaryComponent],
   imports: [
     BrowserModule, 
     IonicModule.forRoot(), 
