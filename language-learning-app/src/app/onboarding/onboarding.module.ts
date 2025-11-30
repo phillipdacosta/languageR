@@ -7,7 +7,7 @@ import { OnboardingPageRoutingModule } from './onboarding-routing.module';
 import { OnboardingPage } from './onboarding.page';
 import { SharedModule } from '../shared/shared.module';
 
-@NgModule({
+@NgModule({   
   imports: [
     CommonModule,
     FormsModule,

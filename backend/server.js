@@ -93,6 +93,7 @@ app.use('/api/messaging', messagingRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
+app.use('/api/transcription', require('./routes/transcription'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
