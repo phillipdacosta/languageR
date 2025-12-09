@@ -1725,6 +1725,7 @@
     max-width: 720px;
     padding: 48px;
     background: #ffffff;
+    margin-bottom: 90px;
     border-radius: 24px;
     box-shadow: 
       0 20px 25px -5px rgba(0, 0, 0, 0.08),
@@ -2916,5 +2917,26 @@
       color: #64748b !important;
       font-weight: 400 !important;
     }
+  }
+}
+
+// Fix for ion-select popover dropdown spacing
+ion-select-popover {
+  ion-item {
+    --inner-padding-end: 16px;
+    
+    ion-label {
+      letter-spacing: normal !important;
+      text-transform: none !important;
+      font-size: 16px !important;
+    }
+  }
+}
+
+// Global fix for select option spacing in popovers
+.select-popover {
+  ion-label {
+    letter-spacing: normal !important;
+    text-transform: none !important;
   }
 }

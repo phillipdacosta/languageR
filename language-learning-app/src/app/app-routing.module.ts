@@ -81,6 +81,16 @@ const routes: Routes = [
   {
     path: 'terms-privacy',
     loadChildren: () => import('./legal/terms-privacy/terms-privacy.module').then( m => m.TermsPrivacyPageModule)
+  },
+  {
+    path: 'review-deck',
+    loadChildren: () => import('./review-deck/review-deck.module').then( m => m.ReviewDeckPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'lesson-analysis/:id',
+    loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
+    canActivate: [AuthGuard]
   }
 ];
 @NgModule({

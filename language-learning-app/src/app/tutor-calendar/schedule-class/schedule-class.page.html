@@ -19,10 +19,11 @@
     
     <div class="header-section">
       <h1>Create New Class</h1>
-      <p>Schedule a one-time lesson or a recurring class</p>
+      <p>Schedule a group class for multiple students</p>
     </div>
 
-    <!-- Class Type Toggle -->
+    <!-- Class Type Toggle - COMMENTED OUT (keeping single student as hidden option) -->
+    <!-- 
     <div class="class-type-section">
       <ion-segment [(ngModel)]="classType" (ionChange)="onClassTypeChange()" class="class-type-toggle">
         <ion-segment-button value="one">
@@ -33,15 +34,16 @@
         </ion-segment-button>
       </ion-segment>
     </div>
+    -->
 
     <form [formGroup]="form" (ngSubmit)="submit()">
-      <!-- Student Selection (One Class only) -->
+      <!-- Student Selection (One Class only) - COMMENTED OUT -->
+      <!-- 
       <div class="form-section" *ngIf="classType === 'one'">
         <div class="section-header">
           <ion-icon name="person-outline"></ion-icon>
           <h3>Select Student</h3>
         </div>
-        <!-- Student Dropdown -->
         <div class="student-select-wrapper">
           <ion-label position="stacked" class="student-label">Student</ion-label>
           <div 
@@ -69,16 +71,20 @@
                 {{ loadingStudents ? 'Loading students...' : (students.length === 0 ? 'No students found' : 'Choose a student') }}
               </span>
             </ng-template>
+            
             <div class="trigger-icons">
               <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
             </div>
           </div>
+          <ion-note style="margin-top: 10px;">
+            You can only select students you have lessons with.
+          </ion-note>
           
-          <!-- Custom Dropdown -->
           <div class="student-dropdown" *ngIf="showStudentDropdown && students.length > 0">
             <div class="dropdown-header">
               <h3>Select Student</h3>
             </div>
+            
             <div class="dropdown-list">
               <div 
                 *ngFor="let student of students" 
@@ -95,6 +101,7 @@
                   <span class="option-name">{{ student.name }}</span>
                   <span class="option-role">{{ student.userType || 'student' }}</span>
                 </div>
+
                 <ion-icon 
                   *ngIf="form.value.studentId === student._id" 
                   name="checkmark-circle" 
@@ -104,19 +111,18 @@
             </div>
           </div>
           
-          <!-- Backdrop -->
           <div class="dropdown-backdrop" *ngIf="showStudentDropdown" (click)="toggleStudentDropdown()"></div>
         </div>
 
-
         <ion-note color="danger" *ngIf="form.controls.studentId.touched && form.controls.studentId.invalid">
-          Please select a student
+          Please select a student.
         </ion-note>
         <ion-note *ngIf="loadingStudents" color="medium">Loading students from your past lessons...</ion-note>
         <ion-note *ngIf="!loadingStudents && students.length === 0" color="medium">
           No students found. Students will appear here after you have lessons with them.
         </ion-note>
       </div>
+      -->
 
       <!-- Class Details -->
       <div class="form-section">
@@ -208,7 +214,7 @@
               <span>Suggested: ${{ suggestedPrice.toFixed(2) }}</span>
             </div>
             <ion-note>
-              Based on {{ form.value.duration }}min, {{ getLevelLabel(form.value.level) }} level
+              Based on {{ form.value.duration }} min, '{{ getLevelLabel(form.value.level) }}' level
             </ion-note>
           </div>
 
@@ -241,8 +247,13 @@
         <!-- Max Students -->
         <ion-item>
           <ion-label position="stacked">Maximum Students</ion-label>
-          <ion-input type="number" formControlName="maxStudents" min="1" max="50"></ion-input>
+          <ion-input type="number" formControlName="maxStudents" min="2" max="50"></ion-input>
         </ion-item>
+        <ion-note color="danger" *ngIf="form.controls.maxStudents.touched && form.controls.maxStudents.invalid">
+          <span *ngIf="form.controls.maxStudents.errors?.['required']">Maximum students is required</span>
+          <span *ngIf="form.controls.maxStudents.errors?.['min']">Maximum must be at least 2 students for group classes</span>
+          <span *ngIf="form.controls.maxStudents.errors?.['max']">Maximum cannot exceed 50 students</span>
+        </ion-note>
 
         <!-- Minimum Students -->
         <div class="minimum-students-section" *ngIf="form.value.maxStudents">
@@ -251,12 +262,13 @@
             <ion-input 
               type="number" 
               formControlName="minStudents" 
-              min="1" 
+              min="2" 
               [max]="form.value.maxStudents || 50">
             </ion-input>
           </ion-item>
           <ion-note color="danger" *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid">
             <span *ngIf="form.controls.minStudents.errors?.['required']">Minimum students is required</span>
+            <span *ngIf="form.controls.minStudents.errors?.['min']">Minimum must be at least 2 students for group classes</span>
             <span *ngIf="form.controls.minStudents.errors?.['max']">Cannot exceed maximum students</span>
           </ion-note>
 
@@ -418,6 +430,9 @@
           <!-- Backdrop -->
           <div class="dropdown-backdrop" *ngIf="showMultiStudentDropdown" (click)="toggleMultiStudentDropdown()"></div>
         </div>
+        <ion-note style="margin-top: 10px;">
+          You can only select students you have lessons with.
+        </ion-note>
       </div>
 
       <!-- Date & Time -->

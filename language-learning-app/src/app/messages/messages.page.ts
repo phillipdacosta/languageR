@@ -831,7 +831,7 @@ export class MessagesPage implements OnInit, OnDestroy {
 
           this.isLoadingMessages = false;
           this.cdr.detectChanges();
-        }, 40);
+        }, 150); // Increased from 40ms to 150ms for more reliable scrolling
       },
       error: (error) => {
         if (activeRequestId !== this.messageLoadRequestId) {
@@ -1051,12 +1051,34 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   scrollToBottom() {
-    setTimeout(() => {
-      const container = this.chatContainer?.nativeElement;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }, 100);
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const container = this.chatContainer?.nativeElement;
+        if (container) {
+          // Force scroll to absolute bottom by using scrollHeight
+          // Add a small buffer to ensure we're truly at the bottom
+          const scrollHeight = container.scrollHeight;
+          const clientHeight = container.clientHeight;
+          const maxScroll = scrollHeight - clientHeight;
+          
+          container.scrollTop = maxScroll + 100; // Add buffer to ensure we're at absolute bottom
+          
+          // Verify we're at the bottom, retry if needed
+          requestAnimationFrame(() => {
+            if (container.scrollTop < maxScroll - 10) {
+              console.log('⚠️ Scroll not at bottom, retrying...', {
+                scrollTop: container.scrollTop,
+                maxScroll,
+                scrollHeight,
+                clientHeight
+              });
+              container.scrollTop = maxScroll + 100;
+            }
+          });
+        }
+      }, 50); // Increased from 10ms to 50ms
+    });
   }
 
   /**
@@ -1140,12 +1162,12 @@ export class MessagesPage implements OnInit, OnDestroy {
       this.scrollToMessageById(firstUnreadId);
     } else {
       console.log('📍 No unread messages found, scrolling to bottom');
-      // All messages are read, scroll to bottom
+      // All messages are read, scroll to bottom immediately without extra timeout
       this.scrollToBottom();
     }
   }
 
-  private waitForMessagesRender(maxAttempts = 10): Promise<void> {
+  private waitForMessagesRender(maxAttempts = 20): Promise<void> {
     return new Promise(resolve => {
       // If there are no messages to render, resolve immediately
       if (!this.messages || this.messages.length === 0) {
@@ -1164,7 +1186,10 @@ export class MessagesPage implements OnInit, OnDestroy {
 
         const firstMessage = container.querySelector('[data-message-id]');
         if (firstMessage || attempts >= maxAttempts) {
-          requestAnimationFrame(() => resolve());
+          // Add a small extra delay to ensure layout is complete
+          requestAnimationFrame(() => {
+            setTimeout(() => resolve(), 50);
+          });
           return;
         }
 

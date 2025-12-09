@@ -29,7 +29,7 @@ interface Student {
   imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillModule]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy {
-  classType: 'one' | 'recurring' = 'one';
+  classType: 'one' | 'recurring' = 'recurring'; // Default to multiple students
   students: Student[] = [];
   loadingStudents = false;
   showStudentDropdown = false;
@@ -39,7 +39,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   
   // Pricing properties
   readonly STANDARD_LESSON_DURATION = 50; // Base duration for tutor rates (50 minutes, not 60)
-  readonly PLATFORM_FEE_PERCENTAGE = 15; // 15% platform fee
+  readonly PLATFORM_FEE_PERCENTAGE = 30; // 15% platform fee
   tutorStandardRate: number = 25; // Tutor's rate for a standard 50-minute lesson
   suggestedPrice: number = 0;
   currentUser: any = null;
@@ -49,8 +49,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     studentIds: [[] as string[]], // For multiple student selection
     name: ['', [Validators.required, Validators.maxLength(80)]],
     description: ['', [Validators.required, Validators.minLength(20)]],
-    maxStudents: [1, [Validators.required, Validators.min(1), Validators.max(50)]],
-    minStudents: [1, [Validators.required, Validators.min(1)]], // Minimum students for class to run
+    maxStudents: [2, [Validators.required, Validators.min(2), Validators.max(50)]], // Default to 2 for group classes
+    minStudents: [2, [Validators.required, Validators.min(2)]], // Minimum students for class to run (default to 2 for group classes)
     flexibleMinimum: [false], // Run class even if minimum not met
     level: ['', Validators.required], // Class level
     duration: ['', Validators.required], // Lesson duration in minutes
@@ -154,7 +154,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       if (minStudentsControl && maxStudents) {
         minStudentsControl.setValidators([
           Validators.required, 
-          Validators.min(1),
+          Validators.min(2), // Minimum 2 students for group classes
           Validators.max(maxStudents)
         ]);
         minStudentsControl.updateValueAndValidity();
@@ -564,7 +564,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
           name: name as string,
           description: description as string,
           capacity: Number(maxStudents),
-          minStudents: Number(this.form.value.minStudents) || 1,
+          minStudents: Number(this.form.value.minStudents) || 2,
           flexibleMinimum: !!this.form.value.flexibleMinimum,
           level: level as string,
           duration: Number(duration),
@@ -714,7 +714,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
 
   canSelectMoreStudents(): boolean {
     const currentIds = this.form.value.studentIds || [];
-    const maxStudents = this.form.value.maxStudents || 1;
+    const maxStudents = this.form.value.maxStudents || 2;
     return currentIds.length < maxStudents;
   }
 
@@ -726,7 +726,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   }
 
   async showMaxStudentsReachedToast() {
-    const maxStudents = this.form.value.maxStudents || 1;
+    const maxStudents = this.form.value.maxStudents || 2;
     const toast = await this.toast.create({
       message: `Maximum of ${maxStudents} student${maxStudents > 1 ? 's' : ''} can be selected`,
       duration: 2000,
@@ -780,7 +780,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     const baseRate = this.tutorStandardRate;
     const durationNum = Number(duration);
     const durationMultiplier = durationNum / this.STANDARD_LESSON_DURATION; // Divide by 50, not 60
-    const groupDiscount = 0.6; // 40% off per student for group classes
+    const groupDiscount = 0.7; // 30% off per student (was 40% - too aggressive)
     const levelMultiplier = levelMultipliers[level] || 1.0;
 
     // Calculate: standardRate * (duration/50) * groupDiscount * levelMultiplier
@@ -905,18 +905,24 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   }
 
   getRecommendedMinimum(): number {
-    if (!this.form.value.duration) return 1;
-    
-    const oneOnOneEarnings = this.calculate1on1Earnings();
+    if (!this.form.value.duration) return 2; // Default to 2 for group classes
+
+    const oneOnOneNet = this.calculate1on1EarningsNet();
     const pricePerStudent = this.getFinalPrice();
-    
-    if (pricePerStudent === 0) return 1;
-    
-    const breakEven = Math.ceil(oneOnOneEarnings / pricePerStudent);
-    const maxStudents = this.form.value.maxStudents || 10;
-    
-    // Return break-even, but cap at maxStudents
-    return Math.min(breakEven, maxStudents);
+    const maxStudents = this.form.value.maxStudents || 2;
+
+    if (pricePerStudent === 0) return 2; // Default to 2 for group classes
+
+    // Find the smallest group size where net earnings meet or exceed 1:1 net
+    for (let count = 2; count <= maxStudents; count++) {
+      const groupNet = this.calculateGroupEarningsNet(count);
+      if (groupNet >= oneOnOneNet) {
+        return count;
+      }
+    }
+
+    // If none meet/exceed, recommend the max available
+    return maxStudents;
   }
 
   getStudentCountRange(): number[] {

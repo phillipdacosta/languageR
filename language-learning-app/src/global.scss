@@ -25,6 +25,10 @@
 @import "@ionic/angular/css/text-transformation.css";
 @import "@ionic/angular/css/flex-utils.css";
 
+/* Quill Editor Styles */
+@import "quill/dist/quill.snow.css";
+@import "quill/dist/quill.core.css";
+
 /**
  * Ionic Dark Mode
  * -----------------------------------------------------
@@ -87,11 +91,41 @@
 
 // Fix Windows emoji flag display (especially in dropdowns)
 // Windows Chrome doesn't render flag emojis properly without the right font
-ion-select-popover,
-ion-alert,
+// NOTE: Only apply to elements that actually contain emojis
 ion-action-sheet,
 .action-sheet-group,
-.alert-radio-group,
-.select-interface-option {
+.alert-radio-group {
   font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif !important;
+}
+
+// For ion-select-popover, only apply emoji font to actual emoji content, not all text
+ion-select-popover {
+  // Reset to normal font for text
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif !important;
+  
+  // Apply emoji font only to spans containing flag emojis (if needed)
+  .select-interface-option {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif !important;
+  }
+}
+
+// Apply emoji font only to alert radio labels (not the entire alert)
+ion-alert .alert-radio-label {
+  font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Symbol", sans-serif !important;
+}
+
+// Fullscreen Modal Styling
+.fullscreen-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  
+  ion-content {
+    --padding-top: 0;
+    --padding-bottom: 0;
+  }
+}
+
+ion-label {
+  padding-left: 6px;
 }

@@ -163,8 +163,7 @@
       <!-- Action Buttons -->
       <div class="actions-section">
         <ion-button 
-          expand="block" 
-          size="large"
+          size="medium"
           [fill]="classDetails.isEnrolled ? 'outline' : 'solid'"
           [disabled]="classDetails.isFull && !classDetails.isEnrolled"
           [color]="classDetails.hasInvitation && classDetails.invitationStatus === 'pending' ? 'warning' : 'primary'"
@@ -180,9 +179,8 @@
         </ion-button>
 
         <ion-button 
-          expand="block" 
           fill="outline"
-          size="large"
+          size="medium"
           (click)="messageTutor()">
           <ion-icon name="chatbubble-outline" slot="start"></ion-icon>
           Message Tutor

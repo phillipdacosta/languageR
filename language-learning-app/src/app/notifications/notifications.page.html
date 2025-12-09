@@ -31,10 +31,9 @@
           (click)="onNotificationClick(notification)">
           <div class="notification-item-left">
             <ion-icon
-              [name]="notification.type === 'lesson_created' ? 'calendar' : (notification.type === 'class_invitation' ? 'people' : 'chatbubbles')"
+              [name]="getNotificationIcon(notification.type)"
               class="notification-item-icon"
-              [class.lesson-icon]="notification.type === 'lesson_created'"
-              [class.class-invitation-icon]="notification.type === 'class_invitation'">
+              [ngClass]="getNotificationIconClass(notification.type)">
             </ion-icon>
           </div>
           <div class="notification-item-content">
@@ -57,10 +56,9 @@
           (click)="onNotificationClick(notification)">
           <div class="notification-item-left">
             <ion-icon
-              [name]="notification.type === 'lesson_created' ? 'calendar' : (notification.type === 'class_invitation' ? 'people' : 'chatbubbles')"
+              [name]="getNotificationIcon(notification.type)"
               class="notification-item-icon"
-              [class.lesson-icon]="notification.type === 'lesson_created'"
-              [class.class-invitation-icon]="notification.type === 'class_invitation'">
+              [ngClass]="getNotificationIconClass(notification.type)">
             </ion-icon>
           </div>
           <div class="notification-item-content">

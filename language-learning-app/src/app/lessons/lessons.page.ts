@@ -205,4 +205,8 @@ export class LessonsPage implements OnInit, OnDestroy {
   trackByLessonId(index: number, lesson: Lesson): string {
     return lesson._id;
   }
+
+  viewAnalysis(lesson: Lesson) {
+    this.router.navigate(['/lesson-analysis', lesson._id]);
+  }
 }

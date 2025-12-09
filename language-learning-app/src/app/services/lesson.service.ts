@@ -194,6 +194,16 @@ export class LessonService {
     );
   }
 
+  // Alias for recordCallEnd
+  endCall(lessonId: string): Observable<{
+    success: boolean;
+    actualCallEndTime: string;
+    actualDurationMinutes: number;
+    actualPrice: number;
+  }> {
+    return this.recordCallEnd(lessonId);
+  }
+
   // Get billing summary for a lesson
   getBillingSummary(lessonId: string): Observable<{
     success: boolean;

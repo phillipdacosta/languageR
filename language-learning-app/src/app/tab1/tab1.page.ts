@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
@@ -18,6 +18,8 @@ import { MessagingService } from '../services/messaging.service';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
+import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
+import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 
 @Component({
   selector: 'app-tab1',
@@ -109,7 +111,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private notificationService: NotificationService,
     private messagingService: MessagingService,
     private actionSheetController: ActionSheetController,
-    private popoverController: PopoverController
+    private popoverController: PopoverController,
+    private alertController: AlertController
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     this.userService.currentUser$
@@ -418,6 +421,243 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  // 🎨 DEV: Preview the new lesson summary modal with mock data
+  async previewLessonSummaryModal() {
+    const modal = await this.modalCtrl.create({
+      component: LessonSummaryComponent,
+      componentProps: {
+        lessonId: 'mock-lesson-id',
+        // Pass mock analysis directly to skip API call
+        mockAnalysis: this.getMockAnalysisData()
+      },
+      cssClass: 'fullscreen-modal'
+    });
+
+    await modal.present();
+  }
+
+  private getMockAnalysisData() {
+    return {
+      _id: 'mock-analysis-id',
+      lessonId: 'mock-lesson-id',
+      studentId: 'mock-student-id',
+      tutorId: 'mock-tutor-id',
+      language: 'Spanish',
+      status: 'completed',
+      
+      // Student Summary
+      studentSummary: "You told a great story about bumping into your friend at the supermarket! You said 'me encontré con una amiga' (I met a friend) which was perfect. However, you said 'acompañarle' when it should be 'acompañarla' since you're referring to your female friend. Also, 'desde hace' should be 'desde hacía' in past context.",
+      
+      // Overall Assessment
+      overallAssessment: {
+        proficiencyLevel: 'B1',
+        confidence: 85,
+        summary: 'Discussed going to the supermarket, meeting a friend, and declining coffee because already had too much.',
+        progressFromLastLesson: 'Grammar accuracy decreased from 75% to 72%. Tense errors increased from 2 to 4.'
+      },
+      
+      // Top Errors (Priority)
+      topErrors: [
+        {
+          rank: 1,
+          issue: 'Tense consistency',
+          impact: 'high',
+          occurrences: 8,
+          teachingPriority: 'Focus on past tense forms, especially imperfect vs preterite'
+        },
+        {
+          rank: 2,
+          issue: 'Pronoun agreement',
+          impact: 'medium',
+          occurrences: 3,
+          teachingPriority: 'Practice gender agreement with pronouns'
+        }
+      ],
+      
+      // Error Patterns (Detailed)
+      errorPatterns: [
+        {
+          pattern: 'Tense consistency',
+          frequency: 8,
+          severity: 'high',
+          examples: [
+            {
+              original: 'no la veo desde mucho tiempo',
+              corrected: 'no la veía desde hacía mucho tiempo',
+              explanation: 'The past tense "veía" should be used with "hacía" for past context.'
+            },
+            {
+              original: 'yo quiso',
+              corrected: 'yo quería',
+              explanation: 'Corrected to the imperfect tense for expressing a past intention.'
+            },
+            {
+              original: 'estaba muy llenado',
+              corrected: 'estaba muy lleno',
+              explanation: 'The adjective "lleno" (full) should be used instead of past participle "llenado".'
+            }
+          ],
+          practiceNeeded: 'Focus on distinguishing between preterite and imperfect tenses in storytelling'
+        },
+        {
+          pattern: 'Pronoun agreement',
+          frequency: 3,
+          severity: 'medium',
+          examples: [
+            {
+              original: 'acompañarle',
+              corrected: 'acompañarla',
+              explanation: 'The pronoun should be feminine "la" to match "una amiga" (a female friend).'
+            },
+            {
+              original: 'no miraba',
+              corrected: 'no veía',
+              explanation: 'The verb "ver" (to see) is more appropriate than "mirar" (to look at) in this context.'
+            }
+          ],
+          practiceNeeded: 'Practice gender agreement with direct and indirect object pronouns'
+        }
+      ],
+      
+      // Corrected Excerpts (Before/After)
+      correctedExcerpts: [
+        {
+          context: 'Talking about meeting a friend at the supermarket',
+          original: 'me encontré con una amiga que no veía desde hace mucho tiempo y ella me preguntó si yo podía acompañarle a comprar unas cosas',
+          corrected: 'me encontré con una amiga que no veía desde hacía mucho tiempo y ella me preguntó si yo podía acompañarla a comprar unas cosas',
+          keyCorrections: ['desde hace → desde hacía', 'acompañarle → acompañarla']
+        },
+        {
+          context: 'Describing a cold day at work',
+          original: 'yo estaba caminando a trabajo y estaba muy frío como 10 grados',
+          corrected: 'estaba caminando al trabajo y hacía mucho frío, como 10 grados',
+          keyCorrections: ['a trabajo → al trabajo', 'estaba frío → hacía frío']
+        }
+      ],
+      
+      // Strengths
+      strengths: [
+        'Natural use of colloquialisms like "pues" and "o sea"',
+        'Good use of vocabulary related to daily activities',
+        'Ability to narrate events clearly',
+        'Confident conversational flow and engagement',
+        'Proper use of reflexive verbs in most contexts'
+      ],
+      
+      // Areas for Improvement
+      areasForImprovement: [
+        'Tense consistency',
+        'Pronoun agreement',
+        'Preposition usage'
+      ],
+      
+      // Grammar Analysis
+      grammarAnalysis: {
+        accuracyScore: 75,
+        mistakeTypes: [
+          {
+            type: 'Tense Consistency',
+            examples: ['yo quiso → quise', 'no la veo → no veía'],
+            frequency: 8,
+            severity: 'high'
+          },
+          {
+            type: 'Pronoun Agreement',
+            examples: ['acompañarle → acompañarla'],
+            frequency: 3,
+            severity: 'medium'
+          }
+        ],
+        suggestions: ['Focus on past tense forms and practice with storytelling exercises.']
+      },
+      
+      // Vocabulary Analysis
+      vocabularyAnalysis: {
+        uniqueWordCount: 80,
+        vocabularyRange: 'moderate',
+        suggestedWords: ['acordarse (to remember)', 'esperar (to wait)'],
+        advancedWordsUsed: ['acompañar', 'urgente', 'encontrarse']
+      },
+      
+      // Fluency Analysis
+      fluencyAnalysis: {
+        speakingSpeed: 'moderate',
+        pauseFrequency: 'occasional',
+        fillerWords: {
+          count: 2,
+          examples: ['uh-huh', 'ok']
+        },
+        overallFluencyScore: 70
+      },
+      
+      // Pronunciation Assessment (NEW - Azure Speech)
+      pronunciationAnalysis: {
+        overallScore: 78,
+        accuracyScore: 82,
+        fluencyScore: 75,
+        prosodyScore: 76,
+        completenessScore: 85,
+        mispronunciations: [
+          {
+            word: 'acompañarle',
+            score: 45,
+            errorType: 'Mispronunciation',
+            problematicPhonemes: ['ñ', 'le']
+          },
+          {
+            word: 'encontré',
+            score: 58,
+            errorType: 'Mispronunciation',
+            problematicPhonemes: ['é']
+          },
+          {
+            word: 'supermercado',
+            score: 52,
+            errorType: 'Mispronunciation',
+            problematicPhonemes: ['r', 'c']
+          }
+        ],
+        segmentsAssessed: 8,
+        totalSegments: 40,
+        targetLanguageSegments: 24,
+        samplingRate: 0.20
+      },
+      
+      // Recommendations
+      topicsDiscussed: ['Going to the supermarket', 'Meeting a friend', 'Declining coffee'],
+      conversationQuality: 'intermediate',
+      recommendedFocus: ['Tense consistency', 'Pronoun agreement', 'Past perfect usage'],
+      suggestedExercises: ['Practice storytelling focusing on past events', 'Exercises on pronoun agreement'],
+      homeworkSuggestions: [
+        'Write 3-4 sentences about the next time you plan to meet your friend, focusing on using the correct gender pronouns.'
+      ],
+      
+      // Progression Metrics
+      progressionMetrics: {
+        previousProficiencyLevel: 'B1',
+        proficiencyChange: 'maintained',
+        errorRate: 1.2,
+        errorRateChange: -0.3,
+        vocabularyGrowth: 8,
+        fluencyImprovement: 2,
+        grammarAccuracyChange: -3,
+        confidenceLevel: 7,
+        speakingTimeMinutes: 12,
+        complexSentencesUsed: 5,
+        keyImprovements: [
+          'Expanded vocabulary',
+          'Improved confidence in speaking'
+        ],
+        persistentChallenges: [
+          'Tense consistency',
+          'Pronoun agreement'
+        ]
+      },
+      
+      lessonDate: new Date()
+    };
   }
 
   async openSearchTutors() {
@@ -882,20 +1122,26 @@ export class Tab1Page implements OnInit, OnDestroy {
       return false;
     }
     
-    // Get all lessons for today (regardless of status initially)
-    const lessonsForDate = this.lessons.filter(lesson => {
-      const lessonDate = new Date(lesson.startTime);
-      const lessonDay = this.startOfDay(lessonDate);
-      const matches = lessonDay.getTime() === selectedDay.getTime();
-      
-      return matches;
-    });
+    // Check both current lessons and past lessons for today
+    // (since this.lessons now only includes in-progress/upcoming, we need to check pastLessons too)
+    const allLessonsToday = [
+      ...this.lessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      ...this.pastLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      })
+    ];
     
     // Check if any lessons happened earlier today
     // A lesson counts as "earlier today" if:
     // 1. Status is 'completed', OR
     // 2. Its end time was in the past
-    const completedLessonsToday = lessonsForDate.filter(l => {
+    const completedLessonsToday = allLessonsToday.filter(l => {
       // Check if status is explicitly 'completed'
       if (l.status === 'completed') {
         return true;
@@ -1187,7 +1433,38 @@ export class Tab1Page implements OnInit, OnDestroy {
     return futureLessons.length > 3;
   }
 
-  navigateToLessons() {
+  /**
+   * Open modal to display lesson notes
+   */
+  async openNotesModal(lesson: any) {
+    try {
+      // Notes are stored as plain text with \n line breaks
+      // Use a modal component instead of alert to properly render formatted text
+      const modal = await this.modalCtrl.create({
+        component: NotesModalComponent,
+        componentProps: {
+          lesson: lesson,
+          notes: lesson.notes || 'No notes available for this lesson.',
+          subject: lesson.subject || 'Lesson',
+          time: this.formatLessonTime(lesson)
+        },
+        cssClass: 'notes-modal-component'
+      });
+      await modal.present();
+    } catch (error) {
+      console.error('Error opening notes modal:', error);
+      // Fallback to simple alert
+      const alert = await this.alertController.create({
+        header: 'Lesson Notes',
+        subHeader: `${lesson.subject || 'Lesson'} - ${this.formatLessonTime(lesson)}`,
+        message: lesson.notes || 'No notes available',
+        buttons: ['Close']
+      });
+      await alert.present();
+    }
+  }
+  
+navigateToLessons() {
     this.router.navigate(['/lessons']);
   }
 
@@ -1917,6 +2194,29 @@ export class Tab1Page implements OnInit, OnDestroy {
     return (lesson as any)?.status === 'in_progress' || (now >= startTime && now <= endTime);
   }
 
+  /**
+   * Check if a lesson has started (and therefore cannot be rescheduled)
+   */
+  hasLessonStarted(lesson: Lesson): boolean {
+    // Reference countdownTick to trigger change detection updates
+    void this.countdownTick;
+    
+    if (!lesson) return false;
+    
+    const status = (lesson as any)?.status;
+    
+    // Cannot reschedule if lesson is in progress, completed, or cancelled
+    if (status === 'in_progress' || status === 'completed' || status === 'cancelled') {
+      return true;
+    }
+    
+    // Cannot reschedule if the start time has passed
+    const now = new Date();
+    const startTime = new Date(lesson.startTime);
+    
+    return now >= startTime;
+  }
+
   getUserRole(lesson: Lesson): 'tutor' | 'student' {
     if (!this.currentUser) return 'student';
     return lesson.tutorId._id === this.currentUser.id ? 'tutor' : 'student';
@@ -2281,8 +2581,12 @@ export class Tab1Page implements OnInit, OnDestroy {
       });
     }
     
-    buttons.push(
-      {
+    // Check if lesson has started
+    const lessonStarted = this.hasLessonStarted(lesson);
+    
+    // Only add Reschedule button if lesson hasn't started
+    if (!lessonStarted) {
+      buttons.push({
         text: 'Reschedule',
         icon: 'calendar-outline',
         handler: () => {
@@ -2292,7 +2596,10 @@ export class Tab1Page implements OnInit, OnDestroy {
             this.rescheduleLesson(itemId, lesson);
           }
         }
-      },
+      });
+    }
+    
+    buttons.push(
       {
         text: 'Cancel',
         icon: 'close-circle-outline',
@@ -2426,9 +2733,27 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Handle reschedule button click - prevents menu from closing when disabled
+   */
+  handleRescheduleClick(event: Event, lesson: Lesson): void {
+    if (this.hasLessonStarted(lesson)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+    
+    // Only proceed if lesson hasn't started
+    if (lesson?.isClass) {
+      this.rescheduleClass(lesson._id, lesson);
+    } else {
+      this.rescheduleLesson(lesson._id, lesson);
+    }
+  }
+
   async rescheduleClass(classId: string, lesson: Lesson) {
     console.log('🟡 rescheduleClass called for:', classId);
-    
     try {
       const className = lesson?.className || lesson?.classData?.name || 'this class';
       
@@ -2467,7 +2792,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   async rescheduleLesson(lessonId: string, lesson: Lesson) {
-    console.log('🟡 rescheduleLesson called for:', lessonId);
+    console.log('🟡 rescheduleLesson called for:', lesson);
     
     try {
       // Get participant info

@@ -1,195 +1,353 @@
-.lessons-container {
-  padding: 16px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.loading-state, .empty-state {
+/* Background similar to a soft dashboard card */
+.page-background {
+  min-height: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  text-align: center;
-  
-  ion-icon {
-    font-size: 64px;
-    color: var(--ion-color-medium);
-    margin-bottom: 16px;
-  }
-  
-  h2 {
-    color: var(--ion-color-dark);
-    margin: 16px 0 8px 0;
-  }
-  
-  p {
-    color: var(--ion-color-medium);
-    margin-bottom: 24px;
-  }
+  padding: 24px 16px 32px;
+  background: radial-gradient(circle at top left, #f4f1ff 0, #f7fbff 40%, #ffffff 100%);
 }
 
-.lessons-list {
+.lessons-shell {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* Top header area */
+.page-header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
   gap: 16px;
 }
 
-.lesson-card {
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--ion-color-step-100);
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-    transition: all 0.2s ease;
-  }
+.page-header-text h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
 }
 
+.page-header-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.page-header-badge {
+  min-width: 96px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.page-header-badge .badge-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.page-header-badge .badge-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Main container/card region */
+.lessons-container {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  padding: 20px 18px 24px;
+}
+
+/* Loading & empty states styled as a central card */
+.state-card {
+  text-align: center;
+  padding: 40px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.state-card ion-icon {
+  font-size: 52px;
+  color: #6366f1;
+}
+
+.state-card h2 {
+  margin: 8px 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.state-card p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #6b7280;
+  max-width: 320px;
+}
+
+.state-card ion-spinner {
+  margin-top: 8px;
+}
+
+.primary-cta {
+  --border-radius: 999px;
+  font-weight: 600;
+}
+
+/* List of lesson cards */
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Card style closer to the “Lesson Complete” design */
+.lesson-card {
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.lesson-card ion-card-header {
+  padding-bottom: 4px;
+}
+
+/* Header row */
 .lesson-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  
-  .lesson-info {
-    flex: 1;
-    
-    ion-card-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--ion-color-dark);
-      margin-bottom: 4px;
-    }
-    
-    ion-card-subtitle {
-      color: var(--ion-color-medium);
-      font-size: 14px;
-    }
-  }
-  
-  .status-chip {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
+  gap: 12px;
 }
 
+.lesson-title-block {
+  flex: 1;
+}
+
+.lesson-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  margin-bottom: 8px;
+}
+
+.lesson-pill .pill-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6366f1;
+}
+
+.lesson-pill .pill-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.lesson-title-block ion-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.lesson-title-block ion-card-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.status-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+}
+
+/* Meta row (Duration / Price / Participant) */
+.lesson-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 16px;
+}
+
+.meta-block {
+  flex: 1 1 90px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.meta-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  margin-bottom: 2px;
+}
+
+.meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Participant strip */
 .participant-info {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
-  
-  ion-avatar {
-    width: 48px;
-    height: 48px;
-    border: 2px solid var(--ion-color-step-100);
-  }
-  
-  .participant-details {
-    flex: 1;
-    
-    h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--ion-color-dark);
-      margin: 0 0 4px 0;
-    }
-    
-    p {
-      font-size: 14px;
-      color: var(--ion-color-medium);
-      margin: 0;
-    }
-  }
+  margin-bottom: 12px;
 }
 
+.participant-info ion-avatar {
+  width: 44px;
+  height: 44px;
+  border: 2px solid #e5e7eb;
+}
+
+.participant-details h3 {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.participant-details p {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* Divider between info & actions */
+.divider {
+  height: 1px;
+  width: 100%;
+  background: #e5e7eb;
+  margin: 4px 0 12px;
+}
+
+/* Actions section */
 .lesson-actions {
-  margin-top: 16px;
-  
-  .join-ready ion-button {
-    --border-radius: 8px;
-    font-weight: 600;
-    height: 48px;
-  }
-  
-  .waiting-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    padding: 16px;
-    background: var(--ion-color-step-50);
-    border-radius: 8px;
-    
-    ion-icon {
-      font-size: 24px;
-      color: var(--ion-color-primary);
-      margin-bottom: 8px;
-    }
-    
-    p {
-      font-size: 14px;
-      color: var(--ion-color-medium);
-      margin: 0 0 12px 0;
-    }
-    
-    ion-button {
-      --border-radius: 6px;
-      font-size: 12px;
-    }
-  }
+  margin-top: 4px;
 }
 
-.completed-info, .cancelled-info {
+.join-ready ion-button {
+  --border-radius: 14px;
+  font-weight: 600;
+  height: 48px;
+}
+
+.helper-text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.waiting-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 12px;
+  background: #f9fafb;
+  border-radius: 14px;
+}
+
+.waiting-info ion-icon {
+  font-size: 22px;
+  color: #6366f1;
+  margin-bottom: 4px;
+}
+
+.waiting-info p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.waiting-info ion-button {
+  --border-radius: 999px;
+  font-size: 12px;
+}
+
+.rejoin-block ion-button {
+  --border-radius: 14px;
+  font-weight: 600;
+  height: 48px;
+}
+
+/* Completed / cancelled info (banner style) */
+.status-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 500;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.completed-info {
+  background: rgba(22, 163, 74, 0.08);
+  color: #166534;
   
-  &.completed-info {
-    background: rgba(var(--ion-color-success-rgb), 0.1);
-    color: var(--ion-color-success);
-  }
-  
-  &.cancelled-info {
-    background: rgba(var(--ion-color-danger-rgb), 0.1);
-    color: var(--ion-color-danger);
-  }
-  
-  ion-icon {
-    font-size: 18px;
+  .view-analysis-btn {
+    margin-left: auto;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    font-size: 13px;
+    text-transform: none;
+    height: 32px;
   }
 }
 
-// Mobile responsiveness
+.cancelled-info {
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.status-info ion-icon {
+  font-size: 18px;
+}
+
+/* Responsive tweaks */
 @media (max-width: 768px) {
-  .lessons-container {
-    padding: 12px;
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
-  
+
+  .lessons-container {
+    padding: 16px 14px 20px;
+  }
+
   .lesson-header {
     flex-direction: column;
-    gap: 8px;
     align-items: flex-start;
-    
-    .status-chip {
-      align-self: flex-end;
-    }
   }
-  
-  .participant-info {
-    .participant-details h3 {
-      font-size: 15px;
-    }
-    
-    .participant-details p {
-      font-size: 13px;
-    }
+
+  .lesson-meta-row {
+    flex-direction: column;
   }
 }

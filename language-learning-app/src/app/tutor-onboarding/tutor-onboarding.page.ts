@@ -17,12 +17,13 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 export class TutorOnboardingPage implements OnInit {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 5; // Name + Languages + Experience + Schedule + Profile
+  totalSteps = 6; // Name + Native Language + Languages + Experience + Schedule + Profile
 
   // Tutor onboarding data
   firstName = '';
   lastName = '';
   country = '';
+  nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
@@ -34,6 +35,39 @@ export class TutorOnboardingPage implements OnInit {
   availableLanguages = [
     'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
     'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian', 'Dutch', 'Swedish'
+  ];
+
+  // Native language options with ISO codes (same as student onboarding)
+  nativeLanguageOptions = [
+    { code: 'en', name: 'English', native: 'English' },
+    { code: 'es', name: 'Spanish', native: 'Español' },
+    { code: 'fr', name: 'French', native: 'Français' },
+    { code: 'de', name: 'German', native: 'Deutsch' },
+    { code: 'it', name: 'Italian', native: 'Italiano' },
+    { code: 'pt', name: 'Portuguese', native: 'Português' },
+    { code: 'ru', name: 'Russian', native: 'Русский' },
+    { code: 'zh', name: 'Chinese', native: '中文' },
+    { code: 'ja', name: 'Japanese', native: '日本語' },
+    { code: 'ko', name: 'Korean', native: '한국어' },
+    { code: 'ar', name: 'Arabic', native: 'العربية' },
+    { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+    { code: 'nl', name: 'Dutch', native: 'Nederlands' },
+    { code: 'pl', name: 'Polish', native: 'Polski' },
+    { code: 'tr', name: 'Turkish', native: 'Türkçe' },
+    { code: 'sv', name: 'Swedish', native: 'Svenska' },
+    { code: 'no', name: 'Norwegian', native: 'Norsk' },
+    { code: 'da', name: 'Danish', native: 'Dansk' },
+    { code: 'fi', name: 'Finnish', native: 'Suomi' },
+    { code: 'el', name: 'Greek', native: 'Ελληνικά' },
+    { code: 'cs', name: 'Czech', native: 'Čeština' },
+    { code: 'ro', name: 'Romanian', native: 'Română' },
+    { code: 'uk', name: 'Ukrainian', native: 'Українська' },
+    { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
+    { code: 'th', name: 'Thai', native: 'ไทย' },
+    { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
+    { code: 'ms', name: 'Malay', native: 'Bahasa Melayu' },
+    { code: 'he', name: 'Hebrew', native: 'עברית' },
+    { code: 'fa', name: 'Persian', native: 'فارسی' }
   ];
 
   // Comprehensive country list with flags
@@ -225,6 +259,10 @@ export class TutorOnboardingPage implements OnInit {
     }
   }
 
+  setNativeLanguage(code: string) {
+    this.nativeLanguage = code;
+  }
+
   toggleLanguage(language: string) {
     const index = this.selectedLanguages.indexOf(language);
     if (index > -1) {
@@ -299,10 +337,11 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔍 Tutor userType:', user?.userType);
 
       // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData = {
+      const onboardingData: TutorOnboardingData & { nativeLanguage?: string } = {
         firstName: this.firstName,
         lastName: this.lastName,
         country: this.country,
+        nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
@@ -368,12 +407,14 @@ export class TutorOnboardingPage implements OnInit {
       case 1:
         return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
       case 2:
-        return this.selectedLanguages.length > 0;
+        return this.nativeLanguage !== ''; // Native language step
       case 3:
-        return this.selectedExperience !== '';
+        return this.selectedLanguages.length > 0;
       case 4:
-        return this.selectedSchedule !== '';
+        return this.selectedExperience !== '';
       case 5:
+        return this.selectedSchedule !== '';
+      case 6:
         return true; // Bio and rate are optional
       default:
         return false;

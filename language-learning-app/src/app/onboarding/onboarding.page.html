@@ -51,8 +51,27 @@
       </div>
     </div>
 
-    <!-- Step 2: Language Selection -->
+    <!-- Step 2: Native Language Selection -->
     <div *ngIf="currentStep === 2" class="step-content">
+      <div class="native-language-section">
+        <ion-icon name="language" size="large" color="primary"></ion-icon>
+        <h2>What's your native language?</h2>
+        <p>We'll provide lesson feedback in your language</p>
+        
+        <div class="language-grid">
+          <ion-chip 
+            *ngFor="let lang of nativeLanguageOptions" 
+            [class.selected]="nativeLanguage === lang.code"
+            (click)="setNativeLanguage(lang.code)">
+            <span class="language-native">{{ lang.native }}</span>
+            <span class="language-name">({{ lang.name }})</span>
+          </ion-chip>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Language Selection -->
+    <div *ngIf="currentStep === 3" class="step-content">
       <h2>What languages would you like to learn?</h2>
       <p>Select all that interest you:</p>
       
@@ -66,8 +85,8 @@
       </div>
     </div>
 
-    <!-- Step 3: Learning Goals (Students Only) -->
-    <div *ngIf="currentStep === 3 && !isTutorOnboarding()" class="step-content">
+    <!-- Step 4: Learning Goals (Students Only) -->
+    <div *ngIf="currentStep === 4 && !isTutorOnboarding()" class="step-content">
       <h2>What are your learning goals?</h2>
       <p>Choose what you want to achieve:</p>
       
@@ -86,8 +105,8 @@
       </div>
     </div>
 
-    <!-- Step 4: Experience & Schedule (Students Only) -->
-    <div *ngIf="currentStep === 4 && !isTutorOnboarding()" class="step-content">
+    <!-- Step 5: Experience & Schedule (Students Only) -->
+    <div *ngIf="currentStep === 5 && !isTutorOnboarding()" class="step-content">
       <h2>Tell us about your experience</h2>
       
       <div class="experience-section">

@@ -3,10 +3,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
@@ -30,14 +31,20 @@ export class ProfilePage implements OnInit {
   tutorVideoThumbnail = '';
   tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   isDarkMode$: Observable<boolean>;
+  
+  // Language support
+  availableLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
 
   constructor(
     private authService: AuthService,
     private userService: UserService,
     private themeService: ThemeService,
+    private languageService: LanguageService,
     private fileUploadService: FileUploadService,
     private loadingController: LoadingController,
     private alertController: AlertController,
+    private toastController: ToastController,
     private route: ActivatedRoute,
     private router: Router,
     private modalController: ModalController
@@ -45,6 +52,7 @@ export class ProfilePage implements OnInit {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.isDarkMode$ = this.themeService.darkMode$;
+    this.availableLanguages = this.languageService.supportedLanguages;
   }
 
   ngOnInit() {
@@ -74,6 +82,9 @@ export class ProfilePage implements OnInit {
         hasPicture: !!user?.picture
       });
       this.currentUser = user;
+      
+      // Set current interface language
+      this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -253,6 +264,41 @@ export class ProfilePage implements OnInit {
     console.log('🔄 Dark mode toggle clicked, current state:', this.themeService.isDarkMode());
     this.themeService.toggleDarkMode();
     console.log('✅ Dark mode toggled, new state:', this.themeService.isDarkMode());
+  }
+
+  /**
+   * Handle interface language change
+   */
+  async onInterfaceLanguageChange(event: any) {
+    const newLanguage = event.detail.value as SupportedLanguage;
+    console.log('🌐 Interface language changed to:', newLanguage);
+
+    // Update UI immediately
+    this.languageService.setLanguage(newLanguage);
+
+    // Save to backend
+    this.userService.updateInterfaceLanguage(newLanguage).subscribe({
+      next: async (updatedUser) => {
+        console.log('✅ Interface language saved to backend');
+        const toast = await this.toastController.create({
+          message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
+          duration: 2000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+      },
+      error: async (error) => {
+        console.error('❌ Error saving interface language:', error);
+        const toast = await this.toastController.create({
+          message: 'Error updating language preference',
+          duration: 3000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    });
   }
 
   /**

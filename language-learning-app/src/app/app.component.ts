@@ -5,8 +5,12 @@ import { WebSocketService } from './services/websocket.service';
 import { MessagingService } from './services/messaging.service';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
+import { LanguageService } from './services/language.service';
+import { EarlyExitService } from './services/early-exit.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter } from 'rxjs';
+import { ModalController } from '@ionic/angular';
+import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
 
 @Component({
   selector: 'app-root',
@@ -26,10 +30,17 @@ export class AppComponent implements OnInit, OnDestroy {
     private messagingService: MessagingService,
     private authService: AuthService,
     private userService: UserService,
+    private languageService: LanguageService,
+    private earlyExitService: EarlyExitService,
+    private modalController: ModalController,
     private router: Router
   ) {}
 
   ngOnInit() {
+    // Initialize language service with default language
+    // Will be updated when user profile loads
+    this.languageService.initializeLanguage();
+    
     // Ensure theme is applied immediately when app initializes
     // This ensures dark mode works across all pages, not just the profile page
     this.themeService.forceApplyTheme();
@@ -75,6 +86,43 @@ export class AppComponent implements OnInit, OnDestroy {
     
     // Set up global WebSocket listener for real-time badge updates
     this.setupGlobalMessageListener();
+    
+    // Set up early exit modal listener
+    this.setupEarlyExitListener();
+  }
+  
+  private async setupEarlyExitListener() {
+    this.earlyExitService.earlyExitTriggered$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data) => {
+      console.log('🚪 AppComponent: Early exit triggered, showing modal', data);
+      
+      // Get current user to determine role
+      let userRole: 'tutor' | 'student' = 'student';
+      try {
+        const currentUser = await this.userService.getCurrentUser().toPromise();
+        userRole = currentUser?.userType === 'tutor' ? 'tutor' : 'student';
+      } catch (error) {
+        console.error('Error getting user role:', error);
+      }
+      
+      // Show the early exit modal
+      const modal = await this.modalController.create({
+        component: EarlyExitModalComponent,
+        componentProps: {
+          lessonId: data.lessonId,
+          minutesRemaining: data.minutesRemaining,
+          userRole: userRole
+        },
+        cssClass: 'early-exit-modal',
+        backdropDismiss: true
+      });
+      
+      await modal.present();
+      
+      const { data: result } = await modal.onWillDismiss();
+      console.log('🚪 AppComponent: Early exit modal dismissed with action:', result?.action);
+    });
   }
   
   private setupGlobalMessageListener() {
@@ -92,6 +140,18 @@ export class AppComponent implements OnInit, OnDestroy {
           },
           error: (error) => {
             console.error('❌ Error detecting/saving timezone:', error);
+          }
+        });
+        
+        // Load user profile and set interface language
+        this.userService.getCurrentUser().subscribe({
+          next: (currentUser) => {
+            if (currentUser?.interfaceLanguage) {
+              this.languageService.setLanguage(currentUser.interfaceLanguage);
+            }
+          },
+          error: (error) => {
+            console.error('❌ Error loading user profile for language:', error);
           }
         });
         

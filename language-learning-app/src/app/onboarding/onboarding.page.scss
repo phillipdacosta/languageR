@@ -58,6 +58,56 @@
   }
 }
 
+.name-section {
+  ion-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .name-input {
+    margin: 1rem 0;
+    text-align: left;
+  }
+}
+
+.native-language-section {
+  ion-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .language-grid {
+    ion-chip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      height: auto;
+      min-height: 60px;
+      
+      .language-native {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      
+      .language-name {
+        font-size: 0.85rem;
+        opacity: 0.8;
+      }
+      
+      &.selected {
+        --background: var(--ion-color-primary);
+        --color: white;
+        
+        .language-name {
+          opacity: 1;
+        }
+      }
+    }
+  }
+}
+
 .language-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

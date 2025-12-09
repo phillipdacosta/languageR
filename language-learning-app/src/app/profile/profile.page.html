@@ -1,11 +1,11 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || 'Profile') : 'Profile' }}</ion-title>
+    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || 'PROFILE_SCREEN.PROFILE'  | translate) : 'PROFILE_SCREEN.PROFILE'  | translate }}</ion-title>
     <ion-buttons slot="start" *ngIf="isViewingOtherUser">
       <ion-back-button defaultHref="/tabs"></ion-back-button>
     </ion-buttons>
   </ion-toolbar>
-</ion-header>
+</ion-header> 
 
 <ion-content [fullscreen]="true" class="ion-padding">
       <div class="profile-container" *ngIf="getDisplayUser()">
@@ -20,7 +20,7 @@
                 </ion-avatar>
                 <div class="avatar-overlay" *ngIf="!isViewingOtherUser">
                   <ion-icon name="camera"></ion-icon>
-                  <span>Change Photo</span>
+                  <span> {{ 'PROFILE_SCREEN.CHANGE_PICTURE' | translate }}</span>
                 </div>
                 <input 
                   type="file" 
@@ -75,7 +75,7 @@
     <!-- User Stats - Only show for own profile -->
     <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
-        <ion-card-title>{{ isTutor() ? 'Teaching Stats' : 'Learning Progress' }}</ion-card-title>
+        <ion-card-title>{{ isTutor() ? 'Teaching Stats' : 'PROFILE_SCREEN.LEARNING_PROGRESS' | translate }}</ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <div class="stats-grid">
@@ -200,6 +200,14 @@
       </ion-card-header>
       <ion-card-content>
         <ion-list>
+          <ion-item button routerLink="/review-deck" *ngIf="isStudent()">
+            <ion-icon name="bookmark" slot="start" color="primary"></ion-icon>
+            <ion-label>
+              <h3>Review Deck</h3>
+              <p>Practice saved corrections</p>
+            </ion-label>
+            <ion-icon name="chevron-forward" slot="end"></ion-icon>
+          </ion-item>
           <ion-item button>
             <ion-icon name="notifications" slot="start"></ion-icon>
             <ion-label>Notifications</ion-label>
@@ -217,10 +225,18 @@
               <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
             </div>
           </ion-item>
-          <ion-item button>
+          <ion-item>
             <ion-icon name="language" slot="start"></ion-icon>
-            <ion-label>Language</ion-label>
-            <ion-note slot="end">English</ion-note>
+            <ion-label>Interface Language</ion-label>
+            <ion-select 
+              [(ngModel)]="selectedInterfaceLanguage" 
+              (ionChange)="onInterfaceLanguageChange($event)" 
+              interface="action-sheet"
+              slot="end">
+              <ion-select-option *ngFor="let lang of availableLanguages" [value]="lang.code">
+                {{ lang.flag }} {{ lang.nativeName }}
+              </ion-select-option>
+            </ion-select>
           </ion-item>
           <ion-item button>
             <ion-icon name="moon" slot="start"></ion-icon>

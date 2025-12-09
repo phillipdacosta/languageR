@@ -118,6 +118,9 @@ export class NotificationsPage implements OnDestroy {
         ['/tabs/tutor-calendar/event', notification.data.lessonId],
         shouldReturnToNotifications ? { queryParams: { from: 'notifications' } } : undefined
       );
+    } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
+      // Navigate to lesson analysis page
+      this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
     } else if (notification.type === 'class_invitation' && notification.data?.classId) {
       // Open class invitation modal
       this.openClassInvitation(notification.data.classId, notification);
@@ -147,6 +150,32 @@ export class NotificationsPage implements OnDestroy {
 
   trackByNotificationId(_: number, notification: Notification) {
     return notification._id;
+  }
+
+  getNotificationIcon(type: string): string {
+    const iconMap: { [key: string]: string } = {
+      'lesson_created': 'calendar',
+      'lesson_analysis_ready': 'analytics',
+      'class_invitation': 'people',
+      'message': 'chatbubbles',
+      'lesson_reminder': 'alarm',
+      'lesson_cancelled': 'close-circle',
+      'lesson_rescheduled': 'time',
+      'office_hours_booking': 'time',
+      'office_hours_starting': 'videocam'
+    };
+    return iconMap[type] || 'notifications';
+  }
+
+  getNotificationIconClass(type: string): string {
+    if (type === 'lesson_created' || type === 'lesson_reminder') {
+      return 'lesson-icon';
+    } else if (type === 'class_invitation') {
+      return 'class-invitation-icon';
+    } else if (type === 'lesson_analysis_ready') {
+      return 'analysis-icon';
+    }
+    return '';
   }
 }
 

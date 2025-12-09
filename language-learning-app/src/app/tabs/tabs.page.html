@@ -11,33 +11,33 @@
       <div class="desktop-nav-buttons" slot="end">
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/home')" (click)="navigateTo('/tabs/home')">
           <ion-icon name="home"></ion-icon>
-          <span>Home</span>
-        </button>
+          <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
+          </button>
         
         <button *ngIf="currentUser?.userType === 'student'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-search')" (click)="navigateTo('/tabs/tutor-search')">
           <ion-icon name="search"></ion-icon>
-          <span>Find Tutors</span>
+          <ion-label>{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
         </button>
         
         <button *ngIf="currentUser?.userType === 'tutor'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-calendar')" (click)="navigateTo('/tabs/tutor-calendar')">
           <ion-icon name="calendar"></ion-icon>
-          <span>Calendar</span>
+          <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/messages')" (click)="navigateTo('/tabs/messages')">
           <ion-icon name="chatbubbles"></ion-icon>
-          <span>Messages</span>
+          <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
           <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
           <ion-icon name="trending-up"></ion-icon>
-          <span>Progress</span>
+          <ion-label>{{ 'TABS.PROGRESS' | translate }}</ion-label>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
           <ion-icon name="person"></ion-icon>
-          <span>Profile</span>
+          <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
         </button>
         
         <!-- Notification Bell Icon -->

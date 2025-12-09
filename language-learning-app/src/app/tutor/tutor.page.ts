@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
+import { LanguageService } from '../services/language.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { MessagingService, Message } from '../services/messaging.service';
@@ -73,6 +74,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
+    private languageService: LanguageService,
     private modalController: ModalController,
     private platform: Platform,
     private location: Location,
@@ -91,6 +93,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (!this.tutorId) {
       this.router.navigate(['/tabs']);
       return;
+    }
+    
+    // Check for language query parameter (for shareable links)
+    const langParam = this.route.snapshot.queryParamMap.get('lang');
+    if (langParam && this.languageService.isSupported(langParam)) {
+      console.log('🌐 Language query parameter detected:', langParam);
+      this.languageService.setLanguage(langParam as any);
     }
     
     // Check if user just logged in via returnUrl

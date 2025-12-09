@@ -15,6 +15,6 @@ import { TermsPrivacyPage } from './terms-privacy.page';
     IonicModule,
     TermsPrivacyPageRoutingModule
   ],
-  declarations: [TermsPrivacyPage]
+  declarations: []
 })
 export class TermsPrivacyPageModule {}

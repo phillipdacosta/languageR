@@ -1,0 +1,200 @@
+{
+  "COMMON": {
+    "WELCOME": "Willkommen",
+    "LOADING": "Wird geladen...",
+    "SAVE": "Speichern",
+    "CANCEL": "Abbrechen",
+    "CONTINUE": "Weiter",
+    "BACK": "Zurück",
+    "NEXT": "Nächste",
+    "LOGOUT": "Abmelden",
+    "CLOSE": "Schließen",
+    "SEARCH": "Suchen",
+    "FILTER": "Filtern",
+    "SHARE": "Teilen",
+    "EDIT": "Bearbeiten",
+    "DELETE": "Löschen",
+    "SEND": "Senden",
+    "YES": "Ja",
+    "NO": "Nein",
+    "OK": "OK"
+  },
+  "HOME": {
+    "TITLE": "Startseite",
+    "SEARCH_PLACEHOLDER": "Einen Tutor suchen",
+    "CLASS_INVITATIONS": "Kurseinladungen",
+    "UPCOMING_CLASSES": "Bevorstehende Kurse",
+    "RECENT_LESSONS": "Letzte Lektionen",
+    "NO_CLASSES": "Keine bevorstehenden Kurse",
+    "NO_LESSONS": "Keine letzten Lektionen",
+    "PREVIEW_SUMMARY": "Vorschau der Zusammenfassung",
+    "START_LESSON": "Lektion starten",
+    "JOIN_CLASS": "Kurs beitreten",
+    "VIEW_DETAILS": "Details ansehen",
+    "ACCEPT_INVITATION": "Einladung annehmen",
+    "DECLINE_INVITATION": "Einladung ablehnen",
+    "INVITATION_COUNT": "{{count}} Einladung(en)"
+  },
+  "ONBOARDING": {
+    "TITLE": "Willkommen beim Sprachenlernen",
+    "STEP_INDICATOR": "Schritt {{current}} von {{total}}",
+    "NAME": {
+      "TITLE": "Wie ist Ihr Name?",
+      "SUBTITLE": "Beginnen wir mit den Grundlagen",
+      "FIRST_NAME": "Vorname",
+      "LAST_NAME": "Nachname",
+      "FIRST_NAME_PLACEHOLDER": "Geben Sie Ihren Vornamen ein",
+      "LAST_NAME_PLACEHOLDER": "Geben Sie Ihren Nachnamen ein"
+    },
+    "ROLE": {
+      "TITLE": "Wie möchten Sie diese App nutzen?",
+      "STUDENT": "Schüler",
+      "STUDENT_DESC": "Lernen Sie eine neue Sprache mit Tutoren",
+      "TUTOR": "Tutor",
+      "TUTOR_DESC": "Unterrichten Sie Sprachen für Schüler"
+    },
+    "LANGUAGE": {
+      "TITLE": "Welche Sprache möchten Sie lernen?",
+      "TITLE_TUTOR": "Welche Sprache unterrichten Sie?",
+      "SELECT": "Wählen Sie eine Sprache",
+      "LEVEL": "Was ist Ihr aktuelles Niveau?",
+      "NATIVE": "Was ist Ihre Muttersprache?",
+      "INTERFACE": "Wählen Sie die Oberflächensprache"
+    },
+    "COMPLETE": {
+      "TITLE": "Sie sind startklar!",
+      "MESSAGE": "Beginnen Sie Ihre Sprachlernreise"
+    }
+  },
+  "PROFILE": {
+    "TITLE": "Profil",
+    "SETTINGS": "Einstellungen",
+    "EDIT_PROFILE": "Profil bearbeiten",
+    "LANGUAGE_PREFERENCES": "Sprachpräferenzen",
+    "INTERFACE_LANGUAGE": "Oberflächensprache",
+    "INTERFACE_LANGUAGE_DESC": "Wählen Sie die Sprache für die App-Oberfläche",
+    "LEARNING_LANGUAGE": "Lernsprache",
+    "NATIVE_LANGUAGE": "Muttersprache",
+    "TIMEZONE": "Zeitzone",
+    "AVAILABILITY": "Verfügbarkeit",
+    "ABOUT": "Über",
+    "EXPERIENCE": "Erfahrung",
+    "HOURLY_RATE": "Stundensatz",
+    "VIDEO": "Video",
+    "UPLOAD_VIDEO": "Video hochladen"
+  },
+  "LESSONS": {
+    "TITLE": "Lektionen",
+    "MY_LESSONS": "Meine Lektionen",
+    "RECENT": "Letzte Lektionen",
+    "UPCOMING": "Bevorstehende Lektionen",
+    "PAST": "Vergangene Lektionen",
+    "NO_LESSONS": "Noch keine Lektionen",
+    "START_LESSON": "Lektion starten",
+    "VIEW_SUMMARY": "Zusammenfassung ansehen",
+    "LESSON_WITH": "Lektion mit {{name}}",
+    "DURATION": "Dauer: {{minutes}} Minuten",
+    "SCHEDULED_FOR": "Geplant für {{date}}"
+  },
+  "LESSON_SUMMARY": {
+    "TITLE": "Lektionszusammenfassung",
+    "OVERVIEW": "Übersicht",
+    "VOCABULARY": "Wortschatz",
+    "GRAMMAR": "Grammatik",
+    "PRONUNCIATION": "Aussprache",
+    "PROGRESS": "Fortschritt",
+    "TUTOR_NOTES": "Tutornotizen",
+    "AI_ANALYSIS": "KI-Analyse",
+    "DOWNLOAD_PDF": "PDF herunterladen",
+    "SHARE": "Teilen",
+    "WORDS_LEARNED": "Gelernte Wörter",
+    "SPEAKING_TIME": "Sprechzeit",
+    "FLUENCY_SCORE": "Flüssigkeitsbewertung"
+  },
+  "TUTOR": {
+    "TITLE": "Einen Tutor finden",
+    "PROFILE": "Tutor-Profil",
+    "ABOUT": "Über {{name}}",
+    "TEACHES": "Unterrichtet",
+    "SPEAKS": "Spricht",
+    "RATE": "{{amount}}/Stunde",
+    "SCHEDULE_LESSON": "Lektion planen",
+    "SEND_MESSAGE": "Nachricht senden",
+    "AVAILABILITY": "Verfügbarkeit",
+    "REVIEWS": "Bewertungen",
+    "NO_REVIEWS": "Noch keine Bewertungen",
+    "RATING": "Bewertung: {{rating}}/5"
+  },
+  "CLASSES": {
+    "TITLE": "Kurse",
+    "MY_CLASSES": "Meine Kurse",
+    "PUBLIC_CLASSES": "Öffentliche Kurse",
+    "CREATE_CLASS": "Kurs erstellen",
+    "JOIN_CLASS": "Kurs beitreten",
+    "CLASS_DETAILS": "Kursdetails",
+    "PARTICIPANTS": "Teilnehmer",
+    "SCHEDULE": "Zeitplan",
+    "NO_CLASSES": "Keine Kurse verfügbar"
+  },
+  "MESSAGES": {
+    "TITLE": "Nachrichten",
+    "NEW_MESSAGE": "Neue Nachricht",
+    "TYPE_MESSAGE": "Geben Sie eine Nachricht ein...",
+    "NO_MESSAGES": "Noch keine Nachrichten",
+    "CONVERSATIONS": "Unterhaltungen",
+    "SEARCH_CONVERSATIONS": "Unterhaltungen durchsuchen"
+  },
+  "NOTIFICATIONS": {
+    "TITLE": "Benachrichtigungen",
+    "NO_NOTIFICATIONS": "Keine Benachrichtigungen",
+    "MARK_READ": "Als gelesen markieren",
+    "CLEAR_ALL": "Alle löschen"
+  },
+  "LOGIN": {
+    "TITLE": "Anmelden",
+    "SUBTITLE": "Setzen Sie Ihre Sprachlernreise fort",
+    "SIGN_IN": "Anmelden",
+    "SIGN_UP": "Registrieren",
+    "FORGOT_PASSWORD": "Passwort vergessen?",
+    "OR": "oder",
+    "CONTINUE_WITH": "Weiter mit {{provider}}"
+  },
+  "ERRORS": {
+    "GENERIC": "Etwas ist schief gelaufen. Bitte versuchen Sie es erneut.",
+    "NETWORK": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
+    "NOT_FOUND": "Nicht gefunden",
+    "UNAUTHORIZED": "Bitte melden Sie sich an, um fortzufahren",
+    "REQUIRED_FIELD": "Dieses Feld ist erforderlich",
+    "INVALID_EMAIL": "Ungültige E-Mail-Adresse"
+  },
+  "TABS": {
+    "HOME": "Startseite",
+    "SEARCH": "Suchen",
+    "FIND_TUTORS": "Tutoren finden",
+    "CALENDAR": "Kalender",
+    "MESSAGES": "Nachrichten",
+    "PROGRESS": "Fortschritt",
+    "PROFILE": "Profil",
+    "LOGOUT": "Abmelden"
+  },
+  "PROFILE_SCREEN": {
+  "VERIFIED": "Verifiziert",
+  "CHANGE_PICTURE": "Bild ändern",
+  "LEARNING_PROGRESS": "Lernfortschritt",
+  "LESSONS_COMPLETED": "Lektionen abgeschlossen",
+  "TOTAL_STUDY_TIME": "Gesamtlernzeit",
+  "DAY_STREAK": "Tagesserie",
+  "SETTINGS": "Einstellungen",
+  "REVIEW_DECK": "Wiederholungskarten",
+  "REVIEW_DECK_DESC": "Gespeicherte Korrekturen üben",
+  "NOTIFICATIONS": "Benachrichtigungen",
+  "TIMEZONE": "Zeitzone",
+  "INTERFACE_LANGUAGE": "Interface-Sprache",
+  "DARK_MODE": "Dunkelmodus",
+  "HELP_SUPPORT": "Hilfe & Support",
+  "SIGN_OUT": "Abmelden"
+}
+
+}
+
+

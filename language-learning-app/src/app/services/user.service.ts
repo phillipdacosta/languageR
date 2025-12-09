@@ -17,6 +17,8 @@ export interface User {
   emailVerified: boolean;
   userType: 'student' | 'tutor';
   onboardingCompleted: boolean;
+  nativeLanguage?: string;
+  interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -199,23 +201,13 @@ export class UserService {
     let currentUser = this.currentUserSubject.value;
     let userEmail = currentUser?.email;
     
-    // If not available, try to get from AuthService user$ (check if it has a value)
-    // Note: We can't access BehaviorSubject.value directly from another service,
-    // but we can check if authService has the user available
+    // If not available, check if we can get it from localStorage or another source
     if (!userEmail) {
-      // During page refresh, currentUserSubject might not be set yet
-      // but authService.user$ should have the Auth0 user available
-      // Since we can't access it synchronously, we'll use 'unknown' as fallback
-      // This is expected during the brief moment before getCurrentUser() completes
-      userEmail = 'unknown';
-      
-      // Suppress error logging during initial page load
-      // The user will be loaded shortly via getCurrentUser()
-      // Only log if we're in development mode and want to debug
-      if (currentUser === null && !this.isInitialLoadComplete()) {
-        // This is expected during page refresh - don't log as error
-        // The API call will likely fail, but that's okay - it will retry once user is loaded
-      }
+      console.warn('⚠️ getAuthHeadersSync: No user email available yet');
+      // Return empty headers instead of 'unknown' to prevent malformed token
+      return new HttpHeaders({
+        'Content-Type': 'application/json'
+      });
     }
     
     return this.getAuthHeaders(userEmail);
@@ -321,7 +313,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']>): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string }): Observable<User> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -333,6 +325,13 @@ export class UserService {
       map(response => response.user),
       tap(user => this.currentUserSubject.next(user))
     );
+  }
+
+  /**
+   * Update user interface language
+   */
+  updateInterfaceLanguage(language: 'en' | 'es' | 'fr' | 'pt' | 'de'): Observable<User> {
+    return this.updateProfile({ interfaceLanguage: language });
   }
 
   /**

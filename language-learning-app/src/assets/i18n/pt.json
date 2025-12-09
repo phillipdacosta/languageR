@@ -1,0 +1,200 @@
+{
+  "COMMON": {
+    "WELCOME": "Bem-vindo",
+    "LOADING": "Carregando...",
+    "SAVE": "Salvar",
+    "CANCEL": "Cancelar",
+    "CONTINUE": "Continuar",
+    "BACK": "Voltar",
+    "NEXT": "Próximo",
+    "LOGOUT": "Sair",
+    "CLOSE": "Fechar",
+    "SEARCH": "Pesquisar",
+    "FILTER": "Filtrar",
+    "SHARE": "Compartilhar",
+    "EDIT": "Editar",
+    "DELETE": "Excluir",
+    "SEND": "Enviar",
+    "YES": "Sim",
+    "NO": "Não",
+    "OK": "OK"
+  },
+  "HOME": {
+    "TITLE": "Início",
+    "SEARCH_PLACEHOLDER": "Procurar um tutor",
+    "CLASS_INVITATIONS": "Convites para Aulas",
+    "UPCOMING_CLASSES": "Aulas Próximas",
+    "RECENT_LESSONS": "Lições Recentes",
+    "NO_CLASSES": "Nenhuma aula próxima",
+    "NO_LESSONS": "Nenhuma lição recente",
+    "PREVIEW_SUMMARY": "Visualizar Resumo",
+    "START_LESSON": "Iniciar Lição",
+    "JOIN_CLASS": "Entrar na Aula",
+    "VIEW_DETAILS": "Ver Detalhes",
+    "ACCEPT_INVITATION": "Aceitar Convite",
+    "DECLINE_INVITATION": "Recusar Convite",
+    "INVITATION_COUNT": "{{count}} convite(s)"
+  },
+  "ONBOARDING": {
+    "TITLE": "Bem-vindo ao Aprendizado de Idiomas",
+    "STEP_INDICATOR": "Passo {{current}} de {{total}}",
+    "NAME": {
+      "TITLE": "Qual é o seu nome?",
+      "SUBTITLE": "Vamos começar com o básico",
+      "FIRST_NAME": "Nome",
+      "LAST_NAME": "Sobrenome",
+      "FIRST_NAME_PLACEHOLDER": "Digite seu nome",
+      "LAST_NAME_PLACEHOLDER": "Digite seu sobrenome"
+    },
+    "ROLE": {
+      "TITLE": "Como você quer usar este aplicativo?",
+      "STUDENT": "Estudante",
+      "STUDENT_DESC": "Aprenda um novo idioma com tutores",
+      "TUTOR": "Tutor",
+      "TUTOR_DESC": "Ensine idiomas para estudantes"
+    },
+    "LANGUAGE": {
+      "TITLE": "Que idioma você quer aprender?",
+      "TITLE_TUTOR": "Que idioma você ensina?",
+      "SELECT": "Selecione um idioma",
+      "LEVEL": "Qual é o seu nível atual?",
+      "NATIVE": "Qual é o seu idioma nativo?",
+      "INTERFACE": "Escolha o idioma da interface"
+    },
+    "COMPLETE": {
+      "TITLE": "Tudo pronto!",
+      "MESSAGE": "Comece sua jornada de aprendizado de idiomas"
+    }
+  },
+  "PROFILE": {
+    "TITLE": "Perfil",
+    "SETTINGS": "Configurações",
+    "EDIT_PROFILE": "Editar Perfil",
+    "LANGUAGE_PREFERENCES": "Preferências de Idioma",
+    "INTERFACE_LANGUAGE": "Idioma da Interface",
+    "INTERFACE_LANGUAGE_DESC": "Escolha o idioma para a interface do aplicativo",
+    "LEARNING_LANGUAGE": "Idioma de Aprendizado",
+    "NATIVE_LANGUAGE": "Idioma Nativo",
+    "TIMEZONE": "Fuso Horário",
+    "AVAILABILITY": "Disponibilidade",
+    "ABOUT": "Sobre",
+    "EXPERIENCE": "Experiência",
+    "HOURLY_RATE": "Taxa por Hora",
+    "VIDEO": "Vídeo",
+    "UPLOAD_VIDEO": "Enviar Vídeo"
+  },
+  "LESSONS": {
+    "TITLE": "Lições",
+    "MY_LESSONS": "Minhas Lições",
+    "RECENT": "Lições Recentes",
+    "UPCOMING": "Próximas Lições",
+    "PAST": "Lições Anteriores",
+    "NO_LESSONS": "Ainda não há lições",
+    "START_LESSON": "Iniciar Lição",
+    "VIEW_SUMMARY": "Ver Resumo",
+    "LESSON_WITH": "Lição com {{name}}",
+    "DURATION": "Duração: {{minutes}} minutos",
+    "SCHEDULED_FOR": "Agendada para {{date}}"
+  },
+  "LESSON_SUMMARY": {
+    "TITLE": "Resumo da Lição",
+    "OVERVIEW": "Visão Geral",
+    "VOCABULARY": "Vocabulário",
+    "GRAMMAR": "Gramática",
+    "PRONUNCIATION": "Pronúncia",
+    "PROGRESS": "Progresso",
+    "TUTOR_NOTES": "Notas do Tutor",
+    "AI_ANALYSIS": "Análise de IA",
+    "DOWNLOAD_PDF": "Baixar PDF",
+    "SHARE": "Compartilhar",
+    "WORDS_LEARNED": "Palavras Aprendidas",
+    "SPEAKING_TIME": "Tempo de Conversação",
+    "FLUENCY_SCORE": "Pontuação de Fluência"
+  },
+  "TUTOR": {
+    "TITLE": "Encontrar um Tutor",
+    "PROFILE": "Perfil do Tutor",
+    "ABOUT": "Sobre {{name}}",
+    "TEACHES": "Ensina",
+    "SPEAKS": "Fala",
+    "RATE": "{{amount}}/hora",
+    "SCHEDULE_LESSON": "Agendar Lição",
+    "SEND_MESSAGE": "Enviar Mensagem",
+    "AVAILABILITY": "Disponibilidade",
+    "REVIEWS": "Avaliações",
+    "NO_REVIEWS": "Ainda não há avaliações",
+    "RATING": "Avaliação: {{rating}}/5"
+  },
+  "CLASSES": {
+    "TITLE": "Aulas",
+    "MY_CLASSES": "Minhas Aulas",
+    "PUBLIC_CLASSES": "Aulas Públicas",
+    "CREATE_CLASS": "Criar Aula",
+    "JOIN_CLASS": "Entrar na Aula",
+    "CLASS_DETAILS": "Detalhes da Aula",
+    "PARTICIPANTS": "Participantes",
+    "SCHEDULE": "Horário",
+    "NO_CLASSES": "Nenhuma aula disponível"
+  },
+  "MESSAGES": {
+    "TITLE": "Mensagens",
+    "NEW_MESSAGE": "Nova Mensagem",
+    "TYPE_MESSAGE": "Digite uma mensagem...",
+    "NO_MESSAGES": "Ainda não há mensagens",
+    "CONVERSATIONS": "Conversas",
+    "SEARCH_CONVERSATIONS": "Pesquisar conversas"
+  },
+  "NOTIFICATIONS": {
+    "TITLE": "Notificações",
+    "NO_NOTIFICATIONS": "Sem notificações",
+    "MARK_READ": "Marcar como lido",
+    "CLEAR_ALL": "Limpar tudo"
+  },
+  "LOGIN": {
+    "TITLE": "Entrar",
+    "SUBTITLE": "Continue sua jornada de aprendizado de idiomas",
+    "SIGN_IN": "Entrar",
+    "SIGN_UP": "Cadastrar-se",
+    "FORGOT_PASSWORD": "Esqueceu a senha?",
+    "OR": "ou",
+    "CONTINUE_WITH": "Continuar com {{provider}}"
+  },
+  "ERRORS": {
+    "GENERIC": "Algo deu errado. Por favor, tente novamente.",
+    "NETWORK": "Erro de rede. Por favor, verifique sua conexão.",
+    "NOT_FOUND": "Não encontrado",
+    "UNAUTHORIZED": "Por favor, faça login para continuar",
+    "REQUIRED_FIELD": "Este campo é obrigatório",
+    "INVALID_EMAIL": "Endereço de e-mail inválido"
+  },
+  "TABS": {
+    "HOME": "Início",
+    "SEARCH": "Pesquisar",
+    "FIND_TUTORS": "Encontrar Tutores",
+    "CALENDAR": "Calendário",
+    "MESSAGES": "Mensagens",
+    "PROGRESS": "Progresso",
+    "PROFILE": "Perfil",
+    "LOGOUT": "Sair"
+  },
+  "PROFILE_SCREEN": {
+  "VERIFIED": "Verificado",
+  "CHANGE_PICTURE": "Alterar foto",
+  "LEARNING_PROGRESS": "Progresso de aprendizagem",
+  "LESSONS_COMPLETED": "Aulas concluídas",
+  "TOTAL_STUDY_TIME": "Tempo total de estudo",
+  "DAY_STREAK": "Sequência de dias",
+  "SETTINGS": "Configurações",
+  "REVIEW_DECK": "Revisar cartões",
+  "REVIEW_DECK_DESC": "Pratique correções salvas",
+  "NOTIFICATIONS": "Notificações",
+  "TIMEZONE": "Fuso horário",
+  "INTERFACE_LANGUAGE": "Idioma da interface",
+  "DARK_MODE": "Modo escuro",
+  "HELP_SUPPORT": "Ajuda & suporte",
+  "SIGN_OUT": "Sair"
+}
+
+}
+
+

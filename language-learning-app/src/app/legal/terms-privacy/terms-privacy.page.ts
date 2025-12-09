@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { ToastController } from '@ionic/angular';
 
@@ -6,6 +8,8 @@ import { ToastController } from '@ionic/angular';
   selector: 'app-terms-privacy',
   templateUrl: './terms-privacy.page.html',
   styleUrls: ['./terms-privacy.page.scss'],
+  standalone: true,
+  imports: [CommonModule, IonicModule]
 })
 export class TermsPrivacyPage implements OnInit {
   lastUpdated = new Date('2025-01-01'); // Update this when terms change
