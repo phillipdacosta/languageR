@@ -14,6 +14,7 @@ export interface Conversation {
     name: string;
     picture?: string;
     userType: string;
+    timezone?: string;
     // Optional tutor details
     languages?: string[];
     hourlyRate?: number;
@@ -66,6 +67,8 @@ export interface Message {
   isSystemMessage?: boolean;
   visibleToTutorOnly?: boolean;
   triggerType?: 'favorite' | 'book_lesson';
+  // Reactions
+  reactions?: Array<{ emoji: string; userId: string; userName: string }>;
 }
 
 @Injectable({
@@ -188,6 +191,23 @@ export class MessagingService {
     return this.http.put<{ success: boolean; message: string }>(
       `${this.apiUrl}/conversations/${otherUserId}/read`,
       {},
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // Add reaction to a message
+  addReaction(messageId: string, emoji: string): Observable<{ success: boolean; message: Message }> {
+    return this.http.post<{ success: boolean; message: Message }>(
+      `${this.apiUrl}/messages/${messageId}/reactions`,
+      { emoji },
+      { headers: this.getHeaders() }
+    );
+  }
+
+  // Delete a message
+  deleteMessage(messageId: string): Observable<{ success: boolean; message: string; messageId: string }> {
+    return this.http.delete<{ success: boolean; message: string; messageId: string }>(
+      `${this.apiUrl}/messages/${messageId}`,
       { headers: this.getHeaders() }
     );
   }

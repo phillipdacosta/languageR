@@ -366,4 +366,14 @@ export class LessonService {
       return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
     }
   }
+
+  // Get signed URL for audio playback
+  getAudioSignedUrl(gcsPath: string): Observable<{ url: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const transcriptionUrl = `${environment.backendUrl}/api/transcription`;
+    return this.http.get<{ url: string }>(`${transcriptionUrl}/audio-url`, {
+      params: { gcsPath },
+      headers
+    });
+  }
 }

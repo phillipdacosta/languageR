@@ -1402,6 +1402,202 @@ $apple-gray: #f5f5f7;
   }
 }
 
+// Pronunciation Card Styles
+.pronunciation-card {
+  margin: 20px 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  ion-card-header {
+    padding: 20px;
+    border-bottom: 1px solid #f0f0f0;
+
+    ion-card-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 600;
+      color: #1f2937;
+
+      ion-icon {
+        font-size: 24px;
+        color: #8b5cf6;
+      }
+    }
+  }
+
+  ion-card-content {
+    padding: 24px;
+  }
+}
+
+.pronunciation-score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  .score-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    text-transform: capitalize;
+  }
+
+  .score-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(
+      #8b5cf6 0%,
+      #8b5cf6 calc(var(--score) * 1%),
+      #e5e7eb calc(var(--score) * 1%),
+      #e5e7eb 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .score-value {
+      position: relative;
+      z-index: 1;
+      font-size: 16px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+  }
+}
+
+.words-to-improve {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+
+  .improve-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 16px;
+
+    ion-icon {
+      font-size: 20px;
+      color: #f59e0b;
+    }
+  }
+
+  .word-item {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+
+    .word-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+
+      .word-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .play-button {
+          --padding-start: 4px;
+          --padding-end: 4px;
+          margin: 0;
+          height: 32px;
+          width: 32px;
+
+          ion-icon {
+            font-size: 28px;
+          }
+        }
+      }
+
+      .word-text {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .word-score {
+        font-size: 14px;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 12px;
+
+        &.good {
+          background: #d1fae5;
+          color: #059669;
+        }
+
+        &.ok {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        &.needs-work {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+      }
+    }
+
+    .word-feedback {
+      font-size: 14px;
+      color: #6b7280;
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+}
+
+.pronunciation-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 20px;
+
+  ion-icon {
+    font-size: 24px;
+    color: #3b82f6;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2937;
+  }
+}
+
 @media (max-width: 768px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

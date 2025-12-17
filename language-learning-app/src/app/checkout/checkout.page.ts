@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -15,14 +15,19 @@ import { HttpErrorResponse } from '@angular/common/http';
   standalone: true,
   imports: [CommonModule, IonicModule, RouterLink]
 })
-export class CheckoutPage {
-  tutorId = '';
-  dateIso = '';
-  time = '';
+export class CheckoutPage implements OnInit {
+  @Input() tutorId = '';
+  @Input() dateIso = '';
+  @Input() time = '';
+  @Input() lessonMinutes = 25;
+  @Input() embedded = false; // When true, render without back button and emit events instead of navigating
+  @Output() bookingComplete = new EventEmitter<void>();
+  @Output() cancelled = new EventEmitter<void>();
+  
   tutor: any = null;
-  lessonMinutes = 60;
   currentUser: any = null;
   isBooking = false;
+  returnTo: string | null = null; // Track where to return after booking
 
   constructor(
     private route: ActivatedRoute, 
@@ -33,13 +38,21 @@ export class CheckoutPage {
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController
-  ) {
+  ) {}
+
+  ngOnInit() {
+    // If inputs weren't provided, read from query params (for standalone page mode)
+    if (!this.tutorId) {
+      const qp = this.route.snapshot.queryParamMap;
+      this.tutorId = qp.get('tutorId') || '';
+      this.dateIso = qp.get('date') || '';
+      this.time = qp.get('time') || '';
+      this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+    }
+    
+    // Read returnTo parameter to know where to navigate after booking
     const qp = this.route.snapshot.queryParamMap;
-    this.tutorId = qp.get('tutorId') || '';
-    this.dateIso = qp.get('date') || '';
-    this.time = qp.get('time') || '';
-    // Read duration from query params (default to 25 if not provided)
-    this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+    this.returnTo = qp.get('returnTo');
     
     // Load tutor and current user data
     this.loadData();
@@ -116,10 +129,19 @@ export class CheckoutPage {
         });
         await toast.present();
 
-        // Navigate to lessons page or home
-        this.router.navigate(['/tabs/home'], { 
-          queryParams: { bookingSuccess: true, lessonId: response.lesson._id } 
-        });
+        // If embedded, emit event instead of navigating
+        if (this.embedded) {
+          this.bookingComplete.emit();
+        } else {
+          // Navigate based on returnTo parameter
+          const destination = this.returnTo === 'messages' 
+            ? '/tabs/messages' 
+            : '/tabs/home';
+          
+          this.router.navigate([destination], { 
+            queryParams: { bookingSuccess: true, lessonId: response.lesson._id } 
+          });
+        }
       } else {
         throw new Error('Failed to create lesson');
       }
@@ -159,7 +181,11 @@ export class CheckoutPage {
             queryParams: { refreshAvailability: 'true' }
           });
         } else {
-          this.router.navigate(['/tabs/home']);
+          // Navigate based on returnTo parameter
+          const destination = this.returnTo === 'messages' 
+            ? '/tabs/messages' 
+            : '/tabs/home';
+          this.router.navigate([destination]);
         }
         return;
       }

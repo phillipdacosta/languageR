@@ -178,23 +178,34 @@
     "LOGOUT": "Abmelden"
   },
   "PROFILE_SCREEN": {
-  "VERIFIED": "Verifiziert",
-  "CHANGE_PICTURE": "Bild ändern",
-  "LEARNING_PROGRESS": "Lernfortschritt",
-  "LESSONS_COMPLETED": "Lektionen abgeschlossen",
-  "TOTAL_STUDY_TIME": "Gesamtlernzeit",
-  "DAY_STREAK": "Tagesserie",
-  "SETTINGS": "Einstellungen",
-  "REVIEW_DECK": "Wiederholungskarten",
-  "REVIEW_DECK_DESC": "Gespeicherte Korrekturen üben",
-  "NOTIFICATIONS": "Benachrichtigungen",
-  "TIMEZONE": "Zeitzone",
-  "INTERFACE_LANGUAGE": "Interface-Sprache",
-  "DARK_MODE": "Dunkelmodus",
-  "HELP_SUPPORT": "Hilfe & Support",
-  "SIGN_OUT": "Abmelden"
+    "VERIFIED": "Verifiziert",
+    "CHANGE_PICTURE": "Bild ändern",
+    "LEARNING_PROGRESS": "Lernfortschritt",
+    "LESSONS_COMPLETED": "Lektionen abgeschlossen",
+    "TOTAL_STUDY_TIME": "Gesamtlernzeit",
+    "DAY_STREAK": "Tagesserie",
+    "SETTINGS": "Einstellungen",
+    "REVIEW_DECK": "Wiederholungskarten",
+    "REVIEW_DECK_DESC": "Gespeicherte Korrekturen üben",
+    "NOTIFICATIONS": "Benachrichtigungen",
+    "TIMEZONE": "Zeitzone",
+    "INTERFACE_LANGUAGE": "Interface-Sprache",
+    "DARK_MODE": "Dunkelmodus",
+    "HELP_SUPPORT": "Hilfe & Support",
+    "SIGN_OUT": "Abmelden",
+    "TEACHING_STATS": "Unterrichtsstatistiken",
+    "LESSONS_TAUGHT": "Gegebene Lektionen",
+    "HOURS_TAUGHT": "Unterrichtsstunden",
+    "RATING": "Bewertung",
+    "REMOVE": "Entfernen",
+    "CHANGE": "Ändern",
+    "PROFILE": "Profil",
+    "INTRO_VIDEO": "Vorstellungsvideo",
+    "INTRO_VIDEO_SUBTITLE": "Hilf Schülern, dich besser kennenzulernen",
+    "INTRO_VIDEO_DESC": "Lade ein kurzes Video hoch, in dem du dich vorstellst und deinen Unterrichtsstil erklärst. Dieses Video wird angezeigt, wenn Schüler nach Lehrern suchen."
+  }
+  ,
+  "HOME": {
+    "UPCOMING_LESSONS": "Bevorstehende Lektionen"
+  }
 }
-
-}
-
-

@@ -8,6 +8,7 @@ import { CommonModule } from '@angular/common';
 import { LessonAnalysis } from '../services/transcription.service';
 import { ReviewDeckService, ReviewDeckItem } from '../services/review-deck.service';
 import { UserService } from '../services/user.service';
+import { LessonService } from '../services/lesson.service';
 
 interface LessonInfo {
   _id: string;
@@ -50,6 +51,10 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   savedCorrections: Set<string> = new Set();
   reviewDeckItems: ReviewDeckItem[] = [];
   
+  // Audio playback
+  currentAudio: HTMLAudioElement | null = null;
+  playingWordId: string | null = null;
+  
   // Expose Math for template
   Math = Math;
 
@@ -62,7 +67,8 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
-    private reviewDeckService: ReviewDeckService
+    private reviewDeckService: ReviewDeckService,
+    private lessonService: LessonService
   ) {}
 
   ngOnInit() {
@@ -634,5 +640,241 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
         console.error('⚠️ Could not load saved corrections (non-blocking):', error);
       }
     });
+  }
+
+  /**
+   * Play audio for a pronunciation word
+   * Uses word-level audio extraction for precise playback
+   */
+  async playWordAudio(word: string, index: number) {
+    try {
+      const wordId = `word-${index}`;
+      
+      // If already playing this word, stop it
+      if (this.playingWordId === wordId && this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+        this.playingWordId = null;
+        return;
+      }
+
+      // Stop any currently playing audio
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+        this.playingWordId = null;
+      }
+
+      // Get the transcript to find the segment containing this word
+      const headers = this.userService.getAuthHeadersSync();
+      const transcriptResponse: any = await this.http
+        .get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}`, { headers })
+        .toPromise();
+
+      if (!transcriptResponse.segments) {
+        throw new Error('No transcript segments found');
+      }
+
+      // Find segment containing this word
+      const segment = transcriptResponse.segments.find((seg: any) => 
+        seg.text && seg.text.toLowerCase().includes(word.toLowerCase()) &&
+        (seg.audioBase64 || seg.audioGcsPath)
+      );
+
+      if (!segment) {
+        const toast = await this.toastCtrl.create({
+          message: `Audio not available for "${word}"`,
+          duration: 2000,
+          position: 'bottom',
+          color: 'warning'
+        });
+        await toast.present();
+        return;
+      }
+
+      let audioUrl: string;
+
+      if (segment.audioGcsPath) {
+        // Use word-audio endpoint for precise extraction
+        const params = new URLSearchParams({
+          gcsPath: segment.audioGcsPath,
+          word: word,
+          text: segment.text
+        });
+        
+        audioUrl = `${environment.apiUrl}/transcription/word-audio?${params.toString()}`;
+        
+        // Fetch with proper auth headers
+        const authHeaders = this.userService.getAuthHeadersSync();
+        const fetchHeaders: any = {};
+        
+        // Convert Angular HttpHeaders to plain object for fetch
+        authHeaders.keys().forEach(key => {
+          fetchHeaders[key] = authHeaders.get(key);
+        });
+        
+        console.log(`🎯 Fetching word audio from: ${audioUrl}`);
+        console.log(`🔑 Headers:`, fetchHeaders);
+        
+        const response = await fetch(audioUrl, { 
+          headers: fetchHeaders
+        });
+        
+        console.log(`📡 Response status: ${response.status}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Response error:', errorText);
+          throw new Error(`Failed to fetch word audio: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        console.log(`📦 Blob type: ${blob.type}, size: ${blob.size} bytes`);
+        
+        audioUrl = URL.createObjectURL(blob);
+        
+        console.log(`🎵 Playing extracted word audio for: ${word}`);
+      } else if (segment.audioBase64) {
+        // Fallback to full segment audio from base64
+        const byteCharacters = atob(segment.audioBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: segment.audioMimeType || 'audio/webm' });
+        audioUrl = URL.createObjectURL(blob);
+        
+        console.log(`🎵 Playing full segment audio (base64 fallback)`);
+      } else {
+        throw new Error('No audio data available');
+      }
+
+      // Play audio
+      this.currentAudio = new Audio(audioUrl);
+      this.playingWordId = wordId;
+
+      this.currentAudio.onended = () => {
+        this.currentAudio = null;
+        this.playingWordId = null;
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      this.currentAudio.onerror = async (error) => {
+        console.error('Audio playback error:', error);
+        this.currentAudio = null;
+        this.playingWordId = null;
+        URL.revokeObjectURL(audioUrl);
+        
+        const toast = await this.toastCtrl.create({
+          message: 'Failed to play audio',
+          duration: 2000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      };
+
+      await this.currentAudio.play();
+
+    } catch (error) {
+      console.error('Error playing word audio:', error);
+      
+      const toast = await this.toastCtrl.create({
+        message: 'Failed to load audio',
+        duration: 2000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
+
+  /**
+   * Check if a word is currently playing
+   */
+  isWordPlaying(index: number): boolean {
+    return this.playingWordId === `word-${index}`;
+  }
+
+  /**
+   * Play correct pronunciation using TTS
+   */
+  async playCorrectPronunciation(word: string) {
+    try {
+      // Stop any currently playing audio
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+      }
+
+      const language = this.analysis?.language || 'es';
+      
+      console.log(`🔊 Fetching correct pronunciation for: ${word} in ${language}`);
+      
+      // Construct URL for correct pronunciation
+      const params = new URLSearchParams({
+        word: word,
+        language: language
+      });
+      
+      const audioUrl = `${environment.apiUrl}/transcription/correct-pronunciation?${params.toString()}`;
+      
+      // Fetch with proper auth headers
+      const authHeaders = this.userService.getAuthHeadersSync();
+      const fetchHeaders: any = {};
+      
+      // Convert Angular HttpHeaders to plain object for fetch
+      authHeaders.keys().forEach(key => {
+        fetchHeaders[key] = authHeaders.get(key);
+      });
+      
+      const response = await fetch(audioUrl, { 
+        headers: fetchHeaders
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch correct pronunciation');
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Play audio
+      this.currentAudio = new Audio(blobUrl);
+      
+      this.currentAudio.onended = () => {
+        this.currentAudio = null;
+        URL.revokeObjectURL(blobUrl);
+      };
+
+      this.currentAudio.onerror = async (error) => {
+        console.error('TTS playback error:', error);
+        this.currentAudio = null;
+        URL.revokeObjectURL(blobUrl);
+        
+        const toast = await this.toastCtrl.create({
+          message: 'Failed to play correct pronunciation',
+          duration: 2000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      };
+
+      await this.currentAudio.play();
+      console.log(`✅ Playing correct pronunciation for: ${word}`);
+
+    } catch (error) {
+      console.error('Error playing correct pronunciation:', error);
+      
+      const toast = await this.toastCtrl.create({
+        message: 'Failed to load correct pronunciation',
+        duration: 2000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 }

@@ -825,6 +825,225 @@ router.put('/conversations/:otherUserId/read', verifyToken, async (req, res) => 
   }
 });
 
+// Add reaction to a message
+router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Emoji is required'
+      });
+    }
+
+    // Find the message
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Get user info
+    const user = await User.findOne({ auth0Id: userId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!message.reactions) {
+      message.reactions = [];
+    }
+
+    // Check if user already reacted with this exact emoji
+    const existingReaction = message.reactions.find(
+      r => r.userId === userId && r.emoji === emoji
+    );
+
+    if (existingReaction) {
+      // Remove the reaction if clicking the same emoji (toggle off)
+      message.reactions = message.reactions.filter(
+        r => r.userId !== userId
+      );
+    } else {
+      // Remove any existing reaction from this user first (only one reaction allowed)
+      message.reactions = message.reactions.filter(
+        r => r.userId !== userId
+      );
+      // Add the new reaction
+      message.reactions.push({
+        emoji,
+        userId,
+        userName: formatDisplayName(user)
+      });
+    }
+
+    await message.save();
+
+    // Populate sender info for response
+    const updatedMessage = await Message.findById(messageId).lean();
+    const sender = await User.findOne({ auth0Id: updatedMessage.senderId });
+    if (sender) {
+      updatedMessage.sender = {
+        id: sender.auth0Id,
+        name: formatDisplayName(sender),
+        picture: sender.picture
+      };
+    }
+
+    // Emit WebSocket event for real-time update
+    console.log('📡 Emitting reaction update, req.io exists:', !!req.io, 'req.connectedUsers exists:', !!req.connectedUsers);
+    if (req.io && req.connectedUsers) {
+      const senderSocketId = req.connectedUsers.get(updatedMessage.senderId);
+      const receiverSocketId = req.connectedUsers.get(updatedMessage.receiverId);
+      console.log('🔍 Sender socket:', senderSocketId, 'Receiver socket:', receiverSocketId);
+      
+      const reactionUpdate = {
+        messageId: updatedMessage._id,
+        message: updatedMessage,
+        conversationId: updatedMessage.conversationId
+      };
+      
+      // Notify sender
+      if (senderSocketId) {
+        req.io.to(senderSocketId).emit('reaction_updated', reactionUpdate);
+        console.log('📤 Emitted reaction_updated to sender:', updatedMessage.senderId);
+      }
+      
+      // Notify receiver
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit('reaction_updated', reactionUpdate);
+        console.log('📤 Emitted reaction_updated to receiver:', updatedMessage.receiverId);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: updatedMessage
+    });
+  } catch (error) {
+    console.error('Error adding reaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add reaction'
+    });
+  }
+});
+
+// Delete a message
+router.delete('/messages/:messageId', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { messageId } = req.params;
+
+    // Find the message
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Verify that the user is the sender of the message (only sender can delete)
+    if (message.senderId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages'
+      });
+    }
+
+    // Store conversation info before deletion for WebSocket notification
+    const conversationId = message.conversationId;
+    const senderId = message.senderId;
+    const receiverId = message.receiverId;
+
+    // Delete associated files from GCS if they exist
+    if (message.fileUrl && (message.type === 'image' || message.type === 'file' || message.type === 'voice')) {
+      try {
+        const { bucket } = initializeGCS();
+        if (bucket) {
+          // Extract the GCS filename from the URL
+          // URL format: https://storage.googleapis.com/bucket-name/path/to/file
+          const urlParts = message.fileUrl.split(`${bucket.name}/`);
+          if (urlParts.length > 1) {
+            const gcsFilename = urlParts[1];
+            console.log('🗑️ Deleting file from GCS:', gcsFilename);
+            
+            const file = bucket.file(gcsFilename);
+            await file.delete();
+            console.log('✅ File deleted from GCS successfully');
+          }
+
+          // Also delete thumbnail if it exists
+          if (message.thumbnailUrl) {
+            const thumbnailParts = message.thumbnailUrl.split(`${bucket.name}/`);
+            if (thumbnailParts.length > 1) {
+              const thumbnailFilename = thumbnailParts[1];
+              console.log('🗑️ Deleting thumbnail from GCS:', thumbnailFilename);
+              
+              const thumbnailFile = bucket.file(thumbnailFilename);
+              await thumbnailFile.delete();
+              console.log('✅ Thumbnail deleted from GCS successfully');
+            }
+          }
+        }
+      } catch (gcsError) {
+        // Log error but don't fail the message deletion
+        console.error('⚠️ Error deleting file from GCS:', gcsError);
+        // Continue with message deletion even if GCS deletion fails
+      }
+    }
+
+    // Delete the message from database
+    await Message.findByIdAndDelete(messageId);
+
+    // Emit WebSocket event for real-time deletion
+    console.log('📡 Emitting message deletion, req.io exists:', !!req.io, 'req.connectedUsers exists:', !!req.connectedUsers);
+    if (req.io && req.connectedUsers) {
+      const senderSocketId = req.connectedUsers.get(senderId);
+      const receiverSocketId = req.connectedUsers.get(receiverId);
+      console.log('🔍 Sender socket:', senderSocketId, 'Receiver socket:', receiverSocketId);
+      
+      const deleteEvent = {
+        messageId: messageId,
+        conversationId: conversationId
+      };
+      
+      // Notify sender
+      if (senderSocketId) {
+        req.io.to(senderSocketId).emit('message_deleted', deleteEvent);
+        console.log('📤 Emitted message_deleted to sender:', senderId);
+      }
+      
+      // Notify receiver
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit('message_deleted', deleteEvent);
+        console.log('📤 Emitted message_deleted to receiver:', receiverId);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully',
+      messageId: messageId
+    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete message'
+    });
+  }
+});
+
 // Create potential student conversation
 router.post('/potential-student', verifyToken, async (req, res) => {
   try {

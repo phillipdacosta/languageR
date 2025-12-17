@@ -87,6 +87,23 @@
     .profile-info {
       flex: 1;
       
+      .picture-actions-inline {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        margin-bottom: 8px;
+        
+        ion-button {
+          font-size: 13px;
+          height: 32px;
+          text-transform: none;
+          
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+      }
+      
       .languages-section {
         display: flex;
         align-items: center;
@@ -290,6 +307,11 @@
     .profile-info {
       .profile-name {
         font-size: 1.25rem;
+      }
+      
+      .picture-actions-inline {
+        justify-content: center;
+        flex-wrap: wrap;
       }
     }
   }

@@ -178,23 +178,33 @@
     "LOGOUT": "Logout"
   },
   "PROFILE_SCREEN": {
-  "CHANGE_PICTURE": "Change Photo",
-  "VERIFIED": "Verified",
-  "LEARNING_PROGRESS": "Learning Progress",
-  "LESSONS_COMPLETED": "Lessons Completed",
-  "TOTAL_STUDY_TIME": "Total Study Time",
-  "DAY_STREAK": "Day Streak",
-  "SETTINGS": "Settings",
-  "REVIEW_DECK": "Review Deck",
-  "REVIEW_DECK_DESC": "Practice saved corrections",
-  "NOTIFICATIONS": "Notifications",
-  "TIMEZONE": "Timezone",
-  "INTERFACE_LANGUAGE": "Interface Language",
-  "DARK_MODE": "Dark Mode",
-  "HELP_SUPPORT": "Help & Support",
-  "SIGN_OUT": "Sign Out"
+    "REMOVE": "Remove",
+    "CHANGE": "Change",
+    "CHANGE_PICTURE": "Change Photo",
+    "VERIFIED": "Verified",
+    "LEARNING_PROGRESS": "Learning Progress",
+    "LESSONS_COMPLETED": "Lessons Completed",
+    "TOTAL_STUDY_TIME": "Total Study Time",
+    "DAY_STREAK": "Day Streak",
+    "SETTINGS": "Settings",
+    "REVIEW_DECK": "Review Deck",
+    "REVIEW_DECK_DESC": "Practice saved corrections",
+    "NOTIFICATIONS": "Notifications",
+    "TIMEZONE": "Timezone",
+    "INTERFACE_LANGUAGE": "Interface Language",
+    "DARK_MODE": "Dark Mode",
+    "HELP_SUPPORT": "Help & Support",
+    "SIGN_OUT": "Sign Out",
+    "TEACHING_STATS": "Teaching Stats",
+    "LESSONS_TAUGHT": "Lessons Taught",
+    "HOURS_TAUGHT": "Hours Taught",
+    "RATING": "Rating",
+    "PROFILE": "Profile",
+    "INTRO_VIDEO": "Introduction Video",
+    "INTRO_VIDEO_SUBTITLE": "Help students get to know you better",
+    "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors."
+  },
+  "HOME": {
+    "UPCOMING_LESSONS": "Upcoming Lessons"
+  }
 }
-
-}
-
-

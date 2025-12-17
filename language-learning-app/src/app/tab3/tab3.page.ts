@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
+import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 
 // Register Chart.js components
@@ -24,6 +25,10 @@ interface AnalysisSummary {
   vocabularyRange?: string;
   errorRate?: number;
   speakingTimeMinutes?: number;
+  // Lesson type flags
+  isTrialLesson?: boolean;
+  isOfficeHours?: boolean;
+  officeHoursType?: string | null;
 }
 
 interface ProgressStats {
@@ -31,7 +36,8 @@ interface ProgressStats {
   currentConfidence: number;
   totalStudyTime: number;
   streak: number;
-  improvementRate: string;
+  improvementRate: string | null;
+  improvementMessage: string | null;
   avgGrammar: number;
   avgFluency: number;
   avgVocabulary: number;
@@ -76,13 +82,15 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   loading = true;
   error = '';
   currentUser: any = null;
+  private hasInitiallyLoaded = false; // Track if data has been loaded
   
   stats: ProgressStats = {
     currentLevel: 'N/A',
     currentConfidence: 0,
     totalStudyTime: 0,
     streak: 0,
-    improvementRate: '0%',
+    improvementRate: null,
+    improvementMessage: null,
     avgGrammar: 0,
     avgFluency: 0,
     avgVocabulary: 0,
@@ -96,13 +104,27 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   totalBadgesCount = 0;
   highestLevelReached: string = '';
   
+  // Struggles data
+  struggles: Struggle[] = [];
+  strugglesLoading = false;
+  strugglesError = '';
+  currentLanguage: string = '';
+  expandedStruggles: Set<number> = new Set(); // Track which struggles are expanded
+  
+  milestoneSnapshots: any[] = [];
+  selectedMilestone: number = 0;
+  
+  // Expose Math for template
+  Math = Math;
+  
   private radarChart: Chart | null = null;
   private lineChart: Chart | null = null;
 
   constructor(
     private router: Router,
     private http: HttpClient,
-    private userService: UserService
+    private userService: UserService,
+    private progressService: ProgressService
   ) {}
 
   ngOnInit() {
@@ -136,8 +158,10 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ionViewWillEnter() {
-    // Reload data when page is entered
-    if (this.currentUser) {
+    // Only reload data on subsequent visits (after initial load)
+    // This prevents duplicate loading on first page load
+    if (this.currentUser && this.hasInitiallyLoaded) {
+      console.log('🔄 [Progress] Reloading data on page re-enter...');
       this.loadAnalyses();
     }
   }
@@ -163,16 +187,43 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       const response: any = await this.http.get(url, { headers }).toPromise();
 
       if (response.success && response.analyses) {
-        this.analyses = response.analyses.map((a: any) => ({
-          ...a,
-          grammarAccuracy: a.grammarAnalysis?.accuracyScore || 0,
-          fluencyScore: a.fluencyAnalysis?.overallFluencyScore || 0,
-          vocabularyRange: a.vocabularyAnalysis?.vocabularyRange || 'moderate',
-          errorRate: a.progressionMetrics?.errorRate || 0,
-          speakingTimeMinutes: a.progressionMetrics?.speakingTimeMinutes || 0
-        }));
+        // ⚠️ IMPORTANT: Filter excludes trial lessons and quick office hours
+        // This filtering affects ALL progress features:
+        // - CEFR Level Progress chart
+        // - Total study time
+        // - Streak calculations
+        // - Badge counts (lesson milestones)
+        // - Struggles analysis
+        // - Stats (grammar, fluency, vocabulary averages)
+        // - Improvement rate
+        // - Radar chart
+        // - Skills progress bars
+        this.analyses = response.analyses
+          .filter((a: any) => {
+            // Backend should already filter, but double-check on frontend
+            if (a.isTrialLesson === true) {
+              console.log('🚫 [Progress] Frontend filtering out trial lesson:', a._id);
+              return false;
+            }
+            if (a.isOfficeHours === true && a.officeHoursType === 'quick') {
+              console.log('🚫 [Progress] Frontend filtering out quick office hours:', a._id);
+              return false;
+            }
+            return true;
+          })
+          .map((a: any) => ({
+            ...a,
+            grammarAccuracy: a.grammarAnalysis?.accuracyScore || 0,
+            fluencyScore: a.fluencyAnalysis?.overallFluencyScore || 0,
+            vocabularyRange: a.vocabularyAnalysis?.vocabularyRange || 'moderate',
+            errorRate: a.progressionMetrics?.errorRate || 0,
+            speakingTimeMinutes: a.progressionMetrics?.speakingTimeMinutes || 0
+          }));
         
-        console.log('✅ [Progress] Loaded', this.analyses.length, 'analyses');
+        console.log('✅ [Progress] Loaded', this.analyses.length, 'analyses (excluding trial & quick office hours)');
+        console.log('   All progress features (badges, stats, charts) will use this filtered data');
+
+
         
         // Calculate stats
         this.calculateStats();
@@ -180,16 +231,25 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         // Initialize badges and gamification
         this.initializeBadges();
         
-        // Sort analyses for timeline (oldest to newest)
+        // Calculate milestone snapshots
+        this.calculateMilestoneSnapshots();
+        
+        // Sort analyses for timeline (newest to oldest - newest first from left)
         this.sortedAnalyses = [...this.analyses].sort((a, b) => 
-          new Date(a.lessonDate).getTime() - new Date(b.lessonDate).getTime()
+          new Date(b.lessonDate).getTime() - new Date(a.lessonDate).getTime()
         );
         
-        // Create charts
+        // Create charts (only after view is ready)
         setTimeout(() => {
           this.createRadarChart();
           this.createLineChart();
         }, 100);
+        
+        // Load struggles for the student's language
+        this.loadStruggles();
+        
+        // Mark as initially loaded
+        this.hasInitiallyLoaded = true;
       }
     } catch (error: any) {
       console.error('❌ [Progress] Error loading analyses:', error);
@@ -197,6 +257,80 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     } finally {
       this.loading = false;
     }
+  }
+  
+  async loadStruggles() {
+    try {
+      // Determine the most common language from analyses
+      if (this.analyses.length === 0) {
+        return;
+      }
+      
+      // Count lessons by language
+      const languageCounts: { [key: string]: number } = {};
+      this.analyses.forEach(a => {
+        languageCounts[a.language] = (languageCounts[a.language] || 0) + 1;
+      });
+      
+      // Get most common language
+      this.currentLanguage = Object.keys(languageCounts).reduce((a, b) => 
+        languageCounts[a] > languageCounts[b] ? a : b
+      );
+      
+      console.log('🔍 [Progress] Loading struggles for language:', this.currentLanguage);
+      this.strugglesLoading = true;
+      this.strugglesError = '';
+      
+      this.progressService.getStruggles(this.currentLanguage).subscribe({
+        next: (response: StruggleResponse) => {
+          console.log('✅ [Progress] Struggles loaded:', response);
+          if (response.success && response.hasEnoughData) {
+            this.struggles = response.struggles || [];
+          } else {
+            this.struggles = [];
+          }
+          this.strugglesLoading = false;
+        },
+        error: (error) => {
+          console.error('❌ [Progress] Error loading struggles:', error);
+          this.strugglesError = 'Failed to load challenges';
+          this.strugglesLoading = false;
+        }
+      });
+    } catch (error) {
+      console.error('❌ [Progress] Error in loadStruggles:', error);
+      this.strugglesLoading = false;
+    }
+  }
+  
+  getImpactColor(impact: string): string {
+    switch (impact) {
+      case 'high': return 'danger';
+      case 'medium': return 'warning';
+      case 'low': return 'success';
+      default: return 'medium';
+    }
+  }
+  
+  getImpactIcon(impact: string): string {
+    switch (impact) {
+      case 'high': return 'alert-circle';
+      case 'medium': return 'warning';
+      case 'low': return 'information-circle';
+      default: return 'help-circle';
+    }
+  }
+  
+  toggleStruggle(index: number) {
+    if (this.expandedStruggles.has(index)) {
+      this.expandedStruggles.delete(index);
+    } else {
+      this.expandedStruggles.add(index);
+    }
+  }
+  
+  isStruggleExpanded(index: number): boolean {
+    return this.expandedStruggles.has(index);
   }
   
   calculateStats() {
@@ -216,7 +350,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     
-    // Current level from AVERAGE of all lessons (consistent with chart)
+    // Current level from MOST RECENT MILESTONE (consistent with chart)
     const levelMap: { [key: string]: number } = { 
       'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6 
     };
@@ -224,22 +358,74 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2'
     };
     
-    // Calculate average level from all lessons
-    const levels = sorted.map(a => levelMap[a.proficiencyLevel] || 3);
-    const avgLevelNum = Math.round(levels.reduce((sum, l) => sum + l, 0) / levels.length);
-    const avgLevelClamped = Math.max(1, Math.min(6, avgLevelNum));
+    // Sort by date (oldest first for milestone calculation)
+    const sortedOldestFirst = [...this.analyses].sort((a, b) => 
+      new Date(a.lessonDate).getTime() - new Date(b.lessonDate).getTime()
+    );
     
-    this.stats.currentLevel = levelNames[avgLevelClamped];
+    // Get the most recent complete 5-lesson milestone
+    const totalLessons = sortedOldestFirst.length;
+    if (totalLessons >= 5) {
+      // Find the last complete milestone block (5, 10, 15, etc.)
+      const lastMilestoneIndex = Math.floor(totalLessons / 5) * 5;
+      const milestoneBlock = sortedOldestFirst.slice(lastMilestoneIndex - 5, lastMilestoneIndex);
+      
+      // Calculate average level for this milestone block
+      const levels = milestoneBlock.map(a => levelMap[a.proficiencyLevel] || 3);
+      const avgLevelNum = Math.round(levels.reduce((sum, l) => sum + l, 0) / levels.length);
+      const avgLevelClamped = Math.max(1, Math.min(6, avgLevelNum));
+      
+      this.stats.currentLevel = levelNames[avgLevelClamped];
+    } else {
+      // Less than 5 lessons: use average of all lessons
+      const levels = sortedOldestFirst.map(a => levelMap[a.proficiencyLevel] || 3);
+      const avgLevelNum = Math.round(levels.reduce((sum, l) => sum + l, 0) / levels.length);
+      const avgLevelClamped = Math.max(1, Math.min(6, avgLevelNum));
+      this.stats.currentLevel = levelNames[avgLevelClamped];
+    }
     
     // Use most recent confidence (that's fine to keep as latest)
     this.stats.currentConfidence = sorted[0].confidence;
     
-    // Improvement rate (compare first vs last)
-    if (sorted.length > 1) {
-      const firstLevel = levelMap[sorted[sorted.length - 1].proficiencyLevel] || 0;
-      const lastLevel = levelMap[sorted[0].proficiencyLevel] || 0;
-      const improvement = ((lastLevel - firstLevel) / firstLevel) * 100;
-      this.stats.improvementRate = improvement > 0 ? `+${Math.round(improvement)}%` : '0%';
+    // Improvement rate - TREND-BASED approach (last 3-5 lessons)
+    if (this.stats.currentLevel === 'C2') {
+      // Special handling for C2 (Mastery level)
+      this.stats.improvementRate = null;
+      this.stats.improvementMessage = 'Mastery Level';
+    } else if (sorted.length === 1) {
+      // First lesson
+      this.stats.improvementRate = null;
+      this.stats.improvementMessage = 'Just Getting Started';
+    } else if (sorted.length === 2) {
+      // Second lesson - show momentum
+      this.stats.improvementRate = null;
+      this.stats.improvementMessage = 'Building Momentum';
+    } else {
+      // 3+ lessons - use trend analysis
+      const recentCount = Math.min(5, Math.floor(sorted.length / 2)); // Last 3-5 lessons
+      const recentLessons = sorted.slice(0, recentCount);
+      const olderLessons = sorted.slice(recentCount);
+      
+      // Calculate average level for recent vs older lessons
+      const recentLevels = recentLessons.map(a => levelMap[a.proficiencyLevel] || 0);
+      const olderLevels = olderLessons.map(a => levelMap[a.proficiencyLevel] || 0);
+      
+      const avgRecent = recentLevels.reduce((sum, l) => sum + l, 0) / recentLevels.length;
+      const avgOlder = olderLevels.reduce((sum, l) => sum + l, 0) / olderLevels.length;
+      
+      const difference = avgRecent - avgOlder;
+      
+      // Determine trend (threshold: 0.3 level difference)
+      if (difference > 0.3) {
+        this.stats.improvementRate = null;
+        this.stats.improvementMessage = 'Improving ↑';
+      } else if (difference < -0.3) {
+        this.stats.improvementRate = null;
+        this.stats.improvementMessage = 'Keep Practicing';
+      } else {
+        this.stats.improvementRate = null;
+        this.stats.improvementMessage = 'Steady Progress';
+      }
     }
     
     // Average scores
@@ -290,7 +476,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     return Math.round(sum / numbers.length);
   }
   
-  vocabularyToScore(range: string): number {
+  vocabularyToScore(range: string | undefined): number {
+    if (!range) return 65;
     const map: { [key: string]: number } = {
       'limited': 50,
       'moderate': 65,
@@ -419,8 +606,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
           pointBorderWidth: 3,
           pointHoverBackgroundColor: '#7c3aed',
           pointHoverBorderColor: '#ffffff',
-          pointHoverBorderWidth: 4,
-          stepped: 'before' // Creates step chart effect
+          pointHoverBorderWidth: 4
+          // Removed stepped: 'before' to allow smooth diagonal gradient fill
         }]
       },
       options: {
@@ -551,6 +738,103 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     }
     
     return milestones;
+  }
+  
+  calculateMilestoneSnapshots() {
+    const sortedAnalyses = [...this.analyses].sort((a, b) => 
+      new Date(a.lessonDate).getTime() - new Date(b.lessonDate).getTime()
+    );
+    
+    this.milestoneSnapshots = [];
+    const levelMap: { [key: string]: number } = {
+      'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6
+    };
+    
+    // Calculate snapshot for every 5 lessons
+    for (let i = 0; i < sortedAnalyses.length; i += 5) {
+      const block = sortedAnalyses.slice(i, Math.min(i + 5, sortedAnalyses.length));
+      
+      // Only create snapshot if we have at least 5 lessons in this block
+      if (block.length < 5 && i > 0) {
+        break;
+      }
+      
+      // Calculate averages for this milestone
+      const grammarScores = block.map(a => a.grammarAccuracy || 0).filter(s => s > 0);
+      const fluencyScores = block.map(a => a.fluencyScore || 0).filter(s => s > 0);
+      const vocabScores = block.map(a => this.vocabularyToScore(a.vocabularyRange)).filter(s => s > 0);
+      const studyTime = block.reduce((sum, a) => sum + (a.speakingTimeMinutes || 0), 0);
+      
+      const avgGrammar = grammarScores.length > 0 
+        ? Math.round(grammarScores.reduce((sum, s) => sum + s, 0) / grammarScores.length)
+        : 0;
+      const avgFluency = fluencyScores.length > 0
+        ? Math.round(fluencyScores.reduce((sum, s) => sum + s, 0) / fluencyScores.length)
+        : 0;
+      const avgVocab = vocabScores.length > 0
+        ? Math.round(vocabScores.reduce((sum, s) => sum + s, 0) / vocabScores.length)
+        : 0;
+      
+      // Get CEFR level
+      const levels = block.map(a => levelMap[a.proficiencyLevel] || 3);
+      const avgLevel = Math.round(levels.reduce((sum, l) => sum + l, 0) / levels.length);
+      const avgLevelClamped = Math.max(1, Math.min(6, avgLevel));
+      const levelNames: { [key: number]: string } = {
+        1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2'
+      };
+      const cefrLevel = levelNames[avgLevelClamped];
+      
+      // Calculate improvement from previous milestone
+      let grammarChange = 0;
+      let fluencyChange = 0;
+      let vocabChange = 0;
+      if (this.milestoneSnapshots.length > 0) {
+        const prev = this.milestoneSnapshots[this.milestoneSnapshots.length - 1];
+        grammarChange = avgGrammar - prev.grammarScore;
+        fluencyChange = avgFluency - prev.fluencyScore;
+        vocabChange = avgVocab - prev.vocabScore;
+      }
+      
+      this.milestoneSnapshots.push({
+        milestoneNumber: Math.floor(i / 5) + 1,
+        lessonNumber: i + block.length,
+        startLesson: i + 1,
+        endLesson: i + block.length,
+        cefrLevel: cefrLevel,
+        grammarScore: avgGrammar,
+        fluencyScore: avgFluency,
+        vocabScore: avgVocab,
+        studyTime: studyTime,
+        grammarChange: grammarChange,
+        fluencyChange: fluencyChange,
+        vocabChange: vocabChange,
+        lessonsInBlock: block.length
+      });
+    }
+    
+    // Auto-select the most recent milestone
+    if (this.milestoneSnapshots.length > 0) {
+      this.selectedMilestone = this.milestoneSnapshots.length - 1;
+    }
+    
+    console.log('📊 Calculated milestone snapshots:', this.milestoneSnapshots);
+  }
+  
+  selectMilestone(index: number) {
+    this.selectedMilestone = index;
+  }
+  
+  getSelectedSnapshot() {
+    return this.milestoneSnapshots[this.selectedMilestone];
+  }
+  
+  formatStudyTime(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
+    return `${mins}m`;
   }
 
   viewAnalysis(analysisId: string, lessonId: string) {
@@ -758,27 +1042,27 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       {
         id: 'streak-7',
         name: 'Week Warrior',
-        description: '7-day streak',
+        description: 'Complete lessons 7 days in a row',
         icon: 'flame',
         type: 'streak',
         requirement: 7,
         earned: streak >= 7,
-        color: '#ef4444'
+        color: '#f97316'  // Changed from red (#ef4444) to warm orange - more positive!
       },
       {
         id: 'streak-14',
         name: 'Two-Week Champion',
-        description: '14-day streak',
+        description: 'Complete lessons 14 days in a row',
         icon: 'flame',
         type: 'streak',
         requirement: 14,
         earned: streak >= 14,
-        color: '#f97316'
+        color: '#fb923c'  // Slightly lighter orange to differentiate from 7-day
       },
       {
         id: 'streak-30',
         name: 'Monthly Master',
-        description: '30-day streak',
+        description: 'Complete lessons 30 days in a row',
         icon: 'trophy',
         type: 'streak',
         requirement: 30,
@@ -788,7 +1072,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       {
         id: 'streak-60',
         name: 'Consistency King',
-        description: '60-day streak',
+        description: 'Complete lessons 60 days in a row',
         icon: 'diamond',
         type: 'streak',
         requirement: 60,
@@ -798,7 +1082,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       {
         id: 'streak-100',
         name: 'Dedication Legend',
-        description: '100-day streak',
+        description: 'Complete lessons 100 days in a row',
         icon: 'star',
         type: 'streak',
         requirement: 100,
@@ -908,7 +1192,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         current: streak,
         target: nextStreakMilestone,
         icon: badge?.icon || 'flame',
-        color: badge?.color || '#ef4444'
+        color: badge?.color || '#f97316'  // Default to warm orange instead of red
       };
     } else {
       // All milestones achieved!

@@ -1,6 +1,6 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || 'PROFILE_SCREEN.PROFILE'  | translate) : 'PROFILE_SCREEN.PROFILE'  | translate }}</ion-title>
+    <ion-title>{{ isViewingOtherUser ? (getDisplayUser()?.name || ('PROFILE_SCREEN.PROFILE' | translate)) : ('PROFILE_SCREEN.PROFILE' | translate) }}</ion-title>
     <ion-buttons slot="start" *ngIf="isViewingOtherUser">
       <ion-back-button defaultHref="/tabs"></ion-back-button>
     </ion-buttons>
@@ -13,27 +13,48 @@
         <ion-card class="profile-card">
           <ion-card-content>
             <div class="profile-header">
-              <div class="avatar-container" (click)="!isViewingOtherUser && triggerPictureUpload()" [class.clickable]="!isViewingOtherUser">
+              <div class="avatar-container" (click)="!isViewingOtherUser && !getDisplayUser()?.picture && triggerPictureUpload()" [class.clickable]="!isViewingOtherUser && !getDisplayUser()?.picture">
                 <ion-avatar class="profile-avatar">
                   <img [src]="getDisplayUser()?.picture" [alt]="getDisplayUser()?.name" referrerpolicy="no-referrer" *ngIf="getDisplayUser()?.picture">
                   <div class="profile-initials" *ngIf="!getDisplayUser()?.picture">{{ getUserInitials(getDisplayUser()) }}</div>
                 </ion-avatar>
-                <div class="avatar-overlay" *ngIf="!isViewingOtherUser">
+                <div class="avatar-overlay" *ngIf="!isViewingOtherUser && !getDisplayUser()?.picture">
                   <ion-icon name="camera"></ion-icon>
                   <span> {{ 'PROFILE_SCREEN.CHANGE_PICTURE' | translate }}</span>
                 </div>
-                <input 
-                  type="file" 
-                  id="profile-picture-input" 
-                  accept="image/*" 
-                  style="display: none;"
-                  (change)="onPictureSelected($event)"
-                  *ngIf="!isViewingOtherUser">
               </div>
+              <!-- Hidden file input for picture upload (always present for own profile) -->
+              <input 
+                type="file" 
+                id="profile-picture-input" 
+                accept="image/*" 
+                style="display: none;"
+                (change)="onPictureSelected($event)"
+                *ngIf="!isViewingOtherUser">
               <div class="profile-info">
                 <h2 class="profile-name">{{ getDisplayUser()?.name }}</h2>
                 <p class="profile-email" *ngIf="!isViewingOtherUser">{{ getDisplayUser()?.email }}</p>
                 <p class="profile-email" *ngIf="isViewingOtherUser && isTutor()">{{ getDisplayUser()?.email }}</p>
+                
+                <!-- Picture actions when picture exists -->
+                <div class="picture-actions-inline" *ngIf="!isViewingOtherUser && hasCustomPicture()">
+                  <ion-button fill="outline" size="small" (click)="triggerPictureUpload()">
+                    <ion-icon slot="start" name="camera"></ion-icon>
+                    Change Photo
+                  </ion-button>
+                  <ion-button fill="outline" size="small" color="danger" (click)="removePicture()">
+                    <ion-icon slot="start" name="trash"></ion-icon>
+                    Remove
+                  </ion-button>
+                </div>
+                
+                <!-- Add photo button when no custom picture -->
+                <div class="picture-actions-inline" *ngIf="!isViewingOtherUser && !hasCustomPicture()">
+                  <ion-button fill="outline" size="small" (click)="triggerPictureUpload()">
+                    <ion-icon slot="start" name="camera"></ion-icon>
+                    Add Photo
+                  </ion-button>
+                </div>
                 
                 <!-- Languages Section -->
                 <div class="languages-section" *ngIf="isTutor() && getDisplayUser()?.languages?.length">
@@ -61,11 +82,11 @@
                 
                 <ion-chip *ngIf="!isViewingOtherUser && getDisplayUser()?.emailVerified" color="success">
                   <ion-icon name="checkmark-circle"></ion-icon>
-                  <ion-label>Verified</ion-label>
+                  <ion-label>{{'PROFILE_SCREEN.VERIFIED' | translate}}</ion-label>
                 </ion-chip>
                 <ion-chip *ngIf="!isViewingOtherUser && !getDisplayUser()?.emailVerified" color="warning">
                   <ion-icon name="warning"></ion-icon>
-                  <ion-label>Unverified</ion-label>
+                  <ion-label>{{'PROFILE_SCREEN.UNVERIFIED' | translate}}</ion-label>
                 </ion-chip>
               </div>
             </div>
@@ -75,7 +96,7 @@
     <!-- User Stats - Only show for own profile -->
     <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
-        <ion-card-title>{{ isTutor() ? 'Teaching Stats' : 'PROFILE_SCREEN.LEARNING_PROGRESS' | translate }}</ion-card-title>
+        <ion-card-title>{{ isTutor() ? ('PROFILE_SCREEN.TEACHING_STATS' | translate) : ('PROFILE_SCREEN.LEARNING_PROGRESS' | translate)   }}</ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <div class="stats-grid">
@@ -83,28 +104,28 @@
             <ion-icon name="book" color="primary"></ion-icon>
             <div class="stat-info">
               <span class="stat-number">{{ getDisplayUser()?.stats?.totalLessons || 0 }}</span>
-              <span class="stat-label">{{ isTutor() ? 'Lessons Taught' : 'Lessons Completed' }}</span>
+              <span class="stat-label">{{ isTutor() ? ('PROFILE_SCREEN.LESSONS_TAUGHT' | translate) : ('PROFILE_SCREEN.LESSONS_COMPLETED' | translate) }}</span>
             </div>
           </div>
           <div class="stat-item">
             <ion-icon name="time" color="secondary"></ion-icon>
             <div class="stat-info">
               <span class="stat-number">{{ getDisplayUser()?.stats?.totalHours || 0 }}h</span>
-              <span class="stat-label">{{ isTutor() ? 'Hours Taught' : 'Total Study Time' }}</span>
+              <span class="stat-label">{{ isTutor() ? ('PROFILE_SCREEN.HOURS_TAUGHT' | translate) : ('PROFILE_SCREEN.TOTAL_STUDY_TIME' | translate)  }}</span>
             </div>
           </div>
           <div class="stat-item" *ngIf="isTutor()">
             <ion-icon name="star" color="warning"></ion-icon>
             <div class="stat-info">
               <span class="stat-number">{{ getDisplayUser()?.stats?.rating || '5.0' }}</span>
-              <span class="stat-label">Rating</span>
+              <span class="stat-label">{{'PROFILE_SCREEN.RATING' | translate}}</span>
             </div>
           </div>
           <div class="stat-item" *ngIf="isStudent()">
             <ion-icon name="trophy" color="warning"></ion-icon>
             <div class="stat-info">
               <span class="stat-number">{{ getDisplayUser()?.stats?.streak || 0 }}</span>
-              <span class="stat-label">Day Streak</span>
+              <span class="stat-label">{{'PROFILE_SCREEN.DAY_STREAK' | translate}}</span>
             </div>
           </div>
         </div>
@@ -116,14 +137,13 @@
       <!-- Tutor Video Section - Only show for own profile -->
       <ion-card class="tutor-video-card" *ngIf="!isViewingOtherUser">
         <ion-card-header>
-          <ion-card-title>Introduction Video</ion-card-title>
-          <ion-card-subtitle>Help students get to know you better</ion-card-subtitle>
+          <ion-card-title>{{'PROFILE_SCREEN.INTRO_VIDEO' | translate}}</ion-card-title>
+          <ion-card-subtitle>{{'PROFILE_SCREEN.INTRO_VIDEO_SUBTITLE' | translate}}</ion-card-subtitle>
         </ion-card-header>
         <ion-card-content>
           <div class="video-section">
             <p class="video-description">
-              Upload a short video introducing yourself and explaining your teaching style. 
-              This video will be shown to students when they're browsing tutors.
+              {{'PROFILE_SCREEN.INTRO_VIDEO_DESC' | translate}}
             </p>
             
             <app-video-upload
@@ -140,7 +160,7 @@
       <!-- About Section -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.bio">
         <ion-card-header>
-          <ion-card-title>About Me</ion-card-title>
+          <ion-card-title>{{'PROFILE_SCREEN.ABOUT_ME' | translate}}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <p>{{ getDisplayUser()?.bio }}</p>
@@ -150,7 +170,7 @@
       <!-- Experience Section -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.experience">
         <ion-card-header>
-          <ion-card-title>Experience</ion-card-title>
+          <ion-card-title>{{ 'PROFILE_SCREEN.EXPERIENCE' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <p>{{ getDisplayUser()?.experience }}</p>
@@ -160,7 +180,7 @@
       <!-- Schedule Section -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.schedule">
         <ion-card-header>
-          <ion-card-title>Schedule</ion-card-title>
+          <ion-card-title>{{ 'PROFILE_SCREEN.SCHEDULE' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <p>{{ getDisplayUser()?.schedule }}</p>
@@ -173,7 +193,7 @@
       <!-- About Section -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.bio">
         <ion-card-header>
-          <ion-card-title>About Me</ion-card-title>
+          <ion-card-title>{{ 'PROFILE_SCREEN.ABOUT_ME' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <p>{{ getDisplayUser()?.bio }}</p>
@@ -183,7 +203,7 @@
       <!-- Experience Level -->
       <ion-card class="content-card" *ngIf="getDisplayUser()?.experienceLevel">
         <ion-card-header>
-          <ion-card-title>Experience Level</ion-card-title>
+          <ion-card-title>{{ 'PROFILE_SCREEN.EXPERIENCE_LEVEL' | translate }}</ion-card-title>
         </ion-card-header>
         <ion-card-content>
           <ion-chip color="primary">
@@ -196,21 +216,21 @@
     <!-- Settings - Only show for own profile -->
     <ion-card class="settings-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
-        <ion-card-title>Settings</ion-card-title>
+        <ion-card-title>{{ 'PROFILE_SCREEN.SETTINGS' | translate }}</ion-card-title>
       </ion-card-header>
       <ion-card-content>
         <ion-list>
           <ion-item button routerLink="/review-deck" *ngIf="isStudent()">
             <ion-icon name="bookmark" slot="start" color="primary"></ion-icon>
             <ion-label>
-              <h3>Review Deck</h3>
-              <p>Practice saved corrections</p>
+              <h3>{{ 'PROFILE_SCREEN.REVIEW_DECK' | translate }}</h3>
+              <p>{{ 'PROFILE_SCREEN.REVIEW_DECK_DESC' | translate }}  </p>
             </ion-label>
             <ion-icon name="chevron-forward" slot="end"></ion-icon>
           </ion-item>
           <ion-item button>
             <ion-icon name="notifications" slot="start"></ion-icon>
-            <ion-label>Notifications</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.NOTIFICATIONS' | translate }}</ion-label>
             <ion-toggle slot="end" checked></ion-toggle>
           </ion-item>
           <ion-item button (click)="openTimezoneSelector()" class="timezone-item" lines="none">
@@ -219,7 +239,7 @@
                 <ion-icon name="globe-outline"></ion-icon>
               </div>
               <div class="timezone-info">
-                <h3>Timezone</h3>
+                <h3>{{ 'PROFILE_SCREEN.TIMEZONE' | translate }}</h3>
                 <p class="timezone-value">{{ getTimezoneLabel() }}</p>
               </div>
               <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
@@ -227,25 +247,25 @@
           </ion-item>
           <ion-item>
             <ion-icon name="language" slot="start"></ion-icon>
-            <ion-label>Interface Language</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.INTERFACE_LANGUAGE' | translate }}</ion-label>
             <ion-select 
               [(ngModel)]="selectedInterfaceLanguage" 
               (ionChange)="onInterfaceLanguageChange($event)" 
               interface="action-sheet"
               slot="end">
               <ion-select-option *ngFor="let lang of availableLanguages" [value]="lang.code">
-                {{ lang.flag }} {{ lang.nativeName }}
+                {{ lang.flag }} {{ lang.nativeName | translate }}
               </ion-select-option>
             </ion-select>
           </ion-item>
           <ion-item button>
             <ion-icon name="moon" slot="start"></ion-icon>
-            <ion-label>Dark Mode</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.DARK_MODE' | translate }}</ion-label>
             <ion-toggle slot="end" [checked]="isDarkMode$ | async" (ionChange)="toggleDarkMode($event)"></ion-toggle>
           </ion-item>
           <ion-item button>
             <ion-icon name="help-circle" slot="start"></ion-icon>
-            <ion-label>Help & Support</ion-label>
+            <ion-label>{{ 'PROFILE_SCREEN.HELP_SUPPORT' | translate }}</ion-label>
           </ion-item>
         </ion-list>
       </ion-card-content>
@@ -260,13 +280,13 @@
       class="logout-button"
       *ngIf="!isViewingOtherUser">
       <ion-icon name="log-out" slot="start"></ion-icon>
-      Sign Out
+      {{ 'PROFILE_SCREEN.SIGN_OUT' | translate }}
     </ion-button>
   </div>
 
   <!-- Loading State -->
   <div class="loading-container" *ngIf="!getDisplayUser()">
     <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading profile...</p>
+    <p>{{ 'PROFILE_SCREEN.LOADING_PROFILE' | translate }}</p>
   </div>
 </ion-content>

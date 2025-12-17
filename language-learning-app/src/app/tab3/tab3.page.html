@@ -31,7 +31,11 @@
   <!-- Main Progress View -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
-    <h1 class="page-title">Progress</h1>
+    <h1 class="page-title" padding-bottom="0px !important" >Progress
+      <p class="chart-subtitle-note"> Note: Trial and quick office hours lessons are not included in Progress data.</p>
+
+    </h1>
+    
 
     <!-- Unlock Progress Checklist (< 5 lessons) -->
     <div *ngIf="!isProfileUnlocked" class="unlock-checklist-card">
@@ -124,6 +128,58 @@
 
     <!-- Full Stats (5+ lessons) -->
     <div *ngIf="isProfileUnlocked">
+      
+      <!-- Hero Section: Current Level + Streak + Study Time + Radar Chart -->
+      <div class="top-section">
+        <!-- Left: Streak and Study Time Combined Card -->
+        <div class="streak-time-card">
+          <div class="streak-section">
+            <ion-icon name="flame"></ion-icon>
+            <div class="stat-content">
+              <div class="stat-value">{{ stats.streak }} day</div>
+              <div class="stat-label">Streak</div>
+              <div class="stat-sublabel">Consecutive days</div>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="time-section">
+            <div class="stat-content">
+              <div class="stat-value">{{ getTotalStudyTimeFormatted() }}</div>
+              <div class="stat-label">Total Speaking Time</div>
+              <div class="stat-sublabel">Your active practice</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Level Badge Below Streak Card -->
+        <div class="level-badge-card">
+          <div class="level-badge-large" [ngClass]="'level-badge-large--' + getLevelClass(stats.currentLevel)">
+            {{ stats.currentLevel }}
+          </div>
+          <div class="level-text">
+            <!-- Show improvement rate with message if available -->
+            <div class="improvement-rate" *ngIf="stats.improvementRate">
+              {{ stats.improvementRate }} {{ stats.improvementMessage }}
+            </div>
+            <!-- Show message only if no rate (C2, maintaining, first lesson) -->
+            <div class="improvement-message" *ngIf="!stats.improvementRate && stats.improvementMessage">
+              {{ stats.improvementMessage }}
+            </div>
+            <div class="confidence-text">{{ stats.currentConfidence }}% confident</div>
+            <div class="level-note" *ngIf="analyses.length >= 5">
+              Calculated every 5 lessons
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Radar Chart -->
+        <div class="radar-section">
+          <canvas #radarCanvas></canvas>
+        </div>
+      </div>
+
       <!-- Next Goal Card (if available) -->
       <div *ngIf="nextGoal" class="next-goal-card">
         <div class="goal-header">
@@ -133,6 +189,7 @@
           <div class="goal-text">
             <h3>Next Milestone</h3>
             <p>{{ nextGoal.title }}</p>
+            <p class="goal-description" *ngIf="nextGoal.description">{{ nextGoal.description }}</p>
           </div>
         </div>
         <div class="goal-progress-bar">
@@ -149,9 +206,201 @@
       <!-- Progress Line Chart -->
       <div class="progress-line-chart-card">
         <h2>CEFR Level Progress</h2>
-        <p class="chart-subtitle">Your proficiency level assessed every 5 lessons</p>
+        <p class="chart-subtitle">Your proficiency level assessed every 5 lessons.
+        </p>
         <div class="chart-container">
           <canvas #lineCanvas></canvas>
+        </div>
+      </div>
+
+      <!-- Milestone Snapshots -->
+      <!-- <div class="milestone-snapshots-card" *ngIf="milestoneSnapshots.length > 0">
+        <div class="snapshots-header">
+          <h2>
+            <ion-icon name="analytics"></ion-icon>
+            Milestone Performance
+          </h2>
+          <p class="snapshots-subtitle">Detailed performance at each 5-lesson milestone</p>
+        </div>
+        
+       Milestone Selector Tabs -->
+        <!-- <div class="milestone-tabs">
+          <button 
+            *ngFor="let snapshot of milestoneSnapshots; let i = index"
+            class="milestone-tab"
+            [class.active]="selectedMilestone === i"
+            (click)="selectMilestone(i)">
+            <div class="tab-label">Milestone {{ snapshot.milestoneNumber }}</div>
+            <div class="tab-sublabel">Lessons {{ snapshot.startLesson }}-{{ snapshot.endLesson }}</div>
+          </button>
+        </div>
+        
+     Selected Snapshot Details -->
+        <!-- <div class="snapshot-content" *ngIf="getSelectedSnapshot() as snapshot">
+        <div class="snapshot-level-badge">
+            <div class="level-badge-large" [ngClass]="'level-badge-large--' + getLevelClass(snapshot.cefrLevel)">
+              {{ snapshot.cefrLevel }}
+            </div>
+            <div class="level-badge-label">
+              Average Level
+              <span class="level-badge-range">(Lessons {{ snapshot.startLesson }}-{{ snapshot.endLesson }})</span>
+            </div>
+          </div> -->
+          
+          <!-- Performance Metrics Grid -->
+          <!-- <div class="snapshot-metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon" style="background: rgba(59, 130, 246, 0.1)">
+                <ion-icon name="create" style="color: #3b82f6"></ion-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-label">Grammar</div>
+                <div class="metric-value">{{ snapshot.grammarScore }}%</div>
+                <div class="metric-change" *ngIf="snapshot.grammarChange !== 0">
+                  <ion-icon 
+                    [name]="snapshot.grammarChange > 0 ? 'arrow-up' : 'arrow-down'"
+                    [style.color]="snapshot.grammarChange > 0 ? '#10b981' : '#ef4444'">
+                  </ion-icon>
+                  <span [style.color]="snapshot.grammarChange > 0 ? '#10b981' : '#ef4444'">
+                    {{ Math.abs(snapshot.grammarChange) }}% from previous
+                  </span>
+                </div>
+              </div>
+            </div> -->
+            
+            <!-- Fluency -->
+            <!-- <div class="metric-card">
+              <div class="metric-icon" style="background: rgba(139, 92, 246, 0.1)">
+                <ion-icon name="speedometer" style="color: #8b5cf6"></ion-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-label">Fluency</div>
+                <div class="metric-value">{{ snapshot.fluencyScore }}%</div>
+                <div class="metric-change" *ngIf="snapshot.fluencyChange !== 0">
+                  <ion-icon 
+                    [name]="snapshot.fluencyChange > 0 ? 'arrow-up' : 'arrow-down'"
+                    [style.color]="snapshot.fluencyChange > 0 ? '#10b981' : '#ef4444'">
+                  </ion-icon>
+                  <span [style.color]="snapshot.fluencyChange > 0 ? '#10b981' : '#ef4444'">
+                    {{ Math.abs(snapshot.fluencyChange) }}% from previous
+                  </span>
+                </div>
+              </div>
+            </div> -->
+            
+            <!-- Vocabulary -->
+            <!-- <div class="metric-card">
+              <div class="metric-icon" style="background: rgba(245, 158, 11, 0.1)">
+                <ion-icon name="book" style="color: #f59e0b"></ion-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-label">Vocabulary</div>
+                <div class="metric-value">{{ snapshot.vocabScore }}%</div>
+                <div class="metric-change" *ngIf="snapshot.vocabChange !== 0">
+                  <ion-icon 
+                    [name]="snapshot.vocabChange > 0 ? 'arrow-up' : 'arrow-down'"
+                    [style.color]="snapshot.vocabChange > 0 ? '#10b981' : '#ef4444'">
+                  </ion-icon>
+                  <span [style.color]="snapshot.vocabChange > 0 ? '#10b981' : '#ef4444'">
+                    {{ Math.abs(snapshot.vocabChange) }}% from previous
+                  </span>
+                </div>
+              </div>
+            </div> -->
+            
+            <!-- Study Time -->
+            <!-- <div class="metric-card">
+              <div class="metric-icon" style="background: rgba(16, 185, 129, 0.1)">
+                <ion-icon name="time" style="color: #10b981"></ion-icon>
+              </div>
+              <div class="metric-content">
+                <div class="metric-label">Study Time</div>
+                <div class="metric-value">{{ formatStudyTime(snapshot.studyTime) }}</div>
+                <div class="metric-sublabel">{{ snapshot.lessonsInBlock }} lessons</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>   -->
+
+      <!-- Your Recent Challenges Card -->
+      <div class="challenges-card" *ngIf="isProfileUnlocked && !strugglesLoading">
+        <div class="challenges-header">
+          <h2>
+            <ion-icon name="flag"></ion-icon>
+            Your Recent Challenges
+          </h2>
+          <span class="challenges-language-badge">{{ currentLanguage }}</span>
+        </div>
+        
+        <p class="challenges-subtitle" *ngIf="struggles.length > 0">
+          Patterns from your last 5 lessons that need focus:
+        </p>
+        
+        <div class="challenges-list" *ngIf="struggles.length > 0">
+          <div class="challenge-item" *ngFor="let struggle of struggles; let i = index">
+            <div class="challenge-content">
+              <div class="challenge-header-row">
+                <div class="challenge-icon-wrapper" [style.background]="'#' + (i * 40 + 200).toString(16).repeat(3).slice(0,6)">
+                  <ion-icon name="alert-circle"></ion-icon>
+                </div>
+                
+                <div class="challenge-issue" (click)="toggleStruggle(i)">
+                  {{ struggle.userFriendlyTitle || struggle.issue }}
+                  <ion-icon 
+                    [name]="isStruggleExpanded(i) ? 'chevron-up' : 'chevron-down'"
+                    class="expand-icon">
+                  </ion-icon>
+                </div>
+                <span class="challenge-percentage">
+                  {{ struggle.percentage }}%
+                </span>
+              </div>
+              
+              <div class="challenge-meta">
+                <span class="challenge-frequency">
+                  Appeared in {{ struggle.frequency }} lessons
+                </span>
+              </div>
+              
+              <!-- Expanded description -->
+              <div class="challenge-description" *ngIf="isStruggleExpanded(i)">
+                <p class="description-text" *ngIf="struggle.description">
+                  {{ struggle.description }}
+                </p>
+                
+                <div class="challenge-examples">
+                  <!-- Specific examples from lessons -->
+                  <div class="example-item" *ngFor="let ex of struggle.examples">
+                    <div class="example-original">
+                      <strong>You said:</strong> "{{ ex.original }}"
+                    </div>
+                    <div class="example-corrected">
+                      <strong>Better:</strong> "{{ ex.corrected }}"
+                    </div>
+                    <div class="example-explanation" *ngIf="ex.explanation">
+                      {{ ex.explanation }}
+                    </div>
+                  </div>
+                  
+                  <!-- No examples fallback -->
+                  <div class="no-examples" *ngIf="!struggle.examples || struggle.examples.length === 0">
+                    <p>Keep practicing this area in your upcoming lessons.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="challenges-empty" *ngIf="struggles.length === 0">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          <p>Great work! No recurring challenges detected in your recent lessons.</p>
+        </div>
+        
+        <div class="challenges-tip" *ngIf="struggles.length > 0">
+          <ion-icon name="bulb" color="warning"></ion-icon>
+          <span>Practice these topics with any tutor to improve faster!</span>
         </div>
       </div>
 
@@ -173,45 +422,6 @@
             <span class="badge-name">{{ badge.name }}</span>
             <span class="badge-description">{{ badge.description }}</span>
           </div>
-        </div>
-      </div>
-
-      <!-- Top Section: Streak/Time Card + Level Badge + Radar Chart -->
-      <div class="top-section">
-        <!-- Left: Streak and Study Time Combined Card -->
-        <div class="streak-time-card">
-          <div class="streak-section">
-            <ion-icon name="flame"></ion-icon>
-            <div class="stat-content">
-              <div class="stat-value">{{ stats.streak }} day</div>
-              <div class="stat-label">Streak</div>
-            </div>
-          </div>
-          
-          <div class="divider"></div>
-          
-          <div class="time-section">
-            <div class="stat-content">
-              <div class="stat-value">{{ getTotalStudyTimeFormatted() }}</div>
-              <div class="stat-label">Total Study Time</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Level Badge Below Streak Card -->
-        <div class="level-badge-card">
-          <div class="level-badge-large" [ngClass]="'level-badge-large--' + getLevelClass(stats.currentLevel)">
-            {{ stats.currentLevel }}
-          </div>
-          <div class="level-text">
-            <div class="improvement-rate">{{ stats.improvementRate }} Improving</div>
-            <div class="confidence-text">{{ stats.currentConfidence }}% confident</div>
-          </div>
-        </div>
-
-        <!-- Right: Radar Chart -->
-        <div class="radar-section">
-          <canvas #radarCanvas></canvas>
         </div>
       </div>
 
@@ -296,7 +506,9 @@
           </div>
         </div>
       </div>
+
     </div>
 
   </div>
+
 </ion-content>

@@ -153,7 +153,7 @@
     </div>
     
     <div class="section-header-new" *ngIf="!isLoadingLessons">
-      <h2>{{ isTutor() ? 'Upcoming Class' : 'Upcoming Lessons' }}</h2>
+      <h2> {{'HOME.UPCOMING_LESSONS' | translate}}</h2>
       <ion-button fill="clear" class="see-all-btn" routerLink="/lessons">See All</ion-button>
     </div>
 
@@ -372,7 +372,7 @@
         <!-- Case 2: No lessons at all today -->
         <ng-container *ngIf="!hadLessonsEarlierToday()">
           <h3 class="empty-state-title" *ngIf="getNextLessonInfo() && getNextLessonInfo()?.dayText === 'today'">Your next class is today</h3>
-          <h3 class="empty-state-title" *ngIf="!getNextLessonInfo() || getNextLessonInfo()?.dayText !== 'today'">No class today</h3>
+          <h3 class="empty-state-title" *ngIf="!getNextLessonInfo() || getNextLessonInfo()?.dayText !== 'today'">No lessons today</h3>
         </ng-container>
         
         <!-- Subtitle for Case 1: Had lessons earlier -->

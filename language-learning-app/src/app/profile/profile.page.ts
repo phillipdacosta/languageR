@@ -280,13 +280,13 @@ export class ProfilePage implements OnInit {
     this.userService.updateInterfaceLanguage(newLanguage).subscribe({
       next: async (updatedUser) => {
         console.log('✅ Interface language saved to backend');
-        const toast = await this.toastController.create({
-          message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
-          duration: 2000,
-          position: 'bottom',
-          color: 'success'
-        });
-        await toast.present();
+        // const toast = await this.toastController.create({
+        //   message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
+        //   duration: 2000,
+        //   position: 'bottom',
+        //   color: 'success'
+        // });
+        // await toast.present();
       },
       error: async (error) => {
         console.error('❌ Error saving interface language:', error);
@@ -317,9 +317,62 @@ export class ProfilePage implements OnInit {
         buttons: ['OK']
       });
       await alert.present();
+      // Reset file input
+      event.target.value = '';
       return;
     }
 
+    // Create preview - read file as data URL
+    const reader = new FileReader();
+    reader.onload = async (e: any) => {
+      const imageDataUrl = e.target.result;
+      
+      // Show confirmation with inline preview
+      const alert = await this.alertController.create({
+        header: 'Upload Profile Picture?',
+        message: 'Do you want to upload this image as your profile picture?',
+        cssClass: 'profile-picture-confirm-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              event.target.value = '';
+            }
+          },
+          {
+            text: 'Upload',
+            handler: async () => {
+              await this.uploadProfilePicture(file, event);
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+      
+      // After alert is presented, inject the image into the alert
+      setTimeout(() => {
+        const alertElement = document.querySelector('ion-alert.profile-picture-confirm-alert');
+        if (alertElement) {
+          const messageElement = alertElement.querySelector('.alert-message');
+          if (messageElement) {
+            const imgElement = document.createElement('img');
+            imgElement.src = imageDataUrl;
+            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 50%; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+            messageElement.insertBefore(imgElement, messageElement.firstChild);
+          }
+        }
+      }, 100);
+    };
+    
+    reader.readAsDataURL(file);
+  }
+
+  /**
+   * Upload profile picture to server
+   */
+  async uploadProfilePicture(file: File, event: any) {
     const loading = await this.loadingController.create({
       message: 'Uploading image...',
       spinner: 'crescent'
@@ -374,13 +427,96 @@ export class ProfilePage implements OnInit {
   }
 
   /**
+   * Check if user has a custom uploaded picture (vs Auth0/Google picture)
+   */
+  hasCustomPicture(): boolean {
+    const picture = this.getDisplayUser()?.picture;
+    if (!picture) return false;
+    
+    // Check if it's a custom picture (uploaded to GCS)
+    // Custom pictures will be in storage.googleapis.com with our bucket
+    return picture.includes('storage.googleapis.com') && picture.includes('profile-pictures');
+  }
+
+  /**
    * Trigger file input click
    */
   triggerPictureUpload() {
+    console.log('🖼️ triggerPictureUpload called');
     const fileInput = document.getElementById('profile-picture-input') as HTMLInputElement;
+    console.log('🖼️ File input element:', fileInput);
     if (fileInput) {
+      console.log('🖼️ Clicking file input');
       fileInput.click();
+    } else {
+      console.error('❌ File input element not found in DOM');
     }
+  }
+
+  /**
+   * Remove profile picture
+   */
+  async removePicture() {
+    // Show confirmation alert
+    const alert = await this.alertController.create({
+      header: 'Remove Picture',
+      message: 'Are you sure you want to remove your profile picture?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Removing picture...',
+              spinner: 'crescent'
+            });
+            await loading.present();
+
+            try {
+              const result = await this.userService.removePicture().pipe(take(1)).toPromise();
+              
+              if (result?.success) {
+                // Update current user with restored picture (or undefined if no Auth0 picture)
+                if (this.currentUser) {
+                  this.currentUser.picture = result.picture;
+                }
+
+                // Also reload from server to ensure consistency
+                this.userService.getCurrentUser().subscribe(user => {
+                  this.currentUser = user;
+                });
+
+                const successAlert = await this.alertController.create({
+                  header: 'Success',
+                  message: result.message || 'Profile picture removed successfully!',
+                  buttons: ['OK']
+                });
+                await successAlert.present();
+              } else {
+                throw new Error('Failed to remove profile picture');
+              }
+            } catch (error) {
+              console.error('Error removing profile picture:', error);
+              
+              const errorAlert = await this.alertController.create({
+                header: 'Error',
+                message: 'Failed to remove profile picture. Please try again.',
+                buttons: ['OK']
+              });
+              await errorAlert.present();
+            } finally {
+              await loading.dismiss();
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   /**

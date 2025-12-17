@@ -110,6 +110,31 @@ const LessonSchema = new mongoose.Schema({
   whiteboardCreatedAt: {
     type: Date,
     default: null
+  },
+  // AI Analysis (generated after lesson ends)
+  aiAnalysis: {
+    summary: {
+      type: String,
+      default: null
+    },
+    strengths: [{
+      type: String
+    }],
+    areasForImprovement: [{
+      type: String
+    }],
+    recommendations: [{
+      type: String
+    }],
+    generatedAt: {
+      type: Date,
+      default: null
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'generating', 'completed', 'failed', null],
+      default: null
+    }
   }
 }, { 
   timestamps: true 

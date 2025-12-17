@@ -23,6 +23,19 @@ const transcriptSegmentSchema = new mongoose.Schema({
   language: {
     type: String,
     required: true
+  },
+  // Audio data for GPT-4 pronunciation assessment
+  audioBase64: {
+    type: String,
+    required: false  // DEPRECATED - use audioGcsPath instead
+  },
+  audioGcsPath: {
+    type: String,
+    required: false  // GCS path (e.g., gs://bucket/lessons/id/segment-0.webm)
+  },
+  audioMimeType: {
+    type: String,
+    required: false
   }
 });
 
@@ -53,6 +66,26 @@ const lessonTranscriptSchema = new mongoose.Schema({
   },
   endTime: Date,
   segments: [transcriptSegmentSchema],
+  
+  // Pronunciation assessment segments (from Azure Speech)
+  pronunciationSegments: [{
+    timestamp: Date,
+    accuracyScore: Number,
+    fluencyScore: Number,
+    prosodyScore: Number,
+    pronunciationScore: Number,
+    completenessScore: Number,
+    words: [{
+      word: String,
+      accuracyScore: Number,
+      errorType: String,
+      phonemes: [{
+        phoneme: String,
+        accuracyScore: Number
+      }]
+    }]
+  }],
+  
   status: {
     type: String,
     enum: ['recording', 'processing', 'completed', 'failed'],

@@ -907,7 +907,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       if (!this.inline) {
         this.modalController.dismiss({
           selectedDate: dateString,
-          selectedTime: slot.time
+          selectedTime: slot.time,
+          lessonMinutes: this.selectedDuration
         });
       }
       return;

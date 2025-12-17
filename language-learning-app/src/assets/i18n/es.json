@@ -178,23 +178,34 @@
     "LOGOUT": "Cerrar Sesión"
   },
   "PROFILE_SCREEN": {
-  "VERIFIED": "Verificado",
-  "CHANGE_PICTURE": "Cambiar foto",
-  "LEARNING_PROGRESS": "Progreso de aprendizaje",
-  "LESSONS_COMPLETED": "Lecciones completadas",
-  "TOTAL_STUDY_TIME": "Tiempo total de estudio",
-  "DAY_STREAK": "Racha de días",
-  "SETTINGS": "Configuración",
-  "REVIEW_DECK": "Tarjetas de revisión",
-  "REVIEW_DECK_DESC": "Practica correcciones guardadas",
-  "NOTIFICATIONS": "Notificaciones",
-  "TIMEZONE": "Zona horaria",
-  "INTERFACE_LANGUAGE": "Idioma de interfaz",
-  "DARK_MODE": "Modo oscuro",
-  "HELP_SUPPORT": "Ayuda y soporte",
-  "SIGN_OUT": "Cerrar sesión"
+    "VERIFIED": "Verificado",
+    "CHANGE_PICTURE": "Cambiar foto",
+    "LEARNING_PROGRESS": "Progreso de aprendizaje",
+    "LESSONS_COMPLETED": "Lecciones completadas",
+    "TOTAL_STUDY_TIME": "Tiempo total de estudio",
+    "DAY_STREAK": "Racha de días",
+    "SETTINGS": "Configuración",
+    "REVIEW_DECK": "Tarjetas de revisión",
+    "REVIEW_DECK_DESC": "Practica correcciones guardadas",
+    "NOTIFICATIONS": "Notificaciones",
+    "TIMEZONE": "Zona horaria",
+    "INTERFACE_LANGUAGE": "Idioma de interfaz",
+    "DARK_MODE": "Modo oscuro",
+    "HELP_SUPPORT": "Ayuda y soporte",
+    "SIGN_OUT": "Cerrar sesión",
+    "TEACHING_STATS": "Estadísticas de enseñanza",
+    "LESSONS_TAUGHT": "Clases impartidas",
+    "HOURS_TAUGHT": "Horas enseñadas",
+    "RATING": "Valoración",
+    "PROFILE": "Perfil",
+    "INTRO_VIDEO": "Video de presentación",
+    "INTRO_VIDEO_SUBTITLE": "Ayuda a los estudiantes a conocerte mejor",
+    "INTRO_VIDEO_DESC": "Sube un video corto presentándote y explicando tu estilo de enseñanza. Este video se mostrará a los estudiantes cuando estén buscando tutores.",
+    "REMOVE": "Eliminar",
+    "CHANGE": "Cambiar"
+  },
+  
+  "HOME": {
+    "UPCOMING_LESSONS": "Lecciones Próximas"
+  }
 }
-
-}
-
-

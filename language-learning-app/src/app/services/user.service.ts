@@ -374,10 +374,12 @@ export class UserService {
   }
 
   /**
-   * Clear current user
+   * Clear current user (should be called on logout)
    */
   clearCurrentUser(): void {
+    console.log('🧹 UserService: Clearing cached user');
     this.currentUserSubject.next(null);
+    this.initialLoadComplete = false;
   }
 
   /**
@@ -506,27 +508,28 @@ export class UserService {
   /**
    * Update user profile picture
    */
-  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; user: User }> {
+  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; picture: string }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
-        return this.http.put<{ success: boolean; message: string; user: User }>(
-          `${this.apiUrl}/users/picture`,
-          { picture: pictureUrl },
+        return this.http.put<{ success: boolean; message: string; picture: string }>(
+          `${this.apiUrl}/users/profile-picture`,
+          { imageUrl: pictureUrl },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
+        console.log('✅ Profile picture updated in database');
         // Update the current user subject with the new picture
-        if (response.user) {
-          const currentUser = this.currentUserSubject.value;
-          if (currentUser) {
-            currentUser.picture = response.user.picture;
-            this.currentUserSubject.next(currentUser);
-          }
+        const currentUser = this.currentUserSubject.value;
+        if (currentUser && response.picture) {
+          currentUser.picture = response.picture;
+          this.currentUserSubject.next(currentUser);
         }
+        // Also refresh from server
+        this.getCurrentUser().pipe(take(1)).subscribe();
       }),
       catchError(error => {
         console.error('🖼️ Error updating profile picture:', error);
@@ -698,6 +701,40 @@ export class UserService {
         } catch {
           return of('UTC');
         }
+      })
+    );
+  }
+
+  /**
+   * Remove user's profile picture (restores to Auth0/Google picture if available)
+   */
+  removePicture(): Observable<{ success: boolean; message: string; picture?: string }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        if (!user?.email) {
+          throw new Error('User not authenticated');
+        }
+
+        return this.http.delete<{ success: boolean; message: string; picture?: string }>(
+          `${this.apiUrl}/users/profile-picture`,
+          { headers: this.getAuthHeaders(user.email) }
+        ).pipe(
+          tap((response) => {
+            console.log('✅ Profile picture removed');
+            if (response.picture) {
+              console.log('✅ Restored to Auth0 picture:', response.picture);
+            }
+            // Update current user with restored picture
+            const currentUser = this.currentUserSubject.value;
+            if (currentUser) {
+              currentUser.picture = response.picture;
+              this.currentUserSubject.next(currentUser);
+            }
+            // Also refresh from server
+            this.getCurrentUser().pipe(take(1)).subscribe();
+          })
+        );
       })
     );
   }

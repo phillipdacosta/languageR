@@ -246,6 +246,90 @@
           </div>
         </div>
 
+        <!-- Pronunciation Analysis -->
+        <!-- TEMPORARILY DISABLED: Pronunciation scores were inaccurate for native/advanced speakers -->
+        <!-- Audio playback features (student recording + TTS) remain active in other sections -->
+        <!-- To re-enable: Change *ngIf condition below from 'false' to the commented condition -->
+        <ion-card *ngIf="false && analysis!.pronunciationAnalysis && analysis!.pronunciationAnalysis.overallScore" class="pronunciation-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="mic"></ion-icon>
+              Pronunciation Assessment
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <!-- Overall Score -->
+            <div class="pronunciation-score-grid">
+              <div class="score-item">
+                <div class="score-label">Overall</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.overallScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.overallScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Accuracy</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.accuracyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.accuracyScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Fluency</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.fluencyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.fluencyScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Prosody</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.prosodyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.prosodyScore }}/100</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Words to Improve -->
+            <div *ngIf="analysis!.pronunciationAnalysis!.mispronunciations?.length" class="words-to-improve">
+              <h4 class="improve-title">
+                <ion-icon name="bulb"></ion-icon>
+                Words to Practice
+              </h4>
+              <div *ngFor="let word of analysis!.pronunciationAnalysis!.mispronunciations; let i = index" class="word-item">
+                <div class="word-header">
+                  <div class="word-left">
+                    <ion-button 
+                      fill="clear" 
+                      size="small" 
+                      class="play-button"
+                      (click)="playWordAudio(word.word, i)"
+                      [color]="isWordPlaying(i) ? 'primary' : 'medium'">
+                      <ion-icon 
+                        slot="icon-only" 
+                        [name]="isWordPlaying(i) ? 'stop-circle' : 'play-circle'">
+                      </ion-icon>
+                    </ion-button>
+                    <ion-button 
+                      fill="clear" 
+                      size="small" 
+                      class="correct-button"
+                      (click)="playCorrectPronunciation(word.word)"
+                      color="success"
+                      title="Hear correct pronunciation">
+                      <ion-icon 
+                        slot="icon-only" 
+                        name="checkmark-circle">
+                      </ion-icon>
+                    </ion-button>
+                    <span class="word-text">{{ word.word }}</span>
+                  </div>
+                  <span class="word-score" [class.good]="word.score >= 80" [class.ok]="word.score >= 60 && word.score < 80" [class.needs-work]="word.score < 60">
+                    {{ word.score }}/100
+                  </span>
+                </div>
+                <p class="word-feedback">{{ word.errorType }}</p>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
         <!-- Main Focus Next Lesson -->
         <div class="main-focus-card" *ngIf="getMainFocus()">
           <div class="main-focus-header">
@@ -268,7 +352,7 @@
           </ion-card-header>
           <ion-card-content>
             <div
-              *ngFor="let error of analysis!.topErrors!.slice(0, 5); let i = index"
+              *ngFor="let error of analysis!.topErrors; let i = index"
               class="priority-item"
             >
               <div class="priority-number">{{ i + 1 }}</div>
@@ -290,7 +374,7 @@
           </ion-card-header>
           <ion-card-content>
             <div
-              *ngFor="let pattern of analysis!.errorPatterns!.slice(0, 5)"
+              *ngFor="let pattern of analysis!.errorPatterns"
               class="pattern-item"
             >
               <div class="pattern-header">

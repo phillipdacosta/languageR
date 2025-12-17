@@ -1,144 +1,63 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
+import { UserService } from './user.service';
 
-export interface Progress {
-  _id: string;
-  user: string;
-  lesson: {
-    _id: string;
-    title: string;
-    description: string;
-    language: string;
-    level: string;
-    category: string;
-    estimatedTime: number;
-  };
-  status: string;
-  score: number;
-  timeSpent: number;
-  attempts: number;
-  completedAt?: Date;
-  exerciseResults: Array<{
-    exerciseIndex: number;
-    userAnswer: any;
-    isCorrect: boolean;
-    timeSpent: number;
-    attempts: number;
+export interface Struggle {
+  issue: string;
+  userFriendlyTitle?: string;
+  description?: string;
+  examples?: Array<{
+    original: string;
+    corrected: string;
+    explanation?: string;
   }>;
-  xpEarned: number;
-  streakBonus: number;
-  createdAt: Date;
-  updatedAt: Date;
+  frequency: string;
+  appearances: number;
+  lessonsAnalyzed: number;
+  impact: 'low' | 'medium' | 'high';
+  percentage: number;
 }
 
-export interface ProgressResponse {
-  progress: Progress[];
-  totalPages: number;
-  currentPage: number;
-  total: number;
-}
-
-export interface ProgressStats {
-  overall: {
-    totalLessons: number;
-    completedLessons: number;
-    inProgressLessons: number;
-    totalXP: number;
-    totalTimeSpent: number;
-    averageScore: number;
-    totalAttempts: number;
+export interface StruggleResponse {
+  success: boolean;
+  hasEnoughData: boolean;
+  message?: string;
+  language?: string;
+  lessonsAnalyzed?: number;
+  struggles?: Struggle[];
+  lessonsCompleted?: number;
+  dateRange?: {
+    from: Date;
+    to: Date;
   };
-  byLanguage: Array<{
-    _id: string;
-    totalLessons: number;
-    completedLessons: number;
-    totalXP: number;
-    averageScore: number;
-  }>;
-  recentActivity: Progress[];
-}
-
-export interface StreakInfo {
-  currentStreak: number;
-  longestStreak: number;
-  totalXP: number;
-  recentCompletions: number;
 }
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProgressService {
-  private apiUrl = `${environment.backendUrl}/api`;
+  private apiUrl = `${environment.backendUrl}/api/progress`;
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService
+    private userService: UserService
   ) {}
 
-  getProgress(params?: {
-    status?: string;
-    language?: string;
-    page?: number;
-    limit?: number;
-  }): Observable<ProgressResponse> {
-    let httpParams = new HttpParams();
-    
-    if (params) {
-      Object.keys(params).forEach(key => {
-        if (params[key as keyof typeof params] !== undefined) {
-          httpParams = httpParams.set(key, params[key as keyof typeof params]!.toString());
-        }
-      });
-    }
-
-    return this.http.get<ProgressResponse>(`${this.apiUrl}/progress`, {
-      params: httpParams,
-      headers: this.authService.getAuthHeaders()
-    });
+  /**
+   * Get recurring struggles for a language (last 5 lessons)
+   */
+  getStruggles(language: string): Observable<StruggleResponse> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<StruggleResponse>(`${this.apiUrl}/struggles/${language}`, { headers });
   }
 
-  getLessonProgress(lessonId: string): Observable<{ progress: Progress }> {
-    return this.http.get<{ progress: Progress }>(
-      `${this.apiUrl}/progress/lesson/${lessonId}`,
-      { headers: this.authService.getAuthHeaders() }
-    );
-  }
-
-  getProgressStats(params?: {
-    language?: string;
-    timeRange?: string;
-  }): Observable<{ stats: ProgressStats }> {
-    let httpParams = new HttpParams();
-    
-    if (params) {
-      Object.keys(params).forEach(key => {
-        if (params[key as keyof typeof params] !== undefined) {
-          httpParams = httpParams.set(key, params[key as keyof typeof params]!.toString());
-        }
-      });
-    }
-
-    return this.http.get<{ stats: ProgressStats }>(`${this.apiUrl}/progress/stats`, {
-      params: httpParams,
-      headers: this.authService.getAuthHeaders()
-    });
-  }
-
-  getStreakInfo(): Observable<StreakInfo> {
-    return this.http.get<StreakInfo>(
-      `${this.apiUrl}/progress/streak`,
-      { headers: this.authService.getAuthHeaders() }
-    );
-  }
-
-  resetLessonProgress(lessonId: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(
-      `${this.apiUrl}/progress/lesson/${lessonId}`,
-      { headers: this.authService.getAuthHeaders() }
-    );
+  /**
+   * Check if student hit a milestone and trigger notification if needed
+   */
+  checkMilestone(language: string): Observable<any> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get(`${this.apiUrl}/check-milestone/${language}`, { headers });
   }
 }

@@ -1,0 +1,2987 @@
+
+> language-learning-backend@1.0.0 start
+> node server.js
+
+[dotenv@17.2.3] injecting env (19) from config.env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+Server running on port 3000
+Health check available at: http://0.0.0.0:3000/health
+Server bound to all interfaces (0.0.0.0)
+WebSocket server ready
+Deepgram WebSocket ready at: ws://0.0.0.0:3000/api/deepgram-audio
+⏰ Cron job started: Auto-complete transcripts (every minute)
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: qMf52U3EOGT0s4adAAAB
+Connected to MongoDB
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket qMf52U3EOGT0s4adAAAB
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: 4gRJN57_2O4PjhLOAAAD
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket 4gRJN57_2O4PjhLOAAAD
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+127.0.0.1 - - [17/Dec/2025:16:38:35 +0000] "OPTIONS /api/messaging/messages/691bd047c6bd27a39ea24e08 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+✅ Google Cloud Storage initialized successfully
+🗑️ Deleting file from GCS: messages/files/dev-user-travelbuggler@gmail.com/1763430470867_Ejercicios_Perifrasis_Verbales.docx
+✅ File deleted from GCS successfully
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: 4gRJN57_2O4PjhLOAAAD Receiver socket: qMf52U3EOGT0s4adAAAB
+📤 Emitted message_deleted to sender: dev-user-travelbuggler@gmail.com
+📤 Emitted message_deleted to receiver: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:38:36 +0000] "DELETE /api/messaging/messages/691bd047c6bd27a39ea24e08 HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:36 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:36 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:37 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:37 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: ruBfBuhz8bMOBPABAAAF
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket ruBfBuhz8bMOBPABAAAF
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:58 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:38:59 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📨 Received send_message event: {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  receiverId: 'dev-user-travelbuggler@gmail.com',
+  content: 'hi',
+  type: 'text',
+  replyTo: undefined
+}
+📝 Creating message with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+💾 Saving message to database...
+✅ Message saved successfully: 6942dcaa9a48219a6c9bd26b
+📤 Sending message to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:39:06 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:06 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:06 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:13 +0000] "OPTIONS /api/messaging/messages/6942dcaa9a48219a6c9bd26b HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: qMf52U3EOGT0s4adAAAB Receiver socket: ruBfBuhz8bMOBPABAAAF
+📤 Emitted message_deleted to sender: dev-user-phillip.dacosta@gmail.com
+📤 Emitted message_deleted to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:39:13 +0000] "DELETE /api/messaging/messages/6942dcaa9a48219a6c9bd26b HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:13 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:14 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:21 +0000] "OPTIONS /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:21 +0000] "OPTIONS /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/messages?limit=50 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📥 GET /conversations/:otherUserId/messages {
+  userId: 'dev-user-travelbuggler@gmail.com',
+  otherUserId: 'dev-user-phillip.dacosta@gmail.com',
+  limit: '50',
+  before: undefined
+}
+🔍 Looking for messages with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:39:21 +0000] "PUT /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ Found 25 messages for conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+📋 Sample messages: [
+  {
+    id: new ObjectId('6942db4c6ebff3c6db44dea3'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-travelbuggler@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: '🥶',
+    createdAt: 2025-12-17T16:33:16.591Z
+  },
+  {
+    id: new ObjectId('6942d7cb6ebff3c6db43d773'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:18:19.342Z
+  },
+  {
+    id: new ObjectId('6942d7546ebff3c6db437e1a'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:16:20.046Z
+  }
+]
+127.0.0.1 - - [17/Dec/2025:16:39:21 +0000] "GET /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/messages?limit=50 HTTP/1.1" 200 13522 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:21 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:22 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:39:40 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:40 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: Pyfwctg0WsVYRHjrAAAH
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket Pyfwctg0WsVYRHjrAAAH
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:39:41 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:42 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:39:42 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:39:42 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: aYisKbIWXfVaXx2XAAAJ
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: Du0ZM3AfCzrQfzPsAAAL
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/users/me HTTP/1.1" 200 1053 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket aYisKbIWXfVaXx2XAAAJ
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket Du0ZM3AfCzrQfzPsAAAL
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/notifications/unread-count HTTP/1.1" 200 28 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:21 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications HTTP/1.1" 200 28526 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:22 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:23 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:23 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: DJp-EzCsu0_FlGUvAAAN
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket DJp-EzCsu0_FlGUvAAAN
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: muJA7PYWF9yDKBomAAAP
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:35 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket muJA7PYWF9yDKBomAAAP
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:41:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:41:37 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:21 +0000] "OPTIONS /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:42:21 +0000] "OPTIONS /api/messaging/conversations/dev-user-travelbuggler@gmail.com/messages?limit=50 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📥 GET /conversations/:otherUserId/messages {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  otherUserId: 'dev-user-travelbuggler@gmail.com',
+  limit: '50',
+  before: undefined
+}
+🔍 Looking for messages with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:42:21 +0000] "PUT /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ Found 25 messages for conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+📋 Sample messages: [
+  {
+    id: new ObjectId('6942db4c6ebff3c6db44dea3'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-travelbuggler@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: '🥶',
+    createdAt: 2025-12-17T16:33:16.591Z
+  },
+  {
+    id: new ObjectId('6942d7cb6ebff3c6db43d773'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:18:19.342Z
+  },
+  {
+    id: new ObjectId('6942d7546ebff3c6db437e1a'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:16:20.046Z
+  }
+]
+127.0.0.1 - - [17/Dec/2025:16:42:21 +0000] "GET /api/messaging/conversations/dev-user-travelbuggler@gmail.com/messages?limit=50 HTTP/1.1" 200 13522 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:22 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:42:23 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📨 Received send_message event: {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  receiverId: 'dev-user-travelbuggler@gmail.com',
+  content: 'hi',
+  type: 'text',
+  replyTo: undefined
+}
+📝 Creating message with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+💾 Saving message to database...
+✅ Message saved successfully: 6942dd709a48219a6c9c482c
+📤 Sending message to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:42:24 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:42:24 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:42:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:44 +0000] "OPTIONS /api/messaging/messages/6942dd709a48219a6c9c482c HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: DJp-EzCsu0_FlGUvAAAN Receiver socket: muJA7PYWF9yDKBomAAAP
+📤 Emitted message_deleted to sender: dev-user-phillip.dacosta@gmail.com
+📤 Emitted message_deleted to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:42:44 +0000] "DELETE /api/messaging/messages/6942dd709a48219a6c9c482c HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:45 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:45 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:42:45 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:42:45 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: omcYGx3w6m4OaH8PAAAR
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket omcYGx3w6m4OaH8PAAAR
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:06 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: 3qFiJNL8M9AZPIH3AAAT
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket 3qFiJNL8M9AZPIH3AAAT
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:08 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:44:23 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:23 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: H9Mn-OIyn4LA7D4xAAAV
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:23 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket H9Mn-OIyn4LA7D4xAAAV
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:23 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: 9a-MVzZ-mwobbu7FAAAX
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket 9a-MVzZ-mwobbu7FAAAX
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:24 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:25 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:26 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:26 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:26 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:26 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: iZCCsDiedznyePGoAAAZ
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket iZCCsDiedznyePGoAAAZ
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:33 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: tZDPQiNsQuA2LdgVAAAb
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket tZDPQiNsQuA2LdgVAAAb
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:34 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:35 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 692b88b4b1ed13b61bbe0b13 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: 0ILGYeNG05r29AteAAAd
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket 0ILGYeNG05r29AteAAAd
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-phillip.dacosta@gmail.com' ]
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Getting user by email: phillip.dacosta@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: ECp8ws6KVFfDnIcWAAAf
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:51 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+Getting user by email: travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 692b88b4b1ed13b61bbe0b13 to socket ECp8ws6KVFfDnIcWAAAf
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-phillip.dacosta@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+User found: travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "POST /api/users/by-email HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://storage.googleapis.com/languager-videos-2025/profile-pictures/dev-user-travelbuggler@gmail.com/1765837858317-txu9rerf03k.png',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Fetching notifications for user: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:44:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📬 Found user: new ObjectId('692b88b4b1ed13b61bbe0b13') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found 50 notifications for user: new ObjectId('692b88b4b1ed13b61bbe0b13')
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:44:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:48 +0000] "OPTIONS /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:46:48 +0000] "OPTIONS /api/messaging/conversations/dev-user-travelbuggler@gmail.com/messages?limit=50 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📥 GET /conversations/:otherUserId/messages {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  otherUserId: 'dev-user-travelbuggler@gmail.com',
+  limit: '50',
+  before: undefined
+}
+🔍 Looking for messages with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:46:48 +0000] "PUT /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ Found 25 messages for conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+📋 Sample messages: [
+  {
+    id: new ObjectId('6942db4c6ebff3c6db44dea3'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-travelbuggler@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: '🥶',
+    createdAt: 2025-12-17T16:33:16.591Z
+  },
+  {
+    id: new ObjectId('6942d7cb6ebff3c6db43d773'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:18:19.342Z
+  },
+  {
+    id: new ObjectId('6942d7546ebff3c6db437e1a'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:16:20.046Z
+  }
+]
+127.0.0.1 - - [17/Dec/2025:16:46:49 +0000] "GET /api/messaging/conversations/dev-user-travelbuggler@gmail.com/messages?limit=50 HTTP/1.1" 200 13522 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:49 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:46:49 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📨 Received send_message event: {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  receiverId: 'dev-user-travelbuggler@gmail.com',
+  content: 'gay',
+  type: 'text',
+  replyTo: undefined
+}
+📝 Creating message with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+💾 Saving message to database...
+✅ Message saved successfully: 6942de7b9a48219a6c9cef44
+📤 Sending message to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:46:51 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:46:51 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 580 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:46:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 580 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:52 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1139 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:57 +0000] "OPTIONS /api/messaging/messages/6942de7b9a48219a6c9cef44 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: 0ILGYeNG05r29AteAAAd Receiver socket: ECp8ws6KVFfDnIcWAAAf
+📤 Emitted message_deleted to sender: dev-user-phillip.dacosta@gmail.com
+📤 Emitted message_deleted to receiver: dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:46:57 +0000] "DELETE /api/messaging/messages/6942de7b9a48219a6c9cef44 HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:58 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:58 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:46:58 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1138 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:46:58 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:16 +0000] "OPTIONS /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:16 +0000] "OPTIONS /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/messages?limit=50 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📥 GET /conversations/:otherUserId/messages {
+  userId: 'dev-user-travelbuggler@gmail.com',
+  otherUserId: 'dev-user-phillip.dacosta@gmail.com',
+  limit: '50',
+  before: undefined
+}
+🔍 Looking for messages with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:47:16 +0000] "PUT /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ Found 25 messages for conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+📋 Sample messages: [
+  {
+    id: new ObjectId('6942db4c6ebff3c6db44dea3'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-travelbuggler@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: '🥶',
+    createdAt: 2025-12-17T16:33:16.591Z
+  },
+  {
+    id: new ObjectId('6942d7cb6ebff3c6db43d773'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:18:19.342Z
+  },
+  {
+    id: new ObjectId('6942d7546ebff3c6db437e1a'),
+    conversationId: 'dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-travelbuggler@gmail.com',
+    content: '',
+    createdAt: 2025-12-17T16:16:20.046Z
+  }
+]
+127.0.0.1 - - [17/Dec/2025:16:47:16 +0000] "GET /api/messaging/conversations/dev-user-phillip.dacosta@gmail.com/messages?limit=50 HTTP/1.1" 200 13522 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:16 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:17 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 579 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📨 Received send_message event: {
+  userId: 'dev-user-travelbuggler@gmail.com',
+  receiverId: 'dev-user-phillip.dacosta@gmail.com',
+  content: 'I saw that',
+  type: 'text',
+  replyTo: undefined
+}
+📝 Creating message with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+💾 Saving message to database...
+✅ Message saved successfully: 6942de979a48219a6c9cff08
+📤 Sending message to receiver: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:47:19 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:19 +0000] "OPTIONS /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:19 +0000] "PUT /api/messaging/conversations/dev-user-travelbuggler@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:20 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1144 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:20 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 585 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:20 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1144 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-phillip.dacosta@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 6919f3f278696a2e5fd7b794 from socket mapping
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+✅ User connected: dev-user-phillip.dacosta@gmail.com, socket.id: LgxjJ6okTOUogdO5AAAh
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta',
+  picture: null
+}
+Getting user by email: phillip.dacosta@gmail.com
+📝 Mapped MongoDB user ID 6919f3f278696a2e5fd7b794 to socket LgxjJ6okTOUogdO5AAAh
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-phillip.dacosta@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocIcXApyZl8nA9d3bwUuGOVG7WPAY8CdTJlHKiYzuq6XXRuQ8-AJ=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: { interfaceLanguage: 'en', nativeLanguage: 'en' }
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User found: phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "POST /api/users/by-email HTTP/1.1" 200 929 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:28 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1144 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "OPTIONS /api/notifications HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📬 Fetching notifications for user: dev-user-phillip.dacosta@gmail.com
+📬 Found user: new ObjectId('6919f3f278696a2e5fd7b794') Fetching notifications...
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1144 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📬 Found 50 notifications for user: new ObjectId('6919f3f278696a2e5fd7b794')
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/notifications HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1144 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:29 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+📨 Received send_message event: {
+  userId: 'dev-user-travelbuggler@gmail.com',
+  receiverId: 'dev-user-phillip.dacosta@gmail.com',
+  content: 'u r',
+  type: 'text',
+  replyTo: undefined
+}
+📝 Creating message with conversationId: dev-user-phillip.dacosta@gmail.com_dev-user-travelbuggler@gmail.com
+💾 Saving message to database...
+✅ Message saved successfully: 6942dea49a48219a6c9d0ce9
+📤 Sending message to receiver: dev-user-phillip.dacosta@gmail.com
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:32 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:32 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:33 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:33 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 578 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "OPTIONS /api/messaging/conversations/dev-user-o.agayar91@gmail.com/read HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "OPTIONS /api/messaging/conversations/dev-user-o.agayar91@gmail.com/messages?limit=50 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📥 GET /conversations/:otherUserId/messages {
+  userId: 'dev-user-phillip.dacosta@gmail.com',
+  otherUserId: 'dev-user-o.agayar91@gmail.com',
+  limit: '50',
+  before: undefined
+}
+🔍 Looking for messages with conversationId: dev-user-o.agayar91@gmail.com_dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "PUT /api/messaging/conversations/dev-user-o.agayar91@gmail.com/read HTTP/1.1" 200 52 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+✅ Found 13 messages for conversationId: dev-user-o.agayar91@gmail.com_dev-user-phillip.dacosta@gmail.com
+📋 Sample messages: [
+  {
+    id: new ObjectId('692cf6aafdda5c4fcd72d904'),
+    conversationId: 'dev-user-o.agayar91@gmail.com_dev-user-phillip.dacosta@gmail.com',
+    senderId: 'dev-user-phillip.dacosta@gmail.com',
+    receiverId: 'dev-user-o.agayar91@gmail.com',
+    content: 'hi',
+    createdAt: 2025-12-01T02:00:10.307Z
+  },
+  {
+    id: new ObjectId('692cf6a5fdda5c4fcd72d8c5'),
+    conversationId: 'dev-user-o.agayar91@gmail.com_dev-user-phillip.dacosta@gmail.com',
+    senderId: 'dev-user-o.agayar91@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: 'Hello',
+    createdAt: 2025-12-01T02:00:05.572Z
+  },
+  {
+    id: new ObjectId('692cf684fdda5c4fcd72d886'),
+    conversationId: 'dev-user-o.agayar91@gmail.com_dev-user-phillip.dacosta@gmail.com',
+    senderId: 'dev-user-o.agayar91@gmail.com',
+    receiverId: 'dev-user-phillip.dacosta@gmail.com',
+    content: 'hi',
+    createdAt: 2025-12-01T01:59:32.831Z
+  }
+]
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "GET /api/messaging/conversations/dev-user-o.agayar91@gmail.com/messages?limit=50 HTTP/1.1" 200 6237 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:47:46 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:47:59 +0000] "OPTIONS /api/messaging/messages/692a62f7f053588f88b46590 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🗑️ Deleting file from GCS: messages/voices/dev-user-phillip.dacosta@gmail.com/1764385527312_voice-note-1764385512902.webm
+✅ File deleted from GCS successfully
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: LgxjJ6okTOUogdO5AAAh Receiver socket: undefined
+📤 Emitted message_deleted to sender: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:48:00 +0000] "DELETE /api/messaging/messages/692a62f7f053588f88b46590 HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:00 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:48:01 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1137 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:04 +0000] "OPTIONS /api/messaging/messages/692cf6aafdda5c4fcd72d904 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: LgxjJ6okTOUogdO5AAAh Receiver socket: undefined
+📤 Emitted message_deleted to sender: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:48:04 +0000] "DELETE /api/messaging/messages/692cf6aafdda5c4fcd72d904 HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+127.0.0.1 - - [17/Dec/2025:16:48:05 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1135 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:17 +0000] "OPTIONS /api/messaging/messages/6942dea49a48219a6c9d0ce9 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📡 Emitting message deletion, req.io exists: true req.connectedUsers exists: true
+🔍 Sender socket: ECp8ws6KVFfDnIcWAAAf Receiver socket: LgxjJ6okTOUogdO5AAAh
+📤 Emitted message_deleted to sender: dev-user-travelbuggler@gmail.com
+📤 Emitted message_deleted to receiver: dev-user-phillip.dacosta@gmail.com
+127.0.0.1 - - [17/Dec/2025:16:48:17 +0000] "DELETE /api/messaging/messages/6942dea49a48219a6c9d0ce9 HTTP/1.1" 200 96 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:17 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:17 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-phillip-da...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: phillip.dacosta@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-phillip.dacosta@gmail.com',
+  email: 'phillip.dacosta@gmail.com',
+  name: 'phillip.dacosta'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [17/Dec/2025:16:48:18 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1142 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+127.0.0.1 - - [17/Dec/2025:16:48:18 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 585 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"

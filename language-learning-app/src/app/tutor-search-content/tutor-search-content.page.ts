@@ -138,6 +138,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   ) {}
 
   ngOnInit() {
+    // Load view mode from localStorage
+    const savedViewMode = localStorage.getItem('tutorSearchViewMode');
+    if (savedViewMode) {
+      this.viewMode = savedViewMode as 'grid' | 'list';
+    } else {
+      this.viewMode = 'list';
+    }
+    
     // Load saved filters first
     this.loadSavedFilters();
     
@@ -1310,6 +1318,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   // Toggle view mode
   toggleViewMode(mode: 'grid' | 'list') {
     this.viewMode = mode;
+    localStorage.setItem('tutorSearchViewMode', mode);
   }
 
   // Open tutor profile (new tab on desktop, same page on mobile)

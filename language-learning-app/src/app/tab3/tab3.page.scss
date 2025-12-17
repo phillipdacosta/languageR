@@ -495,6 +495,16 @@ $purple: #8b5cf6;
         margin: 0;
         letter-spacing: -0.02em;
       }
+      
+      .goal-description {
+        font-size: 13px;
+        font-weight: 400;
+        color: $text-secondary;
+        margin: 4px 0 0 0;
+        letter-spacing: 0;
+        line-height: 1.4;
+        opacity: 0.8;
+      }
     }
   }
   
@@ -531,6 +541,378 @@ $purple: #8b5cf6;
       font-weight: 600;
       color: $text-secondary;
       letter-spacing: -0.01em;
+    }
+  }
+}
+
+/* =============================================
+   CHALLENGES CARD
+   ============================================= */
+
+.challenges-card {
+  background: $card-bg;
+  border-radius: 24px;
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: $text-primary;
+  
+  .challenges-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: $text-primary;
+      letter-spacing: -0.025em;
+      
+      ion-icon {
+        font-size: 28px;
+      }
+    }
+    
+    .challenges-language-badge {
+      background: #f3f4f6;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: $text-primary;
+    }
+  }
+  
+  .challenges-subtitle {
+    font-size: 15px;
+    color: $text-secondary;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+  }
+  
+  .challenges-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .challenge-item {
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.2s ease;
+    border: 1px solid #e5e7eb;
+    
+    &:hover {
+      background: #f3f4f6;
+      transform: translateX(4px);
+    }
+    
+    .challenge-icon-wrapper {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+    
+    .challenge-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .challenge-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    
+    .challenge-issue {
+      font-size: 16px;
+      font-weight: 600;
+      color: $text-primary;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      transition: color 0.2s ease;
+      
+      &:hover {
+        color: $blue;
+      }
+      
+      .expand-icon {
+        font-size: 18px;
+        transition: transform 0.2s ease;
+      }
+    }
+    
+    .challenge-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: $text-secondary;
+      margin-top: 4px;
+    }
+    
+    .challenge-frequency {
+      flex: 1;
+    }
+    
+    .challenge-percentage {
+      font-weight: 700;
+      font-size: 14px;
+      background: #e5e7eb;
+      padding: 4px 12px;
+      border-radius: 12px;
+      color: $text-primary;
+      flex-shrink: 0;
+    }
+    
+    .challenge-description {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      animation: slideDown 0.3s ease;
+      
+      .description-text {
+        font-size: 14px;
+        color: $text-secondary;
+        line-height: 1.6;
+        margin: 0 0 12px 0;
+      }
+      
+      .challenge-examples {
+        margin-top: 12px;
+        
+        .example-item {
+          background: #f9fafb;
+          border-left: 3px solid $blue;
+          padding: 10px 12px;
+          margin-bottom: 8px;
+          border-radius: 4px;
+          font-size: 13px;
+          line-height: 1.5;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          strong {
+            color: $text-primary;
+            font-weight: 600;
+          }
+          
+          .example-original {
+            color: $text-secondary;
+            margin-bottom: 4px;
+          }
+          
+          .example-corrected {
+            color: $green;
+            margin-bottom: 4px;
+            font-weight: 500;
+          }
+          
+          .example-explanation {
+            color: $text-secondary;
+            font-style: italic;
+            margin-top: 4px;
+            font-size: 12px;
+          }
+        }
+        
+        .no-examples {
+          padding: 12px;
+          text-align: center;
+          font-size: 13px;
+          color: $text-secondary;
+          font-style: italic;
+        }
+      }
+    }
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      max-height: 0;
+    }
+    to {
+      opacity: 1;
+      max-height: 500px;
+    }
+  }
+  
+  .challenges-empty {
+    text-align: center;
+    padding: 32px 20px;
+    
+    ion-icon {
+      font-size: 56px;
+      margin-bottom: 12px;
+      opacity: 0.9;
+    }
+    
+    p {
+      font-size: 16px;
+      color: $text-primary;
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+  
+  .challenges-tip {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    padding: 14px 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: $text-primary;
+    line-height: 1.5;
+    
+    ion-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .challenges-card {
+    padding: 24px 20px;
+    margin-bottom: 24px;
+    border-radius: 20px;
+    
+    .challenges-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+      
+      h2 {
+        font-size: 20px;
+        color: $text-primary;
+        
+        ion-icon {
+          font-size: 24px;
+        }
+      }
+      
+      .challenges-language-badge {
+        align-self: flex-start;
+        color: $text-primary;
+      }
+    }
+    
+    .challenges-subtitle {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: $text-secondary;
+    }
+    
+    .challenge-item {
+      padding: 14px;
+      gap: 12px;
+      
+      .challenge-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+      
+      .challenge-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      
+      .challenge-issue {
+        font-size: 15px;
+        width: 100%;
+        color: $text-primary;
+      }
+      
+      .challenge-meta {
+        font-size: 12px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        color: $text-secondary;
+        width: 100%;
+      }
+      
+      .challenge-percentage {
+        align-self: flex-start;
+        font-size: 13px;
+        color: $text-primary;
+      }
+      
+      .challenge-description {
+        .description-text {
+          font-size: 13px;
+        }
+        
+        .challenge-examples {
+          .example-item {
+            font-size: 12px;
+            padding: 8px 10px;
+          }
+        }
+      }
+    }
+    
+    .challenges-empty {
+      padding: 24px 16px;
+      
+      ion-icon {
+        font-size: 48px;
+      }
+      
+      p {
+        font-size: 15px;
+        color: $text-primary;
+      }
+    }
+    
+    .challenges-tip {
+      padding: 12px 14px;
+      font-size: 13px;
+      color: $text-primary;
+      
+      ion-icon {
+        font-size: 18px;
+      }
     }
   }
 }
@@ -873,6 +1255,14 @@ $purple: #8b5cf6;
     margin-top: 4px;
     letter-spacing: -0.01em;
   }
+  
+  .stat-sublabel {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+    font-style: italic;
+  }
 }
 
 /* Level Badge Card */
@@ -934,10 +1324,28 @@ $purple: #8b5cf6;
   letter-spacing: -0.02em;
 }
 
+.improvement-message {
+  font-size: 22px;
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+
 .confidence-text {
   font-size: 14px;
   color: $text-secondary;
   letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.level-note {
+  font-size: 12px;
+  color: $text-secondary;
+  letter-spacing: -0.01em;
+  font-style: italic;
+  margin-top: 4px;
+  opacity: 0.8;
 }
 
 /* Radar Chart */
@@ -1018,6 +1426,279 @@ $purple: #8b5cf6;
 /* =============================================
    PROGRESS OVER TIME CHART
    ============================================= */
+
+.chart-subtitle-note {
+  font-size: 12px;
+  color: #858585;
+  margin-top: 10px;
+  letter-spacing: -0.01em;
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* ========================================
+   Milestone Snapshots Card
+   ======================================== */
+
+.milestone-snapshots-card {
+  background: $card-bg;
+  border-radius: 24px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.snapshots-header {
+  margin-bottom: 28px;
+  
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 8px 0;
+    
+    ion-icon {
+      font-size: 28px;
+      color: #3b82f6;
+    }
+  }
+  
+  .snapshots-subtitle {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
+.milestone-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #e5e7eb;
+    border-radius: 4px;
+  }
+}
+
+.milestone-tab {
+  flex-shrink: 0;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  .tab-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 4px;
+  }
+  
+  .tab-sublabel {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+  
+  &:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+  }
+  
+  &.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    
+    .tab-label,
+    .tab-sublabel {
+      color: white;
+    }
+  }
+}
+
+.snapshot-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.snapshot-level-badge {
+  text-align: center;
+  margin-bottom: 32px;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-radius: 16px;
+  
+  .level-badge-label {
+    margin-top: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    
+    .level-badge-range {
+      display: block;
+      font-size: 13px;
+      font-weight: 400;
+      color: $text-secondary;
+      margin-top: 4px;
+    }
+  }
+}
+
+.snapshot-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.metric-card {
+  background: #f9fafb;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: #f3f4f6;
+    transform: translateY(-2px);
+  }
+}
+
+.metric-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+.metric-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: $text-primary;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.metric-change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.metric-sublabel {
+  font-size: 13px;
+  color: $text-secondary;
+  margin-top: 4px;
+}
+
+/* Mobile Responsiveness for Snapshots */
+@media (max-width: 768px) {
+  .milestone-snapshots-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  
+  .snapshots-header h2 {
+    font-size: 20px;
+    
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+  
+  .milestone-tabs {
+    gap: 8px;
+  }
+  
+  .milestone-tab {
+    padding: 10px 16px;
+    
+    .tab-label {
+      font-size: 14px;
+    }
+    
+    .tab-sublabel {
+      font-size: 11px;
+    }
+  }
+  
+  .snapshot-level-badge {
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .snapshot-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .metric-card {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .metric-icon {
+    width: 40px;
+    height: 40px;
+    
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+  
+  .metric-value {
+    font-size: 24px;
+  }
+}
 
 .progress-chart-card {
   background: $card-bg;
@@ -1543,6 +2224,10 @@ $purple: #8b5cf6;
   }
   
   .improvement-rate {
+    font-size: 18px;
+  }
+  
+  .improvement-message {
     font-size: 18px;
   }
   

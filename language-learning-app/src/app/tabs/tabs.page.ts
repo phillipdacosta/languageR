@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Afte
 import { Router, NavigationEnd } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take, combineLatest } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
@@ -197,6 +197,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
+    
+    // Update browser tab title with unread count (notifications + messages)
+    combineLatest([
+      this.unreadNotificationCount$,
+      this.unreadCount$
+    ]).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(([notificationCount, messageCount]) => {
+      const totalUnread = notificationCount + messageCount;
+      this.updateBrowserTabTitle(totalUnread);
+    });
   }
 
   private loadUnreadCount() {
@@ -356,13 +367,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       next: (response) => {
         if (response.success) {
           this.notifications = response.notifications;
-          const unreadCount = this.getUnreadNotifications().length;
-          this.unreadNotificationCount$.next(unreadCount);
+          // Don't calculate count locally - let the API call below handle it
           console.log('✅ Loaded', response.notifications.length, 'notifications');
-          console.log('📊 Unread:', unreadCount, 'Read:', this.getReadNotifications().length);
         }
         this.isLoadingNotifications = false;
-        // Also explicitly load unread count from API to ensure accuracy
+        // Load unread count from API for accuracy (single source of truth)
         this.loadUnreadNotificationCount();
       },
       error: (error) => {
@@ -442,6 +451,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  private updateBrowserTabTitle(unreadCount: number) {
+    const baseTitle = 'Speak Freely'; // Base title for your app
+    if (unreadCount > 0) {
+      document.title = `${baseTitle} (${unreadCount})`;
+    } else {
+      document.title = baseTitle;
+    }
+  }
+
   onNotificationClick(notification: Notification) {
     // Mark as read if unread (but keep it visible)
     if (!notification.read) {
@@ -451,9 +469,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         next: () => {
           notification.read = true;
           notification.readAt = new Date();
-          // Update unread count
-          this.loadUnreadNotificationCount();
-          // Reload notifications to update the list
+          // Reload notifications to update the list (this will also update count via loadUnreadNotificationCount)
           this.loadNotifications();
         },
         error: (error) => {

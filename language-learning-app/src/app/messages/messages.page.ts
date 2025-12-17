@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ModalController } from '@ionic/angular';
+import { ModalController, AlertController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { MessagingService, Conversation, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
@@ -8,6 +8,7 @@ import { AuthService } from '../services/auth.service';
 import { UserService } from '../services/user.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
+import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
@@ -41,11 +42,13 @@ import { trigger, style, transition, animate } from '@angular/animations';
     ])
   ]
 })
-export class MessagesPage implements OnInit, OnDestroy {
+export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   private isInitialized = false;
   private isPageVisible = false; // Track if page is currently visible
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   @ViewChild('chatContainer', { static: false }) chatContainer?: ElementRef;
+  @ViewChild('availabilityContainer', { static: false }) availabilityContainer?: ElementRef;
+  @ViewChild('topScrollbar', { static: false }) topScrollbar?: ElementRef;
 
   private destroy$ = new Subject<void>();
   
@@ -79,6 +82,15 @@ export class MessagesPage implements OnInit, OnDestroy {
  
   // Platform detection
   isDesktop = false;
+  showDetailsPanel = false; // Toggle for details panel visibility
+  hasConversationSelected = false; // Track if any conversation has been selected (prevents flicker)
+  
+  showUserHoverCard = false; // Toggle for user hover card visibility (deprecated - now using hoveredConversationId)
+  hoveredConversationId: string | null = null; // Track which conversation is being hovered in the list
+  showAvailabilityViewer = false; // Toggle for availability viewer in details panel
+  showCheckout = false; // Toggle for checkout in details panel
+  checkoutData: { tutorId: string; date: string; time: string; duration: number } | null = null;
+  private hoverCardTimeout: any = null; // Timeout for hover card delay
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
   // Conversations search
@@ -94,6 +106,80 @@ export class MessagesPage implements OnInit, OnDestroy {
   showContextMenu = false;
   contextMenuPosition: any = null;
   contextMenuMessage: Message | null = null;
+  
+  // Track optimistic reaction updates to prevent flicker
+  private optimisticReactionUpdates = new Set<string>();
+  
+  // Track when a message was just deleted to trust server unread counts
+  private recentlyDeletedConversations = new Set<string>();
+  
+  // Quick reaction emojis shown in context menu (organized in 3 rows)
+  quickReactions = [
+    // Positive emotions & support
+    '❤️',  // Heart
+    '😍',  // Heart eyes
+    '🥰',  // Smiling with hearts
+    '😊',  // Smiling
+    '😁',  // Beaming
+    '👍',  // Thumbs up
+    '👏',  // Clapping
+    '🙌',  // Raised hands
+    '💪',  // Strong
+    '🙏',  // Thanks/Please
+    '🎉',  // Celebrate
+    '✨',  // Sparkles
+    '🔥',  // Fire
+    '💯',  // 100
+    '⭐',  // Star
+    
+    // Reactions & expressions
+    '😂',  // Laughing
+    '🤣',  // Rolling laughing
+    '😅',  // Sweat smile
+    '😆',  // Grinning squinting
+    '😊',  // Blush
+    '🤗',  // Hugging
+    '😮',  // Wow
+    '😲',  // Astonished
+    '🤯',  // Mind blown
+    '😱',  // Screaming
+    '🤔',  // Thinking
+    '🧐',  // Monocle
+    '🤨',  // Raised eyebrow
+    '😏',  // Smirking
+    '😎',  // Cool
+    
+    // Negative emotions & concerns
+    '😢',  // Sad
+    '😭',  // Crying
+    '😔',  // Pensive
+    '😞',  // Disappointed
+    '😟',  // Worried
+    '😥',  // Sad sweat
+    '😰',  // Anxious sweat
+    '😬',  // Grimacing
+    '🙄',  // Eye roll
+    '😒',  // Unamused
+    '😑',  // Expressionless
+    '👎',  // Thumbs down
+    '😤',  // Frustrated
+    '😠',  // Angry
+    '💔',  // Broken heart
+    
+    // Questions & emphasis
+    '❓',  // Question
+    '❔',  // White question
+    '⁉️',  // Exclamation question
+    '‼️',  // Double exclamation
+    '❗',  // Exclamation
+    '💡',  // Light bulb (idea)
+    '🚀',  // Rocket
+    '💝',  // Heart with ribbon
+    '🎯',  // Target
+    '✅',  // Check mark
+    '❌',  // Cross mark
+    '⚠️',  // Warning
+  ];
 
   constructor(
     private messagingService: MessagingService,
@@ -104,6 +190,7 @@ export class MessagesPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private modalController: ModalController,
+    private alertController: AlertController,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -121,6 +208,130 @@ export class MessagesPage implements OnInit, OnDestroy {
       // Connect to WebSocket
       this.websocketService.connect();
       
+      // Listen for reaction updates
+      this.websocketService.reactionUpdated$.pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(data => {
+        console.log('📥 Reaction update received:', data);
+        
+        // Find and update the message in the local array
+        const index = this.messages.findIndex(m => {
+          const mId = (m as any).id || (m as any)._id;
+          return mId === data.messageId.toString() || mId.toString() === data.messageId.toString();
+        });
+        
+        if (index !== -1) {
+          const currentMessage = this.messages[index];
+          const updatedMessage = data.message;
+          
+          // Ensure the message has id property
+          if (!updatedMessage.id && (updatedMessage as any)._id) {
+            updatedMessage.id = (updatedMessage as any)._id;
+          }
+          
+          // Check if this is our own optimistic update coming back
+          const updateKey = `${data.messageId}`;
+          if (this.optimisticReactionUpdates.has(updateKey)) {
+            // Normalize and compare reaction arrays
+            const normalizeReactions = (reactions: any[]) => {
+              return (reactions || [])
+                .map(r => ({
+                  emoji: r.emoji,
+                  userId: this.normalizeUserId(r.userId)
+                }))
+                .sort((a, b) => (a.emoji + a.userId).localeCompare(b.emoji + b.userId));
+            };
+            
+            const currentNormalized = normalizeReactions(currentMessage.reactions || []);
+            const newNormalized = normalizeReactions(updatedMessage.reactions || []);
+            
+            const currentStr = JSON.stringify(currentNormalized);
+            const newStr = JSON.stringify(newNormalized);
+            
+            if (currentStr === newStr) {
+              console.log('⏭️ Skipping WebSocket update - matches optimistic update');
+              this.optimisticReactionUpdates.delete(updateKey);
+              return;
+            } else {
+              console.log('✅ Accepting WebSocket update - server state differs', {
+                current: currentStr,
+                new: newStr
+              });
+              this.optimisticReactionUpdates.delete(updateKey);
+            }
+          }
+          
+          console.log('✅ Updating message at index:', index);
+          
+          // Create new array reference for change detection
+          this.messages = [
+            ...this.messages.slice(0, index),
+            updatedMessage,
+            ...this.messages.slice(index + 1)
+          ];
+          
+          // Update context menu if it's the same message
+          const ctxId = (this.contextMenuMessage as any)?._id || this.contextMenuMessage?.id;
+          if (ctxId && ctxId.toString() === data.messageId.toString()) {
+            this.contextMenuMessage = updatedMessage;
+            console.log('✅ Updated context menu message');
+          }
+          
+          this.cdr.detectChanges();
+        }
+      });
+
+      // Listen for message deletions
+      this.websocketService.messageDeleted$.pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(data => {
+        console.log('🗑️ Message deletion received:', data);
+        
+        // Mark this conversation as recently having a deletion
+        // This tells the reload logic to trust the server's unread count
+        if (data.conversationId) {
+          this.recentlyDeletedConversations.add(data.conversationId);
+          
+          // Clear the flag after 2 seconds (in case reload doesn't happen)
+          setTimeout(() => {
+            this.recentlyDeletedConversations.delete(data.conversationId);
+          }, 2000);
+        }
+        
+        // Check if this message is in the currently selected conversation
+        const index = this.messages.findIndex(m => {
+          const mId = (m as any).id || (m as any)._id;
+          return mId === data.messageId.toString() || mId.toString() === data.messageId.toString();
+        });
+        
+        if (index !== -1) {
+          console.log('✅ Removing message from currently selected conversation at index:', index);
+          
+          // Remove the message from the open conversation
+          this.messages = [
+            ...this.messages.slice(0, index),
+            ...this.messages.slice(index + 1)
+          ];
+          
+          // Close context menu if it was showing for this message
+          const ctxId = (this.contextMenuMessage as any)?._id || this.contextMenuMessage?.id;
+          if (ctxId && ctxId.toString() === data.messageId.toString()) {
+            this.closeContextMenu();
+          }
+          
+          this.cdr.detectChanges();
+        } else {
+          console.log('ℹ️ Message not in currently selected conversation, updating conversation list');
+        }
+        
+        // ALWAYS reload conversations to update the last message preview
+        // This handles cases where:
+        // 1. The deleted message was the last message in a conversation
+        // 2. User A hasn't selected the conversation where the message was deleted
+        // 3. User A is viewing a different conversation
+        this.reloadConversationsDebounced();
+      });
+
       // Listen for new messages (both sent and received)
       this.websocketService.newMessage$.pipe(
         takeUntil(this.destroy$)
@@ -260,6 +471,42 @@ export class MessagesPage implements OnInit, OnDestroy {
 
     // Note: loadConversations() is now called in the authService.user$ subscription above
     // This ensures the user is authenticated before making API calls
+  }
+
+  ngAfterViewInit() {
+    // Set up dual scrollbar sync for availability viewer
+    setTimeout(() => this.setupDualScrollbar(), 500);
+  }
+
+  private setupDualScrollbar() {
+    if (this.availabilityContainer && this.topScrollbar) {
+      const container = this.availabilityContainer.nativeElement;
+      const topScroll = this.topScrollbar.nativeElement;
+      
+      // Sync top scrollbar content height with container scrollHeight
+      const syncHeight = () => {
+        const contentDiv = topScroll.querySelector('.top-scrollbar-content');
+        if (contentDiv && container) {
+          (contentDiv as HTMLElement).style.height = container.scrollHeight + 'px';
+        }
+      };
+      
+      // Initial sync
+      setTimeout(syncHeight, 100);
+      
+      // Sync on scroll
+      container.addEventListener('scroll', () => {
+        topScroll.scrollTop = container.scrollTop;
+      });
+      
+      topScroll.addEventListener('scroll', () => {
+        container.scrollTop = topScroll.scrollTop;
+      });
+      
+      // Re-sync when content changes (availability loads)
+      const observer = new MutationObserver(syncHeight);
+      observer.observe(container, { childList: true, subtree: true });
+    }
   }
 
   // Computed list filtered by search term (matches other user's name)
@@ -576,7 +823,8 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   loadConversations(): Promise<void> {
-    console.log('[MessagesPage] loadConversations: starting');
+    console.log(`🔄 [${Date.now()}] ═══════ loadConversations START ═══════`);
+    console.log(`   Current selected: ${this.selectedConversation?.otherUser?.name || 'none'}`);
     return new Promise((resolve, reject) => {
       this.isLoading = true;
       
@@ -599,6 +847,13 @@ export class MessagesPage implements OnInit, OnDestroy {
             lastMessageType: c.lastMessage?.type,
             isSystemMessage: (c.lastMessage as any)?.isSystemMessage
           })));
+          
+          // Process conversations to ensure proper preview text for all message types
+          response.conversations.forEach(conv => {
+            if (conv.lastMessage) {
+              conv.lastMessage.content = this.getMessagePreviewText(conv.lastMessage as Message);
+            }
+          });
           
           // Update conversations in-place to prevent flash/re-render
           if (this.conversations.length === 0) {
@@ -623,28 +878,48 @@ export class MessagesPage implements OnInit, OnDestroy {
                 const serverUnread = newConv.unreadCount || 0;
                 const isSelectedConv = this.selectedConversation?.conversationId === existingConv.conversationId;
                 
+                // CRITICAL: Skip updating the selected conversation to prevent header flicker
+                // Mutating the selected conversation object triggers change detection and causes visual glitches
+                // HOWEVER, we still need to update the unread count for the badge
+                if (isSelectedConv) {
+                  console.log(`⏭️ [${Date.now()}] Skipping full update for selected conversation, but updating unread count: ${this.selectedConversation?.otherUser?.name}`);
+                  // Only update unread count and lastMessage preview (for the badge in sidebar)
+                  this.conversations[existingIndex].unreadCount = serverUnread;
+                  if (newConv.lastMessage) {
+                    this.conversations[existingIndex].lastMessage = newConv.lastMessage;
+                  }
+                  return; // Skip other updates to prevent flicker
+                }
+                
                 // Update existing conversation properties (preserves reference)
                 Object.assign(this.conversations[existingIndex], newConv);
                 
+                // Check if this conversation recently had a message deleted
+                const recentlyDeleted = this.recentlyDeletedConversations.has(newConv.conversationId);
+                
                 // Only preserve higher local count if:
                 // 1. Local count is higher AND
-                // 2. This is NOT the selected conversation (selected conversation always trusts server for mark-as-read)
-                if (localUnread > serverUnread && !isSelectedConv) {
+                // 2. This is NOT the selected conversation AND
+                // 3. No message was recently deleted in this conversation
+                if (localUnread > serverUnread && !isSelectedConv && !recentlyDeleted) {
                   console.log('[MessagesPage] loadConversations: Preserving higher local unread count', {
                     conversationId: newConv.conversationId,
                     localUnread,
                     serverUnread,
                     isSelectedConv,
+                    recentlyDeleted,
                     using: localUnread
                   });
                   this.conversations[existingIndex].unreadCount = localUnread;
-                } else if (isSelectedConv && serverUnread !== localUnread) {
-                  console.log('[MessagesPage] loadConversations: Accepting server unread count for selected conversation', {
+                } else if (recentlyDeleted) {
+                  console.log('[MessagesPage] loadConversations: Message was recently deleted, trusting server unread count', {
                     conversationId: newConv.conversationId,
                     localUnread,
                     serverUnread,
                     using: serverUnread
                   });
+                  // Clear the flag since we've now processed this deletion
+                  this.recentlyDeletedConversations.delete(newConv.conversationId);
                 }
               } else {
                 // New conversation - add it
@@ -671,22 +946,10 @@ export class MessagesPage implements OnInit, OnDestroy {
         
         // Do NOT auto-select conversations - let user choose which conversation to view
         // This applies to both mobile and desktop to prevent showing messages they're not ready to read
-        // If we have a selected conversation, update it with the latest data
-          if (this.selectedConversation) {
-            const updatedConv = this.conversations.find(
-              c => c.conversationId === this.selectedConversation?.conversationId ||
-                   (this.selectedConversation?.otherUser && 
-                    c.otherUser?.auth0Id === this.selectedConversation.otherUser.auth0Id)
-            );
-            
-            if (updatedConv) {
-              // Preserve user info if it exists in selected conversation but not in updated
-              if (this.selectedConversation.otherUser && !updatedConv.otherUser) {
-                updatedConv.otherUser = this.selectedConversation.otherUser;
-              }
-              this.selectedConversation = updatedConv;
-            }
-          }
+        // DO NOT update selectedConversation or chatHeaderData during background conversation reloads
+        // This prevents header flicker when viewing messages
+        // The selected conversation and header data are set when user clicks and should remain stable
+        // Only the sidebar conversation list needs to be updated for unread counts
           
           this.isLoading = false;
           this.isInitialLoad = false; // Mark that we've loaded at least once
@@ -700,10 +963,11 @@ export class MessagesPage implements OnInit, OnDestroy {
             this.showEmptyState = false;
           }
           
+          console.log(`✅ [${Date.now()}] ═══════ loadConversations END ═══════`);
           resolve();
         },
         error: (error) => {
-          console.error('❌ MessagesPage: Error loading conversations:', error);
+          console.error(`❌ [${Date.now()}] Error loading conversations:`, error);
           console.error('❌ Error details:', error.error);
           this.isLoading = false;
           this.isInitialLoad = false;
@@ -721,12 +985,26 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   clearSelectedConversation() {
     this.selectedConversation = null;
+    this.hasConversationSelected = false;
     this.messages = [];
     // Notify service that no conversation is selected
     this.messagingService.setHasSelectedConversation(false);
   }
 
   selectConversation(conversation: Conversation) {
+    const timestamp = Date.now();
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🔵 [${timestamp}] selectConversation START`);
+    console.log(`   Name: ${conversation.otherUser?.name}`);
+    console.log(`   Previous: ${this.selectedConversation?.otherUser?.name || 'none'}`);
+    console.log(`   hasConversationSelected BEFORE: ${this.hasConversationSelected}`);
+    
+    // Close details panel and reset availability viewer and checkout when selecting a new conversation
+    this.showDetailsPanel = false;
+    this.showAvailabilityViewer = false;
+    this.showCheckout = false;
+    this.checkoutData = null;
+    
     // Store unread count BEFORE loading messages (since backend marks as read when fetching)
     const unreadCount = conversation.unreadCount || 0;
     
@@ -740,14 +1018,19 @@ export class MessagesPage implements OnInit, OnDestroy {
     // Clear any pending voice note preview
     this.clearPendingVoiceNote();
 
-    // CRITICAL: Clear old messages and set loading state SYNCHRONOUSLY
-    // This must happen before any async operations to prevent flash
-    this.messages = [];
-    this.isLoadingMessages = true;
-    this.cdr.detectChanges();
-    
-    // Set new conversation
+    console.log(`⚡ [${Date.now()}] Setting selectedConversation to: ${conversation.otherUser?.name}`);
+    // Update header FIRST in its own change detection cycle
     this.selectedConversation = conversation;
+    this.hasConversationSelected = true;
+    console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
+    
+    // THEN clear messages and show loading in next microtask (separate cycle)
+    // This ensures header renders completely before loading state changes
+    Promise.resolve().then(() => {
+      this.messages = [];
+      this.isLoadingMessages = true;
+      console.log(`🔄 [${Date.now()}] Loading state set in separate cycle`);
+    });
     
     // Notify service that a conversation is selected (for hiding tabs on mobile)
     this.messagingService.setHasSelectedConversation(true);
@@ -755,23 +1038,27 @@ export class MessagesPage implements OnInit, OnDestroy {
     // Small delay to ensure DOM has updated with loading state before fetching
     // This prevents any flash of old content
     setTimeout(() => {
+      console.log(`📤 [${Date.now()}] Calling loadMessages for: ${conversation.otherUser?.name}`);
       this.loadMessages(unreadCount, requestId);
     }, 0);
     
-    // Mark as read and reload conversations to update unread count
+    // Mark as read (conversation reload happens after messages load - see loadMessages success)
     // Only mark as read if the page is actually visible to the user
     if (conversation.otherUser && this.isPageVisible) {
       this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
         next: () => {
-          // Reload conversations to update the unread count in the sidebar and badge
-          this.loadConversations();
+          console.log(`✅ [${Date.now()}] Conversation marked as read`);
         }
       });
     } else if (conversation.otherUser && !this.isPageVisible) {
     }
+    
+    console.log(`🏁 [${Date.now()}] selectConversation END`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
   loadMessages(unreadCount?: number, requestId?: number) {
+    console.log(`📥 [${Date.now()}] loadMessages START for: ${this.selectedConversation?.otherUser?.name}`);
     if (!this.selectedConversation?.otherUser) return;
     
     const activeRequestId = requestId ?? ++this.messageLoadRequestId;
@@ -786,17 +1073,15 @@ export class MessagesPage implements OnInit, OnDestroy {
     if (!this.selectedConversation.conversationId) {
       this.messages = [];
       this.isLoadingMessages = false;
-      this.cdr.detectChanges();
       return;
     }
     
     this.isLoadingMessages = true;
-    this.cdr.detectChanges();
+    console.log(`⏳ [${Date.now()}] isLoadingMessages = true (no cdr call)`);
     const receiverId = this.selectedConversation.otherUser.auth0Id;
     if (!receiverId) {
       console.error('❌ Cannot load messages: no auth0Id in otherUser');
       this.isLoadingMessages = false;
-      this.cdr.detectChanges();
       return;
     }
     
@@ -805,7 +1090,9 @@ export class MessagesPage implements OnInit, OnDestroy {
     
     this.messagesSubscription = this.messagingService.getMessages(receiverId).subscribe({
       next: (response) => {
+        console.log(`📨 [${Date.now()}] Messages received: ${response.messages?.length || 0} messages`);
         if (activeRequestId !== this.messageLoadRequestId) {
+          console.log(`⚠️ [${Date.now()}] Ignoring stale response`);
           return; // Ignore stale response
         }
         
@@ -817,9 +1104,7 @@ export class MessagesPage implements OnInit, OnDestroy {
         
         // Set messages
         this.messages = response.messages || [];
-        
-        // Force change detection to update DOM
-        this.cdr.detectChanges();
+        console.log(`💬 [${Date.now()}] Messages set (no cdr call)`);
         
         setTimeout(async () => {
           if (activeRequestId !== this.messageLoadRequestId) {
@@ -830,7 +1115,12 @@ export class MessagesPage implements OnInit, OnDestroy {
           await this.scrollToFirstUnreadMessage(storedUnreadCount);
 
           this.isLoadingMessages = false;
-          this.cdr.detectChanges();
+          console.log(`✅ [${Date.now()}] isLoadingMessages = false (no cdr call)`);
+          
+          // Now that messages are loaded and UI is stable, refresh conversations
+          // This updates the unread count in the sidebar without causing header flicker
+          console.log(`🔄 [${Date.now()}] Calling loadConversations()`);
+          this.loadConversations();
         }, 150); // Increased from 40ms to 150ms for more reliable scrolling
       },
       error: (error) => {
@@ -1279,18 +1569,191 @@ export class MessagesPage implements OnInit, OnDestroy {
            `dev-user-${message.senderId}` === currentUserId;
   }
 
+  // Check if message content is emoji-only (no other text)
+  isEmojiOnly(content: string): boolean {
+    if (!content || content.trim().length === 0) return false;
+    
+    // Remove all emojis and see if anything is left
+    // This regex matches most emoji characters
+    const emojiRegex = /[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu;
+    const withoutEmojis = content.replace(emojiRegex, '').trim();
+    
+    // Also remove variation selectors and zero-width joiners
+    const cleanedText = withoutEmojis.replace(/[\u200D\uFE0F]/g, '').trim();
+    
+    // If nothing left after removing emojis, it's emoji-only
+    // Also check that we have at least one emoji
+    const hasEmoji = emojiRegex.test(content);
+    return hasEmoji && cleanedText.length === 0;
+  }
+
   // Navigate to the other user's public profile
+  toggleDetailsPanel() {
+    this.showDetailsPanel = !this.showDetailsPanel;
+    // Reset availability viewer and checkout when closing details panel
+    if (!this.showDetailsPanel) {
+      this.showAvailabilityViewer = false;
+      this.showCheckout = false;
+      this.checkoutData = null;
+    }
+  }
+
+  openBookLesson() {
+    // Desktop: Open details panel and show availability viewer
+    // Mobile: Open modal with availability viewer
+    if (this.isDesktop) {
+      this.showDetailsPanel = true;
+      this.showAvailabilityViewer = true;
+      this.showUserHoverCard = false; // Hide hover card
+      
+      // Clear hover card timeout if any
+      if (this.hoverCardTimeout) {
+        clearTimeout(this.hoverCardTimeout);
+        this.hoverCardTimeout = null;
+      }
+    } else {
+      // Mobile: Open in modal
+      this.openAvailabilityModal();
+    }
+  }
+
+  async openAvailabilityModal() {
+    if (!this.selectedConversation?.otherUser) return;
+
+    const modal = await this.modalController.create({
+      component: TutorAvailabilityViewerComponent,
+      componentProps: {
+        tutorId: this.selectedConversation.otherUser.id,
+        selectionMode: true // Emit event instead of navigating
+      },
+      cssClass: 'availability-modal'
+    });
+
+    await modal.present();
+
+    // Listen for when modal is dismissed with data
+    const { data } = await modal.onDidDismiss();
+    
+    // If a slot was selected, navigate to checkout
+    if (data && data.selectedDate && data.selectedTime) {
+      this.router.navigate(['/checkout'], {
+        queryParams: {
+          tutorId: this.selectedConversation.otherUser.id,
+          date: data.selectedDate,
+          time: data.selectedTime,
+          duration: data.lessonMinutes || 25,
+          returnTo: 'messages'  // Return to messages after booking
+        }
+      });
+    }
+  }
+
+  closeAvailabilityViewer() {
+    this.showAvailabilityViewer = false;
+  }
+
+  onSlotSelected(event: { selectedDate: string; selectedTime: string }) {
+    // Store the selected slot data and show checkout
+    if (this.selectedConversation?.otherUser) {
+      this.checkoutData = {
+        tutorId: this.selectedConversation.otherUser.id,
+        date: event.selectedDate,
+        time: event.selectedTime,
+        duration: 25 // Default, will be updated from availability viewer if needed
+      };
+      this.showAvailabilityViewer = false;
+      this.showCheckout = true;
+    }
+  }
+
+  onCheckoutComplete() {
+    // Go back to availability viewer after successful booking
+    this.showCheckout = false;
+    this.showAvailabilityViewer = true;
+    this.checkoutData = null;
+  }
+
+  onCheckoutCancelled() {
+    // Go back to availability viewer if checkout is cancelled
+    this.showCheckout = false;
+    this.showAvailabilityViewer = true;
+    this.checkoutData = null;
+  }
+
+  showHoverCard() {
+    // Clear any pending hide timeout
+    if (this.hoverCardTimeout) {
+      clearTimeout(this.hoverCardTimeout);
+      this.hoverCardTimeout = null;
+    }
+    this.showUserHoverCard = true;
+  }
+
+  hideHoverCard() {
+    // Add a delay before hiding to allow cursor to reach the card
+    this.hoverCardTimeout = setTimeout(() => {
+      this.showUserHoverCard = false;
+    }, 200); // 200ms delay
+  }
+
+  // Hover card for conversation list items
+  showConversationHoverCard(conversationId: string) {
+    // Clear any existing timeout
+    if (this.hoverCardTimeout) {
+      clearTimeout(this.hoverCardTimeout);
+      this.hoverCardTimeout = null;
+    }
+    this.hoveredConversationId = conversationId;
+  }
+
+  hideConversationHoverCard() {
+    // Add a small delay before hiding
+    this.hoverCardTimeout = setTimeout(() => {
+      this.hoveredConversationId = null;
+    }, 200);
+  }
+
+  // Get conversation by ID for hover card display
+  getConversationById(conversationId: string) {
+    return this.conversations.find(c => c.conversationId === conversationId);
+  }
+
+  getUserLocalTime(user: any): string {
+    // If user has timezone data, calculate their local time
+    if (user?.timezone) {
+      try {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: user.timezone,
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        return formatter.format(now);
+      } catch (error) {
+        console.warn('Invalid timezone:', user.timezone);
+        return 'Time unavailable';
+      }
+    }
+    return 'Time unavailable';
+  }
+
   openOtherUserProfile() {
     const other = this.selectedConversation?.otherUser;
     if (!other) return;
 
     if (other.userType === 'tutor' && other.id) {
-      this.router.navigate([`/tutor/${other.id}`]);
+      // Pass returnTo parameter so tutor page knows to come back to messages
+      this.router.navigate([`/tutor/${other.id}`], {
+        queryParams: { returnTo: 'messages' }
+      });
       return;
     }
 
     if (other.userType === 'student' && other.id) {
-      this.router.navigate([`/student/${other.id}`]);
+      this.router.navigate([`/student/${other.id}`], {
+        queryParams: { returnTo: 'messages' }
+      });
       return;
     }
 
@@ -1337,10 +1800,8 @@ export class MessagesPage implements OnInit, OnDestroy {
 
     this.messagingService.uploadFile(receiverId, file, messageType, caption).subscribe({
       next: (response) => {
-        
-        // Add message to local messages array
-        this.messages.push(response.message);
-        this.scrollToBottom();
+        // Don't manually add the message here - let WebSocket handle it to avoid duplicates
+        // The server will emit the message via WebSocket after successful upload
         
         // Reload conversations to update last message
         this.reloadConversationsDebounced();
@@ -1475,19 +1936,15 @@ export class MessagesPage implements OnInit, OnDestroy {
 
   // Reply functionality handlers
   async onMessageTap(message: Message, event: any) {
-    console.log('📱 onMessageTap called', event.type);
     // Show context menu on long press (both mobile and desktop)
     await this.showMessageContextMenu(message, event);
   }
 
   onMessagePressStart(message: Message, event: any) {
-    console.log('👇 Press start', event);
-    
     // Store the event target for later use
     const pressedElement = event.target.closest('.message-bubble');
     
     this.longPressTimer = setTimeout(async () => {
-      console.log('⏰ Long press triggered');
       // Create a new event-like object with the stored element
       const eventData = {
         target: pressedElement,
@@ -1498,7 +1955,6 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   onMessagePressEnd(event: any) {
-    console.log('👆 Press end');
     if (this.longPressTimer) {
       clearTimeout(this.longPressTimer);
       this.longPressTimer = null;
@@ -1506,12 +1962,9 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   showMessageContextMenu(message: Message, event: any) {
-    console.log('🎯 showMessageContextMenu called');
-    
     // Get the position of the tapped message
     const target = event.target;
     if (!target) {
-      console.log('❌ No message bubble found');
       return;
     }
 
@@ -1519,29 +1972,49 @@ export class MessagesPage implements OnInit, OnDestroy {
     const screenHeight = window.innerHeight;
     const screenWidth = window.innerWidth;
     const menuWidth = 260;
-    const menuHeight = this.isMyMessage(message) ? 300 : 350; // Different height with/without emojis
+    // Calculate actual menu height based on content:
+    // - Emoji reactions (if not my message): ~60px
+    // - 4-5 action items × ~50px each = ~200-250px
+    const emojiHeight = this.isMyMessage(message) ? 0 : 60;
+    const actionsHeight = this.isMyMessage(message) ? 200 : 210; // 4 items vs 5 items
+    const baseMenuHeight = emojiHeight + actionsHeight;
+    const paddingFromEdge = 20; // Minimum padding from screen edges
+    const gapFromMessage = 8; // Gap between message and menu
     
-    console.log('📏 Message bubble rect:', {
-      left: rect.left.toFixed(1),
-      right: rect.right.toFixed(1),
-      top: rect.top.toFixed(1),
-      bottom: rect.bottom.toFixed(1),
-      width: rect.width.toFixed(1),
-      centerX: (rect.left + rect.width / 2).toFixed(1)
-    });
-    console.log('📱 Screen:', { width: screenWidth, height: screenHeight });
+    // Calculate available space
+    const spaceAbove = rect.top - paddingFromEdge;
+    const spaceBelow = screenHeight - rect.bottom - paddingFromEdge;
     
-    // Determine if menu should show above or below the message
-    const spaceBelow = screenHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    const showBelow = spaceBelow > menuHeight || spaceBelow > spaceAbove;
+    // Determine if menu should show above or below based on available space
+    const showBelow = spaceBelow >= 200 || (spaceBelow >= spaceAbove && spaceBelow >= 150);
     
-    console.log('📊 Space analysis:', { 
-      spaceBelow, 
-      spaceAbove, 
-      menuHeight,
-      showBelow 
-    });
+    // Calculate menu height and position based on available space
+    let menuHeight;
+    let menuTop;
+    let menuBottom;
+    
+    if (showBelow) {
+      // Show below message - use TOP positioning
+      const availableHeight = spaceBelow - gapFromMessage;
+      menuHeight = Math.min(baseMenuHeight, Math.max(150, availableHeight));
+      menuTop = rect.bottom + gapFromMessage;
+      
+      // Ensure menu doesn't go off bottom of screen
+      const maxTop = screenHeight - menuHeight - paddingFromEdge;
+      if (menuTop > maxTop) {
+        menuTop = maxTop;
+      }
+    } else {
+      // Show above message - use BOTTOM positioning
+      // This anchors the menu bottom to the message top, regardless of menu height
+      const availableHeight = spaceAbove - gapFromMessage;
+      menuHeight = availableHeight; // Max height available
+      
+      // Calculate bottom position (distance from bottom of screen to where menu should end)
+      // Menu should end at: message.top - gap
+      // Bottom position = screenHeight - (message.top - gap)
+      menuBottom = screenHeight - rect.top + gapFromMessage;
+    }
     
     // Calculate the center of the message bubble
     const messageCenterX = rect.left + (rect.width / 2);
@@ -1549,11 +2022,10 @@ export class MessagesPage implements OnInit, OnDestroy {
     // Position menu centered on the message bubble
     let menuLeft = messageCenterX - (menuWidth / 2);
     
-    // Keep menu on screen (with 16px padding on sides)
+    // Keep menu on screen (with padding on sides)
     const minLeft = 16;
     const maxLeft = screenWidth - menuWidth - 16;
     
-    const originalMenuLeft = menuLeft;
     if (menuLeft < minLeft) {
       menuLeft = minLeft;
     } else if (menuLeft > maxLeft) {
@@ -1561,26 +2033,19 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
     
     // Calculate where the arrow should point (relative to menu position)
-    // Arrow should point to the center of the message bubble
     const arrowOffset = messageCenterX - menuLeft;
     
     // Clamp arrow offset to keep it within the menu bounds (with some padding)
     const clampedArrowOffset = Math.max(20, Math.min(arrowOffset, menuWidth - 20));
     
     this.contextMenuPosition = {
-      top: showBelow ? rect.bottom + 12 : rect.top - menuHeight - 12,
+      top: menuTop,
+      bottom: menuBottom,
       left: menuLeft,
       showBelow,
-      arrowOffset: clampedArrowOffset
+      arrowOffset: clampedArrowOffset,
+      maxHeight: menuHeight
     };
-
-    console.log('📍 Final position:', {
-      ...this.contextMenuPosition,
-      messageCenterX: messageCenterX.toFixed(1),
-      originalMenuLeft: originalMenuLeft.toFixed(1),
-      adjustedMenuLeft: menuLeft.toFixed(1),
-      arrowWillPointAt: (menuLeft + clampedArrowOffset).toFixed(1)
-    });
 
     this.contextMenuMessage = message;
     this.showContextMenu = true;
@@ -1616,8 +2081,7 @@ export class MessagesPage implements OnInit, OnDestroy {
         console.log('Forward message:', message.id);
         break;
       case 'delete':
-        // Implement delete functionality
-        console.log('Delete message:', message.id);
+        this.deleteMessage(message);
         break;
       case 'more':
         // Show more options
@@ -1626,8 +2090,139 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
   }
 
-  setReplyTo(message: Message) {
+  addReactionToMessage(message: Message, emoji: string) {
+    const messageId = (message as any).id || (message as any)._id;
     
+    if (!messageId) {
+      console.error('No message ID', message);
+      return;
+    }
+    
+    // Close the context menu immediately after clicking emoji
+    this.closeContextMenu();
+    
+    // Find the message index
+    const index = this.messages.findIndex(m => {
+      const mId = (m as any).id || (m as any)._id;
+      return mId === messageId;
+    });
+    
+    if (index === -1) {
+      console.error('Message not found in array');
+      return;
+    }
+    
+    // Get current user info for optimistic update
+    const currentUserId = this.getCurrentUserId();
+    const currentUserName = 'You'; // Could get from user service if needed
+    
+    // Create optimistic update - clone the message with new reaction
+    const messageToUpdate = { ...this.messages[index] };
+    const existingReactions = messageToUpdate.reactions || [];
+    
+    // Normalize current user ID for comparison
+    const normalizedCurrentId = this.normalizeUserId(currentUserId);
+    
+    // Check if user already reacted with ANY emoji
+    const existingUserReactionIndex = existingReactions.findIndex(
+      r => this.normalizeUserId(r.userId) === normalizedCurrentId
+    );
+    
+    // Check if user already reacted with THIS specific emoji
+    const existingReactionIndex = existingReactions.findIndex(
+      r => r.emoji === emoji && this.normalizeUserId(r.userId) === normalizedCurrentId
+    );
+    
+    let optimisticReactions;
+    if (existingReactionIndex !== -1) {
+      // User clicked same emoji again - remove it (toggle off)
+      optimisticReactions = existingReactions.filter((_, i) => i !== existingReactionIndex);
+    } else if (existingUserReactionIndex !== -1) {
+      // User already has a different emoji - replace it
+      optimisticReactions = existingReactions.map((r, i) => 
+        i === existingUserReactionIndex 
+          ? { emoji, userId: currentUserId, userName: currentUserName }
+          : r
+      );
+    } else {
+      // User has no reaction yet - add new one
+      optimisticReactions = [
+        ...existingReactions,
+        {
+          emoji,
+          userId: currentUserId,
+          userName: currentUserName
+        }
+      ];
+    }
+    
+    messageToUpdate.reactions = optimisticReactions;
+    
+    // Optimistically update the UI immediately
+    this.messages = [
+      ...this.messages.slice(0, index),
+      messageToUpdate,
+      ...this.messages.slice(index + 1)
+    ];
+    this.cdr.detectChanges();
+    
+    // Mark this message as having an optimistic update
+    // This will prevent duplicate updates when WebSocket event arrives
+    const updateKey = `${messageId}`;
+    this.optimisticReactionUpdates.add(updateKey);
+    
+    // Now send the API request
+    this.messagingService.addReaction(messageId, emoji).subscribe({
+      next: (response) => {
+        // API response successful - the WebSocket will handle the actual update
+        // No need to update here since we already did the optimistic update
+        // and the WebSocket reactionUpdated$ listener will sync with server state
+      },
+      error: (error) => {
+        console.error('Error adding reaction:', error);
+        
+        // Remove the optimistic flag since the operation failed
+        this.optimisticReactionUpdates.delete(updateKey);
+        
+        // Roll back the optimistic update on error
+        const currentIndex = this.messages.findIndex(m => {
+          const mId = (m as any).id || (m as any)._id;
+          return mId === messageId;
+        });
+        
+        if (currentIndex !== -1) {
+          // Restore original message (from before optimistic update)
+          const originalMessage = { ...this.messages[currentIndex] };
+          originalMessage.reactions = existingReactions; // Restore original reactions
+          
+          this.messages = [
+            ...this.messages.slice(0, currentIndex),
+            originalMessage,
+            ...this.messages.slice(currentIndex + 1)
+          ];
+          this.cdr.detectChanges();
+        }
+      }
+    });
+  }
+
+  onReactionClick(message: Message, emoji: string, event: Event) {
+    event.stopPropagation();
+    // Open context menu for this message at the reaction location
+    this.onMessageTap(message, event as any);
+  }
+
+  hasReaction(message: Message, emoji: string): boolean {
+    if (!message.reactions || message.reactions.length === 0) return false;
+    const currentUserId = this.getCurrentUserId();
+    const normalizedCurrentId = this.normalizeUserId(currentUserId);
+    return message.reactions.some(r => {
+      const normalizedReactionUserId = this.normalizeUserId(r.userId);
+      return r.emoji === emoji && normalizedReactionUserId === normalizedCurrentId;
+    });
+  }
+
+  setReplyTo(message: Message) {
     // Get sender name
     let senderName = 'Unknown';
     if (this.isMyMessage(message)) {
@@ -1637,10 +2232,22 @@ export class MessagesPage implements OnInit, OnDestroy {
     }
     
     this.replyingToMessage = message;
+    this.cdr.detectChanges(); // Force change detection
     
-    // Focus the input
-    setTimeout(() => {
-      this.messageInput?.nativeElement?.focus();
+    // Focus the input (works for both desktop and mobile)
+    setTimeout(async () => {
+      if (this.messageInput?.nativeElement) {
+        // For ion-input, we need to call setFocus() method
+        try {
+          await this.messageInput.nativeElement.setFocus();
+        } catch (e) {
+          // Fallback to regular focus if setFocus is not available
+          const inputElement = this.messageInput.nativeElement.querySelector('input');
+          if (inputElement) {
+            inputElement.focus();
+          }
+        }
+      }
     }, 100);
   }
 
@@ -1766,6 +2373,69 @@ export class MessagesPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     }
+  }
+
+  async deleteMessage(message: Message) {
+    const messageId = (message as any).id || (message as any)._id;
+    
+    if (!messageId) {
+      console.error('No message ID');
+      return;
+    }
+
+    // Show confirmation dialog
+    const alert = await this.alertController.create({
+      header: 'Delete Message',
+      message: 'Are you sure you want to delete this message? This action cannot be undone.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            // Call the delete API
+            this.messagingService.deleteMessage(messageId).subscribe({
+              next: (response) => {
+                console.log('✅ Message deleted successfully:', response);
+                
+                // Remove the message from the local array
+                const index = this.messages.findIndex(m => {
+                  const mId = (m as any).id || (m as any)._id;
+                  return mId === messageId;
+                });
+                
+                if (index !== -1) {
+                  this.messages = [
+                    ...this.messages.slice(0, index),
+                    ...this.messages.slice(index + 1)
+                  ];
+                  
+                  // Reload conversations to update last message
+                  this.reloadConversationsDebounced();
+                  
+                  this.cdr.detectChanges();
+                }
+              },
+              error: (error) => {
+                console.error('❌ Error deleting message:', error);
+                // Show error toast
+                this.showErrorToast('Failed to delete message');
+              }
+            });
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  private async showErrorToast(message: string) {
+    // You can implement this with Ionic Toast if needed
+    console.error(message);
   }
 
   sendPendingVoiceNote() {

@@ -35,6 +35,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   cameFromModal = false;
   justLoggedIn = false;
+  returnTo: string | null = null; // Track where to return when back button is clicked
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
@@ -121,6 +122,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     // Check if we came from the modal (via query params)
     const fromModal = this.route.snapshot.queryParamMap.get('fromModal');
     this.cameFromModal = fromModal === 'true';
+    
+    // Check where to return to when back button is clicked
+    this.returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+    console.log('🔙 ReturnTo parameter:', this.returnTo);
     
     const startTime = performance.now();
     console.log(`⏱️ [Tutor Page] Starting to load tutor: ${this.tutorId}`);
@@ -221,7 +226,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     // Handle platform/hardware back button
     if (this.platform.is('mobile')) {
       this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(10, () => {
-        this.reopenSearchModal();
+        // If returnTo is specified, navigate there instead of reopening modal
+        if (this.returnTo === 'messages') {
+          console.log('🔙 Hardware back button - returning to messages');
+          this.router.navigate(['/tabs/messages']);
+        } else {
+          this.reopenSearchModal();
+        }
       });
     }
     
@@ -230,6 +241,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       if (this.cameFromModal) {
         history.pushState(null, '', window.location.href); // Prevent actual navigation
         this.reopenSearchModal();
+      } else if (this.returnTo === 'messages') {
+        // If coming from messages, navigate back there
+        history.pushState(null, '', window.location.href); // Prevent actual navigation
+        this.router.navigate(['/tabs/messages']);
       }
     };
     
@@ -251,6 +266,16 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   goBackToSearch() {
+    console.log('🔙 Going back...', { returnTo: this.returnTo });
+    
+    // If returnTo is specified, navigate there
+    if (this.returnTo === 'messages') {
+      console.log('🔙 Returning to messages page');
+      this.router.navigate(['/tabs/messages']);
+      return;
+    }
+    
+    // Default: go back to tutor search
     console.log('🔙 Going back to tutor search - localStorage should have the ID');
     // Simply navigate back - localStorage already has returnToTutorId
     this.router.navigate(['/tabs/tutor-search']);

@@ -77,18 +77,31 @@ router.get('/me', verifyToken, async (req, res) => {
       areDifferent: auth0Picture !== user.picture
     });
     
-    if (auth0Picture && auth0Picture !== user.picture) {
-      console.log('🖼️ Picture changed in Auth0, updating database:', {
-        old: user.picture,
+    // Always update auth0Picture if we have a new Auth0 picture (even if user has custom picture)
+    const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
+    
+    if (auth0Picture && auth0Picture !== user.auth0Picture) {
+      console.log('🖼️ Auth0 picture changed, updating auth0Picture:', {
+        old: user.auth0Picture,
         new: auth0Picture
       });
-      user.picture = auth0Picture;
+      user.auth0Picture = auth0Picture;
+      
+      // If user doesn't have a custom picture, also update main picture
+      if (!hasCustomPicture) {
+        console.log('🖼️ User has no custom picture, also updating main picture');
+        user.picture = auth0Picture;
+      } else {
+        console.log('🖼️ User has custom picture, keeping it but updating auth0Picture for future restore');
+      }
+      
       await user.save();
-      console.log('✅ Picture updated in database');
+      console.log('✅ Pictures updated in database');
     } else if (auth0Picture && !user.picture) {
       // If Auth0 has a picture but database doesn't, sync it
-      console.log('🖼️ Auth0 has picture but database doesn\')t, syncing...');
+      console.log('🖼️ Auth0 has picture but database doesn\'t, syncing...');
       user.picture = auth0Picture;
+      user.auth0Picture = auth0Picture;
       await user.save();
       console.log('✅ Picture synced to database');
     }
@@ -106,6 +119,28 @@ router.get('/me', verifyToken, async (req, res) => {
       await user.save();
     }
     
+    // Ensure interfaceLanguage and nativeLanguage have default values if not set
+    let needsSave = false;
+    if (!user.interfaceLanguage) {
+      console.log('🌐 User has no interfaceLanguage, setting default to "en"');
+      user.interfaceLanguage = 'en';
+      needsSave = true;
+    }
+    if (!user.nativeLanguage) {
+      console.log('🌐 User has no nativeLanguage, setting default to "en"');
+      user.nativeLanguage = 'en';
+      needsSave = true;
+    }
+    if (needsSave) {
+      await user.save();
+      console.log('✅ Saved default language preferences');
+    }
+    
+    console.log('🌐 Returning user with languages:', {
+      interfaceLanguage: user.interfaceLanguage,
+      nativeLanguage: user.nativeLanguage
+    });
+    
     res.json({
       success: true,
       user: {
@@ -122,6 +157,8 @@ router.get('/me', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -208,6 +245,23 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
     
+    // Ensure language defaults are set for new users
+    let needsSave = false;
+    if (!user.interfaceLanguage) {
+      console.log('🌐 POST: User has no interfaceLanguage, setting default to "en"');
+      user.interfaceLanguage = 'en';
+      needsSave = true;
+    }
+    if (!user.nativeLanguage) {
+      console.log('🌐 POST: User has no nativeLanguage, setting default to "en"');
+      user.nativeLanguage = 'en';
+      needsSave = true;
+    }
+    if (needsSave) {
+      await user.save();
+      console.log('✅ POST: Saved default language preferences');
+    }
+    
     res.json({
       success: true,
       user: {
@@ -224,6 +278,8 @@ router.post('/', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -397,7 +453,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -416,6 +472,12 @@ router.put('/profile', verifyToken, async (req, res) => {
       officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : user.profile.officeHoursEnabled
     };
     
+    // Update interface language if provided
+    if (interfaceLanguage !== undefined && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
+      user.interfaceLanguage = interfaceLanguage;
+      console.log('🌐 Interface language updated to:', interfaceLanguage);
+    }
+    
     console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled);
     
     // Update userType if provided
@@ -428,7 +490,9 @@ router.put('/profile', verifyToken, async (req, res) => {
       user.picture = picture;
     }
     
+    console.log('💾 About to save user with interfaceLanguage:', user.interfaceLanguage);
     await user.save();
+    console.log('✅ User saved. Verifying interfaceLanguage:', user.interfaceLanguage);
     
     res.json({
       success: true,
@@ -447,6 +511,8 @@ router.put('/profile', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -898,6 +964,127 @@ router.post('/tutor-video-upload', verifyToken, upload.single('video'), uploadVi
 
 // POST /api/users/profile-picture-upload - Upload profile picture
 router.post('/profile-picture-upload', verifyToken, uploadImage.single('image'), uploadImageToGCS);
+
+// PUT /api/users/profile-picture - Update user's profile picture URL in database
+router.put('/profile-picture', verifyToken, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+
+    // Find and update user
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Save current picture as auth0Picture if it's not a custom GCS picture
+    // This preserves the original Auth0/Google picture for restoration later
+    if (user.picture && !user.picture.includes('storage.googleapis.com') && !user.auth0Picture) {
+      user.auth0Picture = user.picture;
+      console.log('💾 Saving original Auth0 picture:', user.auth0Picture);
+    }
+
+    // Update picture
+    user.picture = imageUrl;
+    await user.save();
+
+    console.log('✅ Profile picture updated for user:', user.email);
+
+    res.json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      picture: imageUrl
+    });
+  } catch (error) {
+    console.error('❌ Error updating profile picture:', error);
+    res.status(500).json({ error: 'Failed to update profile picture' });
+  }
+});
+
+// DELETE /api/users/profile-picture - Remove profile picture and restore Auth0 picture
+router.delete('/profile-picture', verifyToken, async (req, res) => {
+  try {
+    const { Storage } = require('@google-cloud/storage');
+    const axios = require('axios');
+    
+    // Find user
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldPictureUrl = user.picture;
+    let restoredPicture = null;
+
+    // Try to restore from saved auth0Picture
+    if (user.auth0Picture) {
+      restoredPicture = user.auth0Picture;
+      console.log('🔄 Restoring from saved Auth0 picture:', restoredPicture);
+    } else if (req.user && req.user.picture) {
+      // Fallback: try to get from token
+      restoredPicture = req.user.picture;
+      console.log('🔄 Restoring Auth0 picture from token:', restoredPicture);
+    } else {
+      console.warn('⚠️ No Auth0 picture to restore - user will see initials');
+    }
+
+    // Update picture in database (restore to Auth0 picture or null)
+    user.picture = restoredPicture;
+    await user.save();
+
+    console.log('✅ Profile picture removed for user:', user.email);
+    if (restoredPicture) {
+      console.log('✅ Restored to Auth0 picture');
+    }
+
+    // Try to delete custom picture from GCS if it's a GCS URL
+    if (oldPictureUrl && oldPictureUrl.includes('storage.googleapis.com') && oldPictureUrl.includes('profile-pictures')) {
+      try {
+        // Extract bucket name and file path from URL
+        // Format: https://storage.googleapis.com/bucket-name/path/to/file
+        const urlParts = oldPictureUrl.replace('https://storage.googleapis.com/', '').split('/');
+        const bucketName = urlParts[0];
+        const filePath = urlParts.slice(1).join('/');
+
+        // Initialize storage client
+        const storageConfig = {
+          projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+        };
+
+        if (process.env.GOOGLE_CLOUD_KEY_FILE) {
+          storageConfig.keyFilename = process.env.GOOGLE_CLOUD_KEY_FILE;
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+          storageConfig.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        }
+
+        const storage = new Storage(storageConfig);
+        const bucket = storage.bucket(bucketName);
+        const file = bucket.file(filePath);
+
+        // Delete file from GCS
+        await file.delete();
+        console.log('✅ Deleted custom profile picture from GCS:', filePath);
+      } catch (gcsError) {
+        // Don't fail if GCS deletion fails - picture is already restored in DB
+        console.warn('⚠️ Could not delete old picture from GCS:', gcsError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: restoredPicture ? 'Custom picture removed, restored to account picture' : 'Profile picture removed successfully',
+      picture: restoredPicture
+    });
+  } catch (error) {
+    console.error('❌ Error removing profile picture:', error);
+    res.status(500).json({ error: 'Failed to remove profile picture' });
+  }
+});
 
 // PUT /api/users/availability - Update tutor availability
 router.put('/availability', verifyToken, async (req, res) => {

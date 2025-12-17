@@ -143,11 +143,22 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         });
         
-        // Load user profile and set interface language
-        this.userService.getCurrentUser().subscribe({
+        // Load user profile and set interface language (force refresh to bypass cache)
+        this.userService.getCurrentUser(true).subscribe({
           next: (currentUser) => {
+              console.log('🌐 AppComponent: Loaded user profile:', currentUser);
+            console.log('🌐 AppComponent: Loaded user profile:', {
+              hasUser: !!currentUser,
+              email: currentUser?.email,
+              interfaceLanguage: currentUser?.interfaceLanguage,
+              nativeLanguage: currentUser?.nativeLanguage
+            });
+            
             if (currentUser?.interfaceLanguage) {
+              console.log('🌐 AppComponent: Setting language from user profile:', currentUser.interfaceLanguage);
               this.languageService.setLanguage(currentUser.interfaceLanguage);
+            } else {
+              console.log('⚠️ AppComponent: No interfaceLanguage in user profile, keeping current language');
             }
           },
           error: (error) => {

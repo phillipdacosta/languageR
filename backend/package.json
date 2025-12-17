@@ -14,7 +14,10 @@
   "type": "commonjs",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",
-    "@google-cloud/storage": "^7.17.2",
+    "@deepgram/sdk": "^4.11.2",
+    "@google-cloud/storage": "^7.18.0",
+    "@google-cloud/text-to-speech": "^6.4.0",
+    "@types/fluent-ffmpeg": "^2.1.28",
     "agora-token": "^2.0.5",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
@@ -23,15 +26,20 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.5",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "microsoft-cognitiveservices-speech-sdk": "^1.47.0",
     "mongoose": "^8.19.2",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
     "netless-token": "^1.0.2",
+    "node-cron": "^4.2.1",
+    "openai": "^6.9.1",
     "sharp": "^0.34.4",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+
+// Configure multer for beacon endpoint (parses FormData)
+const beaconUpload = multer();
 
 // Helper function to format names as "FirstName LastInitial."
 const formatDisplayName = (user) => {
@@ -1593,7 +1597,8 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
 });
 
 // Special endpoint for navigator.sendBeacon (doesn't support custom headers)
-router.post('/:id/leave-beacon', async (req, res) => {
+// Use multer to parse FormData (sendBeacon sends multipart/form-data)
+router.post('/:id/leave-beacon', beaconUpload.none(), async (req, res) => {
   console.log('🚪🚪🚪 LESSON LEAVE BEACON ENDPOINT CALLED 🚪🚪🚪');
   console.log('🚪 Request params:', req.params);
   console.log('🚪 Request body:', req.body);
@@ -1775,6 +1780,71 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
       
       await lesson.save();
       console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
+      
+      // Auto-trigger AI analysis generation
+      setTimeout(async () => {
+        try {
+          const lessonForAnalysis = await Lesson.findById(lesson._id)
+            .populate('tutorId', 'name firstName lastName')
+            .populate('studentId', 'name firstName lastName');
+          
+          if (!lessonForAnalysis) return;
+          
+          // Mark analysis as generating
+          lessonForAnalysis.aiAnalysis = lessonForAnalysis.aiAnalysis || {};
+          lessonForAnalysis.aiAnalysis.status = 'generating';
+          await lessonForAnalysis.save();
+          
+          const actualDuration = lessonForAnalysis.actualDurationMinutes || lessonForAnalysis.duration;
+          const scheduledDuration = lessonForAnalysis.duration;
+          const endedEarly = actualDuration < scheduledDuration;
+          
+          // Generate mock analysis
+          const analysis = {
+            summary: endedEarly 
+              ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
+              : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
+            strengths: [
+              'Good pronunciation and accent work',
+              'Active participation in conversation',
+              'Quick to grasp new vocabulary'
+            ],
+            areasForImprovement: [
+              'Grammar structures in complex sentences',
+              'Verb conjugation in past tense',
+              'Building confidence in spontaneous speaking'
+            ],
+            recommendations: [
+              'Practice daily with language exchange partners',
+              'Focus on past tense exercises before next lesson',
+              'Watch movies/shows in target language with subtitles'
+            ],
+            generatedAt: new Date(),
+            status: 'completed'
+          };
+
+          // Update lesson with analysis
+          lessonForAnalysis.aiAnalysis = analysis;
+          await lessonForAnalysis.save();
+
+          // Create notification for the student that analysis is ready
+          await Notification.create({
+            userId: lessonForAnalysis.studentId._id,
+            type: 'lesson_analysis_ready',
+            title: 'Lesson Analysis Ready',
+            message: `Your analysis for the lesson with ${formatDisplayName(lessonForAnalysis.tutorId)} is now available.`,
+            data: {
+              lessonId: lessonForAnalysis._id,
+              tutorName: formatDisplayName(lessonForAnalysis.tutorId),
+              lessonDate: lessonForAnalysis.startTime
+            }
+          });
+
+          console.log(`✅ AI analysis auto-generated for lesson ${lessonForAnalysis._id}`);
+        } catch (error) {
+          console.error(`❌ Error auto-generating AI analysis:`, error);
+        }
+      }, 3000); // Generate analysis 3 seconds after call ends
     }
 
     res.json({ 
@@ -1813,6 +1883,163 @@ router.get('/:id/billing', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting billing summary:', error);
     res.status(500).json({ success: false, message: 'Failed to get billing summary' });
+  }
+});
+
+// POST /api/lessons/:id/generate-analysis - Generate AI analysis for a completed lesson
+router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName')
+      .populate('studentId', 'name firstName lastName');
+    
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Verify the requester is either the tutor or student
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Check if lesson is completed or ended early
+    if (lesson.status !== 'completed' && !lesson.actualCallEndTime) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Analysis can only be generated for completed lessons' 
+      });
+    }
+
+    // Mark analysis as generating
+    lesson.aiAnalysis = lesson.aiAnalysis || {};
+    lesson.aiAnalysis.status = 'generating';
+    await lesson.save();
+
+    // In a real implementation, this would call an AI service (OpenAI, etc.)
+    // For now, we'll generate a mock analysis based on lesson duration
+    setTimeout(async () => {
+      try {
+        const actualDuration = lesson.actualDurationMinutes || lesson.duration;
+        const scheduledDuration = lesson.duration;
+        const endedEarly = actualDuration < scheduledDuration;
+        
+        // Generate mock analysis
+        const analysis = {
+          summary: endedEarly 
+            ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
+            : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
+          strengths: [
+            'Good pronunciation and accent work',
+            'Active participation in conversation',
+            'Quick to grasp new vocabulary'
+          ],
+          areasForImprovement: [
+            'Grammar structures in complex sentences',
+            'Verb conjugation in past tense',
+            'Building confidence in spontaneous speaking'
+          ],
+          recommendations: [
+            'Practice daily with language exchange partners',
+            'Focus on past tense exercises before next lesson',
+            'Watch movies/shows in target language with subtitles'
+          ],
+          generatedAt: new Date(),
+          status: 'completed'
+        };
+
+        // Update lesson with analysis
+        const updatedLesson = await Lesson.findById(lesson._id);
+        updatedLesson.aiAnalysis = analysis;
+        await updatedLesson.save();
+
+        // Create notification for the student that analysis is ready
+        await Notification.create({
+          userId: lesson.studentId._id,
+          type: 'lesson_analysis_ready',
+          title: 'Lesson Analysis Ready',
+          message: `Your analysis for the lesson with ${formatDisplayName(lesson.tutorId)} is now available.`,
+          data: {
+            lessonId: lesson._id,
+            tutorName: formatDisplayName(lesson.tutorId),
+            lessonDate: lesson.startTime
+          }
+        });
+
+        console.log(`✅ AI analysis generated for lesson ${lesson._id}`);
+      } catch (error) {
+        console.error(`❌ Error generating AI analysis for lesson ${lesson._id}:`, error);
+        // Mark as failed
+        const failedLesson = await Lesson.findById(lesson._id);
+        if (failedLesson) {
+          failedLesson.aiAnalysis = failedLesson.aiAnalysis || {};
+          failedLesson.aiAnalysis.status = 'failed';
+          await failedLesson.save();
+        }
+      }
+    }, 2000); // Simulate AI processing delay (2 seconds)
+
+    res.json({ 
+      success: true, 
+      message: 'Analysis generation started',
+      status: 'generating'
+    });
+  } catch (error) {
+    console.error('Error starting analysis generation:', error);
+    res.status(500).json({ success: false, message: 'Failed to start analysis generation' });
+  }
+});
+
+// GET /api/lessons/:id/analysis - Get AI analysis for a lesson
+router.get('/:id/analysis', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName picture')
+      .populate('studentId', 'name firstName lastName picture');
+    
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Verify the requester is either the tutor or student
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!lesson.aiAnalysis || !lesson.aiAnalysis.status) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No analysis available for this lesson',
+        canGenerate: lesson.status === 'completed' || !!lesson.actualCallEndTime
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      analysis: lesson.aiAnalysis,
+      lesson: {
+        _id: lesson._id,
+        subject: lesson.subject,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        duration: lesson.duration,
+        actualDurationMinutes: lesson.actualDurationMinutes,
+        tutor: {
+          _id: lesson.tutorId._id,
+          name: formatDisplayName(lesson.tutorId),
+          picture: lesson.tutorId.picture
+        },
+        student: {
+          _id: lesson.studentId._id,
+          name: formatDisplayName(lesson.studentId),
+          picture: lesson.studentId.picture
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting analysis:', error);
+    res.status(500).json({ success: false, message: 'Failed to get analysis' });
   }
 });
 

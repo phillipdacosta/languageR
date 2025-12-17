@@ -5,6 +5,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const http = require('http');
 const { Server } = require('socket.io');
+const cron = require('node-cron');
+const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
+const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
 require('dotenv').config({ path: './config.env' });
 
 const app = express();
@@ -94,6 +97,8 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
 app.use('/api/transcription', require('./routes/transcription'));
+app.use('/api/analysis', require('./routes/analysis'));
+app.use('/api/review-deck', require('./routes/review-deck'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -303,11 +308,24 @@ io.on('connection', async (socket) => {
   });
 });
 
+// TEMPORARILY COMMENTED OUT: Deepgram WebSocket (causing conflicts with Socket.IO)
+// setupDeepgramWebSocket(server);
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
   console.log(`Server bound to all interfaces (0.0.0.0)`);
   console.log(`WebSocket server ready`);
+  console.log(`Deepgram WebSocket ready at: ws://0.0.0.0:${PORT}/api/deepgram-audio`);
+  
+  // Start background job to auto-complete transcripts for ended lessons
+  // Runs every minute
+  cron.schedule('* * * * *', () => {
+    autoCompleteTranscripts().catch(err => {
+      console.error('❌ [Cron] Error in autoCompleteTranscripts:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-complete transcripts (every minute)');
 });
 
 // Handle server errors

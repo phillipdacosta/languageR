@@ -66,15 +66,18 @@ export class LanguageService {
 
     if (userProfileLanguage && this.isSupported(userProfileLanguage)) {
       // Use user profile language
+      console.log('🌐 Using language from user profile:', userProfileLanguage);
       languageToUse = userProfileLanguage as SupportedLanguage;
     } else {
       // Check localStorage
       const savedLang = localStorage.getItem('userLanguage');
       if (savedLang && this.isSupported(savedLang)) {
+        console.log('🌐 Using language from localStorage:', savedLang);
         languageToUse = savedLang as SupportedLanguage;
       } else {
         // Check browser language
         const browserLang = this.translate.getBrowserLang();
+        console.log('🌐 Using browser/default language:', browserLang || 'en');
         languageToUse = (browserLang && this.isSupported(browserLang) ? browserLang : 'en') as SupportedLanguage;
       }
     }
@@ -91,6 +94,7 @@ export class LanguageService {
       lang = 'en';
     }
 
+    console.log('🌐 Setting language to:', lang);
     this.translate.use(lang);
     this.currentLanguageSubject.next(lang);
     

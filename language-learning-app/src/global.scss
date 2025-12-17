@@ -126,6 +126,417 @@ ion-alert .alert-radio-label {
   }
 }
 
+// Picture Preview Modal Styling
+.picture-preview-modal {
+  --width: 90%;
+  --max-width: 500px;
+  --height: auto;
+  --border-radius: 16px;
+  
+  ion-content {
+    --background: var(--ion-background-color);
+  }
+}
+
+// Availability Modal Styling (Mobile)
+.availability-modal {
+  --width: 100%;
+  --height: 90%;
+  --border-radius: 16px 16px 0 0;
+  
+  ion-content {
+    --background: #f5f5f5;
+  }
+}
+
 ion-label {
   padding-left: 6px;
+}
+
+// ==========================================
+// ULTRA-COMPACT TUTOR AVAILABILITY VIEWER
+// For Messages Sidebar Only
+// ==========================================
+.availability-viewer-container {
+  padding: 6px !important;
+  
+  app-tutor-availability-viewer {
+    font-size: 10px !important;
+
+    // Main container
+    .availability-container {
+      padding: 0 !important;
+    }
+
+    // Header controls (week navigation + date)
+    .header-controls {
+      margin-bottom: 8px !important;
+      
+      .week-navigation {
+        margin-bottom: 5px !important;
+        gap: 4px !important;
+        
+        ion-button {
+          height: 28px !important;
+          --padding-start: 6px !important;
+          --padding-end: 6px !important;
+          font-size: 10px !important;
+          
+          ion-icon {
+            font-size: 16px !important;
+          }
+        }
+      }
+      
+      .week-display {
+        h2 {
+          font-size: 15px !important;
+          margin: 0 0 3px 0 !important;
+          font-weight: 700 !important;
+        }
+        
+        .timezone-info {
+          font-size: 9px !important;
+          margin: 0 !important;
+          
+          ion-icon {
+            font-size: 10px !important;
+          }
+        }
+      }
+    }
+
+    // Duration selector - balanced
+    .duration-selector.segmented {
+      margin-bottom: 8px !important;
+      padding: 8px 10px !important;
+      border-radius: 8px !important;
+      
+      .selector-header {
+        font-size: 10px !important;
+        margin-bottom: 5px !important;
+        font-weight: 600 !important;
+        
+        ion-icon {
+          font-size: 12px !important;
+          margin-right: 4px !important;
+        }
+        
+        span {
+          font-size: 10px !important;
+        }
+      }
+      
+      .segmented-control {
+        // display: flex !important;
+        gap: 8px !important;
+        
+        .segment {
+          height: 48px !important;
+          min-height: 48px !important;
+          max-height: 48px !important;
+          padding: 8px 12px !important;
+          font-size: 11px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+          
+          ion-icon {
+            font-size: 18px !important;
+            margin: 0 0 3px 0 !important;
+          }
+          
+          .label {
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            display: block !important;
+            margin: 0 0 2px 0 !important;
+            text-align: center !important;
+          }
+          
+          .time {
+            font-size: 11px !important;
+            display: block !important;
+            text-align: center !important;
+            margin: 0 !important;
+          }
+        }
+      }
+    }
+
+    // Legend - compact
+    .legend {
+      padding: 6px 10px !important;
+      margin-bottom: 8px !important;
+      font-size: 10px !important;
+      gap: 10px !important;
+
+      .legend-item {
+        gap: 5px !important;
+        font-size: 10px !important;
+
+        .legend-swatch {
+          width: 10px !important;
+          height: 10px !important;
+          border-radius: 2px !important;
+        }
+      }
+    }
+
+    // Calendar grid - compact with horizontal scroll
+    .calendar-grid {
+      gap: 4px !important;
+      height: 800px;
+      margin-bottom: 0 !important;
+      overflow-x: auto !important;
+      display: grid !important;
+      grid-template-columns: repeat(7, minmax(100px, 1fr)) !important;
+      padding-bottom: 4px !important;
+
+      // Hide scrollbar but keep functionality
+      &::-webkit-scrollbar {
+        height: 3px !important;
+      }
+      
+      &::-webkit-scrollbar-track {
+        background: #f1f1f1 !important;
+        border-radius: 2px !important;
+      }
+      
+      &::-webkit-scrollbar-thumb {
+        background: #ccc !important;
+        border-radius: 2px !important;
+      }
+
+      .day-header {
+        padding: 5px 6px !important;
+        
+        .day-name {
+          font-size: 10px !important;
+          font-weight: 700 !important;
+          margin-bottom: 2px !important;
+          text-transform: uppercase;
+        }
+
+        .day-number {
+          font-size: 18px !important;
+          font-weight: 700 !important;
+        }
+      }
+
+      .day-slots {
+        padding: 0 6px 8px 6px !important;
+        gap: 4px !important;
+
+        .slot {
+          padding: 6px 8px !important;
+          font-size: 11px !important;
+          border-radius: 5px !important;
+          min-height: 32px !important;
+          max-height: 32px !important;
+          line-height: 1.3 !important;
+          font-weight: 600 !important;
+        }
+
+        .empty {
+          font-size: 10px !important;
+          padding: 8px !important;
+          font-style: italic;
+          color: #999;
+        }
+      }
+    }
+
+    // Loading state
+    .loading-container {
+      padding: 16px !important;
+      
+      ion-spinner {
+        width: 20px !important;
+        height: 20px !important;
+      }
+      
+      p {
+        font-size: 9px !important;
+        margin-top: 6px !important;
+      }
+    }
+
+    // No availability state
+    .no-availability {
+      padding: 16px 8px !important;
+      
+      ion-icon {
+        font-size: 28px !important;
+      }
+      
+      h3 {
+        font-size: 12px !important;
+        margin: 6px 0 3px 0 !important;
+      }
+      
+      p {
+        font-size: 9px !important;
+        margin: 0 !important;
+      }
+    }
+  }
+}
+
+// ==========================================
+// COMPACT CHECKOUT IN MESSAGES SIDEBAR
+// ==========================================
+.checkout-container {
+  padding: 8px !important;
+  overflow-y: auto !important;
+
+  app-checkout {
+    .embedded-checkout {
+      --padding-top: 0 !important;
+      --padding-bottom: 0 !important;
+      --padding-start: 0 !important;
+      --padding-end: 0 !important;
+    }
+
+    .embedded-layout {
+      padding: 0 !important;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .summary {
+        h2 {
+          font-size: 14px !important;
+          margin: 0 0 8px 0 !important;
+          font-weight: 600;
+        }
+
+        .compact-tutor-card {
+          padding: 10px !important;
+          border-radius: 8px !important;
+          background: #f8f8f8;
+          
+          .avatar {
+            width: 50px !important;
+            height: 50px !important;
+            
+            img {
+              width: 50px !important;
+              height: 50px !important;
+            }
+          }
+
+          .meta {
+            gap: 6px !important;
+
+            .name {
+              font-size: 14px !important;
+              font-weight: 600;
+            }
+
+            .slot-line {
+              gap: 8px !important;
+
+              .date-badge {
+                width: 45px !important;
+                height: 45px !important;
+                padding: 4px !important;
+
+                .mon {
+                  font-size: 9px !important;
+                }
+
+                .day {
+                  font-size: 18px !important;
+                }
+              }
+
+              .slot-text {
+                .when {
+                  font-size: 12px !important;
+                }
+
+                .tz-note {
+                  font-size: 9px !important;
+                }
+              }
+            }
+
+            .rate {
+              font-size: 13px !important;
+            }
+          }
+        }
+
+        .details {
+          padding: 12px !important;
+          border-radius: 8px;
+          background: #f8f8f8;
+
+          .detail-row, .total-row {
+            padding: 6px 0 !important;
+            font-size: 12px !important;
+
+            .label {
+              font-size: 12px !important;
+            }
+
+            .value {
+              font-size: 12px !important;
+              font-weight: 600;
+            }
+          }
+
+          .total-row {
+            .label, .value {
+              font-size: 14px !important;
+              font-weight: 700;
+            }
+          }
+        }
+      }
+
+      .payment {
+        h2 {
+          font-size: 14px !important;
+          margin: 0 0 8px 0 !important;
+          font-weight: 600;
+        }
+
+        .pay-method {
+          --padding-start: 12px;
+          --padding-end: 12px;
+          --min-height: 44px;
+          font-size: 12px !important;
+          margin-bottom: 12px;
+          border-radius: 8px;
+
+          ion-icon {
+            font-size: 18px;
+          }
+
+          ion-label {
+            font-size: 12px !important;
+          }
+        }
+
+        .confirm-btn {
+          height: 44px !important;
+          font-size: 13px !important;
+          font-weight: 600;
+          --border-radius: 8px;
+          margin: 12px 0 !important;
+        }
+
+        .note {
+          font-size: 10px !important;
+          text-align: center;
+          color: #666;
+          margin: 8px 0 0 0;
+          line-height: 1.4;
+        }
+      }
+    }
+  }
 }

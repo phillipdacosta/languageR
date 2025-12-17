@@ -178,23 +178,33 @@
     "LOGOUT": "Se déconnecter"
   },
   "PROFILE_SCREEN": {
-  "VERIFIED": "Vérifié",
-  "CHANGE_PICTURE": "Changer la photo",
-  "LEARNING_PROGRESS": "Progression d'apprentissage",
-  "LESSONS_COMPLETED": "Leçons terminées",
-  "TOTAL_STUDY_TIME": "Temps total d'étude",
-  "DAY_STREAK": "Série de jours",
-  "SETTINGS": "Paramètres",
-  "REVIEW_DECK": "Révision",
-  "REVIEW_DECK_DESC": "Pratiquer les corrections enregistrées",
-  "NOTIFICATIONS": "Notifications",
-  "TIMEZONE": "Fuseau horaire",
-  "INTERFACE_LANGUAGE": "Langue de l'interface",
-  "DARK_MODE": "Mode sombre",
-  "HELP_SUPPORT": "Aide & support",
-  "SIGN_OUT": "Se déconnecter"
+    "VERIFIED": "Vérifié",
+    "CHANGE_PICTURE": "Changer la photo",
+    "LEARNING_PROGRESS": "Progression d'apprentissage",
+    "LESSONS_COMPLETED": "Leçons terminées",
+    "TOTAL_STUDY_TIME": "Temps total d'étude",
+    "DAY_STREAK": "Série de jours",
+    "SETTINGS": "Paramètres",
+    "REVIEW_DECK": "Révision",
+    "REVIEW_DECK_DESC": "Pratiquer les corrections enregistrées",
+    "NOTIFICATIONS": "Notifications",
+    "TIMEZONE": "Fuseau horaire",
+    "INTERFACE_LANGUAGE": "Langue de l'interface",
+    "DARK_MODE": "Mode sombre",
+    "HELP_SUPPORT": "Aide & support",
+    "SIGN_OUT": "Se déconnecter",
+    "TEACHING_STATS": "Statistiques d'enseignement",
+    "LESSONS_TAUGHT": "Cours donnés",
+    "HOURS_TAUGHT": "Heures enseignées",
+    "RATING": "Évaluation",
+    "REMOVE": "Supprimer",
+    "CHANGE": "Modifier",
+    "PROFILE": "Profil",
+    "INTRO_VIDEO": "Vidéo de présentation",
+    "INTRO_VIDEO_SUBTITLE": "Aidez les étudiants à mieux vous connaître",
+    "INTRO_VIDEO_DESC": "Téléversez une courte vidéo pour vous présenter et expliquer votre style d'enseignement. Cette vidéo sera affichée aux étudiants lorsqu'ils recherchent des tuteurs."
+  },
+  "HOME": {
+    "UPCOMING_LESSONS": "Leçons à venir"
+  } 
 }
-
-}
-
-

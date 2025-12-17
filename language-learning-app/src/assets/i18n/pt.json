@@ -178,23 +178,33 @@
     "LOGOUT": "Sair"
   },
   "PROFILE_SCREEN": {
-  "VERIFIED": "Verificado",
-  "CHANGE_PICTURE": "Alterar foto",
-  "LEARNING_PROGRESS": "Progresso de aprendizagem",
-  "LESSONS_COMPLETED": "Aulas concluídas",
-  "TOTAL_STUDY_TIME": "Tempo total de estudo",
-  "DAY_STREAK": "Sequência de dias",
-  "SETTINGS": "Configurações",
-  "REVIEW_DECK": "Revisar cartões",
-  "REVIEW_DECK_DESC": "Pratique correções salvas",
-  "NOTIFICATIONS": "Notificações",
-  "TIMEZONE": "Fuso horário",
-  "INTERFACE_LANGUAGE": "Idioma da interface",
-  "DARK_MODE": "Modo escuro",
-  "HELP_SUPPORT": "Ajuda & suporte",
-  "SIGN_OUT": "Sair"
+    "VERIFIED": "Verificado",
+    "CHANGE_PICTURE": "Alterar foto",
+    "LEARNING_PROGRESS": "Progresso de aprendizagem",
+    "LESSONS_COMPLETED": "Aulas concluídas",
+    "TOTAL_STUDY_TIME": "Tempo total de estudo",
+    "DAY_STREAK": "Sequência de dias",
+    "SETTINGS": "Configurações",
+    "REVIEW_DECK": "Revisar cartões",
+    "REVIEW_DECK_DESC": "Pratique correções salvas",
+    "NOTIFICATIONS": "Notificações",
+    "TIMEZONE": "Fuso horário",
+    "INTERFACE_LANGUAGE": "Idioma da interface",
+    "DARK_MODE": "Modo escuro",
+    "HELP_SUPPORT": "Ajuda & suporte",
+    "SIGN_OUT": "Sair",
+    "TEACHING_STATS": "Estatísticas de ensino",
+    "LESSONS_TAUGHT": "Aulas ministradas",
+    "HOURS_TAUGHT": "Horas ensinadas",
+    "RATING": "Avaliação",
+    "REMOVE": "Remover",
+    "CHANGE": "Alterar",
+    "PROFILE": "Perfil",
+    "INTRO_VIDEO": "Vídeo de apresentação",
+    "INTRO_VIDEO_SUBTITLE": "Ajude os alunos a conhecer você melhor",
+    "INTRO_VIDEO_DESC": "Envie um vídeo curto se apresentando e explicando seu estilo de ensino. Este vídeo será exibido aos alunos quando estiverem procurando tutores."
+  },
+  "HOME": {
+    "UPCOMING_LESSONS": "Lições Próximas"
+  }
 }
-
-}
-
-

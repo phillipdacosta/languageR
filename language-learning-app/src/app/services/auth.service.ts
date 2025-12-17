@@ -136,9 +136,19 @@ export class AuthService {
       // Hide loading when logging out
       this.loadingService.hide();
       
+      // Preserve user preferences before clearing localStorage
+      const userLanguage = localStorage.getItem('userLanguage');
+      console.log('🌐 Preserving language preference:', userLanguage);
+      
       // Clear localStorage
       localStorage.clear();
       sessionStorage.clear();
+      
+      // Restore preserved language preference
+      if (userLanguage) {
+        localStorage.setItem('userLanguage', userLanguage);
+        console.log('✅ Restored language preference:', userLanguage);
+      }
       
       // Clear Auth0 related localStorage items
       const keysToRemove = [];
@@ -292,6 +302,9 @@ export class AuthService {
   forceLogout(): void {
     console.log('🚀 AuthService: Force logout - clearing all state...');
     
+    // Preserve user preferences
+    const userLanguage = localStorage.getItem('userLanguage');
+    
     // Clear local state
     this.userSubject.next(null);
     this.isLoadingSubject.next(false);
@@ -302,6 +315,11 @@ export class AuthService {
     // Clear all storage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Restore language preference
+    if (userLanguage) {
+      localStorage.setItem('userLanguage', userLanguage);
+    }
     
     // Redirect to login
     this.router.navigate(['/login']);
@@ -313,6 +331,9 @@ export class AuthService {
   nuclearLogout(): void {
     console.log('🚀 AuthService: Nuclear logout - clearing everything and reloading...');
     
+    // Preserve user preferences
+    const userLanguage = localStorage.getItem('userLanguage');
+    
     // Clear local state
     this.userSubject.next(null);
     this.isLoadingSubject.next(false);
@@ -323,6 +344,11 @@ export class AuthService {
     // Clear all storage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Restore language preference
+    if (userLanguage) {
+      localStorage.setItem('userLanguage', userLanguage);
+    }
     
     // Clear all cookies
     document.cookie.split(";").forEach(function(c) { 

@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  auth0Picture: {
+    type: String,
+    default: null  // Store original Auth0/Google picture to restore later
+  },
   emailVerified: {
     type: Boolean,
     default: false
@@ -130,6 +134,21 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: null
     }
+  },
+  // Native language for providing feedback in the user's language
+  nativeLanguage: {
+    type: String,
+    default: 'en',
+    trim: true,
+    comment: 'ISO 639-1 language code of student\'s native language for analysis feedback'
+  },
+  // Interface language preference for the app UI
+  interfaceLanguage: {
+    type: String,
+    enum: ['en', 'es', 'fr', 'pt', 'de'],
+    default: 'en',
+    trim: true,
+    comment: 'Preferred language for app interface (UI text)'
   },
   stats: {
     totalLessons: {

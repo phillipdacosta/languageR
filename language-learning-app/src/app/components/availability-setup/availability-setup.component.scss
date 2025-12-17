@@ -885,6 +885,16 @@
       background: transparent;
       box-shadow: none;
       border-color: rgba(102, 126, 234, 0.1);
+      border-top: 7px solid #7259b6;
+      
+      /* Remove only top rounding */
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+      
+      /* Optional: keep bottom rounded */
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      
       
       .day-name {
         color: #ff118a;
