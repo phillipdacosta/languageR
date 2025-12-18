@@ -14,6 +14,7 @@ import { TutorSearchContentPageModule } from '../tutor-search-content/tutor-sear
 import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-modal.component';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
+import { DisplayNamePipe } from '../pipes/display-name.pipe';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 
@@ -22,7 +23,7 @@ import { Subject, firstValueFrom } from 'rxjs';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
@@ -540,6 +541,31 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     
+    // Get user from backend (has userType field)
+    let currentUser: any;
+    try {
+      currentUser = await firstValueFrom(this.userService.getCurrentUser());
+    } catch (error) {
+      console.error('Failed to get user from backend:', error);
+      return;
+    }
+    
+    if (!currentUser) {
+      console.log('User not authenticated');
+      return;
+    }
+    
+    // Check if user is a student
+    if (currentUser.userType !== 'student') {
+      const alert = await this.alertController.create({
+        header: 'Student Account Required',
+        message: 'Only students can message tutors. Please log in with a student account.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+    
     // Open messaging sidebar instead of navigating
     this.showMessagingSidebar = true;
     
@@ -724,8 +750,27 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
   
-  sendMessage() {
+  async sendMessage() {
     if (!this.newMessage.trim() || !this.tutor?.auth0Id || this.isSending || this.isUploading || this.isRecording) {
+      return;
+    }
+
+    // Check if user is a student before allowing message
+    try {
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      if (!currentUser || currentUser.userType !== 'student') {
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can message tutors. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to verify user type:', error);
+      // If we can't verify, don't allow the message
       return;
     }
 
@@ -876,9 +921,27 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Upload file to server
-  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
+  private async uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
     if (!this.tutor?.auth0Id) {
       console.error('No tutor selected');
+      return;
+    }
+
+    // Check if user is a student before allowing file upload
+    try {
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      if (!currentUser || currentUser.userType !== 'student') {
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can message tutors. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to verify user type:', error);
       return;
     }
 
@@ -1249,7 +1312,15 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
       
-      const currentUser = await firstValueFrom(this.authService.user$);
+      // Get user from backend (has userType field)
+      let currentUser: any;
+      try {
+        currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      } catch (error) {
+        console.error('Failed to get user from backend:', error);
+        // Fallback to Auth0 user
+        currentUser = await firstValueFrom(this.authService.user$);
+      }
       
       if (!currentUser) {
         console.log('User not authenticated');

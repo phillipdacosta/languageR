@@ -3,6 +3,41 @@
   --padding-top: 0; /* flush under toolbar */
 }
 
+// ========================================
+// Shared Element Transitions (Custom JS Animation)
+// ========================================
+// Avatar and name smoothly "fly" from conversation list to chat header
+// This is handled via JavaScript cloning and positioning
+
+// Mobile chat view fades in after avatar/name animation
+.chat-view-mobile {
+  @media (max-width: 768px) {
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+// Smooth animation for conversation list on mobile
+.conversations-list-mobile {
+  animation: fadeIn 0.3s ease-out;
+  
+  @media (max-width: 768px) {
+    &:not(.hidden) {
+      animation: fadeIn 0.3s ease-out;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 // Message Context Menu Overlay
 .message-context-menu-overlay {
   position: fixed;
@@ -350,6 +385,8 @@
   margin-bottom: 2px;
   border-radius: 0;
   border-left: 3px solid transparent;
+  position: relative; // For FLIP animation
+  will-change: transform; // Optimize for animations
 
   &:hover {
     background-color: #f5f5f5;
@@ -456,15 +493,19 @@
   }
 }
 
+
 // Right Column: Chat Panel
 .chat-panel {
   flex: 1;
-  display: none;
+  display: flex; // Always flex now
   flex-direction: column;
   height: 100vh;
   background: white;
+  transition: opacity 0.2s ease-in-out; // Smooth fade
+  padding-top: 55px; // Add space for stable-chat-header above
   
   &.visible {
+    // No longer needed but keeping for backwards compatibility
     display: flex;
   }
   
@@ -472,6 +513,7 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
+    padding-top: 0; // No stable header on mobile
   }
 }
 
@@ -512,18 +554,24 @@
 // STABLE HEADER - positioned absolutely, never affected by layout changes
 .stable-chat-header {
   position: fixed;
-  top: 65px; // Below toolbar
-  left: 384px; // 360px conversations panel + 24px padding
+  top: 69px;
+  left: 384px;
   display: flex;
   align-items: center;
   gap: 12px;
   z-index: 999;
   background: white;
-  padding: 10px 0;
+  padding: 0px 0;
+  transition: opacity 0.15s ease-in-out; // Smooth fade in/out
   
   ion-button {
     text-transform: none !important; // Override Ionic's default uppercase
   }
+}
+.stable-chat-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
 }
 
 .stable-chat-name {
@@ -545,10 +593,10 @@
   border-bottom: 1px solid #e0e0e0;
   background: white;
   box-shadow: none;
-  position: relative;
+  position: sticky;
+  top: 0; // Changed from 55px to 0 - stick to top of container
   z-index: 10;
   min-height: 72px;
-  top: 55px;
   flex-shrink: 0;
   transform: translateZ(0);
   backface-visibility: hidden;
@@ -876,6 +924,23 @@
   
   @media (max-width: 768px) {
     padding-bottom: calc(80px + env(safe-area-inset-bottom)); // Space for fixed input container + safe area
+  }
+  
+  // Hide messages-list on mobile until positioned (not the loading overlay!)
+  @media (max-width: 768px) {
+    .messages-list {
+      visibility: hidden; // Use visibility instead of opacity to prevent any rendering
+    }
+    
+    &.messages-ready .messages-list {
+      visibility: visible;
+      animation: fadeIn 0.15s ease-in;
+    }
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   
   // Extra padding when reply preview is showing
@@ -1594,13 +1659,11 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(4px);
+  background: #f5f5f5; // Match chat-messages background
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  animation: fadeIn 0.2s ease-in;
   
   .loading-content {
     display: flex;
@@ -1629,12 +1692,9 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 60px 20px;
+  padding: 20px;
   text-align: center;
-  min-height: 200px;
-  background: #fafafa;
-  border-radius: 8px;
-  margin: 20px;
+  min-height: 60px; // Reduced from 200px to match search bar area
 
   ion-spinner {
     --color: #1976d2;
@@ -2035,6 +2095,20 @@
   height: calc(100vh - 55px); // Subtract toolbar height
   margin-top: 55px; // Push down to clear toolbar
   overflow-y: auto;
+  
+  // Smooth slide-in animation
+  animation: slideInFromRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 
   .details-header {
     padding: 16px 24px;
@@ -2554,13 +2628,16 @@
 
         // Loading state
         .loading-container {
-          padding: 16px;
+          padding: 20px 16px;
           display: flex;
           justify-content: center;
+          align-items: center;
+          min-height: 60px; // Match search header height
           
           ion-spinner {
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
+            --color: var(--ion-color-primary);
           }
         }
 
@@ -2606,6 +2683,8 @@
 .conversation-item {
   // Smooth transitions for hover/active states
   transition: background-color 0.15s ease;
+  position: relative; // For FLIP animation
+  will-change: transform; // Optimize for animations
   
   &:active {
     transform: scale(0.98);
@@ -2634,3 +2713,26 @@
     opacity: 1 !important;
   }
 }
+
+// Custom toast styling for copy confirmation
+.copy-success-toast,
+.copy-error-toast {
+  --background: rgba(0, 0, 0, 0.85);
+  --color: white;
+  --border-radius: 12px;
+  --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  margin-top: 60px; // Add spacing from top header
+  
+  &::part(message) {
+    font-size: 15px;
+    font-weight: 500;
+    text-align: center;
+  }
+}
+
+.copy-error-toast {
+  --background: rgba(220, 53, 69, 0.9);
+}
+

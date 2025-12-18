@@ -298,7 +298,7 @@
                 <img
                   *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
                   [src]="getOtherParticipantAvatar(nextClass.lesson)"
-                  [alt]="formatStudentDisplayName(nextClass)"
+                  [alt]="nextClass | displayName"
                   referrerpolicy="no-referrer"
                 />
                 <!-- Class without thumbnail - show people icon -->
@@ -310,7 +310,7 @@
               <div class="student-details">
                 <h3 class="student-name">
                   <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || 'Group Class' }}</span>
-                  <span *ngIf="!nextClass.lesson?.isClass">{{ formatStudentDisplayName(nextClass) }}</span>
+                  <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
                 </h3>
                 <p class="lesson-subject">
                   <span *ngIf="nextClass.lesson?.isClass">Group Class</span>

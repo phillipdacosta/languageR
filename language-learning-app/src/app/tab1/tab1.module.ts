@@ -6,6 +6,7 @@ import { Tab1Page } from './tab1.page';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 import { SharedModule } from '../shared/shared.module';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
+import { DisplayNamePipe } from '../pipes/display-name.pipe';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -17,7 +18,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     ExploreContainerComponentModule,
     Tab1PageRoutingModule,
     SharedModule,
-    ClassAttendeesComponent
+    ClassAttendeesComponent,
+    DisplayNamePipe
   ],
   declarations: [Tab1Page]
 })

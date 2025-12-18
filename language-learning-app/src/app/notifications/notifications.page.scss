@@ -90,6 +90,17 @@
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  min-height: calc(100vh - 200px);
+  
+  ion-spinner {
+    --color: #6366f1;
+  }
+  
+  p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+  }
 }
 
 .notification-empty {

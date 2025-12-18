@@ -191,8 +191,17 @@ export class UserService {
     
     return new HttpHeaders({
       'Authorization': `Bearer ${mockToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest' // Helps backend identify AJAX requests
     });
+  }
+
+  // Options for HTTP requests that need credentials (cookies)
+  private getHttpOptions(headers: HttpHeaders) {
+    return {
+      headers,
+      withCredentials: true // Enable sending cookies with requests
+    };
   }
 
   // Public method to get auth headers for current user (synchronous)
@@ -244,7 +253,8 @@ export class UserService {
         const headers = this.getAuthHeaders(userEmail);
         
         return this.http.get<{success: boolean, user: User}>(`${this.apiUrl}/users/me`, {
-          headers: headers
+          headers: headers,
+          withCredentials: true // Enable cookies for cross-tab auth in incognito
         });
       }),
       map(response => {

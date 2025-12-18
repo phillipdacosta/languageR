@@ -244,6 +244,30 @@
     flex: 1;
     overflow-y: auto;
     padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    
+    .notification-loading {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      min-height: 200px;
+      
+      ion-spinner {
+        --color: #007bff;
+      }
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+        color: #6b7280;
+      }
+    }
     
     .notification-section {
       margin-bottom: 16px;
@@ -345,25 +369,6 @@
       .notification-empty {
         padding: 20px;
         text-align: center;
-        
-        p {
-          margin: 0;
-          font-size: 14px;
-          color: #6b7280;
-        }
-      }
-      
-      .notification-loading {
-        padding: 40px 20px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        
-        ion-spinner {
-          --color: #007bff;
-        }
         
         p {
           margin: 0;

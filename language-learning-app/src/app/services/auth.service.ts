@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { AuthService as Auth0Service } from '@auth0/auth0-angular';
-import { Observable, BehaviorSubject, combineLatest } from 'rxjs';
-import { map, tap, take } from 'rxjs/operators';
+import { Observable, BehaviorSubject, combineLatest, from, of } from 'rxjs';
+import { map, tap, take, catchError, switchMap } from 'rxjs/operators';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { LoadingService } from './loading.service';
 

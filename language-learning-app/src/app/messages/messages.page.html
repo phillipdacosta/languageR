@@ -77,11 +77,6 @@
           </div>
         </div>
 
-        <!-- Loading State (only on initial load) -->
-        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
-          <ion-spinner name="crescent"></ion-spinner>
-        </div>
-
         <!-- Conversations Search Header -->
         <div class="conversations-search-header" [@slideInUp]>
           <ion-icon name="search-outline" class="search-icon"></ion-icon>
@@ -100,13 +95,19 @@
           </ion-icon>
         </div>
 
+        <!-- Loading State (only on initial load) -->
+        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+
         <!-- Conversations List (stays visible after first load) -->
         <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading" [@fadeInOut]>
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
+            [attr.data-conversation-id]="conversation.conversationId"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
-            (click)="selectConversation(conversation)"
+            (click)="selectConversation(conversation, $event)"
             [@slideInUp]
             [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
@@ -154,21 +155,33 @@
 
       <!-- Middle Column: Chat View or Empty State -->
       
-      <!-- STABLE NAME - Always rendered, no conditionals -->
-      <div class="stable-chat-header">
+      <!-- STABLE NAME - Always rendered, visibility controlled by opacity -->
+      <div class="stable-chat-header" 
+           [style.opacity]="hasConversationSelected ? '1' : '0'"
+           [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
+           <ion-avatar class="stable-chat-avatar">
+            <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" />
+            <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture && selectedConversation">
+              {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
+            </div>
+          </ion-avatar>
         <div class="stable-chat-name" 
              [textContent]="selectedConversation?.otherUser?.name || ''"
              (click)="toggleDetailsPanel()"
              (mouseenter)="showHoverCard()"
              (mouseleave)="hideHoverCard()">
         </div>
-        <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation">
+
+        <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student'">
           <ion-icon name="calendar-outline" slot="start"></ion-icon>
           Book Lesson
         </ion-button>
-      </div>      
-      <!-- Chat Panel (shown when conversation selected) -->
-      <div class="chat-panel" *ngIf="hasConversationSelected" style="display: flex !important;">
+      </div>
+      <!-- Chat Panel (always in DOM, visibility controlled by opacity) -->
+      <div class="chat-panel" 
+           [style.opacity]="hasConversationSelected ? '1' : '0'"
+           [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'"
+           [style.display]="hasConversationSelected ? 'flex' : 'none'">
         <!-- Simplified header for desktop - always visible when panel shown -->
         <div class="chat-header">
           <div class="chat-header-info" 
@@ -214,11 +227,11 @@
               </div>
 
               <div class="hover-card-buttons">
-                <ion-button size="small" fill="default" (click)="openBookLesson(); $event.stopPropagation()">
+                <ion-button size="small" fill="default" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="currentUserType === 'student'">
                   <ion-icon name="calendar-outline" slot="start"></ion-icon>
                   Book Lesson
                 </ion-button>
-                <ion-button size="small" fill="clear" (click)="openOtherUserProfile(); $event.stopPropagation()">
+                <ion-button size="small" fill="clear" (click)="openOtherUserProfile($event)">
                   <ion-icon name="person-outline" slot="start"></ion-icon>
                   View Profile  
                 </ion-button>
@@ -469,7 +482,7 @@
         <div class="details-content" *ngIf="!showAvailabilityViewer && !showCheckout">
           <div class="user-profile-section">
             <div class="profile-image-container">
-              <ion-avatar class="profile-avatar" (click)="openOtherUserProfile()" style="cursor: pointer;">
+              <ion-avatar class="profile-avatar" (click)="openOtherUserProfile($event)" style="cursor: pointer;">
                 <img [src]="otherUser?.picture" *ngIf="otherUser?.picture" />
                 <div class="avatar-fallback" *ngIf="!otherUser?.picture">
                   {{ otherUser?.name?.charAt(0) || '?' }}
@@ -477,7 +490,7 @@
               </ion-avatar>
             </div>
             
-            <h2 class="user-name" (click)="openOtherUserProfile()" style="cursor: pointer;">
+            <h2 class="user-name" (click)="openOtherUserProfile($event)" style="cursor: pointer;">
               {{ otherUser?.name || 'Unknown User' }}
             </h2>
 
@@ -555,7 +568,7 @@
       </div>
 
       <!-- Desktop: Empty State when no conversation selected -->
-      <div class="chat-panel-empty" [style.display]="hasConversationSelected ? 'none' : 'flex'">
+      <div class="chat-panel-empty" [style.display]="hasConversationSelected || selectedConversation ? 'none' : 'flex'">
         <div class="empty-chat-state">
           <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
           <h2>Select a conversation</h2>
@@ -598,7 +611,8 @@
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
-            (click)="selectConversation(conversation)"
+            [attr.data-conversation-id]="conversation.conversationId"
+            (click)="selectConversation(conversation, $event)"
             [@slideInUp]
             [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
@@ -645,13 +659,13 @@
           <ion-button fill="clear" (click)="clearSelectedConversation()" class="back-button">
             <ion-icon name="chevron-back"></ion-icon>
           </ion-button>
-          <ion-avatar class="chat-avatar" (click)="openOtherUserProfile()">
+          <ion-avatar class="chat-avatar" (click)="openOtherUserProfile($event)">
             <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
             <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
               {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
             </div>
           </ion-avatar>
-          <div class="chat-header-info" (click)="openOtherUserProfile()">
+          <div class="chat-header-info" (click)="openOtherUserProfile($event)">
             <div class="chat-user-info">
               <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>
               <p class="typing-indicator" *ngIf="otherUserTyping">Typing...</p>
@@ -679,7 +693,7 @@
           
           <!-- Mobile: Book Lesson Button (right side) -->
           <ion-button 
-            *ngIf="selectedConversation.otherUser?.userType === 'tutor'"
+            *ngIf="selectedConversation.otherUser?.userType === 'tutor' && currentUserType === 'student'"
             fill="solid" 
             size="small" 
             color="primary"

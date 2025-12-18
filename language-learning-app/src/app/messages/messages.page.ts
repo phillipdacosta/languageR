@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ModalController, AlertController } from '@ionic/angular';
+import { ModalController, AlertController, ToastController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { MessagingService, Conversation, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
@@ -113,6 +113,16 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Track when a message was just deleted to trust server unread counts
   private recentlyDeletedConversations = new Set<string>();
   
+  // Track when avatar/name animation is happening
+  private isAnimatingConversationTransition = false;
+  private animationCleanupTimeout: any = null;
+  private currentAnimationElements: {
+    avatarClone?: HTMLElement;
+    nameClone?: HTMLElement;
+    sourceAvatar?: HTMLElement;
+    sourceName?: HTMLElement;
+  } = {};
+  
   // Quick reaction emojis shown in context menu (organized in 3 rows)
   quickReactions = [
     // Positive emotions & support
@@ -191,6 +201,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private modalController: ModalController,
     private alertController: AlertController,
+    private toastController: ToastController,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -386,7 +397,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           
           if (!existingMessage) {
             this.messages.push(message);
-            this.scrollToBottom();
+            this.scrollToBottom(true); // Skip animation check for new incoming messages
           }
 
           const isActiveConversation = isForSelectedConversation && this.isPageVisible;
@@ -613,7 +624,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       action: isMyMessage ? 'NO_CHANGE (my message)' : (isActiveConversation && isFromOtherUser ? 'MARK_READ' : 'INCREMENT')
     });
 
-    this.conversations = [...this.conversations];
+    // Sort conversations by most recent before animating
+    this.sortAndAnimateConversations();
+    
     const totalUnread = this.conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
     console.log('[MessagesPage] Updating unread count via MessagingService:', {
       totalUnread,
@@ -630,6 +643,93 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   clearSearch() {
     this.searchTerm = '';
     this.searchInput$.next('');
+  }
+
+  /**
+   * Sort conversations by most recent and animate position changes using FLIP technique
+   */
+  private sortAndAnimateConversations() {
+    // Early return if no conversations
+    if (!this.conversations || this.conversations.length === 0) {
+      return;
+    }
+
+    // Capture FIRST positions before sorting
+    const firstPositions = new Map<string, DOMRect>();
+    const conversationElements = document.querySelectorAll('.conversation-item');
+    
+    // If no elements in DOM yet, just sort without animation
+    if (conversationElements.length === 0) {
+      this.conversations.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
+        const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
+        return dateB - dateA; // Most recent first
+      });
+      return;
+    }
+
+    conversationElements.forEach((el) => {
+      const conversationId = el.getAttribute('data-conversation-id');
+      if (conversationId) {
+        firstPositions.set(conversationId, el.getBoundingClientRect());
+      }
+    });
+
+    // Sort conversations by most recent (updatedAt)
+    this.conversations.sort((a, b) => {
+      const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
+      const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
+      return dateB - dateA; // Most recent first
+    });
+
+    // Trigger change detection to update DOM
+    this.cdr.detectChanges();
+
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      // Capture LAST positions after sorting
+      const lastPositions = new Map<string, DOMRect>();
+      const updatedElements = document.querySelectorAll('.conversation-item');
+      updatedElements.forEach((el) => {
+        const conversationId = el.getAttribute('data-conversation-id');
+        if (conversationId) {
+          lastPositions.set(conversationId, el.getBoundingClientRect());
+        }
+      });
+
+      // INVERT: Calculate the difference and apply transform
+      updatedElements.forEach((el: Element) => {
+        const htmlEl = el as HTMLElement;
+        const conversationId = htmlEl.getAttribute('data-conversation-id');
+        if (!conversationId) return;
+
+        const first = firstPositions.get(conversationId);
+        const last = lastPositions.get(conversationId);
+
+        if (first && last) {
+          const deltaY = first.top - last.top;
+          
+          // Only animate if there's actual movement
+          if (Math.abs(deltaY) > 1) {
+            // Apply the inverted transform immediately (no transition)
+            htmlEl.style.transition = 'none';
+            htmlEl.style.transform = `translateY(${deltaY}px)`;
+
+            // PLAY: Animate to final position
+            requestAnimationFrame(() => {
+              htmlEl.style.transition = 'transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1)';
+              htmlEl.style.transform = 'translateY(0)';
+
+              // Clean up after animation
+              setTimeout(() => {
+                htmlEl.style.transition = '';
+                htmlEl.style.transform = '';
+              }, 300);
+            });
+          }
+        }
+      });
+    });
   }
 
   // Returns a human-friendly day label for a given date: Today, Yesterday, or short date
@@ -944,6 +1044,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           this.messagingService.updateUnreadCount(totalUnread);
         }
         
+        // Sort conversations by most recent
+        this.conversations.sort((a, b) => {
+          const dateA = new Date(a.updatedAt || a.lastMessage?.createdAt || 0).getTime();
+          const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
+          return dateB - dateA; // Most recent first
+        });
+        
         // Do NOT auto-select conversations - let user choose which conversation to view
         // This applies to both mobile and desktop to prevent showing messages they're not ready to read
         // DO NOT update selectedConversation or chatHeaderData during background conversation reloads
@@ -984,20 +1091,126 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   clearSelectedConversation() {
-    this.selectedConversation = null;
-    this.hasConversationSelected = false;
-    this.messages = [];
-    // Notify service that no conversation is selected
-    this.messagingService.setHasSelectedConversation(false);
+    // Clear animation flag to ensure fresh state
+    if (this.isAnimatingConversationTransition) {
+      console.log('🎬 Animation flag CLEARED (back button pressed)');
+    }
+    this.isAnimatingConversationTransition = false;
+    
+    // Reset container completely on mobile
+    this.resetChatContainer();
+    
+    // Cancel any pending animation cleanup timeout
+    if (this.animationCleanupTimeout) {
+      console.log('⏰ Cancelling pending animation cleanup timeout (back pressed)');
+      clearTimeout(this.animationCleanupTimeout);
+      this.animationCleanupTimeout = null;
+    }
+    
+    // Clean up any in-flight animation elements immediately
+    if (this.currentAnimationElements.avatarClone) {
+      this.currentAnimationElements.avatarClone.remove();
+      console.log('🧹 Removed avatar clone');
+    }
+    if (this.currentAnimationElements.nameClone) {
+      this.currentAnimationElements.nameClone.remove();
+      console.log('🧹 Removed name clone');
+    }
+    if (this.currentAnimationElements.sourceAvatar) {
+      this.currentAnimationElements.sourceAvatar.style.opacity = '1';
+      console.log('🔄 Restored source avatar opacity');
+    }
+    if (this.currentAnimationElements.sourceName) {
+      this.currentAnimationElements.sourceName.style.opacity = '1';
+      console.log('🔄 Restored source name opacity');
+    }
+    this.currentAnimationElements = {};
+    
+    // Also restore opacity of all conversation list items (belt and suspenders approach)
+    setTimeout(() => {
+      const allAvatars = document.querySelectorAll('.conversation-item .conversation-avatar') as NodeListOf<HTMLElement>;
+      const allNames = document.querySelectorAll('.conversation-item h3') as NodeListOf<HTMLElement>;
+      
+      let restoredCount = 0;
+      allAvatars.forEach(avatar => {
+        if (avatar.style.opacity === '0') {
+          avatar.style.opacity = '1';
+          restoredCount++;
+        }
+      });
+      
+      allNames.forEach(name => {
+        if (name.style.opacity === '0') {
+          name.style.opacity = '1';
+          restoredCount++;
+        }
+      });
+      
+      if (restoredCount > 0) {
+        console.log(`🔄 Restored ${restoredCount} hidden elements in conversation list`);
+      }
+    }, 100); // Small delay to ensure we're back on the conversation list view
+    
+    // Use View Transition API for smooth back animation if supported
+    const updateView = () => {
+      this.selectedConversation = null;
+      this.hasConversationSelected = false;
+      this.messages = [];
+      // Notify service that no conversation is selected
+      this.messagingService.setHasSelectedConversation(false);
+      this.cdr.detectChanges();
+    };
+    
+    // Check if View Transitions API is supported (modern browsers)
+    if ('startViewTransition' in document) {
+      (document as any).startViewTransition(() => {
+        updateView();
+      });
+    } else {
+      // Fallback for older browsers
+      updateView();
+    }
   }
 
-  selectConversation(conversation: Conversation) {
+  selectConversation(conversation: Conversation, event?: MouseEvent | TouchEvent) {
     const timestamp = Date.now();
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`🔵 [${timestamp}] selectConversation START`);
     console.log(`   Name: ${conversation.otherUser?.name}`);
     console.log(`   Previous: ${this.selectedConversation?.otherUser?.name || 'none'}`);
     console.log(`   hasConversationSelected BEFORE: ${this.hasConversationSelected}`);
+    
+    // Reset animation flag to ensure clean state when selecting a new conversation
+    const wasAnimating = this.isAnimatingConversationTransition;
+    if (wasAnimating) {
+      console.log('🎬 Animation flag CLEARED (reset at start of selectConversation)');
+    }
+    this.isAnimatingConversationTransition = false;
+    
+    // Cancel any pending animation cleanup timeout from previous navigation
+    if (this.animationCleanupTimeout) {
+      console.log('⏰ Cancelling pending animation cleanup timeout');
+      clearTimeout(this.animationCleanupTimeout);
+      this.animationCleanupTimeout = null;
+    }
+    
+    // Clean up any leftover animation elements from previous navigation
+    if (Object.keys(this.currentAnimationElements).length > 0) {
+      console.log('🧹 Cleaning up leftover animation elements');
+      if (this.currentAnimationElements.avatarClone) {
+        this.currentAnimationElements.avatarClone.remove();
+      }
+      if (this.currentAnimationElements.nameClone) {
+        this.currentAnimationElements.nameClone.remove();
+      }
+      if (this.currentAnimationElements.sourceAvatar) {
+        this.currentAnimationElements.sourceAvatar.style.opacity = '1';
+      }
+      if (this.currentAnimationElements.sourceName) {
+        this.currentAnimationElements.sourceName.style.opacity = '1';
+      }
+      this.currentAnimationElements = {};
+    }
     
     // Close details panel and reset availability viewer and checkout when selecting a new conversation
     this.showDetailsPanel = false;
@@ -1017,45 +1230,280 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Clear any pending voice note preview
     this.clearPendingVoiceNote();
+    
+    // Reset container completely for new conversation on mobile
+    this.resetChatContainer();
 
     console.log(`⚡ [${Date.now()}] Setting selectedConversation to: ${conversation.otherUser?.name}`);
+    
+    // On mobile, animate avatar and name flying from list to header
+    if (event && this.platformService.isSmallScreen()) {
+      this.animateSharedElements(event, conversation, unreadCount, requestId);
+    } else {
+      // Desktop or no event - use regular transition
+      this.updateConversationView(conversation, unreadCount, requestId);
+    }
+    
+    console.log(`🏁 [${Date.now()}] selectConversation END`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  }
+  
+  private animateSharedElements(
+    event: MouseEvent | TouchEvent,
+    conversation: Conversation,
+    unreadCount: number,
+    requestId: number
+  ) {
+    // Get the clicked conversation item
+    const target = (event.currentTarget || event.target) as HTMLElement;
+    const conversationItem = target.closest('.conversation-item') as HTMLElement;
+    
+    if (!conversationItem) {
+      // Fallback if we can't find the element
+      this.updateConversationView(conversation, unreadCount, requestId);
+      return;
+    }
+    
+    // Get source elements
+    const sourceAvatar = conversationItem.querySelector('.conversation-avatar') as HTMLElement;
+    const sourceName = conversationItem.querySelector('h3') as HTMLElement;
+    
+    if (!sourceAvatar || !sourceName) {
+      // Fallback if we can't find the elements
+      this.updateConversationView(conversation, unreadCount, requestId);
+      return;
+    }
+    
+    // Get source positions before any changes
+    const avatarRect = sourceAvatar.getBoundingClientRect();
+    const nameRect = sourceName.getBoundingClientRect();
+    
+    // Create clones
+    const avatarClone = sourceAvatar.cloneNode(true) as HTMLElement;
+    const nameClone = sourceName.cloneNode(true) as HTMLElement;
+    
+    // Style clones to match source position
+    Object.assign(avatarClone.style, {
+      position: 'fixed',
+      top: `${avatarRect.top}px`,
+      left: `${avatarRect.left}px`,
+      width: `${avatarRect.width}px`,
+      height: `${avatarRect.height}px`,
+      margin: '0',
+      zIndex: '10001',
+      pointerEvents: 'none',
+      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+      borderRadius: window.getComputedStyle(sourceAvatar).borderRadius
+    });
+    
+    Object.assign(nameClone.style, {
+      position: 'fixed',
+      top: `${nameRect.top}px`,
+      left: `${nameRect.left}px`,
+      width: `${nameRect.width}px`,
+      margin: '0',
+      zIndex: '10001',
+      pointerEvents: 'none',
+      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      fontSize: window.getComputedStyle(sourceName).fontSize,
+      fontWeight: window.getComputedStyle(sourceName).fontWeight,
+      color: window.getComputedStyle(sourceName).color
+    });
+    
+    // Store references to elements for cleanup
+    this.currentAnimationElements = {
+      avatarClone,
+      nameClone,
+      sourceAvatar,
+      sourceName
+    };
+    
+    // Add clones to body
+    document.body.appendChild(avatarClone);
+    document.body.appendChild(nameClone);
+    
+    // Hide originals during animation
+    sourceAvatar.style.opacity = '0';
+    sourceName.style.opacity = '0';
+    
+    // Pre-hide destination elements to prevent flash
+    // Do this BEFORE updating the view
+    const preHideDestination = () => {
+      const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
+      const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
+      if (headerAvatar) headerAvatar.style.opacity = '0';
+      if (headerName) headerName.style.opacity = '0';
+    };
+    
+    // Update the view and start loading messages immediately (like before)
+    this.selectedConversation = conversation;
+    this.hasConversationSelected = true;
+    this.messagingService.setHasSelectedConversation(true);
+    
+    // Force immediate change detection to prevent any flicker
+    this.cdr.detectChanges();
+    
+    // Pre-hide destination immediately after render
+    preHideDestination();
+    
+    // Start loading messages immediately (don't wait for animation)
+    Promise.resolve().then(() => {
+      this.messages = [];
+      this.isLoadingMessages = true;
+      this.cdr.detectChanges(); // Force update here too
+    });
+    
+    // Mark as read immediately
+    if (conversation.otherUser && this.isPageVisible) {
+      this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
+        next: () => {
+          console.log(`✅ Conversation marked as read`);
+        }
+      });
+    }
+    
+    // Load messages immediately
+    setTimeout(() => {
+      this.loadMessages(unreadCount, requestId);
+    }, 0);
+    
+    this.cdr.detectChanges();
+    
+    // Wait for header to render, then animate to destination (animation happens in parallel)
+    setTimeout(() => {
+      const headerAvatar = document.querySelector('.chat-view-mobile .chat-header .chat-avatar') as HTMLElement;
+      const headerName = document.querySelector('.chat-view-mobile .chat-header h3') as HTMLElement;
+      
+      if (headerAvatar && headerName) {
+        // Set animation flag ONLY after confirming elements exist
+        this.isAnimatingConversationTransition = true;
+        console.log('🎬 Animation flag SET (starting shared element transition)');
+        const destAvatarRect = headerAvatar.getBoundingClientRect();
+        const destNameRect = headerName.getBoundingClientRect();
+        
+        // Hide destination elements during animation
+        headerAvatar.style.opacity = '0';
+        headerName.style.opacity = '0';
+        
+        // Trigger reflow
+        avatarClone.offsetHeight;
+        nameClone.offsetHeight;
+        
+        // Animate clones to destination
+        Object.assign(avatarClone.style, {
+          top: `${destAvatarRect.top}px`,
+          left: `${destAvatarRect.left}px`,
+          width: `${destAvatarRect.width}px`,
+          height: `${destAvatarRect.height}px`
+        });
+        
+        Object.assign(nameClone.style, {
+          top: `${destNameRect.top}px`,
+          left: `${destNameRect.left}px`,
+          fontSize: window.getComputedStyle(headerName).fontSize,
+          fontWeight: window.getComputedStyle(headerName).fontWeight
+        });
+        
+        // Clean up after animation completes
+        this.animationCleanupTimeout = setTimeout(() => {
+          avatarClone.remove();
+          nameClone.remove();
+          
+          // Show destination elements
+          headerAvatar.style.opacity = '1';
+          headerName.style.opacity = '1';
+          
+          // Restore source elements
+          sourceAvatar.style.opacity = '1';
+          sourceName.style.opacity = '1';
+          
+          // Clear animation flag, timeout reference, and element references
+          this.isAnimatingConversationTransition = false;
+          this.animationCleanupTimeout = null;
+          this.currentAnimationElements = {};
+          console.log('🎬 Animation flag CLEARED (animation complete)');
+        }, 500); // Match transition duration
+      } else {
+        // Fallback if header not found - just clean up elements
+        // (flag was never set since we're in this fallback)
+        avatarClone.remove();
+        nameClone.remove();
+        sourceAvatar.style.opacity = '1';
+        sourceName.style.opacity = '1';
+        this.currentAnimationElements = {};
+        console.log('⚠️ Header not found during animation - using fallback (no animation delay)');
+      }
+    }, 50); // Small delay to ensure header is rendered
+  }
+  
+  private resetChatContainer() {
+    if (!this.platformService.isSmallScreen()) return;
+    
+    const container = this.chatContainer?.nativeElement;
+    if (!container) return;
+    
+    // Remove ready state (hides with visibility, not display)
+    container.classList.remove('messages-ready');
+    
+    // Force dimension recalculation without hiding
+    // Use transform trick to force reflow without affecting rendering
+    const currentTransform = container.style.transform;
+    container.style.transform = 'translateZ(0)';
+    
+    // Trigger reflow - forces browser to recalculate everything
+    void container.offsetHeight;
+    void container.getBoundingClientRect();
+    
+    // Restore transform
+    container.style.transform = currentTransform || '';
+    
+    // Reset scroll position
+    container.scrollTop = 0;
+    
+    console.log('🔄 Chat container fully reset');
+  }
+  
+  private updateConversationView(conversation: Conversation, unreadCount: number, requestId: number) {
     // Update header FIRST in its own change detection cycle
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
+    // Force immediate change detection
+    this.cdr.detectChanges();
+    
     // THEN clear messages and show loading in next microtask (separate cycle)
-    // This ensures header renders completely before loading state changes
     Promise.resolve().then(() => {
       this.messages = [];
       this.isLoadingMessages = true;
+      this.cdr.detectChanges(); // Force update here too
       console.log(`🔄 [${Date.now()}] Loading state set in separate cycle`);
     });
     
     // Notify service that a conversation is selected (for hiding tabs on mobile)
     this.messagingService.setHasSelectedConversation(true);
     
+    // Trigger change detection
+    this.cdr.detectChanges();
+    
     // Small delay to ensure DOM has updated with loading state before fetching
-    // This prevents any flash of old content
     setTimeout(() => {
       console.log(`📤 [${Date.now()}] Calling loadMessages for: ${conversation.otherUser?.name}`);
       this.loadMessages(unreadCount, requestId);
     }, 0);
     
-    // Mark as read (conversation reload happens after messages load - see loadMessages success)
-    // Only mark as read if the page is actually visible to the user
+    // Mark as read
     if (conversation.otherUser && this.isPageVisible) {
       this.messagingService.markAsRead(conversation.otherUser.auth0Id).subscribe({
         next: () => {
           console.log(`✅ [${Date.now()}] Conversation marked as read`);
         }
       });
-    } else if (conversation.otherUser && !this.isPageVisible) {
     }
-    
-    console.log(`🏁 [${Date.now()}] selectConversation END`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
+  
 
   loadMessages(unreadCount?: number, requestId?: number) {
     console.log(`📥 [${Date.now()}] loadMessages START for: ${this.selectedConversation?.otherUser?.name}`);
@@ -1105,6 +1553,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         // Set messages
         this.messages = response.messages || [];
         console.log(`💬 [${Date.now()}] Messages set (no cdr call)`);
+        
+        // Immediately scroll to bottom to prevent flash (will be refined later)
+        requestAnimationFrame(() => {
+          const container = this.chatContainer?.nativeElement;
+          if (container) {
+            container.scrollTop = 999999;
+          }
+        });
         
         setTimeout(async () => {
           if (activeRequestId !== this.messageLoadRequestId) {
@@ -1280,7 +1736,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if (existingMessage) {
         } else {
           this.messages.push(message);
-          this.scrollToBottom();
+          this.scrollToBottom(true); // Skip animation check for sent messages
         }
         
         // Clear reply after successful send
@@ -1340,34 +1796,94 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     );
   }
 
-  scrollToBottom() {
-    // Use requestAnimationFrame to ensure DOM is fully rendered
+  scrollToBottom(skipAnimationCheck = false) {
+    // If animation is happening and we haven't explicitly skipped the check, wait for it
+    // Use 850ms: avatar animation (500ms) + chat-view-mobile slide-in (300ms) + buffer (50ms)
+    const animationDelay = (!skipAnimationCheck && this.isAnimatingConversationTransition) ? 850 : 0;
+    
+    if (animationDelay > 0) {
+      console.log('⏳ scrollToBottom: Waiting for animations (850ms delay)');
+    }
+    
+    setTimeout(() => {
+      this.performScrollToBottom(0); // Start with attempt 0
+    }, animationDelay);
+  }
+  
+  private performScrollToBottom(attempt: number, previousHeight?: number) {
+    const maxAttempts = 5; // Try up to 5 times
+    const retryDelay = attempt === 0 ? 150 : 100; // First attempt 150ms (for view to render), subsequent 100ms
+    
     requestAnimationFrame(() => {
       setTimeout(() => {
         const container = this.chatContainer?.nativeElement;
-        if (container) {
-          // Force scroll to absolute bottom by using scrollHeight
-          // Add a small buffer to ensure we're truly at the bottom
-          const scrollHeight = container.scrollHeight;
-          const clientHeight = container.clientHeight;
-          const maxScroll = scrollHeight - clientHeight;
-          
-          container.scrollTop = maxScroll + 100; // Add buffer to ensure we're at absolute bottom
-          
-          // Verify we're at the bottom, retry if needed
-          requestAnimationFrame(() => {
-            if (container.scrollTop < maxScroll - 10) {
-              console.log('⚠️ Scroll not at bottom, retrying...', {
-                scrollTop: container.scrollTop,
-                maxScroll,
-                scrollHeight,
-                clientHeight
-              });
-              container.scrollTop = maxScroll + 100;
-            }
+        if (!container) {
+          console.warn('⚠️ scrollToBottom: container not found');
+          return;
+        }
+        
+        // Check if container has content
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+        
+        // Don't skip scrolling on first attempt - height might still be settling
+        if (scrollHeight <= clientHeight && attempt > 0) {
+          console.log('ℹ️ scrollToBottom: No scroll needed (content fits in view)');
+          return;
+        }
+        
+        // If height is suspiciously small on first attempt, it's likely still rendering
+        if (attempt === 0 && scrollHeight < 500) {
+          console.log(`⚠️ scrollHeight (${scrollHeight}) seems too small, likely still rendering - will retry`);
+          // Force retry
+          setTimeout(() => {
+            this.performScrollToBottom(1, scrollHeight);
+          }, 150);
+          return;
+        }
+        
+        const maxScroll = scrollHeight - clientHeight;
+        
+        // Check if height is still changing
+        if (previousHeight && previousHeight !== scrollHeight) {
+          console.log(`📏 Height changed: ${previousHeight} → ${scrollHeight} (still rendering)`);
+        }
+        
+        if (attempt === 0) {
+          console.log('📍 scrollToBottom (attempt 1)', {
+            scrollHeight,
+            clientHeight,
+            maxScroll,
+            currentScrollTop: container.scrollTop
           });
         }
-      }, 50); // Increased from 10ms to 50ms
+        
+        // Force scroll to absolute bottom
+        container.scrollTop = maxScroll + 100;
+        
+        // Verify and retry if needed
+        requestAnimationFrame(() => {
+          const actualScrollTop = container.scrollTop;
+          const actualMaxScroll = container.scrollHeight - container.clientHeight;
+          
+          // Check if we're at the bottom (with 10px tolerance)
+          if (actualScrollTop < actualMaxScroll - 10) {
+            if (attempt < maxAttempts - 1) {
+              console.log(`⚠️ Scroll attempt ${attempt + 1} not at bottom, retrying... (${actualScrollTop} < ${actualMaxScroll})`);
+              // Retry with updated height
+              this.performScrollToBottom(attempt + 1, container.scrollHeight);
+            } else {
+              console.error(`❌ scrollToBottom failed after ${maxAttempts} attempts`, {
+                scrollTop: actualScrollTop,
+                maxScroll: actualMaxScroll,
+                scrollHeight: container.scrollHeight
+              });
+            }
+          } else {
+            console.log(`✅ scrollToBottom successful (attempt ${attempt + 1})`);
+          }
+        });
+      }, retryDelay);
     });
   }
 
@@ -1431,6 +1947,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    */
   async scrollToFirstUnreadMessage(unreadCount?: number) {
     await this.waitForMessagesRender();
+    
+    // Scroll to bottom immediately after messages render (prevent flash)
+    const container = this.chatContainer?.nativeElement;
+    if (container) {
+      container.scrollTop = 999999;
+    }
+    
+    // Wait for images/media to load which can affect scroll height
+    await this.waitForMediaToLoad();
 
     // Use provided unread count, or try to find unread messages by checking read status
     const count = unreadCount !== undefined ? unreadCount : 0;
@@ -1452,9 +1977,169 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.scrollToMessageById(firstUnreadId);
     } else {
       console.log('📍 No unread messages found, scrolling to bottom');
-      // All messages are read, scroll to bottom immediately without extra timeout
-      this.scrollToBottom();
+      // All messages are read, scroll to bottom by scrolling to the input element
+      this.scrollToBottomElement();
     }
+  }
+  
+  private scrollToBottomElement() {
+    // Immediately scroll to bottom to prevent any flash
+    const container = this.chatContainer?.nativeElement;
+    if (container) {
+      container.scrollTop = 999999;
+      
+      // On mobile, hide messages until positioned (prevent flash)
+      if (this.platformService.isSmallScreen()) {
+        container.classList.remove('messages-ready');
+      }
+    }
+    
+    // Mobile needs more time due to animations
+    const isMobile = this.platformService.isSmallScreen();
+    const baseDelay = isMobile ? 300 : 100; // Extra time for mobile
+    const animationDelay = this.isAnimatingConversationTransition ? 850 : 0;
+    const totalDelay = baseDelay + animationDelay;
+    
+    console.log('📍 scrollToBottomElement (instant + delayed check)', { totalDelay });
+    
+    // Still do delayed checking to ensure we stay at bottom as content loads
+    setTimeout(() => {
+      this.attemptScrollToBottom(0);
+    }, totalDelay);
+  }
+  
+  private attemptScrollToBottom(attemptNumber: number) {
+    const maxAttempts = 10; // More attempts for reliability
+    const container = this.chatContainer?.nativeElement;
+    
+    if (!container) {
+      console.warn('⚠️ Chat container not found');
+      return;
+    }
+    
+    if (attemptNumber === 0) {
+      // Force browser to recalculate dimensions on first attempt
+      void container.offsetHeight;
+      
+      // Immediately scroll to bottom on first attempt to avoid flash
+      container.scrollTop = 999999;
+    }
+    
+    // Check if content is actually rendered (get fresh measurements)
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // If scrollHeight equals clientHeight, content likely hasn't rendered yet
+    if (scrollHeight === clientHeight && attemptNumber < maxAttempts - 1) {
+      if (attemptNumber === 0) {
+        console.log(`⏳ Waiting for content to render...`);
+      }
+      // Keep scrolling to bottom while waiting
+      container.scrollTop = 999999;
+      setTimeout(() => {
+        this.attemptScrollToBottom(attemptNumber + 1);
+      }, 150); // Wait longer for content to render
+      return;
+    }
+    
+    // Ensure we're at the bottom - instant, no smooth scroll
+    container.scrollTop = 999999;
+    
+    // Check if we're at the bottom after a short delay
+    setTimeout(() => {
+      const newScrollHeight = container.scrollHeight;
+      const scrollTop = container.scrollTop;
+      const newClientHeight = container.clientHeight;
+      const maxScroll = newScrollHeight - newClientHeight;
+      const distanceFromBottom = maxScroll - scrollTop;
+      
+      // If we're not at the bottom and haven't exceeded max attempts, try again
+      if (distanceFromBottom > 50 && attemptNumber < maxAttempts - 1) {
+        console.log(`⚠️ Retry ${attemptNumber + 1}: ${distanceFromBottom}px from bottom`);
+        setTimeout(() => {
+          this.attemptScrollToBottom(attemptNumber + 1);
+        }, 100);
+      } else if (distanceFromBottom > 50) {
+        console.error(`❌ Failed to scroll after ${maxAttempts} attempts`);
+        // Show messages anyway even if scroll failed
+        if (this.platformService.isSmallScreen()) {
+          container.classList.add('messages-ready');
+        }
+      } else {
+        console.log(`✅ Scrolled to bottom (attempt ${attemptNumber + 1})`);
+        // Show messages now that we're at the bottom
+        if (this.platformService.isSmallScreen()) {
+          container.classList.add('messages-ready');
+        }
+      }
+    }, 100);
+  }
+  
+  private waitForMediaToLoad(): Promise<void> {
+    return new Promise(resolve => {
+      const container = this.chatContainer?.nativeElement;
+      if (!container) {
+        resolve();
+        return;
+      }
+      
+      // Find all images and audio elements
+      const images = Array.from(container.querySelectorAll('img')) as HTMLImageElement[];
+      const audios = Array.from(container.querySelectorAll('audio')) as HTMLAudioElement[];
+      
+      if (images.length === 0 && audios.length === 0) {
+        resolve();
+        return;
+      }
+      
+      let loadedCount = 0;
+      const totalMedia = images.length + audios.length;
+      
+      const checkComplete = () => {
+        loadedCount++;
+        if (loadedCount >= totalMedia) {
+          resolve();
+        }
+      };
+      
+      // Set timeout to not wait forever
+      const timeout = setTimeout(() => {
+        console.log('⏱️ Media load timeout, proceeding with scroll');
+        resolve();
+      }, 1000);
+      
+      // Wait for images to load
+      images.forEach((img: HTMLImageElement) => {
+        if (img.complete) {
+          checkComplete();
+        } else {
+          img.addEventListener('load', () => {
+            checkComplete();
+            clearTimeout(timeout);
+          });
+          img.addEventListener('error', () => {
+            checkComplete();
+            clearTimeout(timeout);
+          });
+        }
+      });
+      
+      // Wait for audio metadata to load
+      audios.forEach((audio: HTMLAudioElement) => {
+        if (audio.readyState >= 1) { // HAVE_METADATA
+          checkComplete();
+        } else {
+          audio.addEventListener('loadedmetadata', () => {
+            checkComplete();
+            clearTimeout(timeout);
+          });
+          audio.addEventListener('error', () => {
+            checkComplete();
+            clearTimeout(timeout);
+          });
+        }
+      });
+    });
   }
 
   private waitForMessagesRender(maxAttempts = 20): Promise<void> {
@@ -1738,7 +2423,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     return 'Time unavailable';
   }
 
-  openOtherUserProfile() {
+  openOtherUserProfile(event?: MouseEvent) {
+    // Prevent middle-click or Cmd/Ctrl+click from opening in new tab
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
     const other = this.selectedConversation?.otherUser;
     if (!other) return;
 
@@ -2074,7 +2765,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('React with:', data?.emoji, 'to message:', message.id);
         break;
       case 'copy':
-        // Already handled in the component
+        this.copyMessageToClipboard(message);
         break;
       case 'forward':
         // Implement forward functionality
@@ -2088,6 +2779,82 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('More options for message:', message.id);
         break;
     }
+  }
+
+  async copyMessageToClipboard(message: Message) {
+    const textToCopy = message.content || '';
+    
+    if (!textToCopy) {
+      console.warn('No text content to copy');
+      return;
+    }
+
+    try {
+      // Try modern Clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(textToCopy);
+        await this.showCopySuccessToast();
+      } else {
+        // Fallback for older browsers or non-HTTPS contexts
+        this.fallbackCopyToClipboard(textToCopy);
+      }
+    } catch (error) {
+      console.error('Failed to copy with Clipboard API:', error);
+      // Try fallback on error
+      this.fallbackCopyToClipboard(textToCopy);
+    }
+  }
+
+  private fallbackCopyToClipboard(text: string): void {
+    try {
+      // Create temporary textarea
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '0';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      
+      // Select and copy
+      textarea.focus();
+      textarea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      if (successful) {
+        this.showCopySuccessToast();
+      } else {
+        this.showCopyFailureToast();
+      }
+    } catch (error) {
+      console.error('Fallback copy failed:', error);
+      this.showCopyFailureToast();
+    }
+  }
+
+  private async showCopySuccessToast() {
+    const toast = await this.toastController.create({
+      message: '✓ Message copied',
+      duration: 1500,
+      position: 'top',
+      cssClass: 'copy-success-toast',
+      mode: 'ios'
+    });
+    await toast.present();
+  }
+
+  private async showCopyFailureToast() {
+    const toast = await this.toastController.create({
+      message: 'Failed to copy message',
+      duration: 2500,
+      position: 'top',
+      cssClass: 'copy-error-toast',
+      buttons: ['OK'],
+      mode: 'ios'
+    });
+    await toast.present();
   }
 
   addReactionToMessage(message: Message, emoji: string) {
@@ -2281,23 +3048,41 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     if (!messageId) {
       console.warn('⚠️ Message ID is undefined');
-      this.scrollToBottom();
+      this.scrollToBottom(true); // Skip animation check for fallback
       return;
     }
     
+    // Make messages visible immediately for unread message scroll
+    const container = this.chatContainer?.nativeElement;
+    if (container && this.platformService.isSmallScreen()) {
+      container.classList.add('messages-ready');
+      console.log('📱 Mobile: Added messages-ready class for unread scroll');
+      // Force change detection to ensure messages render
+      this.cdr.detectChanges();
+    }
     
-    // Small delay to ensure DOM is ready
+    console.log('⏱️ Setting setTimeout for 300ms to find message');
+    
+    // Longer delay to ensure messages are in DOM (especially after reset)
     setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
-      
-      
-      if (!messageElement) {
-        const allMessages = document.querySelectorAll('[data-message-id]');
-        console.warn(`❌ Message ${messageId} not found. Total messages: ${allMessages.length}`);
-        // Fallback to scrolling to bottom if message not found
-        this.scrollToBottom();
-        return;
-      }
+      console.log('⏰ scrollToMessageById setTimeout fired (300ms elapsed)');
+      try {
+        console.log('🔍 Attempting to find message element:', messageId);
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
+        
+        
+        if (!messageElement) {
+          const allMessages = document.querySelectorAll('[data-message-id]');
+          console.warn(`❌ Message ${messageId} not found. Total messages: ${allMessages.length}`);
+          
+          // Log first few message IDs to debug
+          const messageIds = Array.from(allMessages).slice(0, 5).map(el => el.getAttribute('data-message-id'));
+          console.log('First few message IDs in DOM:', messageIds);
+          
+          // Fallback to scrolling to bottom if message not found
+          this.scrollToBottom(true); // Skip animation check for fallback
+          return;
+        }
       
       // Get the scrollable container
       const container = this.chatContainer?.nativeElement || 
@@ -2335,7 +3120,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         this.highlightedMessageId = null;
       }, 2000);
       
-    }, 100);
+      } catch (error) {
+        console.error('❌ Error in scrollToMessageById:', error);
+      }
+    }, 300); // Increased from 100ms to allow container reset and rendering
   }
 
   // Scroll to and highlight the message being replied to (for the input preview button)
