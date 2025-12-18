@@ -254,3 +254,4 @@ Note: This does not include data from trial lessons or quick office hours lesson
 ---
 
 **All progress features now accurately reflect regular learning lessons only!** ✅
+

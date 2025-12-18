@@ -294,3 +294,4 @@ async function migrateOldAudio() {
 ✅ **Scalability:** Unlimited lesson length  
 
 **Next:** Create a new lesson and verify pronunciation appears with GCS audio! 🚀
+

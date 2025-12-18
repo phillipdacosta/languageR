@@ -404,3 +404,4 @@ Everything is implemented and ready for your first test lesson. Just:
 *GPT-4 Realtime API: gpt-4o-audio-preview*
 *Sampling rate: 15% (adjustable)*
 *Cost per 50-min lesson: ~$0.23*
+

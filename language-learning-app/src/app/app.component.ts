@@ -7,8 +7,11 @@ import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { LanguageService } from './services/language.service';
 import { EarlyExitService } from './services/early-exit.service';
+import { ReminderService, ReminderEvent } from './services/reminder.service';
+import { LessonService } from './services/lesson.service';
+import { ClassService } from './services/class.service';
 import { Router, NavigationEnd } from '@angular/router';
-import { Subject, takeUntil, filter } from 'rxjs';
+import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
 import { ModalController } from '@ionic/angular';
 import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
 
@@ -33,7 +36,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private languageService: LanguageService,
     private earlyExitService: EarlyExitService,
     private modalController: ModalController,
-    private router: Router
+    private router: Router,
+    private reminderService: ReminderService,
+    private lessonService: LessonService,
+    private classService: ClassService
   ) {}
 
   ngOnInit() {
@@ -151,7 +157,9 @@ export class AppComponent implements OnInit, OnDestroy {
               hasUser: !!currentUser,
               email: currentUser?.email,
               interfaceLanguage: currentUser?.interfaceLanguage,
-              nativeLanguage: currentUser?.nativeLanguage
+              nativeLanguage: currentUser?.nativeLanguage,
+              userType: currentUser?.userType,
+              id: currentUser?.id
             });
             
             if (currentUser?.interfaceLanguage) {
@@ -159,6 +167,29 @@ export class AppComponent implements OnInit, OnDestroy {
               this.languageService.setLanguage(currentUser.interfaceLanguage);
             } else {
               console.log('⚠️ AppComponent: No interfaceLanguage in user profile, keeping current language');
+            }
+            
+            // Load reminders globally if user is a tutor
+            console.log('🔔 [APP] Checking user type for reminders:', currentUser?.userType, currentUser?.id);
+            
+            // Check if reminders are enabled (default to true)
+            const remindersEnabled = localStorage.getItem('reminders_enabled');
+            const shouldShowReminders = remindersEnabled !== null ? remindersEnabled === 'true' : true;
+            
+            console.log('🔔 [APP] Reminders enabled:', shouldShowReminders);
+            
+            if (shouldShowReminders) {
+              if (currentUser?.userType === 'tutor' && currentUser.id) {
+                console.log('🔔 [APP] User is tutor, loading tutor reminders');
+                this.loadGlobalReminders(currentUser.id);
+              } else if (currentUser?.userType === 'student' && currentUser.id) {
+                console.log('🔔 [APP] User is student, loading student reminders');
+                this.loadStudentReminders(currentUser.id);
+              } else {
+                console.log('⚠️ [APP] User type not matched for reminders:', currentUser?.userType);
+              }
+            } else {
+              console.log('🔕 [APP] Reminders disabled by user');
             }
           },
           error: (error) => {
@@ -199,5 +230,195 @@ export class AppComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+  
+  // Load reminders globally for tutors
+  private loadGlobalReminders(tutorId: string) {
+    console.log('🔔 [APP] Loading global reminders for tutor:', tutorId);
+    
+    // Load both lessons and classes
+    forkJoin({
+      lessons: this.lessonService.getLessonsByTutor(tutorId, true),
+      classes: this.classService.getClassesForTutor(tutorId)
+    }).subscribe({
+      next: ({ lessons, classes }) => {
+        console.log('🔔 [APP] Tutor lessons response:', lessons);
+        console.log('🔔 [APP] Tutor classes response:', classes);
+        
+        const reminderEvents: ReminderEvent[] = [];
+        const now = new Date();
+        
+        // Process lessons
+        if (lessons.success && lessons.lessons) {
+          console.log('🔔 [APP] Processing', lessons.lessons.length, 'lessons for tutor');
+          
+          lessons.lessons.forEach((lesson: any) => {
+            const startTime = new Date(lesson.startTime);
+            const endTime = new Date(lesson.endTime);
+            const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
+            const minutesSinceEnd = Math.floor((now.getTime() - endTime.getTime()) / 60000);
+            
+            console.log('🔔 [APP] Lesson:', {
+              id: lesson._id,
+              startTime: startTime.toLocaleString(),
+              endTime: endTime.toLocaleString(),
+              minutesUntil,
+              isFuture: startTime > now,
+              hasEnded: endTime < now,
+              minutesSinceEnd
+            });
+            
+            // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
+            // This ensures reminders show for lessons that started and persist until dismissed
+            const shouldTrack = startTime > now || minutesSinceEnd < 60;
+            
+            if (shouldTrack) {
+              // Extract student info from the lesson object
+              const student = lesson.studentId as any;
+              const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
+              const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
+              
+              // Format student name as "FirstName L."
+              const studentName = studentFirst && studentLast
+                ? `${studentFirst} ${studentLast.charAt(0)}.`
+                : studentFirst || 'Student';
+              
+              // Format title - use the language/subject
+              const language = lesson.tutorLanguage || lesson.subject || 'Language';
+              const title = `${language} with ${studentName}`;
+              
+              const reminderEvent: ReminderEvent = {
+                id: lesson._id,
+                title: title,
+                startTime: startTime,
+                type: 'lesson',
+                lessonId: lesson._id,
+                studentName: studentName,
+                studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
+                meetingLink: lesson.meetingLink
+              };
+              
+              console.log('✅ [APP] Adding reminder event:', reminderEvent);
+              reminderEvents.push(reminderEvent);
+            }
+          });
+        }
+        
+        // Process classes
+        if (classes.success && classes.classes) {
+          classes.classes.forEach((cls: any) => {
+            const startTime = new Date(cls.startTime);
+            
+            // Only track future classes
+            if (startTime > now) {
+              reminderEvents.push({
+                id: cls._id,
+                title: cls.name || 'Class',
+                startTime: startTime,
+                type: 'class',
+                classId: cls._id,
+                thumbnail: cls.thumbnail,
+                meetingLink: cls.meetingLink
+              });
+            }
+          });
+        }
+        
+        console.log('🔔 [APP] Loaded', reminderEvents.length, 'events for global reminders');
+        this.reminderService.trackEvents(reminderEvents);
+        
+        // Refresh reminders every 5 minutes to catch new lessons/classes
+        setTimeout(() => {
+          if (!this.destroy$.closed) {
+            this.loadGlobalReminders(tutorId);
+          }
+        }, 5 * 60 * 1000);
+      },
+      error: (error) => {
+        console.error('❌ [APP] Error loading global reminders:', error);
+      }
+    });
+  }
+  
+  // Load reminders for students
+  private loadStudentReminders(studentId: string) {
+    console.log('🔔 [APP] Loading reminders for student:', studentId);
+    
+    // Load student's lessons (including all past lessons to catch recently ended ones)
+    this.lessonService.getLessonsByStudent(studentId, true).subscribe({
+      next: (response) => {
+        console.log('🔔 [APP] Student lessons response:', response);
+        
+        const reminderEvents: ReminderEvent[] = [];
+        const now = new Date();
+        
+        if (response.success && response.lessons) {
+          console.log('🔔 [APP] Processing', response.lessons.length, 'lessons for student');
+          
+          response.lessons.forEach((lesson: any) => {
+            const startTime = new Date(lesson.startTime);
+            const endTime = new Date(lesson.endTime);
+            const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
+            const minutesSinceEnd = Math.floor((now.getTime() - endTime.getTime()) / 60000);
+            
+            console.log('🔔 [APP] Lesson:', {
+              id: lesson._id,
+              startTime: startTime.toLocaleString(),
+              endTime: endTime.toLocaleString(),
+              minutesUntil,
+              isFuture: startTime > now,
+              hasEnded: endTime < now,
+              minutesSinceEnd
+            });
+            
+            // Track lessons that are upcoming OR currently happening OR ended recently (within 1 hour)
+            const shouldTrack = startTime > now || minutesSinceEnd < 60;
+            
+            if (shouldTrack) {
+              // Extract tutor info
+              const tutor = lesson.tutorId as any;
+              const tutorFirst = typeof tutor?.firstName === 'string' ? tutor.firstName.trim() : '';
+              const tutorLast = typeof tutor?.lastName === 'string' ? tutor.lastName.trim() : '';
+              
+              // Format tutor name as "FirstName L."
+              const tutorName = tutorFirst && tutorLast
+                ? `${tutorFirst} ${tutorLast.charAt(0)}.`
+                : tutorFirst || 'Tutor';
+              
+              // Format title - use the language/subject
+              const language = lesson.tutorLanguage || lesson.subject || 'Language';
+              const title = `${language} with ${tutorName}`;
+              
+              const reminderEvent: ReminderEvent = {
+                id: lesson._id,
+                title: title,
+                startTime: startTime,
+                type: 'lesson',
+                lessonId: lesson._id,
+                studentName: tutorName, // For students, this is the tutor name
+                studentAvatar: tutor?.picture || tutor?.avatar || tutor?.photoUrl,
+                meetingLink: lesson.meetingLink
+              };
+              
+              console.log('✅ [APP] Adding reminder event:', reminderEvent);
+              reminderEvents.push(reminderEvent);
+            }
+          });
+        }
+        
+        console.log('🔔 [APP] Loaded', reminderEvents.length, 'lessons for student reminders');
+        this.reminderService.trackEvents(reminderEvents);
+        
+        // Refresh reminders every 5 minutes
+        setTimeout(() => {
+          if (!this.destroy$.closed) {
+            this.loadStudentReminders(studentId);
+          }
+        }, 5 * 60 * 1000);
+      },
+      error: (error) => {
+        console.error('❌ [APP] Error loading student reminders:', error);
+      }
+    });
   }
 }

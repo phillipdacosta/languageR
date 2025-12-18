@@ -293,3 +293,4 @@ The new fix addresses the case where the user **doesn't confirm** the early exit
 
 This fix ensures that audio recording **always stops** when the user leaves the video-call page, regardless of whether they confirm the early exit or dismiss the modal. The session metadata is preserved for potential resume, and the backend cron job ensures proper finalization at the scheduled end time. No more orphaned MediaRecorders or background audio uploads! 🎉
 
+

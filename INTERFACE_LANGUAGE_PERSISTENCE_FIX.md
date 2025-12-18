@@ -106,3 +106,4 @@ interfaceLanguage: user.interfaceLanguage,
 - The backend endpoints for updating the language (`PUT /api/users/profile`) were also working correctly
 - The only issue was that the GET and POST endpoints weren't consistently returning these fields, causing the frontend to receive `undefined` values after login
 
+

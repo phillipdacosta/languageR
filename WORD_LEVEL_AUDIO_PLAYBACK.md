@@ -193,3 +193,4 @@ Currently 0.3s before/after. Could make configurable:
 ✅ **Fallback:** Full segment for old data  
 
 **Test it now - click any pronunciation word!** 🎯🎵
+

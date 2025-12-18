@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
@@ -34,6 +35,7 @@ app.get('/health', (req, res) => {
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
+app.use(cookieParser()); // Add cookie parser middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
   credentials: true

@@ -38,14 +38,15 @@ ion-content {
   position: relative;
   width: 100%;
   height: 100vh;
-  background: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f9fafb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
   overflow: hidden;
   
   // Desktop: maintain viewport height but allow calendar to scroll internally
   @media (min-width: 769px) {
-    height: 100vh;
+    height: calc(100vh - 60px); // Account for tab bar
     overflow: hidden;
+    margin-top: 60px; // Push down from tab bar
   }
 }
 
@@ -53,17 +54,15 @@ ion-content {
     position: absolute;
     left: 0;
     top: 0;
-    width: 280px;
+    width: 260px;
     height: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
+    background: #fafafa;
     padding: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(102, 126, 234, 0.1);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
     overflow-y: auto;
     z-index: 1;
-    box-shadow: 4px 0 20px rgba(102, 126, 234, 0.05);
 }
 
 // Sidebar header for mobile
@@ -108,23 +107,22 @@ ion-content {
 
 // Sidebar content
 .sidebar-content {
-  padding: 31px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
   flex: 1;
-  position: relative;
-    top: 30px;
+  
   // Mobile: collapsed by default
   @media (max-width: 768px) {
     max-height: 0;
     overflow: hidden;
-    padding: 0 31px;
+    padding: 0 24px;
     transition: max-height 0.3s ease, padding 0.3s ease;
     
     &.expanded {
       max-height: 1000px; // Large enough for all content
-      padding: 31px;
+      padding: 24px;
     }
   }
 }
@@ -132,50 +130,53 @@ ion-content {
 .action-buttons {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-radius: 16px;
+  gap: 8px;
 }
 
 .schedule-lesson-btn {
-  --background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --background: #007AFF;
+  --background-hover: #0051D5;
+  --background-activated: #004DB8;
   --color: white;
-  --border-radius: 16px;
-  height: 52px;
-  font-weight: 700;
-  font-size: 16px;
-//   box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+  --border-radius: 8px;
+  height: 40px;
+  font-weight: 500;
+  font-size: 14px;
   margin-bottom: 12px;
-  transition: all 0.3s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-transform: none;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.01em;
+  box-shadow: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 35px rgba(240, 147, 251, 0.6);
+    --background: #0051D5;
   }
   
   &:active {
-    transform: translateY(0);
+    transform: scale(0.98);
   }
 }
 
 .action-btn {
-  --background: rgba(255, 255, 255, 0.95);
-  --border-color: rgba(102, 126, 234, 0.2);
-  --color: #667eea;
-  --border-radius: 12px;
-  height: 46px;
-  font-weight: 600;
-  font-size: 14px;
+  --background: #ffffff;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --color: #000000;
+  --border-radius: 8px;
+  height: 36px;
+  font-weight: 400;
+  font-size: 13px;
   border-width: 1px;
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  letter-spacing: -0.01em;
   
   &:hover {
-    --background: rgba(255, 255, 255, 1);
-    --border-color: rgba(102, 126, 234, 0.3);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+    --background: rgba(0, 0, 0, 0.04);
+  }
+  
+  &:active {
+    transform: scale(0.98);
   }
 }
 
@@ -195,27 +196,21 @@ ion-content {
 }
 
 .tags-section, .lesson-status-section {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
-  border: 1px solid rgba(102, 126, 234, 0.1);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 1);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.12);
-    border-color: rgba(102, 126, 234, 0.15);
-  }
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tags-section h4, .lesson-status-section h4 {
-  font-size: 16px;
+  font-size: 11px;
   font-weight: 600;
-  color: #4b5563;
-  margin: 0 0 16px 0;
+  color: rgba(0, 0, 0, 0.5);
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 }
 
 // Expandable section headers
@@ -312,29 +307,56 @@ ion-content {
 }
 
 .main-calendar {
-    position: absolute; // Keep absolute for layout positioning
-    left: 285px;
-    top: 62px;
+    position: absolute;
+    left: 261px;
+    top: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
+  background: #ffffff;
   border-radius: 0;
   box-shadow: none;
   z-index: 0;
   border: none;
   overflow: hidden;
   
-  // Desktop: allow scrolling but keep toolbar visible
   @media (min-width: 769px) {
     position: absolute;
-    left: 280px;
-    top: 56px; // Account for top navigation toolbar height
+    left: 260px;
+    top: 0;
     right: 0;
     bottom: 0;
-    height: calc(100vh - 56px); // Full height minus toolbar
+    height: 100vh;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+}
+
+// Loading overlay for desktop calendar
+.calendar-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  z-index: 1000;
+  gap: 16px;
+  
+  ion-spinner {
+    --color: #007AFF;
+    transform: scale(1.2);
+  }
+  
+  p {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.5);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    margin: 0;
   }
 }
 
@@ -402,19 +424,58 @@ ion-content {
   }
 }
 
-// Ensure FullCalendar is visible
+// Ultra-minimal FullCalendar styling - Apple aesthetic
 .fc {
   width: 100% !important;
   height: 100% !important;
   min-height: 400px !important;
-  background: white !important;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: relative !important;
-  z-index: 1 !important;
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Remove ALL borders and visual noise
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border: none !important;
+}
+
+.fc-scrollgrid {
+  border: none !important;
+}
+
+.fc-scrollgrid-section > * {
+  border: none !important;
+}
+
+.fc-scrollgrid-section-header > *,
+.fc-scrollgrid-section-body > * {
+  border: none !important;
+}
+
+// Only show subtle vertical dividers between days
+.fc-timegrid-col {
+  border-left: 1px solid rgba(0, 0, 0, 0.06) !important;
+  
+  &:first-child {
+    border-left: none !important;
+  }
+}
+
+// Remove all horizontal lines except major hour marks
+.fc-timegrid-slot {
+  border: none !important;
+  height: 48px !important;
+}
+
+// Only show major hour lines (every hour)
+.fc-timegrid-slot[data-time$=":00:00"] {
+  border-top: 1px solid rgba(0, 0, 0, 0.04) !important;
 }
 
 .fc-view-harness {
@@ -548,6 +609,15 @@ ion-content {
   }
 }
 
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px #FF3B30, 0 4px 12px rgba(255, 59, 48, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 2px #FF3B30, 0 6px 20px rgba(255, 59, 48, 0.3);
+  }
+}
+
 // Smooth transitions for calendar updates
 .fc {
   transition: opacity 0.2s ease-in-out;
@@ -562,24 +632,22 @@ ion-content {
 }
 
 .help-button {
-  position: absolute; // Absolute position to move with page content as it scrolls
+  position: absolute;
   bottom: 24px;
   right: 24px;
-  --background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  --background: #3b82f6;
   --color: white;
   --border-radius: 50%;
-  width: 56px;
-  height: 56px;
-//   box-shadow: 0 8px 25px rgba(67, 233, 123, 0.4);
+  width: 48px;
+  height: 48px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 1000;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   
   ion-icon {
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 20px;
   }
   
-  // Desktop: maintain position at bottom of calendar content
   @media (min-width: 769px) {
     right: 24px;
     bottom: 24px;
@@ -587,9 +655,9 @@ ion-content {
 }
 
 .help-button:hover {
-  --background: linear-gradient(135deg, #38d9a9 0%, #20c997 100%);
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 12px 35px rgba(67, 233, 123, 0.6);
+  --background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 // FullCalendar custom styling to match the design
@@ -598,100 +666,169 @@ ion-content {
   height: 100%;
 }
 
+// Apple-style toolbar
 .fc-toolbar {
-  padding: 24px 24px 24px 24px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 20px 32px;
+  background: #ffffff;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   margin-bottom: 0;
-  border-radius: 24px 24px 0 0;
-  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fc-toolbar-chunk {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .fc-toolbar-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #667eea;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  letter-spacing: -0.5px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #000000;
+  letter-spacing: -0.02em;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
 }
 
+// Apple-style buttons
 .fc-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  border-radius: 12px;
-  padding: 10px 20px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #000000;
+  border-radius: 8px;
+  padding: 6px 14px;
   font-size: 14px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  font-weight: 400;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
   text-transform: none;
-  letter-spacing: 0.3px;
+  letter-spacing: -0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 }
 
 .fc-button:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
-.fc-button-primary:not(:disabled):active {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-  transform: translateY(0);
+.fc-button:active {
+  background: rgba(0, 0, 0, 0.06);
+  transform: scale(0.98);
 }
 
 .fc-button-primary:not(:disabled).fc-button-active {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
-  transform: scale(1.05);
+  background: #000000;
+  border-color: #000000;
+  color: #ffffff;
+  font-weight: 500;
 }
 
+// Grouped buttons
 .fc-button-group .fc-button {
-  margin-right: 8px;
-}
-
-.fc-button-group .fc-button:last-child {
   margin-right: 0;
+  border-radius: 0;
+  border-right: none;
+  
+  &:first-child {
+    border-radius: 8px 0 0 8px;
+  }
+  
+  &:last-child {
+    border-radius: 0 8px 8px 0;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+  }
 }
 
 .fc-daygrid-day {
-  background: white;
-  border: 1px solid #e9ecef;
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
 }
 
 .fc-daygrid-day-number {
-  color: #495057;
+  color: #6b7280;
   font-weight: 500;
   padding: 8px;
-}
-
-.fc-timegrid-slot {
-  border-color: #f1f3f4;
-}
-
-.fc-timegrid-slot-label {
-  color: #6c757d;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.fc-event {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-  border: none;
-  border-radius: 12px;
-  padding: 8px 12px;
   font-size: 13px;
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
-  transition: all 0.3s ease;
-  cursor: pointer;
+}
+
+// Apple-minimal time labels
+.fc-timegrid-slot-label {
+  color: rgba(0, 0, 0, 0.35);
+  font-size: 11px;
+  font-weight: 400;
+  padding-right: 12px;
+  text-align: right;
+  vertical-align: top;
+  padding-top: 0px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  letter-spacing: 0;
+}
+
+.fc-timegrid-axis {
+  border: none !important;
+  width: 60px !important;
+}
+
+// Apple-style events - white with subtle left border
+.fc-event {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-left: 2px solid #007AFF !important;
+  border-radius: 6px !important;
+  padding: 6px 8px !important;
+  font-size: 13px !important;
+  color: #000000 !important;
+  font-weight: 400 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
+  line-height: 1.4 !important;
 }
 
 .fc-event:hover {
-  background: linear-gradient(135deg, #ff5252 0%, #d84315 100%);
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.5);
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+// Color variations for different event types
+.calendar-lesson-event {
+  border-left-color: #007AFF !important; // Apple blue
+}
+
+.calendar-class-event {
+  border-left-color: #AF52DE !important; // Apple purple
+}
+
+.calendar-availability-event {
+  border-left-color: #34C759 !important; // Apple green
+  background: rgba(52, 199, 89, 0.02) !important;
+}
+
+.fc-event.is-past {
+  opacity: 0.4;
+  background: #fafafa !important;
+}
+
+// Clean event text
+.fc-event-time,
+.fc-event-title {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  color: #000000 !important;
+  line-height: 1.4 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif !important;
+}
+
+.fc-event-time {
+  font-size: 11px !important;
+  color: rgba(0, 0, 0, 0.5) !important;
+  display: block;
+  margin-bottom: 2px;
 }
 
 .fc-timegrid-event {
@@ -703,61 +840,903 @@ ion-content {
 }
 
 .fc-col-header-cell {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: #667eea;
-  font-weight: 700;
-  padding: 16px 12px;
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  backdrop-filter: blur(10px);
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #111827;
+  font-weight: 600;
+  padding: 16px 8px 12px;
+  font-size: 13px;
+  text-transform: capitalize;
+  letter-spacing: 0;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.fc-col-header-cell-cushion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+// Style day names differently
+.fc-col-header-cell .fc-scrollgrid-sync-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  // Day name (Monday, Tuesday, etc)
+  & > span:first-child {
+    font-size: 11px;
+    font-weight: 500;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  // Day number (1, 2, 3, etc)
+  & > span:last-child {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+  }
 }
 
 .fc-scrollgrid {
-  border-color: #e9ecef;
+  border-color: transparent;
 }
 
 .fc-scrollgrid-sync-table {
-  border-color: #e9ecef;
+  border-color: transparent;
 }
 
-.fc-timegrid-axis {
-  border-color: #e9ecef;
-}
-
+// Cleaner time grid
 .fc-timegrid-divider {
-  border-color: #e9ecef;
+  border-color: #e5e7eb;
+  padding: 0;
 }
 
-/* Make FullCalendar's live now indicator span full width with red color */
+.fc-timegrid-event-harness {
+  margin: 1px 2px;
+}
+
+.fc-timegrid-event {
+  border-radius: 6px;
+}
+
+// Better spacing for events
+.fc-timegrid-col-events {
+  margin: 0 4px;
+}
+
+// ============ CUSTOM CALENDAR STYLES (Apple Aesthetic) ============
+
+.custom-calendar-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+// Custom Toolbar
+.custom-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  
+  .toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    ion-icon {
+      font-size: 18px;
+      color: #000000;
+    }
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+  
+  .today-btn {
+    padding: 6px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 14px;
+    font-weight: 400;
+    color: #000000;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+  
+  .calendar-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #000000;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  }
+  
+  .view-switcher {
+    display: flex;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    
+    button {
+      padding: 6px 16px;
+      background: #ffffff;
+      border: none;
+      font-size: 13px;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      
+      &:not(:last-child) {
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+      }
+      
+      &.active {
+        background: #000000;
+        color: #ffffff;
+        font-weight: 500;
+      }
+      
+      &:not(.active):hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+    }
+  }
+}
+
+// Week Grid
+.custom-week-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // Keep header sticky, body scrolls
+  min-height: 0; // Allow flex child to shrink
+}
+
+// Day Headers
+.week-header {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0; // Prevent header from shrinking
+  
+  .time-gutter {
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  
+  .day-header {
+    padding: 16px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    
+    &:last-child {
+      border-right: none;
+    }
+    
+    &.today {
+      background: rgba(0, 122, 255, 0.05);
+      
+      .day-name {
+        color: #007AFF;
+        font-weight: 600;
+      }
+      
+      .day-number {
+        background: #007AFF;
+        color: #ffffff;
+      }
+    }
+    
+    .day-name {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.5);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    }
+    
+    .day-number {
+      font-size: 16px;
+      font-weight: 400;
+      color: #000000;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      // Always maintain consistent dimensions
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+}
+
+// Week Body (Time Grid)
+.week-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  min-height: 0;
+  // padding-bottom: 100px; // Add extra space at bottom
+  
+  .time-column {
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: #fafafa;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    
+    .time-slot {
+      height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-right: 12px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      position: relative; // For 30-min line positioning
+      
+      &:first-child {
+        border-top: none;
+      }
+      
+      &:last-child {
+        margin-bottom: 100px; // Extra space after last slot
+      }
+      
+      // 30-minute dashed line
+      &::after {
+        content: '';
+        position: absolute;
+        top: 55px; // Half of 110px
+        left: 0;
+        right: 12px; // Align with time labels
+        height: 1px;
+        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+      }
+      
+      .time-label {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(0, 0, 0, 0.35);
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      }
+    }
+  }
+  
+  .day-columns {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    position: relative;
+    padding-bottom: 100px; // Extra space at bottom
+    
+    .day-column {
+      border-right: 1px solid rgba(0, 0, 0, 0.06);
+      position: relative;
+      
+      &:last-child {
+        border-right: none;
+      }
+      
+      .hour-line:last-child {
+        margin-bottom: 100px; // Extra space after last hour line
+      }
+      
+      .hour-line {
+        height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
+        border-top: 1px solid rgba(0, 0, 0, 0.04);
+        position: relative; // For 30-min line positioning
+        
+        &:first-child {
+          border-top: none;
+        }
+        
+        // 30-minute dashed line
+        &::after {
+          content: '';
+          position: absolute;
+          top: 55px; // Half of 110px
+          left: 0;
+          right: 0;
+          height: 1px;
+          border-top: 1px dashed rgba(0, 0, 0, 0.08);
+        }
+      }
+      
+      .event-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0 4px;
+      }
+      
+      // Current time indicator
+      .time-indicator {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #FF3B30;
+        z-index: 5;
+        
+        &::before {
+          content: '';
+          position: absolute;
+          left: -6px;
+          top: -6px;
+          width: 10px;
+          height: 10px;
+          background: #FF3B30;
+          border-radius: 50%;
+          border: 2px solid #ffffff;
+          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
+        }
+      }
+    }
+  }
+}
+
+// Day View
+.custom-day-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  min-height: 0; // Allow flex child to shrink
+}
+
+.day-view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+  flex-shrink: 0; // Prevent header from shrinking
+  text-align: cdnter; // Center the header content
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .day-view-date {
+    display: flex;
+    flex-direction: column;
+    // align-items: center; // Center horizontally
+    text-align: left;
+    gap: 2px;
+    
+    h3 {
+      font-size: 26px;
+      font-weight: 600;
+      color: #000000;
+      margin: 0;
+      letter-spacing: -0.02em;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    }
+    
+    p {
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.5);
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    }
+  }
+  
+  .day-view-free-hours {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(13, 148, 136, 0.08); // Teal tint
+    border-radius: 8px;
+    position: relative;
+    cursor: help;
+    
+    ion-icon {
+      font-size: 18px;
+      color: #0d9488; // Teal color
+    }
+    
+    span {
+      font-size: 14px;
+      font-weight: 500;
+      color: #0d9488; // Teal color
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    }
+    
+    // Tooltip
+    .hours-tooltip {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      min-width: 220px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 1000;
+      
+      .tooltip-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        font-size: 13px;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        
+        .tooltip-label {
+          color: rgba(0, 0, 0, 0.6);
+          font-weight: 400;
+        }
+        
+        .tooltip-value {
+          color: #000000;
+          font-weight: 500;
+        }
+        
+        &.total {
+          .tooltip-label,
+          .tooltip-value {
+            font-weight: 600;
+            color: #0d9488;
+          }
+        }
+      }
+      
+      .tooltip-divider {
+        height: 1px;
+        background: rgba(0, 0, 0, 0.1);
+        margin: 6px 0;
+      }
+    }
+    
+    &:hover .hours-tooltip {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+  }
+}
+
+.day-view-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  position: relative;
+  min-height: 0;
+  // padding-bottom: 100px; // Add extra space at bottom
+  
+  .time-column {
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: #fafafa;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    
+    .time-slot {
+      height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-right: 12px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      position: relative; // For 30-min line positioning
+      
+      &:first-child {
+        border-top: none;
+      }
+      
+      &:last-child {
+        margin-bottom: 100px; // Extra space after last slot
+      }
+      
+      // 30-minute dashed line
+      &::after {
+        content: '';
+        position: absolute;
+        top: 55px; // Half of 110px
+        left: 0;
+        right: 12px; // Align with time labels
+        height: 1px;
+        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+      }
+      
+      .time-label {
+        font-size: 11px;
+        font-weight: 400;
+        color: rgba(0, 0, 0, 0.35);
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      }
+    }
+  }
+  
+  .day-content {
+    position: relative;
+    border-left: 1px solid rgba(0, 0, 0, 0.06);
+    padding-bottom: 100px; // Extra space at bottom
+    
+    .hour-line {
+      height: 110px; // Increased to 110px for maximum readability (Outlook uses ~110-120px)
+      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      position: relative; // For 30-min line positioning
+      
+      &:first-child {
+        border-top: none;
+      }
+      
+      &:last-child {
+        margin-bottom: 100px; // Extra space after last hour line
+      }
+      
+      // 30-minute dashed line
+      &::after {
+        content: '';
+        position: absolute;
+        top: 55px; // Half of 110px
+        left: 0;
+        right: 0;
+        height: 1px;
+        border-top: 1px dashed rgba(0, 0, 0, 0.08);
+      }
+    }
+    
+    .event-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 0 16px;
+    }
+    
+    .no-events-placeholder {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      padding: 32px;
+      pointer-events: none;
+      
+      ion-icon {
+        font-size: 56px;
+        color: rgba(0, 0, 0, 0.12);
+        margin-bottom: 12px;
+      }
+      
+      h4 {
+        font-size: 17px;
+        font-weight: 600;
+        color: rgba(0, 0, 0, 0.7);
+        margin: 0 0 6px 0;
+        letter-spacing: -0.01em;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      }
+      
+      p {
+        font-size: 13px;
+        font-weight: 400;
+        color: rgba(0, 0, 0, 0.4);
+        margin: 0;
+        max-width: 280px;
+        line-height: 1.4;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      }
+    }
+    
+    .time-indicator {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #FF3B30;
+      z-index: 5;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        left: -6px;
+        top: -6px;
+        width: 10px;
+        height: 10px;
+        background: #FF3B30;
+        border-radius: 50%;
+        border: 2px solid #ffffff;
+        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
+      }
+    }
+  }
+}
+
+// Event Cards (Apple Style)
+.calendar-event {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 3px solid #007AFF;
+  border-radius: 0 4px 4px 0; // Only round right side
+  padding: 6px 8px; // Increased from 4px 6px
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; // Center content vertically
+  gap: 3px; // Increased from 2px
+  
+  &:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transform: translateY(-0.5px);
+    z-index: 10;
+  }
+  
+  &.past {
+    opacity: 0.5;
+    background: #fafafa;
+  }
+  
+  &.availability-event {
+    border-left-color: #34C759;
+    background: #ffffff;
+    
+    .event-title {
+      color: rgba(0, 0, 0, 0.55);
+      font-weight: 400;
+    }
+  }
+  
+  // Class events - purple theme
+  &.class-event {
+    border-left-color: #8b5cf6; // Purple
+    background: #ffffff;
+    
+    .event-avatar {
+      border-radius: 4px; // Square corners for class thumbnails
+    }
+    
+    .event-title {
+      color: #000000;
+      font-weight: 500;
+    }
+    
+    .event-time {
+      color: #00000066; // grey tint for time
+    }
+  }
+  
+  .event-header {
+    display: flex;
+    flex-direction: column; // Stack rows vertically
+    align-items: flex-start; // Left align
+    gap: 3px;
+    min-height: 0;
+  }
+  
+  // First row: Time and duration
+  .event-time-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+  
+  // Second row: Avatar and name
+  .event-info-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+  }
+  
+  .event-avatar {
+    width: 20px; // Increased from 18px
+    height: 20px; // Increased from 18px
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #f5f5f5;
+  }
+  
+  .event-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: row; // Keep time and name in same conceptual flow
+    align-items: center;
+    gap: 0px;
+  }
+  
+  .event-time {
+    font-size: 10.5px; // Increased from 9.5px
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.4);
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+  
+  .event-title {
+    font-size: 12px; // Increased from 11px
+    font-weight: 500;
+    color: #000000;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .event-subject {
+    font-size: 8px;
+    font-weight: 400;
+    color: rgba(0, 0, 0, 0.4);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  }
+  
+  // Compact version for short events (under 50px) - align to top
+  &.short-event,
+  &.compact-event {
+    justify-content: flex-start; // Align to top for short events
+    padding: 1px 6px 1px;
+    gap: 1px;
+    
+    .event-header {
+      gap: 2px;
+    }
+    
+    .event-time-row {
+      gap: 3px;
+    }
+    
+    .event-info-row {
+      gap: 4px;
+    }
+    
+    .event-avatar {
+      width: 13px;
+      height: 13px;
+    }
+    
+    .event-time {
+      font-size: 8.5px;
+    }
+    
+    .event-title {
+      font-size: 9px;
+      font-weight: 400;
+    }
+  }
+  
+  // Medium events (50-80px) - hide subject
+  &[style*="height: 50px"],
+  &[style*="height: 60px"],
+  &[style*="height: 70px"] {
+    .event-subject {
+      display: none;
+    }
+  }
+}
+
+// ============ END CUSTOM CALENDAR STYLES ============
+
+// Apple-style time indicator (BACKUP - FULLCALENDAR)
 .fc .fc-timegrid-now-indicator-line {
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  border-top-color: #e03131 !important;
+  border-top: 2px solid #FF3B30 !important; // Apple red
   z-index: 5;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -5px;
+    width: 10px;
+    height: 10px;
+    background: #FF3B30;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 4px rgba(255, 59, 48, 0.3);
+  }
 }
 
 .fc .fc-timegrid-now-indicator-arrow {
-  border-top-color: #e03131 !important;
-  border-bottom-color: #e03131 !important;
+  display: none;
 }
 
 // Highlight current day
 .fc-day-today {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
-  border: 2px solid rgba(102, 126, 234, 0.3) !important;
-  border-radius: 8px !important;
+  background: #ffffff !important;
+}
+
+.fc-day-today .fc-col-header-cell {
+  background: #111827 !important;
+  color: #ffffff !important;
+  
+  .fc-scrollgrid-sync-inner > span {
+    color: #ffffff !important;
+  }
 }
 
 .fc-day-today .fc-daygrid-day-number {
-  color: #667eea;
+  color: #111827;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  background: #3b82f6;
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 // Responsive design
@@ -2540,6 +3519,46 @@ ion-content {
     z-index: 1;
     overflow: visible; // Allow badge to show outside bounds
     
+    // Current time indicator
+    .current-time-indicator {
+      padding: 12px 0 !important;
+      border-bottom: none !important;
+      border-left: none !important;
+      background: rgba(255, 59, 48, 0.03) !important;
+      margin: 0 -20px;
+      padding-left: 20px !important;
+      padding-right: 20px !important;
+      
+      .time-column .time-display.now {
+        color: #FF3B30;
+        font-weight: 600;
+        font-size: 15px;
+      }
+      
+      .current-time-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 4px;
+        
+        .time-dot {
+          width: 10px;
+          height: 10px;
+          background: #FF3B30;
+          border-radius: 50%;
+          box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.2);
+          flex-shrink: 0;
+        }
+        
+        .time-line {
+          flex: 1;
+          height: 2px;
+          background: #FF3B30;
+          opacity: 0.8;
+        }
+      }
+    }
+    
     .timeline-row {
       display: flex;
       align-items: flex-start;
@@ -2597,6 +3616,27 @@ ion-content {
         font-variant-numeric: tabular-nums; // Better number alignment
         position: relative;
         right: 20px;
+        
+        &.now {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+          
+          .now-badge {
+            font-size: 11px;
+            font-weight: 600;
+            color: #FF3B30;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          span {
+            font-size: 14px;
+            color: #424242;
+            font-weight: 500;
+          }
+        }
       }
     }
     

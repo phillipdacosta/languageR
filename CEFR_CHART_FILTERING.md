@@ -227,3 +227,4 @@ Should verify that OTHER progress metrics also exclude these lesson types:
 **Implementation complete!** ✅ 
 
 The CEFR Level Progress chart now accurately reflects only regular lessons, excluding trial lessons and quick office hours.
+

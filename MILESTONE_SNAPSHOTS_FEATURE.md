@@ -317,3 +317,4 @@ formatStudyTime(minutes: number): string {
 ---
 
 **Feature complete and ready for user testing!** ✅
+

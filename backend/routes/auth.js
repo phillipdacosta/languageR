@@ -47,6 +47,15 @@ router.post('/register', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // Set httpOnly cookie for cross-tab support in incognito mode
+    res.cookie('auth_token', token, {
+      httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
+      secure: process.env.NODE_ENV === 'production', // Only HTTPS in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Cross-site in production
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/'
+    });
+
     res.status(201).json({
       message: 'User created successfully',
       token,
@@ -94,6 +103,15 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '7d' }
     );
+
+    // Set httpOnly cookie for cross-tab support in incognito mode
+    res.cookie('auth_token', token, {
+      httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
+      secure: process.env.NODE_ENV === 'production', // Only HTTPS in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Cross-site in production
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/'
+    });
 
     res.json({
       message: 'Login successful',
@@ -172,6 +190,86 @@ router.put('/change-password', auth, async (req, res) => {
   } catch (error) {
     console.error('Change password error:', error);
     res.status(500).json({ message: 'Server error during password change' });
+  }
+});
+
+// Logout - clear cookie
+router.post('/logout', (req, res) => {
+  try {
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/'
+    });
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'Server error during logout' });
+  }
+});
+
+// Check session - useful for new tabs to verify auth
+router.get('/session', auth, async (req, res) => {
+  try {
+    // If auth middleware passes, user is authenticated
+    res.json({
+      authenticated: true,
+      user: req.user
+    });
+  } catch (error) {
+    console.error('Session check error:', error);
+    res.status(500).json({ message: 'Server error checking session' });
+  }
+});
+
+// Establish session cookie (for Auth0 users)
+// This is called after Auth0 login succeeds to create a backend session
+router.post('/establish-session', async (req, res) => {
+  try {
+    const { email, auth0Id } = req.body;
+    
+    if (!email || !auth0Id) {
+      return res.status(400).json({ message: 'Email and auth0Id required' });
+    }
+
+    // Find user by email or auth0Id
+    const User = require('../models/User');
+    const user = await User.findOne({
+      $or: [{ email }, { auth0Id }]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Generate JWT token
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET || 'fallback-secret',
+      { expiresIn: '7d' }
+    );
+
+    // Set httpOnly cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/'
+    });
+
+    console.log('✅ Session cookie established for:', email);
+
+    res.json({
+      success: true,
+      message: 'Session established',
+      user: user.toJSON()
+    });
+  } catch (error) {
+    console.error('Establish session error:', error);
+    res.status(500).json({ message: 'Server error establishing session' });
   }
 });
 

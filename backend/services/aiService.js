@@ -1125,6 +1125,27 @@ ${previousContext}
 12. **IGNORE ACCENT MARK "ERRORS" IN TRANSCRIPTION**: Missing written accent marks (diacritics, tone marks) in transcribed speech are NOT errors - these are transcription artifacts. Native speakers do not "pronounce" written accent marks. If the ONLY difference is accent marks, this is NOT a meaningful error to report.
 12. **IGNORE INCOMPLETE SENTENCES**: Do NOT mark incomplete sentences (those ending with "..." or cut off mid-word) as errors. Incomplete speech is normal in conversations - people pause, get interrupted, or change their mind. Only mark actual grammar errors in complete sentences.
 13. **IGNORE TRANSCRIPTION ERRORS**: Do NOT include obvious transcription errors (like advertisements, unrelated content, or system messages) in your analysis. These should have been filtered out already, but if you see any, skip them.
+14. **SELF-CORRECTION DETECTION (CRITICAL)** - DO NOT PENALIZE SELF-MONITORING:
+   - Look for patterns where the student corrects themselves during speech
+   - **Common self-correction markers:**
+     * Explicit markers: "I mean", "sorry", "wait", "no", "actually", "rather", "or"
+     * Repetition with correction: saying same phrase twice with the second being grammatically better
+     * Ellipsis/pauses: "I goed... I went to the store"
+     * False starts: "She don't... doesn't like coffee"
+   - **Detection heuristic**: If you see similar/related phrases within 1-2 sentences where the second version is grammatically superior, treat this as SELF-CORRECTION
+   - **CRITICAL**: Self-corrections are a POSITIVE learning behavior and should NOT be counted as errors
+   - **What to do with self-corrections:**
+     * DO NOT include self-corrected errors in grammarAnalysis.mistakeTypes
+     * DO NOT include in errorPatterns array
+     * DO NOT count toward VERIFIED_ERROR_COUNT
+     * INSTEAD: Acknowledge in strengths array as "Demonstrates good self-monitoring and error correction"
+   - **Examples of self-correction patterns to recognize:**
+     ✓ "I goed... I mean, I went to the store" (explicit marker)
+     ✓ "She don't like it. She doesn't like it." (immediate repair/repetition)
+     ✓ "I was eat... eating dinner when..." (false start repair)
+     ✓ "Yesterday I go... went to the park" (tense self-correction)
+   - **Only flag as error if**: Student makes a mistake and does NOT self-correct it anywhere in the transcript
+   - **Language-agnostic**: This applies to all languages - look for repetition, hesitation markers, and improved second attempts
 
 **🎯 VERIFIED_ERROR_COUNT: ${verifiedErrorCount}**
 

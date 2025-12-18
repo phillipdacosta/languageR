@@ -129,3 +129,4 @@ Remove the "realistic level changes" guidance and replace with:
 - Expected: C2 rating
 - Actual (current): B2 rating ← BUG
 - This needs prompt fix before testing again
+

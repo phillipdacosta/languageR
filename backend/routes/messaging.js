@@ -233,8 +233,8 @@ router.get('/conversations', verifyToken, async (req, res) => {
         });
       }
       
-      // Count unread messages (skip system messages for unread count)
-      if (!message.isSystemMessage && message.receiverId === userId && !message.read) {
+      // Count unread messages (include system messages for unread count)
+      if (message.receiverId === userId && !message.read) {
         conversationMap.get(conversationId).unreadCount++;
       }
     }

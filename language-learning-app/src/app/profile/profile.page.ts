@@ -31,6 +31,7 @@ export class ProfilePage implements OnInit {
   tutorVideoThumbnail = '';
   tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   isDarkMode$: Observable<boolean>;
+  remindersEnabled: boolean = true; // Default to enabled
   
   // Language support
   availableLanguages: LanguageOption[] = [];
@@ -85,6 +86,10 @@ export class ProfilePage implements OnInit {
       
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
+      
+      // Load reminders enabled setting from localStorage
+      const storedRemindersEnabled = localStorage.getItem('reminders_enabled');
+      this.remindersEnabled = storedRemindersEnabled !== null ? storedRemindersEnabled === 'true' : true;
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -264,6 +269,18 @@ export class ProfilePage implements OnInit {
     console.log('🔄 Dark mode toggle clicked, current state:', this.themeService.isDarkMode());
     this.themeService.toggleDarkMode();
     console.log('✅ Dark mode toggled, new state:', this.themeService.isDarkMode());
+  }
+  
+  /**
+   * Toggle reminders on/off
+   */
+  toggleReminders(event: any): void {
+    this.remindersEnabled = event.detail.checked;
+    localStorage.setItem('reminders_enabled', String(this.remindersEnabled));
+    console.log('🔔 Reminders toggled:', this.remindersEnabled);
+    
+    // Reload the page to apply changes
+    window.location.reload();
   }
 
   /**

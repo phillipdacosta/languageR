@@ -36,3 +36,4 @@ export class PicturePreviewModalComponent implements OnInit {
     this.modalController.dismiss(true, 'confirm');
   }
 }
+

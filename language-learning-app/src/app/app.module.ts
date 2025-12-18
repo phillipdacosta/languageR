@@ -23,6 +23,7 @@ import { TokenGeneratorService } from './services/token-generator.service';
 import { PlatformService } from './services/platform.service';
 import { CustomUrlSerializerService } from './services/custom-url-serializer.service';
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
+import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
 import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
 import { CommonModule } from '@angular/common';
 import { IonicModule as IonicModuleImport } from '@ionic/angular';
@@ -39,6 +40,7 @@ import { IonicModule as IonicModuleImport } from '@ionic/angular';
     CommonModule,
     TutorSearchPageModule,
     EarlyExitModalComponent,
+    ReminderNotificationComponent, // Standalone component
     IonicStorageModule.forRoot(),
     AuthModule.forRoot({
       domain: environment.auth0.domain,

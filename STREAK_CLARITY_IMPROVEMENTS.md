@@ -215,3 +215,4 @@ This clarifies that the streak counts consecutive days, not total lessons.
 
 ## Cost Impact
 **None** - UI text changes only, no API calls affected.
+

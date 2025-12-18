@@ -239,3 +239,4 @@ This fix ensures that:
 
 The root cause was a missing existence check in the cron job, allowing it to repeatedly trigger analysis for the same lesson. Now it checks first and only generates analysis if none exists!
 
+

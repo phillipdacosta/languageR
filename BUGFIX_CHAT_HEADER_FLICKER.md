@@ -118,3 +118,4 @@ selectConversation(conversation: Conversation) {
 
 **The chat header name now stays rock-solid when selecting conversations!** 🎯
 
+

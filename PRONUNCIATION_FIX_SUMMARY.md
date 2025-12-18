@@ -129,3 +129,4 @@ Backend is running with all 3 fixes:
 - ✅ Fix 3: Pronunciation assessment
 
 **Next step:** Create a new lesson and test all functionality.
+

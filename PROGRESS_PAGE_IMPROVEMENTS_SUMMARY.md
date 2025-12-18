@@ -140,3 +140,4 @@ Complete lessons 7 days in a row  ← NEW description
 All changes are frontend-only, no backend/API changes needed.
 No cost impact.
 Better UX for students! ✨
+
