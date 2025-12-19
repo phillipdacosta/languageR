@@ -4,8 +4,10 @@ const multer = require('multer');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Message = require('../models/Message');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { generateTrialLessonMessage } = require('../utils/systemMessages');
 
 // Configure multer for beacon endpoint (parses FormData)
 const beaconUpload = multer();
@@ -432,6 +434,61 @@ router.post('/', verifyToken, async (req, res) => {
           message: `You set up a ${language} ${lessonTypePrefix}lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
           isTrialLesson: isTrialLesson
         });
+      }
+    }
+
+    // Send system message to tutor if this is a trial lesson
+    if (isTrialLesson) {
+      try {
+        // Get tutor's interface language preference
+        const tutorLanguage = tutor.interfaceLanguage || 'en';
+        
+        // Generate the multilingual system message
+        const systemMessageContent = generateTrialLessonMessage({
+          studentName: studentDisplayName,
+          studentId: student._id.toString(),
+          startTime: lessonDate,
+          duration: lesson.duration,
+          tutorLanguage
+        });
+        
+        // Create conversation ID between tutor and student
+        const conversationId = Message.getConversationId(tutor._id.toString(), student._id.toString());
+        
+        // Create the system message
+        await Message.create({
+          conversationId,
+          senderId: 'system',
+          receiverId: tutor._id.toString(),
+          content: systemMessageContent,
+          type: 'system',
+          isSystemMessage: true,
+          visibleToTutorOnly: true,
+          triggerType: 'book_lesson',
+          read: false
+        });
+        
+        console.log('✅ System message sent to tutor about trial lesson:', {
+          tutorId: tutor._id,
+          studentId: student._id,
+          language: tutorLanguage
+        });
+        
+        // Emit websocket event to notify tutor of new message if connected
+        if (req.io && req.connectedUsers) {
+          const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+          if (tutorSocketId) {
+            req.io.to(tutorSocketId).emit('new_message', {
+              conversationId,
+              type: 'system',
+              isSystemMessage: true,
+              message: 'You have a new system message about your trial lesson'
+            });
+          }
+        }
+      } catch (systemMsgError) {
+        console.error('❌ Error creating trial lesson system message:', systemMsgError);
+        // Don't fail the lesson creation if system message fails
       }
     }
 

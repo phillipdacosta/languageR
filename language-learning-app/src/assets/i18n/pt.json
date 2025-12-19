@@ -142,7 +142,25 @@
     "TYPE_MESSAGE": "Digite uma mensagem...",
     "NO_MESSAGES": "Ainda não há mensagens",
     "CONVERSATIONS": "Conversas",
-    "SEARCH_CONVERSATIONS": "Pesquisar conversas"
+    "SEARCH_CONVERSATIONS": "Pesquisar conversas",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "Nova Aula Experimental Agendada",
+      "INTRO": "Um novo aluno reservou uma aula experimental com você.",
+      "STUDENT_LABEL": "Aluno",
+      "DATE_LABEL": "Data",
+      "START_TIME_LABEL": "Horário de Início",
+      "DURATION_LABEL": "Duração",
+      "DURATION_MINUTES": "{{duration}} minutos",
+      "PREPARATION_INTRO": "Esta é a primeira sessão de vocês juntos, portanto é uma ótima oportunidade para causar uma boa impressão. Aqui estão algumas sugestões para ajudá-lo a se preparar:",
+      "TIP_1": "Revise o",
+      "TIP_1_LINK": "perfil",
+      "TIP_1_SUFFIX": "do aluno para entender seu nível, objetivos e interesses.",
+      "TIP_2": "Chegue alguns minutos mais cedo—você pode entrar na aula diretamente da sua Página Inicial ou da aba Aulas.",
+      "TIP_3": "Prepare uma atividade de introdução curta para quebrar o gelo e entender sua capacidade de falar.",
+      "TIP_4": "Pergunte sobre seus objetivos e estilo de aprendizagem preferido; isso ajudará a orientar as aulas futuras.",
+      "TIP_5": "Seja acolhedor e solidário—as sessões experimentais muitas vezes determinam se o aluno continuará com você.",
+      "SUPPORT_TEXT": "Se você tiver alguma dúvida, sinta-se à vontade para entrar em contato com o suporte a qualquer momento."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificações",

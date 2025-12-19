@@ -33,7 +33,8 @@
     "VIEW_DETAILS": "Ver Detalles",
     "ACCEPT_INVITATION": "Aceptar Invitación",
     "DECLINE_INVITATION": "Rechazar Invitación",
-    "INVITATION_COUNT": "{{count}} invitación(es)"
+    "INVITATION_COUNT": "{{count}} invitación(es)",
+    "UPCOMING_LESSONS": "Próximas"
   },
   "ONBOARDING": {
     "TITLE": "Bienvenido al Aprendizaje de Idiomas",
@@ -142,7 +143,25 @@
     "TYPE_MESSAGE": "Escribe un mensaje...",
     "NO_MESSAGES": "No hay mensajes aún",
     "CONVERSATIONS": "Conversaciones",
-    "SEARCH_CONVERSATIONS": "Buscar conversaciones"
+    "SEARCH_CONVERSATIONS": "Buscar conversaciones",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "Nueva Lección de Prueba Programada",
+      "INTRO": "Un nuevo estudiante ha reservado una lección de prueba contigo.",
+      "STUDENT_LABEL": "Estudiante",
+      "DATE_LABEL": "Fecha",
+      "START_TIME_LABEL": "Hora de Inicio",
+      "DURATION_LABEL": "Duración",
+      "DURATION_MINUTES": "{{duration}} minutos",
+      "PREPARATION_INTRO": "Esta es su primera sesión juntos, así que es una gran oportunidad para causar una buena impresión. Aquí hay algunas sugerencias para ayudarte a prepararte:",
+      "TIP_1": "Revisa el",
+      "TIP_1_LINK": "perfil",
+      "TIP_1_SUFFIX": "del estudiante para comprender su nivel, objetivos e intereses.",
+      "TIP_2": "Llega unos minutos antes: puedes unirte a la lección directamente desde tu Página Principal o la pestaña de Lecciones.",
+      "TIP_3": "Prepara una actividad de introducción corta para romper el hielo y comprender su capacidad de hablar.",
+      "TIP_4": "Pregunta sobre sus objetivos y estilo de aprendizaje preferido; esto ayudará a guiar las lecciones futuras.",
+      "TIP_5": "Sé acogedor y solidario: las sesiones de prueba a menudo determinan si el estudiante continuará contigo.",
+      "SUPPORT_TEXT": "Si tienes alguna pregunta, no dudes en contactar al soporte en cualquier momento."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Notificaciones",
@@ -203,9 +222,5 @@
     "INTRO_VIDEO_DESC": "Sube un video corto presentándote y explicando tu estilo de enseñanza. Este video se mostrará a los estudiantes cuando estén buscando tutores.",
     "REMOVE": "Eliminar",
     "CHANGE": "Cambiar"
-  },
-  
-  "HOME": {
-    "UPCOMING_LESSONS": "Próximas"
   }
 }

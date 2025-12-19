@@ -142,7 +142,25 @@
     "TYPE_MESSAGE": "Tapez un message...",
     "NO_MESSAGES": "Pas encore de messages",
     "CONVERSATIONS": "Conversations",
-    "SEARCH_CONVERSATIONS": "Rechercher des conversations"
+    "SEARCH_CONVERSATIONS": "Rechercher des conversations",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "Nouvelle leçon d'essai programmée",
+      "INTRO": "Un nouvel étudiant a réservé une leçon d'essai avec vous.",
+      "STUDENT_LABEL": "Étudiant",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Heure de début",
+      "DURATION_LABEL": "Durée",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "C'est votre première session ensemble, c'est donc une excellente occasion de faire bonne impression. Voici quelques suggestions pour vous aider à vous préparer:",
+      "TIP_1": "Consultez le",
+      "TIP_1_LINK": "profil",
+      "TIP_1_SUFFIX": "de l'étudiant pour comprendre son niveau, ses objectifs et ses intérêts.",
+      "TIP_2": "Arrivez quelques minutes en avance—vous pouvez rejoindre la leçon directement depuis votre page d'accueil ou l'onglet Leçons.",
+      "TIP_3": "Préparez une courte activité d'introduction pour briser la glace et comprendre leur capacité d'expression.",
+      "TIP_4": "Renseignez-vous sur leurs objectifs et leur style d'apprentissage préféré ; cela aidera à guider les futures leçons.",
+      "TIP_5": "Soyez accueillant et encourageant—les sessions d'essai déterminent souvent si l'étudiant continuera avec vous.",
+      "SUPPORT_TEXT": "Si vous avez des questions, n'hésitez pas à contacter le support à tout moment."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",

@@ -33,7 +33,8 @@
     "VIEW_DETAILS": "Details ansehen",
     "ACCEPT_INVITATION": "Einladung annehmen",
     "DECLINE_INVITATION": "Einladung ablehnen",
-    "INVITATION_COUNT": "{{count}} Einladung(en)"
+    "INVITATION_COUNT": "{{count}} Einladung(en)",
+    "UPCOMING_LESSONS": "Bevorstehende Lektionen"
   },
   "ONBOARDING": {
     "TITLE": "Willkommen beim Sprachenlernen",
@@ -142,7 +143,25 @@
     "TYPE_MESSAGE": "Geben Sie eine Nachricht ein...",
     "NO_MESSAGES": "Noch keine Nachrichten",
     "CONVERSATIONS": "Unterhaltungen",
-    "SEARCH_CONVERSATIONS": "Unterhaltungen durchsuchen"
+    "SEARCH_CONVERSATIONS": "Unterhaltungen durchsuchen",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "Neue Probestunde geplant",
+      "INTRO": "Ein neuer Schüler hat eine Probestunde mit Ihnen gebucht.",
+      "STUDENT_LABEL": "Schüler",
+      "DATE_LABEL": "Datum",
+      "START_TIME_LABEL": "Startzeit",
+      "DURATION_LABEL": "Dauer",
+      "DURATION_MINUTES": "{{duration}} Minuten",
+      "PREPARATION_INTRO": "Dies ist Ihre erste gemeinsame Sitzung, also eine großartige Gelegenheit, einen guten Eindruck zu hinterlassen. Hier sind einige Vorschläge, die Ihnen bei der Vorbereitung helfen:",
+      "TIP_1": "Überprüfen Sie das",
+      "TIP_1_LINK": "Profil",
+      "TIP_1_SUFFIX": "des Schülers, um sein Niveau, seine Ziele und Interessen zu verstehen.",
+      "TIP_2": "Kommen Sie ein paar Minuten früher an—Sie können der Lektion direkt von Ihrer Startseite oder der Lektionen-Registerkarte beitreten.",
+      "TIP_3": "Bereiten Sie eine kurze Einführungsaktivität vor, um das Eis zu brechen und ihre Sprechfähigkeit zu verstehen.",
+      "TIP_4": "Fragen Sie nach ihren Zielen und bevorzugtem Lernstil; dies wird helfen, zukünftige Lektionen zu gestalten.",
+      "TIP_5": "Seien Sie freundlich und unterstützend—Probesitzungen bestimmen oft, ob der Schüler bei Ihnen weitermachen wird.",
+      "SUPPORT_TEXT": "Wenn Sie Fragen haben, können Sie sich jederzeit an den Support wenden."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Benachrichtigungen",
@@ -203,9 +222,5 @@
     "INTRO_VIDEO": "Vorstellungsvideo",
     "INTRO_VIDEO_SUBTITLE": "Hilf Schülern, dich besser kennenzulernen",
     "INTRO_VIDEO_DESC": "Lade ein kurzes Video hoch, in dem du dich vorstellst und deinen Unterrichtsstil erklärst. Dieses Video wird angezeigt, wenn Schüler nach Lehrern suchen."
-  }
-  ,
-  "HOME": {
-    "UPCOMING_LESSONS": "Bevorstehende Lektionen"
   }
 }

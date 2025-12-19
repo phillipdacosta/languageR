@@ -33,7 +33,8 @@
     "VIEW_DETAILS": "View Details",
     "ACCEPT_INVITATION": "Accept Invitation",
     "DECLINE_INVITATION": "Decline Invitation",
-    "INVITATION_COUNT": "{{count}} invitation(s)"
+    "INVITATION_COUNT": "{{count}} invitation(s)",
+    "UPCOMING_LESSONS": "Up Next"
   },
   "ONBOARDING": {
     "TITLE": "Welcome to Language Learning",
@@ -142,7 +143,25 @@
     "TYPE_MESSAGE": "Type a message...",
     "NO_MESSAGES": "No messages yet",
     "CONVERSATIONS": "Conversations",
-    "SEARCH_CONVERSATIONS": "Search conversations"
+    "SEARCH_CONVERSATIONS": "Search conversations",
+    "TRIAL_LESSON_SYSTEM_MESSAGE": {
+      "TITLE": "New Trial Lesson Scheduled",
+      "INTRO": "A new student has booked a trial lesson with you.",
+      "STUDENT_LABEL": "Student",
+      "DATE_LABEL": "Date",
+      "START_TIME_LABEL": "Start Time",
+      "DURATION_LABEL": "Duration",
+      "DURATION_MINUTES": "{{duration}} minutes",
+      "PREPARATION_INTRO": "This is your first session together, so it's a great opportunity to make a strong impression. Here are a few suggestions to help you prepare:",
+      "TIP_1": "Review the student's",
+      "TIP_1_LINK": "profile",
+      "TIP_1_SUFFIX": "to understand their level, goals, and interests.",
+      "TIP_2": "Arrive a few minutes early—you can join the lesson directly from your Home Page or the Lessons tab.",
+      "TIP_3": "Prepare a short introduction activity to help break the ice and understand their speaking ability.",
+      "TIP_4": "Ask about their objectives and preferred learning style; this will help guide future lessons.",
+      "TIP_5": "Be welcoming and supportive—trial sessions often determine whether the student will continue with you.",
+      "SUPPORT_TEXT": "If you have any questions, feel free to contact support at any time."
+    }
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
@@ -203,8 +222,5 @@
     "INTRO_VIDEO": "Introduction Video",
     "INTRO_VIDEO_SUBTITLE": "Help students get to know you better",
     "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors."
-  },
-  "HOME": {
-    "UPCOMING_LESSONS": "Up Next"
   }
 }
