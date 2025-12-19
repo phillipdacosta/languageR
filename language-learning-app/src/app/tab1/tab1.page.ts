@@ -144,8 +144,11 @@ export class Tab1Page implements OnInit, OnDestroy {
           }, 500);
         }
         
-        // Load lessons as soon as we have the current user
-        this.loadLessons();
+        // Only load lessons on initial user setup, not on every navigation
+        // ionViewWillEnter() handles subsequent loads with smart caching
+        if (!this._hasInitiallyLoaded) {
+          this.loadLessons(true); // Show skeleton only on first load
+        }
         
         // Load tutor-specific data
         if (this.isTutor()) {
@@ -379,6 +382,8 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
+    console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
+    
     // Refresh presence data when returning to the home page
     // This ensures we see updated presence if someone joined while we were away
     if (this.lessons.length > 0) {
@@ -402,9 +407,14 @@ export class Tab1Page implements OnInit, OnDestroy {
     const cacheAge = now - this._lastDataFetch;
     const isCacheStale = cacheAge > this._cacheValidityMs;
     
+    console.log('🔄 [TAB1] Cache age:', Math.round(cacheAge / 1000), 'seconds, stale:', isCacheStale);
+    
     if (!this._hasInitiallyLoaded || isCacheStale) {
+      console.log('🔄 [TAB1] Loading lessons - showSkeleton:', !this._hasInitiallyLoaded);
       // Only show skeleton on initial load, not on subsequent visits
       this.loadLessons(!this._hasInitiallyLoaded);
+    } else {
+      console.log('✅ [TAB1] Using cached data, no reload needed');
     }
   }
 
@@ -1976,9 +1986,12 @@ navigateToLessons() {
   }
 
   async loadLessons(showSkeleton = true) {
+    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons);
+    
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
       this.isLoadingLessons = true;
+      console.log('⏳ [TAB1] Showing skeleton loader');
     }
     
     try {
@@ -2153,6 +2166,7 @@ navigateToLessons() {
         // Mark that we've loaded data and update cache timestamp
         this._hasInitiallyLoaded = true;
         this._lastDataFetch = Date.now();
+        console.log('✅ [TAB1] Lessons loaded successfully, cache updated');
       } else {
         this.lessons = [];
       }
@@ -2160,7 +2174,10 @@ navigateToLessons() {
       console.error('Tab1Page: Failed to load lessons', err);
       this.lessons = [];
     } finally {
-      this.isLoadingLessons = false;
+      if (showSkeleton) {
+        this.isLoadingLessons = false;
+        console.log('✅ [TAB1] Skeleton hidden');
+      }
     }
   }
 
