@@ -438,10 +438,13 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     // Send system message to tutor if this is a trial lesson
+    console.log('🔍 [TRIAL LESSON] Checking isTrialLesson:', isTrialLesson);
     if (isTrialLesson) {
+      console.log('🔍 [TRIAL LESSON] Starting system message creation...');
       try {
         // Get tutor's interface language preference
         const tutorLanguage = tutor.interfaceLanguage || 'en';
+        console.log('🔍 [TRIAL LESSON] Tutor language:', tutorLanguage);
         
         // Generate the multilingual system message
         const systemMessageContent = generateTrialLessonMessage({
@@ -452,11 +455,14 @@ router.post('/', verifyToken, async (req, res) => {
           tutorLanguage
         });
         
+        console.log('🔍 [TRIAL LESSON] Message generated, length:', systemMessageContent.length);
+        
         // Create conversation ID between tutor and student
         const conversationId = Message.getConversationId(tutor._id.toString(), student._id.toString());
+        console.log('🔍 [TRIAL LESSON] ConversationId:', conversationId);
         
         // Create the system message
-        await Message.create({
+        const systemMessage = new Message({
           conversationId,
           senderId: 'system',
           receiverId: tutor._id.toString(),
@@ -468,28 +474,62 @@ router.post('/', verifyToken, async (req, res) => {
           read: false
         });
         
+        await systemMessage.save();
+        
         console.log('✅ System message sent to tutor about trial lesson:', {
+          messageId: systemMessage._id.toString(),
           tutorId: tutor._id,
           studentId: student._id,
           language: tutorLanguage
         });
         
-        // Emit websocket event to notify tutor of new message if connected
+        // Create notification for tutor about the trial lesson message
+        const trialNotification = await Notification.create({
+          userId: tutor._id,
+          type: 'trial_lesson_info',
+          title: 'Trial Lesson Tips',
+          message: `${studentDisplayName} booked a trial lesson. Check your messages for preparation tips.`,
+          data: {
+            lessonId: lesson._id.toString(),
+            studentId: student._id.toString(),
+            studentName: studentDisplayName,
+            studentPicture: student.picture,
+            conversationId,
+            messageId: systemMessage._id.toString(),
+            startTime: lesson.startTime
+          }
+        });
+        
+        console.log('✅ Trial lesson notification created:', trialNotification._id);
+        
+        // Emit websocket notification to tutor if connected
         if (req.io && req.connectedUsers) {
           const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
           if (tutorSocketId) {
-            req.io.to(tutorSocketId).emit('new_message', {
-              conversationId,
-              type: 'system',
-              isSystemMessage: true,
-              message: 'You have a new system message about your trial lesson'
+            console.log('📤 Emitting trial_lesson_info notification to tutor');
+            req.io.to(tutorSocketId).emit('new_notification', {
+              type: 'trial_lesson_info',
+              title: 'Trial Lesson Tips',
+              message: `${studentDisplayName} booked a trial lesson. Check your messages for preparation tips.`,
+              data: {
+                lessonId: lesson._id.toString(),
+                studentId: student._id.toString(),
+                studentName: studentDisplayName,
+                studentPicture: student.picture,
+                conversationId,
+                messageId: systemMessage._id.toString(),
+                startTime: lesson.startTime
+              }
             });
           }
         }
       } catch (systemMsgError) {
         console.error('❌ Error creating trial lesson system message:', systemMsgError);
+        console.error('❌ Error stack:', systemMsgError.stack);
         // Don't fail the lesson creation if system message fails
       }
+    } else {
+      console.log('ℹ️ [TRIAL LESSON] Not a trial lesson, skipping system message');
     }
 
     res.json({ 
