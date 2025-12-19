@@ -486,7 +486,7 @@ router.post('/', verifyToken, async (req, res) => {
         // Create notification for tutor about the trial lesson message
         const trialNotification = await Notification.create({
           userId: tutor._id,
-          type: 'trial_lesson_info',
+          type: 'lesson_created',
           title: 'Trial Lesson Tips',
           message: `${studentDisplayName} booked a trial lesson. Check your messages for preparation tips.`,
           data: {
@@ -508,7 +508,7 @@ router.post('/', verifyToken, async (req, res) => {
           if (tutorSocketId) {
             console.log('📤 Emitting trial_lesson_info notification to tutor');
             req.io.to(tutorSocketId).emit('new_notification', {
-              type: 'trial_lesson_info',
+              type: 'lesson_created',
               title: 'Trial Lesson Tips',
               message: `${studentDisplayName} booked a trial lesson. Check your messages for preparation tips.`,
               data: {
