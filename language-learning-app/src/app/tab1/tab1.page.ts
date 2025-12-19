@@ -43,6 +43,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
   isLoadingInvitations = false;
+  
+  // Smart caching to prevent unnecessary skeleton loaders
+  private _hasInitiallyLoaded = false; // Track if we've loaded data at least once
+  private _lastDataFetch = 0; // Timestamp of last data fetch
+  private _cacheValidityMs = 30000; // Cache valid for 30 seconds
   availabilityBlocks: any[] = [];
   availabilityHeadline = '';
   availabilityDetail = '';
@@ -216,14 +221,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         if ((notification?.type === 'class_auto_cancelled' || notification?.type === 'class_invitation_cancelled') && notification.data?.classId) {
           console.log('🔔 [TAB1] Received class cancellation notification:', notification);
           
-          // Force reload lessons to get the updated status from server
-          // This will properly move the class from upcoming to cancelled arrays
-          await this.loadLessons();
-          
-          // Don't auto-switch to cancelled tab - let the user click it
-          // The cancelled tab will appear because cancelledLessons array is now populated
-          // The card will stay in its position (if it was "Next Class", it stays as a card)
-          console.log('🔔 [TAB1] Lessons reloaded after class cancellation');
+          // Smart update: Move the cancelled class from lessons to cancelledLessons without full reload
+          await this.handleClassCancellation(notification.data.classId, notification.data.cancelReason);
           
           // Manually trigger change detection to update the UI
           this.cdr.detectChanges();
@@ -256,8 +255,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         if (notification?.type === 'lesson_cancelled' && notification.data?.lessonId) {
           console.log('🔔 [TAB1] Received lesson cancellation notification:', notification);
           
-          // Force reload lessons to get the updated status from server
-          await this.loadLessons();
+          // Smart update: Move the cancelled lesson without full reload
+          await this.handleLessonCancellation(notification.data.lessonId);
           
           // Manually trigger change detection to update the UI
           this.cdr.detectChanges();
@@ -397,6 +396,16 @@ export class Tab1Page implements OnInit, OnDestroy {
     
     // Reload user settings to ensure wallet display is up to date
     this.loadUserStats();
+    
+    // Smart refresh: only reload if cache is stale or this is the initial load
+    const now = Date.now();
+    const cacheAge = now - this._lastDataFetch;
+    const isCacheStale = cacheAge > this._cacheValidityMs;
+    
+    if (!this._hasInitiallyLoaded || isCacheStale) {
+      // Only show skeleton on initial load, not on subsequent visits
+      this.loadLessons(!this._hasInitiallyLoaded);
+    }
   }
 
   loadUnreadNotificationCount() {
@@ -457,9 +466,9 @@ export class Tab1Page implements OnInit, OnDestroy {
 
     const { data } = await modal.onWillDismiss();
     if (data?.accepted || data?.declined) {
-      // Reload invitations and lessons to reflect the change
+      // Reload invitations and lessons to reflect the change (no skeleton if already loaded)
       this.loadPendingInvitations();
-      this.loadLessons();
+      this.loadLessons(false);
     }
   }
 
@@ -589,8 +598,8 @@ export class Tab1Page implements OnInit, OnDestroy {
         });
         await toast.present();
         
-        // Reload lessons to reflect the change
-        await this.loadLessons();
+        // Reload lessons to reflect the change (no skeleton since this is a user action)
+        await this.loadLessons(false);
       } else {
         throw new Error(result.message || 'Test failed');
       }
@@ -1966,8 +1975,12 @@ navigateToLessons() {
     }
   }
 
-  async loadLessons() {
-    this.isLoadingLessons = true;
+  async loadLessons(showSkeleton = true) {
+    // Only show skeleton loader if explicitly requested (e.g., initial load)
+    if (showSkeleton) {
+      this.isLoadingLessons = true;
+    }
+    
     try {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
@@ -2136,6 +2149,10 @@ navigateToLessons() {
         if (this.isTutor()) {
           this.loadTutorInsights();
         }
+        
+        // Mark that we've loaded data and update cache timestamp
+        this._hasInitiallyLoaded = true;
+        this._lastDataFetch = Date.now();
       } else {
         this.lessons = [];
       }
@@ -2144,6 +2161,99 @@ navigateToLessons() {
       this.lessons = [];
     } finally {
       this.isLoadingLessons = false;
+    }
+  }
+
+  /**
+   * Handle class cancellation via websocket without full page reload
+   * This moves the class from lessons to cancelledLessons array seamlessly
+   */
+  private async handleClassCancellation(classId: string, cancelReason?: string) {
+    console.log('🔄 [TAB1] Handling class cancellation via websocket:', classId);
+    
+    // Find the class in the lessons array
+    const classIndex = this.lessons.findIndex(l => l._id === classId);
+    
+    if (classIndex !== -1) {
+      // Get the class and update its status
+      const cancelledClass = { ...this.lessons[classIndex] };
+      cancelledClass.status = 'cancelled';
+      if (cancelReason) {
+        (cancelledClass as any).cancelReason = cancelReason;
+      }
+      
+      // Remove from lessons array
+      this.lessons = this.lessons.filter(l => l._id !== classId);
+      
+      // Add to cancelled lessons at the beginning (most recent first)
+      this.cancelledLessons = [cancelledClass, ...this.cancelledLessons];
+      
+      // Update upcoming lesson if this was it
+      if (this.upcomingLesson && this.upcomingLesson._id === classId) {
+        this.upcomingLesson = this.selectMostRelevantLesson(Date.now());
+      }
+      
+      // Clear computed caches to force recalculation
+      this._cachedFirstLessonHash = '';
+      this._cachedFirstLesson = undefined;
+      this._cachedTimelineEventsHash = '';
+      this._cachedTimelineEvents = [];
+      
+      // Update tutor insights
+      if (this.isTutor()) {
+        this.loadTutorInsights();
+      }
+      
+      console.log('✅ [TAB1] Class moved to cancelled without reload');
+    } else {
+      // If not found in current lessons, do a background refresh to sync
+      console.log('⚠️ [TAB1] Class not found in current lessons, doing background refresh');
+      await this.loadLessons(false); // Don't show skeleton
+    }
+  }
+
+  /**
+   * Handle lesson cancellation via websocket without full page reload
+   * This moves the lesson from lessons to cancelledLessons array seamlessly
+   */
+  private async handleLessonCancellation(lessonId: string) {
+    console.log('🔄 [TAB1] Handling lesson cancellation via websocket:', lessonId);
+    
+    // Find the lesson in the lessons array
+    const lessonIndex = this.lessons.findIndex(l => l._id === lessonId);
+    
+    if (lessonIndex !== -1) {
+      // Get the lesson and update its status
+      const cancelledLesson = { ...this.lessons[lessonIndex] };
+      cancelledLesson.status = 'cancelled';
+      
+      // Remove from lessons array
+      this.lessons = this.lessons.filter(l => l._id !== lessonId);
+      
+      // Add to cancelled lessons at the beginning (most recent first)
+      this.cancelledLessons = [cancelledLesson, ...this.cancelledLessons];
+      
+      // Update upcoming lesson if this was it
+      if (this.upcomingLesson && this.upcomingLesson._id === lessonId) {
+        this.upcomingLesson = this.selectMostRelevantLesson(Date.now());
+      }
+      
+      // Clear computed caches to force recalculation
+      this._cachedFirstLessonHash = '';
+      this._cachedFirstLesson = undefined;
+      this._cachedTimelineEventsHash = '';
+      this._cachedTimelineEvents = [];
+      
+      // Update tutor insights
+      if (this.isTutor()) {
+        this.loadTutorInsights();
+      }
+      
+      console.log('✅ [TAB1] Lesson moved to cancelled without reload');
+    } else {
+      // If not found in current lessons, do a background refresh to sync
+      console.log('⚠️ [TAB1] Lesson not found in current lessons, doing background refresh');
+      await this.loadLessons(false); // Don't show skeleton
     }
   }
 
@@ -3022,8 +3132,8 @@ navigateToLessons() {
       
       const { data } = await modal.onWillDismiss();
       if (data && data.invited) {
-        // Refresh lessons to show updated invitations
-        this.loadLessons();
+        // Refresh lessons to show updated invitations (no skeleton)
+        this.loadLessons(false);
       }
     } catch (error) {
       console.error('❌ Error opening invite modal:', error);
@@ -3272,8 +3382,8 @@ navigateToLessons() {
             });
             await toast.present();
 
-            // Reload lessons to reflect the change
-            await this.loadLessons();
+            // Reload lessons to reflect the change (no skeleton)
+            await this.loadLessons(false);
           } else {
             throw new Error(response?.message || 'Failed to cancel lesson');
           }
@@ -3349,8 +3459,8 @@ navigateToLessons() {
 
     const { data } = await modal.onWillDismiss();
     if (data && data.rescheduled) {
-      // Lesson was successfully rescheduled, reload lessons
-      this.loadLessons();
+      // Lesson was successfully rescheduled, reload lessons (no skeleton)
+      this.loadLessons(false);
     }
   }
 
