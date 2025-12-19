@@ -1,11 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
-import { Observable, takeUntil, take, filter } from 'rxjs';
+import { Observable, takeUntil, take, filter, firstValueFrom } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
@@ -37,6 +37,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   isMobile = false;
   currentUser: User | null = null;
   lessons: Lesson[] = [];
+  cancelledLessons: Lesson[] = [];
   pastLessons: Lesson[] = [];
   pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
   pendingClassInvitations: ClassInvitation[] = [];
@@ -46,6 +47,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   availabilityHeadline = '';
   availabilityDetail = '';
   isSelectedDatePast = false;
+  
+  // Lesson view toggle
+  lessonView: 'upcoming' | 'cancelled' = 'upcoming';
   
   // UI state
   hasNotifications = false;
@@ -70,6 +74,10 @@ export class Tab1Page implements OnInit, OnDestroy {
   lessonsThisWeek = 0;
   tutorRating = '0.0';
   unreadMessages = 0;
+  walletBalance = 0; // TODO: Load from actual wallet service
+  showWalletBalance = false; // Hide by default
+  walletDisplay = '$•••••'; // Computed display value
+  walletTemporarilyVisible = false; // For mobile tap-to-reveal
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -112,7 +120,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     private messagingService: MessagingService,
     private actionSheetController: ActionSheetController,
     private popoverController: PopoverController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private cdr: ChangeDetectorRef
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     this.userService.currentUser$
@@ -202,6 +211,72 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Reload notification count when a new notification arrives (only if user is authenticated)
       if (this.currentUser) {
         this.loadUnreadNotificationCount();
+        
+        // Handle class auto-cancelled notifications
+        if ((notification?.type === 'class_auto_cancelled' || notification?.type === 'class_invitation_cancelled') && notification.data?.classId) {
+          console.log('🔔 [TAB1] Received class cancellation notification:', notification);
+          
+          // Force reload lessons to get the updated status from server
+          // This will properly move the class from upcoming to cancelled arrays
+          await this.loadLessons();
+          
+          // Don't auto-switch to cancelled tab - let the user click it
+          // The cancelled tab will appear because cancelledLessons array is now populated
+          // The card will stay in its position (if it was "Next Class", it stays as a card)
+          console.log('🔔 [TAB1] Lessons reloaded after class cancellation');
+          
+          // Manually trigger change detection to update the UI
+          this.cdr.detectChanges();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A class has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'View',
+                handler: () => {
+                  // Switch to cancelled tab when user clicks "View"
+                  this.lessonView = 'cancelled';
+                  this.cdr.detectChanges();
+                }
+              },
+              {
+                text: 'Dismiss',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
+        
+        // Handle lesson cancelled notifications
+        if (notification?.type === 'lesson_cancelled' && notification.data?.lessonId) {
+          console.log('🔔 [TAB1] Received lesson cancellation notification:', notification);
+          
+          // Force reload lessons to get the updated status from server
+          await this.loadLessons();
+          
+          // Manually trigger change detection to update the UI
+          this.cdr.detectChanges();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A lesson has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
         
         // Handle class invitations specially
         if (notification?.type === 'class_invitation' && this.currentUser.userType === 'student') {
@@ -313,7 +388,15 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Reload notification count when returning to the page (important for page refresh)
     if (this.currentUser) {
       this.loadUnreadNotificationCount();
+      
+      // Reload class invitations to get latest status (including cancelled classes)
+      if (this.currentUser.userType === 'student') {
+        this.loadPendingInvitations();
+      }
     }
+    
+    // Reload user settings to ensure wallet display is up to date
+    this.loadUserStats();
   }
 
   loadUnreadNotificationCount() {
@@ -348,6 +431,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     ).subscribe({
       next: (response) => {
         if (response.success) {
+          // Keep all classes including cancelled ones (they'll show status in UI)
           this.pendingClassInvitations = response.classes;
         }
         this.isLoadingInvitations = false;
@@ -436,6 +520,91 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
 
     await modal.present();
+  }
+
+  // 🧪 DEV TEST: Manually trigger auto-cancel for testing
+  async testAutoCancelClass() {
+    // Find first upcoming class
+    const upcomingClass = this.lessons.find((l: any) => l.isClass && l.status === 'scheduled');
+    
+    if (!upcomingClass) {
+      const toast = await this.toastController.create({
+        message: 'No upcoming scheduled classes to test',
+        duration: 2000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
+    const classId = (upcomingClass as any)._id;
+    const className = (upcomingClass as any).className || 'Class';
+    
+    // Confirm before triggering
+    const alert = await this.alertController.create({
+      header: 'Test Auto-Cancel',
+      message: `This will cancel "${className}" and send notifications. Continue?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Test Cancel',
+          role: 'confirm',
+          handler: async () => {
+            await this.executeTestAutoCancel(classId, className);
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  private async executeTestAutoCancel(classId: string, className: string) {
+    const loading = await this.loadingController.create({
+      message: 'Testing auto-cancel...'
+    });
+    await loading.present();
+    
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+      const response = await fetch(`http://localhost:3000/api/classes/${classId}/test-auto-cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': headers.get('Authorization') || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const result = await response.json();
+      await loading.dismiss();
+      
+      if (result.success) {
+        const toast = await this.toastController.create({
+          message: `✅ "${className}" test cancelled successfully`,
+          duration: 3000,
+          color: 'success'
+        });
+        await toast.present();
+        
+        // Reload lessons to reflect the change
+        await this.loadLessons();
+      } else {
+        throw new Error(result.message || 'Test failed');
+      }
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Test auto-cancel error:', error);
+      
+      const toast = await this.toastController.create({
+        message: `❌ Test failed: ${error}`,
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 
   private getMockAnalysisData() {
@@ -683,8 +852,46 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   loadUserStats() {
-    this.userService.getCurrentUser().subscribe(user => {
+    // Force refresh from server to get latest settings
+    this.userService.getCurrentUser(true).subscribe(user => {
+      if (user) {
+        console.log('💰 User profile data:', user.profile);
+        // Load show wallet balance setting from database
+        this.showWalletBalance = user?.profile?.showWalletBalance || false;
+        console.log('💰 Loaded wallet balance setting:', this.showWalletBalance);
+        
+        // Update display property
+        this.updateWalletDisplay();
+      }
     });
+  }
+  
+  // Update wallet display property
+  private updateWalletDisplay(): void {
+    this.walletDisplay = this.showWalletBalance 
+      ? `$${this.walletBalance.toFixed(2)}` 
+      : '$ • • • • •';
+  }
+  
+  // Toggle wallet visibility temporarily (for mobile tap-to-reveal)
+  toggleWalletVisibility(event: Event): void {
+    // Only allow toggle on mobile/touch devices (non-hover devices)
+    const isTouchDevice = !window.matchMedia('(hover: hover)').matches;
+    if (!isTouchDevice) {
+      return; // Exit early on desktop - let hover handle it
+    }
+    
+    event.stopPropagation(); // Prevent navigation to wallet page
+    if (!this.showWalletBalance) {
+      this.walletTemporarilyVisible = !this.walletTemporarilyVisible;
+      
+      // Auto-hide after 3 seconds
+      if (this.walletTemporarilyVisible) {
+        setTimeout(() => {
+          this.walletTemporarilyVisible = false;
+        }, 3000);
+      }
+    }
   }
 
   // New method: Load tutor insights
@@ -1180,6 +1387,25 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this._cachedFirstLesson;
   }
   
+  // Getter for first cancelled lesson (for card display when viewing cancelled tab)
+  get firstCancelledLesson(): any | null {
+    if (!this.cancelledLessons || this.cancelledLessons.length === 0) {
+      return null;
+    }
+    
+    // Get the most recent cancelled lesson
+    const cancelledLesson = this.cancelledLessons[0];
+    
+    // Format it the same way as firstLessonForSelectedDate
+    return {
+      lesson: cancelledLesson,
+      lessonId: cancelledLesson._id,
+      isInProgress: false,
+      isNextClass: false,
+      dateTag: this.formatClassDate(cancelledLesson.startTime)
+    };
+  }
+  
   // Internal method to compute first lesson (called by cached getter)
   private computeFirstLessonForSelectedDate(): any | null {
     if (!this.selectedDate) {
@@ -1353,7 +1579,7 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // New method: Get upcoming lessons (all future lessons)
   getUpcomingLessons(): Lesson[] {
-    return this.lessons;
+    return this.getDisplayLessons();
   }
 
   // Track by function for tutors
@@ -1365,8 +1591,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   get timelineEvents(): any[] {
     // Create a hash of the inputs to detect changes
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}`).join(',');
+    const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const firstLessonId = this.firstLessonForSelectedDate?.lessonId || 'null';
-    const currentHash = `${lessonsHash}:${firstLessonId}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `${lessonsHash}:${cancelledHash}:${firstLessonId}:${this.lessonView}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedTimelineEventsHash === currentHash && this._cachedTimelineEvents.length >= 0) {
@@ -1381,31 +1608,71 @@ export class Tab1Page implements OnInit, OnDestroy {
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
-    const upcomingLessons = this.getUpcomingLessons();
+    console.log('🔍 Computing timeline events. View:', this.lessonView, 'Cancelled count:', this.cancelledLessons.length);
+    
+    // When showing cancelled view, show cancelled lessons
+    if (this.lessonView === 'cancelled') {
+      const now = new Date();
+      const result = this.cancelledLessons
+        .slice(0, 10) // Show up to 10 cancelled lessons
+        .map(lesson => {
+          const startTime = new Date(lesson.startTime);
+          const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
+          const student = lesson.studentId as any;
+          const isClass = (lesson as any).isClass;
+          
+          return {
+            time: this.formatTimeOnly(startTime),
+            endTime: endTime ? this.formatTimeOnly(endTime) : null,
+            date: this.formatRelativeDate(startTime),
+            name: isClass 
+              ? ((lesson as any).className || lesson.subject || 'Group Class')
+              : (student ? this.formatStudentDisplayName(student) : 'Unknown'),
+            subject: isClass 
+              ? 'Group Class'
+              : this.formatSubject(lesson.subject),
+            avatar: isClass 
+              ? ((lesson as any).classData?.thumbnail || null)
+              : (student?.picture || student?.profilePicture || null),
+            lesson: lesson,
+            isTrialLesson: lesson.isTrialLesson || false,
+            isCancelled: true,
+            cancelReason: lesson.cancelReason
+          };
+        });
+      console.log('✅ Returning', result.length, 'cancelled timeline events');
+      return result;
+    }
+    
+    // Regular upcoming lessons view - includes cancelled lessons in timeline
+    // Combine upcoming lessons and cancelled lessons, then sort by start time
+    const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
     
-    // Get the next class being shown in the text section (if tutor view)
+    // Get the next class being shown in the card section (if tutor view)
     const nextClassLesson = this.isTutor() ? this.firstLessonForSelectedDate : null;
     // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
     
-    // Filter out the next class lesson and get next 3 upcoming lessons
-    return upcomingLessons
+    // Filter and sort all lessons for timeline
+    return allLessonsForTimeline
       .filter(lesson => {
         // Exclude if it's in the past
         if (new Date(lesson.startTime) <= now) return false;
-        // Exclude if it's the next class being shown in the text section
+        // Exclude if it's the next class being shown in the card section
         if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
         return true;
       })
-      .slice(0, 3)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) // Sort by time
+      .slice(0, 3) // Get next 3 items
       .map(lesson => {
         const startTime = new Date(lesson.startTime);
         const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
         const student = lesson.studentId as any;
         const isClass = (lesson as any).isClass;
+        const isCancelled = lesson.status === 'cancelled';
         
         return {
           time: this.formatTimeOnly(startTime),
@@ -1421,16 +1688,31 @@ export class Tab1Page implements OnInit, OnDestroy {
             ? ((lesson as any).classData?.thumbnail || null) // Show class thumbnail if available
             : (student?.picture || student?.profilePicture || null),
           lesson: lesson,
-          isTrialLesson: lesson.isTrialLesson || false
+          isTrialLesson: lesson.isTrialLesson || false,
+          isCancelled: isCancelled,
+          cancelReason: isCancelled ? lesson.cancelReason : null
         };
       });
   }
 
   hasMoreTimelineEvents(): boolean {
-    const upcomingLessons = this.getUpcomingLessons();
+    const allLessons = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
-    const futureLessons = upcomingLessons.filter(lesson => new Date(lesson.startTime) > now);
-    return futureLessons.length > 3;
+    const futureLessons = allLessons.filter(lesson => new Date(lesson.startTime) > now);
+    
+    // Get the next class being shown in the card
+    const nextClassLesson = this.isTutor() ? this.firstLessonForSelectedDate : null;
+    const nextClassLessonId = nextClassLesson?.lessonId || 
+                              nextClassLesson?.lesson?._id || 
+                              (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
+    
+    // Filter out the next class from count
+    const timelineLessons = futureLessons.filter(lesson => {
+      if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+      return true;
+    });
+    
+    return timelineLessons.length > 3;
   }
 
   /**
@@ -1706,7 +1988,7 @@ navigateToLessons() {
                   studentId: null as any, // Classes don't have a single student
                   startTime: cls.startTime,
                   endTime: cls.endTime,
-                  status: 'scheduled' as const,
+                  status: cls.status || 'scheduled', // Use actual class status
                   subject: cls.name || 'Class',
                   channelName: `class_${cls._id}`,
                   price: cls.price || 0,
@@ -1718,7 +2000,8 @@ navigateToLessons() {
                   classData: cls, // Store full class data including attendees
                   attendees: cls.attendees || [], // Confirmed students who are going
                   capacity: cls.capacity,
-                  invitationStats: cls.invitationStats
+                  invitationStats: cls.invitationStats,
+                  cancelReason: cls.cancelReason // Include cancel reason
                 } as any));
                 
                 // Merge classes with lessons
@@ -1742,7 +2025,7 @@ navigateToLessons() {
                 studentId: null as any, // Classes don't have a single student
                 startTime: cls.startTime,
                 endTime: cls.endTime,
-                status: 'scheduled' as const,
+                status: cls.status || 'scheduled', // Use actual class status
                 subject: cls.name || 'Class',
                 channelName: `class_${cls._id}`,
                 price: cls.price || 0,
@@ -1753,7 +2036,8 @@ navigateToLessons() {
                 className: cls.name,
                 classData: cls, // Store full class data
                 attendees: cls.confirmedStudents || [], // Other confirmed students
-                capacity: cls.capacity
+                capacity: cls.capacity,
+                cancelReason: cls.cancelReason // Include cancel reason
               } as any));
               
               // Merge classes with lessons
@@ -1766,9 +2050,22 @@ navigateToLessons() {
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
+        const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+        
+        // Separate cancelled lessons (show recent and future cancellations)
+        this.cancelledLessons = allLessons
+          .filter(l => {
+            if (l.status !== 'cancelled') return false;
+            const lessonTime = new Date(l.startTime).getTime();
+            // Show cancelled lessons from last 7 days or future
+            return lessonTime >= sevenDaysAgo.getTime();
+          })
+          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+        
+        // Filter for active (non-cancelled) lessons
         this.lessons = allLessons
           .filter(l => {
-            // Exclude cancelled lessons
+            // Exclude cancelled lessons (they go to cancelledLessons array)
             if (l.status === 'cancelled') {
               return false;
             }
@@ -2866,13 +3163,47 @@ navigateToLessons() {
       
       const { data } = await modal.onWillDismiss();
       if (data && data.confirmed) {
-        // TODO: Implement class cancellation
-        const toast = await this.toastController.create({
-          message: 'Cancel functionality coming soon',
-          duration: 2000,
-          position: 'bottom'
+        const loading = await this.loadingController.create({
+          message: 'Cancelling class...',
+          spinner: 'crescent'
         });
-        await toast.present();
+        await loading.present();
+        
+        try {
+          // Call the backend to cancel the class
+          await firstValueFrom(this.classService.cancelClass(classId));
+          
+          console.log(`✅ [CLASS-CANCEL] Class ${classId} cancelled successfully`);
+          
+          // Remove the class from the UI
+          this.lessons = this.lessons.filter(l => {
+            const lessonId = l._id;
+            return lessonId?.toString() !== classId?.toString();
+          });
+          
+          // Refresh the data
+          await this.ionViewWillEnter();
+          
+          const toast = await this.toastController.create({
+            message: `"${className}" has been cancelled`,
+            duration: 3000,
+            position: 'bottom',
+            color: 'success'
+          });
+          await toast.present();
+        } catch (error: any) {
+          console.error('❌ [CLASS-CANCEL] Error cancelling class:', error);
+          const errorMessage = error?.error?.message || 'Failed to cancel class';
+          const toast = await this.toastController.create({
+            message: errorMessage,
+            duration: 3000,
+            position: 'bottom',
+            color: 'danger'
+          });
+          await toast.present();
+        } finally {
+          await loading.dismiss();
+        }
       }
     } catch (error) {
       console.error('❌ Error opening cancel class modal:', error);
@@ -2918,13 +3249,46 @@ navigateToLessons() {
       
       const { data } = await modal.onWillDismiss();
       if (data && data.confirmed) {
-        // TODO: Implement lesson cancellation
-        const toast = await this.toastController.create({
-          message: 'Cancel functionality coming soon',
-          duration: 2000,
-          position: 'bottom'
+        // Show loading
+        const loading = await this.loadingController.create({
+          message: 'Cancelling lesson...',
+          spinner: 'crescent'
         });
-        await toast.present();
+        await loading.present();
+
+        try {
+          // Call the backend to cancel the lesson
+          const response = await this.lessonService.cancelLesson(lessonId).toPromise();
+          
+          await loading.dismiss();
+
+          if (response?.success) {
+            // Show success toast
+            const toast = await this.toastController.create({
+              message: 'Lesson cancelled successfully',
+              duration: 3000,
+              position: 'bottom',
+              color: 'success'
+            });
+            await toast.present();
+
+            // Reload lessons to reflect the change
+            await this.loadLessons();
+          } else {
+            throw new Error(response?.message || 'Failed to cancel lesson');
+          }
+        } catch (error: any) {
+          await loading.dismiss();
+          console.error('❌ Error cancelling lesson:', error);
+          
+          const toast = await this.toastController.create({
+            message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+            duration: 3000,
+            position: 'bottom',
+            color: 'danger'
+          });
+          await toast.present();
+        }
       }
     } catch (error) {
       console.error('❌ Error opening cancel lesson modal:', error);
@@ -3061,6 +3425,36 @@ navigateToLessons() {
         endTime: this.upcomingLesson?.endTime
       });
     }
+  }
+
+  /**
+   * Switch between upcoming and cancelled lesson views
+   */
+  switchLessonView(view: 'upcoming' | 'cancelled'): void {
+    this.lessonView = view;
+  }
+
+  /**
+   * Get lessons for display based on selected view
+   */
+  getDisplayLessons(): Lesson[] {
+    return this.lessonView === 'upcoming' ? this.lessons : this.cancelledLessons;
+  }
+
+  /**
+   * Check if there are any cancelled lessons
+   */
+  /**
+   * Check if there are any cancelled lessons
+   * Tabs only appear if the NEXT CLASS itself is cancelled
+   */
+  hasCancelledLessons(): boolean {
+    // Only show tabs if the first lesson (NEXT CLASS) is cancelled
+    // If a lesson in timeline is cancelled, it stays there with badges
+    if (!this.firstLessonForSelectedDate || !this.firstLessonForSelectedDate.lesson) {
+      return false;
+    }
+    return this.firstLessonForSelectedDate.lesson.status === 'cancelled';
   }
 
 }

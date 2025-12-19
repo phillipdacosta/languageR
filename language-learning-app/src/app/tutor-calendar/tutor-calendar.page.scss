@@ -1564,6 +1564,19 @@ ion-content {
     }
   }
   
+  // Cancelled events
+  &.is-cancelled {
+    opacity: 0.6;
+    background: #f3f4f6;
+    border-left-color: #9ca3af;
+    
+    .event-title,
+    .event-time {
+      text-decoration: line-through;
+      color: #6b7280;
+    }
+  }
+  
   .event-header {
     display: flex;
     flex-direction: column; // Stack rows vertically
@@ -3932,6 +3945,42 @@ ion-content {
       font-weight: 500;
       color: #64748b;
       line-height: 1.4;
+    }
+  }
+  
+  // Cancelled styling for mobile timeline and agenda
+  .timeline-row.is-cancelled,
+  .agenda-item.is-cancelled {
+    opacity: 0.6;
+    
+    .timeline-card {
+      background: #f3f4f6;
+      
+      .card-text .title,
+      .title,
+      .card-text .subtitle,
+      .subtitle,
+      .time-range {
+        text-decoration: line-through;
+        color: #6b7280;
+      }
+    }
+    
+    .timeline-marker {
+      background: #9ca3af !important;
+    }
+  }
+  
+  // Extra specificity for cancelled timeline cards
+  .timeline-card.is-cancelled {
+    background: #f3f4f6;
+    
+    .card-text .title,
+    .title,
+    .card-text .subtitle,
+    .subtitle {
+      text-decoration: line-through;
+      color: #6b7280;
     }
   }
   

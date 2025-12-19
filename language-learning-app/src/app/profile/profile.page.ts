@@ -32,6 +32,7 @@ export class ProfilePage implements OnInit {
   tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   isDarkMode$: Observable<boolean>;
   remindersEnabled: boolean = true; // Default to enabled
+  showWalletBalance: boolean = false; // Default to hidden
   
   // Language support
   availableLanguages: LanguageOption[] = [];
@@ -87,9 +88,9 @@ export class ProfilePage implements OnInit {
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
       
-      // Load reminders enabled setting from localStorage
-      const storedRemindersEnabled = localStorage.getItem('reminders_enabled');
-      this.remindersEnabled = storedRemindersEnabled !== null ? storedRemindersEnabled === 'true' : true;
+      // Load settings from user profile (database)
+      this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
+      this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -276,11 +277,41 @@ export class ProfilePage implements OnInit {
    */
   toggleReminders(event: any): void {
     this.remindersEnabled = event.detail.checked;
-    localStorage.setItem('reminders_enabled', String(this.remindersEnabled));
-    console.log('🔔 Reminders toggled:', this.remindersEnabled);
     
-    // Reload the page to apply changes
-    window.location.reload();
+    // Save to database
+    this.userService.updateRemindersEnabled(this.remindersEnabled).subscribe({
+      next: (user) => {
+        console.log('🔔 Reminders setting saved to database:', this.remindersEnabled);
+        // Reload page to apply changes
+        window.location.reload();
+      },
+      error: (error) => {
+        console.error('❌ Error saving reminders setting:', error);
+        // Revert on error
+        this.remindersEnabled = !this.remindersEnabled;
+      }
+    });
+  }
+  
+  /**
+   * Toggle show wallet balance on/off
+   */
+  toggleShowWalletBalance(event: any): void {
+    this.showWalletBalance = event.detail.checked;
+    
+    // Save to database
+    this.userService.updateShowWalletBalance(this.showWalletBalance).subscribe({
+      next: (user) => {
+        console.log('💰 Show wallet balance setting saved to database:', this.showWalletBalance);
+        // Update the current user to ensure cache is updated
+        this.currentUser = user;
+      },
+      error: (error) => {
+        console.error('❌ Error saving wallet balance setting:', error);
+        // Revert on error
+        this.showWalletBalance = !this.showWalletBalance;
+      }
+    });
   }
 
   /**

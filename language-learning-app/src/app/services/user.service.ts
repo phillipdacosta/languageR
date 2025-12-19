@@ -37,6 +37,8 @@ export interface User {
     timezone: string;
     preferredLanguage: string;
     officeHoursEnabled?: boolean;
+    showWalletBalance?: boolean;  // Privacy setting for wallet display
+    remindersEnabled?: boolean;   // Lesson reminder notifications
   };
   stats?: {
     totalLessons: number;
@@ -357,6 +359,36 @@ export class UserService {
   getOfficeHoursStatus(): boolean {
     const currentUser = this.currentUserSubject.value;
     return currentUser?.profile?.officeHoursEnabled || false;
+  }
+  
+  /**
+   * Update show wallet balance setting
+   */
+  updateShowWalletBalance(show: boolean): Observable<User> {
+    return this.updateProfile({ showWalletBalance: show });
+  }
+  
+  /**
+   * Update reminders enabled setting
+   */
+  updateRemindersEnabled(enabled: boolean): Observable<User> {
+    return this.updateProfile({ remindersEnabled: enabled });
+  }
+  
+  /**
+   * Get show wallet balance setting (default false for privacy)
+   */
+  getShowWalletBalance(): boolean {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.showWalletBalance || false;
+  }
+  
+  /**
+   * Get reminders enabled setting (default true)
+   */
+  getRemindersEnabled(): boolean {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.remindersEnabled !== false; // Default true
   }
 
   /**

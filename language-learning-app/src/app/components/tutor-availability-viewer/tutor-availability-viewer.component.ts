@@ -297,21 +297,27 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       // Convert classes to lesson-like format for processing
       if (classesResponse.success && classesResponse.classes) {
         console.log(`🎓 Classes loaded: ${classesResponse.classes.length} total`);
-        classesResponse.classes.forEach((c: any, index: number) => {
-          console.log(`  Class ${index + 1}: ${c.name}`);
+        
+        // Filter out cancelled classes - they shouldn't block availability
+        const activeClasses = classesResponse.classes.filter((cls: any) => cls.status !== 'cancelled');
+        console.log(`🎓 Active (non-cancelled) classes: ${activeClasses.length} of ${classesResponse.classes.length}`);
+        
+        activeClasses.forEach((c: any, index: number) => {
+          console.log(`  Class ${index + 1}: ${c.name} (status: ${c.status})`);
           console.log(`    Start: ${c.startTime}`);
           console.log(`    End: ${c.endTime}`);
           console.log(`    Start Date: ${new Date(c.startTime).toLocaleString()}`);
           console.log(`    End Date: ${new Date(c.endTime).toLocaleString()}`);
         });
-        const classesAsLessons = classesResponse.classes.map((cls: any) => ({
+        
+        const classesAsLessons = activeClasses.map((cls: any) => ({
           startTime: cls.startTime,
           endTime: cls.endTime,
-          status: 'scheduled', // Classes are scheduled events
+          status: cls.status || 'scheduled', // Preserve actual status
           _id: cls._id,
           subject: cls.name
         }));
-        console.log(`🎓 Converted ${classesAsLessons.length} classes to lesson format`);
+        console.log(`🎓 Converted ${classesAsLessons.length} active classes to lesson format`);
         allBookedSlots.push(...classesAsLessons);
       } else {
         console.log(`⚠️ No classes returned or response not successful:`, classesResponse);

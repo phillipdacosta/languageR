@@ -172,13 +172,12 @@ export class AppComponent implements OnInit, OnDestroy {
             // Load reminders globally if user is a tutor
             console.log('🔔 [APP] Checking user type for reminders:', currentUser?.userType, currentUser?.id);
             
-            // Check if reminders are enabled (default to true)
-            const remindersEnabled = localStorage.getItem('reminders_enabled');
-            const shouldShowReminders = remindersEnabled !== null ? remindersEnabled === 'true' : true;
+            // Check if reminders are enabled from user profile (database)
+            const remindersEnabled = currentUser?.profile?.remindersEnabled !== false; // Default true
             
-            console.log('🔔 [APP] Reminders enabled:', shouldShowReminders);
+            console.log('🔔 [APP] Reminders enabled:', remindersEnabled);
             
-            if (shouldShowReminders) {
+            if (remindersEnabled) {
               if (currentUser?.userType === 'tutor' && currentUser.id) {
                 console.log('🔔 [APP] User is tutor, loading tutor reminders');
                 this.loadGlobalReminders(currentUser.id);
@@ -307,6 +306,12 @@ export class AppComponent implements OnInit, OnDestroy {
         // Process classes
         if (classes.success && classes.classes) {
           classes.classes.forEach((cls: any) => {
+            // Skip cancelled classes
+            if (cls.status === 'cancelled') {
+              console.log('⏭️ [APP] Skipping cancelled class:', cls.name);
+              return;
+            }
+            
             const startTime = new Date(cls.startTime);
             
             // Only track future classes

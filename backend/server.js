@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
+const { autoCancelClasses } = require('./jobs/autoCancelClasses');
 require('dotenv').config({ path: './config.env' });
 
 const app = express();
@@ -328,6 +329,21 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Auto-complete transcripts (every minute)');
+  
+  // Start background job to auto-cancel classes that don't meet minimum enrollment
+  // Runs every 10 minutes (checks for classes 11-21 minutes out, ~16 min window)
+  cron.schedule('*/10 * * * *', () => {
+    autoCancelClasses(io, connectedUsers).catch(err => {
+      console.error('❌ [Cron] Error in autoCancelClasses:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
+  
+  // Run auto-cancel immediately on startup for testing
+  console.log('🚀 Running auto-cancel check immediately on startup...');
+  autoCancelClasses(io, connectedUsers).catch(err => {
+    console.error('❌ [Startup] Error in autoCancelClasses:', err);
+  });
 });
 
 // Handle server errors

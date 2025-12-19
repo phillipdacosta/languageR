@@ -424,6 +424,16 @@ ion-content {
       background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
     }
     
+    &.cancelled {
+      opacity: 0.7;
+      background: #f9fafb;
+      border-color: #9ca3af;
+      
+      &::before {
+        background: #9ca3af;
+      }
+    }
+    
     &:active {
       transform: scale(0.98);
     }
@@ -440,6 +450,10 @@ ion-content {
       font-weight: 700;
       letter-spacing: 0.5px;
       white-space: nowrap;
+      
+      &.cancelled-badge {
+        background: #ef4444;
+      }
       
       ion-icon {
         font-size: 14px;
@@ -480,12 +494,30 @@ ion-content {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          
+          &.cancelled-text {
+            text-decoration: line-through;
+            color: #6b7280;
+          }
         }
         
         .tutor-name {
           font-size: 13px;
           color: #64748b;
           margin: 2px 0 0 0;
+        }
+        
+        .cancel-reason {
+          font-size: 12px;
+          color: #ef4444;
+          margin: 4px 0 0 0;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          
+          ion-icon {
+            font-size: 14px;
+          }
         }
       }
     }
@@ -686,7 +718,7 @@ ion-content {
     }
     
     &.messages {
-      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      background: linear-gradient(135deg, #3cb1c6 0%, #00da1c 100%);
       position: relative;
       
       .message-badge {
@@ -712,18 +744,77 @@ ion-content {
   
   .insight-text {
     .insight-value {
-      font-size: 28px;
+      font-size: 21px;
       font-weight: 800;
       color: #1f2937;
       line-height: 1;
       margin-bottom: 4px;
       
       @media (max-width: 600px) {
-        font-size: 24px;
+        font-size: 21px;
       }
       
       @media (max-width: 400px) {
         font-size: 20px;
+      }
+      
+      &.wallet-value {
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+        
+        .wallet-dots {
+          color: #9ca3af; // Grey color for dots only
+          // letter-spacing: 0.1px; // Minimal spacing between dots
+        }
+        
+        .wallet-amount {
+          display: inline-block;
+          font-variant-numeric: tabular-nums; // Use monospace numbers for consistent width
+          min-width: 65px; // Reserve space for the number
+          letter-spacing: 1.5px;
+        }
+        
+        &.wallet-hidden {
+          .wallet-amount {
+            transition: opacity 0.2s;
+            
+          }
+          
+          .wallet-amount-hover {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            min-width: 65px; // Same as wallet-amount
+            letter-spacing: 1.5px;
+          }
+          
+          // Desktop hover effect
+          @media (hover: hover) {
+            &:hover {
+              .wallet-amount {
+                opacity: 0;
+              }
+              
+              .wallet-amount-hover {
+                opacity: 1;
+              }
+            }
+          }
+        }
+      }
+      
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
       }
     }
     
@@ -2278,6 +2369,12 @@ ion-content {
   text-transform: uppercase;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   
+  &.cancelled-badge {
+    background: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+  }
+  
   @media (max-width: 600px) {
     padding: 6px 14px;
     font-size: 11px;
@@ -2661,12 +2758,12 @@ ion-content {
   text-align: center;
   padding: 48px 24px;
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 20px;
   border: 1px solid #e5e7eb;
   
   @media (max-width: 600px) {
     padding: 40px 20px;
-    border-radius: 12px;
+    border-radius: 16px;
   }
 }
 
@@ -4654,4 +4751,125 @@ ion-content {
       }
     }
   }
+}
+
+// Cancelled badge for upcoming lessons
+.cancelled-badge-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ef4444;
+  margin: 4px 0;
+  
+  ion-icon {
+    font-size: 16px;
+  }
+  
+  .cancel-reason {
+    font-weight: 400;
+    color: #6b7280;
+  }
+}
+
+.cancelled-badge-inline-small {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+  margin: 3px 0;
+  
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+// Cancelled card styling
+.upcoming-lesson-card.cancelled,
+.additional-lesson-card.cancelled {
+  opacity: 0.7;
+  background: #f9fafb;
+  border-left: 3px solid #9ca3af;
+}
+
+// Lesson view tabs
+.header-with-tabs {
+  width: 100%;
+  
+  .header-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .lesson-view-tabs {
+    display: flex;
+    gap: 8px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 4px;
+    width: fit-content;
+    
+    .tab-button {
+      background: transparent;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: #e5e7eb;
+      }
+      
+      &.active {
+        background: white;
+        color: #111827;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+    }
+  }
+}
+
+// Timeline cancelled badge
+.timeline-cancelled-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fef2f2;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+  
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.cancellation-reason {
+  font-size: 12px;
+  color: #ef4444;
+  margin: 4px 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+}
+
+.cancel-reason-text {
+  font-weight: 400;
+  color: #6b7280;
 }

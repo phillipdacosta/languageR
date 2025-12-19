@@ -13,7 +13,7 @@ export class EventTopPipe implements PipeTransform {
     const startHour = startTime.getHours();
     const startMinute = startTime.getMinutes();
     const startOffset = 6; // Calendar starts at 6 AM
-    const slotHeight = 110; // 110px per hour (Outlook-style spacing)
+    const slotHeight = 110.3; // 110px per hour (Outlook-style spacing)
     
     return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
   }

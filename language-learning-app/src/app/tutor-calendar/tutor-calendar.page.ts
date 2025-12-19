@@ -55,6 +55,7 @@ interface TimelineEntry {
   isTrialLesson?: boolean;
   isClass?: boolean;
   isOfficeHours?: boolean; // True if this is an office hours session
+  isCancelled?: boolean; // True if this event is cancelled
   attendees?: any[];
   capacity?: number;
   id?: string; // Lesson ID or Class ID
@@ -544,10 +545,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
     
+    console.log('📱 [DAY-VIEW] Building timeline for:', dayStart.toISOString());
+    
     // Build timeline in temporary variable to avoid flashing
     const timeline = this.buildDayEntries(dayStart, dayEnd);
     
-    // Filter to show lessons and classes (exclude free time slots and generic availability blocks)
+    // Filter to show lessons and classes (exclude free time slots, generic availability blocks, and cancelled events)
     // Lessons have subtitles/avatarUrls, Classes have specific titles
     const timelineEvents = timeline.filter(item => {
       if (item.type !== 'event') return false;
@@ -555,8 +558,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === 'Open time slot';
-      // Show ALL events (past and future) - don't filter by time
-      return !isGenericAvailability && !isFreeSlot;
+      // Exclude cancelled events from mobile day view
+      const isCancelled = item.isCancelled === true;
+      // Show ALL events (past and future) - don't filter by time, but exclude cancelled
+      return !isGenericAvailability && !isFreeSlot && !isCancelled;
+    });
+    
+    console.log('📱 [DAY-VIEW] Timeline events:', {
+      total: timelineEvents.length,
+      events: timelineEvents.map(e => ({
+        title: e.title,
+        isClass: e.isClass,
+        isCancelled: e.isCancelled
+      }))
     });
     
     // Assign all at once to prevent intermediate empty states
@@ -566,6 +580,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
     const results: TimelineEntry[] = [];
+    
+    // Log for debugging
+    const dayStr = dayStart.toISOString().split('T')[0]; // Get YYYY-MM-DD
+    console.log('📅 [COLLECT] collectEventsForDay called for:', dayStr, {
+      dayStart: dayStart.toISOString(),
+      dayEnd: dayEnd.toISOString(),
+      totalEvents: this.events?.length || 0
+    });
+    
+    // Log all class events in this.events
+    const classEventsInArray = (this.events || []).filter(e => {
+      const ext = e.extendedProps as any;
+      return ext?.isClass || ext?.classId;
+    });
+    console.log('📅 [COLLECT] Class events in this.events:', classEventsInArray.map(e => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      classId: (e.extendedProps as any)?.classId,
+      isCancelled: (e.extendedProps as any)?.isCancelled
+    })));
     
     for (const event of this.events || []) {
       if (!event.start || !event.end) {
@@ -577,14 +612,50 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         continue;
       }
       
-      if (rawStart >= dayEnd || rawEnd <= dayStart) {
+      // Check if this event falls within the day range
+      const isInRange = rawStart < dayEnd && rawEnd > dayStart;
+      
+      // Log cancelled class specifically
+      const ext = event.extendedProps as any;
+      if ((ext?.isClass || ext?.classId) && ext?.isCancelled) {
+        console.log('🔴 [CANCELLED-CLASS] Checking cancelled class:', {
+          title: event.title,
+          classId: ext.classId,
+          rawStart: rawStart.toISOString(),
+          rawEnd: rawEnd.toISOString(),
+          dayStart: dayStart.toISOString(),
+          dayEnd: dayEnd.toISOString(),
+          isInRange,
+          startBeforeDayEnd: rawStart < dayEnd,
+          endAfterDayStart: rawEnd > dayStart,
+          comparison: {
+            'rawStart < dayEnd': rawStart < dayEnd,
+            'rawEnd > dayStart': rawEnd > dayStart,
+            'both': rawStart < dayEnd && rawEnd > dayStart
+          }
+        });
+      }
+      
+      if (!isInRange) {
         continue;
       }
+      
       const clampedStart = rawStart.getTime() < dayStart.getTime() ? new Date(dayStart.getTime()) : rawStart;
       const clampedEnd = rawEnd.getTime() > dayEnd.getTime() ? new Date(dayEnd.getTime()) : rawEnd;
       
       results.push(this.buildTimelineEvent(event, clampedStart, clampedEnd));
     }
+    
+    console.log('📅 [COLLECT] Collected timeline entries:', {
+      total: results.length,
+      classLessonCount: results.filter(e => e.isClass || e.isLesson).length,
+      events: results.filter(e => e.isClass || e.isLesson).map(e => ({
+        title: e.title,
+        isClass: e.isClass,
+        isCancelled: e.isCancelled
+      }))
+    });
+    
     return results.sort((a, b) => a.start.getTime() - b.start.getTime());
   }
 
@@ -594,6 +665,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const isLesson = Boolean(extended.lessonId);
     const isClass = extended.isClass || (event.title && event.title !== 'Available' && event.title.includes('Class'));
     const isOfficeHours = Boolean(extended.isOfficeHours);
+    
+    // For classes, check the classesMap for the latest status
+    let isCancelled = extended.isCancelled || false;
+    if (isClass && extended.classId) {
+      const classId = String(extended.classId);
+      const classData = this.classesMap.get(classId);
+      if (classData) {
+        isCancelled = classData.status === 'cancelled';
+      }
+    }
     
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
@@ -653,6 +734,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       isTrialLesson,
       isClass: isClass || false,
       isOfficeHours: isOfficeHours || false,
+      isCancelled: isCancelled, // Use the local variable that was updated from classesMap
       attendees,
       capacity,
       thumbnail,
@@ -772,6 +854,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.websocketService.newNotification$
       .pipe(takeUntil(this.destroy$))
       .subscribe(async (notification) => {
+        // Handle office hours bookings
         if (notification.type === 'office_hours_booking' && notification.urgent) {
           console.log('⚡ Received urgent office hours booking notification');
           
@@ -805,6 +888,52 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Refresh calendar to show the new booking
           this.refreshCalendar();
+        }
+        
+        // Handle class auto-cancelled notifications
+        if (notification.type === 'class_auto_cancelled' && notification.data?.classId) {
+          console.log('🔔 [TUTOR-CALENDAR] Received class cancellation notification:', notification);
+          
+          // Refresh calendar to show the cancelled class
+          this.refreshCalendar();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A class has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
+        
+        // Handle lesson cancelled notifications
+        if (notification.type === 'lesson_cancelled' && notification.data?.lessonId) {
+          console.log('🔔 [TUTOR-CALENDAR] Received lesson cancellation notification:', notification);
+          
+          // Refresh calendar to show the cancelled lesson
+          this.refreshCalendar();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A lesson has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
         }
       });
     
@@ -975,59 +1104,62 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private loadClasses(tutorId: string) {
-    console.log('📚 [LOAD-DEBUG] loadClasses START (async, does not block render)');
-    
     this.classService.getClassesForTutor(tutorId).subscribe({
       next: (response) => {
-        console.log('📚 [CLASS-DEBUG] Classes API response:', response.classes?.length, 'classes');
-        
         if (response.success && response.classes) {
-          // Store classes in map for quick lookup (use string ID for consistency)
+          // Clear and update classes map
           this.classesMap.clear();
           response.classes.forEach((cls: any) => {
-            const classId = String(cls._id); // Convert to string for consistent lookup
-            this.classesMap.set(classId, cls);
+            this.classesMap.set(String(cls._id), cls);
           });
           
-          // Convert classes to calendar events and add them to this.events
-          const classEvents = response.classes.map((cls: any) => {
-            const event: EventInput = {
+          // Create class events
+          const allClasses = response.classes;
+          const classEvents = allClasses.map((cls: any) => {
+            const isCancelled = cls.status === 'cancelled';
+            return {
               id: String(cls._id),
               title: cls.name || 'Class',
               start: new Date(cls.startTime).toISOString(),
               end: new Date(cls.endTime).toISOString(),
-              backgroundColor: '#8b5cf6',
-              borderColor: '#6d28d9',
-              textColor: '#ffffff',
-              classNames: ['calendar-class-event', new Date(cls.endTime).getTime() < Date.now() ? 'is-past' : 'is-future'],
+              backgroundColor: isCancelled ? '#9ca3af' : '#8b5cf6',
+              borderColor: isCancelled ? '#6b7280' : '#6d28d9',
+              textColor: isCancelled ? '#6b7280' : '#ffffff',
+              classNames: [
+                'calendar-class-event', 
+                new Date(cls.endTime).getTime() < Date.now() ? 'is-past' : 'is-future',
+                isCancelled ? 'is-cancelled' : ''
+              ].filter(Boolean),
               extendedProps: {
                 classId: String(cls._id),
                 isClass: true,
                 className: cls.name || 'Class',
                 classThumbnail: cls.thumbnail,
                 type: 'class',
-                classData: cls
+                classData: cls,
+                isCancelled: isCancelled,
+                cancelReason: cls.cancelReason,
+                status: cls.status
               }
-            };
-            return event;
+            } as EventInput;
           });
           
-          // Remove old class events from this.events
+          // Filter out ALL class events (from availability AND from previous loads)
           const nonClassEvents = this.events.filter(event => {
             const extendedProps = event.extendedProps as any;
-            return !extendedProps?.isClass && !extendedProps?.classId;
+            // Remove if it's a class OR if it's an availability block of type 'class'
+            return !extendedProps?.isClass && !extendedProps?.classId && extendedProps?.type !== 'class';
           });
           
-          // Merge new class events with non-class events
+          // Merge new class events
           this.events = [...nonClassEvents, ...classEvents];
           
-          // Update reminders with new class data
-          // NOTE: Disabled because reminders are now tracked globally in app.component.ts
-          // this.updateReminders();
+          // Rebuild mobile views
+          if (this.isMobileView) {
+            this.buildMobileTimeline();
+            this.buildMobileAgenda();
+          }
           
-          console.log('📚 [CLASS-DEBUG] Classes added, total events:', this.events.length);
-          
-          // Trigger change detection to show the classes
           this.cdr.detectChanges();
         }
       },
@@ -1038,17 +1170,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
-    // Convert lessons to events but don't replace existing events (availability/classes)
-    // Filter out cancelled lessons to avoid cluttering the calendar
-    const activeAndCompletedLessons = lessons.filter(lesson => lesson.status !== 'cancelled');
+    // Convert all lessons to events (including cancelled) to show them crossed out
+    const allLessons = lessons;
     
-    const lessonEvents = activeAndCompletedLessons.map(lesson => {
+    const lessonEvents = allLessons.map(lesson => {
       const student = lesson.studentId as any;
       const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
       const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
       const studentFullName = [studentFirst, studentLast].filter(Boolean).join(' ');
       const studentName = studentFullName || student?.name || student?.displayName || student?.email || 'Student';
       const subject = lesson.subject || 'Language Lesson';
+      const isCancelled = lesson.status === 'cancelled';
       
       // Debug logging for 12:00 PM lesson
       const debugStartTime = new Date(lesson.startTime);
@@ -1063,6 +1195,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (lesson.isOfficeHours) {
         backgroundColor = '#f59e0b'; // Gold for office hours
         borderColor = '#d97706';
+      } else if (isCancelled) {
+        backgroundColor = '#9ca3af'; // Gray for cancelled
+        borderColor = '#6b7280';
       } else {
         switch (lesson.status) {
           case 'scheduled':
@@ -1101,8 +1236,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         end: lesson.endTime,
         backgroundColor: backgroundColor,
         borderColor: borderColor,
-        textColor: '#ffffff',
-        classNames: [isPast ? 'is-past' : 'is-future', 'calendar-lesson-event'],
+        textColor: isCancelled ? '#6b7280' : '#ffffff',
+        classNames: [
+          isPast ? 'is-past' : 'is-future', 
+          'calendar-lesson-event',
+          isCancelled ? 'is-cancelled' : ''
+        ].filter(Boolean),
         extendedProps: {
           lessonId: lesson._id,
           studentName: studentName,
@@ -1116,7 +1255,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           notes: lesson.notes,
           isTrialLesson: lesson.isTrialLesson || false,
           isOfficeHours: lesson.isOfficeHours || false,
-          officeHoursType: lesson.officeHoursType || null
+          officeHoursType: lesson.officeHoursType || null,
+          isCancelled: isCancelled,
+          cancelReason: lesson.cancelReason
         }
       } as EventInput;
       
@@ -1291,8 +1432,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     }
     
     // Desktop view: Using custom calendar, just reload data
-    console.log('📅 Reloading calendar data for custom calendar');
-    this.events = [];
+    console.log('📅 [FORCE-REINIT-DESKTOP] Reloading calendar data for custom calendar');
+    
+    // DON'T clear events - let loaders merge data properly
+    // this.events = [];  // REMOVED
+    
     this.loadAndUpdateCalendarData();
     if (this.currentUser && this.currentUser.id) {
       this.loadLessonsAndClasses(this.currentUser.id);
@@ -1396,8 +1540,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           const beforeCount = this.events.length;
           
-          // Map availability blocks to events
-          const availabilityEvents = res.availability.map((b, index) => {
+          // Filter OUT ghost class blocks before converting to events
+          // Classes should come from Classes API, not availability array
+          const actualAvailability = res.availability.filter(b => b.type !== 'class');
+          
+          // Map availability blocks to events (excluding ghost classes)
+          const availabilityEvents = actualAvailability.map((b, index) => {
             return this.blockToEvent(b);
           });
           
@@ -1406,9 +1554,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           // Merge with existing events (keep lessons/classes, replace availability)
           const nonAvailabilityEvents = this.events.filter(event => {
             const extendedProps = event.extendedProps as any;
-            // Keep lessons (have lessonId) and keep classes that were already loaded
-            // Don't keep availability blocks or classes from the availability endpoint (they'll be re-added from res.availability)
-            return extendedProps?.lessonId; // Only keep lessons, availability/classes will come from the new data
+            // Keep lessons (have lessonId) AND keep classes (have isClass or classId)
+            // Don't keep availability blocks - they'll be re-added from res.availability
+            return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId;
           });
           
           console.log('📅 [CLASS-DEBUG] Keeping', nonAvailabilityEvents.length, 'lesson events');
@@ -1806,15 +1954,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     };
     
-    // Log class events for debugging
-    if (b.type === 'class') {
-      console.log('📅 [CLASS-DEBUG] Created class event:', {
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        classId: event.extendedProps?.['classId']
-      });
-    }
     return event;
   }
 
@@ -2163,7 +2302,12 @@ When enabled:
 
   // Method to refresh calendar when returning from availability setup
   refreshCalendar() {
+    console.log('🔄 [REFRESH] refreshCalendar() called');
     if (this.calendar && this.isInitialized) {
+      // Don't clear events - just reload data and merge
+      if (this.currentUser && this.currentUser.id) {
+        this.loadLessonsAndClasses(this.currentUser.id);
+      }
       this.loadAndUpdateCalendarData();
     } else {
       this.forceReinitializeCalendar();
@@ -2172,23 +2316,32 @@ When enabled:
 
   // Force refresh availability data after saving from availability setup
   private forceRefreshAvailability() {
+    console.log('🔄 [FORCE-REFRESH-AVAIL] forceRefreshAvailability() called');
     
     if (!this.currentUser) {
       console.warn('📅 No current user for availability refresh');
       return;
     }
 
-    // Clear existing events to avoid stale data
-    this.events = [];
+    // DON'T clear all events - only update availability, preserve lessons/classes
+    // this.events = [];  // REMOVED
     
     // Force reload availability data
     this.userService.getAvailability().subscribe({
       next: (res) => {
+        console.log('📅 [FORCE-REFRESH-AVAIL] Got availability data');
+        
+        // Remove old availability events, keep lessons and classes
+        const nonAvailabilityEvents = this.events.filter(event => {
+          const extendedProps = event.extendedProps as any;
+          return extendedProps?.type !== 'availability' && extendedProps?.isLesson !== undefined || extendedProps?.isClass;
+        });
         
         if (res.availability && res.availability.length > 0) {
-          this.events = res.availability.map(b => this.blockToEvent(b));
+          const availEvents = res.availability.map(b => this.blockToEvent(b));
+          this.events = [...availEvents, ...nonAvailabilityEvents];
         } else {
-          this.events = [];
+          this.events = nonAvailabilityEvents;
         }
         
         // Update calendar display
@@ -2764,6 +2917,106 @@ When enabled:
     setTimeout(() => {
       this.scrollToNowIndicator();
     }, 100);
+  }
+  
+  // 🧪 DEV TEST: Manually trigger auto-cancel for testing
+  async testAutoCancelClass() {
+    // Find first upcoming class from events
+    const upcomingClass = this.events.find((e: any) => 
+      e.extendedProps?.isClass && 
+      e.extendedProps?.status === 'scheduled' &&
+      new Date(e.start) > new Date()
+    );
+    
+    if (!upcomingClass) {
+      const toast = await this.toastController.create({
+        message: 'No upcoming scheduled classes to test',
+        duration: 2000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
+    const classId = upcomingClass.extendedProps?.['classId'] || upcomingClass.id;
+    const className = upcomingClass.title || 'Class';
+    
+    if (!classId) {
+      const toast = await this.toastController.create({
+        message: 'Could not find class ID',
+        duration: 2000,
+        color: 'danger'
+      });
+      await toast.present();
+      return;
+    }
+    
+    // Confirm before triggering
+    const alert = await this.alertController.create({
+      header: 'Test Auto-Cancel',
+      message: `This will cancel "${className}" and send notifications. Continue?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Test Cancel',
+          role: 'confirm',
+          handler: async () => {
+            await this.executeTestAutoCancel(classId, className);
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  private async executeTestAutoCancel(classId: string, className: string) {
+    const loading = await this.toastController.create({
+      message: 'Testing auto-cancel...',
+      duration: 0
+    });
+    await loading.present();
+    
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+      const response = await fetch(`http://localhost:3000/api/classes/${classId}/test-auto-cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': headers.get('Authorization') || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const result = await response.json();
+      await loading.dismiss();
+      
+      if (result.success) {
+        const toast = await this.toastController.create({
+          message: `✅ "${className}" test cancelled successfully`,
+          duration: 3000,
+          color: 'success'
+        });
+        await toast.present();
+        
+        // Refresh calendar to show the cancelled class
+        this.refreshCalendar();
+      } else {
+        throw new Error(result.message || 'Test failed');
+      }
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Test auto-cancel error:', error);
+      
+      const toast = await this.toastController.create({
+        message: `❌ Test failed: ${error}`,
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 }
 

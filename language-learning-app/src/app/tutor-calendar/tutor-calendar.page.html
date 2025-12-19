@@ -1,4 +1,13 @@
 <ion-content [fullscreen]="true" class="tutor-calendar-page" [class.disable-scroll]="isScreenLocked()">
+  
+  <!-- 🧪 DEV TEST: Auto-Cancel Button -->
+  <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+    <ion-button color="danger" (click)="testAutoCancelClass()" size="small" style="--box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+      <ion-icon name="warning" slot="start"></ion-icon>
+      TEST Auto-Cancel
+    </ion-button>
+  </div>
+  
   <!-- Reschedule Mode Banner -->
   <div class="reschedule-banner" *ngIf="rescheduleMode">
     <div class="reschedule-banner-content">
@@ -62,7 +71,7 @@
           <h3>Quick Actions</h3>
             <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson(); toggleMobileSettings()">
               <ion-icon name="add-outline" slot="start"></ion-icon>
-              Schedule lesson
+              Schedule Class
             </ion-button>
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
@@ -159,7 +168,7 @@
           <ng-container *ngIf="!isLoadingMobileData">
             <div class="mobile-timeline-simple" *ngIf="mobileTimelineEvents.length > 0; else emptyTimeline">
               <!-- Timeline events -->
-              <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [class.happening-now]="item.isHappeningNow" [@slideInUp]="item.isPast ? 'void' : 'in'">
+              <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [class.happening-now]="item.isHappeningNow" [class.is-cancelled]="item.isCancelled" [@slideInUp]="item.isPast ? 'void' : 'in'">
                 <div class="time-column">
                   <div class="time-display" [class.now]="item.isHappeningNow">
                     <span *ngIf="item.isHappeningNow" class="now-badge">Now</span>
@@ -172,6 +181,7 @@
                     <div class="timeline-card" 
                          [class.past]="item.isPast" 
                          [class.happening-now]="item.isHappeningNow"
+                         [class.is-cancelled]="item.isCancelled"
                          [class.trial-lesson]="item.isTrialLesson"
                          [class.office-hours]="item.isOfficeHours"
                          [class.clickable]="item.id"
@@ -271,12 +281,13 @@
                   <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
                 </div>
                 <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
-                  <div class="agenda-item" *ngFor="let item of section.events">
-                    <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
+                  <div class="agenda-item" *ngFor="let item of section.events" [class.is-cancelled]="item.isCancelled">
+                    <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast" [class.is-cancelled]="item.isCancelled">
                       <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
                       <div class="timeline-card" 
                            [class.free]="item.type === 'free'" 
                            [class.past]="item.isPast" 
+                           [class.is-cancelled]="item.isCancelled"
                            [class.trial-lesson]="item.isTrialLesson"
                            [class.office-hours]="item.isOfficeHours"
                            [class.clickable]="item.type === 'event' && item.id"
@@ -370,7 +381,7 @@
           <div class="action-buttons">
             <ion-button size="small" class="schedule-lesson-btn" (click)="onScheduleLesson()">
               <ion-icon name="add-outline" slot="start"></ion-icon>
-              Schedule lesson
+              Schedule Class
             </ion-button>
 
             <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()" [disabled]="isScreenLocked()">
@@ -515,8 +526,10 @@
                   <div class="event-container">
                     <div *ngFor="let event of events | eventsForDay:day" 
                          class="calendar-event"
+                         style="border-radius: 5px;"
                          [class.availability-event]="event.isAvailability"
                          [class.class-event]="event.isClass"
+                         [class.is-cancelled]="event.extendedProps?.isCancelled"
                          [style.top.px]="event | eventTop"
                          [style.height.px]="event | eventHeight"
                          [class.past]="event | isEventPast"
@@ -595,8 +608,10 @@
                 <div class="event-container" *ngIf="(events | eventsForSelectedDay:selectedDayForDayView).length > 0; else noEventsTemplate">
                   <div *ngFor="let event of events | eventsForSelectedDay:selectedDayForDayView" 
                        class="calendar-event"
+                       style="border-radius: 5px;"
                        [class.availability-event]="event.isAvailability"
                        [class.class-event]="event.isClass"
+                       [class.is-cancelled]="event.extendedProps?.isCancelled"
                        [style.top.px]="event | eventTop"
                        [style.height.px]="event | eventHeight"
                        [class.past]="event | isEventPast"

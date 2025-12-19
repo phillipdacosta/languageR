@@ -336,6 +336,15 @@
             </div>
           </div>
 
+          <!-- Auto-Cancellation Warning -->
+          <div class="auto-cancel-warning" *ngIf="!form.value.flexibleMinimum">
+            <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+            <div class="warning-content">
+              <strong>Auto-Cancellation Policy</strong>
+              <p>Classes will automatically cancel <strong>1 hour before</strong> the scheduled start time if the minimum student requirement ({{ form.value.minStudents }} students) is not met.</p>
+            </div>
+          </div>
+
           <!-- Flexible Minimum Toggle -->
           <ion-item lines="none" class="flexible-toggle">
             <ion-label>
@@ -344,9 +353,9 @@
             </ion-label>
             <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
           </ion-item>
-          <ion-note *ngIf="form.value.flexibleMinimum" color="warning">
-            <ion-icon name="warning-outline"></ion-icon>
-            You'll earn less with fewer students, but class won't auto-cancel
+          <ion-note *ngIf="form.value.flexibleMinimum" color="success">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            Class will run regardless of enrollment — no auto-cancellation
           </ion-note>
         </div>
 

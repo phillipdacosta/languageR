@@ -106,7 +106,7 @@ export class ExplorePage implements OnInit {
           });
         }
         if (response.success) {
-          // Pre-sanitize descriptions and extract plain text to avoid calling functions in template
+          // Show ALL classes including cancelled ones with status
           this.publicClasses = response.classes.map((cls: any) => ({
             ...cls,
             sanitizedDescription: cls.description ? this.sanitizer.bypassSecurityTrustHtml(cls.description) : '',
@@ -114,7 +114,7 @@ export class ExplorePage implements OnInit {
             tutorName: this.formatDisplayName(cls.name)
           }));
           this.filteredClasses = [...this.publicClasses]; // Initialize with all classes
-          console.log('📚 After filtering, showing', this.filteredClasses.length, 'classes');
+          console.log('📚 After filtering, showing', this.filteredClasses.length, 'classes (including cancelled)');
           this.applyFilters();
         } else {
           this.publicClasses = [];

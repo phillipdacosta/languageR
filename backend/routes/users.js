@@ -131,9 +131,26 @@ router.get('/me', verifyToken, async (req, res) => {
       user.nativeLanguage = 'en';
       needsSave = true;
     }
+    
+    // Ensure profile exists and has default values for new fields
+    if (!user.profile) {
+      user.profile = {};
+      needsSave = true;
+    }
+    if (user.profile.showWalletBalance === undefined) {
+      console.log('💰 User has no showWalletBalance, setting default to false');
+      user.profile.showWalletBalance = false;
+      needsSave = true;
+    }
+    if (user.profile.remindersEnabled === undefined) {
+      console.log('🔔 User has no remindersEnabled, setting default to true');
+      user.profile.remindersEnabled = true;
+      needsSave = true;
+    }
+    
     if (needsSave) {
       await user.save();
-      console.log('✅ Saved default language preferences');
+      console.log('✅ Saved default language and profile preferences');
     }
     
     console.log('🌐 Returning user with languages:', {
@@ -453,7 +470,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage } = req.body;
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled } = req.body;
     console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
@@ -462,15 +479,20 @@ router.put('/profile', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled);
+    console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled);
     
-    // Update profile data
+    // Update profile data - preserve existing values if not provided, use defaults if field doesn't exist
     user.profile = {
-      bio: bio !== undefined ? bio : user.profile.bio,
-      timezone: timezone !== undefined ? timezone : user.profile.timezone,
-      preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : user.profile.preferredLanguage,
-      officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : user.profile.officeHoursEnabled
+      bio: bio !== undefined ? bio : (user.profile?.bio ?? ''),
+      timezone: timezone !== undefined ? timezone : (user.profile?.timezone ?? 'UTC'),
+      preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : (user.profile?.preferredLanguage ?? 'en'),
+      officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : (user.profile?.officeHoursEnabled ?? false),
+      officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
+      showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? false),
+      remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true)
     };
+    
+    console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
     
     // Update interface language if provided
     if (interfaceLanguage !== undefined && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
@@ -1191,15 +1213,21 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
       return res.status(404).json({ message: 'Tutor not found' });
     }
 
-    console.log('📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
-    console.log('📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+    console.log('📅 Tutor found:', tutor.name, 'Availability blocks (raw):', tutor.availability?.length || 0);
+    
+    // Filter OUT class blocks - classes should come from Classes API only
+    // This prevents fetching thousands of old/ghost class blocks
+    const actualAvailability = (tutor.availability || []).filter(block => block.type !== 'class');
+    
+    console.log('📅 Availability blocks (filtered, excluding classes):', actualAvailability.length);
+    console.log('📅 Filtered availability data:', JSON.stringify(actualAvailability, null, 2));
 
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
-      availability: tutor.availability || [],
+      availability: actualAvailability,
       timezone: tutor.profile?.timezone || 'America/New_York'
     });
 
@@ -1300,14 +1328,20 @@ router.get('/availability', verifyToken, async (req, res) => {
 
     console.log('🔧 GET /api/users/availability (current user)');
     console.log('🔧 User:', user.email, user.name);
-    console.log('🔧 Availability blocks count:', user.availability?.length || 0);
-    if (user.availability && user.availability.length > 0) {
-      console.log('🔧 First 3 blocks:', JSON.stringify(user.availability.slice(0, 3), null, 2));
+    console.log('🔧 Availability blocks count (raw):', user.availability?.length || 0);
+    
+    // Filter OUT class blocks - classes should come from Classes API only
+    // This prevents fetching thousands of old/ghost class blocks
+    const actualAvailability = (user.availability || []).filter(block => block.type !== 'class');
+    
+    console.log('🔧 Availability blocks count (filtered, excluding classes):', actualAvailability.length);
+    if (actualAvailability.length > 0) {
+      console.log('🔧 First 3 blocks:', JSON.stringify(actualAvailability.slice(0, 3), null, 2));
     }
 
     res.json({ 
       success: true, 
-      availability: user.availability || [] 
+      availability: actualAvailability
     });
 
   } catch (error) {

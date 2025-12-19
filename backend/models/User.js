@@ -133,6 +133,16 @@ const userSchema = new mongoose.Schema({
     officeHoursLastActive: {
       type: Date,
       default: null
+    },
+    showWalletBalance: {
+      type: Boolean,
+      default: false,
+      comment: 'Privacy setting: show or hide wallet balance (default hidden)'
+    },
+    remindersEnabled: {
+      type: Boolean,
+      default: true,
+      comment: 'Enable/disable lesson reminder notifications'
     }
   },
   // Native language for providing feedback in the user's language

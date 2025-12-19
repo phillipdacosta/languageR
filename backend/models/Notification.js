@@ -22,7 +22,9 @@ const NotificationSchema = new mongoose.Schema({
       'lesson_rescheduled',
       'office_hours_booking',
       'office_hours_starting',
-      'lesson_analysis_ready'
+      'lesson_analysis_ready',
+      'class_auto_cancelled',
+      'class_invitation_cancelled'
     ],
     required: true
   },

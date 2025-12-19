@@ -57,6 +57,7 @@ export interface Lesson {
     declined: number;
   };
   classData?: any; // Full class data from backend
+  cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
   
   // Per-minute billing tracking (for office hours)
   actualCallStartTime?: string;
@@ -353,6 +354,15 @@ export class LessonService {
       endTime: newEndTime
     };
     return this.http.put<{ success: boolean; lesson: Lesson; message: string }>(`${this.baseUrl}/${lessonId}/reschedule`, body, { headers });
+  }
+
+  // Cancel a lesson
+  cancelLesson(lessonId: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.delete<{ success: boolean; message: string; lesson: Lesson }>(
+      `${this.baseUrl}/${lessonId}/cancel`,
+      { headers }
+    );
   }
 
   // Get lessons by student ID (for checking availability conflicts)

@@ -2043,4 +2043,129 @@ router.get('/:id/analysis', verifyToken, async (req, res) => {
   }
 });
 
+// Cancel a lesson (DELETE /:id/cancel)
+router.delete('/:id/cancel', verifyToken, async (req, res) => {
+  try {
+    const { id: lessonId } = req.params;
+    
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
+    const lesson = await Lesson.findById(lessonId)
+      .populate('tutorId', 'name email firstName lastName auth0Id')
+      .populate('studentId', 'name email firstName lastName auth0Id');
+      
+    if (!lesson) return res.status(404).json({ success: false, message: 'Lesson not found' });
+    
+    // Verify user is either the tutor or student
+    const isTutor = lesson.tutorId._id.toString() === user._id.toString();
+    const isStudent = lesson.studentId._id.toString() === user._id.toString();
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ success: false, message: 'Not authorized to cancel this lesson' });
+    }
+    
+    // Check if lesson is already cancelled
+    if (lesson.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Lesson is already cancelled' });
+    }
+    
+    // Check if lesson has already started or ended
+    const now = new Date();
+    const lessonStart = new Date(lesson.startTime);
+    if (lessonStart <= now) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot cancel a lesson that has already started or ended' 
+      });
+    }
+    
+    // Cancel the lesson
+    lesson.status = 'cancelled';
+    lesson.cancelledAt = new Date();
+    lesson.cancelReason = isTutor ? 'tutor_cancelled' : 'student_cancelled';
+    lesson.cancelledBy = user._id;
+    await lesson.save();
+    
+    const cancelledByName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName.charAt(0)}.`
+      : user.name;
+    
+    console.log(`🔴 [LESSON-CANCEL] Lesson ${lesson._id} cancelled by ${isTutor ? 'tutor' : 'student'} ${cancelledByName}`);
+    
+    // NOTE: Lessons don't create availability blocks like classes do.
+    // The tutor-availability-viewer component queries lessons directly from the database
+    // and filters out cancelled lessons, so the time slot will automatically become available.
+    
+    // Format date/time for notifications
+    const startTime = new Date(lesson.startTime);
+    const formattedDate = startTime.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const formattedTime = startTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    });
+    
+    // Notify the other participant
+    const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+    const otherParticipantName = otherParticipant.firstName && otherParticipant.lastName
+      ? `${otherParticipant.firstName} ${otherParticipant.lastName.charAt(0)}.`
+      : otherParticipant.name;
+    
+    try {
+      const notification = await Notification.create({
+        userId: otherParticipant._id,
+        type: 'lesson_cancelled',
+        title: 'Lesson Cancelled',
+        message: `${cancelledByName} cancelled the ${lesson.subject || 'lesson'} scheduled for ${formattedDate} at ${formattedTime}.`,
+        relatedItemId: lesson._id,
+        relatedItemType: 'Lesson',
+        metadata: {
+          lessonSubject: lesson.subject,
+          cancelledByName: cancelledByName,
+          startTime: lesson.startTime,
+          cancelReason: lesson.cancelReason,
+          cancelledByType: isTutor ? 'tutor' : 'student'
+        }
+      });
+      console.log(`📧 [LESSON-CANCEL] Notified ${isTutor ? 'student' : 'tutor'} ${otherParticipantName} about cancellation`);
+      
+      // Emit WebSocket event to the other participant if connected
+      if (req.io && req.connectedUsers && otherParticipant.auth0Id) {
+        const otherSocketId = req.connectedUsers.get(otherParticipant.auth0Id);
+        if (otherSocketId) {
+          req.io.to(otherSocketId).emit('new_notification', {
+            type: 'lesson_cancelled',
+            title: 'Lesson Cancelled',
+            message: `${cancelledByName} cancelled the ${lesson.subject || 'lesson'} scheduled for ${formattedDate} at ${formattedTime}.`,
+            data: {
+              lessonId: lesson._id.toString(),
+              lessonSubject: lesson.subject,
+              cancelledByName: cancelledByName,
+              startTime: lesson.startTime,
+              cancelledByType: isTutor ? 'tutor' : 'student'
+            }
+          });
+          console.log(`🔔 [LESSON-CANCEL] WebSocket notification sent to ${isTutor ? 'student' : 'tutor'} ${otherParticipantName}`);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ [LESSON-CANCEL] Error notifying ${isTutor ? 'student' : 'tutor'}:`, error);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Lesson cancelled successfully',
+      lesson: lesson
+    });
+  } catch (error) {
+    console.error('❌ [LESSON-CANCEL] Error cancelling lesson:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 module.exports = router;

@@ -494,7 +494,7 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student has a pending invitation
-    // Show classes that haven't ended yet (not just future classes)
+    // Show classes that haven't ended yet (including cancelled ones to show the status)
     const classes = await ClassModel.find({
       'invitedStudents': {
         $elemMatch: {
@@ -1249,7 +1249,7 @@ router.patch('/:id', verifyToken, async (req, res) => {
     }
 
     // Update allowed fields
-    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt'];
+    const allowedFields = ['whiteboardRoomUUID', 'whiteboardCreatedAt', 'startTime', 'endTime'];
     const updates = {};
     
     for (const field of allowedFields) {
@@ -1274,6 +1274,337 @@ router.patch('/:id', verifyToken, async (req, res) => {
       success: false, 
       message: 'Failed to update class' 
     });
+  }
+});
+
+// DELETE /api/classes/:classId - Cancel a class (tutor only)
+router.delete('/:classId', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    
+    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    
+    const cls = await ClassModel.findById(classId)
+      .populate('tutorId', 'name email firstName lastName auth0Id')
+      .populate('confirmedStudents', 'name email firstName lastName auth0Id');
+      
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    
+    // Verify tutor owns this class
+    if (cls.tutorId._id.toString() !== tutor._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    // Check if class is already cancelled
+    if (cls.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Class is already cancelled' });
+    }
+    
+    // Cancel the class
+    cls.status = 'cancelled';
+    cls.cancelledAt = new Date();
+    cls.cancelReason = 'tutor_cancelled';
+    await cls.save();
+    
+    console.log(`🔴 [CLASS-CANCEL] Class "${cls.name}" (${cls._id}) cancelled by tutor ${tutor.name}`);
+    
+    // Remove the availability block from tutor's calendar
+    const classIdStr = cls._id.toString();
+    const initialAvailabilityLength = tutor.availability.length;
+    
+    tutor.availability = tutor.availability.filter(
+      slot => !(slot.id === classIdStr && slot.type === 'class')
+    );
+    
+    const removedCount = initialAvailabilityLength - tutor.availability.length;
+    
+    if (removedCount > 0) {
+      await tutor.save();
+      console.log(`✅ [CLASS-CANCEL] Removed ${removedCount} availability block(s) for class "${cls.name}" from tutor ${tutor.name}'s calendar`);
+    } else {
+      console.log(`⚠️ [CLASS-CANCEL] No availability block found for class "${cls.name}" in tutor ${tutor.name}'s calendar`);
+    }
+    
+    // Format date/time for notifications
+    const startTime = new Date(cls.startTime);
+    const formattedDate = startTime.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const formattedTime = startTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    });
+    
+    const tutorName = tutor.firstName && tutor.lastName 
+      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
+      : tutor.name;
+    
+    // Notify all confirmed students
+    for (const student of cls.confirmedStudents) {
+      try {
+        const notification = await Notification.create({
+          userId: student._id,
+          type: 'class_cancelled',
+          title: 'Class Cancelled',
+          message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}. You have not been charged.`,
+          relatedItemId: cls._id,
+          relatedItemType: 'Class',
+          metadata: {
+            className: cls.name,
+            tutorName: tutorName,
+            startTime: cls.startTime,
+            cancelReason: 'tutor_cancelled'
+          }
+        });
+        console.log(`📧 [CLASS-CANCEL] Notified student ${student.name} about cancellation`);
+        
+        // Emit WebSocket event to student if connected
+        if (req.io && req.connectedUsers && student.auth0Id) {
+          const studentSocketId = req.connectedUsers.get(student.auth0Id);
+          if (studentSocketId) {
+            req.io.to(studentSocketId).emit('new_notification', {
+              type: 'class_cancelled',
+              title: 'Class Cancelled',
+              message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}. You have not been charged.`,
+              data: {
+                classId: cls._id.toString(),
+                className: cls.name,
+                tutorName: tutorName,
+                startTime: cls.startTime
+              }
+            });
+            console.log(`🔔 [CLASS-CANCEL] WebSocket notification sent to student ${student.name}`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [CLASS-CANCEL] Error notifying student ${student.name}:`, error);
+      }
+    }
+    
+    // Notify invited students who haven't responded yet
+    const invitedButNotConfirmed = cls.invitedStudents.filter(
+      inv => inv.status === 'pending' && !cls.confirmedStudents.some(cs => cs._id.toString() === inv.studentId.toString())
+    );
+    
+    for (const invitation of invitedButNotConfirmed) {
+      try {
+        const student = await User.findById(invitation.studentId);
+        if (student) {
+          const notification = await Notification.create({
+            userId: student._id,
+            type: 'class_invitation_cancelled',
+            title: 'Class Invitation Cancelled',
+            message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}.`,
+            relatedItemId: cls._id,
+            relatedItemType: 'Class',
+            metadata: {
+              className: cls.name,
+              tutorName: tutorName,
+              startTime: cls.startTime,
+              cancelReason: 'tutor_cancelled'
+            }
+          });
+          console.log(`📧 [CLASS-CANCEL] Notified invited student ${student.name} about cancellation`);
+          
+          // Emit WebSocket event to invited student if connected
+          if (req.io && req.connectedUsers && student.auth0Id) {
+            const studentSocketId = req.connectedUsers.get(student.auth0Id);
+            if (studentSocketId) {
+              req.io.to(studentSocketId).emit('new_notification', {
+                type: 'class_invitation_cancelled',
+                title: 'Class Invitation Cancelled',
+                message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}.`,
+                data: {
+                  classId: cls._id.toString(),
+                  className: cls.name,
+                  tutorName: tutorName,
+                  startTime: cls.startTime
+                }
+              });
+              console.log(`🔔 [CLASS-CANCEL] WebSocket notification sent to invited student ${student.name}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [CLASS-CANCEL] Error notifying invited student:`, error);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Class cancelled successfully',
+      class: cls
+    });
+  } catch (error) {
+    console.error('❌ [CLASS-CANCEL] Error cancelling class:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// TEST ENDPOINT - Manually trigger auto-cancel for a specific class (DEV ONLY)
+router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
+  try {
+    const { classId } = req.params;
+    
+    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    
+    const cls = await ClassModel.findById(classId)
+      .populate('tutorId', 'name email firstName lastName auth0Id')
+      .populate('confirmedStudents', 'name email firstName lastName auth0Id');
+      
+    if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
+    
+    // Verify tutor owns this class
+    if (cls.tutorId._id.toString() !== tutor._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    console.log('🧪 [TEST] Manually triggering auto-cancel for class:', cls.name);
+    
+    // Cancel the class (simulate auto-cancel)
+    cls.status = 'cancelled';
+    cls.cancelledAt = new Date();
+    cls.cancelReason = 'minimum_not_met';
+    await cls.save();
+    
+    console.log('🧪 [TEST] Class status updated to cancelled');
+    
+    // Remove availability block
+    const classIdStr = cls._id.toString();
+    const initialAvailabilityLength = tutor.availability.length;
+    
+    tutor.availability = tutor.availability.filter(
+      slot => !(slot.id === classIdStr && slot.type === 'class')
+    );
+    
+    const removedCount = initialAvailabilityLength - tutor.availability.length;
+    
+    if (removedCount > 0) {
+      tutor.markModified('availability');
+      await tutor.save();
+      console.log(`🧪 [TEST] Removed ${removedCount} availability block(s)`);
+    }
+    
+    // Send notifications (same as auto-cancel)
+    const { autoCancelClasses } = require('../jobs/autoCancelClasses');
+    const { createCancellationNotifications } = autoCancelClasses;
+    
+    // Format date/time for notifications
+    const startTime = new Date(cls.startTime);
+    const formattedDate = startTime.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const formattedTime = startTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    });
+    
+    const tutorName = tutor.firstName && tutor.lastName 
+      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
+      : tutor.name;
+    
+    // Notify tutor
+    const notification = await Notification.create({
+      userId: tutor._id,
+      type: 'class_auto_cancelled',
+      title: 'Class Auto-Cancelled (TEST)',
+      message: `Your class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime} has been automatically cancelled (TEST MODE).`,
+      relatedItemId: cls._id,
+      relatedItemType: 'Class',
+      metadata: {
+        className: cls.name,
+        startTime: cls.startTime,
+        minStudents: cls.minStudents,
+        confirmedCount: cls.confirmedStudents.length,
+        cancelReason: 'minimum_not_met',
+        isTest: true
+      }
+    });
+    
+    console.log('🧪 [TEST] Notification created for tutor');
+    
+    // Emit WebSocket event to tutor if connected
+    if (req.io && req.connectedUsers && cls.tutorId.auth0Id) {
+      const tutorSocketId = req.connectedUsers.get(cls.tutorId.auth0Id);
+      if (tutorSocketId) {
+        req.io.to(tutorSocketId).emit('new_notification', {
+          type: 'class_auto_cancelled',
+          title: 'Class Auto-Cancelled (TEST)',
+          message: `Your class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime} has been automatically cancelled (TEST MODE).`,
+          data: {
+            classId: cls._id.toString(),
+            className: cls.name,
+            startTime: cls.startTime,
+            minStudents: cls.minStudents,
+            confirmedCount: cls.confirmedStudents.length,
+            isTest: true
+          }
+        });
+        console.log('🧪 [TEST] WebSocket notification sent to tutor');
+      } else {
+        console.log('🧪 [TEST] Tutor not connected to WebSocket');
+      }
+    }
+    
+    // Notify all confirmed students
+    for (const student of cls.confirmedStudents) {
+      try {
+        const studentNotification = await Notification.create({
+          userId: student._id,
+          type: 'class_auto_cancelled',
+          title: 'Class Cancelled (TEST)',
+          message: `The class "${cls.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled (TEST MODE).`,
+          relatedItemId: cls._id,
+          relatedItemType: 'Class',
+          metadata: {
+            className: cls.name,
+            tutorName: tutorName,
+            startTime: cls.startTime,
+            cancelReason: 'minimum_not_met',
+            isTest: true
+          }
+        });
+        
+        // Emit WebSocket event to student if connected
+        if (req.io && req.connectedUsers && student.auth0Id) {
+          const studentSocketId = req.connectedUsers.get(student.auth0Id);
+          if (studentSocketId) {
+            req.io.to(studentSocketId).emit('new_notification', {
+              type: 'class_auto_cancelled',
+              title: 'Class Cancelled (TEST)',
+              message: `The class "${cls.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled (TEST MODE).`,
+              data: {
+                classId: cls._id.toString(),
+                className: cls.name,
+                tutorName: tutorName,
+                startTime: cls.startTime,
+                isTest: true
+              }
+            });
+            console.log(`🧪 [TEST] WebSocket notification sent to student ${student.name}`);
+          }
+        }
+      } catch (error) {
+        console.error(`🧪 [TEST] Error notifying student ${student.name}:`, error);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Class "${cls.name}" cancelled successfully (TEST MODE)`,
+      class: cls
+    });
+  } catch (error) {
+    console.error('🧪 [TEST] Error in manual auto-cancel:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

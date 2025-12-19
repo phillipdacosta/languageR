@@ -2132,6 +2132,44 @@
         }
       }
 
+      .auto-cancel-warning {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        margin-bottom: 16px;
+
+        ion-icon {
+          font-size: 24px;
+          flex-shrink: 0;
+          margin-top: 2px;
+          --ionicon-stroke-width: 48px;
+        }
+
+        .warning-content {
+          flex: 1;
+
+          strong {
+            display: block;
+            font-size: 14px;
+            font-weight: 700;
+            color: #991b1b;
+            margin-bottom: 6px;
+            letter-spacing: 0.2px;
+          }
+
+          p {
+            font-size: 13px;
+            color: #7f1d1d;
+            margin: 0;
+            line-height: 1.5;
+          }
+        }
+      }
+
       .flexible-toggle {
         --background: rgba(254, 243, 199, 0.7);
         border: 1px solid #fbbf24;
@@ -2151,6 +2189,17 @@
             color: #78350f;
             margin: 0;
           }
+        }
+      }
+
+      ion-note {
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        ion-icon {
+          font-size: 16px;
         }
       }
     }
@@ -2678,6 +2727,27 @@
           margin: 0 !important;
         }
       }
+    }
+
+    .auto-cancel-warning {
+      ion-icon {
+        font-size: 22px !important;
+      }
+
+      .warning-content {
+        strong {
+          font-size: 13px !important;
+        }
+
+        p {
+          font-size: 12px !important;
+        }
+      }
+    }
+
+    ion-note {
+      font-size: 12px !important;
+      margin-top: 6px !important;
     }
   }
 }
