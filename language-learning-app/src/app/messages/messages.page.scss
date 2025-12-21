@@ -360,6 +360,44 @@
   }
 }
 
+// Conversations filter container
+.conversations-filter-container {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+
+  .filter-button {
+    flex: 1;
+    padding: 8px 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    color: #757575;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    
+    &:hover {
+      background: #f5f5f5;
+      border-color: #bdbdbd;
+    }
+    
+    &.active {
+      background: #6366f1;
+      color: white;
+      border-color: #6366f1;
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+}
+
 .conversations-list {
   flex: 1;
   overflow-y: auto;
@@ -1117,21 +1155,40 @@
   }
 }
 
-// System messages - styled like received messages but with light purple
+// System messages - white card with professional styling
 .message-bubble.system-message {
-  background: #6d59e2;
-  color: #ffffff;
+  background: #ffffff;
+  color: #1a1a1a;
   max-width: 70%;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   
   .message-text {
     display: block;
-    margin-bottom: 4px;
-    line-height: 1.4;
+    margin-bottom: 8px;
+    line-height: 1.6;
+    white-space: pre-wrap; // Preserve line breaks and spacing
+    word-wrap: break-word; // Break long words if needed
+    
+    // Style links within system messages
+    a {
+      color: #007bff;
+      text-decoration: underline;
+      cursor: pointer;
+      pointer-events: auto; // Ensure links are clickable
+      font-weight: 500; // Make links slightly bolder
+      
+      &:hover {
+        text-decoration: underline;
+        opacity: 0.8;
+        color: #0056b3;
+      }
+    }
   }
   
   .message-timestamp {
     font-size: 11px;
-    color: #ffffff; // Medium purple for timestamp
+    color: #6c757d; // Grey for timestamp on white background
     opacity: 0.8;
   }
 }

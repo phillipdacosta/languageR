@@ -287,7 +287,8 @@ router.get('/conversations', verifyToken, async (req, res) => {
             senderId: conv.lastMessage.senderId,
             createdAt: conv.lastMessage.createdAt,
             type: conv.lastMessage.type || (conv.lastMessage.isSystemMessage ? 'system' : 'text'),
-            isSystemMessage: conv.lastMessage.isSystemMessage || false
+            isSystemMessage: conv.lastMessage.isSystemMessage || false,
+            reactions: conv.lastMessage.reactions || [] // Include reactions array
           },
           unreadCount: conv.unreadCount,
           updatedAt: conv.lastMessage.createdAt
@@ -732,7 +733,8 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
           userId: receiver._id,
           type: 'message',
           title: 'New Message',
-          message: senderDisplayName ? `${senderDisplayName} sent you a message` : 'You have a new message',
+          message: senderDisplayName ? `<strong>${senderDisplayName}</strong> sent you a message` : 'You have a new message',
+          relatedUserPicture: sender?.picture || null,
           data: {
             messageId: savedMessage._id.toString(),
             conversationId: savedMessage.conversationId,
@@ -867,11 +869,14 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
       r => r.userId === userId && r.emoji === emoji
     );
 
+    let reactionAdded = false; // Track if reaction was added or removed
+    
     if (existingReaction) {
       // Remove the reaction if clicking the same emoji (toggle off)
       message.reactions = message.reactions.filter(
         r => r.userId !== userId
       );
+      reactionAdded = false;
     } else {
       // Remove any existing reaction from this user first (only one reaction allowed)
       message.reactions = message.reactions.filter(
@@ -883,6 +888,39 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
         userId,
         userName: formatDisplayName(user)
       });
+      reactionAdded = true;
+      
+      // Create notification for the message author (if not reacting to own message)
+      if (message.senderId !== userId) {
+        try {
+          const Notification = require('../models/Notification');
+          await Notification.create({
+            userId: message.senderId,
+            type: 'message',
+            title: 'Message Reaction',
+            message: `<strong>${formatDisplayName(user)}</strong> reacted ${emoji} to your message`,
+            relatedUserPicture: user.picture || null,
+            relatedUserId: userId,
+            read: false
+          });
+          
+          // Emit notification via WebSocket
+          if (req.io && req.connectedUsers) {
+            const authorSocketId = req.connectedUsers.get(message.senderId);
+            if (authorSocketId) {
+              req.io.to(authorSocketId).emit('new_notification', {
+                type: 'message',
+                title: 'Message Reaction',
+                message: `${formatDisplayName(user)} reacted ${emoji} to your message`,
+                userId: message.senderId
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error('Error creating reaction notification:', notifError);
+          // Don't fail the reaction if notification fails
+        }
+      }
     }
 
     await message.save();
@@ -908,7 +946,13 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
       const reactionUpdate = {
         messageId: updatedMessage._id,
         message: updatedMessage,
-        conversationId: updatedMessage.conversationId
+        conversationId: updatedMessage.conversationId,
+        // Add metadata for conversation preview
+        isReaction: reactionAdded, // Only true if reaction was added, false if removed
+        reactorName: formatDisplayName(user),
+        reactorId: userId,
+        emoji: reactionAdded ? emoji : null, // Only send emoji if reaction was added
+        messageAuthorId: updatedMessage.senderId
       };
       
       // Notify sender
@@ -1223,8 +1267,9 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       type: 'potential_student',
       title: 'Potential Student Interest',
       message: triggerType === 'favorite' 
-        ? `${studentName} saved your profile`
-        : `${studentName} clicked "Book lesson" on your profile`,
+        ? `<strong>${studentName}</strong> saved your profile`
+        : `<strong>${studentName}</strong> clicked "Book lesson" on your profile`,
+      relatedUserPicture: student.picture || null,
       data: {
         studentId: student._id.toString(),
         studentName: studentName,
@@ -1247,6 +1292,8 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     const tutorSocketId = req.connectedUsers?.get(tutorId);
     if (tutorSocketId && req.io) {
       console.log('📤 Emitting potential_student notification to tutor:', tutorId);
+      
+      // Emit notification event
       req.io.to(tutorSocketId).emit('new_notification', {
         type: 'potential_student',
         title: 'Potential Student Interest',
@@ -1260,6 +1307,19 @@ router.post('/potential-student', verifyToken, async (req, res) => {
           conversationId,
           triggerType
         }
+      });
+      
+      // Also emit new_message event to update Messages tab unread count
+      req.io.to(tutorSocketId).emit('new_message', {
+        id: systemMessage._id.toString(),
+        conversationId,
+        senderId: 'system',
+        receiverId: tutorId,
+        content: systemMessageContent.substring(0, 100) + '...',
+        type: 'system',
+        isSystemMessage: true,
+        read: false,
+        createdAt: systemMessage.createdAt
       });
     }
 

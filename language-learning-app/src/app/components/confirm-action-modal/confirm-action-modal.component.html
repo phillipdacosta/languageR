@@ -14,7 +14,7 @@
     <!-- Avatar Section (if provided) -->
     <div class="participant-avatar" *ngIf="participantAvatar || participantName">
       <ion-avatar class="modal-avatar">
-        <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer">
+        <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName || 'Participant'" referrerpolicy="no-referrer" loading="eager" decoding="async">
         <ion-icon *ngIf="!participantAvatar" name="person" class="avatar-placeholder"></ion-icon>
       </ion-avatar>
       <h3 class="participant-name" *ngIf="participantName">{{ participantName }}</h3>
@@ -49,4 +49,3 @@
     </div>
   </ion-toolbar>
 </ion-footer>
-

@@ -335,3 +335,4 @@ The backend endpoint `/api/classes/:classId/test-auto-cancel` needs to be create
 - Uses the same cancellation logic as the real auto-cancel job
 - Sends the same WebSocket notifications as real auto-cancel
 
+

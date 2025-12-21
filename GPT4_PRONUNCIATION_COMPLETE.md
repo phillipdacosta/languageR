@@ -405,3 +405,4 @@ Everything is implemented and ready for your first test lesson. Just:
 *Sampling rate: 15% (adjustable)*
 *Cost per 50-min lesson: ~$0.23*
 
+

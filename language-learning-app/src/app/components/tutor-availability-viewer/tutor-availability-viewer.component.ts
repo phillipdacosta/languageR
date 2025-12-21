@@ -1,13 +1,13 @@
-import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges, Output, EventEmitter } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, LoadingController } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { UserService } from '../../services/user.service';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, asyncScheduler } from 'rxjs';
+import { takeUntil, timeout, observeOn } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 import { detectUserTimezone } from '../../shared/timezone.constants';
 import { getTimezoneLabel } from '../../shared/timezone.utils';
@@ -76,13 +76,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     { value: 50, label: '50 min', buffer: 10 }
   ];
   
+  // Computed properties to avoid function calls in template
+  currentUserIsTutor = false;
+  weekRangeDisplay = '';
+  timezoneMessage = '';
+  
+  // Pre-computed date-to-slots array for direct template iteration (avoids function calls in *ngFor)
+  weekDateSlots: { date: Date; slots: { label: string; time: string; booked: boolean; isPast: boolean }[] }[] = [];
+  
   constructor(
     private userService: UserService,
     private lessonService: LessonService,
     private classService: ClassService,
     private modalController: ModalController,
-    private loadingController: LoadingController,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {
     this.initializeTimeSlots();
     this.setCurrentWeekStart();
@@ -95,12 +103,31 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     } catch {}
   }
 
-  async ngOnInit() {
+  ngOnInit() {
+    // Set loading immediately
+    this.isLoading = true;
+    
+    // Validate tutorId before proceeding
+    if (!this.tutorId || this.tutorId.trim() === '') {
+      console.error('❌ [Availability] Invalid tutorId:', this.tutorId);
+      this.isLoading = false;
+      if (!this.inline) {
+        this.close();
+      }
+      return;
+    }
+    
+    console.log('✅ [Availability] Valid tutorId:', this.tutorId);
+    
+    // Initialize computed properties (lightweight, synchronous operations only)
+    this.currentUserIsTutor = this.isCurrentUserTutor();
+    this.updateWeekRangeDisplay();
+    this.updateTimezoneMessage();
+    
     // Detect viewer's timezone
     this.viewerTimezone = detectUserTimezone();
-    console.log('🌍 Viewer timezone detected:', this.viewerTimezone);
     
-    // Initialize week dates but DON'T precompute slots yet (bookedSlots not loaded)
+    // Initialize week dates
     const dates: Date[] = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(this.currentWeekStart);
@@ -109,15 +136,60 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.weekDates = dates;
     
-    // Load data first, THEN compute slots
-    await Promise.all([
-      this.loadAvailability(),
-      this.loadBookedLessons()
-    ]);
-    
-    // Now that both availability and bookedSlots are loaded, compute slots
-    console.log('✅ Data loaded, now computing slots with bookedSlots:', Array.from(this.bookedSlots));
-    this.precomputeDateSlots();
+    // CRITICAL: Defer ALL heavy data loading to allow modal to render first
+    // Use longer delay to ensure modal is fully rendered
+    setTimeout(() => {
+      this.loadDataAndComputeSlots().catch(error => {
+        console.error('❌ [Availability] Error loading data:', error);
+        this.isLoading = false;
+      });
+    }, 100); // Increased delay to let modal fully render
+  }
+  
+  // Separate method for heavy data loading - called after initial render
+  private async loadDataAndComputeSlots() {
+    try {
+      // Load data sequentially with individual error handling
+      try {
+        await this.loadAvailability();
+      } catch (error) {
+        console.error('❌ Failed to load availability:', error);
+      }
+      
+      try {
+        await this.loadBookedLessons();
+      } catch (error) {
+        console.error('❌ Failed to load booked lessons:', error);
+      }
+      
+      // Compute slots
+      this.precomputeDateSlots();
+      
+      // Turn off loading
+      this.isLoading = false;
+      
+    } catch (error) {
+      console.error('❌ [Availability] Error loading data:', error);
+      this.isLoading = false;
+    }
+  }
+  
+  // TrackBy functions for better performance (arrow functions to preserve 'this' context)
+  trackByDate = (_: number, dateSlot: { date: Date; slots: any[] }): string => {
+    return this.dateKey(dateSlot.date);
+  }
+  
+  trackBySlot = (_: number, slot: { label: string; time: string }): string => {
+    return slot.time;
+  }
+  
+  // Update computed properties when needed
+  private updateWeekRangeDisplay() {
+    this.weekRangeDisplay = this.getWeekRange();
+  }
+  
+  private updateTimezoneMessage() {
+    this.timezoneMessage = this.getTimezoneMessage();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -208,24 +280,17 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     const startTime = performance.now();
     console.log(`⏱️ [Availability] Starting to load for tutor: ${this.tutorId}`);
     console.log(`⏱️ [Availability] Current cache size: ${this.slotsCache.size}`);
-    
-    this.isLoading = true;
-    
-    // Only show loading spinner for standalone modal, not inline view
-    let loading: HTMLIonLoadingElement | null = null;
-    if (!this.inline) {
-      loading = await this.loadingController.create({
-        message: 'Loading availability...',
-        duration: 5000
-      });
-      await loading.present();
-    }
 
     return new Promise((resolve, reject) => {
+      // Add timeout to the Observable itself
       this.userService.getTutorAvailability(this.tutorId)
-        .pipe(takeUntil(this.destroy$))
+        .pipe(
+          observeOn(asyncScheduler), // Make emissions async to prevent freezing
+          takeUntil(this.destroy$),
+          timeout(5000) // 5 second timeout
+        )
         .subscribe({
-          next: (response) => {
+          next: async (response) => {
             const duration = performance.now() - startTime;
             console.log(`⏱️ [Availability] Data received in ${duration.toFixed(2)}ms`);
             console.log(`⏱️ [Availability] Total blocks received: ${response.availability?.length || 0}`);
@@ -237,19 +302,19 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
             this.availabilitySet.clear();
             
             console.log(`⏱️ [Availability] Caches cleared, rebuilding availability set...`);
+            
+            // Yield to browser to prevent freezing
+            await new Promise(r => setTimeout(r, 0));
+            
             this.buildAvailabilitySet();
             console.log(`⏱️ [Availability] Availability set built with ${this.availabilitySet.size} slots`);
             // DON'T call precomputeDateSlots here - let ngOnInit handle it after BOTH availability and bookedLessons are ready
-            this.isLoading = false;
-            if (loading) loading.dismiss();
             resolve();
           },
           error: (error) => {
             const duration = performance.now() - startTime;
             console.log(`⏱️ [Availability] Error after ${duration.toFixed(2)}ms`);
             console.error('Error loading availability:', error);
-            this.isLoading = false;
-            if (loading) loading.dismiss();
             reject(error);
           }
         });
@@ -270,16 +335,51 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     console.log(`🔑 [Booked Lessons] Tutor ID type: ${typeof this.tutorId}, value: "${this.tutorId}"`);
     
     try {
-      // Load both lessons and classes for the tutor
-      const [lessonsResponse, classesResponse] = await Promise.all([
-        firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId)),
-        firstValueFrom(this.classService.getClassesForTutor(this.tutorId))
-      ]);
+      // Load lessons and classes with individual timeout protection
+      console.log('🔄 [Booked Lessons] Fetching lessons...');
+      const lessonsPromise = firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));
+      const lessonsTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Lessons timeout')), 5000)
+      );
+      const lessonsResponse: any = await Promise.race([lessonsPromise, lessonsTimeout])
+        .catch(err => {
+          console.error('❌ [Booked Lessons] Lessons fetch failed:', err);
+          return { success: false, lessons: [] };
+        });
+      console.log('✅ [Booked Lessons] Lessons fetched:', lessonsResponse.lessons?.length || 0);
+      
+      console.log('🔄 [Booked Lessons] Fetching classes...');
+      const classesPromise = firstValueFrom(this.classService.getClassesForTutor(this.tutorId));
+      const classesTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Classes timeout')), 5000)
+      );
+      const classesResponse: any = await Promise.race([classesPromise, classesTimeout])
+        .catch(err => {
+          console.error('❌ [Booked Lessons] Classes fetch failed:', err);
+          return { success: false, classes: [] };
+        });
+      console.log('✅ [Booked Lessons] Classes fetched:', classesResponse.classes?.length || 0);
       
       const duration = performance.now() - startTime;
       console.log(`⏱️ [Booked Lessons] Data received in ${duration.toFixed(2)}ms - ${lessonsResponse.lessons?.length || 0} lessons, ${classesResponse.classes?.length || 0} classes`);
       console.log(`📊 [Booked Lessons] Lessons response:`, lessonsResponse);
       console.log(`📊 [Booked Lessons] Classes response:`, classesResponse);
+      
+      // DEBUG: Log all lessons with their status and times
+      if (lessonsResponse.success && lessonsResponse.lessons) {
+        console.log('🔍 [ALL LESSONS DEBUG] All lessons returned from API:');
+        lessonsResponse.lessons.forEach((lesson: any, index: number) => {
+          console.log(`  Lesson ${index + 1}:`, {
+            id: lesson._id,
+            status: lesson.status,
+            startTime: lesson.startTime,
+            endTime: lesson.endTime,
+            hasRescheduleProposal: !!lesson.rescheduleProposal,
+            rescheduleProposal: lesson.rescheduleProposal,
+            subject: lesson.subject
+          });
+        });
+      }
       
       // Combine lessons and classes into a single array
       const allBookedSlots: any[] = [];
@@ -365,8 +465,23 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     let skippedCount = 0;
     
     for (const lesson of lessons) {
+      // Debug: Log lessons with pending_reschedule status
+      if (lesson.status === 'pending_reschedule') {
+        console.log('🔍 [RESCHEDULE DEBUG] Found pending_reschedule lesson:', {
+          lessonId: lesson._id,
+          status: lesson.status,
+          originalStartTime: lesson.startTime,
+          originalEndTime: lesson.endTime,
+          rescheduleProposal: lesson.rescheduleProposal,
+          proposedStartTime: lesson.rescheduleProposal?.proposedStartTime,
+          proposedEndTime: lesson.rescheduleProposal?.proposedEndTime
+        });
+      }
+      
       // Only consider scheduled or in_progress lessons
-      if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress') {
+      // Only include scheduled, in_progress, and pending_reschedule lessons
+      // pending_reschedule lessons should KEEP their time slot busy until accepted/rejected
+      if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress' && lesson.status !== 'pending_reschedule') {
         console.log(`⏭️ Skipping lesson with status: ${lesson.status}`);
         skippedCount++;
         continue;
@@ -446,6 +561,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   private buildAvailabilitySet() {
+    const startTime = performance.now();
+    console.log(`🔨 buildAvailabilitySet starting with ${this.availability.length} blocks`);
+    
     const set = new Set<string>();
     
     // Build a map for quick date lookups: dateKey -> weekIndex
@@ -455,7 +573,15 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       dateIndexMap.set(dateKey, i);
     }
     
-    for (const block of this.availability) {
+    // Limit processing to prevent freezing
+    const maxBlocksToProcess = 1000;
+    const blocksToProcess = this.availability.slice(0, maxBlocksToProcess);
+    
+    if (this.availability.length > maxBlocksToProcess) {
+      console.warn(`⚠️ Too many availability blocks (${this.availability.length}), limiting to ${maxBlocksToProcess}`);
+    }
+    
+    for (const block of blocksToProcess) {
       if (block.type !== 'available') {
         continue;
       }
@@ -526,7 +652,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
     this.availabilitySet = set;
     this.slotsCache.clear();
-    console.log('✅ Availability set built, size:', this.availabilitySet.size);
+    
+    const duration = performance.now() - startTime;
+    console.log(`✅ buildAvailabilitySet completed in ${duration.toFixed(2)}ms, set size: ${this.availabilitySet.size}`);
     // DON'T recompute slots here - let the caller handle it to avoid race conditions
     // This allows ngOnInit to wait for BOTH availability and bookedLessons before computing
   }
@@ -551,14 +679,58 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
 
   // Pre-compute slots for all dates in the current week
   private precomputeDateSlots() {
-    console.log('📅 precomputeDateSlots called with bookedSlots:', Array.from(this.bookedSlots));
+    const startTime = performance.now();
+    console.log('📅 precomputeDateSlots called, processing', this.weekDates.length, 'dates');
+    console.log('📅 bookedSlots:', Array.from(this.bookedSlots).slice(0, 5), '...'); // Log first 5
+    
     this.dateSlotsMap.clear();
-    for (const date of this.weekDates) {
-      const dateKey = this.dateKey(date);
-      const slots = this.computeAvailableTimeLabelsForDate(date);
-      console.log(`  Date ${dateKey} (day ${date.getDay()}): ${slots.length} total slots, ${slots.filter(s => s.booked).length} booked`);
-      this.dateSlotsMap.set(dateKey, slots);
-    }
+    this.weekDateSlots = []; // Clear the array for template
+    
+    // Use requestAnimationFrame and setTimeout to break up the work and prevent UI freezing
+    // This allows the browser to render the modal first before doing heavy computation
+    const processDates = (startIndex: number) => {
+      const batchSize = 3; // Process 3 dates at a time
+      const endIndex = Math.min(startIndex + batchSize, this.weekDates.length);
+      
+      for (let i = startIndex; i < endIndex; i++) {
+        const date = this.weekDates[i];
+        const dateKey = this.dateKey(date);
+        
+        try {
+          const slots = this.computeAvailableTimeLabelsForDate(date);
+          console.log(`  📅 Date ${dateKey} (${i + 1}/7): ${slots.length} slots, ${slots.filter(s => s.booked).length} booked`);
+          this.dateSlotsMap.set(dateKey, slots);
+          
+          // Build weekDateSlots array for direct template iteration (avoids function calls)
+          this.weekDateSlots.push({ date, slots });
+        } catch (error) {
+          console.error(`❌ Error computing slots for ${dateKey}:`, error);
+          // Set empty array on error to prevent crashes
+          this.dateSlotsMap.set(dateKey, []);
+          this.weekDateSlots.push({ date, slots: [] });
+        }
+      }
+      
+      // Trigger change detection after each batch to show progressive updates
+      this.cdr.detectChanges();
+      
+      if (endIndex < this.weekDates.length) {
+        // More dates to process - schedule next batch using requestAnimationFrame for smooth updates
+        requestAnimationFrame(() => {
+          setTimeout(() => processDates(endIndex), 0);
+        });
+      } else {
+        // All done
+        const duration = performance.now() - startTime;
+        console.log(`✅ precomputeDateSlots completed in ${duration.toFixed(2)}ms`);
+      }
+    };
+    
+    // Delay the start slightly to let the modal render first
+    // This is crucial for preventing freeze on first load
+    requestAnimationFrame(() => {
+      setTimeout(() => processDates(0), 10);
+    });
   }
 
   // Get pre-computed slots for a date (used in template)
@@ -588,6 +760,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     const days = direction === 'next' ? 7 : -7;
     this.currentWeekStart.setDate(this.currentWeekStart.getDate() + days);
     this.recomputeWeekDates();
+    // Update computed properties
+    this.updateWeekRangeDisplay();
     // Rebuild availability set for the new week to apply date filtering
     this.buildAvailabilitySet();
     // Reload booked lessons for the new week
@@ -600,6 +774,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   async goToToday() {
     this.setCurrentWeekStart();
     this.recomputeWeekDates();
+    // Update computed properties
+    this.updateWeekRangeDisplay();
     // Rebuild availability set for the new week to apply date filtering
     this.buildAvailabilitySet();
     // Reload booked lessons for the current week
@@ -645,7 +821,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     return weekNo;
   }
 
-  private dateKey(date: Date): string {
+  dateKey(date: Date): string {
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
 

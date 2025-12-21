@@ -143,3 +143,4 @@ This fix ensures that when classes are auto-cancelled:
 - The enhanced logging will help diagnose any future issues with availability restoration
 - The fix is backwards compatible - works whether tutorId is populated or not
 
+

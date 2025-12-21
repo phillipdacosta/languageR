@@ -1,5 +1,29 @@
 <ion-tabs [class]="getPlatformClass()" [class.show-tabs]="showTabs">
 
+  <!-- Mobile Top Toolbar (Global) -->
+  <ion-header class="mobile-global-header" *ngIf="showTabs">
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <div class="app-icon-container" (click)="navigateTo('/tabs/home')">
+          <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+        </div>
+      </ion-buttons>
+      <ion-buttons slot="end">
+        <ion-button fill="clear" class="notification-btn" 
+                    (click)="navigateTo('/tabs/notifications')"
+                    (mouseenter)="onNotificationButtonMouseEnter()"
+                    (mouseleave)="onNotificationButtonMouseLeave()">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
+        </ion-button>
+        <ion-avatar class="header-avatar" *ngIf="currentUser" (click)="navigateTo('/tabs/profile')">
+          <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" referrerpolicy="no-referrer">
+          <div *ngIf="!currentUser.picture" class="avatar-initial">{{ getUserInitial() }}</div>
+        </ion-avatar>
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+
   <!-- Desktop Web Navigation (Top Toolbar) -->
   <ion-header *ngIf="!showTabs">
     <ion-toolbar class="desktop-nav-toolbar">
@@ -24,15 +48,20 @@
           <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
         </button>
         
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/messages')" (click)="navigateTo('/tabs/messages')">
+        <button class="nav-button messages-button" 
+                [class.active]="isCurrentRoute('/tabs/messages')" 
+                (click)="onMessagesButtonClick()"
+                (mouseenter)="onMessagesButtonMouseEnter()"
+                (mouseleave)="onMessagesButtonMouseLeave()"
+                #messagesBtn>
           <ion-icon name="chatbubbles"></ion-icon>
           <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
           <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
-          <ion-icon name="trending-up"></ion-icon>
-          <ion-label>{{ 'TABS.PROGRESS' | translate }}</ion-label>
+          <ion-icon [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
+          <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
@@ -42,7 +71,10 @@
         
         <!-- Notification Bell Icon -->
         <div class="notification-container">
-          <button type="button" #notificationBtn class="nav-button notification-btn" (click)="toggleNotificationDropdown(); $event.stopPropagation()">
+          <button type="button" #notificationBtn class="nav-button notification-btn" 
+                  (click)="onNotificationButtonClick()"
+                  (mouseenter)="onNotificationButtonMouseEnter()"
+                  (mouseleave)="onNotificationButtonMouseLeave()">
             <ion-icon name="notifications-outline"></ion-icon>
             <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
           </button>
@@ -66,9 +98,12 @@
 
   <!-- Notification Dropdown (Desktop Only) - Outside toolbar for proper positioning -->
   <div class="notification-dropdown" 
-       *ngIf="isNotificationDropdownOpen && isWeb() && !showTabs" 
+       [class.show]="isNotificationDropdownOpen"
+       *ngIf="isWeb() && !showTabs" 
        [style.top.px]="dropdownTop"
        [style.right.px]="dropdownRight"
+       (mouseenter)="onNotificationDropdownMouseEnter()"
+       (mouseleave)="onNotificationDropdownMouseLeave()"
        (click)="$event.stopPropagation()">
     <div class="notification-dropdown-header">
       <div class="notification-header-left">
@@ -95,14 +130,20 @@
              [class.unread]="!notification.read"
              (click)="onNotificationClick(notification)">
           <div class="notification-item-left">
-            <ion-icon 
-              [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'" 
-              class="notification-item-icon"
-              [class.lesson-icon]="notification.type === 'lesson_created'">
-            </ion-icon>
+            <img 
+              *ngIf="notification.relatedUserPicture" 
+              [src]="notification.relatedUserPicture" 
+              alt="User avatar"
+              class="notification-avatar" />
+            <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+              <ion-icon 
+                [name]="getNotificationIcon(notification.type)" 
+                class="notification-item-icon">
+              </ion-icon>
+            </div>
           </div>
           <div class="notification-item-content">
-            <p class="notification-text">{{ notification.message }}</p>
+            <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
             <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
           </div>
           <div class="notification-item-right">
@@ -121,14 +162,20 @@
                *ngFor="let notification of getReadNotifications()"
                (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
-              <ion-icon 
-                [name]="notification.type === 'lesson_created' ? 'calendar' : 'chatbubbles'" 
-                class="notification-item-icon"
-                [class.lesson-icon]="notification.type === 'lesson_created'">
-              </ion-icon>
+              <img 
+                *ngIf="notification.relatedUserPicture" 
+                [src]="notification.relatedUserPicture" 
+                alt="User avatar"
+                class="notification-avatar" />
+              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                <ion-icon 
+                  [name]="getNotificationIcon(notification.type)"
+                  class="notification-item-icon">
+                </ion-icon>
+              </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text">{{ notification.message }}</p>
+              <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
               <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
             </div>
             <div class="notification-item-right">
@@ -141,6 +188,70 @@
         <div class="notification-empty" *ngIf="getReadNotifications().length === 0 && getUnreadNotifications().length === 0">
           <p>No notifications</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages Dropdown (Desktop Only) - Similar to notifications -->
+  <div class="messages-dropdown" 
+       [class.show]="isMessagesDropdownOpen"
+       *ngIf="isWeb() && !showTabs" 
+       [style.top.px]="messagesDropdownTop"
+       [style.right.px]="messagesDropdownRight"
+       (mouseenter)="onMessagesDropdownMouseEnter()"
+       (mouseleave)="onMessagesDropdownMouseLeave()"
+       (click)="$event.stopPropagation()">
+    <div class="messages-dropdown-header">
+      <div class="messages-header-left">
+        <h3 class="messages-title">Messages</h3>
+      </div>
+      <button class="messages-close-btn" (click)="closeMessagesDropdown()">
+        <ion-icon name="close"></ion-icon>
+      </button>
+    </div>
+    
+    <div class="messages-dropdown-content">
+      <!-- Loading State -->
+      <div *ngIf="isLoadingConversations" class="messages-loading">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Loading conversations...</p>
+      </div>
+
+      <!-- Conversations List -->
+      <div class="messages-section" *ngIf="!isLoadingConversations && conversations.length > 0">
+        <div class="conversation-item" 
+             *ngFor="let conversation of conversations"
+             [class.unread]="conversation.unreadCount > 0"
+             (click)="onConversationClick(conversation)">
+          <div class="conversation-item-left">
+            <ion-avatar class="conversation-avatar">
+              <img *ngIf="conversation.otherUser?.picture" 
+                   [src]="conversation.otherUser!.picture" 
+                   [alt]="conversation.otherUser!.name" />
+              <div class="avatar-fallback" *ngIf="!conversation.otherUser?.picture">
+                {{ conversation.otherUser?.name?.charAt(0) || '?' }}
+              </div>
+            </ion-avatar>
+          </div>
+          <div class="conversation-item-content">
+            <div class="conversation-name-row">
+              <p class="conversation-name">{{ conversation.otherUser?.name || 'Unknown User' }}</p>
+              <p class="conversation-time">{{ formatConversationTime(conversation.updatedAt) }}</p>
+            </div>
+            <div class="conversation-preview-row">
+              <p class="conversation-preview">{{ getConversationPreviewFormatted(conversation) }}</p>
+              <ion-badge *ngIf="conversation.unreadCount > 0" color="danger" class="conversation-unread-badge">
+                {{ conversation.unreadCount }}
+              </ion-badge>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Empty State -->
+      <div class="messages-empty" *ngIf="!isLoadingConversations && conversations.length === 0">
+        <p>No conversations yet</p>
+        <p class="messages-empty-subtitle">Start a conversation to see it here</p>
       </div>
     </div>
   </div>
@@ -181,8 +292,8 @@
     </ion-tab-button>
 
     <ion-tab-button tab="progress" [routerLink]="['/tabs/progress']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="trending-up"></ion-icon>
-      <ion-label>Progress</ion-label>
+      <ion-icon aria-hidden="true" [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
+      <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root">

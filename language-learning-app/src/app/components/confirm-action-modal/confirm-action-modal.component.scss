@@ -1,6 +1,32 @@
+// Force proper modal layout with inline modals
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-header {
+  flex-shrink: 0;
+}
+
+ion-content {
+  flex: 1;
+  --background: transparent;
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
 .confirm-content {
   text-align: center;
-  padding: 24px 0;
+  padding: 40px 24px;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .participant-avatar {
@@ -91,7 +117,6 @@
     line-height: 1.5;
     color: #64748b;
     margin: 0;
-    // font-style: italic;
   }
 }
 
@@ -110,4 +135,3 @@
     --padding-bottom: 14px;
   }
 }
-

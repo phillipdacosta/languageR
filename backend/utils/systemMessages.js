@@ -116,23 +116,20 @@ function generateTrialLessonMessage({ studentName, studentId, startTime, duratio
   });
   
   // Build profile URL (frontend route)
-  const profileUrl = `/tabs/profile/${studentId}`;
+  const profileUrl = `/student/${studentId}`;
   
   // Replace profile URL placeholder in tip1
   const tip1 = lang.tip1.replace('{{profileUrl}}', profileUrl);
   
-  // Build the message
-  const message = `**${lang.title}**
+  // Build the message (plain text format with HTML for bold)
+  const message = `<strong>${lang.title}</strong>
 
 ${lang.intro}
 
-**${lang.studentLabel}:** ${studentName}
-
-**${lang.dateLabel}:** ${date}
-
-**${lang.startTimeLabel}:** ${time}
-
-**${lang.durationLabel}:** ${typeof lang.durationMinutes === 'function' ? lang.durationMinutes(duration) : lang.durationMinutes}
+${lang.studentLabel}: ${studentName}
+${lang.dateLabel}: <strong>${date}</strong>
+${lang.startTimeLabel}: <strong>${time}</strong>
+${lang.durationLabel}: ${typeof lang.durationMinutes === 'function' ? lang.durationMinutes(duration) : lang.durationMinutes}
 
 ${lang.preparationIntro}
 

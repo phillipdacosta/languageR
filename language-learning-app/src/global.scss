@@ -26,8 +26,8 @@
 @import "@ionic/angular/css/flex-utils.css";
 
 /* Quill Editor Styles */
-@import "quill/dist/quill.snow.css";
-@import "quill/dist/quill.core.css";
+@import "~quill/dist/quill.snow.css";
+@import "~quill/dist/quill.core.css";
 
 /**
  * Ionic Dark Mode
@@ -537,6 +537,48 @@ ion-label {
           line-height: 1.4;
         }
       }
+    }
+  }
+}
+
+// ==========================================
+// RESCHEDULE MODALS - Aspect-inspired design  
+// ==========================================
+
+// Reschedule Proposal Modal Content Styles
+ion-modal.reschedule-proposal-modal {
+  app-reschedule-proposal-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-header {
+      ion-toolbar {
+        --background: transparent;
+        --border-width: 0;
+        padding: 16px 8px 8px 8px;
+      }
+
+      .close-button {
+        --background: #f5f5f7;
+        --background-hover: #e8e8ed;
+        --border-radius: 50%;
+        --color: #86868b;
+        --padding-start: 0;
+        --padding-end: 0;
+        width: 32px;
+        height: 32px;
+        margin: 0;
+      }
+    }
+
+    ion-content {
+      flex: 1;
+      --background: #ffffff;
+      --padding-top: 0;
+      --padding-bottom: 32px;
+      --padding-start: 32px;
+      --padding-end: 32px;
     }
   }
 }

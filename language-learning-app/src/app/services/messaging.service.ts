@@ -84,6 +84,10 @@ export class MessagingService {
   // Observable for tracking when a conversation is selected (for hiding tabs on mobile)
   private hasSelectedConversationSubject = new BehaviorSubject<boolean>(false);
   public hasSelectedConversation$ = this.hasSelectedConversationSubject.asObservable();
+  
+  // Shared conversations list (single source of truth for all components)
+  private conversationsSubject = new BehaviorSubject<Conversation[]>([]);
+  public conversations$ = this.conversationsSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -133,6 +137,9 @@ export class MessagingService {
       { headers }
     ).pipe(
       tap(response => {
+        // Update the shared conversations subject (single source of truth)
+        this.conversationsSubject.next(response.conversations);
+        
         // Update the unread count whenever conversations are fetched
         const totalUnread = response.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
         this.updateUnreadCount(totalUnread);

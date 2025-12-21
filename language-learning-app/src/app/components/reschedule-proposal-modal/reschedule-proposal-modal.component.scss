@@ -1,0 +1,263 @@
+// Force proper modal layout with inline modals
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-content {
+  flex: 1;
+  --background: white;
+  background: white;
+  min-height: 300px;
+  height: auto;
+}
+
+ion-content::part(scroll) {
+  display: flex;
+  flex-direction: column;
+}
+
+// Floating close button
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.confirm-content {
+  text-align: center;
+  padding: 60px 32px 32px 32px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: white;
+}
+
+.icon-wrapper {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  ion-icon {
+    font-size: 48px;
+  }
+
+  &.primary {
+    background: rgba(102, 126, 234, 0.1);
+    
+    ion-icon {
+      color: #667eea;
+    }
+  }
+}
+
+.modal-heading {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1d1d1f;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.message-wrapper {
+  margin-bottom: 40px;
+  
+  .main-message {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #6b7280;
+    margin: 0;
+    font-weight: 400;
+    
+    strong {
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+  }
+}
+
+.time-comparison {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 700px;
+  
+  @media (max-width: 576px) {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.time-card {
+  flex: 1;
+  padding: 24px 20px;
+  border-radius: 16px;
+  text-align: center;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.original-time {
+  background: #f5f5f7;
+  
+  .time-label {
+    color: #86868b;
+  }
+  
+  .time-date,
+  .time-time {
+    color: #64748b;
+  }
+}
+
+.proposed-time {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+  
+  .time-label {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  
+  .time-date,
+  .time-time {
+    color: white;
+  }
+}
+
+.time-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.time-date {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  letter-spacing: -0.2px;
+  display: block;
+}
+
+.time-time {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.time-participant {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  
+  .small-avatar {
+    width: 28px;
+    height: 28px;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .avatar-placeholder-small {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 50%;
+    }
+  }
+  
+  .participant-text {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+  }
+}
+
+.arrow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 24px;
+    color: #667eea;
+  }
+  
+  @media (max-width: 576px) {
+    transform: rotate(90deg);
+  }
+}
+
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+
+  ion-button {
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    font-size: 16px;
+  }
+}
+
+.counter-button {
+  margin: 0 16px 16px 16px;
+  text-transform: none;
+  font-weight: 500;
+  --color: #64748b;
+  font-size: 15px;
+}

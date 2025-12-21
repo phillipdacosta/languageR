@@ -332,7 +332,7 @@ ion-content {
 // On desktop, the global toolbar is fixed; add top offset so content isn't hidden
 @media (min-width: 769px) {
   .content-wrapper {
-    padding-top: 96px; // compensate for fixed desktop toolbar height
+    padding-top: 87px; // compensate for fixed desktop toolbar height
   }
 }
 
@@ -1295,13 +1295,82 @@ ion-content {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 1px 4px;
   background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
   color: white;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   box-shadow: 0 1px 4px rgba(255, 165, 0, 0.25);
+  
+  ion-icon {
+    font-size: 12px;
+  }
+}
+
+.timeline-reschedule-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  // bottom: 8px;
+  left: 55px;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.6);
+  }
+  
+  ion-icon {
+    font-size: 12px;
+  }
+}
+
+.timeline-reschedule-sent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
+  cursor: default;
+      position: relative;
+    // bottom: 8px;
+    left: 55px
+  
+  ion-icon {
+    font-size: 12px;
+  }
+}
+
+.timeline-reschedule-accepted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 9px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
+  cursor: default;
+  position: relative;
+  // bottom: 8px;
+  left: 55px
   
   ion-icon {
     font-size: 12px;
@@ -2387,7 +2456,7 @@ ion-content {
   gap: 5px;
   background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
   color: #ffffff;
-  padding: 7px 14px;
+  padding: 2px 5px;
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
@@ -2395,7 +2464,7 @@ ion-content {
   text-transform: uppercase;
   box-shadow: 0 2px 6px rgba(255, 165, 0, 0.3);
   position: relative;
-    top: 25px;
+  top: 30px;
   
   ion-icon {
     font-size: 14px;
@@ -2408,6 +2477,144 @@ ion-content {
     ion-icon {
       font-size: 13px;
     }
+  }
+}
+
+.reschedule-proposal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  animation: pulse 2s infinite;
+  position: relative;
+  bottom: 8px;
+  left: 120px;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+  }
+  
+  ion-icon {
+    font-size: 14px;
+    animation: rotate 2s infinite linear;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 6px 12px;
+    font-size: 10px;
+    
+    ion-icon {
+      font-size: 13px;
+    }
+  }
+}
+
+.reschedule-sent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+  cursor: default;
+  position: relative;
+  left: 120px;
+  bottom: 8px;
+  
+  ion-icon {
+    font-size: 14px;
+    animation: hourglassSpin 3s infinite ease-in-out;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 6px 12px;
+    font-size: 10px;
+    
+    ion-icon {
+      font-size: 13px;
+    }
+  }
+}
+
+.reschedule-accepted-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  cursor: default;
+      position: relative;
+    bottom: 8px;
+    left: 120px;
+  
+  ion-icon {
+    font-size: 14px;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 6px 12px;
+    font-size: 10px;
+    
+    ion-icon {
+      font-size: 13px;
+    }
+  }
+}
+
+@keyframes hourglassSpin {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
+  100% {
+    transform: rotate(0deg);
   }
 }
 
@@ -4773,6 +4980,72 @@ ion-content {
   }
 }
 
+.reschedule-proposal-badge-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #7c3aed;
+  margin: 6px 0;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-radius: 8px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  animation: pulseGlow 2s infinite;
+  
+  &:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    border-color: rgba(124, 58, 237, 0.5);
+    transform: translateX(2px);
+  }
+  
+  ion-icon {
+    font-size: 18px;
+    animation: clockPulse 2s infinite;
+  }
+}
+
+.reschedule-sent-badge-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d97706;
+  margin: 6px 0;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  cursor: default;
+  
+  ion-icon {
+    font-size: 18px;
+    animation: hourglassSpin 3s infinite ease-in-out;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(124, 58, 237, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+  }
+}
+
+@keyframes clockPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 .cancelled-badge-inline-small {
   display: flex;
   align-items: center;
@@ -4781,6 +5054,50 @@ ion-content {
   font-weight: 600;
   color: #ef4444;
   margin: 3px 0;
+  
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.reschedule-proposal-badge-inline-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7c3aed;
+  margin: 4px 0;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  border-radius: 6px;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.25) 0%, rgba(118, 75, 162, 0.25) 100%);
+    transform: translateX(2px);
+  }
+  
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.reschedule-sent-badge-inline-small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #d97706;
+  margin: 4px 0;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  cursor: default;
   
   ion-icon {
     font-size: 14px;
@@ -4872,4 +5189,75 @@ ion-content {
 .cancel-reason-text {
   font-weight: 400;
   color: #6b7280;
+}
+
+// Modal sizing - Aspect-inspired generous modals
+ion-modal.confirm-action-modal {
+  --width: 95% !important;
+  --max-width: 540px !important;
+  --height: auto !important;
+  --max-height: 92% !important;
+  --border-radius: 24px !important;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+ion-modal.reschedule-lesson-modal {
+  --width: 96% !important;
+  --max-width: 900px !important;
+  --height: 94% !important;
+  --max-height: 900px !important;
+  --border-radius: 24px !important;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+ion-modal.reschedule-proposal-modal {
+  --width: 95% !important;
+  --max-width: 800px !important;
+  --height: 85vh !important;
+  --max-height: 850px !important;
+  --border-radius: 20px !important;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+// Desktop adjustments for modals
+@media (min-width: 768px) {
+  ion-modal.confirm-action-modal {
+    --width: 540px !important;
+    --max-width: 560px !important;
+  }
+
+  ion-modal.reschedule-lesson-modal {
+    --width: 900px !important;
+    --max-width: 1000px !important;
+    --height: 90% !important;
+    --max-height: 960px !important;
+  }
+
+  ion-modal.reschedule-proposal-modal {
+    --width: 800px !important;
+    --max-width: 850px !important;
+    --height: 85vh !important;
+    --max-height: 900px !important;
+  }
+}
+
+// iPad and tablet sizing
+@media (min-width: 576px) and (max-width: 767px) {
+  ion-modal.confirm-action-modal {
+    --width: 90% !important;
+    --max-width: 500px !important;
+  }
+
+  ion-modal.reschedule-lesson-modal {
+    --width: 92% !important;
+    --max-width: 700px !important;
+    --height: 90% !important;
+  }
+
+  ion-modal.reschedule-proposal-modal {
+    --width: 90% !important;
+    --max-width: 750px !important;
+    --height: 85vh !important;
+    --max-height: 850px !important;
+  }
 }

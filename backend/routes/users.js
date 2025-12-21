@@ -561,7 +561,7 @@ router.post('/office-hours-heartbeat', verifyToken, async (req, res) => {
 
     const conflictingLessons = await Lesson.find({
       tutorId: user._id,
-      status: { $in: ['scheduled', 'in_progress'] },
+      status: { $in: ['scheduled', 'in_progress', 'pending_reschedule'] },
       isOfficeHours: { $ne: true }, // Exclude office hours lessons from conflict check
       $or: [
         // Currently in progress
@@ -1217,10 +1217,36 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
     
     // Filter OUT class blocks - classes should come from Classes API only
     // This prevents fetching thousands of old/ghost class blocks
-    const actualAvailability = (tutor.availability || []).filter(block => block.type !== 'class');
+    const withoutClasses = (tutor.availability || []).filter(block => block.type !== 'class');
     
-    console.log('📅 Availability blocks (filtered, excluding classes):', actualAvailability.length);
-    console.log('📅 Filtered availability data:', JSON.stringify(actualAvailability, null, 2));
+    // Also filter out old blocks (older than 7 days ago) to prevent performance issues
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    
+    const actualAvailability = withoutClasses.filter(block => {
+      // Keep blocks without date (recurring patterns)
+      if (!block.absoluteStart && !block.absoluteEnd) {
+        return true;
+      }
+      
+      // Keep blocks that end after 7 days ago
+      if (block.absoluteEnd) {
+        const blockEnd = new Date(block.absoluteEnd);
+        return blockEnd >= sevenDaysAgo;
+      }
+      
+      // Keep blocks that start after 7 days ago
+      if (block.absoluteStart) {
+        const blockStart = new Date(block.absoluteStart);
+        return blockStart >= sevenDaysAgo;
+      }
+      
+      return true;
+    });
+    
+    console.log('📅 Availability blocks (filtered, excluding classes and old blocks):', actualAvailability.length);
+    console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);

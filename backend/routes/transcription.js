@@ -1621,8 +1621,8 @@ async function analyzeLesson(transcriptId) {
           
           // Create notification
           const message = topStruggle 
-            ? `You've completed ${totalLessons} ${transcript.language} lessons! We've noticed you're working on ${topStruggle.issue}. Check your progress page for insights.`
-            : `Great progress! You've completed ${totalLessons} ${transcript.language} lessons. Check your progress page to see how you're doing!`;
+            ? `You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons! We've noticed you're working on <strong>${topStruggle.issue}</strong>. Check your progress page for insights.`
+            : `Great progress! You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons. Check your progress page to see how you're doing!`;
           
           await Notification.create({
             userId: transcript.studentId,

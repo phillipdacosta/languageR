@@ -11,7 +11,7 @@ import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { QuillModule } from 'ngx-quill';
+import { QuillEditorComponent } from 'ngx-quill';
 
 interface Student {
   _id: string;
@@ -26,7 +26,7 @@ interface Student {
   templateUrl: './schedule-class.page.html',
   styleUrls: ['./schedule-class.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillModule]
+  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillEditorComponent]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy {
   classType: 'one' | 'recurring' = 'recurring'; // Default to multiple students
@@ -336,14 +336,33 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
 
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
+    console.log('🔍 [Schedule Class] Opening availability picker with user:', currentUser);
+    
     if (!currentUser?.id) {
+      console.error('❌ [Schedule Class] Cannot open availability picker: currentUser.id is missing', currentUser);
+      const toast = await this.toast.create({
+        message: 'Unable to load availability. Please try again.',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
       return;
     }
+
+    console.log('✅ [Schedule Class] Valid user ID:', currentUser.id);
 
     // Get selected duration from form (only for recurring/multiple-students classes)
     const selectedDuration = this.classType === 'recurring' && this.form.value.duration 
       ? Number(this.form.value.duration) 
       : 25; // Default to 25
+
+    console.log('📅 [Schedule Class] Creating modal with props:', {
+      tutorId: currentUser.id,
+      tutorName: currentUser.name || 'You',
+      currentUserAuth0Id: currentUser.auth0Id,
+      tutorAuth0Id: currentUser.auth0Id,
+      selectedDuration
+    });
 
     const modal = await this.modalController.create({
       component: TutorAvailabilityViewerComponent,

@@ -7,6 +7,10 @@ import { ExploreContainerComponentModule } from '../explore-container/explore-co
 import { SharedModule } from '../shared/shared.module';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { DisplayNamePipe } from '../pipes/display-name.pipe';
+// Import modal components to preload them and prevent first-load freeze
+import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
+import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
+import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -19,7 +23,11 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     Tab1PageRoutingModule,
     SharedModule,
     ClassAttendeesComponent,
-    DisplayNamePipe
+    DisplayNamePipe,
+    // Import standalone modal components to preload and compile them
+    ConfirmActionModalComponent,
+    RescheduleLessonModalComponent,
+    RescheduleProposalModalComponent
   ],
   declarations: [Tab1Page]
 })

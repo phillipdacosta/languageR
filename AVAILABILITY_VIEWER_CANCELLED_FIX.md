@@ -200,3 +200,4 @@ The filter `cls.status !== 'cancelled'` is explicit and future-proof.
 **Impact**: Critical - was preventing students from booking freed time slots
 **Date**: December 19, 2025
 
+

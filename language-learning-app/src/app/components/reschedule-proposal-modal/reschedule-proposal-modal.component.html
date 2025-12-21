@@ -1,0 +1,81 @@
+<ion-content class="ion-padding">
+  <!-- Floating close button -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <div class="confirm-content">
+    <!-- Calendar Icon -->
+    <div class="icon-wrapper primary">
+      <ion-icon name="calendar-outline"></ion-icon>
+    </div>
+    
+    <!-- Heading -->
+    <h1 class="modal-heading">New Time Proposed</h1>
+    
+    <!-- Message -->
+    <div class="message-wrapper">
+      <p class="main-message">
+        <strong>{{ participantName }}</strong> has proposed a new time for your lesson
+      </p>
+    </div>
+
+    <!-- Time Comparison -->
+    <div class="time-comparison">
+      <div class="time-card original-time">
+        <div class="time-label">Original Time</div>
+        <div class="time-date">{{ originalDate }}</div>
+        <div class="time-time">{{ originalTime }}</div>
+      </div>
+
+      <div class="arrow-divider">
+        <ion-icon name="arrow-forward"></ion-icon>
+      </div>
+
+      <div class="time-card proposed-time">
+        <div class="time-label">Proposed Time</div>
+        <div class="time-date">{{ proposedDate }}</div>
+        <div class="time-time">{{ proposedTime }}</div>
+        
+        <!-- Small avatar in the proposed time card -->
+        <div class="time-participant" *ngIf="participantAvatar || participantName">
+          <ion-avatar class="small-avatar">
+            <img *ngIf="participantAvatar" [src]="participantAvatar" [alt]="participantName" referrerpolicy="no-referrer" loading="eager" decoding="async">
+            <div *ngIf="!participantAvatar" class="avatar-placeholder-small">
+              {{ participantInitial }}
+            </div>
+          </ion-avatar>
+          <span class="participant-text">with {{ participantName }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        (click)="rejectProposal()">
+        Decline
+      </ion-button>
+      <ion-button 
+        expand="block"
+        color="primary"
+        (click)="acceptProposal()">
+        Accept New Time
+      </ion-button>
+    </div>
+    <ion-button 
+      expand="block" 
+      fill="clear" 
+      class="counter-button"
+      (click)="counterPropose()">
+      Propose Different Time
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>
+
+

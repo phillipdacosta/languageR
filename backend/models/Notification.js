@@ -20,6 +20,9 @@ const NotificationSchema = new mongoose.Schema({
       'class_removed',
       'invitation_cancelled',
       'lesson_rescheduled',
+      'reschedule_proposed',
+      'reschedule_accepted',
+      'reschedule_rejected',
       'office_hours_booking',
       'office_hours_starting',
       'lesson_analysis_ready',
@@ -39,6 +42,10 @@ const NotificationSchema = new mongoose.Schema({
   data: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  },
+  relatedUserPicture: {
+    type: String,
+    default: null
   },
   read: {
     type: Boolean,

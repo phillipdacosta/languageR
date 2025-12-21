@@ -209,3 +209,4 @@ Where Y should NOT include the cancelled class.
 **WebSocket**: Not implemented for availability viewer (by design)
 **Date**: December 19, 2025
 
+

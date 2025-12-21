@@ -1,19 +1,67 @@
-<ion-header>
+<ion-header class="desktop-only-header">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/home"></ion-back-button>
     </ion-buttons>
     <ion-title>Notifications</ion-title>
-    <ion-buttons slot="end">
-      <ion-button fill="clear">
-        <ion-icon name="settings-outline"></ion-icon>
-      </ion-button>
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="notifications-content">
+  <!-- Full-width sticky container -->
+  <div class="sticky-full-width-container">
+    <div class="sticky-header-wrapper">
+      <div class="notification-header">
+        <div class="notification-header-left">
+          <h2 class="notification-page-title">
+            Notifications
+            <span class="unread-count-badge" *ngIf="getUnreadNotifications().length > 0">
+              {{ getUnreadNotifications().length }}
+            </span>
+          </h2>
+        </div>
+        <div class="notification-header-right">
+          <ion-button 
+            [class.hidden]="getUnreadNotifications().length === 0"
+            class="mark-all-read-btn" 
+            fill="clear"
+            (click)="markAllAsRead()">
+            <ion-icon name="checkmark-done-outline" slot="start"></ion-icon>
+            Mark All as Read
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="notification-search-container">
+        <ion-searchbar
+          [(ngModel)]="searchTerm"
+          placeholder="Search notifications..."
+          (ionInput)="onSearchInput($event)"
+          class="notification-searchbar">
+        </ion-searchbar>
+      </div>
+
+      <!-- Filter Checkboxes -->
+      <div class="notification-filters">
+        <div 
+          *ngFor="let filter of filters"
+          class="filter-checkbox-item"
+          (click)="toggleFilter(filter.value)">
+          <ion-checkbox 
+            [checked]="isFilterActive(filter.value)"
+            mode="ios"
+            class="filter-checkbox">
+          </ion-checkbox>
+          <span class="filter-label">{{ filter.label }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="notification-page-container">
+
+    <!-- Loading State -->
     <div class="notification-section" *ngIf="isLoading">
       <div class="notification-loading">
         <ion-spinner name="crescent"></ion-spinner>
@@ -21,64 +69,115 @@
       </div>
     </div>
 
+    <!-- Notifications List -->
     <ng-container *ngIf="!isLoading">
-      <div class="notification-section" *ngIf="getUnreadNotifications().length > 0">
-        <h2 class="notification-section-title">Important</h2>
-        <div
-          class="notification-item"
-          *ngFor="let notification of getUnreadNotifications(); trackBy: trackByNotificationId"
-          [class.unread]="!notification.read"
-          (click)="onNotificationClick(notification)">
-          <div class="notification-item-left">
-            <ion-icon
-              [name]="getNotificationIcon(notification.type)"
-              class="notification-item-icon"
-              [ngClass]="getNotificationIconClass(notification.type)">
-            </ion-icon>
-          </div>
-          <div class="notification-item-content">
-            <p class="notification-text">{{ notification.message }}</p>
-            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
-          </div>
-          <div class="notification-item-right">
-            <ion-button fill="clear" class="notification-options-btn" (click)="$event.stopPropagation()">
-              <ion-icon name="ellipsis-vertical"></ion-icon>
-            </ion-button>
-          </div>
-        </div>
-      </div>
-
-      <div class="notification-section" *ngIf="getReadNotifications().length > 0">
-        <h2 class="notification-section-title">More notifications</h2>
-        <div
-          class="notification-item"
-          *ngFor="let notification of getReadNotifications(); trackBy: trackByNotificationId"
-          (click)="onNotificationClick(notification)">
-          <div class="notification-item-left">
-            <ion-icon
-              [name]="getNotificationIcon(notification.type)"
-              class="notification-item-icon"
-              [ngClass]="getNotificationIconClass(notification.type)">
-            </ion-icon>
-          </div>
-          <div class="notification-item-content">
-            <p class="notification-text">{{ notification.message }}</p>
-            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
-          </div>
-          <div class="notification-item-right">
-            <ion-button fill="clear" class="notification-options-btn" (click)="$event.stopPropagation()">
-              <ion-icon name="ellipsis-vertical"></ion-icon>
-            </ion-button>
+      <!-- Today Section -->
+      <div class="notification-section" *ngIf="getTodayNotifications().length > 0">
+        <h2 class="notification-section-title">Today</h2>
+        <div class="notification-list">
+          <div
+            class="notification-item"
+            *ngFor="let notification of getTodayNotifications(); trackBy: trackByNotificationId"
+            [class.unread]="!notification.read"
+            (click)="onNotificationClick(notification)">
+            <div class="notification-item-left">
+              <img 
+                *ngIf="notification.relatedUserPicture" 
+                [src]="notification.relatedUserPicture" 
+                alt="User avatar"
+                class="notification-avatar" />
+              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                <ion-icon
+                  [name]="getNotificationIcon(notification.type)"
+                  class="notification-item-icon">
+                </ion-icon>
+              </div>
+            </div>
+            <div class="notification-item-content">
+              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+            </div>
+            <div class="notification-item-right">
+              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="notification-empty" *ngIf="getReadNotifications().length === 0 && getUnreadNotifications().length === 0">
+      <!-- Yesterday Section -->
+      <div class="notification-section" *ngIf="getYesterdayNotifications().length > 0">
+        <h2 class="notification-section-title">Yesterday</h2>
+        <div class="notification-list">
+          <div
+            class="notification-item"
+            *ngFor="let notification of getYesterdayNotifications(); trackBy: trackByNotificationId"
+            [class.unread]="!notification.read"
+            (click)="onNotificationClick(notification)">
+            <div class="notification-item-left">
+              <img 
+                *ngIf="notification.relatedUserPicture" 
+                [src]="notification.relatedUserPicture" 
+                alt="User avatar"
+                class="notification-avatar" />
+              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                <ion-icon
+                  [name]="getNotificationIcon(notification.type)"
+                  class="notification-item-icon">
+                </ion-icon>
+              </div>
+            </div>
+            <div class="notification-item-content">
+              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+            </div>
+            <div class="notification-item-right">
+              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Later Section -->
+      <div class="notification-section" *ngIf="getLaterNotifications().length > 0">
+        <h2 class="notification-section-title">Earlier</h2>
+        <div class="notification-list">
+          <div
+            class="notification-item"
+            *ngFor="let notification of getLaterNotifications(); trackBy: trackByNotificationId"
+            [class.unread]="!notification.read"
+            (click)="onNotificationClick(notification)">
+            <div class="notification-item-left">
+              <img 
+                *ngIf="notification.relatedUserPicture" 
+                [src]="notification.relatedUserPicture" 
+                alt="User avatar"
+                class="notification-avatar" />
+              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                <ion-icon
+                  [name]="getNotificationIcon(notification.type)"
+                  class="notification-item-icon">
+                </ion-icon>
+              </div>
+            </div>
+            <div class="notification-item-content">
+              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+            </div>
+            <div class="notification-item-right">
+              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="notification-empty" *ngIf="getTodayNotifications().length === 0 && getYesterdayNotifications().length === 0 && getLaterNotifications().length === 0">
         <ion-icon name="notifications-off-outline"></ion-icon>
-        <p>No notifications yet</p>
-        <small>Stay tuned! We'll let you know when there's something new.</small>
+        <p>No notifications found</p>
+        <small *ngIf="searchTerm">Try adjusting your search terms</small>
+        <small *ngIf="!searchTerm">Stay tuned! We'll let you know when there's something new.</small>
       </div>
     </ng-container>
   </div>
 </ion-content>
+
+
+
+
 

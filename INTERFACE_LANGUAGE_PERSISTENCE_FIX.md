@@ -107,3 +107,4 @@ interfaceLanguage: user.interfaceLanguage,
 - The only issue was that the GET and POST endpoints weren't consistently returning these fields, causing the frontend to receive `undefined` values after login
 
 
+

@@ -360,8 +360,8 @@ router.get('/check-milestone/:language', verifyToken, async (req, res) => {
         
         // Create notification
         const message = topStruggle 
-          ? `You've completed ${totalLessons} ${language} lessons! We've noticed you're working on ${topStruggle.issue}. Check your progress page for insights.`
-          : `Great progress! You've completed ${totalLessons} ${language} lessons. Check your progress page to see how you're doing!`;
+          ? `You've completed <strong>${totalLessons} ${language}</strong> lessons! We've noticed you're working on <strong>${topStruggle.issue}</strong>. Check your progress page for insights.`
+          : `Great progress! You've completed <strong>${totalLessons} ${language}</strong> lessons. Check your progress page to see how you're doing!`;
         
         await Notification.create({
           userId: user._id,

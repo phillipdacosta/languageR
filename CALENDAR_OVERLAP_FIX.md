@@ -293,3 +293,4 @@ When hovering over an active event that replaced a cancelled one, show tooltip:
 **User Experience**: Clean calendar, prioritizes current reality over history
 **Date**: December 19, 2025
 
+

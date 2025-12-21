@@ -58,6 +58,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   isLoading = false;
   isInitialLoad = true; // Only show spinner on first load
   isLoadingMessages = false;
+  // Store reaction previews to persist across reloads
+  private reactionPreviews: Map<string, { content: string; senderId: string; type: string }> = new Map();
   isSending = false;
   newMessage = '';
   showEmptyState = false; // Control empty state visibility for smooth transitions
@@ -96,6 +98,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Conversations search
   searchTerm = '';
   private searchInput$ = new Subject<string>();
+  
+  // Conversations filter
+  conversationsFilter: 'all' | 'unread' = 'all';
   
   // Reply functionality
   replyingToMessage: Message | null = null;
@@ -288,6 +293,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
             console.log('✅ Updated context menu message');
           }
           
+          // Update conversation list preview if this is the last message
+          if (data.isReaction && data.emoji) {
+            this.updateConversationPreviewFromReaction(data);
+          } else if (data.isReaction && !data.emoji) {
+            // Reaction was removed - clear the stored preview and reload
+            this.reactionPreviews.delete(data.conversationId);
+            this.reloadConversationsDebounced();
+          }
+          
           this.cdr.detectChanges();
         }
       });
@@ -461,7 +475,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       // Ensure current user is loaded
       this.userService.getCurrentUser().pipe(takeUntil(this.destroy$)).subscribe();
 
-      // Check for tutorId query param to open a specific conversation
+      // Check for query params to open a specific conversation
       this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
         if (params['tutorId']) {
           this.openConversationWithTutor(params['tutorId']);
@@ -469,6 +483,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           this.router.navigate([], {
             relativeTo: this.route,
             queryParams: { tutorId: null },
+            queryParamsHandling: 'merge'
+          });
+        } else if (params['userId']) {
+          // Handle generic userId (works for both tutors and students)
+          this.openConversationWithUser(params['userId']);
+          // Clear the query param after handling
+          this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { userId: null },
             queryParamsHandling: 'merge'
           });
         }
@@ -522,9 +545,20 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   // Computed list filtered by search term (matches other user's name)
   get filteredConversations(): Conversation[] {
-    if (!this.searchTerm) return this.conversations;
-    const searchLower = this.searchTerm.toLowerCase();
-    return this.conversations.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
+    let filtered = this.conversations;
+    
+    // Apply unread filter if selected
+    if (this.conversationsFilter === 'unread') {
+      filtered = filtered.filter(c => c.unreadCount > 0);
+    }
+    
+    // Apply search filter
+    if (this.searchTerm) {
+      const searchLower = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(c => (c.otherUser?.name || '').toLowerCase().includes(searchLower));
+    }
+    
+    return filtered;
   }
 
   private normalizeUserId(id: string | undefined | null): string {
@@ -563,6 +597,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (message.type === 'voice') {
       return message.content ? message.content : '🎤 Voice message';
     }
+    if (message.type === 'system' || message.isSystemMessage) {
+      // For system messages, extract just the first line (title) but keep HTML formatting
+      const firstLine = message.content.split('\n')[0].trim();
+      return firstLine;
+    }
+    if ((message as any).type === 'reaction') {
+      // Reactions show as "reacted with emoji"
+      return message.content;
+    }
     return message.content;
   }
 
@@ -583,6 +626,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.reloadConversationsDebounced();
       return;
     }
+
+    // Clear reaction preview since we have a new message
+    this.reactionPreviews.delete(message.conversationId);
 
     conversation.lastMessage = {
       content: this.getMessagePreviewText(message),
@@ -643,6 +689,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   clearSearch() {
     this.searchTerm = '';
     this.searchInput$.next('');
+  }
+
+  setConversationsFilter(filter: 'all' | 'unread') {
+    this.conversationsFilter = filter;
   }
 
   /**
@@ -888,6 +938,104 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private openConversationWithUser(userId: string) {
+    console.log('💬 Opening conversation with user:', userId);
+    
+    // First, ensure conversations are loaded
+    this.messagingService.getConversations().subscribe({
+      next: (response) => {
+        this.conversations = response.conversations;
+        
+        // Try to find existing conversation by matching userId with either auth0Id or id
+        const conversation = this.conversations.find(
+          conv => conv.otherUser?.auth0Id === userId || 
+                  conv.otherUser?.id === userId
+        );
+
+        if (conversation) {
+          // Conversation exists, select it directly
+          console.log('💬 Found existing conversation, selecting it');
+          this.selectConversation(conversation);
+        } else {
+          console.log('💬 No existing conversation found for userId:', userId);
+          // If no conversation exists, the dropdown shouldn't have shown it
+          // But we'll handle gracefully by just logging
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error loading conversations:', error);
+      }
+    });
+  }
+
+  private updateConversationPreviewFromReaction(reactionData: any) {
+    // Update the conversation preview to show "Name reacted with emoji"
+    const conversationId = reactionData.conversationId;
+    const conversation = this.conversations.find(c => c.conversationId === conversationId);
+    
+    if (conversation) {
+      // Store reaction preview for persistence
+      const reactionPreview = {
+        content: `reacted with ${reactionData.emoji}`,
+        senderId: reactionData.reactorId,
+        type: 'reaction' as any
+      };
+      this.reactionPreviews.set(conversationId, reactionPreview);
+      
+      // Update preview to show reaction
+      conversation.lastMessage = {
+        ...conversation.lastMessage,
+        ...reactionPreview,
+        createdAt: new Date().toISOString(),
+        isSystemMessage: false
+      };
+      conversation.updatedAt = new Date().toISOString();
+      
+      // Sort conversations by most recent
+      this.conversations = [...this.conversations].sort((a, b) => {
+        const dateA = new Date(a.updatedAt).getTime();
+        const dateB = new Date(b.updatedAt).getTime();
+        return dateB - dateA;
+      });
+      
+      this.cdr.detectChanges();
+    }
+  }
+
+  private processConversationsForReactions() {
+    // Merge stored reaction previews when loading conversations
+    this.conversations.forEach(conversation => {
+      const reactionPreview = this.reactionPreviews.get(conversation.conversationId);
+      if (reactionPreview) {
+        // Apply stored reaction preview
+        conversation.lastMessage = {
+          ...conversation.lastMessage,
+          ...reactionPreview,
+          createdAt: conversation.lastMessage?.createdAt || new Date().toISOString(),
+          isSystemMessage: false
+        };
+      } else if (conversation.lastMessage && (conversation.lastMessage as any).reactions && (conversation.lastMessage as any).reactions.length > 0) {
+        // Fallback: Check if lastMessage has reactions (if backend includes them)
+        const reactions = (conversation.lastMessage as any).reactions;
+        const mostRecentReaction = reactions[reactions.length - 1];
+        
+        // Store it for future persistence
+        const reactionPreview = {
+          content: `reacted with ${mostRecentReaction.emoji}`,
+          senderId: mostRecentReaction.userId,
+          type: 'reaction' as any
+        };
+        this.reactionPreviews.set(conversation.conversationId, reactionPreview);
+        
+        // Update preview to show reaction
+        conversation.lastMessage = {
+          ...conversation.lastMessage,
+          ...reactionPreview,
+        };
+      }
+    });
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
@@ -952,6 +1100,50 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           response.conversations.forEach(conv => {
             if (conv.lastMessage) {
               conv.lastMessage.content = this.getMessagePreviewText(conv.lastMessage as Message);
+            }
+          });
+          
+          // Process reactions BEFORE assigning to ensure they're ready immediately
+          response.conversations.forEach(conversation => {
+            const reactionPreview = this.reactionPreviews.get(conversation.conversationId);
+            if (reactionPreview) {
+              // Apply stored reaction preview
+              conversation.lastMessage = {
+                ...conversation.lastMessage,
+                ...reactionPreview,
+                createdAt: conversation.lastMessage?.createdAt || new Date().toISOString(),
+                isSystemMessage: false
+              };
+            } else if (conversation.lastMessage && (conversation.lastMessage as any).reactions && (conversation.lastMessage as any).reactions.length > 0) {
+              // Check if lastMessage has reactions from backend
+              const reactions = (conversation.lastMessage as any).reactions;
+              const mostRecentReaction = reactions[reactions.length - 1];
+              
+              console.log('💬 [Messages] Processing reactions from backend:', {
+                conversationId: conversation.conversationId,
+                reactionsCount: reactions.length,
+                mostRecentReaction: mostRecentReaction,
+                lastMessageType: conversation.lastMessage.type,
+                lastMessageContent: conversation.lastMessage.content
+              });
+              
+              // Store it for future persistence
+              const reactionPreview = {
+                content: `reacted with ${mostRecentReaction.emoji}`,
+                senderId: mostRecentReaction.userId,
+                type: 'reaction' as any
+              };
+              this.reactionPreviews.set(conversation.conversationId, reactionPreview);
+              
+              // Update preview to show reaction (this replaces the original message preview)
+              conversation.lastMessage = {
+                ...conversation.lastMessage,
+                ...reactionPreview,
+                // Keep original createdAt for sorting
+                createdAt: conversation.lastMessage.createdAt,
+              };
+              
+              console.log('💬 [Messages] Updated lastMessage to show reaction:', conversation.lastMessage);
             }
           });
           
@@ -1050,6 +1242,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           const dateB = new Date(b.updatedAt || b.lastMessage?.createdAt || 0).getTime();
           return dateB - dateA; // Most recent first
         });
+        
+        // Process conversations to restore reaction previews (fallback for any missed during merge)
+        this.processConversationsForReactions();
         
         // Do NOT auto-select conversations - let user choose which conversation to view
         // This applies to both mobile and desktop to prevent showing messages they're not ready to read
@@ -1948,6 +2143,22 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   async scrollToFirstUnreadMessage(unreadCount?: number) {
     await this.waitForMessagesRender();
     
+    // Check if this conversation only contains system messages
+    const onlySystemMessages = this.messages.length > 0 && 
+      this.messages.every(m => m.type === 'system' || m.isSystemMessage);
+    
+    // For system-only conversations, scroll to top to show the full message
+    if (onlySystemMessages) {
+      console.log('📍 System messages only - scrolling to top');
+      const container = this.chatContainer?.nativeElement;
+      if (container) {
+        setTimeout(() => {
+          container.scrollTop = 0;
+        }, 100);
+      }
+      return;
+    }
+    
     // Scroll to bottom immediately after messages render (prevent flash)
     const container = this.chatContainer?.nativeElement;
     if (container) {
@@ -2244,6 +2455,28 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   getCurrentUserId(): string {
     return this.currentUserId$.value;
+  }
+
+  // Handle clicks on links within system messages
+  handleSystemMessageClick(event: Event) {
+    const target = event.target as HTMLElement;
+    console.log('System message clicked:', target.tagName, target);
+    
+    // Check if clicked element is an anchor or inside one
+    let anchor = target.tagName === 'A' ? target : target.closest('a');
+    
+    if (anchor) {
+      event.preventDefault();
+      event.stopPropagation();
+      const href = anchor.getAttribute('href');
+      console.log('Link clicked, href:', href);
+      
+      if (href && href.startsWith('/')) {
+        // Internal navigation
+        console.log('Navigating to:', href);
+        this.router.navigate([href]);
+      }
+    }
   }
 
   // Check if a message was sent by the current user

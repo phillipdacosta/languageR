@@ -172,7 +172,8 @@ router.post('/', verifyToken, async (req, res) => {
               userId: student._id,
               type: 'class_invitation',
               title: 'Group Class Invitation',
-              message: `${tutorName} invited you to a ${cls.name} group class set for ${formattedDate} at ${formattedTime}`,
+              message: `<strong>${tutorName}</strong> invited you to a <strong>${cls.name}</strong> group class set for <strong>${formattedDate} at ${formattedTime}</strong>`,
+              relatedUserPicture: tutor.picture || null,
               data: {
                 classId: cls._id,
                 tutorId: tutor._id,
@@ -421,7 +422,8 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         userId: cls.tutorId._id,
         type: 'class_accepted',
         title: 'Class Invitation Accepted',
-        message: `${studentDisplayName} accepted your invitation to ${cls.name} on ${formattedDate} at ${formattedTime}`,
+        message: `<strong>${studentDisplayName}</strong> accepted your invitation to <strong>${cls.name}</strong> on <strong>${formattedDate}</strong>`,
+        relatedUserPicture: student.picture || null,
         data: {
           classId: cls._id,
           studentId: student._id,
@@ -438,7 +440,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         if (tutorSocketId) {
           req.io.to(tutorSocketId).emit('new_notification', {
             type: 'class_accepted',
-            message: `${studentDisplayName} accepted your invitation to ${cls.name}`
+            message: `<strong>${studentDisplayName}</strong> accepted your invitation to <strong>${cls.name}</strong> on <strong>${formattedDate}</strong>`
           });
           console.log('✅ WebSocket notification sent to tutor about class acceptance');
         }
@@ -606,7 +608,8 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
               userId: student._id,
               type: 'class_invitation',
               title: `Class Invitation: ${cls.name}`,
-              message: `${tutorName} invited you to join "${cls.name}" on ${formattedDate} from ${formattedStartTime} to ${formattedEndTime}.`,
+              message: `<strong>${tutorName}</strong> invited you to join <strong>"${cls.name}"</strong> on <strong>${formattedDate}</strong> from <strong>${formattedStartTime} to ${formattedEndTime}</strong>.`,
+              relatedUserPicture: tutor.picture || null,
               relatedId: cls._id,
               relatedModel: 'Class',
               metadata: {
@@ -1130,14 +1133,15 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
       });
       
       const notificationMessage = wasAccepted 
-        ? `${tutorDisplayName} removed you from "${cls.name}" on ${formattedDate} at ${formattedStartTime}.`
-        : `${tutorDisplayName} cancelled your invitation to "${cls.name}" on ${formattedDate} at ${formattedStartTime}.`;
+        ? `<strong>${tutorDisplayName}</strong> removed you from <strong>"${cls.name}"</strong> on <strong>${formattedDate} at ${formattedStartTime}</strong>.`
+        : `<strong>${tutorDisplayName}</strong> cancelled your invitation to <strong>"${cls.name}"</strong> on <strong>${formattedDate} at ${formattedStartTime}</strong>.`;
       
       await Notification.create({
         userId: student._id,
         type: wasAccepted ? 'class_removed' : 'invitation_cancelled',
         title: wasAccepted ? 'Removed from Class' : 'Class Invitation Cancelled',
         message: notificationMessage,
+        relatedUserPicture: tutor.picture || null,
         relatedId: cls._id,
         relatedModel: 'Class',
         metadata: {
@@ -1350,7 +1354,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
           userId: student._id,
           type: 'class_cancelled',
           title: 'Class Cancelled',
-          message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}. You have not been charged.`,
+          message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>. You have not been charged.`,
+          relatedUserPicture: tutor.picture || null,
           relatedItemId: cls._id,
           relatedItemType: 'Class',
           metadata: {
@@ -1398,7 +1403,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
             userId: student._id,
             type: 'class_invitation_cancelled',
             title: 'Class Invitation Cancelled',
-            message: `${tutorName} cancelled the class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime}.`,
+            message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`,
+            relatedUserPicture: tutor.picture || null,
             relatedItemId: cls._id,
             relatedItemType: 'Class',
             metadata: {
@@ -1516,7 +1522,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
       userId: tutor._id,
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled (TEST)',
-      message: `Your class "${cls.name}" scheduled for ${formattedDate} at ${formattedTime} has been automatically cancelled (TEST MODE).`,
+      message: `Your class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically cancelled (TEST MODE).`,
       relatedItemId: cls._id,
       relatedItemType: 'Class',
       metadata: {
@@ -1561,7 +1567,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
           userId: student._id,
           type: 'class_auto_cancelled',
           title: 'Class Cancelled (TEST)',
-          message: `The class "${cls.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled (TEST MODE).`,
+          message: `The class <strong>"${cls.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been cancelled (TEST MODE).`,
           relatedItemId: cls._id,
           relatedItemType: 'Class',
           metadata: {

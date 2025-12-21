@@ -175,7 +175,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
       userId: tutor._id,
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled',
-      message: `Your class "${classItem.name}" scheduled for ${formattedDate} at ${formattedTime} has been automatically cancelled because the minimum student requirement (${classItem.minStudents} students) was not met.`,
+      message: `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`,
       relatedItemId: classItem._id,
       relatedItemType: 'Class',
       metadata: {
@@ -195,7 +195,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         io.to(tutorSocketId).emit('new_notification', {
           type: 'class_auto_cancelled',
           title: 'Class Auto-Cancelled',
-          message: `Your class "${classItem.name}" scheduled for ${formattedDate} at ${formattedTime} has been automatically cancelled because the minimum student requirement (${classItem.minStudents} students) was not met.`,
+          message: `Your class <strong>"${classItem.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically <strong>cancelled</strong> because the minimum student requirement (${classItem.minStudents} students) was not met.`,
           data: {
             classId: classItem._id.toString(),
             className: classItem.name,
@@ -220,7 +220,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         userId: student._id,
         type: 'class_auto_cancelled',
         title: 'Class Cancelled',
-        message: `The class "${classItem.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled due to insufficient enrollment. You have not been charged.`,
+        message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
         relatedItemId: classItem._id,
         relatedItemType: 'Class',
         metadata: {
@@ -239,7 +239,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
           io.to(studentSocketId).emit('new_notification', {
             type: 'class_auto_cancelled',
             title: 'Class Cancelled',
-            message: `The class "${classItem.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled due to insufficient enrollment. You have not been charged.`,
+            message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
             data: {
               classId: classItem._id.toString(),
               className: classItem.name,
@@ -270,7 +270,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
           userId: student._id,
           type: 'class_invitation_cancelled',
           title: 'Class Invitation Cancelled',
-          message: `The class "${classItem.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled due to insufficient enrollment.`,
+          message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment.`,
           relatedItemId: classItem._id,
           relatedItemType: 'Class',
           metadata: {
@@ -289,7 +289,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
             io.to(studentSocketId).emit('new_notification', {
               type: 'class_invitation_cancelled',
               title: 'Class Invitation Cancelled',
-              message: `The class "${classItem.name}" with ${tutorName} scheduled for ${formattedDate} at ${formattedTime} has been cancelled due to insufficient enrollment.`,
+              message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment.`,
               data: {
                 classId: classItem._id.toString(),
                 className: classItem.name,

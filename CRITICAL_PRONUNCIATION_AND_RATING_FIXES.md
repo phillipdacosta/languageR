@@ -130,3 +130,4 @@ Remove the "realistic level changes" guidance and replace with:
 - Actual (current): B2 rating ← BUG
 - This needs prompt fix before testing again
 
+

@@ -5,7 +5,7 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
-import { Observable, takeUntil, take, filter, firstValueFrom } from 'rxjs';
+import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { ClassService, ClassInvitation } from '../services/class.service';
@@ -18,6 +18,7 @@ import { MessagingService } from '../services/messaging.service';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
+import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 
@@ -96,6 +97,73 @@ export class Tab1Page implements OnInit, OnDestroy {
   private _cachedTimelineEvents: any[] = [];
   private _cachedTimelineEventsHash: string = '';
   
+  // Cache for reschedule proposer checks to avoid repeated function calls
+  private _rescheduleProposerCache: Map<string, boolean> = new Map();
+  private _rescheduleProposerCacheTime: number = 0;
+  
+  // Inline modal state for reschedule modal
+  isRescheduleModalOpen = false;
+  rescheduleModalData: {
+    lessonId: string;
+    lesson: Lesson;
+    participantId: string;
+    participantName: any;
+    participantAvatar: string | undefined;
+    currentUserId: string;
+    isTutor: boolean;
+    showBackButton?: boolean;
+  } | null = null;
+  
+  // Inline modal state for reschedule proposal modal
+  isRescheduleProposalModalOpen = false;
+  rescheduleProposalModalData: {
+    lessonId: string;
+    lesson: any;
+    proposal: any;
+    participantName: string;
+    participantAvatar: string | undefined;
+    proposedDate: string;
+    proposedTime: string;
+    originalDate: string;
+    originalTime: string;
+    otherParticipant: any; // Store for counter-propose action
+  } | null = null;
+  
+  // Inline modal state for confirm action modal (reschedule)
+  isConfirmRescheduleModalOpen = false;
+  confirmRescheduleModalData: {
+    title: string;
+    message: string;
+    notificationMessage: string;
+    confirmText: string;
+    cancelText: string;
+    confirmColor: string;
+    icon: string;
+    iconColor: string;
+    participantName: string;
+    participantAvatar: string | undefined;
+    lessonId: string;
+    lesson: Lesson;
+    otherParticipant: any;
+  } | null = null;
+  
+  // Inline modal state for confirm action modal (cancel)
+  isConfirmCancelModalOpen = false;
+  confirmCancelModalData: {
+    title: string;
+    message: string;
+    notificationMessage: string;
+    confirmText: string;
+    cancelText: string;
+    confirmColor: string;
+    icon: string;
+    iconColor: string;
+    participantName: string;
+    participantAvatar: string | undefined;
+    lessonId: string;
+    lesson: Lesson;
+  } | null = null;
+  
   // Featured tutors for students (mock data - replace with real data)
   featuredTutors: any[] = [];
 
@@ -129,8 +197,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
+    // Use asyncScheduler to prevent synchronous emission from blocking
     this.userService.currentUser$
       .pipe(
+        observeOn(asyncScheduler), // Make emissions async to prevent freezing
         filter(user => user !== null),
         takeUntil(this.destroy$)
       )
@@ -379,6 +449,189 @@ export class Tab1Page implements OnInit, OnDestroy {
         // Force change detection
         this.countdownTick = Date.now();
       });
+
+    // Listen for reschedule proposal events
+    this.websocketService.on('reschedule_proposed').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data: any) => {
+      console.log('📅 [TAB1] Reschedule proposed:', data);
+      console.log('📅 [TAB1] Current lessons count:', this.lessons.length);
+      console.log('📅 [TAB1] Looking for lesson with ID:', data.lessonId);
+      
+      // Update the lesson status in the UI
+      const lesson = this.lessons.find(l => {
+        const match = String(l._id) === String(data.lessonId);
+        console.log('📅 [TAB1] Comparing:', String(l._id), 'vs', String(data.lessonId), '=', match);
+        return match;
+      });
+      
+      if (lesson) {
+        console.log('✅ [TAB1] Found lesson, updating...');
+        lesson.status = 'pending_reschedule';
+        (lesson as any).rescheduleProposal = data.proposal;
+        
+        // Invalidate cached computed properties to force recalculation
+        this._cachedFirstLessonHash = '';
+        this._cachedFirstLesson = undefined;
+        this._cachedTimelineEventsHash = '';
+        this._cachedTimelineEvents = [];
+        this._rescheduleProposerCache.clear(); // Clear reschedule proposer cache
+        
+        // Force change detection and update
+        this.cdr.detectChanges();
+        
+        // Trigger a recomputation by updating countdownTick
+        this.countdownTick = Date.now();
+
+        // Show toast
+        const toast = await this.toastController.create({
+          message: `${data.proposerName} proposed a new time for your lesson`,
+          duration: 5000,
+          color: 'primary',
+          position: 'top',
+          buttons: [{
+            text: 'View',
+            handler: () => {
+              this.showRescheduleProposal(lesson);
+            }
+          }]
+        });
+        await toast.present();
+      } else {
+        console.warn('❌ [TAB1] Lesson not found in lessons array, reloading lessons...');
+        // Reload lessons to ensure we have the latest data
+        await this.loadLessons(false);
+      }
+    });
+
+    // Listen for lesson_updated events (for when you're the proposer)
+    this.websocketService.on('lesson_updated').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data: any) => {
+      console.log('📅 [TAB1] Lesson updated:', data);
+      
+      // Update the lesson in the UI
+      const lesson = this.lessons.find(l => String(l._id) === String(data.lessonId));
+      
+      if (lesson) {
+        console.log('✅ [TAB1] Found lesson, updating status to:', data.status);
+        lesson.status = data.status as any;
+        
+        if (data.rescheduleProposal) {
+          (lesson as any).rescheduleProposal = data.rescheduleProposal;
+        }
+        
+        // Invalidate cached computed properties to force recalculation
+        this._cachedFirstLessonHash = '';
+        this._cachedFirstLesson = undefined;
+        this._cachedTimelineEventsHash = '';
+        this._cachedTimelineEvents = [];
+        this._rescheduleProposerCache.clear();
+        
+        // Force change detection and update
+        this.cdr.detectChanges();
+        
+        // Trigger a recomputation by updating countdownTick
+        this.countdownTick = Date.now();
+      } else {
+        console.warn('⚠️ [TAB1] Lesson not found in current list:', data.lessonId);
+      }
+    });
+
+    // Listen for reschedule accepted events
+    this.websocketService.on('reschedule_accepted').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data: any) => {
+      console.log('✅ [TAB1] Reschedule accepted:', data);
+      const lesson = this.lessons.find(l => l._id === data.lessonId);
+      if (lesson) {
+        console.log('📅 [TAB1] Before update:', {
+          lessonId: lesson._id,
+          oldStartTime: lesson.startTime,
+          oldEndTime: lesson.endTime,
+          status: lesson.status
+        });
+        
+        // Update the lesson times to the new accepted times
+        lesson.startTime = data.newStartTime;
+        lesson.endTime = data.newEndTime;
+        lesson.status = 'scheduled';
+        
+        console.log('📅 [TAB1] After update:', {
+          lessonId: lesson._id,
+          newStartTime: lesson.startTime,
+          newEndTime: lesson.endTime,
+          status: lesson.status,
+          newDate: new Date(lesson.startTime).toLocaleDateString(),
+          newTime: new Date(lesson.startTime).toLocaleTimeString()
+        });
+        
+        // Mark the rescheduleProposal as accepted (keep the proposal object for badge display)
+        if ((lesson as any).rescheduleProposal) {
+          (lesson as any).rescheduleProposal.status = 'accepted';
+        }
+        
+        // Re-sort lessons array by startTime to ensure correct ordering
+        this.lessons.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        
+        console.log('📅 [TAB1] Total lessons after sort:', this.lessons.length);
+        console.log('📅 [TAB1] Currently viewing date:', this.selectedDate?.toLocaleDateString());
+        console.log('📅 [TAB1] Lessons for currently selected date:', this.lessonsForSelectedDate().length);
+        
+        // Invalidate ALL cached computed properties to force full recalculation
+        // This will determine if the lesson is still the "next class" or should move to timeline
+        this._cachedFirstLessonHash = '';
+        this._cachedFirstLesson = undefined;
+        this._cachedTimelineEventsHash = '';
+        this._cachedTimelineEvents = [];
+        this._rescheduleProposerCache.clear();
+        
+        // Force change detection to recompute all getters
+        this.cdr.detectChanges();
+        this.countdownTick = Date.now();
+
+        // Show toast
+        const toast = await this.toastController.create({
+          message: 'Reschedule accepted! Lesson time updated.',
+          duration: 3000,
+          color: 'success',
+          position: 'top'
+        });
+        await toast.present();
+      } else {
+        console.warn('❌ [TAB1] Lesson not found for reschedule_accepted, reloading lessons...');
+        await this.loadLessons(false);
+      }
+    });
+
+    // Listen for reschedule rejected events
+    this.websocketService.on('reschedule_rejected').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data: any) => {
+      console.log('❌ [TAB1] Reschedule rejected:', data);
+      // Clear the proposal
+      const lesson = this.lessons.find(l => l._id === data.lessonId);
+      if (lesson) {
+        lesson.status = 'scheduled';
+        (lesson as any).rescheduleProposal = null;
+        
+        // Invalidate cached computed properties
+        this._cachedFirstLessonHash = '';
+        this._cachedFirstLesson = undefined;
+        
+        this.cdr.detectChanges();
+        this.countdownTick = Date.now();
+
+        // Show toast
+        const toast = await this.toastController.create({
+          message: 'Reschedule request was declined',
+          duration: 3000,
+          color: 'warning',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    });
   }
 
   ionViewWillEnter() {
@@ -414,7 +667,18 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Only show skeleton on initial load, not on subsequent visits
       this.loadLessons(!this._hasInitiallyLoaded);
     } else {
-      console.log('✅ [TAB1] Using cached data, no reload needed');
+      console.log('✅ [TAB1] Using cached data, forcing recomputation of computed properties');
+      // Even when using cached data, we need to invalidate computed property caches
+      // to ensure the UI updates properly when returning to this tab
+      this._cachedFirstLessonHash = '';
+      this._cachedFirstLesson = undefined;
+      this._cachedTimelineEventsHash = '';
+      this._cachedTimelineEvents = [];
+      this._rescheduleProposerCache.clear();
+      
+      // Trigger change detection to recompute getters
+      this.cdr.detectChanges();
+      this.countdownTick = Date.now();
     }
   }
 
@@ -425,6 +689,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     }
 
     this.notificationService.getUnreadCount().pipe(
+      observeOn(asyncScheduler), // Make emissions async to prevent freezing
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
@@ -446,6 +711,7 @@ export class Tab1Page implements OnInit, OnDestroy {
 
     this.isLoadingInvitations = true;
     this.classService.getPendingInvitations().pipe(
+      observeOn(asyncScheduler), // Make emissions async to prevent freezing
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
@@ -539,91 +805,6 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
 
     await modal.present();
-  }
-
-  // 🧪 DEV TEST: Manually trigger auto-cancel for testing
-  async testAutoCancelClass() {
-    // Find first upcoming class
-    const upcomingClass = this.lessons.find((l: any) => l.isClass && l.status === 'scheduled');
-    
-    if (!upcomingClass) {
-      const toast = await this.toastController.create({
-        message: 'No upcoming scheduled classes to test',
-        duration: 2000,
-        color: 'warning'
-      });
-      await toast.present();
-      return;
-    }
-    
-    const classId = (upcomingClass as any)._id;
-    const className = (upcomingClass as any).className || 'Class';
-    
-    // Confirm before triggering
-    const alert = await this.alertController.create({
-      header: 'Test Auto-Cancel',
-      message: `This will cancel "${className}" and send notifications. Continue?`,
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Test Cancel',
-          role: 'confirm',
-          handler: async () => {
-            await this.executeTestAutoCancel(classId, className);
-          }
-        }
-      ]
-    });
-    
-    await alert.present();
-  }
-  
-  private async executeTestAutoCancel(classId: string, className: string) {
-    const loading = await this.loadingController.create({
-      message: 'Testing auto-cancel...'
-    });
-    await loading.present();
-    
-    try {
-      const headers = this.userService.getAuthHeadersSync();
-      const response = await fetch(`http://localhost:3000/api/classes/${classId}/test-auto-cancel`, {
-        method: 'POST',
-        headers: {
-          'Authorization': headers.get('Authorization') || '',
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const result = await response.json();
-      await loading.dismiss();
-      
-      if (result.success) {
-        const toast = await this.toastController.create({
-          message: `✅ "${className}" test cancelled successfully`,
-          duration: 3000,
-          color: 'success'
-        });
-        await toast.present();
-        
-        // Reload lessons to reflect the change (no skeleton since this is a user action)
-        await this.loadLessons(false);
-      } else {
-        throw new Error(result.message || 'Test failed');
-      }
-    } catch (error) {
-      await loading.dismiss();
-      console.error('Test auto-cancel error:', error);
-      
-      const toast = await this.toastController.create({
-        message: `❌ Test failed: ${error}`,
-        duration: 3000,
-        color: 'danger'
-      });
-      await toast.present();
-    }
   }
 
   private getMockAnalysisData() {
@@ -1180,7 +1361,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Get ALL upcoming lessons (not just for this date)
     const allUpcomingLessons = this.lessons
       .filter(l => {
-        if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
         const startTime = new Date(l.startTime);
         const endTime = new Date(l.endTime);
         // Include lessons that are in progress (started but not ended yet)
@@ -1439,9 +1620,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Get all lessons for the selected date
     const lessonsForDate = this.lessonsForSelectedDate();
     
-    // Filter for upcoming/active lessons
+    // Filter for upcoming/active lessons (include pending_reschedule)
     const activeLessons = lessonsForDate.filter(l => {
-      if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+      if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
       const startTime = new Date(l.startTime);
       const endTime = new Date(l.endTime);
       // Include lessons that are in progress (started but not ended yet)
@@ -1461,7 +1642,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Check if this is the actual next class across ALL dates
     const allUpcomingLessons = this.lessons
       .filter(l => {
-        if (l.status !== 'scheduled' && l.status !== 'in_progress') return false;
+        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
         const startTime = new Date(l.startTime);
         const endTime = new Date(l.endTime);
         // Include lessons that are in progress (started but not ended yet)
@@ -1513,6 +1694,10 @@ export class Tab1Page implements OnInit, OnDestroy {
     const dateTag = this.getDateTag(lessonDate);
     const isInProgress = this.isLessonInProgress(firstLesson);
     
+    // Precompute reschedule flags to avoid function calls in template
+    const isRescheduleProposer = this.isRescheduleProposer(firstLesson);
+    const rescheduleAccepted = (firstLesson as any).rescheduleProposal?.status === 'accepted';
+    
     return {
       ...student,
       lessonId: String(firstLesson._id),
@@ -1524,7 +1709,9 @@ export class Tab1Page implements OnInit, OnDestroy {
       isNextClass: isNextClass,
       isInProgress: isInProgress,
       startTime: firstLesson.startTime,
-      joinLabel: this.calculateJoinLabel(firstLesson)
+      joinLabel: this.calculateJoinLabel(firstLesson),
+      isRescheduleProposer: isRescheduleProposer,
+      rescheduleAccepted: rescheduleAccepted
     };
   }
 
@@ -1627,8 +1814,6 @@ export class Tab1Page implements OnInit, OnDestroy {
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
-    console.log('🔍 Computing timeline events. View:', this.lessonView, 'Cancelled count:', this.cancelledLessons.length);
-    
     // When showing cancelled view, show cancelled lessons
     if (this.lessonView === 'cancelled') {
       const now = new Date();
@@ -1656,10 +1841,11 @@ export class Tab1Page implements OnInit, OnDestroy {
             lesson: lesson,
             isTrialLesson: lesson.isTrialLesson || false,
             isCancelled: true,
-            cancelReason: lesson.cancelReason
+            cancelReason: lesson.cancelReason,
+            isRescheduleProposer: false,
+            rescheduleAccepted: false
           };
         });
-      console.log('✅ Returning', result.length, 'cancelled timeline events');
       return result;
     }
     
@@ -1693,6 +1879,10 @@ export class Tab1Page implements OnInit, OnDestroy {
         const isClass = (lesson as any).isClass;
         const isCancelled = lesson.status === 'cancelled';
         
+        // Precompute reschedule flags
+        const isRescheduleProposer = this.isRescheduleProposer(lesson);
+        const rescheduleAccepted = lesson.rescheduleProposal?.status === 'accepted';
+        
         return {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
@@ -1709,7 +1899,9 @@ export class Tab1Page implements OnInit, OnDestroy {
           lesson: lesson,
           isTrialLesson: lesson.isTrialLesson || false,
           isCancelled: isCancelled,
-          cancelReason: isCancelled ? lesson.cancelReason : null
+          cancelReason: isCancelled ? lesson.cancelReason : null,
+          isRescheduleProposer: isRescheduleProposer,
+          rescheduleAccepted: rescheduleAccepted
         };
       });
   }
@@ -2891,7 +3083,9 @@ navigateToLessons() {
 
   // Method to refresh user data from database
   refreshUserData() {
-    this.userService.getCurrentUser().subscribe(user => {
+    this.userService.getCurrentUser().pipe(
+      observeOn(asyncScheduler) // Make emissions async to prevent freezing
+    ).subscribe(user => {
       this.currentUser = user;
     });
   }
@@ -3014,11 +3208,15 @@ navigateToLessons() {
         text: 'Reschedule',
         icon: 'calendar-outline',
         handler: () => {
-          if (isClass) {
-            this.rescheduleClass(itemId, lesson);
-          } else {
-            this.rescheduleLesson(itemId, lesson);
-          }
+          // Return true to dismiss action sheet immediately, then handle action
+          setTimeout(() => {
+            if (isClass) {
+              this.rescheduleClass(itemId, lesson);
+            } else {
+              this.rescheduleLesson(itemId, lesson);
+            }
+          }, 100); // Wait for action sheet to fully dismiss
+          return true; // Dismiss action sheet
         }
       });
     }
@@ -3029,11 +3227,15 @@ navigateToLessons() {
         icon: 'close-circle-outline',
         role: 'destructive',
         handler: () => {
-          if (isClass) {
-            this.cancelClass(itemId, lesson);
-          } else {
-            this.cancelLesson(itemId, lesson);
-          }
+          // Return true to dismiss action sheet immediately, then handle action
+          setTimeout(() => {
+            if (isClass) {
+              this.cancelClass(itemId, lesson);
+            } else {
+              this.cancelLesson(itemId, lesson);
+            }
+          }, 100); // Wait for action sheet to fully dismiss
+          return true; // Dismiss action sheet
         }
       },
       {
@@ -3103,7 +3305,11 @@ navigateToLessons() {
       });
       await popover.present();
       const { data } = await popover.onWillDismiss();
+      
+      // Add delay after popover dismisses before opening modal to prevent freeze
       if (data) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         if (data.action === 'invite' && isClass) {
           this.inviteStudentToClass(itemId);
         } else if (data.action === 'reschedule') {
@@ -3230,37 +3436,158 @@ navigateToLessons() {
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      console.log('🟡 Creating modal...');
-      const modal = await this.modalCtrl.create({
-        component: ConfirmActionModalComponent,
-        componentProps: {
-          title: 'Reschedule Lesson',
-          message: 'Do you want to reschedule your lesson?',
-          notificationMessage: `${participantName} will be notified of this change.`,
-          confirmText: 'Reschedule',
-          cancelText: 'Cancel',
-          confirmColor: 'primary',
-          icon: 'calendar',
-          iconColor: 'primary',
-          participantName: participantName,
-          participantAvatar: participantAvatar
-        },
-        cssClass: 'confirm-action-modal'
-      });
-
-      console.log('🟡 Presenting modal...');
-      await modal.present();
-      console.log('✅ Reschedule lesson modal presented');
+      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
+      this.confirmRescheduleModalData = {
+        title: 'Reschedule Lesson',
+        message: 'Do you want to reschedule your lesson?',
+        notificationMessage: `${participantName} will be notified of this change.`,
+        confirmText: 'Reschedule',
+        cancelText: 'Cancel',
+        confirmColor: 'primary',
+        icon: 'calendar',
+        iconColor: 'primary',
+        participantName: participantName,
+        participantAvatar: participantAvatar || undefined,
+        lessonId: lessonId,
+        lesson: lesson,
+        otherParticipant: otherParticipant
+      };
       
-      const { data } = await modal.onWillDismiss();
-      if (data && data.confirmed) {
-        // Open reschedule modal with raw participant object (not formatted name)
-        // Pass the participant object so modal can format it properly
-        this.openRescheduleModal(lessonId, lesson, otherParticipant, participantAvatar);
-      }
+      this.isConfirmRescheduleModalOpen = true;
     } catch (error) {
       console.error('❌ Error opening reschedule lesson modal:', error);
     }
+  }
+  
+  // Handle confirm reschedule modal dismissal
+  onConfirmRescheduleModalDismiss(event: any) {
+    console.log('🟡 Confirm reschedule modal dismissed:', event);
+    this.isConfirmRescheduleModalOpen = false;
+    
+    const data = event.detail?.data;
+    if (data && data.confirmed && this.confirmRescheduleModalData) {
+      // Open reschedule modal with raw participant object (not formatted name)
+      const lessonId = this.confirmRescheduleModalData.lessonId;
+      const lesson = this.confirmRescheduleModalData.lesson;
+      const otherParticipant = this.confirmRescheduleModalData.otherParticipant;
+      const participantAvatar = this.confirmRescheduleModalData.participantAvatar || null;
+      
+      this.openRescheduleModal(lessonId, lesson, otherParticipant, participantAvatar);
+    }
+  }
+
+  async showRescheduleProposal(lesson: any) {
+    console.log('📅 showRescheduleProposal called for:', lesson);
+    
+    try {
+      // Get participant info
+      const isTutor = lesson.tutorId?._id === this.currentUser?.id;
+      const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+      const participantName = this.formatStudentDisplayName(otherParticipant);
+      const participantAvatar = this.getOtherParticipantAvatar(lesson);
+      
+      const proposal = lesson.rescheduleProposal;
+      if (!proposal) {
+        console.error('No reschedule proposal found');
+        return;
+      }
+
+      const proposedDate = new Date(proposal.proposedStartTime);
+      const originalDate = new Date(lesson.startTime);
+
+      // Set modal data and open inline modal (no programmatic creation = no JIT compilation delay)
+      this.rescheduleProposalModalData = {
+        lessonId: lesson._id,
+        lesson: lesson,
+        proposal: proposal,
+        participantName: participantName,
+        participantAvatar: participantAvatar || undefined,
+        proposedDate: proposedDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        proposedTime: proposedDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit' 
+        }),
+        originalDate: originalDate.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        originalTime: originalDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit' 
+        }),
+        otherParticipant: otherParticipant
+      };
+      
+      // Open the inline modal
+      this.isRescheduleProposalModalOpen = true;
+    } catch (error) {
+      console.error('❌ Error opening reschedule proposal modal:', error);
+    }
+  }
+  
+  // Handle inline reschedule proposal modal dismissal
+  onRescheduleProposalModalDismiss(event: any) {
+    console.log('📅 Reschedule proposal modal dismissed:', event);
+    this.isRescheduleProposalModalOpen = false;
+    
+    const data = event.detail?.data;
+    if (data && data.action) {
+      if (data.action === 'accepted' || data.action === 'rejected') {
+        // Force reload lessons to get updated data (bypass cache)
+        console.log('📅 [TAB1] Reschedule proposal modal dismissed, action:', data.action);
+        this._lastDataFetch = 0; // Invalidate cache to force reload
+        this.loadLessons(false);
+      } else if (data.action === 'counter' && this.rescheduleProposalModalData) {
+        // Open reschedule modal to propose a different time
+        const lesson = this.rescheduleProposalModalData.lesson;
+        const otherParticipant = this.rescheduleProposalModalData.otherParticipant;
+        const participantAvatar = this.rescheduleProposalModalData.participantAvatar || null;
+        this.openRescheduleModal(lesson._id, lesson, otherParticipant, participantAvatar, true); // Pass true for showBackButton
+      }
+    }
+  }
+
+  isRescheduleProposer(lesson: any): boolean {
+    if (!lesson?.rescheduleProposal || !this.currentUser) {
+      return false;
+    }
+    
+    const lessonId = lesson._id || lesson.lessonId;
+    const cacheKey = `${lessonId}-${lesson.rescheduleProposal.status}`;
+    
+    // Cache results for 5 seconds to avoid repeated computation during change detection
+    const now = Date.now();
+    if (now - this._rescheduleProposerCacheTime > 5000) {
+      this._rescheduleProposerCache.clear();
+      this._rescheduleProposerCacheTime = now;
+    }
+    
+    if (this._rescheduleProposerCache.has(cacheKey)) {
+      return this._rescheduleProposerCache.get(cacheKey)!;
+    }
+    
+    const proposedById = lesson.rescheduleProposal.proposedBy?._id || lesson.rescheduleProposal.proposedBy;
+    const currentUserId = this.currentUser.id;
+    
+    // Convert both to strings for comparison
+    const proposedByStr = String(proposedById);
+    const currentUserStr = String(currentUserId);
+    
+    const result = proposedByStr === currentUserStr;
+    this._rescheduleProposerCache.set(cacheKey, result);
+    return result;
+  }
+  
+  // Helper: Check if reschedule was accepted (for template)
+  isRescheduleAccepted(lesson: any): boolean {
+    return lesson?.rescheduleProposal?.status === 'accepted';
   }
 
   async cancelClass(classId: string, lesson: Lesson) {
@@ -3352,78 +3679,82 @@ navigateToLessons() {
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      console.log('🔴 Creating modal...');
-      const modal = await this.modalCtrl.create({
-        component: ConfirmActionModalComponent,
-        componentProps: {
-          title: 'Cancel Lesson',
-          message: 'Are you sure you want to cancel your lesson?',
-          notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
-          confirmText: 'Cancel Lesson',
-          cancelText: 'Keep Lesson',
-          confirmColor: 'danger',
-          icon: 'close-circle',
-          iconColor: 'danger',
-          participantName: participantName,
-          participantAvatar: participantAvatar
-        },
-        cssClass: 'confirm-action-modal'
-      });
-
-      console.log('🔴 Presenting modal...');
-      await modal.present();
-      console.log('✅ Cancel lesson modal presented');
+      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
+      this.confirmCancelModalData = {
+        title: 'Cancel Lesson',
+        message: 'Are you sure you want to cancel your lesson?',
+        notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
+        confirmText: 'Cancel Lesson',
+        cancelText: 'Keep Lesson',
+        confirmColor: 'danger',
+        icon: 'close-circle',
+        iconColor: 'danger',
+        participantName: participantName,
+        participantAvatar: participantAvatar || undefined,
+        lessonId: lessonId,
+        lesson: lesson
+      };
       
-      const { data } = await modal.onWillDismiss();
-      if (data && data.confirmed) {
-        // Show loading
-        const loading = await this.loadingController.create({
-          message: 'Cancelling lesson...',
-          spinner: 'crescent'
-        });
-        await loading.present();
-
-        try {
-          // Call the backend to cancel the lesson
-          const response = await this.lessonService.cancelLesson(lessonId).toPromise();
-          
-          await loading.dismiss();
-
-          if (response?.success) {
-            // Show success toast
-            const toast = await this.toastController.create({
-              message: 'Lesson cancelled successfully',
-              duration: 3000,
-              position: 'bottom',
-              color: 'success'
-            });
-            await toast.present();
-
-            // Reload lessons to reflect the change (no skeleton)
-            await this.loadLessons(false);
-          } else {
-            throw new Error(response?.message || 'Failed to cancel lesson');
-          }
-        } catch (error: any) {
-          await loading.dismiss();
-          console.error('❌ Error cancelling lesson:', error);
-          
-          const toast = await this.toastController.create({
-            message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
-            duration: 3000,
-            position: 'bottom',
-            color: 'danger'
-          });
-          await toast.present();
-        }
-      }
+      this.isConfirmCancelModalOpen = true;
     } catch (error) {
       console.error('❌ Error opening cancel lesson modal:', error);
     }
   }
+  
+  // Handle confirm cancel modal dismissal
+  async onConfirmCancelModalDismiss(event: any) {
+    console.log('🔴 Confirm cancel modal dismissed:', event);
+    this.isConfirmCancelModalOpen = false;
+    
+    const data = event.detail?.data;
+    if (data && data.confirmed && this.confirmCancelModalData) {
+      const lessonId = this.confirmCancelModalData.lessonId;
+      
+      // Show loading
+      const loading = await this.loadingController.create({
+        message: 'Cancelling lesson...',
+        spinner: 'crescent'
+      });
+      await loading.present();
+
+      try {
+        // Call the backend to cancel the lesson
+        const response = await this.lessonService.cancelLesson(lessonId).toPromise();
+        
+        await loading.dismiss();
+
+        if (response?.success) {
+          // Show success toast
+          const toast = await this.toastController.create({
+            message: 'Lesson cancelled successfully',
+            duration: 3000,
+            position: 'bottom',
+            color: 'success'
+          });
+          await toast.present();
+
+          // Reload lessons to reflect the change (no skeleton)
+          await this.loadLessons(false);
+        } else {
+          throw new Error(response?.message || 'Failed to cancel lesson');
+        }
+      } catch (error: any) {
+        await loading.dismiss();
+        console.error('❌ Error cancelling lesson:', error);
+        
+        const toast = await this.toastController.create({
+          message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+          duration: 3000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    }
+  }
 
   // Open reschedule modal with embedded availability calendar
-  async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null) {
+  async openRescheduleModal(lessonId: string, lesson: Lesson, participantObject: any, participantAvatar: string | null, showBackButton: boolean = false) {
     console.log('📅 Opening reschedule modal for lesson:', lessonId);
     
     // Get the other participant's ID
@@ -3457,25 +3788,40 @@ navigateToLessons() {
     // If it's a string, pass it as-is (will be formatted in modal)
     const participantNameForModal = otherParticipant || 'Student';
     
-    // Open reschedule modal
-    const modal = await this.modalCtrl.create({
-      component: RescheduleLessonModalComponent,
-      componentProps: {
-        lessonId: lessonId,
-        lesson: lesson,
-        participantId: otherParticipantId,
-        participantName: participantNameForModal, // Pass raw object/name for proper formatting
-        participantAvatar: participantAvatar,
-        currentUserId: this.currentUser.id,
-        isTutor: isTutor
-      },
-      cssClass: 'reschedule-lesson-modal'
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
-    if (data && data.rescheduled) {
+    // Set modal data and open inline modal (no programmatic creation = no JIT compilation delay)
+    this.rescheduleModalData = {
+      lessonId: lessonId,
+      lesson: lesson,
+      participantId: otherParticipantId,
+      participantName: participantNameForModal,
+      participantAvatar: participantAvatar || undefined,
+      currentUserId: this.currentUser.id,
+      isTutor: isTutor,
+      showBackButton: showBackButton
+    };
+    
+    // Open the inline modal
+    this.isRescheduleModalOpen = true;
+  }
+  
+  // Handle inline modal dismissal
+  onRescheduleModalDismiss(event: any) {
+    console.log('📅 Reschedule modal dismissed:', event);
+    this.isRescheduleModalOpen = false;
+    
+    const data = event.detail?.data;
+    
+    // Check if user wants to go back to the proposal modal
+    if (data?.goBackToProposal && this.rescheduleProposalModalData) {
+      // Re-open the proposal modal
+      setTimeout(() => {
+        this.isRescheduleProposalModalOpen = true;
+      }, 100);
+      return;
+    }
+    
+    // Check if lesson was rescheduled
+    if (data?.rescheduled) {
       // Lesson was successfully rescheduled, reload lessons (no skeleton)
       this.loadLessons(false);
     }

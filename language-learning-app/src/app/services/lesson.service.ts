@@ -21,7 +21,7 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   channelName: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'pending_reschedule';
   subject: string;
   notes?: string;
   price: number;
@@ -44,6 +44,15 @@ export interface Lesson {
   };
   createdAt: string;
   updatedAt: string;
+  
+  // Reschedule proposal tracking
+  rescheduleProposal?: {
+    proposedBy: string;
+    proposedStartTime: string;
+    proposedEndTime: string;
+    proposedAt: string;
+    status: 'pending' | 'accepted' | 'rejected';
+  };
   
   // Class-specific properties (when lesson is actually a group class)
   isClass?: boolean;
@@ -354,6 +363,23 @@ export class LessonService {
       endTime: newEndTime
     };
     return this.http.put<{ success: boolean; lesson: Lesson; message: string }>(`${this.baseUrl}/${lessonId}/reschedule`, body, { headers });
+  }
+
+  // Propose a reschedule for a lesson
+  proposeReschedule(lessonId: string, proposedStartTime: string, proposedEndTime: string): Observable<{ success: boolean; lesson: any; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const body = {
+      proposedStartTime,
+      proposedEndTime
+    };
+    return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/propose-reschedule`, body, { headers });
+  }
+
+  // Respond to a reschedule proposal
+  respondToReschedule(lessonId: string, accept: boolean): Observable<{ success: boolean; lesson: any; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const body = { accept };
+    return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/respond-reschedule`, body, { headers });
   }
 
   // Cancel a lesson

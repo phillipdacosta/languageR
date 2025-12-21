@@ -59,7 +59,16 @@ export class WebSocketService {
   private newNotificationSubject = new Subject<any>();
   public newNotification$ = this.newNotificationSubject.asObservable();
 
-  private reactionUpdatedSubject = new Subject<{ messageId: string; message: Message; conversationId: string }>();
+  private reactionUpdatedSubject = new Subject<{ 
+    messageId: string; 
+    message: Message; 
+    conversationId: string;
+    isReaction?: boolean;
+    reactorName?: string;
+    reactorId?: string;
+    emoji?: string | null;
+    messageAuthorId?: string;
+  }>();
   public reactionUpdated$ = this.reactionUpdatedSubject.asObservable();
 
   private messageDeletedSubject = new Subject<{ messageId: string; conversationId: string }>();
@@ -105,7 +114,16 @@ export class WebSocketService {
     });
 
     // Listen for reaction updates
-    this.socket.on('reaction_updated', (data: { messageId: string; message: Message; conversationId: string }) => {
+    this.socket.on('reaction_updated', (data: { 
+      messageId: string; 
+      message: Message; 
+      conversationId: string;
+      isReaction?: boolean;
+      reactorName?: string;
+      reactorId?: string;
+      emoji?: string | null;
+      messageAuthorId?: string;
+    }) => {
       console.log('🎉 Received reaction_updated:', data);
       this.reactionUpdatedSubject.next(data);
     });
@@ -234,6 +252,29 @@ export class WebSocketService {
       this.isConnected = false;
       this.connectionSubject.next(false);
     }
+  }
+
+  // Generic method to listen to any WebSocket event
+  on(eventName: string): Observable<any> {
+    return new Observable((observer) => {
+      if (!this.socket) {
+        console.warn(`⚠️ [WebSocket] Cannot listen to '${eventName}': socket not initialized`);
+        return;
+      }
+
+      const handler = (data: any) => {
+        observer.next(data);
+      };
+
+      this.socket.on(eventName, handler);
+
+      // Cleanup
+      return () => {
+        if (this.socket) {
+          this.socket.off(eventName, handler);
+        }
+      };
+    });
   }
 
   sendMessage(

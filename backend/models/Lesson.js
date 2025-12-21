@@ -26,7 +26,7 @@ const LessonSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled'], 
+    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'pending_reschedule'], 
     default: 'scheduled' 
   },
   subject: {
@@ -101,6 +101,21 @@ const LessonSchema = new mongoose.Schema({
     selectedDate: String,
     selectedTime: String,
     timeRange: String
+  },
+  // Reschedule proposal tracking
+  rescheduleProposal: {
+    proposedBy: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User'
+    },
+    proposedStartTime: Date,
+    proposedEndTime: Date,
+    proposedAt: Date,
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    }
   },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {

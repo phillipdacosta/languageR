@@ -295,3 +295,4 @@ async function migrateOldAudio() {
 
 **Next:** Create a new lesson and verify pronunciation appears with GCS audio! 🚀
 
+

@@ -95,6 +95,22 @@
           </ion-icon>
         </div>
 
+        <!-- Conversations Filter Buttons -->
+        <div class="conversations-filter-container">
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'all'"
+            (click)="setConversationsFilter('all')">
+            All
+          </button>
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'unread'"
+            (click)="setConversationsFilter('unread')">
+            Unread
+          </button>
+        </div>
+
         <!-- Loading State (only on initial load) -->
         <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
@@ -133,8 +149,19 @@
               <div class="conversation-preview-row">
                 <p class="preview-text" 
                    [class.sent-by-me]="conversation.lastMessage.senderId === getCurrentUserId()">
-                  <span *ngIf="conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
-                  {{ conversation.lastMessage.content }}
+                  <!-- For reactions, show the person's name who reacted -->
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
+                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
+                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
+                    You: {{ conversation.lastMessage.content }}
+                  </span>
+                  <!-- Regular messages with You: prefix -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
+                  <!-- Regular message content -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
+                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
@@ -144,8 +171,15 @@
           </div>
         </div>
 
+        <!-- Search Empty State -->
+        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+          <ion-icon name="search-outline" class="empty-icon"></ion-icon>
+          <p>Hmm, can't find that</p>
+          <p class="empty-hint">Try searching with a different name</p>
+        </div>
+
         <!-- Empty State -->
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <p>No conversations yet</p>
           <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
@@ -270,8 +304,8 @@
             <!-- System Message -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
               <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
-              <div class="message-bubble system-message">
-                <span class="message-text">{{ message.content }}</span>
+              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
+                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
               </div>
             </div>
@@ -603,6 +637,22 @@
           </ion-icon>
         </div>
 
+        <!-- Mobile: Conversations Filter Buttons -->
+        <div class="conversations-filter-container">
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'all'"
+            (click)="setConversationsFilter('all')">
+            All
+          </button>
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'unread'"
+            (click)="setConversationsFilter('unread')">
+            Unread
+          </button>
+        </div>
+
         <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
@@ -636,7 +686,19 @@
                 </span>
               </div>
               <div class="conversation-preview-row">
-                <p class="preview-text">{{ conversation.lastMessage.content }}</p>
+                <p class="preview-text">
+                  <!-- For reactions, show the person's name who reacted -->
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
+                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
+                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
+                    You: {{ conversation.lastMessage.content }}
+                  </span>
+                  <!-- Regular message content -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
+                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
+                </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
                 </ion-badge>
@@ -645,7 +707,14 @@
           </div>
         </div>
 
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
+        <!-- Search Empty State (Mobile) -->
+        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+          <ion-icon name="search-outline" class="empty-icon"></ion-icon>
+          <h2>Hmm, can't find that</h2>
+          <p class="empty-hint">Try searching with a different name</p>
+        </div>
+
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <h2>No messages yet</h2>
           <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>
@@ -732,8 +801,8 @@
             <!-- System Message (Mobile) -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
               <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
-              <div class="message-bubble system-message">
-                <span class="message-text">{{ message.content }}</span>
+              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
+                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
               </div>
             </div>

@@ -1,34 +1,6 @@
 <!-- home.page.html -->
-<ion-header class="custom-header" *ngIf="isMobile">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <div class="app-icon-container" (click)="router.navigate(['/tabs/home'])">
-        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
-      </div>
-    </ion-buttons>
-    <ion-buttons slot="end">
-      <ion-button fill="clear" class="notification-btn" (click)="openNotifications()">
-        <ion-icon name="notifications-outline"></ion-icon>
-        <span class="notification-dot" *ngIf="hasNotifications"></span>
-      </ion-button>
-      <ion-avatar class="header-avatar" *ngIf="currentUser">
-        <img *ngIf="currentUser.picture" [src]="currentUser.picture" alt="User Avatar" referrerpolicy="no-referrer" (error)="onAvatarError($event)" (load)="onAvatarLoad($event)">
-        <div *ngIf="!currentUser.picture" class="avatar-initial">{{ userInitial }}</div>
-      </ion-avatar>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content>
   <div class="content-wrapper">
-    
-    <!-- 🧪 DEV TEST: Auto-Cancel Button -->
-    <div style="position: fixed; bottom: 80px; right: 20px; z-index: 9999;" *ngIf="currentUser?.userType === 'tutor'">
-      <ion-button color="danger" (click)="testAutoCancelClass()" size="small" style="--box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
-        <ion-icon name="warning" slot="start"></ion-icon>
-        TEST Auto-Cancel
-      </ion-button>
-    </div>
     
     <!-- 🎨 DEV: Preview Lesson Summary Button -->
     <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;" *ngIf="currentUser?.userType === 'student'">
@@ -267,6 +239,29 @@
               <div class="trial-lesson-badge" *ngIf="nextClass.lesson?.isTrialLesson">
                 <ion-icon name="star"></ion-icon>
                 <span>TRIAL</span>
+              </div>
+              
+              <!-- Reschedule Proposal Badge -->
+              <!-- If reschedule was accepted - show for both proposer and recipient -->
+              <div class="reschedule-accepted-badge" 
+                   *ngIf="nextClass.rescheduleAccepted">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>RESCHEDULE ACCEPTED</span>
+              </div>
+              
+              <!-- If current user (tutor) proposed and waiting (and not yet accepted) -->
+              <div class="reschedule-sent-badge" 
+                   *ngIf="!nextClass.rescheduleAccepted && nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && nextClass.isRescheduleProposer">
+                <ion-icon name="hourglass-outline"></ion-icon>
+                <span>RESCHEDULE REQUEST SENT</span>
+              </div>
+              
+              <!-- If student proposed and tutor needs to respond (and not yet accepted) -->
+              <div class="reschedule-proposal-badge" 
+                   *ngIf="!nextClass.rescheduleAccepted && nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && !nextClass.isRescheduleProposer"
+                   (click)="showRescheduleProposal(nextClass.lesson); $event.stopPropagation()">
+                <ion-icon name="time"></ion-icon>
+                <span>NEW RESCHEDULE REQUEST RECEIVED - TAP TO REVIEW</span>
               </div>
             </div>
             
@@ -599,8 +594,32 @@
                 </h4>
                 <div class="timeline-trial-badge" *ngIf="event.isTrialLesson">
                   <ion-icon name="star"></ion-icon>
-                  <span>Trial</span>
+                  <span>TRIAL</span>
                 </div>
+                
+                <!-- Reschedule badges in timeline -->
+                <!-- Show accepted badge for both proposer and recipient -->
+                <div class="timeline-reschedule-accepted-badge" 
+                     *ngIf="event.rescheduleAccepted">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>RESCHEDULE REQUEST ACCEPTED</span>
+                </div>
+                
+                <!-- Show "request sent" badge only if not accepted and is proposer -->
+                <div class="timeline-reschedule-sent-badge" 
+                     *ngIf="!event.rescheduleAccepted && event.lesson?.status === 'pending_reschedule' && event.lesson?.rescheduleProposal?.status === 'pending' && event.isRescheduleProposer">
+                  <ion-icon name="hourglass-outline"></ion-icon>
+                  <span>RESCHEDULE REQUEST SENT</span>
+                </div>
+                
+                <!-- Show "new request" badge only if not accepted and is recipient -->
+                <div class="timeline-reschedule-badge" 
+                     *ngIf="!event.rescheduleAccepted && event.lesson?.status === 'pending_reschedule' && event.lesson?.rescheduleProposal?.status === 'pending' && !event.isRescheduleProposer"
+                     (click)="showRescheduleProposal(event.lesson); $event.stopPropagation()">
+                  <ion-icon name="time"></ion-icon>
+                  <span>NEW RESCHEDULE REQUEST</span>
+                </div>
+                
                 <div class="timeline-cancelled-badge" *ngIf="event.isCancelled">
                   <ion-icon name="close-circle"></ion-icon>
                   <span>Cancelled</span>
@@ -710,6 +729,22 @@
               <span class="cancel-reason" *ngIf="upcomingLesson?.cancelReason === 'minimum_not_met'"> - Insufficient enrollment</span>
             </div>
             
+            <!-- Reschedule Proposal Badge (Student View) -->
+            <!-- If current user proposed the reschedule -->
+            <div class="reschedule-sent-badge-inline" 
+                 *ngIf="upcomingLesson?.status === 'pending_reschedule' && upcomingLesson?.rescheduleProposal && isRescheduleProposer(upcomingLesson)">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <span>Reschedule request sent</span>
+            </div>
+            
+            <!-- If other user proposed the reschedule -->
+            <div class="reschedule-proposal-badge-inline" 
+                 *ngIf="upcomingLesson?.status === 'pending_reschedule' && upcomingLesson?.rescheduleProposal && !isRescheduleProposer(upcomingLesson)"
+                 (click)="showRescheduleProposal(upcomingLesson); $event.stopPropagation()">
+              <ion-icon name="time"></ion-icon>
+              <span>New reschedule request received - Tap to review</span>
+            </div>
+            
             <!-- Class Attendees (if it's a class) -->
             <app-class-attendees 
               *ngIf="upcomingLesson?.isClass && upcomingLesson?.attendees"
@@ -771,6 +806,22 @@
                 <div class="cancelled-badge-inline-small" *ngIf="additionalLesson?.status === 'cancelled'">
                   <ion-icon name="close-circle"></ion-icon>
                   <span>Cancelled</span>
+                </div>
+                
+                <!-- Reschedule Proposal Badge (Additional Lessons) -->
+                <!-- If current user proposed -->
+                <div class="reschedule-sent-badge-inline-small" 
+                     *ngIf="additionalLesson?.status === 'pending_reschedule' && additionalLesson?.rescheduleProposal && isRescheduleProposer(additionalLesson)">
+                  <ion-icon name="hourglass-outline"></ion-icon>
+                  <span>Request sent</span>
+                </div>
+                
+                <!-- If other user proposed -->
+                <div class="reschedule-proposal-badge-inline-small" 
+                     *ngIf="additionalLesson?.status === 'pending_reschedule' && additionalLesson?.rescheduleProposal && !isRescheduleProposer(additionalLesson)"
+                     (click)="showRescheduleProposal(additionalLesson); $event.stopPropagation()">
+                  <ion-icon name="time"></ion-icon>
+                  <span>New request received</span>
                 </div>
                 
                 <div class="lesson-time-small">
@@ -858,4 +909,90 @@
     </div>
 
   </div>
+
+  <!-- Inline Confirm Reschedule Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isConfirmRescheduleModalOpen" 
+    (didDismiss)="onConfirmRescheduleModalDismiss($event)"
+    cssClass="confirm-action-modal">
+    <ng-template>
+      <app-confirm-action-modal
+        *ngIf="confirmRescheduleModalData"
+        [title]="confirmRescheduleModalData.title"
+        [message]="confirmRescheduleModalData.message"
+        [notificationMessage]="confirmRescheduleModalData.notificationMessage"
+        [confirmText]="confirmRescheduleModalData.confirmText"
+        [cancelText]="confirmRescheduleModalData.cancelText"
+        [confirmColor]="confirmRescheduleModalData.confirmColor"
+        [icon]="confirmRescheduleModalData.icon"
+        [iconColor]="confirmRescheduleModalData.iconColor"
+        [participantName]="confirmRescheduleModalData.participantName"
+        [participantAvatar]="confirmRescheduleModalData.participantAvatar">
+      </app-confirm-action-modal>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Inline Confirm Cancel Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isConfirmCancelModalOpen" 
+    (didDismiss)="onConfirmCancelModalDismiss($event)"
+    cssClass="confirm-action-modal">
+    <ng-template>
+      <app-confirm-action-modal
+        *ngIf="confirmCancelModalData"
+        [title]="confirmCancelModalData.title"
+        [message]="confirmCancelModalData.message"
+        [notificationMessage]="confirmCancelModalData.notificationMessage"
+        [confirmText]="confirmCancelModalData.confirmText"
+        [cancelText]="confirmCancelModalData.cancelText"
+        [confirmColor]="confirmCancelModalData.confirmColor"
+        [icon]="confirmCancelModalData.icon"
+        [iconColor]="confirmCancelModalData.iconColor"
+        [participantName]="confirmCancelModalData.participantName"
+        [participantAvatar]="confirmCancelModalData.participantAvatar">
+      </app-confirm-action-modal>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Inline Reschedule Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isRescheduleModalOpen" 
+    (didDismiss)="onRescheduleModalDismiss($event)"
+    cssClass="reschedule-lesson-modal">
+    <ng-template>
+      <app-reschedule-lesson-modal
+        *ngIf="rescheduleModalData"
+        [lessonId]="rescheduleModalData.lessonId"
+        [lesson]="rescheduleModalData.lesson"
+        [participantId]="rescheduleModalData.participantId"
+        [participantName]="rescheduleModalData.participantName"
+        [participantAvatar]="rescheduleModalData.participantAvatar"
+        [currentUserId]="rescheduleModalData.currentUserId"
+        [isTutor]="rescheduleModalData.isTutor"
+        [showBackButton]="rescheduleModalData.showBackButton">
+      </app-reschedule-lesson-modal>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Inline Reschedule Proposal Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isRescheduleProposalModalOpen" 
+    (didDismiss)="onRescheduleProposalModalDismiss($event)"
+    cssClass="reschedule-proposal-modal">
+    <ng-template>
+      <app-reschedule-proposal-modal
+        *ngIf="rescheduleProposalModalData"
+        [lessonId]="rescheduleProposalModalData.lessonId"
+        [lesson]="rescheduleProposalModalData.lesson"
+        [proposal]="rescheduleProposalModalData.proposal"
+        [participantName]="rescheduleProposalModalData.participantName"
+        [participantAvatar]="rescheduleProposalModalData.participantAvatar"
+        [proposedDate]="rescheduleProposalModalData.proposedDate"
+        [proposedTime]="rescheduleProposalModalData.proposedTime"
+        [originalDate]="rescheduleProposalModalData.originalDate"
+        [originalTime]="rescheduleProposalModalData.originalTime">
+      </app-reschedule-proposal-modal>
+    </ng-template>
+  </ion-modal>
+
 </ion-content>

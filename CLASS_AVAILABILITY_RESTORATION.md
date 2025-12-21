@@ -208,3 +208,4 @@ cancelClass(classId: string): Observable<{ success: boolean; message: string; cl
 - `WHITEBOARD_IMPLEMENTATION_SUMMARY.md` - Class system overview
 - Backend API: `/api/classes/*` routes in `routes/classes.js`
 
+

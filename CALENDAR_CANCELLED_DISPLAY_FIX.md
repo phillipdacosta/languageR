@@ -155,3 +155,4 @@ This fix aligns the pipe logic with the current UX requirement and existing CSS 
 **User Impact**: Cancelled classes now visible with strikethrough on calendar
 **Date**: December 19, 2025
 
+

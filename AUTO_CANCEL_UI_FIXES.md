@@ -164,3 +164,4 @@ async testAutoCancelClass() {
 - [ ] WebSocket updates work in real-time
 - [ ] No page refresh needed to see changes
 
+

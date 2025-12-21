@@ -16,6 +16,7 @@ import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
+import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -82,6 +83,7 @@ interface AgendaSection {
     IonicModule, 
     FormsModule, 
     ClassAttendeesComponent,
+    BlockTimeComponent, // Preload to avoid JIT compilation freeze
     // Performance pipes
     EventsForDayPipe,
     EventsForSelectedDayPipe,
@@ -188,6 +190,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isLoadingMobileData = true; // Track loading state to prevent empty state flash
   private availabilityLoaded = false;
   private lessonsLoaded = false;
+  
+  // Inline modal state for Block Time modal
+  isBlockTimeModalOpen = false;
+  blockTimeModalData: {
+    date: Date;
+    startTime?: Date;
+    endTime?: Date;
+    durationMinutes?: number;
+  } | null = null;
   // Note: Classes load separately and update asynchronously - they don't block initial render
   
   // Computed property to check if desktop calendar is ready
@@ -2004,21 +2015,23 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   async onAddTimeOff(date?: Date, timeSlot?: TimelineEntry) {
-    const { BlockTimeComponent } = await import('../modals/block-time/block-time.component');
+    // Set modal data and open inline modal (no programmatic creation = no freeze)
+    this.blockTimeModalData = {
+      date: date || new Date(),
+      startTime: timeSlot?.start,
+      endTime: timeSlot?.end,
+      durationMinutes: timeSlot?.durationMinutes
+    };
     
-    const modal = await this.modalController.create({
-      component: BlockTimeComponent,
-      componentProps: {
-        date: date || new Date(),
-        startTime: timeSlot?.start,
-        endTime: timeSlot?.end,
-        durationMinutes: timeSlot?.durationMinutes
-      }
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
+    this.isBlockTimeModalOpen = true;
+  }
+  
+  // Handle block time modal dismissal
+  onBlockTimeModalDismiss(event: any) {
+    console.log('Block time modal dismissed:', event);
+    this.isBlockTimeModalOpen = false;
+    
+    const data = event.detail?.data;
     if (data?.success) {
       // Refresh calendar to show the new time-off block
       this.refreshCalendar();

@@ -193,6 +193,7 @@
     "CALENDAR": "Calendar",
     "MESSAGES": "Messages",
     "PROGRESS": "Progress",
+    "ANALYTICS": "Analytics",
     "PROFILE": "Profile",
     "LOGOUT": "Logout"
   },

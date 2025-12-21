@@ -27,16 +27,16 @@
         </div>
         
         <div class="week-display">
-          <h2>{{ getWeekRange() }}</h2>
+          <h2>{{ weekRangeDisplay }}</h2>
           <p class="timezone-info">
             <ion-icon name="globe-outline"></ion-icon>
-            {{ getTimezoneMessage() }}
+            {{ timezoneMessage }}
           </p>
         </div>
       </div>
 
       <!-- Duration Selector -->
-      <div class="duration-selector segmented" *ngIf="showDurationSelector && !isCurrentUserTutor()">
+      <div class="duration-selector segmented" *ngIf="showDurationSelector && !currentUserIsTutor">
         <div class="selector-header">
           <ion-icon name="hourglass-outline"></ion-icon>
           <span>Lesson Duration</span>
@@ -69,22 +69,22 @@
 
       <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
       <div class="calendar-grid" *ngIf="!isLoading">
-        <div class="day-header" *ngFor="let date of weekDates">
-          <div class="day-name">{{ daysOfWeek[getDayIndex(date)] }}</div>
-          <div class="day-number">{{ getDayNumber(date) }}</div>
+        <div class="day-header" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
+          <div class="day-name">{{ daysOfWeek[dateSlot.date.getDay()] }}</div>
+          <div class="day-number">{{ dateSlot.date.getDate() }}</div>
         </div>
-      <div class="day-slots" *ngFor="let date of weekDates">
+      <div class="day-slots" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
         <div 
           class="slot" 
-          [class.available]="!slot.booked && !slot.isPast && (!isCurrentUserTutor() || selectionMode)"
+          [class.available]="!slot.booked && !slot.isPast && (!currentUserIsTutor || selectionMode)"
           [class.booked]="slot.booked"
-          [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
+          [class.disabled]="(currentUserIsTutor && !slot.booked && !selectionMode) || slot.isPast"
           [class.past]="slot.isPast"
-          *ngFor="let slot of getSlotsForDate(date)" 
-          (click)="onSelectSlot(date, slot)">
+          *ngFor="let slot of dateSlot.slots; trackBy: trackBySlot" 
+          (click)="onSelectSlot(dateSlot.date, slot)">
           <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
-        <div class="empty" *ngIf="getSlotsForDate(date).length === 0">
+        <div class="empty" *ngIf="dateSlot.slots.length === 0">
           No times
         </div>
       </div>
@@ -124,16 +124,16 @@
       </div>
       
       <div class="week-display">
-        <h2>{{ getWeekRange() }}</h2>
+        <h2>{{ weekRangeDisplay }}</h2>
         <p class="timezone-info">
           <ion-icon name="globe-outline"></ion-icon>
-          {{ getTimezoneMessage() }}
+          {{ timezoneMessage }}
         </p>
       </div>
     </div>
 
     <!-- Duration Selector -->
-    <div class="duration-selector segmented" *ngIf="showDurationSelector && !isCurrentUserTutor()">
+    <div class="duration-selector segmented" *ngIf="showDurationSelector && !currentUserIsTutor">
       <div class="selector-header">
         <ion-icon name="hourglass-outline"></ion-icon>
         <span>Lesson Duration</span>
@@ -170,22 +170,22 @@
 
     <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
     <div class="calendar-grid" *ngIf="!isLoading">
-      <div class="day-header" *ngFor="let date of weekDates">
-        <div class="day-name">{{ daysOfWeek[getDayIndex(date)] }}</div>
-        <div class="day-number">{{ getDayNumber(date) }}</div>
+      <div class="day-header" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
+        <div class="day-name">{{ daysOfWeek[dateSlot.date.getDay()] }}</div>
+        <div class="day-number">{{ dateSlot.date.getDate() }}</div>
       </div>
-      <div class="day-slots" *ngFor="let date of weekDates">
+      <div class="day-slots" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
         <div 
           class="slot" 
-          [class.available]="!slot.booked && !slot.isPast && (!isCurrentUserTutor() || selectionMode)"
+          [class.available]="!slot.booked && !slot.isPast && (!currentUserIsTutor || selectionMode)"
           [class.booked]="slot.booked"
-          [class.disabled]="(isCurrentUserTutor() && !slot.booked && !selectionMode) || slot.isPast"
+          [class.disabled]="(currentUserIsTutor && !slot.booked && !selectionMode) || slot.isPast"
           [class.past]="slot.isPast"
-          *ngFor="let slot of getSlotsForDate(date)" 
-          (click)="onSelectSlot(date, slot)">
+          *ngFor="let slot of dateSlot.slots; trackBy: trackBySlot" 
+          (click)="onSelectSlot(dateSlot.date, slot)">
           <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
         </div>
-        <div class="empty" *ngIf="getSlotsForDate(date).length === 0">
+        <div class="empty" *ngIf="dateSlot.slots.length === 0">
           No times
         </div>
       </div>

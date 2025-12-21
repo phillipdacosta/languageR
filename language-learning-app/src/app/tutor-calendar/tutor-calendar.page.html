@@ -536,6 +536,14 @@
                          [class.short-event]="(event | eventHeight) < 45"
                          [class.compact-event]="(event | eventHeight) < 30"
                          (click)="handleEventClick(event)">
+                      
+                      <!-- Trial badge for trial lessons -->
+                      <div class="calendar-trial-badge" 
+                           *ngIf="event.extendedProps?.isTrialLesson">
+                        <ion-icon name="star"></ion-icon>
+                        <span class="trial-tooltip">Trial lesson</span>
+                      </div>
+                      
                       <div class="event-header">
                         <!-- First row: Time and duration (left aligned) -->
                         <div class="event-time-row">
@@ -618,6 +626,7 @@
                        [class.short-event]="(event | eventHeight) < 45"
                        [class.compact-event]="(event | eventHeight) < 30"
                        (click)="handleEventClick(event)">
+                    
                     <div class="event-header">
                       <!-- First row: Time and duration (left aligned) -->
                       <div class="event-time-row">
@@ -630,7 +639,13 @@
                              [src]="event.studentAvatar" 
                              class="event-avatar" 
                              alt="Student avatar">
-                        <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
+                        <div class="event-title" *ngIf="!event.isAvailability">
+                          {{ event.studentName }}
+                          <!-- Inline trial badge for day view -->
+                          <span class="calendar-trial-inline" *ngIf="event.extendedProps?.isTrialLesson">
+                            <ion-icon name="star"></ion-icon> Trial
+                          </span>
+                        </div>
                         <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
                       </div>
                     </div>
@@ -679,3 +694,18 @@
     </div>
   </ng-template>
 </ion-content>
+
+<!-- Inline Block Time Modal (declarative, no programmatic creation) -->
+<ion-modal 
+  [isOpen]="isBlockTimeModalOpen" 
+  (didDismiss)="onBlockTimeModalDismiss($event)">
+  <ng-template>
+    <app-block-time
+      *ngIf="blockTimeModalData"
+      [date]="blockTimeModalData.date"
+      [startTime]="blockTimeModalData.startTime"
+      [endTime]="blockTimeModalData.endTime"
+      [durationMinutes]="blockTimeModalData.durationMinutes">
+    </app-block-time>
+  </ng-template>
+</ion-modal>
