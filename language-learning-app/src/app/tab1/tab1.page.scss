@@ -2347,19 +2347,24 @@ ion-content {
 }
 
 // Next Class Text Section (No Card)
-// Next Class Card - Refined Design
+// Next Class Card - Clean Apple-Inspired Design
 .next-class-card {
   margin-bottom: 24px;
-  border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.04);
   animation: fadeInUp 0.4s ease-out;
   overflow: visible;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.04);
+  }
   
   @media (max-width: 600px) {
     margin-bottom: 20px;
-    border-radius: 16px;
+    border-radius: 20px;
   }
   
   ion-card-content {
@@ -2379,10 +2384,10 @@ ion-content {
 }
 
 .card-inner {
-  padding: 20px;
+  padding: 24px;
   
   @media (max-width: 600px) {
-    padding: 16px;
+    padding: 20px;
   }
 }
 
@@ -2390,88 +2395,95 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
   
   @media (max-width: 600px) {
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 10px;
+    margin-bottom: 16px;
   }
 
   .badge-row-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
+    
+    @media (max-width: 600px) {
+      gap: 10px;
+    }
   }
 }
 
 .class-menu-btn {
-  --padding-start: 4px;
-  --padding-end: 4px;
-  --color: #6b7280;
+  --padding-start: 6px;
+  --padding-end: 6px;
+  --color: #86868b;
+  --background: transparent;
+  --background-hover: #f5f5f7;
   margin: 0;
-  height: 32px;
-  width: 32px;
+  height: 36px;
+  width: 36px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
   
   &:hover {
-    --color: #374151;
-    background: rgba(0, 0, 0, 0.04);
+    --color: #1d1d1f;
+    transform: scale(1.05);
   }
   
   ion-icon {
-    font-size: 20px;
+    font-size: 22px;
   }
 }
 
 .next-class-badge {
   display: inline-flex;
   align-items: center;
-  background: #111827;
+  background: #1d1d1f;
   color: #ffffff;
-  padding: 7px 16px;
+  padding: 8px 18px;
   border-radius: 100px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(29, 29, 31, 0.2);
   
   &.cancelled-badge {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ff3b30 0%, #d32f2f 100%);
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
   }
   
   @media (max-width: 600px) {
-    padding: 6px 14px;
+    padding: 7px 16px;
     font-size: 11px;
+    letter-spacing: 0.6px;
   }
 }
 
 .trial-lesson-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
+  gap: 6px;
+  background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
   color: #ffffff;
-  padding: 2px 5px;
+  padding: 7px 16px;
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(255, 165, 0, 0.3);
-  position: relative;
-  top: 30px;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
   
   ion-icon {
     font-size: 14px;
   }
   
   @media (max-width: 600px) {
-    padding: 6px 12px;
+    padding: 6px 14px;
     font-size: 10px;
     
     ion-icon {
@@ -2644,26 +2656,31 @@ ion-content {
 }
 
 .student-avatar {
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
-  border: 2px solid #f3f4f6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 3px solid #f5f5f7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   
   @media (max-width: 600px) {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
+    border-width: 2px;
   }
   
   .avatar-placeholder-icon {
-    font-size: 40px;
-    color: #94a3b8;
+    font-size: 42px;
+    color: #86868b;
     width: 100%;
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%);
+    
+    @media (max-width: 600px) {
+      font-size: 36px;
+    }
   }
   
   img {
