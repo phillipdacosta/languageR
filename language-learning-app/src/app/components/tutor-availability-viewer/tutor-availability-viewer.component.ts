@@ -898,7 +898,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return;
     }
     
-    // If in selection mode, emit event for parent component to handle
+    // If in selection mode, emit event and dismiss modal
     if (this.selectionMode) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -911,15 +911,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         selectedTime: slot.time
       });
       
-      // Only dismiss modal if this component itself is NOT inline (i.e., it was opened as a standalone modal)
-      // If inline=true, it's embedded in another component (like reschedule modal) and shouldn't dismiss anything
-      if (!this.inline) {
-        this.modalController.dismiss({
-          selectedDate: dateString,
-          selectedTime: slot.time,
-          lessonMinutes: this.selectedDuration
-        });
-      }
+      // Try to dismiss modal - this will work if opened as a modal, silently fail if embedded inline
+      this.modalController.dismiss({
+        selectedDate: dateString,
+        selectedTime: slot.time,
+        lessonMinutes: this.selectedDuration
+      });
       
       return;
     }
