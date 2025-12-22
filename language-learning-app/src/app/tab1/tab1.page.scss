@@ -2379,10 +2379,10 @@ ion-content {
 }
 
 .card-inner {
-  padding: 20px 24px;
+  padding: 18px 22px;
   
   @media (max-width: 600px) {
-    padding: 18px 20px;
+    padding: 16px 18px;
   }
 }
 
@@ -2392,12 +2392,12 @@ ion-content {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
   
   @media (max-width: 600px) {
     gap: 8px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
 
   .badge-row-left {
@@ -2489,7 +2489,7 @@ ion-content {
   gap: 6px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #ffffff;
-  padding: 4px 12px;
+  padding: 7px 16px;
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
@@ -2499,9 +2499,6 @@ ion-content {
   cursor: pointer;
   transition: all 0.3s ease;
   animation: pulse 2s infinite;
-  position: relative;
-  bottom: 8px;
-  left: 120px;
   
   &:hover {
     transform: translateY(-2px);
@@ -2514,9 +2511,8 @@ ion-content {
   }
   
   @media (max-width: 600px) {
-    padding: 6px 12px;
+    padding: 6px 14px;
     font-size: 10px;
-    left: 0;
     
     ion-icon {
       font-size: 13px;
@@ -2530,7 +2526,7 @@ ion-content {
   gap: 6px;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: #ffffff;
-  padding: 4px 12px;
+  padding: 7px 16px;
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
@@ -2538,9 +2534,6 @@ ion-content {
   text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
   cursor: default;
-  position: relative;
-  left: 120px;
-  bottom: 8px;
   
   ion-icon {
     font-size: 14px;
@@ -2548,9 +2541,8 @@ ion-content {
   }
   
   @media (max-width: 600px) {
-    padding: 6px 12px;
+    padding: 6px 14px;
     font-size: 10px;
-    left: 0;
     
     ion-icon {
       font-size: 13px;
@@ -2564,7 +2556,7 @@ ion-content {
   gap: 6px;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
-  padding: 4px 12px;
+  padding: 7px 16px;
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
@@ -2572,18 +2564,14 @@ ion-content {
   text-transform: uppercase;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
   cursor: default;
-  position: relative;
-  bottom: 8px;
-  left: 120px;
   
   ion-icon {
     font-size: 14px;
   }
   
   @media (max-width: 600px) {
-    padding: 6px 12px;
+    padding: 6px 14px;
     font-size: 10px;
-    left: 0;
     
     ion-icon {
       font-size: 13px;
