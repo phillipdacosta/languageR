@@ -334,6 +334,23 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     });
   }
 
+  // Format name as "FirstName LastInitial."
+  formatStudentName(fullName: string): string {
+    if (!fullName) return '';
+    
+    const nameParts = fullName.trim().split(' ');
+    if (nameParts.length === 0) return '';
+    
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    
+    if (lastName) {
+      return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+    }
+    
+    return firstName;
+  }
+  
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
     console.log('🔍 [Schedule Class] Opening availability picker with user:', currentUser);
