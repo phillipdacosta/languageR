@@ -2539,6 +2539,21 @@ ion-content {
         color: #007aff;
       }
     }
+    
+    // Prominent time styling
+    &.meta-time {
+      background: rgba(0, 122, 255, 0.08);
+      padding: 5px 10px;
+      border-radius: 8px;
+      color: #1d1d1f;
+      font-weight: 600;
+      font-size: 16px;
+      
+      ion-icon {
+        color: #007aff;
+        font-size: 17px;
+      }
+    }
   }
   
   .meta-divider {
@@ -2550,8 +2565,19 @@ ion-content {
     font-size: 14px;
     gap: 7px;
     
-    .meta-text ion-icon {
-      font-size: 15px;
+    .meta-text {
+      ion-icon {
+        font-size: 15px;
+      }
+      
+      &.meta-time {
+        font-size: 15px;
+        padding: 4px 9px;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+      }
     }
   }
 }
