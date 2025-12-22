@@ -4,6 +4,11 @@
   --padding-start: 0;
   --padding-end: 0;
   --background: #ffffff;
+  height: 100%;
+  
+  .scroll-content {
+    height: 100%;
+  }
 }
 
 // Floating close button (top-right)
