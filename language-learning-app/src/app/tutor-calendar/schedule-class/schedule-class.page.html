@@ -358,8 +358,8 @@
                   </div>
                 </ion-avatar>
                 <div class="student-info">
-                  <div class="student-name">{{ formatStudentName(student.name) }}</div>
-                  <div class="student-type">{{ student.userType || 'student' }}</div>
+                  <div class="student-name">{{ student.name }}</div>
+                  <div class="student-type">Student</div>
                 </div>
                 <div class="checkbox" [class.checked]="isStudentSelected(student._id)">
                   <ion-icon *ngIf="isStudentSelected(student._id)" name="checkmark"></ion-icon>

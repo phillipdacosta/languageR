@@ -285,9 +285,31 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
                 
                 const studentId = student._id?.toString() || student._id;
                 if (studentId && !studentMap.has(studentId)) {
+                  // Format display name as "FirstName LastInitial."
+                  let displayName = student.name || student.email || 'Unknown';
+                  
+                  // Try to use firstName and lastName if available
+                  if (student.firstName) {
+                    const firstName = student.firstName;
+                    const lastName = student.lastName || '';
+                    displayName = lastName 
+                      ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+                      : firstName;
+                  } else if (student.name) {
+                    // Parse from full name
+                    const nameParts = student.name.trim().split(' ');
+                    if (nameParts.length > 1) {
+                      const firstName = nameParts[0];
+                      const lastName = nameParts[nameParts.length - 1];
+                      displayName = `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+                    } else {
+                      displayName = student.name;
+                    }
+                  }
+                  
                   studentMap.set(studentId, {
                     _id: studentId,
-                    name: student.name || 'Unknown',
+                    name: displayName,
                     email: student.email || '',
                     picture: student.picture,
                     userType: 'student'
@@ -319,7 +341,6 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
               studentName: (l.studentId as any)?.name
             })));
           }
-          
           // Sort by name
           this.students.sort((a, b) => a.name.localeCompare(b.name));
         } else {
@@ -332,23 +353,6 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
         this.loadingStudents = false;
       }
     });
-  }
-
-  // Format name as "FirstName LastInitial."
-  formatStudentName(fullName: string): string {
-    if (!fullName) return '';
-    
-    const nameParts = fullName.trim().split(' ');
-    if (nameParts.length === 0) return '';
-    
-    const firstName = nameParts[0];
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-    
-    if (lastName) {
-      return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
-    }
-    
-    return firstName;
   }
   
   async openAvailabilityPicker() {
