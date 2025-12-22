@@ -44,6 +44,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() tutorAuth0Id?: string;
   // When true, allow tutors to select from their own availability (for scheduling classes)
   @Input() selectionMode = false;
+  // When true, dismiss modal on slot selection (for programmatically opened modals)
+  @Input() dismissOnSelect = false;
   // Student's busy time slots - filter these out when showing availability
   @Input() studentBusySlots?: Set<string>;
   // When true, show duration selector (only on tutor profile page)
@@ -898,7 +900,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return;
     }
     
-    // If in selection mode, emit event and dismiss modal
+    // If in selection mode, emit event and optionally dismiss modal
     if (this.selectionMode) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -911,12 +913,14 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         selectedTime: slot.time
       });
       
-      // Try to dismiss modal - this will work if opened as a modal, silently fail if embedded inline
-      this.modalController.dismiss({
-        selectedDate: dateString,
-        selectedTime: slot.time,
-        lessonMinutes: this.selectedDuration
-      });
+      // Only dismiss modal if dismissOnSelect is true (for programmatically opened modals)
+      if (this.dismissOnSelect) {
+        this.modalController.dismiss({
+          selectedDate: dateString,
+          selectedTime: slot.time,
+          lessonMinutes: this.selectedDuration
+        });
+      }
       
       return;
     }

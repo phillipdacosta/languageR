@@ -373,6 +373,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
         tutorAuth0Id: currentUser.auth0Id,
         inline: true,  // Use inline mode
         selectionMode: true,  // Enable selection mode for own availability
+        dismissOnSelect: true,  // Dismiss modal when slot is selected
         showDurationSelector: false, // Don't show duration selector (we set it from form)
         selectedDuration: selectedDuration // Pass the selected duration from form
       },
