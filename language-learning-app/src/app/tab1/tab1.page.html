@@ -317,7 +317,7 @@
             <!-- Action Section -->
             <div class="class-actions" *ngIf="lessonView === 'upcoming'">
               <div class="time-info">
-                <span class="starts-label">Starts in</span>
+                <span class="starts-label">{{ nextClass.isInProgress ? 'Started' : 'Starts in' }}</span>
                 <span class="starts-value">{{ getTimeUntilLesson(nextClass.lesson) }}</span>
               </div>
               <ion-button 

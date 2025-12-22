@@ -1746,6 +1746,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   // Get time until lesson starts (e.g., "55 minutes", "2h 30m")
+  // Or elapsed time if already started (e.g., "5m ago", "1h 15m ago")
   getTimeUntilLesson(lesson: any): string {
     if (!lesson) return '';
     
@@ -1753,10 +1754,28 @@ export class Tab1Page implements OnInit, OnDestroy {
     const startTime = new Date(lesson.startTime);
     const diffMs = startTime.getTime() - now.getTime();
     
+    // If lesson has started, show elapsed time
     if (diffMs < 0) {
-      return 'now';
+      const elapsedMs = Math.abs(diffMs);
+      const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
+      const hours = Math.floor(elapsedMinutes / 60);
+      const minutes = elapsedMinutes % 60;
+      
+      if (hours > 0) {
+        if (minutes > 0) {
+          return `${hours}h ${minutes}m ago`;
+        }
+        return `${hours}h ago`;
+      }
+      
+      if (minutes === 0) {
+        return 'just now';
+      }
+      
+      return `${minutes}m ago`;
     }
     
+    // Lesson hasn't started yet
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
