@@ -2572,7 +2572,7 @@ ion-content {
 .class-actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   background: #f5f5f7;
   padding: 14px 16px;
@@ -2597,8 +2597,8 @@ ion-content {
 .time-info {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
+  align-items: center;
+  text-align: center;
   
   @media (max-width: 768px) {
     align-items: flex-start;
