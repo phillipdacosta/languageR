@@ -147,6 +147,13 @@ export class Tab1Page implements OnInit, OnDestroy {
     otherParticipant: any;
   } | null = null;
   
+  // Inline modal state for class invitation modal
+  isClassInvitationModalOpen = false;
+  classInvitationModalData: {
+    classId: string;
+    notification?: any;
+  } | null = null;
+  
   // Inline modal state for confirm action modal (cancel)
   isConfirmCancelModalOpen = false;
   confirmCancelModalData: {
@@ -729,18 +736,20 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
 
   async openClassInvitation(classId: string, notification?: any) {
-    const modal = await this.modalCtrl.create({
-      component: ClassInvitationModalComponent,
-      componentProps: {
-        classId,
-        notification
-      },
-      cssClass: 'class-invitation-modal'
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
+    // Use inline modal instead of programmatic modal to prevent freezing
+    this.classInvitationModalData = {
+      classId,
+      notification
+    };
+    this.isClassInvitationModalOpen = true;
+  }
+  
+  // Handle inline class invitation modal dismissal
+  onClassInvitationModalDismiss(event: any) {
+    console.log('📧 Class invitation modal dismissed:', event);
+    this.isClassInvitationModalOpen = false;
+    
+    const data = event.detail?.data;
     if (data?.accepted || data?.declined) {
       // Reload invitations and lessons to reflect the change (no skeleton if already loaded)
       this.loadPendingInvitations();

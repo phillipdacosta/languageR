@@ -995,4 +995,18 @@
     </ng-template>
   </ion-modal>
 
+  <!-- Inline Class Invitation Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isClassInvitationModalOpen" 
+    (didDismiss)="onClassInvitationModalDismiss($event)"
+    cssClass="class-invitation-modal">
+    <ng-template>
+      <app-class-invitation-modal
+        *ngIf="classInvitationModalData"
+        [classId]="classInvitationModalData.classId"
+        [notification]="classInvitationModalData.notification">
+      </app-class-invitation-modal>
+    </ng-template>
+  </ion-modal>
+
 </ion-content>

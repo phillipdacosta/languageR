@@ -39,7 +39,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   
   // Pricing properties
   readonly STANDARD_LESSON_DURATION = 50; // Base duration for tutor rates (50 minutes, not 60)
-  readonly PLATFORM_FEE_PERCENTAGE = 30; // 15% platform fee
+  readonly PLATFORM_FEE_PERCENTAGE = 20; // 20% platform fee - competitive and fair
   tutorStandardRate: number = 25; // Tutor's rate for a standard 50-minute lesson
   suggestedPrice: number = 0;
   currentUser: any = null;
@@ -371,7 +371,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
         tutorName: currentUser.name || 'You',
         currentUserAuth0Id: currentUser.auth0Id,
         tutorAuth0Id: currentUser.auth0Id,
-        inline: false,
+        inline: true,  // Use inline mode
         selectionMode: true,  // Enable selection mode for own availability
         showDurationSelector: false, // Don't show duration selector (we set it from form)
         selectedDuration: selectedDuration // Pass the selected duration from form
@@ -799,18 +799,21 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     const baseRate = this.tutorStandardRate;
     const durationNum = Number(duration);
     const durationMultiplier = durationNum / this.STANDARD_LESSON_DURATION; // Divide by 50, not 60
-    const groupDiscount = 0.7; // 30% off per student (was 40% - too aggressive)
+    const groupDiscount = 0.80; // 20% off per student (better reward for tutors)
+    const groupRewardMultiplier = 1.10; // 10% bonus for managing group dynamics
     const levelMultiplier = levelMultipliers[level] || 1.0;
 
-    // Calculate: standardRate * (duration/50) * groupDiscount * levelMultiplier
+    // Calculate: standardRate * (duration/50) * groupDiscount * groupRewardMultiplier * levelMultiplier
     this.suggestedPrice = Math.round(
-      baseRate * durationMultiplier * groupDiscount * levelMultiplier * 100
+      baseRate * durationMultiplier * groupDiscount * groupRewardMultiplier * levelMultiplier * 100
     ) / 100;
 
     console.log('💰 Calculated suggested price:', {
       baseRate,
       duration,
       level,
+      groupDiscount,
+      groupRewardMultiplier,
       suggestedPrice: this.suggestedPrice
     });
   }

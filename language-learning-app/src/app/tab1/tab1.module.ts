@@ -11,6 +11,7 @@ import { DisplayNamePipe } from '../pipes/display-name.pipe';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
+import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -27,7 +28,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     // Import standalone modal components to preload and compile them
     ConfirmActionModalComponent,
     RescheduleLessonModalComponent,
-    RescheduleProposalModalComponent
+    RescheduleProposalModalComponent,
+    ClassInvitationModalComponent
   ],
   declarations: [Tab1Page]
 })
