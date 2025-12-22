@@ -1,27 +1,21 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Group Class Invitation</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="close()">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+<ion-content class="ion-padding class-invitation-content">
+  <!-- Floating close button (always visible) -->
+  <ion-button class="floating-close-button" fill="clear" (click)="close()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
 
-<ion-content class="ion-padding">
   <!-- Loading State -->
   <div class="loading-container" *ngIf="loading">
-    <ion-spinner></ion-spinner>
+    <ion-spinner name="crescent"></ion-spinner>
     <p>Loading class details...</p>
   </div>
 
   <!-- Class Details -->
-  <div class="invitation-details" *ngIf="!loading && classData">
-    <!-- Tutor Info -->
+  <div class="invitation-container" *ngIf="!loading && classData">
+    <!-- Tutor Info Banner -->
     <div class="tutor-section">
       <ion-avatar class="tutor-avatar">
-        <img *ngIf="classData.tutorId.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" />
+        <img *ngIf="classData.tutorId.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" referrerpolicy="no-referrer" />
         <ion-icon *ngIf="!classData.tutorId.picture" name="person" class="avatar-placeholder"></ion-icon>
       </ion-avatar>
       <div class="tutor-info">
@@ -30,76 +24,99 @@
       </div>
     </div>
 
-    <!-- Class Info Card -->
-    <ion-card class="class-card">
-      <ion-card-content>
-        <h2 class="class-title">{{ classData.name }}</h2>
-        
-        <div class="detail-row">
+    <!-- Class Title -->
+    <h1 class="class-title">{{ classData.name }}</h1>
+
+    <!-- Class Details -->
+    <div class="class-details">
+      <!-- Date -->
+      <div class="detail-item">
+        <div class="detail-icon">
           <ion-icon name="calendar-outline"></ion-icon>
-          <span>{{ formattedDate }}</span>
         </div>
-        
-        <div class="detail-row">
+        <div class="detail-content">
+          <p class="detail-label">Date</p>
+          <p class="detail-value">{{ formattedDate }}</p>
+        </div>
+      </div>
+
+      <!-- Time -->
+      <div class="detail-item">
+        <div class="detail-icon">
           <ion-icon name="time-outline"></ion-icon>
-          <span>{{ formattedTime }} ({{ duration }} minutes)</span>
         </div>
-        
-        <div class="detail-row description-row" *ngIf="classData.description">
+        <div class="detail-content">
+          <p class="detail-label">Time</p>
+          <p class="detail-value">{{ formattedTime }} ({{ duration }} minutes)</p>
+        </div>
+      </div>
+
+      <!-- Capacity -->
+      <div class="detail-item">
+        <div class="detail-icon">
+          <ion-icon name="people-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Class Size</p>
+          <p class="detail-value">
+            {{ classData.confirmedStudents.length }} of {{ classData.capacity }} students
+            <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Price -->
+      <div class="detail-item">
+        <div class="detail-icon">
+          <ion-icon [name]="classData.price === 0 ? 'gift-outline' : 'cash-outline'"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Price</p>
+          <p class="detail-value" *ngIf="classData.price > 0">${{ classData.price }}</p>
+          <p class="detail-value free-text" *ngIf="classData.price === 0">Free Class</p>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="detail-item description-item" *ngIf="classData.description">
+        <div class="detail-icon">
           <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">About this class</p>
           <div class="description-content" [innerHTML]="sanitizedDescription"></div>
         </div>
-        
-        <div class="detail-row">
-          <ion-icon name="people-outline"></ion-icon>
-          <span>
-            {{ classData.confirmedStudents.length }} of {{ classData.capacity }} students joined
-            <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
-          </span>
-        </div>
-        
-        <div class="detail-row" *ngIf="classData.price > 0">
-          <ion-icon name="cash-outline"></ion-icon>
-          <span>${{ classData.price }}</span>
-        </div>
-        
-        <div class="detail-row" *ngIf="classData.price === 0">
-          <ion-icon name="gift-outline"></ion-icon>
-          <span class="free-badge">Free Class</span>
-        </div>
-      </ion-card-content>
-    </ion-card>
-
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-      <ion-button 
-        expand="block" 
-        color="success" 
-        size="large"
-        [disabled]="processing || spotsLeft === 0"
-        (click)="acceptInvitation()">
-        <ion-icon name="checkmark-circle" slot="start"></ion-icon>
-        {{ spotsLeft === 0 ? 'Class is Full' : 'Accept & Join' }}
-      </ion-button>
-      
-      <ion-button 
-        expand="block" 
-        fill="outline" 
-        color="medium"
-        size="large"
-        [disabled]="processing"
-        (click)="declineInvitation()">
-        <ion-icon name="close-circle" slot="start"></ion-icon>
-        Decline
-      </ion-button>
+      </div>
     </div>
   </div>
 
   <!-- Error State -->
   <div class="error-container" *ngIf="!loading && !classData">
     <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
-    <p>Unable to load class invitation details</p>
-    <ion-button fill="outline" (click)="close()">Close</ion-button>
+    <h3>Unable to Load Class</h3>
+    <p>We couldn't load the class invitation details. Please try again.</p>
   </div>
 </ion-content>
 
+<!-- Footer with Action Buttons (sticky at bottom) -->
+<ion-footer *ngIf="!loading && classData">
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline"
+        [disabled]="processing"
+        (click)="declineInvitation()">
+        Decline
+      </ion-button>
+      <ion-button 
+        expand="block"
+        color="primary"
+        [disabled]="processing || spotsLeft === 0"
+        (click)="acceptInvitation()">
+        <ion-spinner *ngIf="processing" name="crescent" slot="start"></ion-spinner>
+        <span *ngIf="!processing">{{ spotsLeft === 0 ? 'Class is Full' : 'Accept & Join' }}</span>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

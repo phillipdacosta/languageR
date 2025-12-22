@@ -613,40 +613,35 @@ ion-modal.reschedule-proposal-modal {
   }
 }
 
-// Class Invitation Modal Content Styles (same clean design as reschedule modals)
+// Class Invitation Modal - Larger size for better readability
 ion-modal.class-invitation-modal {
+  --width: 90%;
+  --max-width: 700px;
+  --height: auto;
+  --max-height: 90vh;
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: 95%;
+    --border-radius: 16px;
+  }
+  
   app-class-invitation-modal {
     display: flex;
     flex-direction: column;
     height: 100%;
-
-    ion-header {
-      ion-toolbar {
-        --background: transparent;
-        --border-width: 0;
-        padding: 16px 8px 8px 8px;
-      }
-
-      .close-button {
-        --background: #f5f5f7;
-        --background-hover: #e8e8ed;
-        --border-radius: 50%;
-        --color: #86868b;
-        --padding-start: 0;
-        --padding-end: 0;
-        width: 32px;
-        height: 32px;
-        margin: 0;
-      }
-    }
+    overflow: hidden;
 
     ion-content {
       flex: 1;
       --background: #ffffff;
-      --padding-top: 0;
-      --padding-bottom: 32px;
-      --padding-start: 32px;
-      --padding-end: 32px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
     }
   }
 }

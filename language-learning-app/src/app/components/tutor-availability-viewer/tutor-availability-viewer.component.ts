@@ -898,25 +898,28 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return;
     }
     
-    // If in selection mode, emit event AND dismiss modal with data
+    // If in selection mode, emit event for parent component to handle
     if (this.selectionMode) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       
-      // Emit event for parent component to handle (for inline usage)
+      // Emit event for parent component to handle (for inline usage in modals like reschedule)
       this.slotSelected.emit({
         selectedDate: dateString,
         selectedTime: slot.time
       });
       
-      // Always dismiss modal with data when in selection mode
-      this.modalController.dismiss({
-        selectedDate: dateString,
-        selectedTime: slot.time,
-        lessonMinutes: this.selectedDuration
-      });
+      // Only dismiss modal if this component itself is NOT inline (i.e., it was opened as a standalone modal)
+      // If inline=true, it's embedded in another component (like reschedule modal) and shouldn't dismiss anything
+      if (!this.inline) {
+        this.modalController.dismiss({
+          selectedDate: dateString,
+          selectedTime: slot.time,
+          lessonMinutes: this.selectedDuration
+        });
+      }
       
       return;
     }

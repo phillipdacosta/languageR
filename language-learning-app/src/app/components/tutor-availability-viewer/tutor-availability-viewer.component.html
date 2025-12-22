@@ -106,104 +106,102 @@
   </ion-content>
 </ng-container>
 
-<!-- Inline rendering (for modals) -->
+<!-- Inline rendering (for modals and page embeds) - no ion-content wrapper -->
 <ng-template #inlineTpl>
-  <ion-content class="availability-inline-content">
-    <div class="availability-container">
-      <!-- Header Controls -->
-      <div class="header-controls">
-        <div class="week-navigation">
-          <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="goToToday()">
-            Today
-          </ion-button>
-          <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </ion-button>
-        </div>
-        
-        <div class="week-display">
-          <h2>{{ weekRangeDisplay }}</h2>
-          <p class="timezone-info">
-            <ion-icon name="globe-outline"></ion-icon>
-            {{ timezoneMessage }}
-          </p>
-        </div>
+  <div class="availability-container">
+    <!-- Header Controls -->
+    <div class="header-controls">
+      <div class="week-navigation">
+        <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" size="small" (click)="goToToday()">
+          Today
+        </ion-button>
+        <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </ion-button>
       </div>
-
-      <!-- Duration Selector -->
-      <div class="duration-selector segmented" *ngIf="showDurationSelector && !currentUserIsTutor">
-        <div class="selector-header">
-          <ion-icon name="hourglass-outline"></ion-icon>
-          <span>Lesson Duration</span>
-        </div>
-        <div class="segmented-control">
-          <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
-            <ion-icon name="flash"></ion-icon>
-            <span class="label">Quick</span>
-            <span class="time">25 min</span>
-          </button>
-          <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
-            <ion-icon name="book"></ion-icon>
-            <span class="label">Deep</span>
-            <span class="time">50 min</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Legend -->
-      <div class="legend">
-        <div class="legend-item">
-          <span class="legend-swatch available"></span>
-          <span>Available</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-swatch unavailable"></span>
-          <span>Not available</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-swatch booked"></span>
-          <span>Booked</span>
-        </div>
-      </div>
-
-      <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
-      <div class="calendar-grid" *ngIf="!isLoading">
-        <div class="day-header" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
-          <div class="day-name">{{ daysOfWeek[dateSlot.date.getDay()] }}</div>
-          <div class="day-number">{{ dateSlot.date.getDate() }}</div>
-        </div>
-        <div class="day-slots" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
-          <div 
-            class="slot" 
-            [class.available]="!slot.booked && !slot.isPast && (!currentUserIsTutor || selectionMode)"
-            [class.booked]="slot.booked"
-            [class.disabled]="(currentUserIsTutor && !slot.booked && !selectionMode) || slot.isPast"
-            [class.past]="slot.isPast"
-            *ngFor="let slot of dateSlot.slots; trackBy: trackBySlot" 
-            (click)="onSelectSlot(dateSlot.date, slot)">
-            <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
-          </div>
-          <div class="empty" *ngIf="dateSlot.slots.length === 0">
-            No times
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div class="loading-container" *ngIf="isLoading">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading availability...</p>
-      </div>
-
-      <!-- No Availability -->
-      <div class="no-availability" *ngIf="!isLoading && availability.length === 0">
-        <ion-icon name="calendar-outline"></ion-icon>
-        <h3>No availability set</h3>
-        <p>This tutor hasn't set their availability yet.</p>
+      
+      <div class="week-display">
+        <h2>{{ weekRangeDisplay }}</h2>
+        <p class="timezone-info">
+          <ion-icon name="globe-outline"></ion-icon>
+          {{ timezoneMessage }}
+        </p>
       </div>
     </div>
-  </ion-content>
+
+    <!-- Duration Selector -->
+    <div class="duration-selector segmented" *ngIf="showDurationSelector && !currentUserIsTutor">
+      <div class="selector-header">
+        <ion-icon name="hourglass-outline"></ion-icon>
+        <span>Lesson Duration</span>
+      </div>
+      <div class="segmented-control">
+        <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
+          <ion-icon name="flash"></ion-icon>
+          <span class="label">Quick</span>
+          <span class="time">25 min</span>
+        </button>
+        <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
+          <ion-icon name="book"></ion-icon>
+          <span class="label">Deep</span>
+          <span class="time">50 min</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-swatch available"></span>
+        <span>Available</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch unavailable"></span>
+        <span>Not available</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-swatch booked"></span>
+        <span>Booked</span>
+      </div>
+    </div>
+
+    <!-- Calendar Grid: Columns per day, variable-height lists of available slots -->
+    <div class="calendar-grid" *ngIf="!isLoading">
+      <div class="day-header" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
+        <div class="day-name">{{ daysOfWeek[dateSlot.date.getDay()] }}</div>
+        <div class="day-number">{{ dateSlot.date.getDate() }}</div>
+      </div>
+      <div class="day-slots" *ngFor="let dateSlot of weekDateSlots; trackBy: trackByDate">
+        <div 
+          class="slot" 
+          [class.available]="!slot.booked && !slot.isPast && (!currentUserIsTutor || selectionMode)"
+          [class.booked]="slot.booked"
+          [class.disabled]="(currentUserIsTutor && !slot.booked && !selectionMode) || slot.isPast"
+          [class.past]="slot.isPast"
+          *ngFor="let slot of dateSlot.slots; trackBy: trackBySlot" 
+          (click)="onSelectSlot(dateSlot.date, slot)">
+          <span [class.crossed-out]="slot.booked || slot.isPast">{{ slot.label }}</span>
+        </div>
+        <div class="empty" *ngIf="dateSlot.slots.length === 0">
+          No times
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading availability...</p>
+    </div>
+
+    <!-- No Availability -->
+    <div class="no-availability" *ngIf="!isLoading && availability.length === 0">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <h3>No availability set</h3>
+      <p>This tutor hasn't set their availability yet.</p>
+    </div>
+  </div>
 </ng-template>
