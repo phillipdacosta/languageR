@@ -537,3 +537,24 @@
     </form>
   </div>
 </ion-content>
+
+<!-- Inline Availability Picker Modal -->
+<ion-modal 
+  [isOpen]="isAvailabilityPickerOpen" 
+  (didDismiss)="onAvailabilityPickerDismiss($event)"
+  cssClass="availability-picker-modal">
+  <ng-template>
+    <app-tutor-availability-viewer
+      *ngIf="availabilityPickerProps"
+      [tutorId]="availabilityPickerProps.tutorId"
+      [tutorName]="availabilityPickerProps.tutorName"
+      [currentUserAuth0Id]="availabilityPickerProps.currentUserAuth0Id"
+      [tutorAuth0Id]="availabilityPickerProps.tutorAuth0Id"
+      [inline]="availabilityPickerProps.inline"
+      [selectionMode]="availabilityPickerProps.selectionMode"
+      [dismissOnSelect]="availabilityPickerProps.dismissOnSelect"
+      [showDurationSelector]="availabilityPickerProps.showDurationSelector"
+      [selectedDuration]="availabilityPickerProps.selectedDuration">
+    </app-tutor-availability-viewer>
+  </ng-template>
+</ion-modal>

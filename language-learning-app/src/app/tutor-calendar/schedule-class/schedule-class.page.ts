@@ -355,6 +355,10 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     });
   }
   
+  // Availability picker modal state
+  isAvailabilityPickerOpen = false;
+  availabilityPickerProps: any = null;
+
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
     console.log('🔍 [Schedule Class] Opening availability picker with user:', currentUser);
@@ -377,7 +381,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       ? Number(this.form.value.duration) 
       : 25; // Default to 25
 
-    console.log('📅 [Schedule Class] Creating modal with props:', {
+    console.log('📅 [Schedule Class] Setting modal props:', {
       tutorId: currentUser.id,
       tutorName: currentUser.name || 'You',
       currentUserAuth0Id: currentUser.auth0Id,
@@ -385,25 +389,28 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       selectedDuration
     });
 
-    const modal = await this.modalController.create({
-      component: TutorAvailabilityViewerComponent,
-      componentProps: {
-        tutorId: currentUser.id,
-        tutorName: currentUser.name || 'You',
-        currentUserAuth0Id: currentUser.auth0Id,
-        tutorAuth0Id: currentUser.auth0Id,
-        inline: true,  // Use inline mode
-        selectionMode: true,  // Enable selection mode for own availability
-        dismissOnSelect: true,  // Dismiss modal when slot is selected
-        showDurationSelector: false, // Don't show duration selector (we set it from form)
-        selectedDuration: selectedDuration // Pass the selected duration from form
-      },
-      cssClass: 'availability-picker-modal'
-    });
+    // Set props for inline modal
+    this.availabilityPickerProps = {
+      tutorId: currentUser.id,
+      tutorName: currentUser.name || 'You',
+      currentUserAuth0Id: currentUser.auth0Id,
+      tutorAuth0Id: currentUser.auth0Id,
+      inline: true,
+      selectionMode: true,
+      dismissOnSelect: true,
+      showDurationSelector: false,
+      selectedDuration: selectedDuration
+    };
 
-    await modal.present();
+    // Open inline modal
+    this.isAvailabilityPickerOpen = true;
+  }
+
+  onAvailabilityPickerDismiss(event: any) {
+    console.log('📅 Availability picker dismissed:', event);
+    this.isAvailabilityPickerOpen = false;
     
-    const { data } = await modal.onWillDismiss();
+    const data = event.detail?.data;
     if (data?.selectedDate && data?.selectedTime) {
       // Fill in the form with the selected date/time
       this.form.patchValue({
