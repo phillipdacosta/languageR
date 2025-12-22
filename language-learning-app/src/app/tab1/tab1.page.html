@@ -288,7 +288,7 @@
                   <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }}</span>
                 </span>
                 <span class="meta-divider">·</span>
-                <span class="meta-text">
+                <span class="meta-text" [class.is-today]="nextClass.isToday">
                   <ion-icon name="calendar-outline"></ion-icon>
                   {{ nextClass.isToday ? 'Today' : nextClass.dateTag }}
                 </span>
