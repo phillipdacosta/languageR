@@ -613,18 +613,26 @@ ion-modal.reschedule-proposal-modal {
   }
 }
 
-// Class Invitation Modal - Larger size for better readability
+// Class Invitation Modal - Compact size to show all content without scrolling
 ion-modal.class-invitation-modal {
   --width: 90%;
-  --max-width: 700px;
+  --max-width: 650px;
   --height: auto;
-  --max-height: 90vh;
+  --max-height: 85vh;
   --border-radius: 20px;
   
   @media (max-width: 768px) {
     --width: 95%;
     --max-width: 95%;
+    --max-height: 90vh;
     --border-radius: 16px;
+  }
+  
+  .modal-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    max-height: 85vh;
   }
   
   app-class-invitation-modal {
@@ -635,9 +643,8 @@ ion-modal.class-invitation-modal {
 
     ion-content {
       flex: 1;
+      min-height: 0;
       --background: #ffffff;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
     }
 
     ion-footer {

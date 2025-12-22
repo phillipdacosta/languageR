@@ -1,4 +1,4 @@
-<ion-content class="ion-padding class-invitation-content">
+<ion-content class="class-invitation-content">
   <!-- Floating close button (always visible) -->
   <ion-button class="floating-close-button" fill="clear" (click)="close()">
     <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -15,12 +15,12 @@
     <!-- Tutor Info Banner -->
     <div class="tutor-section">
       <ion-avatar class="tutor-avatar">
-        <img *ngIf="classData.tutorId.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" referrerpolicy="no-referrer" />
-        <ion-icon *ngIf="!classData.tutorId.picture" name="person" class="avatar-placeholder"></ion-icon>
+        <img *ngIf="classData.tutorId?.picture" [src]="classData.tutorId.picture" [alt]="classData.tutorId.name" referrerpolicy="no-referrer" />
+        <ion-icon *ngIf="!classData.tutorId?.picture" name="person" class="avatar-placeholder"></ion-icon>
       </ion-avatar>
       <div class="tutor-info">
         <p class="tutor-label">Instructor</p>
-        <h3 class="tutor-name">{{ classData.tutorId.name }}</h3>
+        <h3 class="tutor-name">{{ classData.tutorId?.name || 'Unknown' }}</h3>
       </div>
     </div>
 
@@ -59,7 +59,7 @@
         <div class="detail-content">
           <p class="detail-label">Class Size</p>
           <p class="detail-value">
-            {{ classData.confirmedStudents.length }} of {{ classData.capacity }} students
+            {{ classData.confirmedStudents?.length || 0 }} of {{ classData.capacity }} students
             <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
           </p>
         </div>
