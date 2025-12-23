@@ -411,8 +411,8 @@
               </ion-icon>
             </div>
             <div class="tag-list" [class.expanded]="tagsExpanded">
-              <div class="tag-item" [style.border-left-color]="'#10b981'">
-                <div class="tag-color" style="background-color: #10b981;"></div>
+              <div class="tag-item" [style.border-left-color]="'#01140e2a'">
+                <div class="tag-color" style="background-color: #01140e2a;"></div>
                 <span>Your availability</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#3b82f6'">
@@ -626,16 +626,6 @@
                        [class.short-event]="(event | eventHeight) < 45"
                        [class.compact-event]="(event | eventHeight) < 30"
                        (click)="handleEventClick(event)">
-                    
-                    <!-- Hover Tooltip (only for lessons/classes, not availability) -->
-                    <div class="event-hover-tooltip" *ngIf="!event.isAvailability">
-                      <div class="tooltip-title">{{ event.isClass ? (event.extendedProps?.className || 'Class') : event.studentName }}</div>
-                      <div class="tooltip-time">{{ event | eventTime }}</div>
-                      <div class="tooltip-subject" *ngIf="event.extendedProps?.subject">{{ event.extendedProps?.subject }}</div>
-                      <div class="tooltip-trial" *ngIf="event.extendedProps?.isTrialLesson">
-                        <ion-icon name="star"></ion-icon> Trial Lesson
-                      </div>
-                    </div>
                     
                     <div class="event-header">
                       <!-- First row: Time and duration (left aligned) -->
