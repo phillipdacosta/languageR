@@ -38,6 +38,9 @@ export class EventsForDayPipe implements PipeTransform {
       // If not cancelled, always include
       if (!isCancelled) return true;
       
+      // Log cancelled events
+      console.log('📅 [PIPE] Found cancelled event:', event.title, 'at', new Date(event.start as any).toLocaleString());
+      
       // If cancelled, check for overlapping active or newer cancelled events
       const eventStart = new Date(event.start as any).getTime();
       const eventEnd = new Date(event.end as any).getTime();
@@ -58,10 +61,16 @@ export class EventsForDayPipe implements PipeTransform {
         if (!overlaps) return false;
         
         // If other event is active (non-cancelled), this cancelled event should be hidden
-        if (!otherIsCancelled) return true;
+        if (!otherIsCancelled) {
+          console.log('  ❌ Hiding cancelled event because of overlapping active event:', otherEvent.title);
+          return true;
+        }
         
         // If both are cancelled, hide the older one (show the more recent)
-        if (otherIsCancelled && otherCreatedAt > eventCreatedAt) return true;
+        if (otherIsCancelled && otherCreatedAt > eventCreatedAt) {
+          console.log('  ❌ Hiding cancelled event because of newer cancelled event:', otherEvent.title);
+          return true;
+        }
         
         // If both created at same time, use event ID as tiebreaker (consistent sorting)
         if (otherIsCancelled && otherCreatedAt === eventCreatedAt) {
@@ -74,7 +83,9 @@ export class EventsForDayPipe implements PipeTransform {
       });
       
       // Only include cancelled event if it doesn't have an overlapping conflict
-      return !hasOverlappingConflict;
+      const shouldShow = !hasOverlappingConflict;
+      console.log('  ', shouldShow ? '✅ SHOWING' : '❌ HIDING', 'cancelled event');
+      return shouldShow;
     });
     
     return filteredEvents.map(event => {
