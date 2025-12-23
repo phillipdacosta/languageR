@@ -53,6 +53,13 @@ export class EventsForDayPipe implements PipeTransform {
         const otherIsCancelled = otherProps.isCancelled === true;
         const otherCreatedAt = new Date(otherEvent.extendedProps?.createdAt || otherEvent.start).getTime();
         
+        // Check if other event is availability - availability blocks should NOT hide cancelled events
+        const otherIsAvailability = otherProps.type === 'availability' || otherProps.type === 'available';
+        if (otherIsAvailability) {
+          console.log('  ℹ️ Ignoring overlapping availability block');
+          return false; // Availability blocks don't hide cancelled events
+        }
+        
         const otherStart = new Date(otherEvent.start as any).getTime();
         const otherEnd = new Date(otherEvent.end as any).getTime();
         
