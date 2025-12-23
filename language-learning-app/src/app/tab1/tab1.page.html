@@ -312,7 +312,7 @@
             
             <!-- Menu button -->
             <ion-button 
-              *ngIf="isMobile && !nextClass.isInProgress && lessonView !== 'cancelled'"
+              *ngIf="isMobile && !nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'"
               fill="clear" 
               size="small" 
               class="menu-button"
@@ -321,7 +321,7 @@
             </ion-button>
             
             <ion-button 
-              *ngIf="!isMobile && !nextClass.isInProgress && lessonView !== 'cancelled'"
+              *ngIf="!isMobile && !nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'"
               [id]="'next-class-menu-' + nextClass.lesson._id"
               fill="clear" 
               size="small" 
@@ -330,7 +330,7 @@
             </ion-button>
             
             <ion-popover 
-              *ngIf="!isMobile && !nextClass.isInProgress && lessonView !== 'cancelled'"
+              *ngIf="!isMobile && !nextClass.isInProgress && nextClass.lesson?.status !== 'cancelled'"
               [trigger]="'next-class-menu-' + nextClass.lesson._id"
               triggerAction="click"
               side="start"
