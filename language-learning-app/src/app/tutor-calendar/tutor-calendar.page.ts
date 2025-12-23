@@ -2792,6 +2792,12 @@ When enabled:
     const dayEnd = new Date(day.date);
     dayEnd.setHours(23, 59, 59, 999);
     
+    // Log all events for debugging
+    if (day.dayNumber === 23 || day.dayNumber === 24) {
+      console.log(`🔍 [DAY-${day.dayNumber}] Checking ${this.events.length} total events`);
+      console.log(`🔍 [DAY-${day.dayNumber}] Date range:`, dayStart, 'to', dayEnd);
+    }
+    
     const filteredEvents = this.events.filter(event => {
       if (!event.start) return false;
       const eventStart = new Date(event.start as any);
@@ -2802,13 +2808,17 @@ When enabled:
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isLesson = extendedProps.lessonId || extendedProps.lesson || extendedProps.classId;
       
-      // Debug logging for first day
-      if (day.dayNumber === 23 && isAvailability) {
-        console.log('🟢 [AVAIL-DEBUG] Found availability event:', {
+      // Debug logging for first couple days
+      if (day.dayNumber === 23 || day.dayNumber === 24) {
+        console.log(`  📌 Event: start=${eventStart.toISOString()}, type=${extendedProps.type}, isInRange=${isInRange}, isAvail=${isAvailability}, isLesson=${isLesson}`);
+      }
+      
+      if (isInRange && isAvailability) {
+        console.log('🟢 [AVAIL-FOUND] Day', day.dayNumber, '- Found availability event:', {
           title: event.title,
           type: extendedProps.type,
           start: eventStart,
-          isInRange
+          end: event.end
         });
       }
       
@@ -2831,6 +2841,10 @@ When enabled:
         end: new Date(event.end as any)
       };
     });
+    
+    if (day.dayNumber === 23 || day.dayNumber === 24) {
+      console.log(`✅ [DAY-${day.dayNumber}] Returning ${filteredEvents.length} events`);
+    }
     
     return filteredEvents;
   }
