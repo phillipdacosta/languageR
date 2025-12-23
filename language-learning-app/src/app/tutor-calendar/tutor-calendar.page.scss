@@ -1646,8 +1646,9 @@ ion-content {
   
   &.availability-event {
     border-left: none; // No border
-    background: rgba(16, 185, 129, 0.2); // Solid green background
+    background: #0bb9800f; // Light green background
     cursor: default; // Not clickable
+    pointer-events: none; // Disable all interactions
     
     // Hide all text content
     .event-header,
@@ -1657,12 +1658,6 @@ ion-content {
     .event-info-row,
     .event-avatar {
       display: none !important;
-    }
-    
-    &:hover {
-      background: rgba(16, 185, 129, 0.25); // Slightly darker on hover
-      box-shadow: none;
-      transform: none; // Don't lift on hover
     }
   }
   
