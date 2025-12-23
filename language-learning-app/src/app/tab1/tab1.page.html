@@ -582,8 +582,8 @@
                 </ion-button>
               </div>
             </div>
-                <!-- Join button for first timeline card -->
-                <div class="timeline-join-button" *ngIf="first && event.lesson">
+                <!-- Join button for first timeline card (hide if cancelled) -->
+                <div class="timeline-join-button" *ngIf="first && event.lesson && !event.isCancelled">
                   <ion-button 
                     fill="solid"
                     size="small" 
