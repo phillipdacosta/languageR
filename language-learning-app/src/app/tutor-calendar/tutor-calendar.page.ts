@@ -561,7 +561,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Build timeline in temporary variable to avoid flashing
     const timeline = this.buildDayEntries(dayStart, dayEnd);
     
-    // Filter to show lessons and classes (exclude free time slots, generic availability blocks, and cancelled events)
+    // Filter to show lessons and classes (exclude free time slots and generic availability blocks)
     // Lessons have subtitles/avatarUrls, Classes have specific titles
     const timelineEvents = timeline.filter(item => {
       if (item.type !== 'event') return false;
@@ -569,10 +569,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === 'Open time slot';
-      // Exclude cancelled events from mobile day view
-      const isCancelled = item.isCancelled === true;
-      // Show ALL events (past and future) - don't filter by time, but exclude cancelled
-      return !isGenericAvailability && !isFreeSlot && !isCancelled;
+      // Show ALL events including cancelled ones
+      return !isGenericAvailability && !isFreeSlot;
     });
     
     console.log('📱 [DAY-VIEW] Timeline events:', {
