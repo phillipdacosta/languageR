@@ -1113,6 +1113,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private loadClasses(tutorId: string) {
+    console.log('📚 [LOAD-CLASSES] loadClasses() called with tutorId:', tutorId);
+    
     this.classService.getClassesForTutor(tutorId).subscribe({
       next: (response) => {
         console.log('📚 [LOAD-CLASSES] Backend response:', response);
