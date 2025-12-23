@@ -20,13 +20,14 @@ export class EventsForDayPipe implements PipeTransform {
       const eventStart = new Date(event.start as any);
       const isInRange = eventStart >= dayStart && eventStart <= dayEnd;
       
-      // ONLY show actual lessons/classes, NOT availability blocks
+      // Show lessons, classes, AND availability blocks (experiment)
       const extendedProps = (event.extendedProps || {}) as any;
-      const isAvailability = extendedProps.type === 'availability';
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isLesson = extendedProps.lessonId || extendedProps.lesson;
       const isClass = extendedProps.classId || extendedProps.isClass;
       
-      return isInRange && !isAvailability && (isLesson || isClass);
+      // Include availability blocks as well as lessons/classes
+      return isInRange && (isLesson || isClass || isAvailability);
     });
     
     // Second pass: filter out cancelled events that overlap with active OR newer cancelled events
@@ -79,15 +80,20 @@ export class EventsForDayPipe implements PipeTransform {
     return filteredEvents.map(event => {
       const extendedProps = (event.extendedProps || {}) as any;
       
-      // Check if it's a class or a lesson
+      // Check if it's availability, class, or lesson
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isClass = extendedProps.isClass || extendedProps.classId;
       
-      // For classes, use class name and thumbnail
-      // For lessons, use student name and avatar
+      // For availability: show "Available"
+      // For classes: use class name and thumbnail
+      // For lessons: use student name and avatar
       let displayName = '';
       let avatar = '';
       
-      if (isClass) {
+      if (isAvailability) {
+        displayName = '';
+        avatar = '';
+      } else if (isClass) {
         displayName = extendedProps.className || event.title || 'Class';
         avatar = extendedProps.classThumbnail || '';
       } else {
@@ -98,10 +104,10 @@ export class EventsForDayPipe implements PipeTransform {
       
       return {
         ...event,
-        title: event.title || 'Untitled Event',
+        title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
         studentName: displayName,
         studentAvatar: avatar,
-        isAvailability: false,
+        isAvailability: isAvailability,
         isClass: isClass,
         start: new Date(event.start as any),
         end: new Date(event.end as any)
