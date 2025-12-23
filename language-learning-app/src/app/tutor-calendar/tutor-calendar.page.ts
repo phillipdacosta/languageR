@@ -1115,7 +1115,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private loadClasses(tutorId: string) {
     this.classService.getClassesForTutor(tutorId).subscribe({
       next: (response) => {
+        console.log('📚 [LOAD-CLASSES] Backend response:', response);
+        
         if (response.success && response.classes) {
+          // Log all classes including cancelled ones
+          console.log('📚 [LOAD-CLASSES] Total classes received:', response.classes.length);
+          response.classes.forEach((cls: any) => {
+            console.log(`  - ${cls.name}: status=${cls.status}, startTime=${cls.startTime}, cancelled=${cls.status === 'cancelled'}`);
+          });
+          
           // Clear and update classes map
           this.classesMap.clear();
           response.classes.forEach((cls: any) => {
@@ -1148,9 +1156,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 classData: cls,
                 isCancelled: isCancelled,
                 cancelReason: cls.cancelReason,
-                status: cls.status
+                status: cls.status,
+                createdAt: cls.createdAt // Include createdAt for overlap logic
               }
             } as EventInput;
+          });
+          
+          console.log('📚 [LOAD-CLASSES] Created class events:', classEvents.length);
+          classEvents.forEach(evt => {
+            console.log(`  - ${evt.title}: cancelled=${evt.extendedProps?.isCancelled}, start=${evt.start}`);
           });
           
           // Filter out ALL class events (from availability AND from previous loads)
@@ -1162,6 +1176,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Merge new class events
           this.events = [...nonClassEvents, ...classEvents];
+          
+          console.log('📚 [LOAD-CLASSES] Total events after merge:', this.events.length);
           
           // Rebuild mobile views
           if (this.isMobileView) {
