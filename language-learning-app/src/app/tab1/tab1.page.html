@@ -219,11 +219,11 @@
     </ion-card>
 
     <!-- Next Class Info Card - Show upcoming or cancelled based on active tab -->
-    <ion-card class="next-class-card" *ngIf="isTutor() && !isLoadingLessons && (lessonView === 'upcoming' ? firstLessonForSelectedDate : firstCancelledLesson)">
+    <ion-card class="next-class-card" *ngIf="isTutor() && !isLoadingLessons && (lessonView === 'upcoming' ? nextLesson : firstCancelledLesson)">
       <!-- Hidden reference to countdownTick to trigger change detection -->
       <span style="display: none;">{{ countdownTick }}</span>
       <ion-card-content>
-        <div class="card-inner" *ngIf="(lessonView === 'upcoming' ? firstLessonForSelectedDate : firstCancelledLesson) as nextClass">
+        <div class="card-inner" *ngIf="(lessonView === 'upcoming' ? nextLesson : firstCancelledLesson) as nextClass">
           
           <!-- Compact Layout: Avatar | Info | Time/Action -->
           <div class="next-class-layout">
@@ -385,38 +385,12 @@
       </ion-card-content>
     </ion-card>
 
-    <!-- Empty State: No Classes Today / No More Classes Today / No Cancelled Classes -->
-    <div class="next-class-empty-state" *ngIf="isTutor() && !isLoadingLessons && lessonView === 'upcoming' && !firstLessonForSelectedDate">
+    <!-- Empty State: No Upcoming Classes at All -->
+    <div class="next-class-empty-state" *ngIf="isTutor() && !isLoadingLessons && lessonView === 'upcoming' && !nextLesson">
       <div class="empty-state-content">
         <ion-icon name="calendar-outline" class="empty-state-icon"></ion-icon>
-        
-        <!-- Case 1: Had lessons earlier today, but no more -->
-        <h3 class="empty-state-title" *ngIf="hadLessonsEarlierToday()">No more classes today</h3>
-        
-        <!-- Case 2: No lessons at all today -->
-        <ng-container *ngIf="!hadLessonsEarlierToday()">
-          <h3 class="empty-state-title" *ngIf="getNextLessonInfo() && getNextLessonInfo()?.dayText === 'today'">Your next class is today</h3>
-          <h3 class="empty-state-title" *ngIf="!getNextLessonInfo() || getNextLessonInfo()?.dayText !== 'today'">No lessons today</h3>
-        </ng-container>
-        
-        <!-- Subtitle for Case 1: Had lessons earlier -->
-        <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday() && getNextLessonInfo()">
-          Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
-        </p>
-        <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday() && !getNextLessonInfo()">
-          You don't have any more lessons scheduled for today.
-        </p>
-        
-        <!-- Subtitle for Case 2: No lessons today at all -->
-        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo() && getNextLessonInfo()?.dayText !== 'today'">
-          Your next lesson is <strong>{{ getNextLessonInfo()?.dayText }}</strong> at <strong>{{ getNextLessonInfo()?.time }}</strong>
-        </p>
-        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && getNextLessonInfo() && getNextLessonInfo()?.dayText === 'today'">
-          Your class starts at <strong>{{ getNextLessonInfo()?.time }}</strong>
-        </p>
-        <p class="empty-state-subtitle" *ngIf="!hadLessonsEarlierToday() && !getNextLessonInfo()">
-          You don't have any lessons scheduled yet.
-        </p>
+        <h3 class="empty-state-title">No upcoming lessons</h3>
+        <p class="empty-state-subtitle">You don't have any lessons scheduled yet.</p>
         
         <ion-button 
           fill="outline" 

@@ -1578,7 +1578,24 @@ export class Tab1Page implements OnInit, OnDestroy {
     return completedLessonsToday.length > 0;
   }
 
-  // Get first lesson for the selected date (cached for performance)
+  // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
+  get nextLesson(): any | null {
+    // Create a hash of the inputs to detect changes
+    const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const currentHash = `next:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    
+    // Return cached value if inputs haven't changed
+    if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
+      return this._cachedFirstLesson;
+    }
+    
+    // Compute and cache the result
+    this._cachedFirstLessonHash = currentHash;
+    this._cachedFirstLesson = this.computeNextLesson();
+    return this._cachedFirstLesson;
+  }
+
+  // Get first lesson for the selected date (cached for performance) - used for timeline
   get firstLessonForSelectedDate(): any | null {
     // Create a hash of the inputs to detect changes
     const selectedDateStr = this.selectedDate ? this.selectedDate.toISOString() : 'null';
@@ -1612,6 +1629,93 @@ export class Tab1Page implements OnInit, OnDestroy {
       isInProgress: false,
       isNextClass: false,
       dateTag: this.formatClassDate(cancelledLesson.startTime)
+    };
+  }
+  
+  // Internal method to compute the absolute next lesson (regardless of date)
+  private computeNextLesson(): any | null {
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    
+    // Get ALL upcoming/active lessons (across all dates)
+    const allUpcomingLessons = this.lessons
+      .filter(l => {
+        if (l.status !== 'scheduled' && l.status !== 'in_progress' && l.status !== 'pending_reschedule') return false;
+        const startTime = new Date(l.startTime);
+        const endTime = new Date(l.endTime);
+        // Include lessons that are in progress (started but not ended yet)
+        if (startTime <= now && now < endTime) {
+          return true;
+        }
+        // Include lessons that haven't started yet (upcoming)
+        return startTime > now;
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    
+    if (allUpcomingLessons.length === 0) {
+      return null;
+    }
+    
+    const nextLesson = allUpcomingLessons[0];
+    const lessonDate = new Date(nextLesson.startTime);
+    const lessonDay = this.startOfDay(lessonDate);
+    const isToday = lessonDay.getTime() === today.getTime();
+    
+    // Handle both classes and regular lessons
+    let student: any = null;
+    if ((nextLesson as any).isClass) {
+      // For classes, show class info
+      student = {
+        id: String(nextLesson._id),
+        name: (nextLesson as any).className || nextLesson.subject || 'Class',
+        profilePicture: 'assets/avatar.png',
+        email: '',
+        rating: 0,
+        isClass: true
+      };
+    } else if (nextLesson.studentId && typeof nextLesson.studentId === 'object') {
+      // For regular lessons, show student info
+      const studentData = nextLesson.studentId as any;
+      // Build full name from firstName and lastName if available, otherwise use name field
+      let fullName = studentData.name || studentData.email;
+      if (studentData.firstName && studentData.lastName) {
+        fullName = `${studentData.firstName} ${studentData.lastName}`;
+      } else if (studentData.firstName) {
+        fullName = studentData.firstName;
+      }
+      
+      student = {
+        id: studentData._id,
+        name: fullName,
+        firstName: studentData.firstName,
+        lastName: studentData.lastName,
+        profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
+        email: studentData.email,
+        rating: studentData.rating || 4.5,
+      };
+    }
+    
+    const dateTag = this.getDateTag(lessonDate);
+    const isInProgress = this.isLessonInProgress(nextLesson);
+    
+    // Precompute reschedule flags to avoid function calls in template
+    const isRescheduleProposer = this.isRescheduleProposer(nextLesson);
+    const rescheduleAccepted = (nextLesson as any).rescheduleProposal?.status === 'accepted';
+    
+    return {
+      ...student,
+      lessonId: String(nextLesson._id),
+      lesson: nextLesson,
+      lessonTime: this.formatLessonTime(nextLesson),
+      subject: this.formatSubject(nextLesson.subject),
+      dateTag: dateTag,
+      isToday: isToday,
+      isNextClass: true, // This is always the next class
+      isInProgress: isInProgress,
+      startTime: nextLesson.startTime,
+      joinLabel: this.calculateJoinLabel(nextLesson),
+      isRescheduleProposer: isRescheduleProposer,
+      rescheduleAccepted: rescheduleAccepted
     };
   }
   
@@ -1826,8 +1930,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Create a hash of the inputs to detect changes
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}`).join(',');
-    const firstLessonId = this.firstLessonForSelectedDate?.lessonId || 'null';
-    const currentHash = `${lessonsHash}:${cancelledHash}:${firstLessonId}:${this.lessonView}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const nextLessonId = this.nextLesson?.lessonId || 'null';
+    const currentHash = `${lessonsHash}:${cancelledHash}:${nextLessonId}:${this.lessonView}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedTimelineEventsHash === currentHash && this._cachedTimelineEvents.length >= 0) {
@@ -1882,8 +1986,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
     
-    // Get the next class being shown in the card section (if tutor view)
-    const nextClassLesson = this.isTutor() ? this.firstLessonForSelectedDate : null;
+    // Get the next class being shown in the "Up Next" card (if tutor view)
+    const nextClassLesson = this.isTutor() ? this.nextLesson : null;
     // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
@@ -1894,7 +1998,7 @@ export class Tab1Page implements OnInit, OnDestroy {
       .filter(lesson => {
         // Exclude if it's in the past
         if (new Date(lesson.startTime) <= now) return false;
-        // Exclude if it's the next class being shown in the card section
+        // Exclude if it's the next class being shown in the "Up Next" card
         if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
         return true;
       })
@@ -1939,8 +2043,8 @@ export class Tab1Page implements OnInit, OnDestroy {
     const now = new Date();
     const futureLessons = allLessons.filter(lesson => new Date(lesson.startTime) > now);
     
-    // Get the next class being shown in the card
-    const nextClassLesson = this.isTutor() ? this.firstLessonForSelectedDate : null;
+    // Get the next class being shown in the "Up Next" card
+    const nextClassLesson = this.isTutor() ? this.nextLesson : null;
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
@@ -3950,12 +4054,15 @@ navigateToLessons() {
    * Tabs only appear if the NEXT CLASS itself is cancelled
    */
   hasCancelledLessons(): boolean {
-    // Only show tabs if the first lesson (NEXT CLASS) is cancelled
-    // If a lesson in timeline is cancelled, it stays there with badges
-    if (!this.firstLessonForSelectedDate || !this.firstLessonForSelectedDate.lesson) {
-      return false;
+    // Show tabs if we have cancelled lessons OR if the next lesson is cancelled
+    if (this.cancelledLessons && this.cancelledLessons.length > 0) {
+      return true;
     }
-    return this.firstLessonForSelectedDate.lesson.status === 'cancelled';
+    // Also check if the next lesson shown in the "Up Next" card is cancelled
+    if (this.nextLesson && this.nextLesson.lesson && this.nextLesson.lesson.status === 'cancelled') {
+      return true;
+    }
+    return false;
   }
 
 }
