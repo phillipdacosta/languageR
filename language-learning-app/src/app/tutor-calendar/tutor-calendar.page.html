@@ -537,6 +537,16 @@
                          [class.compact-event]="(event | eventHeight) < 30"
                          (click)="handleEventClick(event)">
                       
+                      <!-- Hover Tooltip (only for lessons/classes, not availability) -->
+                      <div class="event-hover-tooltip" *ngIf="!event.isAvailability">
+                        <div class="tooltip-title">{{ event.isClass ? (event.extendedProps?.className || 'Class') : event.studentName }}</div>
+                        <div class="tooltip-time">{{ event | eventTime }}</div>
+                        <div class="tooltip-subject" *ngIf="event.extendedProps?.subject">{{ event.extendedProps?.subject }}</div>
+                        <div class="tooltip-trial" *ngIf="event.extendedProps?.isTrialLesson">
+                          <ion-icon name="star"></ion-icon> Trial Lesson
+                        </div>
+                      </div>
+                      
                       <!-- Trial badge for trial lessons -->
                       <div class="calendar-trial-badge" 
                            *ngIf="event.extendedProps?.isTrialLesson">
@@ -626,6 +636,16 @@
                        [class.short-event]="(event | eventHeight) < 45"
                        [class.compact-event]="(event | eventHeight) < 30"
                        (click)="handleEventClick(event)">
+                    
+                    <!-- Hover Tooltip (only for lessons/classes, not availability) -->
+                    <div class="event-hover-tooltip" *ngIf="!event.isAvailability">
+                      <div class="tooltip-title">{{ event.isClass ? (event.extendedProps?.className || 'Class') : event.studentName }}</div>
+                      <div class="tooltip-time">{{ event | eventTime }}</div>
+                      <div class="tooltip-subject" *ngIf="event.extendedProps?.subject">{{ event.extendedProps?.subject }}</div>
+                      <div class="tooltip-trial" *ngIf="event.extendedProps?.isTrialLesson">
+                        <ion-icon name="star"></ion-icon> Trial Lesson
+                      </div>
+                    </div>
                     
                     <div class="event-header">
                       <!-- First row: Time and duration (left aligned) -->
