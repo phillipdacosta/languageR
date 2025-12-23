@@ -54,9 +54,6 @@ export class Tab1Page implements OnInit, OnDestroy {
   availabilityDetail = '';
   isSelectedDatePast = false;
   
-  // Lesson view toggle
-  lessonView: 'upcoming' | 'cancelled' = 'upcoming';
-  
   // UI state
   hasNotifications = false;
   unreadNotificationCount = 0;
@@ -314,14 +311,6 @@ export class Tab1Page implements OnInit, OnDestroy {
             position: 'top',
             color: 'warning',
             buttons: [
-              {
-                text: 'View',
-                handler: () => {
-                  // Switch to cancelled tab when user clicks "View"
-                  this.lessonView = 'cancelled';
-                  this.cdr.detectChanges();
-                }
-              },
               {
                 text: 'Dismiss',
                 role: 'cancel'
@@ -1613,25 +1602,6 @@ export class Tab1Page implements OnInit, OnDestroy {
     return this._cachedFirstLesson;
   }
   
-  // Getter for first cancelled lesson (for card display when viewing cancelled tab)
-  get firstCancelledLesson(): any | null {
-    if (!this.cancelledLessons || this.cancelledLessons.length === 0) {
-      return null;
-    }
-    
-    // Get the most recent cancelled lesson
-    const cancelledLesson = this.cancelledLessons[0];
-    
-    // Format it the same way as firstLessonForSelectedDate
-    return {
-      lesson: cancelledLesson,
-      lessonId: cancelledLesson._id,
-      isInProgress: false,
-      isNextClass: false,
-      dateTag: this.formatClassDate(cancelledLesson.startTime)
-    };
-  }
-  
   // Internal method to compute the absolute next lesson (regardless of date)
   private computeNextLesson(): any | null {
     const now = new Date();
@@ -1917,7 +1887,7 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   // New method: Get upcoming lessons (all future lessons)
   getUpcomingLessons(): Lesson[] {
-    return this.getDisplayLessons();
+    return this.lessons;
   }
 
   // Track by function for tutors
@@ -1931,7 +1901,7 @@ export class Tab1Page implements OnInit, OnDestroy {
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}`).join(',');
     const nextLessonId = this.nextLesson?.lessonId || 'null';
-    const currentHash = `${lessonsHash}:${cancelledHash}:${nextLessonId}:${this.lessonView}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const currentHash = `${lessonsHash}:${cancelledHash}:${nextLessonId}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedTimelineEventsHash === currentHash && this._cachedTimelineEvents.length >= 0) {
@@ -1946,42 +1916,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
-    // When showing cancelled view, show cancelled lessons
-    if (this.lessonView === 'cancelled') {
-      const now = new Date();
-      const result = this.cancelledLessons
-        .slice(0, 10) // Show up to 10 cancelled lessons
-        .map(lesson => {
-          const startTime = new Date(lesson.startTime);
-          const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
-          const student = lesson.studentId as any;
-          const isClass = (lesson as any).isClass;
-          
-          return {
-            time: this.formatTimeOnly(startTime),
-            endTime: endTime ? this.formatTimeOnly(endTime) : null,
-            date: this.formatRelativeDate(startTime),
-            name: isClass 
-              ? ((lesson as any).className || lesson.subject || 'Group Class')
-              : (student ? this.formatStudentDisplayName(student) : 'Unknown'),
-            subject: isClass 
-              ? 'Group Class'
-              : this.formatSubject(lesson.subject),
-            avatar: isClass 
-              ? ((lesson as any).classData?.thumbnail || null)
-              : (student?.picture || student?.profilePicture || null),
-            lesson: lesson,
-            isTrialLesson: lesson.isTrialLesson || false,
-            isCancelled: true,
-            cancelReason: lesson.cancelReason,
-            isRescheduleProposer: false,
-            rescheduleAccepted: false
-          };
-        });
-      return result;
-    }
-    
-    // Regular upcoming lessons view - includes cancelled lessons in timeline
+    // Show upcoming lessons (includes cancelled lessons with badges in timeline)
     // Combine upcoming lessons and cancelled lessons, then sort by start time
     const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
@@ -4030,39 +3965,6 @@ navigateToLessons() {
         endTime: this.upcomingLesson?.endTime
       });
     }
-  }
-
-  /**
-   * Switch between upcoming and cancelled lesson views
-   */
-  switchLessonView(view: 'upcoming' | 'cancelled'): void {
-    this.lessonView = view;
-  }
-
-  /**
-   * Get lessons for display based on selected view
-   */
-  getDisplayLessons(): Lesson[] {
-    return this.lessonView === 'upcoming' ? this.lessons : this.cancelledLessons;
-  }
-
-  /**
-   * Check if there are any cancelled lessons
-   */
-  /**
-   * Check if there are any cancelled lessons
-   * Tabs only appear if the NEXT CLASS itself is cancelled
-   */
-  hasCancelledLessons(): boolean {
-    // Show tabs if we have cancelled lessons OR if the next lesson is cancelled
-    if (this.cancelledLessons && this.cancelledLessons.length > 0) {
-      return true;
-    }
-    // Also check if the next lesson shown in the "Up Next" card is cancelled
-    if (this.nextLesson && this.nextLesson.lesson && this.nextLesson.lesson.status === 'cancelled') {
-      return true;
-    }
-    return false;
   }
 
 }
