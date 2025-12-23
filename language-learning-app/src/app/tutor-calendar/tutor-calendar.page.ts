@@ -1576,6 +1576,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           const afterCount = this.events.length;
           
           console.log('📅 [CLASS-DEBUG] Final events array:', this.events.length, 'events');
+          console.log('🟢 [AVAIL-DEBUG] Availability events count:', availabilityEvents.length);
+          console.log('🟢 [AVAIL-DEBUG] First few availability events:', availabilityEvents.slice(0, 3).map(e => ({
+            title: e.title,
+            type: (e.extendedProps as any)?.type,
+            start: e.start,
+            end: e.end
+          })));
           
           // Update calendar with events smoothly
           this.updateCalendarEvents();
@@ -2787,6 +2794,16 @@ When enabled:
       const extendedProps = (event.extendedProps || {}) as any;
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       const isLesson = extendedProps.lessonId || extendedProps.lesson || extendedProps.classId;
+      
+      // Debug logging for first day
+      if (day.dayNumber === 23 && isAvailability) {
+        console.log('🟢 [AVAIL-DEBUG] Found availability event:', {
+          title: event.title,
+          type: extendedProps.type,
+          start: eventStart,
+          isInRange
+        });
+      }
       
       // Show both lessons and availability
       return isInRange && (isLesson || isAvailability);
