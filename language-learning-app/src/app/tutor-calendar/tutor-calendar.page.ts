@@ -2601,6 +2601,13 @@ When enabled:
     // Update week title
     this.updateWeekTitle();
     
+    // Reload availability data to map it to the correct week
+    // This is needed because availability was loaded before currentWeekStart was initialized
+    if (this.currentUser && this.currentUser.id) {
+      console.log('🔄 [INIT] Reloading availability for displayed week');
+      this.loadAndUpdateCalendarData();
+    }
+    
     // Trigger change detection to ensure events render
     setTimeout(() => {
       this.cdr.detectChanges();
