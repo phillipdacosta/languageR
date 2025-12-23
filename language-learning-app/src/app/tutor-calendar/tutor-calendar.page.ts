@@ -1919,19 +1919,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       start = new Date(b.absoluteStart);
       end = new Date(b.absoluteEnd);
     } else {
-      // Weekly availability: map to current week
-      const today = new Date();
+      // Weekly availability: map to the DISPLAYED week, not the current week
+      // Use currentWeekStart to ensure availability shows on the correct week
+      const weekStart = this.currentWeekStart || new Date();
       
-      // Calculate the start of the current week (Sunday)
-      const currentDay = today.getDay();
-      const sundayOffset = -currentDay; // Sunday is 0, so offset from current day
-      const sunday = new Date(today);
-      sunday.setDate(today.getDate() + sundayOffset);
-      sunday.setHours(0, 0, 0, 0);
-      
-      // Add the day index directly to Sunday to get the correct day
-      const dayDate = new Date(sunday);
-      dayDate.setDate(sunday.getDate() + b.day);
+      // Calculate the target day in the displayed week
+      const dayDate = new Date(weekStart);
+      dayDate.setDate(weekStart.getDate() + b.day);
       
       start = this.withTime(dayDate, b.startTime);
       end = this.withTime(dayDate, b.endTime);
@@ -2736,6 +2730,8 @@ When enabled:
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
       this.updateWeekDays();
       this.updateWeekTitle();
+      // Regenerate availability events for the new week
+      this.loadAndUpdateCalendarData();
     } else {
       // Day view - go back one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -2749,6 +2745,8 @@ When enabled:
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
       this.updateWeekDays();
       this.updateWeekTitle();
+      // Regenerate availability events for the new week
+      this.loadAndUpdateCalendarData();
     } else {
       // Day view - go forward one day
       const newDate = new Date(this.selectedDayForDayView.date);
@@ -2766,6 +2764,8 @@ When enabled:
       this.currentWeekStart.setHours(0, 0, 0, 0);
       this.updateWeekDays();
       this.updateWeekTitle();
+      // Regenerate availability events for today's week
+      this.loadAndUpdateCalendarData();
     } else {
       // Day view - go to today
       this.updateSelectedDayForDayView(today);
