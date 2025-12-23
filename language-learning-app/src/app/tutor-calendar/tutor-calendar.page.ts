@@ -1164,7 +1164,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           console.log('📚 [LOAD-CLASSES] Created class events:', classEvents.length);
           classEvents.forEach(evt => {
-            console.log(`  - ${evt.title}: cancelled=${evt.extendedProps?.isCancelled}, start=${evt.start}`);
+            const extProps = evt.extendedProps as any;
+            console.log(`  - ${evt.title}: cancelled=${extProps?.isCancelled}, start=${evt.start}`);
           });
           
           // Filter out ALL class events (from availability AND from previous loads)
