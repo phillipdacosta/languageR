@@ -162,21 +162,24 @@ ion-alert .alert-radio-label {
   border-radius: 20px;
   height: 90vh;
   max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.availability-picker-modal ion-content.availability-inline-content {
+.availability-picker-modal ion-content.availability-modal-content {
   --background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
   --padding-top: 0;
   --padding-bottom: 0;
   --padding-start: 0;
   --padding-end: 0;
+  flex: 1;
+  height: 100%;
 }
 
 .availability-picker-modal .availability-container {
   width: 100%;
-  min-height: 0; // Remove min-height so it doesn't extend beyond modal
   padding: 24px;
-  // Let ion-content handle scrolling, not this container
 }
 
 ion-label {
