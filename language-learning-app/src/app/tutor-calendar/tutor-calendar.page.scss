@@ -1645,23 +1645,24 @@ ion-content {
   }
   
   &.availability-event {
-    border-left-color: #10b981; // Green for availability
-    background: rgba(16, 185, 129, 0.08); // Light green background
+    border-left: none; // No border
+    background: rgba(16, 185, 129, 0.2); // Solid green background
+    cursor: default; // Not clickable
     
-    .event-title {
-      color: #10b981;
-      font-weight: 500;
-      font-size: 12px;
-    }
-    
-    .event-time {
-      color: #059669; // Darker green for time
-      font-weight: 500;
+    // Hide all text content
+    .event-header,
+    .event-title,
+    .event-time,
+    .event-time-row,
+    .event-info-row,
+    .event-avatar {
+      display: none !important;
     }
     
     &:hover {
-      background: rgba(16, 185, 129, 0.12);
-      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+      background: rgba(16, 185, 129, 0.25); // Slightly darker on hover
+      box-shadow: none;
+      transform: none; // Don't lift on hover
     }
   }
   
