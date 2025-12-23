@@ -2783,23 +2783,26 @@ When enabled:
       const eventStart = new Date(event.start as any);
       const isInRange = eventStart >= dayStart && eventStart <= dayEnd;
       
-      // ONLY show actual lessons, NOT availability blocks
+      // Show lessons AND availability blocks (experimenting with showing availability)
       const extendedProps = (event.extendedProps || {}) as any;
-      const isAvailability = extendedProps.type === 'availability';
-      const isLesson = extendedProps.lessonId || extendedProps.lesson;
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
+      const isLesson = extendedProps.lessonId || extendedProps.lesson || extendedProps.classId;
       
-      return isInRange && !isAvailability && isLesson;
+      // Show both lessons and availability
+      return isInRange && (isLesson || isAvailability);
     }).map(event => {
       const extendedProps = (event.extendedProps || {}) as any;
       const studentName = extendedProps.studentName || extendedProps.student?.name || '';
       const formattedName = this.formatNameWithInitial(studentName);
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
       
       return {
         ...event,
-        title: event.title || 'Untitled Event',
-        studentName: formattedName,
-        studentAvatar: extendedProps.studentAvatar || extendedProps.student?.profilePicture || '',
-        isAvailability: false, // Always false since we filtered out availability
+        title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
+        studentName: isAvailability ? '' : formattedName,
+        studentAvatar: isAvailability ? '' : (extendedProps.studentAvatar || extendedProps.student?.profilePicture || ''),
+        isAvailability: isAvailability,
+        isClass: extendedProps.isClass || extendedProps.classId,
         start: new Date(event.start as any),
         end: new Date(event.end as any)
       };

@@ -1645,12 +1645,23 @@ ion-content {
   }
   
   &.availability-event {
-    border-left-color: #34C759;
-    background: #ffffff;
+    border-left-color: #10b981; // Green for availability
+    background: rgba(16, 185, 129, 0.08); // Light green background
     
     .event-title {
-      color: rgba(0, 0, 0, 0.55);
-      font-weight: 400;
+      color: #10b981;
+      font-weight: 500;
+      font-size: 12px;
+    }
+    
+    .event-time {
+      color: #059669; // Darker green for time
+      font-weight: 500;
+    }
+    
+    &:hover {
+      background: rgba(16, 185, 129, 0.12);
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
     }
   }
   
