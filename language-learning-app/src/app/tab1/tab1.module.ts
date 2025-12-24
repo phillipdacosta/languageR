@@ -12,6 +12,7 @@ import { ConfirmActionModalComponent } from '../components/confirm-action-modal/
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -29,7 +30,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     ConfirmActionModalComponent,
     RescheduleLessonModalComponent,
     RescheduleProposalModalComponent,
-    ClassInvitationModalComponent
+    ClassInvitationModalComponent,
+    InviteStudentModalComponent
   ],
   declarations: [Tab1Page]
 })
