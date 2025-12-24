@@ -157,6 +157,9 @@ export class InviteStudentModalComponent implements OnInit {
           this.students.sort((a, b) => a.name.localeCompare(b.name));
           this.filteredStudents = [...this.students]; // Initialize filtered list
           console.log('👥 Students extracted:', this.students.length);
+          console.log('📋 Students array:', this.students);
+          console.log('📋 Filtered students:', this.filteredStudents);
+          console.log('🔄 loadingStudents:', this.loadingStudents);
           
           // Pre-select students who have been invited (pending or accepted)
           this.selectedStudents = this.students
