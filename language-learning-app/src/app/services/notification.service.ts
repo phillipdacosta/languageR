@@ -27,6 +27,10 @@ export class NotificationService {
   private baseUrl = `${environment.backendUrl}/api/notifications`;
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
+  
+  // Observable stream of notifications
+  private notificationsSubject = new BehaviorSubject<Notification[]>([]);
+  public notifications$ = this.notificationsSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -38,6 +42,13 @@ export class NotificationService {
     return this.http.get<{ success: boolean; notifications: Notification[] }>(
       this.baseUrl,
       { headers }
+    ).pipe(
+      tap(response => {
+        if (response.success) {
+          // Update the BehaviorSubject with latest notifications
+          this.notificationsSubject.next(response.notifications);
+        }
+      })
     );
   }
 

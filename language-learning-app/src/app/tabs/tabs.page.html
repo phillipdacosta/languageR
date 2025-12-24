@@ -122,44 +122,13 @@
         <p>Loading notifications...</p>
       </div>
 
-      <!-- Important Section (Unread Notifications) -->
-      <div class="notification-section" *ngIf="!isLoadingNotifications && getUnreadNotifications().length > 0">
-        <h4 class="notification-section-title">Important</h4>
-        <div class="notification-item" 
-             *ngFor="let notification of getUnreadNotifications()"
-             [class.unread]="!notification.read"
-             (click)="onNotificationClick(notification)">
-          <div class="notification-item-left">
-            <img 
-              *ngIf="notification.relatedUserPicture" 
-              [src]="notification.relatedUserPicture" 
-              alt="User avatar"
-              class="notification-avatar" />
-            <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
-              <ion-icon 
-                [name]="getNotificationIcon(notification.type)" 
-                class="notification-item-icon">
-              </ion-icon>
-            </div>
-          </div>
-          <div class="notification-item-content">
-            <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
-            <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
-          </div>
-          <div class="notification-item-right">
-            <button class="notification-options-btn" (click)="$event.stopPropagation()">
-              <ion-icon name="ellipsis-vertical"></ion-icon>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- More Notifications Section (Read Notifications) -->
-      <div class="notification-section" *ngIf="!isLoadingNotifications">
-        <h4 class="notification-section-title">More notifications</h4>
-        <div *ngIf="getReadNotifications().length > 0">
+      <ng-container *ngIf="notifications$ | async as notifications">
+        <!-- Important Section (Unread Notifications) -->
+        <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
+          <h4 class="notification-section-title">Important</h4>
           <div class="notification-item" 
-               *ngFor="let notification of getReadNotifications()"
+               *ngFor="let notification of (notifications | notificationFilter:'unread')"
+               [class.unread]="!notification.read"
                (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
               <img 
@@ -169,7 +138,7 @@
                 class="notification-avatar" />
               <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                 <ion-icon 
-                  [name]="getNotificationIcon(notification.type)"
+                  [name]="getNotificationIcon(notification.type)" 
                   class="notification-item-icon">
                 </ion-icon>
               </div>
@@ -185,10 +154,43 @@
             </div>
           </div>
         </div>
-        <div class="notification-empty" *ngIf="getReadNotifications().length === 0 && getUnreadNotifications().length === 0">
-          <p>No notifications</p>
+        
+        <!-- More Notifications Section (Read Notifications) -->
+        <div class="notification-section" *ngIf="!isLoadingNotifications">
+          <h4 class="notification-section-title">More notifications</h4>
+          <div *ngIf="(notifications | notificationFilter:'read').length > 0">
+            <div class="notification-item" 
+                 *ngFor="let notification of (notifications | notificationFilter:'read')"
+                 (click)="onNotificationClick(notification)">
+              <div class="notification-item-left">
+                <img 
+                  *ngIf="notification.relatedUserPicture" 
+                  [src]="notification.relatedUserPicture" 
+                  alt="User avatar"
+                  class="notification-avatar" />
+                <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                  <ion-icon 
+                    [name]="getNotificationIcon(notification.type)"
+                    class="notification-item-icon">
+                  </ion-icon>
+                </div>
+              </div>
+              <div class="notification-item-content">
+                <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
+                <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+              </div>
+              <div class="notification-item-right">
+                <button class="notification-options-btn" (click)="$event.stopPropagation()">
+                  <ion-icon name="ellipsis-vertical"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="notification-empty" *ngIf="(notifications | notificationFilter:'read').length === 0 && (notifications | notificationFilter:'unread').length === 0">
+            <p>No notifications</p>
+          </div>
         </div>
-      </div>
+      </ng-container>
     </div>
   </div>
 

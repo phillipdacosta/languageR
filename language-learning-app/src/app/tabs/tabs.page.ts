@@ -38,6 +38,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   unreadCount$ = new BehaviorSubject<number>(0);
   // Unread notifications count (subscribed from service)
   unreadNotificationCount$: Observable<number>;
+  // Notifications list (subscribed from service)
+  notifications$: Observable<Notification[]>;
   // Notification dropdown state
   isNotificationDropdownOpen = false;
   private notificationHoverTimer: any = null;
@@ -69,8 +71,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   messagesDropdownRight = 20;
   @ViewChild('notificationBtn', { read: ElementRef }) notificationBtn!: ElementRef;
   @ViewChild('messagesBtn', { read: ElementRef }) messagesBtn!: ElementRef;
-  // Notifications
-  notifications: Notification[] = [];
+  // Note: notifications array removed - now using notifications$ observable from service
   isLoadingNotifications = false;
   // Messages dropdown state
   isMessagesDropdownOpen = false;
@@ -97,6 +98,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.unreadNotificationCount$ = this.notificationService.unreadCount$;
+    this.notifications$ = this.notificationService.notifications$;
     
     console.log('✅ TabsPage constructor completed (observables assigned, no subscriptions)');
   }
@@ -432,8 +434,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe({
       next: (response) => {
         if (response.success) {
-          this.notifications = response.notifications;
-          // Don't calculate count locally - let the API call below handle it
+          // Notifications are now automatically updated via the service's BehaviorSubject
           console.log('✅ Loaded', response.notifications.length, 'notifications');
         }
         this.isLoadingNotifications = false;
@@ -539,26 +540,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.isNotificationDropdownOpen = true;
     this.calculateDropdownPosition();
     
-    // Always reload notifications when dropdown opens to get fresh data
+    // Always reload notifications when dropdown opens (updates the observable)
     this.loadNotifications();
   }
 
-  private calculateDropdownPosition() {
-    if (!this.notificationBtn) {
-      return;
-    }
-    const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
-    this.dropdownTop = buttonRect.bottom + window.scrollY + 12;
-    this.dropdownRight = window.innerWidth - buttonRect.right - window.scrollX;
-  }
-
-  getUnreadNotifications(): Notification[] {
-    return this.notifications.filter(n => !n.read);
-  }
-
-  getReadNotifications(): Notification[] {
-    return this.notifications.filter(n => n.read);
-  }
+  // Removed getUnreadNotifications() - use (notifications$ | async) with filter in template
+  // Removed getReadNotifications() - use (notifications$ | async) with filter in template
 
   formatNotificationTime(createdAt: Date | string): string {
     const date = new Date(createdAt);
@@ -650,9 +637,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         takeUntil(this.destroy$)
       ).subscribe({
         next: () => {
-          notification.read = true;
-          notification.readAt = new Date();
-          // Reload notifications to update the list (this will also update count via loadUnreadNotificationCount)
+          // Reload notifications to update the list (this will automatically update the observable)
           this.loadNotifications();
         },
         error: (error) => {
