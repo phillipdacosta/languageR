@@ -544,6 +544,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.loadNotifications();
   }
 
+  private calculateDropdownPosition() {
+    if (!this.notificationBtn) {
+      return;
+    }
+    const buttonRect = this.notificationBtn.nativeElement.getBoundingClientRect();
+    this.dropdownTop = buttonRect.bottom + window.scrollY + 12;
+    this.dropdownRight = window.innerWidth - buttonRect.right - window.scrollX;
+  }
+
   // Removed getUnreadNotifications() - use (notifications$ | async) with filter in template
   // Removed getReadNotifications() - use (notifications$ | async) with filter in template
 
