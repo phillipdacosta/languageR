@@ -1,19 +1,18 @@
-.modal-content {
-  padding: 8px 0;
+// Invite Modal Content
+.invite-modal-content {
+  --padding-top: 60px; // Space for floating close button
+  --padding-bottom: 20px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --background: #ffffff;
+  height: 100%;
 }
 
 // Animation container
-.invite-modal-content {
-  --padding-start: 16px;
-  --padding-end: 16px;
-  --padding-top: 16px;
-  --padding-bottom: 16px;
-}
-
 .view-container {
   position: relative;
   width: 100%;
-  min-height: 400px;
+  height: 100%;
 
   .main-view,
   .removal-confirmation-view {
@@ -21,19 +20,31 @@
   }
 }
 
+// Main Container
+.modal-content {
+  padding: 0 24px 24px 24px;
+  max-width: 650px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 0 20px 20px 20px;
+  }
+}
+
+// Class Info Banner
 .class-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%);
-  border-radius: 16px;
-  margin-bottom: 24px;
-  border: 1px solid rgba(139, 92, 246, 0.1);
+  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
 
   .class-icon {
-    font-size: 48px;
-    color: #8b5cf6;
+    font-size: 40px;
+    color: white;
     flex-shrink: 0;
   }
 
@@ -41,37 +52,57 @@
     flex: 1;
 
     h2 {
-      margin: 0 0 4px 0;
-      font-size: 20px;
+      margin: 0 0 3px 0;
+      font-size: 18px;
       font-weight: 700;
-      color: #1e293b;
+      color: white;
       letter-spacing: -0.3px;
+      line-height: 1.2;
     }
 
     p {
       margin: 0;
-      font-size: 14px;
-      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.85);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 14px;
+    margin-bottom: 16px;
+    
+    .class-icon {
+      font-size: 36px;
+    }
+    
+    .class-details h2 {
+      font-size: 17px;
     }
   }
 }
 
 // Search Bar Styles
 .search-wrapper {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   .student-searchbar {
-    --background: #f8fafc;
+    --background: #f8f9fa;
     --border-radius: 12px;
     --box-shadow: none;
-    --placeholder-color: #94a3b8;
+    --placeholder-color: #86868b;
     --placeholder-font-weight: 500;
-    --icon-color: #64748b;
+    --placeholder-font-size: 14px;
+    --icon-color: #86868b;
+    --color: #1d1d1f;
     padding: 0;
+    font-size: 14px;
   }
 }
 
-// Students List Wrapper (Always Visible)
+// Students List Wrapper
 .students-list-wrapper {
   margin-bottom: 16px;
 
@@ -81,31 +112,37 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 48px 24px;
+    padding: 60px 24px;
     text-align: center;
-    color: #64748b;
+    color: #86868b;
+    min-height: 300px;
 
     ion-spinner {
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      --color: #8b5cf6;
     }
 
     .empty-icon {
-      font-size: 64px;
-      color: #cbd5e1;
-      margin-bottom: 16px;
+      font-size: 80px;
+      color: #e5e5ea;
+      margin-bottom: 20px;
+      opacity: 0.7;
     }
 
     p {
       margin: 0;
       font-size: 15px;
-      line-height: 1.5;
+      line-height: 1.6;
+      color: #86868b;
+      font-weight: 500;
+      max-width: 280px;
     }
   }
 
   .student-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
 
   .student-item {
@@ -114,40 +151,43 @@
     gap: 12px;
     padding: 12px;
     border-radius: 12px;
-    background: #ffffff;
-    border: 2px solid #e2e8f0;
+    background: #f8f9fa;
+    border: 2px solid transparent;
     cursor: pointer;
     transition: all 0.2s ease;
 
-    &:hover:not(.disabled) {
-      border-color: #667eea;
-      background: #fafbff;
+    &:hover:not(.disabled):not(.accepted) {
+      background: #f1f3f5;
+      border-color: #8b5cf6;
     }
 
-    &.selected:not(.disabled) {
-      border-color: #667eea;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.06) 100%);
+    &.selected:not(.disabled):not(.accepted) {
+      background: rgba(139, 92, 246, 0.08);
+      border-color: #8b5cf6;
     }
 
-    &.accepted,
-    &.disabled {
-      opacity: 0.7;
+    &.accepted {
+      background: rgba(16, 185, 129, 0.05);
+      border-color: transparent;
       cursor: default;
-      background: #f8fafc;
-      border-color: #e2e8f0;
 
       &:hover {
-        background: #f8fafc;
-        border-color: #e2e8f0;
+        background: rgba(16, 185, 129, 0.05);
+        border-color: transparent;
       }
+    }
+
+    &.disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .student-avatar {
       width: 48px;
       height: 48px;
       flex-shrink: 0;
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+      border: 2px solid white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
       img {
         width: 100%;
@@ -162,7 +202,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         color: #ffffff;
         font-weight: 700;
         font-size: 18px;
@@ -175,33 +215,37 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
 
       .student-name {
         font-size: 15px;
         font-weight: 600;
-        color: #1e293b;
+        color: #1d1d1f;
+        letter-spacing: -0.2px;
       }
 
       .student-role {
-        font-size: 13px;
-        color: #64748b;
+        font-size: 12px;
+        font-weight: 500;
+        color: #86868b;
       }
 
       .invitation-status {
-        font-size: 12px;
-        font-weight: 600;
-        padding: 2px 8px;
-        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 8px;
         width: fit-content;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
 
         &.status-accepted {
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%);
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.12) 100%);
           color: #059669;
         }
 
         &.status-pending {
-          background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.12) 100%);
           color: #d97706;
         }
       }
@@ -214,7 +258,7 @@
       justify-content: center;
 
       .remove-icon {
-        font-size: 28px;
+        font-size: 26px;
         color: #ef4444;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -232,8 +276,8 @@
       .custom-checkbox {
         width: 24px;
         height: 24px;
-        border-radius: 6px;
-        border: 2px solid #cbd5e1;
+        border-radius: 7px;
+        border: 2px solid #d1d1d6;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -241,8 +285,9 @@
         background: #ffffff;
 
         &.checked {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-color: #667eea;
+          background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+          border-color: #8b5cf6;
+          box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
 
           .checkmark-icon {
             color: #ffffff;
@@ -269,31 +314,52 @@
   }
 }
 
+// Footer with Button
+ion-footer {
+  ion-toolbar {
+    --background: white;
+    --border-width: 0;
+    --padding-top: 10px;
+    --padding-bottom: 10px;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  }
+}
+
 .invite-btn {
-  margin: 16px;
+  max-width: 650px;
+  margin: 0 auto;
+  display: block;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  --border-radius: 12px;
   --background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
   --background-activated: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
-  --border-radius: 12px;
-  --padding-top: 16px;
-  --padding-bottom: 16px;
-  font-weight: 600;
-  text-transform: none;
-  letter-spacing: 0.2px;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+  --box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
 
   &[disabled] {
     opacity: 0.5;
+    --box-shadow: none;
   }
   
   &.confirmed-only {
     --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     --background-activated: linear-gradient(135deg, #059669 0%, #047857 100%);
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+    --box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
     cursor: default;
     
     &[disabled] {
       opacity: 0.7;
     }
+  }
+
+  ion-spinner {
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -302,7 +368,9 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 0;
+  padding: 24px;
+  max-width: 600px;
+  margin: 0 auto;
 
   .confirmation-header {
     text-align: center;
@@ -319,7 +387,7 @@
     h2 {
       font-size: 24px;
       font-weight: 700;
-      color: #1e293b;
+      color: #1d1d1f;
       margin: 0;
     }
   }
@@ -328,14 +396,14 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 20px;
-    background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.02) 100%);
-    border-radius: 16px;
-    border: 1px solid rgba(239, 68, 68, 0.15);
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.05);
+    border-radius: 12px;
+    border: 2px solid rgba(239, 68, 68, 0.15);
     
     .student-avatar {
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       margin: 0;
       flex-shrink: 0;
       
@@ -352,10 +420,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
         color: #ffffff;
         font-weight: 600;
-        font-size: 24px;
+        font-size: 22px;
         border-radius: 50%;
       }
     }
@@ -364,15 +432,15 @@
       flex: 1;
       
       h3 {
-        font-size: 18px;
+        font-size: 17px;
         font-weight: 600;
-        color: #1e293b;
+        color: #1d1d1f;
         margin: 0 0 4px 0;
       }
       
       .status-text {
-        font-size: 14px;
-        color: #64748b;
+        font-size: 13px;
+        color: #86868b;
         margin: 0;
       }
     }
@@ -400,13 +468,13 @@
       .main-message {
         font-size: 15px;
         font-weight: 600;
-        color: #1e293b;
+        color: #1d1d1f;
         margin: 0 0 6px 0;
       }
       
       .sub-message {
-        font-size: 14px;
-        color: #64748b;
+        font-size: 13px;
+        color: #86868b;
         margin: 0;
       }
     }
@@ -419,30 +487,34 @@
     
     ion-button {
       flex: 1;
-      --border-radius: 12px;
-      --padding-top: 14px;
-      --padding-bottom: 14px;
-      font-weight: 600;
+      height: 48px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
       text-transform: none;
-      letter-spacing: 0.2px;
+      --border-radius: 12px;
       margin: 0;
       
       &[fill="outline"] {
         --border-width: 2px;
-        --border-color: #cbd5e1;
-        --color: #475569;
+        --border-color: #e5e5ea;
+        --color: #1d1d1f;
         
         &:hover {
-          --background: rgba(148, 163, 184, 0.05);
+          --background: #f5f5f7;
         }
       }
       
       &[color="danger"] {
         --background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         --background-activated: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-        box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
+        --box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+      }
+
+      ion-spinner {
+        width: 20px;
+        height: 20px;
       }
     }
   }
 }
-
