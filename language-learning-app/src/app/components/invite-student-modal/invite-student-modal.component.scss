@@ -56,113 +56,171 @@
   }
 }
 
-// Student selector styles
-.student-select-wrapper {
-  position: relative;
+// Search Bar Styles
+.search-wrapper {
   margin-bottom: 16px;
 
-  .student-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 8px;
-    display: block;
+  .student-searchbar {
+    --background: #f8fafc;
+    --border-radius: 12px;
+    --box-shadow: none;
+    --placeholder-color: #94a3b8;
+    --placeholder-font-weight: 500;
+    --icon-color: #64748b;
+    padding: 0;
+  }
+}
+
+// Students List Wrapper (Always Visible)
+.students-list-wrapper {
+  margin-bottom: 16px;
+
+  .loading-state,
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    text-align: center;
+    color: #64748b;
+
+    ion-spinner {
+      margin-bottom: 16px;
+    }
+
+    .empty-icon {
+      font-size: 64px;
+      color: #cbd5e1;
+      margin-bottom: 16px;
+    }
+
+    p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.5;
+    }
   }
 
-  .student-select-trigger {
+  .student-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .student-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 12px;
     border-radius: 12px;
-    border: 1px solid rgba(148, 163, 184, 0.12);
     background: #ffffff;
+    border: 2px solid #e2e8f0;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-height: 56px;
 
     &:hover:not(.disabled) {
-      border-color: rgba(102, 126, 234, 0.3);
+      border-color: #667eea;
+      background: #fafbff;
     }
 
+    &.selected:not(.disabled) {
+      border-color: #667eea;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.06) 100%);
+    }
+
+    &.accepted,
     &.disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+      opacity: 0.7;
+      cursor: default;
       background: #f8fafc;
+      border-color: #e2e8f0;
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+      }
     }
 
-    .trigger-content {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
+    .student-avatar {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 
-      .selected-students-preview {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-
-        .preview-avatar-small {
-          width: 36px;
-          height: 36px;
-          margin: 0;
-          margin-left: -4px;
-          border: 2px solid #ffffff;
-          flex-shrink: 0;
-
-          &:first-child {
-            margin-left: 0;
-          }
-
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-          }
-
-          .avatar-placeholder-small {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: #ffffff;
-            font-weight: 600;
-            font-size: 14px;
-            border-radius: 50%;
-          }
-        }
-
-        .more-count {
-          font-size: 13px;
-          font-weight: 600;
-          color: #667eea;
-          background: rgba(102, 126, 234, 0.1);
-          padding: 4px 10px;
-          border-radius: 12px;
-          margin-left: 4px;
-        }
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
       }
 
-      .trigger-text {
+      .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 18px;
+        border-radius: 50%;
+      }
+    }
+
+    .student-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .student-name {
         font-size: 15px;
         font-weight: 600;
         color: #1e293b;
-        flex: 1;
       }
 
-      .clear-icon {
-        font-size: 22px;
-        color: #94a3b8;
+      .student-role {
+        font-size: 13px;
+        color: #64748b;
+      }
+
+      .invitation-status {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 6px;
+        width: fit-content;
+
+        &.status-accepted {
+          background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%);
+          color: #059669;
+        }
+
+        &.status-pending {
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.08) 100%);
+          color: #d97706;
+        }
+      }
+    }
+
+    .checkbox-wrapper {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      .remove-icon {
+        font-size: 28px;
+        color: #ef4444;
         cursor: pointer;
         transition: all 0.2s ease;
-        flex-shrink: 0;
-        margin-left: 8px;
 
         &:hover {
-          color: #ef4444;
+          color: #dc2626;
           transform: scale(1.1);
         }
 
@@ -170,34 +228,32 @@
           transform: scale(0.95);
         }
       }
-    }
 
-    .trigger-placeholder {
-      font-size: 15px;
-      color: #94a3b8;
-      flex: 1;
-    }
+      .custom-checkbox {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 2px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        background: #ffffff;
 
-    .trigger-icons {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
+        &.checked {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-color: #667eea;
 
-    .chevron-icon {
-      font-size: 20px;
-      color: #64748b;
-      transition: transform 0.2s ease;
-    }
-
-    &:not(.disabled):active .chevron-icon {
-      transform: rotate(180deg);
+          .checkmark-icon {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: bold;
+          }
+        }
+      }
     }
   }
-
-  .student-dropdown {
-    position: absolute;
+}
     top: calc(100% + 8px);
     left: 0;
     right: 0;

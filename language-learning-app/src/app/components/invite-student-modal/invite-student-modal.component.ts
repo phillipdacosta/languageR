@@ -61,6 +61,8 @@ export class InviteStudentModalComponent implements OnInit {
   @Input() classData?: any; // Class object with invitedStudents
 
   students: Student[] = [];
+  filteredStudents: Student[] = []; // For search filtering
+  searchTerm: string = ''; // Search input
   loadingStudents = false;
   showStudentDropdown = false;
   selectedStudents: string[] = [];
@@ -87,6 +89,18 @@ export class InviteStudentModalComponent implements OnInit {
 
   dismiss() {
     this.modalController.dismiss();
+  }
+
+  filterStudents() {
+    if (!this.searchTerm || this.searchTerm.trim() === '') {
+      this.filteredStudents = [...this.students];
+    } else {
+      const term = this.searchTerm.toLowerCase().trim();
+      this.filteredStudents = this.students.filter(student =>
+        student.name.toLowerCase().includes(term) ||
+        student.email.toLowerCase().includes(term)
+      );
+    }
   }
 
   loadStudents() {
@@ -141,12 +155,14 @@ export class InviteStudentModalComponent implements OnInit {
           
           this.students = Array.from(studentMap.values());
           this.students.sort((a, b) => a.name.localeCompare(b.name));
+          this.filteredStudents = [...this.students]; // Initialize filtered list
           console.log('👥 Students extracted:', this.students.length);
           
           // Pre-select students who have been invited (pending or accepted)
           this.selectedStudents = this.students
             .filter(s => s.invitationStatus === 'pending' || s.invitationStatus === 'accepted')
             .map(s => s._id);
+          
           
           console.log('✅ Pre-selected students:', this.selectedStudents.length);
         }
