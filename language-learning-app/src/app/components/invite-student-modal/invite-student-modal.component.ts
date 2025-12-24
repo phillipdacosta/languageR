@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
@@ -80,7 +80,8 @@ export class InviteStudentModalComponent implements OnInit {
     private userService: UserService,
     private classService: ClassService,
     private toastController: ToastController,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -156,24 +157,32 @@ export class InviteStudentModalComponent implements OnInit {
           this.students = Array.from(studentMap.values());
           this.students.sort((a, b) => a.name.localeCompare(b.name));
           this.filteredStudents = [...this.students]; // Initialize filtered list
-          console.log('👥 Students extracted:', this.students.length);
-          console.log('📋 Students array:', this.students);
-          console.log('📋 Filtered students:', this.filteredStudents);
-          console.log('🔄 loadingStudents:', this.loadingStudents);
           
           // Pre-select students who have been invited (pending or accepted)
           this.selectedStudents = this.students
             .filter(s => s.invitationStatus === 'pending' || s.invitationStatus === 'accepted')
             .map(s => s._id);
           
+          // Set loading to false BEFORE logging
+          this.loadingStudents = false;
           
+          console.log('👥 Students extracted:', this.students.length);
+          console.log('📋 Students array:', this.students);
+          console.log('📋 Filtered students:', this.filteredStudents);
+          console.log('🔄 loadingStudents:', this.loadingStudents);
           console.log('✅ Pre-selected students:', this.selectedStudents.length);
+          
+          // Trigger change detection
+          this.cdr.detectChanges();
+        } else {
+          this.loadingStudents = false;
+          this.cdr.detectChanges();
         }
-        this.loadingStudents = false;
       },
       error: async (error) => {
         console.error('❌ Error loading students:', error);
         this.loadingStudents = false;
+        this.cdr.detectChanges();
         
         const toast = await this.toastController.create({
           message: 'Failed to load students',
