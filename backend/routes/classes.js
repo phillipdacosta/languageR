@@ -714,22 +714,9 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
 
     console.log(`✅ [GET /api/classes/tutor/:tutorId] Tutor found: ${tutor.name} (${tutor._id})`);
 
-    // Find all classes for this tutor
-    // Show upcoming classes and recent cancelled classes (within last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+    // Find all classes for this tutor (no date filtering - show all past, present, and future)
     const classes = await ClassModel.find({
-      tutorId: tutor._id,
-      $or: [
-        // Show classes that haven't ended yet
-        { endTime: { $gte: new Date() } },
-        // Also show cancelled classes from the last 30 days (so tutors can see what was cancelled)
-        { 
-          status: 'cancelled',
-          endTime: { $gte: thirtyDaysAgo }
-        }
-      ]
+      tutorId: tutor._id
     })
     .populate('tutorId', 'name email picture')
     .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
