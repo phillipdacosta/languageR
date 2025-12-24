@@ -151,6 +151,14 @@ export class Tab1Page implements OnInit, OnDestroy {
     notification?: any;
   } | null = null;
   
+  // Inline modal state for invite student modal
+  isInviteStudentModalOpen = false;
+  inviteStudentModalProps: {
+    className: string;
+    classId: string;
+    classData: any;
+  } | null = null;
+  
   // Inline modal state for confirm action modal (cancel)
   isConfirmCancelModalOpen = false;
   confirmCancelModalData: {
@@ -3405,28 +3413,30 @@ navigateToLessons() {
       const className = lesson?.className || lesson?.classData?.name || 'this class';
       const classData = lesson?.classData || lesson;
       
-      console.log('🟢 Creating modal...');
-      const modal = await this.modalCtrl.create({
-        component: InviteStudentModalComponent,
-        componentProps: {
-          className: className,
-          classId: classId,
-          classData: classData  // Pass full class data including invitedStudents
-        },
-        cssClass: 'invite-student-modal'
-      });
-
-      console.log('🟢 Presenting modal...');
-      await modal.present();
-      console.log('✅ Modal presented successfully');
+      console.log('🟢 Opening inline modal...');
       
-      const { data } = await modal.onWillDismiss();
-      if (data && data.invited) {
-        // Refresh lessons to show updated invitations (no skeleton)
-        this.loadLessons(false);
-      }
+      // Use inline modal instead of programmatic modal
+      this.inviteStudentModalProps = {
+        className: className,
+        classId: classId,
+        classData: classData
+      };
+      this.isInviteStudentModalOpen = true;
+      
+      console.log('✅ Inline modal opened');
     } catch (error) {
       console.error('❌ Error opening invite modal:', error);
+    }
+  }
+  
+  onInviteStudentModalDismiss(event: any) {
+    console.log('📧 Invite student modal dismissed:', event);
+    this.isInviteStudentModalOpen = false;
+    
+    const data = event.detail?.data;
+    if (data && data.invited) {
+      // Refresh lessons to show updated invitations (no skeleton)
+      this.loadLessons(false);
     }
   }
 

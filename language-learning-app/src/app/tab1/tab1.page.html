@@ -935,4 +935,19 @@
     </ng-template>
   </ion-modal>
 
+  <!-- Inline Invite Student Modal (declarative, no programmatic creation) -->
+  <ion-modal 
+    [isOpen]="isInviteStudentModalOpen" 
+    (didDismiss)="onInviteStudentModalDismiss($event)"
+    cssClass="invite-student-modal">
+    <ng-template>
+      <app-invite-student-modal
+        *ngIf="inviteStudentModalProps"
+        [className]="inviteStudentModalProps.className"
+        [classId]="inviteStudentModalProps.classId"
+        [classData]="inviteStudentModalProps.classData">
+      </app-invite-student-modal>
+    </ng-template>
+  </ion-modal>
+
 </ion-content>
