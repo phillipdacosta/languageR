@@ -539,10 +539,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.isNotificationDropdownOpen = true;
     this.calculateDropdownPosition();
     
-    // Load notifications if not already loaded
-    if (this.notifications.length === 0) {
-      this.loadNotifications();
-    }
+    // Always reload notifications when dropdown opens to get fresh data
+    this.loadNotifications();
   }
 
   private calculateDropdownPosition() {
