@@ -90,12 +90,12 @@
     </div>
   </div>
 
-  <!-- Error State -->
-  <div class="error-container" *ngIf="!loading && !classData">
-    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
-    <h3>Unable to Load Class</h3>
-    <p>We couldn't load the class invitation details. Please try again.</p>
-  </div>
+<!-- Error State -->
+<div class="error-container" *ngIf="!loading && !classData">
+  <ion-icon name="time-outline" class="error-icon"></ion-icon>
+  <h3>Invitation Expired</h3>
+  <p>This invitation is no longer available. The tutor may have removed you from the class or cancelled it.</p>
+</div>
 </ion-content>
 
 <!-- Footer with Action Buttons (sticky at bottom) -->

@@ -233,8 +233,24 @@ export class LessonService {
   }
 
   // Get lessons by tutor ID (requires authentication)
-  getLessonsByTutor(tutorId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
-    const url = all ? `${this.baseUrl}/by-tutor/${tutorId}?all=true` : `${this.baseUrl}/by-tutor/${tutorId}`;
+  getLessonsByTutor(tutorId: string, all: boolean = false, startDate?: string, endDate?: string): Observable<{ success: boolean; lessons: Lesson[] }> {
+    let url = `${this.baseUrl}/by-tutor/${tutorId}`;
+    const params: string[] = [];
+    
+    if (all) {
+      params.push('all=true');
+    }
+    if (startDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+    }
+    if (endDate) {
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+    
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
   }

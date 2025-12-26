@@ -791,7 +791,7 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
   try {
     const startTime = Date.now();
     const { tutorId } = req.params;
-    const { all } = req.query; // Query param to get all lessons (including past)
+    const { all, startDate, endDate } = req.query; // Add date range parameters
     
     console.log(`⏱️ [Lessons By Tutor] Request started for tutorId: ${tutorId}`);
     
@@ -802,13 +802,29 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
       });
     }
 
-    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all);
+    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all, 'dateRange:', startDate, '-', endDate);
 
     // Build query - if 'all' is true, get all lessons; otherwise only active ones
     const query = { tutorId: tutorId };
-    if (!all || all !== 'true') {
+    
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      query.startTime = {};
+      if (startDate) {
+        query.startTime.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.startTime.$lte = new Date(endDate);
+      }
+      console.log('📅 ✅ Date range filter applied:', query.startTime);
+      console.log('📅 ✅ Final query:', JSON.stringify(query));
+    } else if (!all || all !== 'true') {
+      // Only filter by status if no date range provided
       // Include pending_reschedule so the original slot stays blocked until confirmed
       query.status = { $in: ['scheduled', 'in_progress', 'pending_reschedule'] };
+      console.log('📅 ⚠️ No date range, filtering by status:', query.status);
+    } else {
+      console.log('📅 ⚠️ No date range AND all=true, will fetch ALL lessons');
     }
 
     // Find lessons for this tutor

@@ -12,6 +12,7 @@ import { VideoUploadComponent } from '../components/video-upload/video-upload.co
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-profile',
@@ -34,6 +35,14 @@ export class ProfilePage implements OnInit {
   remindersEnabled: boolean = true; // Default to enabled
   showWalletBalance: boolean = false; // Default to hidden
   
+  // Video player modal state
+  isVideoPlayerModalOpen = false;
+  videoPlayerData: {
+    videoUrl: string;
+    safeVideoUrl?: SafeResourceUrl;
+    videoType: 'upload' | 'youtube' | 'vimeo';
+  } | null = null;
+  
   // Language support
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
@@ -49,7 +58,8 @@ export class ProfilePage implements OnInit {
     private toastController: ToastController,
     private route: ActivatedRoute,
     private router: Router,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private sanitizer: DomSanitizer
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -217,6 +227,32 @@ export class ProfilePage implements OnInit {
     this.tutorVideoThumbnail = '';
     this.tutorVideoType = 'upload';
     this.updateTutorVideo('', '', 'upload');
+  }
+
+  openVideoPlayerModal() {
+    if (!this.tutorIntroductionVideo) return;
+    
+    let videoUrl = this.tutorIntroductionVideo;
+    
+    // Add autoplay parameter for external videos
+    if (this.tutorVideoType === 'youtube' || this.tutorVideoType === 'vimeo') {
+      const separator = videoUrl.includes('?') ? '&' : '?';
+      if (!videoUrl.includes('autoplay=')) {
+        videoUrl = videoUrl + separator + 'autoplay=1';
+      }
+    }
+    
+    this.videoPlayerData = {
+      videoUrl: videoUrl,
+      safeVideoUrl: this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl),
+      videoType: this.tutorVideoType
+    };
+    this.isVideoPlayerModalOpen = true;
+  }
+
+  onVideoPlayerModalDismiss() {
+    this.isVideoPlayerModalOpen = false;
+    this.videoPlayerData = null;
   }
 
   private async updateTutorVideo(

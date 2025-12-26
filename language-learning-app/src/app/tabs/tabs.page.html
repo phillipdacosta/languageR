@@ -191,6 +191,14 @@
           </div>
         </div>
       </ng-container>
+      
+      <!-- View All Footer -->
+      <div class="notification-dropdown-footer" *ngIf="!isLoadingNotifications">
+        <button class="view-all-btn" (click)="navigateToNotifications()">
+          <span>View All Notifications</span>
+          <ion-icon name="arrow-forward"></ion-icon>
+        </button>
+      </div>
     </div>
   </div>
 

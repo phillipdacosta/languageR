@@ -371,15 +371,25 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     // If user is a tutor, show all messages including system messages
     // (tutors can see system messages in potential student conversations)
     
+    // Handle 'before' parameter (message ID, not date)
     if (before) {
-      if (query.$or) {
-        query.$and = [
-          { $or: query.$or },
-          { createdAt: { $lt: new Date(before) } }
-        ];
-        delete query.$or;
+      // Find the message with this ID to get its createdAt timestamp
+      const beforeMessage = await Message.findById(before).lean();
+      
+      if (beforeMessage) {
+        console.log(`📅 Loading messages before message: ${before} (timestamp: ${beforeMessage.createdAt})`);
+        
+        if (query.$or) {
+          query.$and = [
+            { $or: query.$or },
+            { createdAt: { $lt: beforeMessage.createdAt } }
+          ];
+          delete query.$or;
+        } else {
+          query.createdAt = { $lt: beforeMessage.createdAt };
+        }
       } else {
-        query.createdAt = { $lt: new Date(before) };
+        console.warn(`⚠️ Before message not found: ${before}, loading from beginning`);
       }
     }
 
@@ -403,7 +413,10 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
         console.log('🔍 Trying reverse conversationId:', reverseConversationId);
         let altQuery = { conversationId: reverseConversationId };
         if (before) {
-          altQuery.createdAt = { $lt: new Date(before) };
+          const beforeMessage = await Message.findById(before).lean();
+          if (beforeMessage) {
+            altQuery.createdAt = { $lt: beforeMessage.createdAt };
+          }
         }
         messages = await Message.find(altQuery)
           .sort({ createdAt: -1 })
@@ -422,7 +435,10 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
           ]
         };
         if (before) {
-          directQuery.createdAt = { $lt: new Date(before) };
+          const beforeMessage = await Message.findById(before).lean();
+          if (beforeMessage) {
+            directQuery.createdAt = { $lt: beforeMessage.createdAt };
+          }
         }
         messages = await Message.find(directQuery)
           .sort({ createdAt: -1 })

@@ -191,6 +191,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private availabilityLoaded = false;
   private lessonsLoaded = false;
   
+  // Lazy loading state
+  private earliestLoadedDate: Date | null = null;
+  private latestLoadedDate: Date | null = null;
+  private readonly LOAD_WINDOW_WEEKS = 4; // Load 4 weeks at a time
+  private readonly INITIAL_PAST_WEEKS = 2; // Initially load 2 weeks in the past
+  private readonly INITIAL_FUTURE_WEEKS = 8; // Initially load 8 weeks in the future
+  private loadedEvents: Map<string, EventInput> = new Map(); // Store all loaded events by ID
+  
   // Inline modal state for Block Time modal
   isBlockTimeModalOpen = false;
   blockTimeModalData: {
@@ -1083,14 +1091,29 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     });
   }
 
-  private loadLessons(tutorId: string) {
+  private loadLessons(tutorId: string, startDate?: Date, endDate?: Date) {
     console.log('📚 [LOAD-DEBUG] loadLessons START');
     
-    // Fetch all lessons (including past ones)
-    this.lessonService.getLessonsByTutor(tutorId, true).subscribe({
+    const startDateStr = startDate ? startDate.toISOString() : undefined;
+    const endDateStr = endDate ? endDate.toISOString() : undefined;
+    
+    console.log('   - tutorId:', tutorId);
+    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
+    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    // Fetch lessons with optional date range
+    this.lessonService.getLessonsByTutor(tutorId, true, startDateStr, endDateStr).subscribe({
       next: (response) => {
         if (response.success && response.lessons) {
           this.convertLessonsToEvents(response.lessons);
+          
+          // Update loaded date range
+          if (startDate && (!this.earliestLoadedDate || startDate < this.earliestLoadedDate)) {
+            this.earliestLoadedDate = startDate;
+          }
+          if (endDate && (!this.latestLoadedDate || endDate > this.latestLoadedDate)) {
+            this.latestLoadedDate = endDate;
+          }
         }
         // Mark lessons as loaded - this will trigger checkIfBothLoaded()
         this.lessonsLoaded = true;
@@ -1108,14 +1131,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   
   // Helper to load both lessons and classes in parallel
   private loadLessonsAndClasses(tutorId: string) {
-    this.loadLessons(tutorId);
-    this.loadClasses(tutorId);
+    // Calculate initial date range: 2 weeks past, 8 weeks future
+    const today = new Date();
+    const startDate = this.addDays(today, -this.INITIAL_PAST_WEEKS * 7);
+    const endDate = this.addDays(today, this.INITIAL_FUTURE_WEEKS * 7);
+    
+    
+    this.loadLessons(tutorId, startDate, endDate);
+    this.loadClasses(tutorId, startDate, endDate);
   }
 
-  private loadClasses(tutorId: string) {
+  private loadClasses(tutorId: string, startDate?: Date, endDate?: Date) {
     console.log('📚 [LOAD-CLASSES] loadClasses() called with tutorId:', tutorId);
     
-    this.classService.getClassesForTutor(tutorId).subscribe({
+    const startDateStr = startDate ? startDate.toISOString() : undefined;
+    const endDateStr = endDate ? endDate.toISOString() : undefined;
+    
+    console.log('   - tutorId:', tutorId);
+    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
+    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    this.classService.getClassesForTutor(tutorId, startDateStr, endDateStr).subscribe({
       next: (response) => {
         console.log('📚 [LOAD-CLASSES] Backend response:', response);
         
@@ -1126,6 +1162,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             console.log(`  - ${cls.name}: status=${cls.status}, startTime=${cls.startTime}, cancelled=${cls.status === 'cancelled'}`);
           });
           
+          // Update loaded date range
+          if (startDate && (!this.earliestLoadedDate || startDate < this.earliestLoadedDate)) {
+            this.earliestLoadedDate = startDate;
+          }
+          if (endDate && (!this.latestLoadedDate || endDate > this.latestLoadedDate)) {
+            this.latestLoadedDate = endDate;
+          }
+          
           // Clear and update classes map
           this.classesMap.clear();
           response.classes.forEach((cls: any) => {
@@ -1134,6 +1178,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Create class events
           const allClasses = response.classes;
+          
           const classEvents = allClasses.map((cls: any) => {
             const isCancelled = cls.status === 'cancelled';
             return {
@@ -1177,10 +1222,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             return !extendedProps?.isClass && !extendedProps?.classId && extendedProps?.type !== 'class';
           });
           
+          
           // Merge new class events
           this.events = [...nonClassEvents, ...classEvents];
           
-          console.log('📚 [LOAD-CLASSES] Total events after merge:', this.events.length);
           
           // Rebuild mobile views
           if (this.isMobileView) {
@@ -1196,8 +1241,48 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
   }
+  
+  // Check if we need to load more data for a given date range
+  private checkAndLoadMoreData(viewStart: Date, viewEnd: Date) {
+    if (!this.currentUser?.id) return;
+    
+    console.log('   - View start:', viewStart.toISOString());
+    console.log('   - View end:', viewEnd.toISOString());
+    console.log('   - Earliest loaded:', this.earliestLoadedDate?.toISOString() || 'NONE');
+    console.log('   - Latest loaded:', this.latestLoadedDate?.toISOString() || 'NONE');
+    
+    const needsEarlierData = !this.earliestLoadedDate || viewStart < this.earliestLoadedDate;
+    const needsLaterData = !this.latestLoadedDate || viewEnd > this.latestLoadedDate;
+    
+    console.log('   - Needs earlier data?', needsEarlierData);
+    console.log('   - Needs later data?', needsLaterData);
+    
+    if (needsEarlierData) {
+      // Load more past data
+      const newStart = this.addDays(viewStart, -this.LOAD_WINDOW_WEEKS * 7);
+      const newEnd = this.earliestLoadedDate || viewStart;
+      
+      
+      this.loadLessons(this.currentUser.id, newStart, newEnd);
+      this.loadClasses(this.currentUser.id, newStart, newEnd);
+    }
+    
+    if (needsLaterData) {
+      // Load more future data
+      const newStart = this.latestLoadedDate || viewEnd;
+      const newEnd = this.addDays(viewEnd, this.LOAD_WINDOW_WEEKS * 7);
+      
+      
+      this.loadLessons(this.currentUser.id, newStart, newEnd);
+      this.loadClasses(this.currentUser.id, newStart, newEnd);
+    }
+    
+    if (!needsEarlierData && !needsLaterData) {
+    }
+  }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
+    
     // Convert all lessons to events (including cancelled) to show them crossed out
     const allLessons = lessons;
     
@@ -1304,7 +1389,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return !extendedProps?.lessonId;
     });
     
+    
     this.events = [...nonLessonEvents, ...lessonEvents];
+    
     
     // Don't trigger change detection here - let the caller handle it
   }
@@ -2754,6 +2841,9 @@ When enabled:
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
       this.updateWeekDays();
       this.updateWeekTitle();
+      // Check if we need to load more data for this week
+      const weekEnd = this.addDays(this.currentWeekStart, 6);
+      this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
     } else {
@@ -2761,6 +2851,8 @@ When enabled:
       const newDate = new Date(this.selectedDayForDayView.date);
       newDate.setDate(newDate.getDate() - 1);
       this.updateSelectedDayForDayView(newDate);
+      // Check if we need to load more data for this day
+      this.checkAndLoadMoreData(newDate, newDate);
     }
   }
   
@@ -2769,6 +2861,9 @@ When enabled:
       this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
       this.updateWeekDays();
       this.updateWeekTitle();
+      // Check if we need to load more data for this week
+      const weekEnd = this.addDays(this.currentWeekStart, 6);
+      this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
       // Regenerate availability events for the new week
       this.loadAndUpdateCalendarData();
     } else {
@@ -2776,6 +2871,8 @@ When enabled:
       const newDate = new Date(this.selectedDayForDayView.date);
       newDate.setDate(newDate.getDate() + 1);
       this.updateSelectedDayForDayView(newDate);
+      // Check if we need to load more data for this day
+      this.checkAndLoadMoreData(newDate, newDate);
     }
   }
   

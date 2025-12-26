@@ -96,12 +96,27 @@ export class ClassService {
     );
   }
 
-  getClassesForTutor(tutorId: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
+  getClassesForTutor(tutorId: string, startDate?: string, endDate?: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
-        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(`${this.apiUrl}/classes/tutor/${tutorId}`, { headers });
+        
+        let url = `${this.apiUrl}/classes/tutor/${tutorId}`;
+        const params: string[] = [];
+        
+        if (startDate) {
+          params.push(`startDate=${encodeURIComponent(startDate)}`);
+        }
+        if (endDate) {
+          params.push(`endDate=${encodeURIComponent(endDate)}`);
+        }
+        
+        if (params.length > 0) {
+          url += '?' + params.join('&');
+        }
+        
+        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(url, { headers });
       })
     );
   }

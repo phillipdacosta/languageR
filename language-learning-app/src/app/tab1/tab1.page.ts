@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
@@ -21,6 +21,8 @@ import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
+import { SmartIslandComponent, IslandPriority } from '../components/smart-island/smart-island.component';
+import { FlagService } from '../services/flag.service';
 
 @Component({
   selector: 'app-tab1',
@@ -28,7 +30,10 @@ import { NotesModalComponent } from '../components/notes-modal/notes-modal.compo
   styleUrls: ['tab1.page.scss'],
   standalone: false,
 })
-export class Tab1Page implements OnInit, OnDestroy {
+export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
+  // Smart Island reference
+  @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
+  
   // Platform detection properties
   private destroy$ = new Subject<void>();
 
@@ -44,6 +49,11 @@ export class Tab1Page implements OnInit, OnDestroy {
   pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
   isLoadingInvitations = false;
+
+  // Getter for active (non-cancelled) invitations
+  get activeInvitationsCount(): number {
+    return this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled').length;
+  }
   
   // Smart caching to prevent unnecessary skeleton loaders
   private _hasInitiallyLoaded = false; // Track if we've loaded data at least once
@@ -74,6 +84,7 @@ export class Tab1Page implements OnInit, OnDestroy {
   
   // Tutor-specific insights
   totalStudents = 0;
+  totalTutors = 0;  // Used by tutors to show total students, and by students to show total tutors
   lessonsThisWeek = 0;
   tutorRating = '0.0';
   unreadMessages = 0;
@@ -81,6 +92,9 @@ export class Tab1Page implements OnInit, OnDestroy {
   showWalletBalance = false; // Hide by default
   walletDisplay = '$•••••'; // Computed display value
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
+  
+  // Student-specific insights
+  totalLessonsCompleted = 0;
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -159,6 +173,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     classData: any;
   } | null = null;
   
+  // Inline modal state for invitations list modal
+  isInvitationsListModalOpen = false;
+  
   // Inline modal state for confirm action modal (cancel)
   isConfirmCancelModalOpen = false;
   confirmCancelModalData: {
@@ -206,7 +223,9 @@ export class Tab1Page implements OnInit, OnDestroy {
     private actionSheetController: ActionSheetController,
     private popoverController: PopoverController,
     private alertController: AlertController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
+    public flagService: FlagService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -237,6 +256,8 @@ export class Tab1Page implements OnInit, OnDestroy {
           this.loadTutorInsights();
           this.loadAvailability();
         } else {
+          // Load student-specific data
+          this.loadStudentInsights();
           // Load pending class invitations for students
           this.loadPendingInvitations();
         }
@@ -295,16 +316,55 @@ export class Tab1Page implements OnInit, OnDestroy {
 
     // Listen for WebSocket notifications
     this.websocketService.connect();
+    console.log('🔌 [TAB1] WebSocket initialized for user:', this.currentUser?.userType);
+    console.log('🔌 [TAB1] WebSocket observable exists?', !!this.websocketService.newNotification$);
+    
+    // Test if observable is working
+    console.log('🔌 [TAB1] Setting up notification listener...');
     this.websocketService.newNotification$.pipe(
       takeUntil(this.destroy$)
-    ).subscribe(async (notification) => {
-      // Reload notification count when a new notification arrives (only if user is authenticated)
-      if (this.currentUser) {
-        this.loadUnreadNotificationCount();
+    ).subscribe({
+      next: async (notification) => {
+        console.log('✅ [TAB1] SUBSCRIPTION FIRED! Notification:', notification);
         
-        // Handle class auto-cancelled notifications
-        if ((notification?.type === 'class_auto_cancelled' || notification?.type === 'class_invitation_cancelled') && notification.data?.classId) {
+        // Reload notification count when a new notification arrives (only if user is authenticated)
+        if (this.currentUser) {
+          this.loadUnreadNotificationCount();
+          
+          // LOG ALL NOTIFICATIONS TO DEBUG
+          console.log('🔔 [TAB1] ===== NOTIFICATION RECEIVED =====');
+          console.log('🔔 [TAB1] Notification type:', notification?.type);
+          console.log('🔔 [TAB1] Current user type:', this.currentUser.userType);
+          console.log('🔔 [TAB1] Full notification object:', notification);
+          console.log('🔔 [TAB1] =====================================');
+          
+          // FALLBACK: For students, reload invitations on ANY notification
+          // This ensures count updates even if event type is different than expected
+          if (this.currentUser.userType === 'student') {
+            console.log('📋 [TAB1] Student received notification - reloading invitations as fallback');
+            setTimeout(() => {
+              this.ngZone.run(() => {
+                this.loadPendingInvitations();
+              });
+            }, 1000);
+          }
+          
+          // Check if it's a class invitation
+          const isClassInvitation = notification?.type === 'class_invitation';
+          const isStudent = this.currentUser.userType === 'student';
+          console.log('🔔 [TAB1] Is class_invitation?', isClassInvitation);
+          console.log('🔔 [TAB1] Is student?', isStudent);
+          console.log('🔔 [TAB1] Will handle class invitation?', isClassInvitation && isStudent);
+          
+          // Handle class auto-cancelled notifications
+          if ((notification?.type === 'class_auto_cancelled' || notification?.type === 'class_invitation_cancelled') && notification.data?.classId) {
           console.log('🔔 [TAB1] Received class cancellation notification:', notification);
+          
+          // If student received invitation cancellation, reload invitations to update count
+          if (notification?.type === 'class_invitation_cancelled' && this.currentUser.userType === 'student') {
+            console.log('📉 [TAB1] Class invitation cancelled, reloading invitations...');
+            this.loadPendingInvitations();
+          }
           
           // Smart update: Move the cancelled class from lessons to cancelledLessons without full reload
           await this.handleClassCancellation(notification.data.classId, notification.data.cancelReason);
@@ -356,10 +416,107 @@ export class Tab1Page implements OnInit, OnDestroy {
         
         // Handle class invitations specially
         if (notification?.type === 'class_invitation' && this.currentUser.userType === 'student') {
-          // Reload pending invitations to show the new one
-          this.loadPendingInvitations();
+          console.log('📬 [TAB1] Received class invitation via WebSocket:', notification);
+          console.log('📊 [TAB1] Current invitations count BEFORE reload:', this.activeInvitationsCount);
           
-          // Show a toast notification
+          // Show Smart Island moment
+          console.log('🌟 [TAB1] Smart Island available?', !!this.smartIsland);
+          console.log('🌟 [TAB1] Notification data:', notification.data);
+          console.log('🌟 [TAB1] Notification full object:', JSON.stringify(notification, null, 2));
+          
+          if (this.smartIsland && notification.data) {
+            console.log('🌟 [TAB1] Adding Smart Island moment for invitation...');
+            
+            // Ensure we're in Angular zone
+            this.ngZone.run(() => {
+              // Format tutor name properly
+              const tutorName = notification.data.tutorName || this.formatTutorName(
+                notification.data.tutorFirstName, 
+                notification.data.tutorLastName
+              );
+              const className = notification.data.className || 'a class';
+              
+              this.smartIsland.addMoment({
+                type: 'invitation',
+                priority: IslandPriority.HIGH,
+                id: `invitation:${notification.data.classId}`, // Unique ID per class invitation
+                avatarUrl: notification.data.tutorPicture || '',
+                title: `${tutorName} invited you`,
+                subtitle: `to ${className}`,
+                emoji: '📬',
+                gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+                action: () => {
+                  if (notification.data.classId) {
+                    this.openClassInvitation(notification.data.classId, { data: notification });
+                  }
+                },
+                glow: false,
+                duration: 6000
+              });
+              console.log('✅ [TAB1] Smart Island moment added!');
+            });
+          } else {
+            console.warn('⚠️ [TAB1] Could not add Smart Island moment. smartIsland:', !!this.smartIsland, 'notification.data:', !!notification.data);
+            
+            // If Smart Island not ready, retry after a short delay
+            if (!this.smartIsland) {
+              console.log('🔄 [TAB1] Smart Island not ready, retrying in 500ms...');
+              setTimeout(() => {
+                if (this.smartIsland && notification.data) {
+                  console.log('🔄 [TAB1] Retry: Adding Smart Island moment...');
+                  this.ngZone.run(() => {
+                    // Format tutor name properly
+                    const tutorName = notification.data.tutorName || this.formatTutorName(
+                      notification.data.tutorFirstName, 
+                      notification.data.tutorLastName
+                    );
+                    const className = notification.data.className || 'a class';
+                    
+                    this.smartIsland.addMoment({
+                      type: 'invitation',
+                      priority: IslandPriority.HIGH,
+                      id: `invitation:${notification.data.classId}`,
+                      avatarUrl: notification.data.tutorPicture || '',
+                      title: `${tutorName} invited you`,
+                      subtitle: `to ${className}`,
+                      emoji: '📬',
+                      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+                      action: () => {
+                        if (notification.data.classId) {
+                          this.openClassInvitation(notification.data.classId, { data: notification });
+                        }
+                      },
+                      glow: false,
+                      duration: 6000
+                    });
+                    console.log('✅ [TAB1] Smart Island moment added on retry!');
+                  });
+                } else {
+                  console.error('❌ [TAB1] Smart Island still not available on retry');
+                }
+              }, 500);
+            }
+          }
+          
+          // Wait a bit for backend to save the invitation before fetching
+          // This prevents race condition where WebSocket arrives before DB write completes
+          setTimeout(() => {
+            console.log('⏰ [TAB1] Waiting 1 second before fetching invitations (to avoid race condition)');
+            
+            // Run inside Angular zone to ensure change detection works
+            this.ngZone.run(() => {
+              this.loadPendingInvitations();
+              
+              // Force change detection after data loads
+              setTimeout(() => {
+                console.log('🔄 [TAB1] Forcing change detection for invitation count');
+                console.log('📊 [TAB1] Current invitations count AFTER reload:', this.activeInvitationsCount);
+                this.cdr.detectChanges();
+              }, 1000);
+            });
+          }, 1000);
+          
+          // Show a toast notification immediately
           const toast = await this.toastController.create({
             message: notification.message || 'You have a new class invitation!',
             duration: 4000,
@@ -382,6 +539,13 @@ export class Tab1Page implements OnInit, OnDestroy {
           });
           await toast.present();
         }
+        }
+      },
+      error: (err: any) => {
+        console.error('❌ [TAB1] WebSocket subscription error:', err);
+      },
+      complete: () => {
+        console.log('🔌 [TAB1] WebSocket subscription completed');
       }
     });
 
@@ -541,7 +705,7 @@ export class Tab1Page implements OnInit, OnDestroy {
         console.warn('⚠️ [TAB1] Lesson not found in current list:', data.lessonId);
       }
     });
-
+    
     // Listen for reschedule accepted events
     this.websocketService.on('reschedule_accepted').pipe(
       takeUntil(this.destroy$)
@@ -636,6 +800,66 @@ export class Tab1Page implements OnInit, OnDestroy {
         await toast.present();
       }
     });
+    
+    // ====================
+    // SMART ISLAND WEBSOCKET EVENTS (for students)
+    // ====================
+    
+    if (this.currentUser?.userType === 'student') {
+      // Listen for lesson completions to show quick rating
+      this.websocketService.on('lesson_completed').pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((data: any) => {
+        console.log('🎓 [TAB1] Lesson completed:', data);
+        if (data.lessonId && data.tutorName) {
+          // Show quick rating after 2 seconds
+          setTimeout(() => {
+            this.showQuickRating(data.lessonId, data.tutorName, data.tutorPicture);
+          }, 2000);
+        }
+      });
+      
+      // Listen for tutor shared content
+      this.websocketService.on('tutor_shared_content').pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((data: any) => {
+        console.log('📎 [TAB1] Tutor shared content:', data);
+        if (data.tutor && data.contentType) {
+          this.showTutorSharedContent(data.tutor, data.contentType, data.contentId);
+        }
+      });
+      
+      // Listen for milestone achievements
+      this.websocketService.on('milestone_achieved').pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((data: any) => {
+        console.log('🎉 [TAB1] Milestone achieved:', data);
+        if (data.type && data.value) {
+          this.showMilestone(data.type, data.value);
+        }
+      });
+      
+      // Listen for smart recommendations
+      this.websocketService.on('smart_recommendation').pipe(
+        takeUntil(this.destroy$)
+      ).subscribe((data: any) => {
+        console.log('💡 [TAB1] Smart recommendation:', data);
+        if (data.message) {
+          this.showRecommendation(data.message, data.type || 'general');
+        }
+      });
+    }
+    
+    console.log('🌟 [TAB1] ngOnInit completed');
+  }
+  
+  ngAfterViewInit() {
+    console.log('🌟 [TAB1] ngAfterViewInit - Smart Island available:', !!this.smartIsland);
+    if (this.smartIsland) {
+      console.log('✅ [TAB1] Smart Island component initialized successfully!');
+    } else {
+      console.error('❌ [TAB1] Smart Island component NOT available after view init!');
+    }
   }
 
   ionViewWillEnter() {
@@ -653,6 +877,16 @@ export class Tab1Page implements OnInit, OnDestroy {
       // Reload class invitations to get latest status (including cancelled classes)
       if (this.currentUser.userType === 'student') {
         this.loadPendingInvitations();
+        
+        // Check idle status and show nudge if appropriate (after 5 seconds)
+        setTimeout(() => {
+          this.checkIdleStatus();
+        }, 5000);
+        
+        // Check if they have no upcoming lessons scheduled (after 10 seconds)
+        setTimeout(() => {
+          this.checkNoUpcomingLessons();
+        }, 10000);
       }
     }
     
@@ -710,23 +944,116 @@ export class Tab1Page implements OnInit, OnDestroy {
 
   loadPendingInvitations() {
     if (!this.currentUser || this.currentUser.userType !== 'student') {
+      console.log('⚠️ [TAB1] Skipping loadPendingInvitations - not a student or no user');
       return;
     }
 
+    console.log('📋 [TAB1] Loading pending invitations...');
     this.isLoadingInvitations = true;
     this.classService.getPendingInvitations().pipe(
       observeOn(asyncScheduler), // Make emissions async to prevent freezing
       takeUntil(this.destroy$)
     ).subscribe({
       next: (response) => {
+        console.log('📦 [TAB1] getPendingInvitations response:', response);
+        
         if (response.success) {
           // Keep all classes including cancelled ones (they'll show status in UI)
+          const previousCount = this.activeInvitationsCount;
+          const previousTotal = this.pendingClassInvitations.length;
+          
           this.pendingClassInvitations = response.classes;
+          
+          const newCount = this.activeInvitationsCount;
+          const newTotal = this.pendingClassInvitations.length;
+          
+          console.log('✅ [TAB1] Loaded invitations:');
+          console.log('   - Total invitations:', newTotal, '(was:', previousTotal + ')');
+          console.log('   - Active invitations:', newCount, '(was:', previousCount + ')');
+          console.log('   - Pending array length:', this.pendingClassInvitations.length);
+          console.log('   - Pending array:', this.pendingClassInvitations);
+          
+          // Add pending invitations to Smart Island
+          const activeInvitations = this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled');
+          
+          console.log('🌟 [TAB1] Smart Island check:', {
+            smartIslandExists: !!this.smartIsland,
+            activeInvitationsCount: activeInvitations.length,
+            invitations: activeInvitations.map((i: any) => ({ id: i._id, tutor: i.tutorId?.firstName }))
+          });
+          
+          if (this.smartIsland && activeInvitations.length > 0) {
+            console.log('🌟 [TAB1] Adding', activeInvitations.length, 'pending invitations to Smart Island...');
+            
+            // Small delay to ensure Smart Island is fully initialized
+            setTimeout(() => {
+              activeInvitations.forEach((invitation: any) => {
+                // Only add if not already in the carousel
+                const momentId = `invitation:${invitation._id}`;
+                
+                // Get firstName and lastName from tutorId (now populated by backend)
+                const firstName = invitation.tutorId?.firstName;
+                const lastName = invitation.tutorId?.lastName;
+                
+                const tutorName = this.formatTutorName(firstName, lastName);
+                const className = invitation.name || 'a class';
+                
+                console.log('🔍 [TAB1] Adding invitation to Smart Island:', { 
+                  invitationId: invitation._id,
+                  firstName, 
+                  lastName, 
+                  tutorName, 
+                  className 
+                });
+                
+                this.smartIsland.addMoment({
+                  type: 'invitation',
+                  priority: IslandPriority.HIGH,
+                  id: momentId,
+                  avatarUrl: invitation.tutorId?.picture || '',
+                  title: `${tutorName} invited you`,
+                  subtitle: `to ${className}`,
+                  emoji: '📬',
+                  gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+                  action: () => {
+                    this.openClassInvitation(invitation._id);
+                  },
+                  glow: false,
+                  duration: 6000
+                });
+              });
+              
+              console.log('✅ [TAB1] All invitations added to Smart Island');
+            }, 100);
+          } else if (!this.smartIsland) {
+            console.warn('⚠️ [TAB1] Smart Island not available yet, will retry...');
+            // Retry after view init
+            setTimeout(() => {
+              if (this.smartIsland && activeInvitations.length > 0) {
+                console.log('🔄 [TAB1] Retry: Adding invitations to Smart Island');
+                this.loadPendingInvitations(); // Reload to trigger add
+              }
+            }, 500);
+          }
+          
+          // Force change detection to ensure UI updates
+          this.cdr.detectChanges();
+          
+          // If count increased, log it
+          if (newCount > previousCount) {
+            console.log('🔔 [TAB1] Invitations count INCREASED from', previousCount, 'to', newCount);
+          } else if (newCount < previousCount) {
+            console.log('📉 [TAB1] Invitations count DECREASED from', previousCount, 'to', newCount);
+          } else {
+            console.log('➖ [TAB1] Invitations count UNCHANGED at', newCount);
+          }
+        } else {
+          console.log('❌ [TAB1] getPendingInvitations returned success: false');
         }
         this.isLoadingInvitations = false;
       },
       error: (error) => {
-        console.error('Error loading pending invitations:', error);
+        console.error('❌ [TAB1] Error loading pending invitations:', error);
         this.isLoadingInvitations = false;
       }
     });
@@ -742,15 +1069,37 @@ export class Tab1Page implements OnInit, OnDestroy {
   }
   
   // Handle inline class invitation modal dismissal
-  onClassInvitationModalDismiss(event: any) {
+  async onClassInvitationModalDismiss(event: any) {
     console.log('📧 Class invitation modal dismissed:', event);
     this.isClassInvitationModalOpen = false;
     
     const data = event.detail?.data;
+    
+    // Remove Smart Island moment for this invitation
+    if (this.classInvitationModalData?.classId && this.smartIsland) {
+      const momentId = `invitation:${this.classInvitationModalData.classId}`;
+      console.log('🌟 [TAB1] Removing Smart Island moment:', momentId);
+      this.smartIsland.removeMoment(momentId);
+    }
+    
     if (data?.accepted || data?.declined) {
       // Reload invitations and lessons to reflect the change (no skeleton if already loaded)
       this.loadPendingInvitations();
       this.loadLessons(false);
+    } else if (data?.expired) {
+      // Invitation was removed/expired - show message and refresh
+      console.log('Invitation expired, refreshing invitations list');
+      
+      const toast = await this.toastController.create({
+        message: 'This invitation is no longer available',
+        duration: 2500,
+        color: 'medium',
+        position: 'bottom'
+      });
+      await toast.present();
+      
+      // Refresh invitations to update the count
+      this.loadPendingInvitations();
     }
   }
 
@@ -811,6 +1160,436 @@ export class Tab1Page implements OnInit, OnDestroy {
     });
 
     await modal.present();
+  }
+  
+  // ====================
+  // SMART ISLAND EVENT HELPERS
+  // ====================
+
+  // 1. Show tutor availability
+  showTutorOnline(tutor: any) {
+    if (!this.smartIsland) return;
+    
+    this.smartIsland.addMoment({
+      type: 'tutor-online',
+      priority: IslandPriority.HIGH,
+      avatarUrl: tutor.picture,
+      title: `${tutor.name} is online`,
+      subtitle: 'Book a lesson now',
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      action: () => {
+        this.router.navigate(['/tutor-profile', tutor._id]);
+      },
+      duration: 6000
+    });
+  }
+
+  // 2. Milestone celebration
+  showMilestone(type: 'vocabulary' | 'lessons' | 'streak' | 'level', value: number | string) {
+    if (!this.smartIsland) return;
+    
+    const milestones = {
+      vocabulary: {
+        emoji: '📚',
+        title: `${value} words learned!`,
+        subtitle: 'You\'re expanding your vocabulary'
+      },
+      lessons: {
+        emoji: '🎓',
+        title: `${value} lessons completed!`,
+        subtitle: 'Keep up the amazing progress'
+      },
+      streak: {
+        emoji: '🔥',
+        title: `${value}-day streak!`,
+        subtitle: 'You\'re on fire'
+      },
+      level: {
+        emoji: '⭐',
+        title: `Level up: ${value}`,
+        subtitle: 'New achievements unlocked'
+      }
+    };
+    
+    const milestone = milestones[type];
+    
+    this.smartIsland.addMoment({
+      type: 'milestone',
+      priority: IslandPriority.MEDIUM,
+      emoji: milestone.emoji,
+      title: milestone.title,
+      subtitle: milestone.subtitle,
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      duration: 5000
+    });
+  }
+
+  // 3. Quick lesson rating (after lesson ends)
+  showQuickRating(lessonId: string, tutorName: string, tutorPicture?: string) {
+    if (!this.smartIsland) return;
+    
+    this.smartIsland.addMoment({
+      type: 'rating',
+      priority: IslandPriority.HIGH,
+      avatarUrl: tutorPicture,
+      icon: tutorPicture ? undefined : 'star-outline',
+      title: `Rate your lesson`,
+      subtitle: `with ${tutorName}`,
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      action: () => {
+        // Open rating modal or navigate to lesson details
+        this.openLessonRating(lessonId);
+      },
+      duration: 8000  // Longer duration for important feedback
+    });
+  }
+
+  // 4. Tutor shared content
+  showTutorSharedContent(tutor: any, contentType: 'resource' | 'homework' | 'note', contentId?: string) {
+    if (!this.smartIsland) return;
+    
+    const content = {
+      resource: { icon: '📎', text: 'shared a resource' },
+      homework: { icon: '✏️', text: 'assigned homework' },
+      note: { icon: '📝', text: 'sent you a note' }
+    };
+    
+    const item = content[contentType];
+    
+    this.smartIsland.addMoment({
+      type: 'tutor-shared',
+      priority: IslandPriority.HIGH,
+      avatarUrl: tutor.picture,
+      title: `${tutor.name} ${item.text}`,
+      subtitle: 'Tap to view',
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      action: () => {
+        // Navigate to content or open modal
+        this.viewTutorContent(tutor._id, contentType, contentId);
+      },
+      duration: 7000
+    });
+  }
+
+  // 5. Smart idle nudge (re-engagement)
+  showIdleNudge(daysSinceLastLesson: number) {
+    if (!this.smartIsland) return;
+    
+    this.smartIsland.addMoment({
+      type: 'idle-nudge',
+      priority: IslandPriority.LOW,
+      emoji: '💭',
+      title: `${daysSinceLastLesson} days since your last lesson`,
+      subtitle: 'Ready to continue learning?',
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      action: () => {
+        this.router.navigate(['/tabs/find-tutors']);
+      },
+      duration: 6000
+    });
+  }
+
+  // 6. Smart recommendation
+  showRecommendation(message: string, type: string = 'general') {
+    if (!this.smartIsland) return;
+    
+    this.smartIsland.addMoment({
+      type: 'recommendation',
+      priority: IslandPriority.MEDIUM,
+      emoji: '💡',
+      title: message,
+      subtitle: 'Based on your progress',
+      gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+      action: () => {
+        // Navigate based on recommendation type
+        this.handleRecommendation(type);
+      },
+      duration: 6000
+    });
+  }
+
+  // Helper: Open lesson rating
+  private openLessonRating(lessonId: string) {
+    console.log('📝 Opening rating for lesson:', lessonId);
+    // TODO: Implement rating modal/navigation
+    this.showTestToast('Rating feature coming soon!');
+  }
+
+  // Helper: View tutor content
+  private viewTutorContent(tutorId: string, contentType: string, contentId?: string) {
+    console.log('📎 Viewing content from tutor:', tutorId, contentType, contentId);
+    // TODO: Implement content viewing
+    this.showTestToast('Content viewing coming soon!');
+  }
+
+  // Helper: Handle recommendation
+  private handleRecommendation(type: string) {
+    console.log('💡 Handling recommendation:', type);
+    switch (type) {
+      case 'conversation':
+        this.router.navigate(['/tabs/find-tutors'], { queryParams: { filter: 'conversation' } });
+        break;
+      case 'grammar':
+        this.router.navigate(['/tabs/find-tutors'], { queryParams: { filter: 'grammar' } });
+        break;
+      default:
+        this.router.navigate(['/tabs/find-tutors']);
+    }
+  }
+
+  // Helper: Check idle status
+  checkIdleStatus() {
+    if (!this.currentUser || this.currentUser.userType !== 'student') return;
+    
+    const lastLessonDate = this.getLastLessonDate();
+    if (lastLessonDate) {
+      const daysSince = Math.floor((Date.now() - lastLessonDate.getTime()) / (1000 * 60 * 60 * 24));
+      // Show nudge if 7+ days and they have lessons
+      if (daysSince >= 7 && this.lessons.length > 0) {
+        setTimeout(() => {
+          this.showIdleNudge(daysSince);
+        }, 5000); // Show after 5 seconds on page
+      }
+    }
+  }
+
+  // Helper: Get last lesson date
+  private getLastLessonDate(): Date | null {
+    if (this.lessons.length === 0) return null;
+    const completedLessons = this.lessons.filter(l => {
+      const endTime = new Date(l.endTime);
+      return endTime < new Date() && l.status !== 'cancelled';
+    });
+    if (completedLessons.length === 0) return null;
+    const sorted = [...completedLessons].sort((a, b) => 
+      new Date(b.endTime).getTime() - new Date(a.endTime).getTime()
+    );
+    return new Date(sorted[0].endTime);
+  }
+
+  // Helper: Get most recent tutor from completed lessons
+  private getMostRecentTutor(): any {
+    if (this.lessons.length === 0) return null;
+    
+    const completedLessons = this.lessons.filter(l => {
+      const endTime = new Date(l.endTime);
+      return endTime < new Date() && l.status !== 'cancelled' && l.tutorId;
+    }).sort((a, b) => 
+      new Date(b.endTime).getTime() - new Date(a.endTime).getTime()
+    );
+    
+    if (completedLessons.length === 0) return null;
+    return completedLessons[0].tutorId;
+  }
+
+  // Helper: Check if student has no upcoming lessons and nudge them
+  checkNoUpcomingLessons() {
+    if (!this.currentUser || this.currentUser.userType !== 'student') return;
+    
+    const now = new Date().getTime();
+    const upcomingLessons = this.lessons.filter(l => {
+      const startTime = new Date(l.startTime).getTime();
+      return startTime > now && l.status === 'scheduled';
+    });
+    
+    // Only show if:
+    // 1. No upcoming lessons
+    // 2. They have lesson history (not brand new)
+    // 3. It's been at least 3 days since their last completed lesson
+    const lastLessonDate = this.getLastLessonDate();
+    const daysSinceLast = lastLessonDate 
+      ? Math.floor((Date.now() - lastLessonDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    
+    if (upcomingLessons.length === 0 && this.lessons.length > 0 && daysSinceLast >= 3) {
+      console.log('📅 [Smart Island] No upcoming lessons detected, showing nudge...');
+      setTimeout(() => {
+        this.showNoUpcomingLessonsNudge();
+      }, 10000); // Show after 10 seconds on page
+    }
+  }
+
+  // Show nudge when student has no upcoming lessons
+  showNoUpcomingLessonsNudge() {
+    if (!this.smartIsland) return;
+    
+    // Try to get their most recent tutor for personalization
+    const recentTutor = this.getMostRecentTutor();
+    
+    if (recentTutor) {
+      this.smartIsland.addMoment({
+        type: 'recommendation',
+        priority: IslandPriority.MEDIUM, // Higher than idle nudge
+        avatarUrl: recentTutor.picture,
+        title: 'No upcoming lessons',
+        subtitle: `Book with ${recentTutor.name}?`,
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.router.navigate(['/tutor-profile', recentTutor._id]);
+        },
+        duration: 6000
+      });
+    } else {
+      this.smartIsland.addMoment({
+        type: 'recommendation',
+        priority: IslandPriority.MEDIUM,
+        emoji: '📅',
+        title: 'No upcoming lessons',
+        subtitle: 'Schedule a lesson to keep learning',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.router.navigate(['/tabs/find-tutors']);
+        },
+        duration: 6000
+      });
+    }
+  }
+  
+  // Test Smart Island with mock data
+  testSmartIsland() {
+    if (!this.smartIsland) {
+      console.error('Smart Island not available');
+      return;
+    }
+    
+    console.log('🌟 Testing Smart Island with all event types...');
+    
+    // Clear all existing moments first
+    this.smartIsland.clearAll();
+    
+    // Optional: Clear dismissal history for testing (comment out to test persistence)
+    // this.smartIsland.clearDismissalHistory();
+    
+    // Queue diverse moments to test all functionality (white background)
+    const moments = [
+      // 1. URGENT: Lesson Starting Soon (transient)
+      {
+        type: 'lesson-soon' as const,
+        priority: IslandPriority.URGENT,
+        persistent: false, // Will expire after showing
+        avatarUrl: 'https://i.pravatar.cc/150?img=48',
+        title: 'Lesson in 3 min',
+        subtitle: 'with Carlos Mendez',
+        emoji: '⏰',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => this.showTestToast('Joining lesson...'),
+        duration: 3000
+      },
+      // 2. HIGH: Class Invitation (PERSISTENT - will re-queue until acted upon)
+      {
+        type: 'invitation' as const,
+        priority: IslandPriority.HIGH,
+        persistent: true, // Stays until accepted/declined
+        id: 'test-invitation-1',
+        avatarUrl: 'https://i.pravatar.cc/150?img=29',
+        title: 'Sofia invited you',
+        subtitle: 'Advanced Grammar Class',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.showTestToast('Opening invitation...');
+          // Simulate accepting - remove the moment
+          setTimeout(() => {
+            this.smartIsland.removeMoment('test-invitation-1');
+            this.showTestToast('Invitation accepted! ✅');
+          }, 1500);
+        },
+        duration: 4000
+      },
+      // 3. HIGH: Quick Rating (PERSISTENT)
+      {
+        type: 'rating' as const,
+        priority: IslandPriority.HIGH,
+        persistent: true, // Stays until rated
+        id: 'test-rating-1',
+        avatarUrl: 'https://i.pravatar.cc/150?img=33',
+        title: 'Rate your lesson',
+        subtitle: 'with Pedro Martinez',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.showTestToast('Opening rating...');
+          // Simulate rating - remove the moment
+          setTimeout(() => {
+            this.smartIsland.removeMoment('test-rating-1');
+            this.showTestToast('Rating submitted! ⭐⭐⭐⭐⭐');
+          }, 1500);
+        },
+        duration: 4000
+      },
+      // 4. HIGH: Tutor Shared Content (PERSISTENT)
+      {
+        type: 'tutor-shared' as const,
+        priority: IslandPriority.HIGH,
+        persistent: true, // Stays until viewed
+        id: 'test-shared-content-1',
+        avatarUrl: 'https://i.pravatar.cc/150?img=47',
+        title: 'Ana shared a resource',
+        subtitle: 'Tap to view',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.showTestToast('Opening resource...');
+          setTimeout(() => {
+            this.smartIsland.removeMoment('test-shared-content-1');
+            this.showTestToast('Resource viewed! 📎');
+          }, 1500);
+        },
+        duration: 4000
+      },
+      // 5. MEDIUM: Milestone (transient - show once, tracked by dismissal)
+      {
+        type: 'milestone' as const,
+        priority: IslandPriority.MEDIUM,
+        persistent: false,
+        emoji: '📚',
+        title: '100 words learned!',
+        subtitle: 'You\'re expanding your vocabulary',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        duration: 3000
+        // Note: No ID needed - auto-generated as "milestone:100 words learned!"
+        // Once dismissed, won't show again for 7 days
+      },
+      // 6. MEDIUM: Streak (transient, tracked by dismissal)
+      {
+        type: 'milestone' as const,
+        priority: IslandPriority.MEDIUM,
+        persistent: false,
+        emoji: '🔥',
+        title: '10-day streak!',
+        subtitle: 'You\'re on fire',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        duration: 3000
+        // Note: Auto-generated ID "milestone:10-day streak!"
+        // Once dismissed, won't show again for 7 days
+      },
+      // 7. LOW: Idle Nudge (transient, tracked by dismissal)
+      {
+        type: 'idle-nudge' as const,
+        priority: IslandPriority.LOW,
+        persistent: false,
+        emoji: '💭',
+        title: '7 days since your last lesson',
+        subtitle: 'Ready to continue learning?',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => this.showTestToast('Opening tutors...'),
+        duration: 3000
+        // Note: Auto-generated ID "idle-nudge:7 days since your last lesson"
+        // Once dismissed, won't show again for 7 days
+      }
+    ];
+    
+    // Add all moments (dismissal tracking will filter out already-dismissed ones)
+    moments.forEach(moment => this.smartIsland.addMoment(moment));
+    
+    this.showTestToast(`Testing ${moments.length} events! 3 persistent, 4 transient 🌟\nDismissed moments won't reappear for 7 days.`);
+  }
+  
+  async showTestToast(message: string) {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'bottom',
+      color: 'dark'
+    });
+    await toast.present();
   }
 
   private getMockAnalysisData() {
@@ -1125,6 +1904,139 @@ export class Tab1Page implements OnInit, OnDestroy {
     // Note: Rating might not be in User type yet, so we safely access it
     const userAny = this.currentUser as any;
     this.tutorRating = userAny?.rating ? userAny.rating.toFixed(1) : '0.0';
+    
+    // Check for upcoming lessons and show Smart Island moments
+    this.checkUpcomingLessonsForIsland();
+  }
+
+  // New method: Load student insights
+  loadStudentInsights() {
+    // Count unique tutors from lessons
+    const uniqueTutors = new Set(
+      this.lessons
+        .filter(l => l.tutorId && typeof l.tutorId === 'object')
+        .map(l => (l.tutorId as any)._id)
+    );
+    this.totalTutors = uniqueTutors.size;
+
+    // Count lessons this week (same as tutor)
+    const now = new Date();
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7));
+    
+    this.lessonsThisWeek = this.lessons.filter(l => {
+      const lessonDate = new Date(l.startTime);
+      return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+    }).length;
+
+    // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
+    const currentTime = new Date();
+    this.totalLessonsCompleted = this.lessons.filter(l => {
+      const lessonEndTime = new Date(l.endTime);
+      return lessonEndTime < currentTime && l.status !== 'cancelled';
+    }).length;
+    
+    // Count unique tutors (from lessons)
+    const uniqueTutorIds = new Set(this.lessons.map((l: any) => l.tutorId?._id || l.tutorId).filter(Boolean));
+    this.totalTutors = uniqueTutorIds.size;
+    
+    // Check for upcoming lessons and show Smart Island moments
+    this.checkUpcomingLessonsForIsland();
+  }
+  
+  // Check for upcoming lessons and show Smart Island moments
+  checkUpcomingLessonsForIsland() {
+    if (!this.smartIsland) return;
+    
+    const next = this.nextLesson;
+    if (!next || !next.lesson) return;
+    
+    const now = new Date();
+    const startTime = new Date(next.lesson.startTime);
+    const minutesUntil = Math.floor((startTime.getTime() - now.getTime()) / 60000);
+    
+    // Show moment if lesson is within 15 minutes
+    if (minutesUntil > 0 && minutesUntil <= 15) {
+      const otherUser = this.currentUser?.userType === 'student' 
+        ? (next.lesson.tutorId as any) 
+        : (next.lesson.studentId as any);
+      
+      this.smartIsland.addMoment({
+        type: 'lesson-soon',
+        priority: minutesUntil <= 5 ? IslandPriority.URGENT : IslandPriority.HIGH,
+        avatarUrl: otherUser?.picture || '',
+        title: `Lesson in ${minutesUntil} min`,
+        subtitle: `with ${otherUser?.name || 'tutor'}`,
+        emoji: '⏰',
+        gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 250, 0.98))',
+        action: () => {
+          this.joinLessonById(next.lesson);
+        },
+        glow: false,
+        duration: 7000
+      });
+    }
+  }
+
+  // Navigate to invitations (for students)
+  navigateToInvitations() {
+    console.log('navigateToInvitations called');
+    console.log('pendingClassInvitations:', this.pendingClassInvitations);
+    console.log('pendingClassInvitations.length:', this.pendingClassInvitations.length);
+    
+    // Filter out cancelled invitations
+    const activeInvitations = this.pendingClassInvitations.filter(inv => inv.status !== 'cancelled');
+    console.log('activeInvitations:', activeInvitations);
+    console.log('activeInvitations.length:', activeInvitations.length);
+    
+    if (activeInvitations.length === 0) return;
+    
+    // If only 1 active invitation, open it directly
+    if (activeInvitations.length === 1) {
+      this.openClassInvitation(activeInvitations[0]._id);
+      return;
+    }
+    
+    // If multiple invitations, show list modal (includes cancelled ones for reference)
+    this.isInvitationsListModalOpen = true;
+  }
+  
+  // Handle invitations list modal dismiss
+  async onInvitationsListModalDismiss(event: any) {
+    this.isInvitationsListModalOpen = false;
+    
+    // If user accepted or declined, refresh data immediately
+    if (event.detail.data?.accepted || event.detail.data?.declined) {
+      console.log('Invitation action completed, refreshing data...');
+      
+      // Reload both invitations and lessons
+      this.loadPendingInvitations();
+      await this.loadLessons(false);
+      
+      // Show success message
+      const action = event.detail.data?.accepted ? 'accepted' : 'declined';
+      const toast = await this.toastController.create({
+        message: `Class invitation ${action} successfully`,
+        duration: 2000,
+        color: event.detail.data?.accepted ? 'success' : 'medium',
+        position: 'bottom'
+      });
+      await toast.present();
+    } else if (event.detail.data?.expired) {
+      // Invitation was removed/expired - show message and refresh
+      console.log('Invitation expired, refreshing invitations list');
+      
+      const toast = await this.toastController.create({
+        message: 'This invitation is no longer available',
+        duration: 2500,
+        color: 'medium',
+        position: 'bottom'
+      });
+      await toast.present();
+      
+      // Refresh invitations to update the count
+      this.loadPendingInvitations();
+    }
   }
 
   // New method: Load featured tutors for students
@@ -1154,6 +2066,55 @@ export class Tab1Page implements OnInit, OnDestroy {
         profilePicture: 'assets/avatar.png' 
       },
     ];
+  }
+
+  // Helper method to format tutor name with last initial
+  private formatTutorName(firstName: string | undefined, lastName: string | undefined): string {
+    if (!firstName && !lastName) {
+      return 'A tutor';
+    }
+    
+    const first = firstName || 'Unknown';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() + '.' : '';
+    
+    return lastInitial ? `${first} ${lastInitial}` : first;
+  }
+  
+  // Helper method to get next lesson time label (e.g., "in 29h" or "tomorrow")
+  getNextLessonTimeLabel(): string {
+    if (!this.nextLesson) return '';
+    
+    const now = Date.now();
+    const startTime = new Date(this.nextLesson.startTime).getTime();
+    const diff = startTime - now;
+    
+    // If lesson has started (negative diff), return empty string to hide the subtitle
+    if (diff < 0) return '';
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // If 0 minutes, show "now"
+    if (hours < 1 && minutes === 0) {
+      return 'now';
+    }
+    
+    // Use consistent "in Xh Ym" format
+    if (hours < 1) {
+      return `in ${minutes}m`;
+    } else if (hours < 24) {
+      return minutes > 0 ? `in ${hours}h ${minutes}m` : `in ${hours}h`;
+    } else {
+      const days = Math.floor(hours / 24);
+      const remainingHours = hours % 24;
+      return remainingHours > 0 ? `in ${days}d ${remainingHours}h` : `in ${days}d`;
+    }
+  }
+  
+  // Helper method to get next lesson tutor
+  getNextLessonTutor(): any {
+    if (!this.nextLesson) return null;
+    return this.nextLesson.tutorId || this.nextLesson.studentId;
   }
 
   // Helper method to get the next upcoming lesson across all dates
@@ -2425,9 +3386,11 @@ navigateToLessons() {
         // Refresh availability summary with the latest lessons
         this.updateAvailabilitySummary();
         
-        // Update tutor insights if tutor
+        // Update insights
         if (this.isTutor()) {
           this.loadTutorInsights();
+        } else {
+          this.loadStudentInsights();
         }
         
         // Mark that we've loaded data and update cache timestamp
@@ -2483,9 +3446,11 @@ navigateToLessons() {
       this._cachedTimelineEventsHash = '';
       this._cachedTimelineEvents = [];
       
-      // Update tutor insights
+      // Update insights
       if (this.isTutor()) {
         this.loadTutorInsights();
+      } else {
+        this.loadStudentInsights();
       }
       
       console.log('✅ [TAB1] Class moved to cancelled without reload');
@@ -2528,9 +3493,11 @@ navigateToLessons() {
       this._cachedTimelineEventsHash = '';
       this._cachedTimelineEvents = [];
       
-      // Update tutor insights
+      // Update insights
       if (this.isTutor()) {
         this.loadTutorInsights();
+      } else {
+        this.loadStudentInsights();
       }
       
       console.log('✅ [TAB1] Lesson moved to cancelled without reload');
@@ -2875,14 +3842,18 @@ navigateToLessons() {
   }
 
   isLessonInProgress(lesson: Lesson): boolean {
+    // Reference countdownTick to trigger change detection updates
+    void this.countdownTick;
+    
     if (!lesson) return false;
     
     const now = new Date();
     const startTime = new Date(lesson.startTime);
     const endTime = new Date(lesson.endTime);
     
-    // Check if lesson status is in_progress OR if current time is between start and end
-    return (lesson as any)?.status === 'in_progress' || (now >= startTime && now <= endTime);
+    // Only check time range, not status (status might be set prematurely)
+    // Lesson is in progress only if current time is between start and end
+    return now >= startTime && now <= endTime;
   }
 
   /**
@@ -3410,7 +4381,7 @@ navigateToLessons() {
     try {
       // Find the lesson/class to get the name and full class data
       const lesson = this.lessons.find(l => l._id === classId || l.classData?._id === classId);
-      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      const className = lesson?.className || lesson?.classData?.name || '';
       const classData = lesson?.classData || lesson;
       
       console.log('🟢 Opening inline modal...');
@@ -3462,7 +4433,7 @@ navigateToLessons() {
   async rescheduleClass(classId: string, lesson: Lesson) {
     console.log('🟡 rescheduleClass called for:', classId);
     try {
-      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      const className = lesson?.className || lesson?.classData?.name || '';
       
       console.log('🟡 Creating modal...');
       const modal = await this.modalCtrl.create({
@@ -3671,7 +4642,7 @@ navigateToLessons() {
     console.log('🔴 cancelClass called for:', classId);
     
     try {
-      const className = lesson?.className || lesson?.classData?.name || 'this class';
+      const className = lesson?.className || lesson?.classData?.name || '';
       
       console.log('🔴 Creating modal...');
       const modal = await this.modalCtrl.create({

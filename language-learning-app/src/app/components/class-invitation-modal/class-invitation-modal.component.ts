@@ -64,7 +64,15 @@ export class ClassInvitationModalComponent implements OnInit {
       next: (response) => {
         if (response.success) {
           this.classData = response.classes.find(c => c._id === this.classId) || null;
-          this.updateSanitizedDescription();
+          
+          // If class not found, it means the invitation was removed/expired
+          if (!this.classData) {
+            console.log('Invitation not found - likely removed or expired');
+            // Dismiss modal and signal that invitation expired
+            this.modalCtrl.dismiss({ expired: true, classId: this.classId });
+          } else {
+            this.updateSanitizedDescription();
+          }
         }
         this.loading = false;
       },

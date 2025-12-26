@@ -13,6 +13,8 @@ import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
+import { InvitationsListModalComponent } from '../components/invitations-list-modal/invitations-list-modal.component';
+import { SmartIslandComponent } from '../components/smart-island/smart-island.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -31,7 +33,9 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     RescheduleLessonModalComponent,
     RescheduleProposalModalComponent,
     ClassInvitationModalComponent,
-    InviteStudentModalComponent
+    InviteStudentModalComponent,
+    InvitationsListModalComponent,
+    SmartIslandComponent
   ],
   declarations: [Tab1Page]
 })

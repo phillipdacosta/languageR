@@ -285,6 +285,12 @@
 
           <!-- Messages List - hidden when loading to prevent flash -->
           <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Lazy Loading Spinner at Top -->
+            <div *ngIf="isLoadingOlderMessages" class="lazy-loading-spinner">
+              <ion-spinner name="crescent" color="primary"></ion-spinner>
+              <span>Loading older messages...</span>
+            </div>
+            
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
@@ -783,6 +789,12 @@
 
           <!-- Messages List - hidden when loading to prevent flash -->
           <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Lazy Loading Spinner at Top -->
+            <div *ngIf="isLoadingOlderMessages" class="lazy-loading-spinner">
+              <ion-spinner name="crescent" color="primary"></ion-spinner>
+              <span>Loading older messages...</span>
+            </div>
+            
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>

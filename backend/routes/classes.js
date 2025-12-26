@@ -506,7 +506,7 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
       },
       endTime: { $gte: new Date() } // Show classes that haven't ended yet
     })
-    .populate('tutorId', 'name email picture')
+    .populate('tutorId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
     res.json({ success: true, classes });
@@ -703,8 +703,10 @@ router.get('/:classId', verifyToken, async (req, res) => {
 router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
   try {
     const { tutorId } = req.params;
+    const { startDate, endDate } = req.query; // Add date range parameters
     
     console.log(`📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: ${tutorId}`);
+    console.log(`📚 Date range: ${startDate} - ${endDate}`);
     
     const tutor = await User.findById(tutorId);
     if (!tutor) {
@@ -714,10 +716,24 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
 
     console.log(`✅ [GET /api/classes/tutor/:tutorId] Tutor found: ${tutor.name} (${tutor._id})`);
 
-    // Find all classes for this tutor (no date filtering - show all past, present, and future)
-    const classes = await ClassModel.find({
-      tutorId: tutor._id
-    })
+    // Build query with optional date range filtering
+    const query = { tutorId: tutor._id };
+    
+    if (startDate || endDate) {
+      query.startTime = {};
+      if (startDate) {
+        query.startTime.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.startTime.$lte = new Date(endDate);
+      }
+      console.log('📚 ✅ Date range filter applied:', query.startTime);
+      console.log('📚 ✅ Final query:', JSON.stringify(query));
+    } else {
+      console.log('📚 ⚠️ No date range, will fetch ALL classes');
+    }
+    
+    const classes = await ClassModel.find(query)
     .populate('tutorId', 'name email picture')
     .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
     .populate('invitedStudents.studentId', 'name email picture firstName lastName') // Populate invited students

@@ -175,6 +175,17 @@
       </div>
     </ng-container>
   </div>
+  
+  <!-- Infinite Scroll for Lazy Loading -->
+  <ion-infinite-scroll 
+    threshold="100px" 
+    (ionInfinite)="loadMoreNotifications($event)"
+    [disabled]="!hasMoreNotifications">
+    <ion-infinite-scroll-content
+      loadingSpinner="crescent"
+      loadingText="Loading older notifications...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
 </ion-content>
 
 

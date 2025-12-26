@@ -648,6 +648,33 @@ ion-modal.class-invitation-modal {
   }
 }
 
+// Invitations List Modal Styling
+ion-modal.invitations-list-modal {
+  --width: 90%;
+  --max-width: 700px;
+  --height: 85vh;
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: 95%;
+    --height: 90vh;
+    --border-radius: 16px;
+  }
+  
+  app-invitations-list-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      height: 100%;
+      --background: #ffffff;
+    }
+  }
+}
+
 // Invite Student Modal Styling
 ion-modal.invite-student-modal {
   --width: 90%;

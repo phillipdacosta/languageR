@@ -26,6 +26,12 @@ export class NotificationsPage implements OnDestroy {
     { value: 'progress', label: 'Progress' }
   ];
   private destroy$ = new Subject<void>();
+  
+  // Lazy loading properties
+  isLoadingMore = false;
+  hasMoreNotifications = true;
+  private readonly NOTIFICATION_PAGE_SIZE = 50;
+  private oldestNotificationId: string | null = null;
 
   constructor(
     private notificationService: NotificationService,
@@ -53,16 +59,70 @@ export class NotificationsPage implements OnDestroy {
 
   loadNotifications() {
     this.isLoading = true;
-    this.notificationService.getNotifications().subscribe({
+    this.hasMoreNotifications = true; // Reset for initial load
+    this.oldestNotificationId = null;
+    
+    
+    this.notificationService.getNotifications(this.NOTIFICATION_PAGE_SIZE).subscribe({
       next: response => {
         if (response.success && response.notifications) {
           this.notifications = response.notifications;
+          
+          // Track oldest notification and check if there are more
+          if (this.notifications.length > 0) {
+            this.oldestNotificationId = this.notifications[this.notifications.length - 1]._id;
+            this.hasMoreNotifications = this.notifications.length >= this.NOTIFICATION_PAGE_SIZE;
+            
+          } else {
+            this.oldestNotificationId = null;
+            this.hasMoreNotifications = false;
+          }
         }
         this.isLoading = false;
       },
       error: error => {
         console.error('❌ Error loading notifications:', error);
         this.isLoading = false;
+      }
+    });
+  }
+  
+  loadMoreNotifications(event?: any) {
+    if (this.isLoadingMore || !this.hasMoreNotifications) {
+      if (event) event.target.complete();
+      return;
+    }
+    
+    this.isLoadingMore = true;
+    
+    this.notificationService.getNotifications(this.NOTIFICATION_PAGE_SIZE, this.oldestNotificationId || undefined).subscribe({
+      next: response => {
+        if (response.success && response.notifications) {
+          const olderNotifications = response.notifications;
+          
+          if (olderNotifications.length > 0) {
+            // Append older notifications
+            this.notifications = [...this.notifications, ...olderNotifications];
+            
+            // Update oldest notification ID
+            this.oldestNotificationId = olderNotifications[olderNotifications.length - 1]._id;
+            
+            // Check if there are more notifications
+            this.hasMoreNotifications = olderNotifications.length >= this.NOTIFICATION_PAGE_SIZE;
+            
+          } else {
+            this.hasMoreNotifications = false;
+          }
+        }
+        
+        this.isLoadingMore = false;
+        if (event) event.target.complete();
+      },
+      error: error => {
+        console.error('❌ Error loading more notifications:', error);
+        this.isLoadingMore = false;
+        this.hasMoreNotifications = false;
+        if (event) event.target.complete();
       }
     });
   }

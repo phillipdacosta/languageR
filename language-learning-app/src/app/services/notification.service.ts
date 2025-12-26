@@ -37,10 +37,16 @@ export class NotificationService {
     private userService: UserService
   ) {}
 
-  getNotifications(): Observable<{ success: boolean; notifications: Notification[] }> {
+  getNotifications(limit: number = 50, before?: string): Observable<{ success: boolean; notifications: Notification[] }> {
     const headers = this.userService.getAuthHeadersSync();
+    let url = `${this.baseUrl}?limit=${limit}`;
+    
+    if (before) {
+      url += `&before=${before}`;
+    }
+    
     return this.http.get<{ success: boolean; notifications: Notification[] }>(
-      this.baseUrl,
+      url,
       { headers }
     ).pipe(
       tap(response => {

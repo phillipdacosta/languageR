@@ -543,6 +543,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Always reload notifications when dropdown opens (updates the observable)
     this.loadNotifications();
   }
+  
+  navigateToNotifications() {
+    this.closeNotificationDropdown();
+    this.router.navigate(['/tabs/notifications']);
+  }
 
   private calculateDropdownPosition() {
     if (!this.notificationBtn) {

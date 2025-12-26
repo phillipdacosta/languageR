@@ -58,6 +58,15 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   isLoading = false;
   isInitialLoad = true; // Only show spinner on first load
   isLoadingMessages = false;
+  
+  // Lazy loading for messages
+  isLoadingOlderMessages = false; // Show spinner at top when loading older messages
+  hasMoreMessages = true; // Whether there are more messages to load
+  private readonly MESSAGE_PAGE_SIZE = 50; // Load 50 messages at a time
+  private readonly SCROLL_THRESHOLD = 100; // Trigger load when within 100px of top
+  private isScrollListenerAttached = false;
+  private oldestMessageId: string | null = null; // Track the oldest message for pagination
+  
   // Store reaction previews to persist across reloads
   private reactionPreviews: Map<string, { content: string; senderId: string; type: string }> = new Map();
   isSending = false;
@@ -1719,6 +1728,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     
+    // Reset lazy loading state for new conversation
+    this.hasMoreMessages = true;
+    this.oldestMessageId = null;
+    
     this.isLoadingMessages = true;
     console.log(`⏳ [${Date.now()}] isLoadingMessages = true (no cdr call)`);
     const receiverId = this.selectedConversation.otherUser.auth0Id;
@@ -1731,7 +1744,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Store unread count for scrolling (use provided value or get from conversation)
     const storedUnreadCount = unreadCount !== undefined ? unreadCount : (this.selectedConversation.unreadCount || 0);
     
-    this.messagesSubscription = this.messagingService.getMessages(receiverId).subscribe({
+    
+    this.messagesSubscription = this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
       next: (response) => {
         console.log(`📨 [${Date.now()}] Messages received: ${response.messages?.length || 0} messages`);
         if (activeRequestId !== this.messageLoadRequestId) {
@@ -1748,6 +1762,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         // Set messages
         this.messages = response.messages || [];
         console.log(`💬 [${Date.now()}] Messages set (no cdr call)`);
+        
+        // Track oldest message for pagination and determine if there are more messages
+        if (this.messages.length > 0) {
+          this.oldestMessageId = this.messages[0].id; // First message is oldest (sorted by date asc)
+          // If we got fewer messages than PAGE_SIZE, there are no more messages
+          this.hasMoreMessages = this.messages.length >= this.MESSAGE_PAGE_SIZE;
+        } else {
+          this.oldestMessageId = null;
+          this.hasMoreMessages = false;
+        }
+        
+        // Attach scroll listener for lazy loading
+        this.attachScrollListener();
         
         // Immediately scroll to bottom to prevent flash (will be refined later)
         requestAnimationFrame(() => {
@@ -1790,6 +1817,89 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if (activeRequestId === this.messageLoadRequestId) {
           this.messagesSubscription = undefined;
         }
+      }
+    });
+  }
+
+  // Lazy load older messages when scrolling to top
+  private attachScrollListener() {
+    if (this.isScrollListenerAttached) return;
+    
+    const container = this.chatContainer?.nativeElement;
+    if (!container) {
+      return;
+    }
+    
+    const onScroll = () => {
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+      
+      
+      // If near the top and not already loading and has more messages
+      if (scrollTop < this.SCROLL_THRESHOLD && !this.isLoadingOlderMessages && this.hasMoreMessages) {
+        this.loadOlderMessages();
+      } else {
+        if (scrollTop >= this.SCROLL_THRESHOLD) {
+        }
+        if (this.isLoadingOlderMessages) {
+        }
+        if (!this.hasMoreMessages) {
+        }
+      }
+    };
+    
+    container.addEventListener('scroll', onScroll);
+    this.isScrollListenerAttached = true;
+  }
+  
+  private loadOlderMessages() {
+    if (!this.selectedConversation?.otherUser || !this.oldestMessageId || this.isLoadingOlderMessages) {
+      return;
+    }
+    
+    this.isLoadingOlderMessages = true;
+    
+    const receiverId = this.selectedConversation.otherUser.auth0Id;
+    const container = this.chatContainer?.nativeElement;
+    
+    // Save current scroll height to maintain scroll position after prepending
+    const previousScrollHeight = container ? container.scrollHeight : 0;
+    
+    this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE, this.oldestMessageId).subscribe({
+      next: (response) => {
+        const olderMessages = response.messages || [];
+        
+        if (olderMessages.length > 0) {
+          // Prepend older messages to the beginning
+          this.messages = [...olderMessages, ...this.messages];
+          
+          // Update oldest message ID
+          this.oldestMessageId = olderMessages[0].id;
+          
+          // If we got fewer messages than PAGE_SIZE, no more messages exist
+          this.hasMoreMessages = olderMessages.length >= this.MESSAGE_PAGE_SIZE;
+          
+          
+          // Maintain scroll position after prepending messages
+          setTimeout(() => {
+            if (container) {
+              const newScrollHeight = container.scrollHeight;
+              const scrollDiff = newScrollHeight - previousScrollHeight;
+              container.scrollTop = scrollDiff;
+            }
+          }, 0);
+        } else {
+          this.hasMoreMessages = false;
+        }
+        
+        this.isLoadingOlderMessages = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.isLoadingOlderMessages = false;
+        this.hasMoreMessages = false; // Stop trying if there's an error
+        this.cdr.detectChanges();
       }
     });
   }
