@@ -1,9 +1,11 @@
 .availability-setup {
   display: flex;
-  height: 100vh; // Default for mobile/standalone
-  background: #f8f9fa;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  height: 100vh;
+  background: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .mobile-header,
@@ -26,39 +28,61 @@
   transform: translateY(0);
 }
 
-// Left Sidebar
+// Left Sidebar - Apple style matching tutor-calendar
 .settings-sidebar {
-  width: 280px;
-  background: #f8f9fa;
-  padding: 24px;
+  width: 260px;
+  background: #fafafa;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  border-right: 1px solid #e9ecef;
+  gap: 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
   overflow-y: auto;
+  
+  // Smooth scrolling
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
 }
 
 .back-nav {
-  margin-bottom: 24px; // Add space above SETTINGS
-  display: block !important; // Always visible
+  padding: 20px 24px 16px;
+  display: block !important;
   width: 100%;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   
   .back-button {
-    --color: #6c757d;
+    --color: #007AFF;
     --padding-start: 0;
     --padding-end: 0;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
     width: 100%;
-    justify-content: flex-start !important; // Force left align
+    justify-content: flex-start !important;
     text-align: left !important;
     margin: 0;
     display: flex;
     align-items: center;
+    transition: opacity 0.15s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
     
     ion-icon {
       font-size: 18px;
-      margin-right: 8px;
+      margin-right: 4px;
       flex-shrink: 0;
     }
     
@@ -68,7 +92,12 @@
     }
     
     &:hover {
-      --color: #1976d2;
+      opacity: 0.7;
+    }
+    
+    &:active {
+      opacity: 0.5;
+      transform: scale(0.98);
     }
   }
 }
@@ -77,36 +106,34 @@
 @media (min-width: 769px) {
   .back-nav {
     display: block !important;
-    margin-bottom: 32px;
-    margin-top: 0;
-    width: 100%;
+    padding: 12px 24px 20px;
+    margin-bottom: 0;
+    margin-top: 60px; // Push down from top to match calendar
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     
     .back-button {
       font-size: 15px;
-      font-weight: 600;
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: rgba(25, 118, 210, 0.05);
-      transition: all 0.2s ease;
-      justify-content: flex-start !important; // Force left align
-      text-align: left !important;
-      display: flex;
-      align-items: center;
-      position: relative;
-        top: 45px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      
       &::part(native) {
         justify-content: flex-start !important;
         text-align: left !important;
       }
       
       &:hover {
-        background: rgba(25, 118, 210, 0.1);
-        --color: #1976d2;
+        opacity: 0.7;
+      }
+      
+      &:active {
+        transform: scale(0.98);
+        opacity: 0.5;
       }
       
       ion-icon {
-        font-size: 20px;
-        margin-right: 8px;
+        font-size: 18px;
+        margin-right: 4px;
       }
     }
   }
@@ -114,207 +141,7 @@
 
 // Single day header styling
 .single-day-header {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 24px 57px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 0 0 24px 24px;
-  margin: -24px -32px 32px -32px;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-  position: sticky;
-  top: 0;
-  z-index: 110; // Higher than now-indicator (100) to stay on top, matching day-headers
-
-  // Overlay buttons (Airbnb-style) - only on mobile
-  .header-overlay-buttons {
-    display: none; // Hidden on desktop
-
-    @media (max-width: 768px) {
-      display: flex;
-      position: absolute;
-      top: 85px;
-      left: 20px;
-      right: 20px;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 12px;
-      pointer-events: none;
-      z-index: 101;
-
-      ion-button {
-        pointer-events: auto;
-        --background: rgba(255, 255, 255, 0.95);
-        --color: #1a1a1a;
-        --border-radius: 50%;
-        --padding-start: 0;
-        --padding-end: 0;
-        width: 50px;
-        height: 36px;
-        margin: 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        transition: all 0.2s ease;
-
-        &:active {
-          transform: scale(0.95);
-          --background: rgba(255, 255, 255, 1);
-        }
-
-        ion-icon {
-          font-size: 18px;
-        }
-      }
-    }
-  }
-
-  .date-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 16px;
-    padding: 20px;
-    min-width: 120px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-
-    .day-name {
-      font-size: 14px;
-      font-weight: 500;
-      opacity: 0.9;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .date-number {
-      font-size: 36px;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-
-    .month-name {
-      font-size: 12px;
-      font-weight: 600;
-      opacity: 0.8;
-      letter-spacing: 1px;
-    }
-  }
-
-  .date-info {
-    flex: 1;
-
-    h2 {
-      margin: 0 0 8px 0;
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-
-    p {
-      margin: 0;
-      font-size: 16px;
-      opacity: 0.9;
-      line-height: 1.4;
-    }
-  }
-
-  .week-view-button {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-
-    .week-view-btn {
-      --background: rgba(255, 255, 255, 0.2);
-      --background-hover: rgba(255, 255, 255, 0.3);
-      --background-activated: rgba(255, 255, 255, 0.25);
-      --color: white;
-      --border-color: rgba(255, 255, 255, 0.4);
-      --border-width: 1.5px;
-      --border-style: solid;
-      --border-radius: 12px;
-      --padding-start: 16px;
-      --padding-end: 16px;
-      --padding-top: 12px;
-      --padding-bottom: 12px;
-      font-weight: 600;
-      font-size: 14px;
-      text-transform: none;
-      letter-spacing: 0.3px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      transition: all 0.2s ease;
-      backdrop-filter: blur(10px);
-
-      &:hover {
-        --background: rgba(255, 255, 255, 0.3);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      }
-
-      &:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      }
-
-      ion-icon {
-        font-size: 18px;
-        margin-right: 6px;
-      }
-    }
-  }
-
-  // Mobile responsive
-  @media (max-width: 768px) {
-    flex-direction: column;
-    text-align: center;
-    gap: 16px;
-    padding: 56px 16px 20px 16px; // Add top padding for overlay buttons
-    margin: -16px -16px 24px -16px;
-    top: 0;
-    position: sticky;
-
-    .date-card {
-      min-width: auto;
-      padding: 16px 24px;
-
-      .date-number {
-        font-size: 32px;
-      }
-    }
-
-    .date-info {
-      h2 {
-        font-size: 24px;
-      }
-
-      p {
-        font-size: 14px;
-      }
-    }
-
-    .week-view-button {
-      width: 100%;
-      justify-content: center;
-
-      .week-view-btn {
-        --padding-start: 20px;
-        --padding-end: 20px;
-        --padding-top: 14px;
-        --padding-bottom: 14px;
-        font-size: 15px;
-        width: 100%;
-        max-width: 280px;
-
-        ion-icon {
-          font-size: 20px;
-        }
-      }
-    }
-  }
+  display: none; // Removed - using unified navigation bar instead
 }
 
 // Mobile: ensure left alignment
@@ -354,62 +181,74 @@
 }
 
 .settings-nav {
+  padding: 24px;
+  
   h3 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
+    color: #86868b;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0 0 16px 0;
+    letter-spacing: 0.6px;
+    margin: 0 0 12px 0;
   }
 
   .nav-menu {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 
     .nav-item {
       display: flex;
       align-items: center;
-      padding: 12px 16px;
+      padding: 10px 12px;
       border-radius: 8px;
       text-decoration: none;
-      color: #495057;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s ease;
+      color: #000000;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
       ion-icon {
-        margin-right: 12px;
+        margin-right: 10px;
         font-size: 18px;
-        color: #6c757d;
+        color: #86868b;
+        transition: color 0.2s ease;
       }
 
       &.active {
-        background: #e3f2fd;
-        color: #1976d2;
+        background: #ffffff;
+        color: #007AFF;
+        font-weight: 500;
         
         ion-icon {
-          color: #1976d2;
+          color: #007AFF;
         }
       }
 
       &:hover:not(.active) {
-        background: #f8f9fa;
+        background: rgba(0, 0, 0, 0.04);
+      }
+      
+      &:active {
+        transform: scale(0.98);
       }
     }
   }
 }
 
 .view-options {
+  padding: 0 24px 24px;
+  
   h3 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
+    color: #86868b;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0 0 16px 0;
+    letter-spacing: 0.6px;
+    margin: 0 0 12px 0;
   }
 
   .option-item {
@@ -418,35 +257,53 @@
     padding: 8px 0;
 
     ion-checkbox {
-      margin-right: 12px;
+      margin-right: 10px;
+      --size: 20px;
+      --border-radius: 6px;
+      --checkmark-color: white;
+      --background-checked: #007AFF;
+      --border-color-checked: #007AFF;
     }
 
     label {
       flex: 1;
-      font-size: 14px;
-      color: #495057;
-      font-weight: 500;
+      font-size: 13px;
+      color: #000000;
+      font-weight: 400;
+      letter-spacing: -0.01em;
       cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
     }
 
     .info-button {
-      --color: #6c757d;
+      --color: #86868b;
       --padding-start: 4px;
       --padding-end: 4px;
       width: 24px;
       height: 24px;
+      transition: opacity 0.15s ease;
+      
+      &:hover {
+        opacity: 0.7;
+      }
+      
+      &:active {
+        opacity: 0.5;
+      }
     }
   }
 }
 
 .quick-actions {
+  padding: 0 24px 24px;
+  
   h3 {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    color: #6c757d;
+    color: #86868b;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 0 0 16px 0;
+    letter-spacing: 0.6px;
+    margin: 0 0 12px 0;
   }
 
   .action-buttons {
@@ -455,22 +312,31 @@
     gap: 8px;
 
     .action-btn {
-      --border-color: #dee2e6;
-      --color: #495057;
+      --background: #ffffff;
+      --border-color: rgba(0, 0, 0, 0.1);
+      --color: #000000;
       --border-radius: 8px;
-      height: 40px;
-      font-size: 14px;
-      font-weight: 500;
+      height: 36px;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
       justify-content: flex-start;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
       ion-icon {
         margin-right: 8px;
-        font-size: 16px;
+        font-size: 18px;
+        color: #86868b;
+        transition: color 0.2s ease;
       }
 
       &:hover {
-        --border-color: #1976d2;
-        --color: #1976d2;
+        --background: rgba(0, 0, 0, 0.04);
+      }
+      
+      &:active {
+        transform: scale(0.98);
       }
     }
   }
@@ -478,24 +344,34 @@
 
 .google-integration {
   margin-top: auto;
-  padding-top: 24px;
+  padding: 24px;
 
   .google-btn {
-    --background: #000;
+    --background: #007AFF;
+    --background-hover: #0051D5;
+    --background-activated: #004DB8;
     --color: white;
     --border-radius: 8px;
     height: 48px;
-    font-weight: 600;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: none;
+    box-shadow: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
     ion-icon {
       margin-right: 8px;
-      font-size: 18px;
+      font-size: 20px;
     }
 
     &:hover {
-      --background: #333;
+      --background: #0051D5;
+    }
+    
+    &:active {
+      transform: scale(0.98);
     }
   }
 }
@@ -505,189 +381,212 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
+  background: #ffffff;
   overflow: hidden;
   min-height: 0;
-  padding-bottom: 84px; // Add space for action bar (height + some margin)
+  padding-bottom: 0; // Remove extra space - action bar is fixed
+  position: relative;
 }
 
 .content-header {
-  padding: 73px 40px 24px;
-  border-bottom: none;
-
-  .header-card {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 3px 32px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 24px;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
-    position: relative; // For absolute positioning of overlay buttons
-
-    // Overlay buttons (Airbnb-style) - only on mobile
-    .header-overlay-buttons {
-      display: none; // Hidden on desktop
-
-      @media (max-width: 768px) {
-        display: flex;
-        position: absolute;
-        top: 40px;
-        left: 20px;
-        right: 20px;
-        justify-content: space-between;
-        align-items: center;
-        pointer-events: none;
-        z-index: 101;
-
-        ion-button {
-          pointer-events: auto;
-          --background: rgba(255, 255, 255, 0.95);
-          --color: #1a1a1a;
-          --border-radius: 50%;
-          --padding-start: 0;
-          --padding-end: 0;
-          width: 50px;
-          height: 36px;
-          margin: 0;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-          transition: all 0.2s ease;
-
-          &:active {
-            transform: scale(0.95);
-            --background: rgba(255, 255, 255, 1);
-          }
-
-          ion-icon {
-            font-size: 18px;
-          }
-        }
-      }
-    }
-
-    .header-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 16px;
-      padding: 16px;
-      min-width: 64px;
-      height: 64px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-
-      ion-icon {
-        font-size: 28px;
-        color: white;
-      }
-    }
-
-    .header-info {
-      flex: 1;
-
-      h1 {
-        font-size: 20px; // Reduced from 23px
-        font-weight: 700;
-        margin: 0 0 4px 0;
-        line-height: 1.2;
-      }
-
-      p {
-        font-size: 13px; // Reduced from 14px
-        opacity: 0.9;
-        margin: 0;
-        line-height: 1.4;
-      }
-    }
-
-    // Mobile responsive
-    @media (max-width: 768px) {
-      flex-direction: column;
-      text-align: center;
-      gap: 16px;
-      padding: 96px 16px 20px 16px; // Add top padding for overlay buttons
-
-      .header-icon {
-        min-width: auto;
-        width: 64px;
-
-        ion-icon {
-          font-size: 24px;
-        }
-      }
-
-      .header-info {
-        h1 {
-          font-size: 24px;
-        }
-
-        p {
-          font-size: 14px;
-        }
-      }
-    }
-  }
+  display: none; // Remove the bulky header card completely
 }
 
 .week-navigation {
-  padding: 12px 40px; // Reduced from 16px
-  margin-bottom: 16px; // Reduced from 24px
-  border-bottom: 1px solid #e9ecef;
-  background: #f8f9fa;
+  padding: 20px 48px;
+  margin-bottom: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  position: relative;
+  top: 55px;
+  z-index: 120;
+  flex-shrink: 0;
 
   .nav-controls {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0 auto;
+    gap: 16px;
 
-    ion-button {
-      --color: #495057;
-      --padding-start: 8px;
-      --padding-end: 8px;
-      min-width: 40px;
-      height: 40px;
+    // Left side navigation (prev, next, today)
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
 
-      &:hover {
-        --color: #1976d2;
+      ion-button {
+        --background: #ffffff !important;
+        --background-activated: rgba(0, 0, 0, 0.06) !important;
+        --background-hover: rgba(0, 0, 0, 0.04) !important;
+        --color: #000000 !important;
+        --box-shadow: none !important;
+        background: #ffffff;
+        color: #000000;
+        font-size: 13px;
+        font-weight: 400;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        text-transform: none;
+        letter-spacing: -0.01em;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        margin: 0;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 6px;
+        padding: 4px 12px;
+        height: auto;
+        min-height: auto;
+        line-height: normal;
+
+        &::part(native) {
+          background: #ffffff !important;
+          color: #000000 !important;
+          padding: 4px 12px;
+        }
+
+        &:hover:not([disabled]) {
+          background: rgba(0, 0, 0, 0.04);
+          border-color: rgba(0, 0, 0, 0.15);
+        }
+        
+        &:active:not([disabled]) {
+          background: rgba(0, 0, 0, 0.06);
+          transform: scale(0.98);
+        }
+        
+        &[disabled] {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+        
+        ion-icon {
+          font-size: 15px;
+        }
+      }
+      
+      // Arrow buttons should be icon-only
+      ion-button:not(.today-btn) {
+        padding: 4px 8px;
+        
+        &::part(native) {
+          padding: 4px 8px;
+        }
+      }
+      
+      .today-btn {
+        padding: 4px 12px;
+        
+        &::part(native) {
+          padding: 4px 12px;
+        }
       }
     }
 
+    // Week display container - centered
     .week-display {
+      flex: 1;
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin: 0 24px;
-      min-width: 200px;
       justify-content: center;
 
       .week-range {
-        font-size: 16px;
+        font-size: 22px;
         font-weight: 600;
-        color: #212529;
+        letter-spacing: -0.02em;
+        color: #000000;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
       }
-
-      .today-btn {
-        --color: #1976d2;
-        --padding-start: 12px;
-        --padding-end: 12px;
-        font-size: 14px;
-        font-weight: 500;
-        height: 32px;
-      }
+    }
+    
+    // Right side (timezone + week/day toggle)
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 0 0 auto;
       
       .timezone-info {
-        font-size: 12px;
-        color: #718096;
+        font-size: 13px;
+        color: #6b7280;
         display: flex;
         align-items: center;
         gap: 4px;
+        letter-spacing: -0.01em;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        margin: 0;
         
         ion-icon {
           font-size: 14px;
+        }
+      }
+      
+      // Week/Day toggle buttons
+      .view-toggle {
+        display: flex;
+        gap: 0;
+        
+        .view-btn {
+          --background: #ffffff !important;
+          --background-activated: rgba(0, 0, 0, 0.06) !important;
+          --background-hover: rgba(0, 0, 0, 0.04) !important;
+          --color: #000000 !important;
+          --box-shadow: none !important;
+          background: #ffffff;
+          color: #000000;
+          font-size: 13px;
+          font-weight: 400;
+          text-transform: none;
+          letter-spacing: -0.01em;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+          margin: 0;
+          border: 1px solid rgba(0, 0, 0, 0.1);
+          border-radius: 0;
+          padding: 4px 12px;
+          height: auto;
+          min-height: auto;
+          line-height: normal;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          
+          &::part(native) {
+            background: #ffffff !important;
+            color: #000000 !important;
+            padding: 4px 12px;
+          }
+          
+          &:first-child {
+            border-radius: 6px 0 0 6px;
+            border-right: none;
+          }
+          
+          &:last-child {
+            border-radius: 0 6px 6px 0;
+          }
+          
+          &.active {
+            --background: #000000 !important;
+            --color: #ffffff !important;
+            background: #000000 !important;
+            color: #ffffff !important;
+            font-weight: 500;
+            border-color: #000000;
+            
+            &::part(native) {
+              background: #000000 !important;
+              color: #ffffff !important;
+            }
+          }
+          
+          &:not(.active):hover {
+            background: rgba(0, 0, 0, 0.04);
+            border-color: rgba(0, 0, 0, 0.15);
+          }
+          
+          &:active {
+            background: rgba(0, 0, 0, 0.06);
+            transform: scale(0.98);
+          }
         }
       }
     }
@@ -696,14 +595,42 @@
 
 .time-grid-container {
   flex: 1;
-  padding: 24px 40px;
+  padding: 24px 48px; // Add padding back to container
   overflow: auto;
   min-height: 0;
+  
+  // Apple-style scrollbars
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+      background-clip: content-box;
+    }
+  }
+  
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
 
 .time-grid {
   position: relative;
-  min-width: 800px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 // Disable past slots visually
@@ -793,135 +720,130 @@
   display: flex;
   margin-bottom: 0;
   position: sticky;
-  top: -26px;
+  top: 0;
   z-index: 110;
-  background: white;
-  padding-top: 6px; // Reduced from 8px
-  padding-bottom: 6px; // Reduced from 8px
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  align-items: stretch;
-  min-height: 64px; // Reduced from 80px
+  background: #ffffff;
+  padding-top: 0;
+  padding-bottom: 0;
+  align-items: stretch; // Ensure headers stretch to full height
+  min-height: 68px; // Set minimum height
+  border-bottom: 2px solid #e5e7eb;
 
   .time-column-header {
-    width: 80px;
+    width: 60px;
     flex-shrink: 0;
-    padding-right: 16px;
-    background: white;
-    padding-bottom: 0;
+    padding-right: 10px;
+    background: #ffffff;
+    padding: 16px 8px 12px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     position: relative;
-    height: 100%;
+    border-right: 1px solid #e5e7eb;
     
-    // Remove or simplify the ::after overlay to reduce visual noise
     &::after {
-      display: none; // Remove the double-line effect
+      display: none;
     }
   }
 
   .day-header {
     flex: 1;
     text-align: center;
-    padding: 10px 8px; // Reduced from 16px 8px 12px 8px
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 12px;
-    margin: 0 1px;
+    padding: 16px 8px 12px;
+    background: #ffffff;
+    border-radius: 0;
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px; // Reduced from 6px
+    gap: 4px;
     margin-bottom: 0;
     position: relative;
-    height: 100%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(102, 126, 234, 0.1);
+    border-right: 1px solid #e5e7eb;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &:last-child {
+      border-right: none; // Remove border from last day (Saturday)
+    }
 
     &:hover {
-      background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      background: #f9fafb;
     }
 
     &:active {
-      transform: translateY(0);
+      background: #f3f4f6;
     }
     
-    // Remove the ::after element that creates the double-line effect
     &::after {
       display: none;
     }
 
     .day-name {
-      font-size: 11px; // Reduced from 13px
+      font-size: 11px;
       font-weight: 600;
-      color: #667eea;
+      color: #6b7280;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.05em;
     }
 
     .day-date {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
+      gap: 0;
 
       .day-number {
-        font-size: 18px; // Reduced from 20px
-        font-weight: 700;
-        color: #2d3748;
+        font-size: 18px;
+        font-weight: 400;
+        color: #111827;
+        letter-spacing: 0;
       }
 
       .day-month {
-        font-size: 10px; // Reduced from 11px
-        font-weight: 500;
-        color: #718096;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
+        display: none;
       }
     }
 
     &.today {
-      background: transparent;
-      box-shadow: none;
-      border-color: rgba(102, 126, 234, 0.1);
-      border-top: 7px solid #7259b6;
-      
-      /* Remove only top rounding */
-      border-top-left-radius: 0;
-      border-top-right-radius: 0;
-      
-      /* Optional: keep bottom rounded */
-      border-bottom-left-radius: 12px;
-      border-bottom-right-radius: 12px;
-      
+      background: #ffffff;
+      border-color: #e5e7eb;
       
       .day-name {
-        color: #ff118a;
+        color: #3b82f6;
         font-weight: 600;
       }
       
       .day-date {
         .day-number {
-          color: #2d3748; // Use default dark color
+          background: #3b82f6;
+          color: #ffffff;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          margin: 0 auto;
         }
         
         .day-month {
-          color: #718096; // Use default gray color
+          display: none;
         }
       }
       
-      // Today header also extends down
       &::after {
-        background: transparent;
-        border-color: rgba(102, 126, 234, 0.1);
+        display: none;
       }
 
-      // Hover effect for today header - match default hover
       &:hover {
-        background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background: #f9fafb;
+      }
+      
+      &:active {
+        background: #f3f4f6;
       }
     }
   }
@@ -933,40 +855,176 @@
   padding-top: 0;
 }
 
-// Live current-time indicator line
-.time-slots .now-indicator {
+// Live current-time indicator line (inside each day-column-wrapper, like tutor-calendar)
+.day-column-wrapper .time-indicator {
   position: absolute;
+  left: 0;
+  right: 0;
   height: 2px;
-  background: #e03131; // red
-  z-index: 100; // Increased to ensure visibility above other elements
-  pointer-events: none; // Allow clicks to pass through
+  background: #FF3B30;
+  z-index: 5;
+  pointer-events: none;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -6px;
+    width: 10px;
+    height: 10px;
+    background: #FF3B30;
+    border-radius: 50%;
+  }
 }
 
-.time-slots .now-indicator .now-dot {
-  position: absolute;
-  left: -6px; // sit just before the line
-  top: -4px;
-  width: 8px;
-  height: 8px;
-  background: #e03131;
-  border-radius: 50%;
+.time-slots {
+  display: flex;
+  position: relative;
+  width: 100%;
 }
 
+.time-labels-column {
+  width: 60px;
+  flex-shrink: 0;
+  
+  .time-slot-row {
+    height: 24px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  .time-label {
+    width: 100%;
+    font-size: 10px;
+    color: #86868b;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-align: right;
+    padding-right: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  }
+}
+
+.all-day-columns {
+  display: flex;
+  flex: 1;
+  gap: 2px; // Gap between day columns (horizontal)
+  align-items: flex-start;
+}
+
+.day-column-wrapper {
+  flex: 1;
+  position: relative; // For absolute positioning of time-indicator
+  display: flex;
+  flex-direction: column;
+  min-width: 0; // Allow flex items to shrink below content size
+}
+
+.day-time-slot {
+  height: 24px;
+  margin-bottom: 2px; // Match the original time-slot-row spacing
+  background: #fafafa;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+  
+  &:hover {
+    background: #e8f0fe;
+    border-color: rgba(0, 122, 255, 0.2);
+    transform: scale(1.01);
+    box-shadow: 0 1px 4px rgba(0, 122, 255, 0.1);
+  }
+
+  &.selected {
+    background: #007aff;
+    border-color: #007aff;
+    
+    &:hover {
+      background: #0051d5;
+      border-color: #0051d5;
+    }
+  }
+
+  &.popular {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-color: #fbbf24;
+    
+    &:hover {
+      background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
+    }
+  }
+
+  &.night {
+    background: #f5f5f5;
+  }
+
+  &.past {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &.booked {
+    background: repeating-linear-gradient(
+      45deg,
+      #f0f0f0,
+      #f0f0f0 10px,
+      #e0e0e0 10px,
+      #e0e0e0 20px
+    );
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .slot-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .booked-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 12px;
+    color: #666;
+  }
+}
+
+// Old styles - keep for now but can be removed later
 .time-slot-row {
   display: flex;
   align-items: center;
   margin-bottom: 2px;
-  height: 32px; // Reduced from 40px for compact grid
+  height: 24px;
 
   .time-label {
-    width: 70px; // Slightly reduced
+    width: 60px;
     flex-shrink: 0;
-    font-size: 12px; // Smaller font
-    color: #64748b;
-    font-weight: 600;
+    font-size: 10px;
+    color: #86868b;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     text-align: right;
-    padding-right: 12px; // Reduced padding
-    letter-spacing: 0.3px;
+    padding-right: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
   }
 
   .day-columns {
@@ -976,108 +1034,100 @@
 
     .day-column {
       flex: 1;
-      height: 32px; // Reduced from 42px for more compact grid
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-      border-radius: 8px; // Slightly reduced for compact look
+      height: 24px;
+      background: #fafafa;
+      border-radius: 4px;
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      border: 1.5px solid #e2e8f0; // Thinner border
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); // Subtler shadow
+      border: 1px solid rgba(0, 0, 0, 0.06);
       overflow: hidden;
       
-      // In single day mode, make the column wider
       .single-day-mode & {
         min-width: 200px;
         max-width: 400px;
       }
 
-      // Subtle shine effect
-      &::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-        transition: left 0.5s ease;
-      }
-
       &:hover {
-        background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
-        border-color: #667eea;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
-        
-        &::before {
-          left: 100%;
-        }
+        background: #e8f0fe;
+        border-color: rgba(0, 122, 255, 0.2);
+        transform: scale(1.01);
+        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.1);
       }
 
       &.selected {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-color: #667eea;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+        background: #007AFF;
+        border-color: #007AFF;
+        transform: scale(1.01);
+        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.25);
 
         .slot-indicator {
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 10px;
-          height: 10px;
+          width: 5px;
+          height: 5px;
           background: white;
           border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        &:hover {
+          background: #0051D5;
+          border-color: #0051D5;
         }
       }
 
       &.existing {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border-color: #10b981;
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+        background: #34C759;
+        border-color: #34C759;
+        box-shadow: 0 1px 3px rgba(52, 199, 89, 0.2);
 
         .slot-indicator {
           position: absolute;
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 10px;
-          height: 10px;
+          width: 5px;
+          height: 5px;
           background: white;
           border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        &:hover {
+          background: #28A745;
+          border-color: #28A745;
         }
       }
 
       &.popular {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        border-color: #f59e0b;
+        background: #FFD60A;
+        border-color: #FFD60A;
 
         &:hover {
-          background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%);
-          border-color: #d97706;
+          background: #FFC300;
+          border-color: #FFC300;
         }
 
         &.selected {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-color: #667eea;
+          background: #007AFF;
+          border-color: #007AFF;
         }
       }
 
       &.night {
-        background: #fff3cd; // reuse existing yellow to denote night-time
-        border-color: #ffeaa7;
+        background: #FFF9E6;
+        border-color: rgba(0, 0, 0, 0.06);
 
         &:hover {
-          background: #ffeaa7;
+          background: #FFF4D1;
         }
 
         &.selected {
-          background: #1976d2;
-          border-color: #1976d2;
+          background: #007AFF;
+          border-color: #007AFF;
         }
       }
     }
@@ -1110,34 +1160,37 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 40px;
-  border-top: 1px solid #e9ecef;
-  background: #f8f9fa;
+  padding: 16px 48px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
   position: fixed;
   bottom: 0;
-  left: 280px; // Offset by sidebar width on desktop
+  left: 260px;
   right: 0;
   z-index: 100;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
 
   .selected-info {
     display: flex;
     align-items: center;
     gap: 16px;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
     .new-hours {
-      color: #1976d2;
+      color: #007AFF;
       font-weight: 600;
-      padding: 4px 12px;
-      background: rgba(25, 118, 210, 0.1);
-      border-radius: 20px;
+      padding: 6px 12px;
+      background: rgba(0, 122, 255, 0.1);
+      border-radius: 12px;
       font-size: 13px;
-      min-width: 85px; // Fixed width to prevent shifting (adjusted for decimals)
+      letter-spacing: -0.01em;
+      min-width: 90px;
       text-align: center;
-      transition: all 0.3s ease;
-      font-variant-numeric: tabular-nums; // Monospace numbers for consistent width
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-variant-numeric: tabular-nums;
       
       &:empty {
         display: none;
@@ -1145,16 +1198,17 @@
     }
 
     .total-weekly-hours {
-      color: #495057;
-      font-size: 14px;
-      min-width: 180px; // Increased to accommodate date range
-      transition: all 0.3s ease;
-      font-variant-numeric: tabular-nums; // Monospace numbers for consistent width
+      color: #000000;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      min-width: 180px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      font-variant-numeric: tabular-nums;
       
       &::before {
         content: '•';
         margin-right: 8px;
-        color: #dee2e6;
+        color: #d1d1d6;
       }
     }
   }
@@ -1165,31 +1219,47 @@
 
     ion-button {
       --border-radius: 8px;
-      height: 44px;
-      font-weight: 600;
+      height: 40px;
+      font-weight: 500;
       font-size: 14px;
+      letter-spacing: -0.01em;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      text-transform: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
 
       &[fill="outline"] {
-        --border-color: #dee2e6;
-        --color: #495057;
+        --background: #ffffff;
+        --border-color: rgba(0, 0, 0, 0.1);
+        --color: #000000;
+        --border-width: 1px;
 
         &:hover {
-          --border-color: #1976d2;
-          --color: #1976d2;
+          --background: rgba(0, 0, 0, 0.04);
+        }
+        
+        &:active {
+          transform: scale(0.98);
         }
       }
 
       &:not([fill="outline"]) {
-        --background: #1976d2;
+        --background: #007AFF;
         --color: white;
+        box-shadow: none;
 
         &:hover {
-          --background: #1565c0;
+          --background: #0051D5;
+        }
+        
+        &:active {
+          transform: scale(0.98);
         }
 
         &[disabled] {
-          --background: #e9ecef;
-          --color: #6c757d;
+          --background: #d1d1d6;
+          --color: #86868b;
+          box-shadow: none;
+          opacity: 0.6;
         }
       }
     }
@@ -1199,13 +1269,12 @@
 // Responsive design
 @media (min-width: 769px) {
   .availability-setup {
-    height: 100%; // Use parent height instead of 100vh to respect header
+    height: 100%;
   }
 
-  // Optimize desktop layout for maximum grid visibility
   .settings-sidebar {
-    width: 240px; // Reduce from 280px to give more space to grid
-    padding: 20px 16px; // Reduce padding
+    width: 260px;
+    padding: 0;
   }
 
   .main-content {
@@ -1214,38 +1283,28 @@
     flex-direction: column;
     min-height: 0;
     position: relative;
-        top: 55px;
+    top: 0;
   }
 
   .content-header {
-    padding: 24px 24px 16px; // Reduce padding significantly (was 73px 40px 24px)
-    border-bottom: 1px solid #e9ecef;
-    flex-shrink: 0;
-
-    h1 {
-      font-size: 24px; // Slightly smaller (was 28px)
-      margin: 0 0 6px 0;
-    }
-
-    p {
-      font-size: 14px; // Smaller (was 16px)
-    }
+    display: none;
   }
 
   .week-navigation {
-    padding: 1px 24px; // Reduce padding (was 16px 40px)
-    border-bottom: 1px solid #e9ecef;
-    background: #f8f9fa;
+    padding: 20px 48px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: #ffffff;
     flex-shrink: 0;
+    position: relative;
 
     .week-display {
-      margin: 0 16px; // Reduce margin (was 24px)
+      margin: 0;
     }
   }
 
   .time-grid-container {
     flex: 1;
-    padding: 16px 24px 120px; // Add bottom padding for fixed footer
+    padding: 16px 0px 69px;
     overflow: auto;
     min-height: 0;
     display: flex;
@@ -1254,82 +1313,91 @@
   }
 
   .time-grid {
-    min-width: 900px; // Increase from 800px
+    min-width: 0;
     width: 100%;
-    max-width: 1400px; // Allow grid to grow larger
+    max-width: none;
+    position: relative;
+    top: 10px;
   }
 
-  // Make time slots more visible on desktop
   .time-slot-row {
-    height: 40px; // Increase from default (likely 36px or less) for better visibility
+    height: 28px;
 
     .time-label {
-      width: 80px;
-      font-size: 13px;
-      padding-right: 12px;
+      width: 60px;
+      font-size: 10px;
+      padding-right: 10px;
     }
 
     .day-columns .day-column {
-      height: 32px; // Match row height - already compact
-      min-height: 32px;
+      height: 24px;
+      min-height: 24px;
     }
   }
 
   .time-slots {
-    margin-top: 8px;
-    // Ensure time slots create scrollable content on mobile
-    min-height: 1600px; // 48 slots × 32px + margins
+    margin-top: 0;
+    min-height: 1200px;
   }
 
   .day-headers {
-    min-height: 60px; // Reduce from 80px
-    padding-top: 6px; // Reduce from 8px
-    padding-bottom: 16px; // Reduce from 22px
+    min-height: auto;
+    padding-top: 0;
+    padding-bottom: 0;
+    top: 35px;
+    border-bottom: 2px solid #e5e7eb;
 
-    .time-column-header::after {
-      bottom: -16px; // Match new padding-bottom
+    .time-column-header {
+      width: 60px;
+      padding: 16px 8px 12px;
+      padding-right: 10px;
+      
+      &::after {
+        display: none;
+      }
     }
 
     .day-header {
-      min-height: 60px; // Reduce from 80px
-      padding: 8px 6px; // Reduce from 12px 8px
+      min-height: auto;
+      padding: 16px 8px 12px;
 
       &::after {
-        bottom: -16px; // Match new padding-bottom
-        height: 16px; // Reduce from 22px
+        display: none;
       }
 
       .day-name {
-        font-size: 13px; // Slightly smaller (was 14px)
+        font-size: 11px;
+        font-weight: 500;
       }
 
       .day-date .day-number {
-        font-size: 16px; // Reduce from 18px
+        font-size: 15px;
+        font-weight: 600;
       }
 
       .day-date .day-month {
-        font-size: 10px; // Slightly smaller (was 11px)
+        display: none;
       }
     }
   }
 
   .action-bar {
-    padding: 12px 24px; // Reduce padding significantly (was 20px 40px)
+    padding: 8px 32px;
     flex-shrink: 0;
-    border-top: 1px solid #e9ecef;
-    background: white;
-    left: 240px; // Offset by tablet sidebar width
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+    left: 260px;
 
     .selected-info {
-      font-size: 13px; // Slightly smaller
+      font-size: 13px;
     }
 
     .action-buttons {
-      gap: 8px; // Reduce gap between buttons
+      gap: 10px;
 
       ion-button {
-        height: 36px; // Reduce from 44px
-        font-size: 13px; // Slightly smaller
+        height: 36px;
+        font-size: 13px;
         --padding-start: 16px;
         --padding-end: 16px;
       }
@@ -1351,9 +1419,9 @@
     padding: 16px;
     gap: 20px;
     border-right: none;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
-    align-items: flex-start; // Ensure left alignment
+    align-items: flex-start;
   }
 
   .back-nav {
@@ -1378,21 +1446,21 @@
     flex: 1;
     min-height: 60vh;
     position: relative;
-    padding-bottom: 80px; // Space for fixed footer
+    padding-bottom: 0; // Remove extra space
   }
 
   .content-header {
-    padding: 20px 24px 16px;
+    padding: 24px 24px 20px;
 
     h1 {
-      font-size: 24px;
+      font-size: 28px;
     }
   }
 
   .time-grid-container {
-    padding: 16px 24px;
+    padding: 20px 24px;
     min-height: 500px;
-    padding-bottom: 100px; // Add padding to prevent content from being hidden behind fixed footer
+    padding-bottom: 24px; // Reduce from 110px
   }
 
   .action-bar {
@@ -1413,7 +1481,7 @@
   }
 
   .mobile-header {
-    display: none; // Hidden since we now have overlay buttons in header-card
+    display: none;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px 0;
@@ -1421,24 +1489,26 @@
 
     .mobile-back-button {
       flex: 1;
-      --color: #495057;
+      --color: #06c;
       --padding-start: 0;
       --padding-end: 0;
       justify-content: flex-start;
+      font-size: 17px;
+      letter-spacing: -0.4px;
 
       ion-icon {
-        margin-right: 8px;
+        margin-right: 6px;
       }
     }
 
     .mobile-settings-button {
       flex: 0 0 auto;
-      --color: #495057;
+      --color: #06c;
       --padding-start: 6px;
       --padding-end: 6px;
 
       ion-icon {
-        font-size: 22px;
+        font-size: 24px;
       }
     }
   }
@@ -1456,13 +1526,13 @@
       border-radius: 12px;
       padding: 16px;
       margin-top: 12px;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 
       h3 {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
-        color: #6c757d;
-        letter-spacing: 1px;
+        color: #86868b;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
         margin-bottom: 12px;
       }
@@ -1470,12 +1540,13 @@
       ion-item {
         --padding-start: 0;
         --inner-padding-end: 0;
-        --min-height: 40px;
-        font-size: 14px;
+        --min-height: 44px;
+        font-size: 15px;
+        letter-spacing: -0.3px;
 
         ion-icon {
           margin-right: 12px;
-          color: #6c757d;
+          color: #86868b;
         }
       }
 
@@ -1485,9 +1556,10 @@
         gap: 12px;
 
         label {
-          font-size: 14px;
-          color: #495057;
-          font-weight: 500;
+          font-size: 15px;
+          color: #1d1d1f;
+          font-weight: 400;
+          letter-spacing: -0.3px;
         }
       }
 
@@ -1516,29 +1588,34 @@
   }
 
   .content-header {
-    padding: 24px 16px 16px;
+    padding: 24px 16px 20px;
 
     h1 {
-      font-size: 20px;
+      font-size: 24px;
+      letter-spacing: -0.6px;
     }
 
     p {
-      font-size: 14px;
+      font-size: 15px;
       padding-top: 8px;
+      letter-spacing: -0.2px;
     }
   }
 
   .time-grid-container {
-    padding: 12px 12px 140px;
+    padding: 12px 0 24px; // Remove left/right padding for full width
     display: block;
     overflow: visible;
-    // Ensure minimum height for scrollable content on mobile
     min-height: calc(100vh + 500px);
+  }
+  
+  .time-grid {
+    width: 100%;
+    padding: 0 12px; // Add padding to grid itself
   }
 
   .time-slots {
-    // Ensure time slots create scrollable content on mobile
-    min-height: 1600px; // 48 slots × 32px + margins
+    min-height: 1600px;
   }
 
   .action-bar {
@@ -1547,10 +1624,12 @@
     left: 0;
     right: 0;
     z-index: 1000;
-    background: #f8f9fa;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
     padding: 12px 16px;
-    border-top: 1px solid #e9ecef;
+    border-top: 0.5px solid rgba(0, 0, 0, 0.1);
     border-bottom: none;
     flex-direction: row;
     align-items: center;
@@ -1558,7 +1637,7 @@
     gap: 12px;
 
     .selected-info {
-      font-size: 11px;
+      font-size: 12px;
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
@@ -1566,22 +1645,22 @@
       align-items: flex-start;
       
       .new-hours {
-        font-size: 11px;
-        padding: 2px 8px;
-        min-width: 75px; // Fixed width for mobile (adjusted for decimals)
+        font-size: 12px;
+        padding: 3px 10px;
+        min-width: 75px;
         text-align: center;
-        transition: all 0.3s ease;
-        font-variant-numeric: tabular-nums; // Monospace numbers
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        font-variant-numeric: tabular-nums;
       }
 
       .total-weekly-hours {
-        font-size: 11px;
-        min-width: 150px; // Increased for mobile to accommodate date range
-        transition: all 0.3s ease;
-        font-variant-numeric: tabular-nums; // Monospace numbers
+        font-size: 12px;
+        min-width: 150px;
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        font-variant-numeric: tabular-nums;
         
         &::before {
-          display: none; // Hide bullet on mobile for space
+          display: none;
         }
       }
     }
@@ -1593,7 +1672,7 @@
 
       ion-button {
         height: 40px;
-        font-size: 13px;
+        font-size: 14px;
         flex: 0 0 auto;
         min-width: 100px;
       }
@@ -1606,22 +1685,22 @@
   }
 
   .day-headers .day-header {
-    font-size: 14px;
-    padding: 8px 4px;
+    font-size: 15px;
+    padding: 10px 6px;
   }
 
   .time-slot-row {
-    height: 32px;
+    height: 36px;
 
     .time-label {
-      width: 63px;
+      width: 64px;
       font-size: 12px;
       padding-right: 8px;
       white-space: nowrap;
     }
 
     .day-columns .day-column {
-      height: 32px;
+      height: 36px;
     }
 
     .day-columns {
@@ -1630,20 +1709,20 @@
   }
 
   .day-headers {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-    border-bottom: 1px solid #e9ecef;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;
     z-index: 110;
-    background: #f8f9fa;
-    margin-left: -12px; // Counteract container padding
-    margin-right: -12px; // Counteract container padding
+    background: #f5f5f7;
+    margin-left: -12px;
+    margin-right: -12px;
     padding: 12px 0px 12px;
 
     .time-column-header {
       width: 56px;
       padding-right: 8px;
-      background: #f8f9fa;
+      background: #f5f5f7;
     }
 
     .day-header {
@@ -1666,18 +1745,16 @@
     position: sticky;
     top: 0;
     z-index: 30;
-    background: #f8f9fa;
-    position: sticky;
-    top: 0;
-    z-index: 30;
-    background: #f8f9fa;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
 
     .nav-controls {
-      gap: 4px;
+      gap: 6px;
 
       ion-button {
-        min-width: 36px;
-        height: 36px;
+        min-width: 40px;
+        height: 40px;
       }
 
       .week-display {
@@ -1685,7 +1762,8 @@
         margin: 0 12px;
 
         .week-range {
-          font-size: 14px;
+          font-size: 15px;
+          letter-spacing: -0.3px;
         }
       }
     }

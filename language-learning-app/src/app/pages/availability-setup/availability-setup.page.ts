@@ -26,11 +26,6 @@ export class AvailabilitySetupPage implements OnInit {
 
   // Ionic lifecycle hook - called when view has fully entered and is now the active view
   ionViewDidEnter() {
-    // Give the component time to render the indicator, then scroll
-    setTimeout(() => {
-      if (this.availabilityComponent) {
-        this.availabilityComponent.scrollToNowIndicator();
-      }
-    }, 125);
+    // Time position updates automatically via interval, no scrolling needed
   }
 }

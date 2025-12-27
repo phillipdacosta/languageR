@@ -166,60 +166,37 @@
       </div>
     </div>
 
-    <!-- Week Navigation -->
-    <div class="week-navigation" *ngIf="!isSingleDayMode">
+    <!-- Week Navigation (shown in both week and day mode) -->
+    <div class="week-navigation">
       <div class="nav-controls">
-        <ion-button fill="clear" size="small" (click)="navigateWeek('prev')">
-          <ion-icon name="chevron-back-outline"></ion-icon>
-        </ion-button>
+        <div class="nav-left">
+          <ion-button fill="solid" size="small" (click)="navigateWeek('prev')" [disabled]="isSingleDayMode">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="solid" size="small" (click)="navigateWeek('next')" [disabled]="isSingleDayMode">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="solid" size="small" (click)="goToToday()" class="today-btn" [disabled]="isSingleDayMode">
+            Today
+          </ion-button>
+        </div>
         <div class="week-display">
           <span class="week-range">{{ getWeekRange() }}</span>
+        </div>
+        <div class="nav-right">
           <p class="timezone-info" *ngIf="tutorTimezone">
             <ion-icon name="globe-outline"></ion-icon>
             {{ getTimezoneLabel(tutorTimezone) }}
           </p>
-          <ion-button fill="clear" size="small" (click)="goToToday()" class="today-btn">
-            Today
-          </ion-button>
+          <div class="view-toggle">
+            <ion-button fill="solid" class="view-btn" [class.active]="!isSingleDayMode" (click)="switchToWeekView()">Week</ion-button>
+            <ion-button fill="solid" class="view-btn" [class.active]="isSingleDayMode" (click)="switchToDayView()">Day</ion-button>
+          </div>
         </div>
-        <ion-button fill="clear" size="small" (click)="navigateWeek('next')">
-          <ion-icon name="chevron-forward-outline"></ion-icon>
-        </ion-button>
       </div>
     </div>
     
-    <!-- Single Day Header -->
-    <div class="single-day-header" *ngIf="isSingleDayMode">
-      <!-- Mobile Header Buttons Overlay -->
-      <div class="header-overlay-buttons">
-        <ion-button fill="clear" class="overlay-back-button" (click)="goBack()" >
-          <ion-icon name="chevron-back-outline"></ion-icon>
-        </ion-button>
-        <ion-button fill="clear" class="overlay-settings-button" (click)="toggleMobileSettings()">
-          <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
-        </ion-button>
-      </div>
-      
-      <div class="date-card">
-        <div class="day-name">{{ displayedWeekDays[0]?.name }}</div>
-        <div class="date-number">{{ displayedWeekDays[0]?.displayDate }}</div>
-        <div class="month-name">{{ displayedWeekDays[0]?.displayMonth?.toUpperCase() }}</div>
-      </div>
-      <div class="date-info">
-        <h2>Set your availability</h2>
-        <p>Select time slots when you're available for booking on this day</p>
-        <p class="timezone-info" *ngIf="tutorTimezone">
-          <ion-icon name="globe-outline"></ion-icon>
-          Times shown in {{ getTimezoneLabel(tutorTimezone) }}
-        </p>
-      </div>
-      <div class="week-view-button">
-        <ion-button fill="outline" class="week-view-btn" (click)="navigateToWeekView()">
-          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-          Week View
-        </ion-button>
-      </div>
-    </div>
+    <!-- Single Day Header (REMOVED - using navigation bar instead) -->
 
     <!-- Time Slot Grid -->
     <div class="time-grid-container">
@@ -238,24 +215,19 @@
 
         <!-- Time Slots -->
         <div class="time-slots" #timeSlotsContainer>
-          <!-- Live current-time indicator -->
-          <div
-            *ngIf="showNowIndicator"
-            class="now-indicator"
-            [style.top.px]="nowIndicatorTop"
-            [style.left.px]="nowIndicatorLeft"
-            [style.width.px]="nowIndicatorWidth"
-          >
-            <span class="now-dot"></span>
+          <!-- Wrapper for time labels column -->
+          <div class="time-labels-column">
+            <div class="time-slot-row" *ngFor="let hour of timeSlots">
+              <div class="time-label">{{ hour.display }}</div>
+            </div>
           </div>
-          <div class="time-slot-row" *ngFor="let hour of timeSlots; let i = index">
-            <!-- Time Label -->
-            <div class="time-label">{{ hour.display }}</div>
-            
-            <!-- Day Columns -->
-            <div class="day-columns">
-              <div class="day-column" 
-                   *ngFor="let day of displayedWeekDays"
+          
+          <!-- Day columns (one per day, spanning all time slots) -->
+          <div class="all-day-columns">
+            <div class="day-column-wrapper" *ngFor="let day of displayedWeekDays">
+              <!-- Time slots for this day -->
+              <div class="day-time-slot" 
+                   *ngFor="let hour of timeSlots; let i = index"
                    [class.selected]="isSlotSelected(day.index, i)"
                    [class.popular]="isPopularSlot(day.index, i)"
                    [class.night]="isNightSlot(i)"
@@ -267,6 +239,9 @@
                 <div class="slot-indicator" *ngIf="isSlotSelected(day.index, i)"></div>
                 <ion-icon *ngIf="isSlotBooked(day.index, i)" name="lock-closed" class="booked-icon"></ion-icon>
               </div>
+              
+              <!-- Current time indicator - positioned absolutely within this day's wrapper -->
+              <div class="time-indicator" *ngIf="isToday(day)" [style.top.px]="currentTimePosition"></div>
             </div>
           </div>
         </div>
