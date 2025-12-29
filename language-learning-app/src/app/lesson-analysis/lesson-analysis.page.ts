@@ -103,7 +103,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       const headers = this.userService.getAuthHeadersSync();
 
       const response: any = await this.http
-        .get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}/analysis`, { headers })
+        .get(`${environment.backendUrl}/api/transcription/lesson/${this.lessonId}/analysis`, { headers })
         .toPromise();
 
       console.log('📊 Analysis API response:', response);
@@ -192,7 +192,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
         const headers = this.userService.getAuthHeadersSync();
 
         const response: any = await this.http
-          .get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}/analysis`, { headers })
+          .get(`${environment.backendUrl}/api/transcription/lesson/${this.lessonId}/analysis`, { headers })
           .toPromise();
 
         if (response.success && response.analysis) {
@@ -235,7 +235,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       const headers = this.userService.getAuthHeadersSync();
 
       const response: any = await this.http
-        .post(`${environment.apiUrl}/lessons/${this.lessonId}/generate-analysis`, {}, { headers })
+        .post(`${environment.backendUrl}/api/lessons/${this.lessonId}/generate-analysis`, {}, { headers })
         .toPromise();
 
       if (response.success) {
@@ -668,7 +668,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       // Get the transcript to find the segment containing this word
       const headers = this.userService.getAuthHeadersSync();
       const transcriptResponse: any = await this.http
-        .get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}`, { headers })
+        .get(`${environment.backendUrl}/api/transcription/lesson/${this.lessonId}`, { headers })
         .toPromise();
 
       if (!transcriptResponse.segments) {
@@ -702,7 +702,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
           text: segment.text
         });
         
-        audioUrl = `${environment.apiUrl}/transcription/word-audio?${params.toString()}`;
+        audioUrl = `${environment.backendUrl}/api/transcription/word-audio?${params.toString()}`;
         
         // Fetch with proper auth headers
         const authHeaders = this.userService.getAuthHeadersSync();
