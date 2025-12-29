@@ -109,8 +109,8 @@ export class EarlyExitModalComponent {
       // Dismiss modal with action
       this.modalDismissed.emit({ action: 'end_lesson_confirmed' });
 
-      // Navigate to analysis page with generating state
-      await this.router.navigate(['/lesson-analysis', this.lessonId]);
+      // Navigate back to home page (not analysis) for early exits
+      await this.router.navigate(['/tabs/home']);
 
     } catch (error) {
       console.error('❌ Error finalizing lesson:', error);
