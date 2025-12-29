@@ -1584,6 +1584,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     this.router.navigate(['/tabs/home/lessons']);
   }
   
+  // Navigate to explore public classes page
+  navigateToExplore() {
+    this.router.navigate(['/explore']);
+  }
+  
   // Open modal showing all tutors
   openAllTutorsModal() {
     this.isAllTutorsModalOpen = true;

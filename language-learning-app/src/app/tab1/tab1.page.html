@@ -880,20 +880,36 @@
       <ion-button fill="clear" class="see-all-btn" routerLink="/tabs/home/lessons">See All</ion-button>
     </div> -->
 
-    <!-- Explore Public Classes - Tab style (Students only, always show) -->
-    <div class="explore-tab-section" *ngIf="currentUser?.userType === 'student' && !isLoadingLessons">
-      <div class="category-tabs">
-        <div class="tab-item" [routerLink]="['/tabs/home/explore']">
-          <div class="tab-icon explore">
-            <ion-icon name="compass"></ion-icon>
-          </div>
-          <span>Explore Classes</span>
+     <!-- Category Tabs (moved below lessons for mobile student view) -->
+     <div class="category-tabs" *ngIf="currentUser?.userType === 'student' && !isLoadingLessons">
+      <div class="tab-item">
+        <div class="tab-icon kids">
+          <ion-icon name="create"></ion-icon>
         </div>
+        <span>Learning Material</span>
+      </div>
+      <div class="tab-item">
+        <div class="tab-icon hospital">
+          <ion-icon name="briefcase"></ion-icon>
+        </div>
+        <span>Forum</span>
+      </div>
+      <div class="tab-item" (click)="navigateToExplore()">
+        <div class="tab-icon consultant">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <span>Public Classes</span>      
       </div>
     </div>
 
     <!-- Category Tabs (moved below lessons for mobile student view) -->
-    <div class="category-tabs" *ngIf="isTutor() && !isLoadingLessons">
+    <div class="category-tabs" *ngIf="!isLoadingLessons && isTutor()">
+      <div class="tab-item" (click)="navigateToExplore()">
+        <div class="tab-icon consultant">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <span>Public Classes</span>
+      </div>
       <div class="tab-item">
         <div class="tab-icon kids">
           <ion-icon name="create"></ion-icon>
@@ -902,15 +918,9 @@
       </div>
       <div class="tab-item">
         <div class="tab-icon hospital">
-          <ion-icon name="briefcase"></ion-icon>
+          <ion-icon name="reader-outline"></ion-icon>
         </div>
-        <span>Business</span>
-      </div>
-      <div class="tab-item">
-        <div class="tab-icon consultant">
-          <ion-icon name="people"></ion-icon>
-        </div>
-        <span>Explore</span>
+        <span>Forum</span>
       </div>
     </div>
 
