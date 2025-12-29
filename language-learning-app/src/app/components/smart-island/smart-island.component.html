@@ -1,0 +1,100 @@
+<div class="smart-island-container"
+     [class.collapsed]="isCollapsed">
+  
+  <!-- Collapsed Ball State -->
+  <div class="smart-island-ball" 
+       *ngIf="isCollapsed"
+       [class.animate-roll]="animateCollapse"
+       (click)="expandIsland()">
+    <ion-icon name="chevron-back" class="ball-arrow"></ion-icon>
+  </div>
+  
+  <!-- The Island (normal state) -->
+  <div class="smart-island"
+       *ngIf="!isCollapsed"
+       [class.has-action]="currentMoment?.action"
+       [class.glowing]="currentMoment?.glow"
+       [class.sleeping]="showingSleepingState"
+       [class.transitioning]="isTransitioning"
+       [class.animate-expand]="animateExpand"
+       [style.background]="defaultGradient"
+       (click)="onIslandContentTap()">
+    
+    <!-- Close Button (X in circle) -->
+    <div class="island-close-button" 
+         (click)="onCloseIsland($event)"
+         *ngIf="!showingSleepingState">
+      <ion-icon name="close"></ion-icon>
+    </div>
+    
+    <!-- Content wrapper with fade animation -->
+    <ng-container *ngIf="!isTransitioning && currentMoment" [@contentFade]>
+      <!-- Avatar(s) -->
+      <div class="island-avatars" *ngIf="hasAvatars()">
+        <!-- Single Avatar -->
+        <ion-avatar class="island-avatar" 
+                    *ngIf="currentMoment.avatarUrl"
+                    [@avatarPop]>
+          <img [src]="currentMoment.avatarUrl" [alt]="currentMoment.title">
+        </ion-avatar>
+        
+        <!-- Multiple Avatars (stacked) -->
+        <div class="avatar-stack" *ngIf="currentMoment.avatars && currentMoment.avatars.length > 0">
+          <ion-avatar *ngFor="let avatar of currentMoment.avatars; let i = index"
+                      class="stacked-avatar"
+                      [style.zIndex]="currentMoment.avatars.length - i"
+                      [style.marginLeft]="i === 0 ? '0' : '-8px'"
+                      [@avatarStack]="{ value: '', params: { delay: getStackDelay(i) } }">
+            <img [src]="avatar" alt="Tutor">
+          </ion-avatar>
+        </div>
+      </div>
+      
+      <!-- Icon (if no avatar) -->
+      <div class="island-icon" *ngIf="!hasAvatars() && currentMoment.icon">
+        <ion-icon [name]="currentMoment.icon"></ion-icon>
+      </div>
+      
+      <!-- Emoji (if no avatar/icon) -->
+      <div class="island-emoji" *ngIf="!hasAvatars() && !currentMoment.icon && currentMoment.emoji">
+        {{ currentMoment.emoji }}
+      </div>
+      
+      <!-- Content -->
+      <div class="island-content">
+        <p class="island-title">{{ currentMoment.title }}</p>
+        <p class="island-subtitle" *ngIf="currentMoment.subtitle">
+          {{ currentMoment.subtitle }}
+        </p>
+      </div>
+      
+      <!-- Navigation Arrows -->
+      <div class="island-nav-container">
+        <!-- Back Arrow (left) -->
+        <ion-icon name="chevron-back" 
+                  class="island-nav-arrow nav-back"
+                  *ngIf="currentMoment && currentIndex > 0"
+                  (click)="onNavigatePrevious($event)">
+        </ion-icon>
+        
+        <!-- Forward Arrow (right) -->
+        <ion-icon name="chevron-forward" 
+                  class="island-nav-arrow nav-forward"
+                  *ngIf="currentMoment && currentIndex < allMoments.length - 1"
+                  (click)="onNavigateNext($event)">
+        </ion-icon>
+      </div>
+    </ng-container>
+  </div>
+  
+  <!-- Queue Indicator (always reserve space, show all dots) -->
+  <div class="queue-dots" 
+       *ngIf="!isCollapsed"
+       [class.hidden]="allMoments.length === 0 || showingSleepingState">
+    <span class="dot" 
+          *ngFor="let moment of allMoments; let i = index"
+          [class.active]="i === currentIndex">
+    </span>
+  </div>
+</div>
+

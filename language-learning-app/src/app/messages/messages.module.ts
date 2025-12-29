@@ -6,6 +6,9 @@ import { MessagesPage } from './messages.page';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { SharedModule } from '../shared/shared.module';
+import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { CheckoutPage } from '../checkout/checkout.page';
+import { MarkdownLinkPipe } from './pipes/markdown-link.pipe';
 
 import { MessagesPageRoutingModule } from './messages-routing.module';
 
@@ -16,9 +19,11 @@ import { MessagesPageRoutingModule } from './messages-routing.module';
     FormsModule,
     ReactiveFormsModule,
     MessagesPageRoutingModule,
-    SharedModule
+    SharedModule,
+    TutorAvailabilityViewerComponent,
+    CheckoutPage
   ],
-  declarations: [MessagesPage, ImageViewerModal, MessageContextMenuComponent]
+  declarations: [MessagesPage, ImageViewerModal, MessageContextMenuComponent, MarkdownLinkPipe]
 })
 export class MessagesPageModule {}
 

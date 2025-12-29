@@ -1,4 +1,13 @@
 <ion-content [fullscreen]="true" class="tutor-calendar-page" [class.disable-scroll]="isScreenLocked()">
+  
+  <!-- 🧪 DEV TEST: Auto-Cancel Button -->
+  <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+    <ion-button color="danger" (click)="testAutoCancelClass()" size="small" style="--box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+      <ion-icon name="warning" slot="start"></ion-icon>
+      TEST Auto-Cancel
+    </ion-button>
+  </div>
+  
   <!-- Reschedule Mode Banner -->
   <div class="reschedule-banner" *ngIf="rescheduleMode">
     <div class="reschedule-banner-content">
@@ -62,7 +71,7 @@
           <h3>Quick Actions</h3>
             <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson(); toggleMobileSettings()">
               <ion-icon name="add-outline" slot="start"></ion-icon>
-              Schedule lesson
+              Schedule Class
             </ion-button>
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
@@ -158,15 +167,21 @@
           <!-- Show nothing while loading -->
           <ng-container *ngIf="!isLoadingMobileData">
             <div class="mobile-timeline-simple" *ngIf="mobileTimelineEvents.length > 0; else emptyTimeline">
-              <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [@slideInUp]="item.isPast ? 'void' : 'in'">
+              <!-- Timeline events -->
+              <div *ngFor="let item of mobileTimelineEvents" class="timeline-row" [class.past]="item.isPast" [class.happening-now]="item.isHappeningNow" [class.is-cancelled]="item.isCancelled" [@slideInUp]="item.isPast ? 'void' : 'in'">
                 <div class="time-column">
-                  <div class="time-display">{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</div>
+                  <div class="time-display" [class.now]="item.isHappeningNow">
+                    <span *ngIf="item.isHappeningNow" class="now-badge">Now</span>
+                    <span>{{ formatTime(item.start) }} ({{ formatDurationShort(item.durationMinutes) }})</span>
+                  </div>
                 </div>
                 <div class="event-column">
                   <div class="timeline-entry">
                     <div class="timeline-marker" [style.background]="item.color || '#667eea'"></div>
                     <div class="timeline-card" 
                          [class.past]="item.isPast" 
+                         [class.happening-now]="item.isHappeningNow"
+                         [class.is-cancelled]="item.isCancelled"
                          [class.trial-lesson]="item.isTrialLesson"
                          [class.office-hours]="item.isOfficeHours"
                          [class.clickable]="item.id"
@@ -266,12 +281,13 @@
                   <div class="agenda-relative" *ngIf="section.relativeLabel">{{ section.relativeLabel }}</div>
                 </div>
                 <div class="agenda-items" *ngIf="section.events.length > 0; else noAgendaEvents">
-                  <div class="agenda-item" *ngFor="let item of section.events">
-                    <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast">
+                  <div class="agenda-item" *ngFor="let item of section.events" [class.is-cancelled]="item.isCancelled">
+                    <div class="timeline-entry" [class.free]="item.type === 'free'" [class.past]="item.isPast" [class.is-cancelled]="item.isCancelled">
                       <div class="timeline-marker" [style.background]="item.type === 'event' ? (item.color || '#667eea') : null"></div>
                       <div class="timeline-card" 
                            [class.free]="item.type === 'free'" 
                            [class.past]="item.isPast" 
+                           [class.is-cancelled]="item.isCancelled"
                            [class.trial-lesson]="item.isTrialLesson"
                            [class.office-hours]="item.isOfficeHours"
                            [class.clickable]="item.type === 'event' && item.id"
@@ -363,9 +379,9 @@
         <div class="sidebar-content" [class.expanded]="sidebarExpanded">
           <!-- Action Buttons -->
           <div class="action-buttons">
-            <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson()">
+            <ion-button size="small" class="schedule-lesson-btn" (click)="onScheduleLesson()">
               <ion-icon name="add-outline" slot="start"></ion-icon>
-              Schedule lesson
+              Schedule Class
             </ion-button>
 
             <ion-button expand="block" fill="outline" class="action-btn" (click)="onAddTimeOff()" [disabled]="isScreenLocked()">
@@ -387,7 +403,7 @@
           <!-- Tags Section -->
           <div class="tags-section">
             <div class="section-header" (click)="toggleTags()">
-              <h4>Tags</h4>
+              <h4>Keys</h4>
               <ion-icon
                 name="chevron-down-outline"
                 class="expand-icon"
@@ -395,13 +411,17 @@
               </ion-icon>
             </div>
             <div class="tag-list" [class.expanded]="tagsExpanded">
-              <div class="tag-item" [style.border-left-color]="'#10b981'">
-                <div class="tag-color" style="background-color: #10b981;"></div>
+              <div class="tag-item" [style.border-left-color]="'#01140e2a'">
+                <div class="tag-color" style="background-color: #01140e2a;"></div>
                 <span>Your availability</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#3b82f6'">
                 <div class="tag-color" style="background-color: #3b82f6;"></div>
                 <span>Single lesson</span>
+              </div>
+              <div class="tag-item" [style.border-left-color]="'#8b5cf6'">
+                <div class="tag-color" style="background-color: #8b5cf6;"></div>
+                <span>Class</span>
               </div>
               <div class="tag-item" [style.border-left-color]="'#ec4899'">
                 <div class="tag-color" style="background-color: #ec4899;"></div>
@@ -448,8 +468,208 @@
 
       <!-- Main Calendar Area -->
       <div class="main-calendar">
+        <!-- Loading State for Desktop Calendar -->
+        <div class="calendar-loading-overlay" *ngIf="!isDesktopCalendarReady">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Loading calendar...</p>
+        </div>
+        
+        <!-- CUSTOM CALENDAR (NEW) -->
+        <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
+          <!-- Calendar Toolbar -->
+          <div class="custom-toolbar">
+            <div class="toolbar-left">
+              <button class="nav-btn" (click)="navigatePrevious()">
+                <ion-icon name="chevron-back"></ion-icon>
+              </button>
+              <button class="nav-btn" (click)="navigateNext()">
+                <ion-icon name="chevron-forward"></ion-icon>
+              </button>
+              <button class="today-btn" (click)="navigateToday()">Today</button>
+            </div>
+            <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
+            <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+            <div class="toolbar-right">
+              <div class="view-switcher">
+                <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
+                <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Week View Grid -->
+          <div class="custom-week-grid" *ngIf="customView === 'week'">
+            <!-- Day Headers -->
+            <div class="week-header">
+              <div class="time-gutter"></div>
+              <div class="day-header" *ngFor="let day of weekDays" [class.today]="day.date | isToday">
+                <div class="day-name">{{ day.shortDay }}</div>
+                <div class="day-number">{{ day.dayNumber }}</div>
+              </div>
+            </div>
+
+            <!-- Time Grid -->
+            <div class="week-body" #weekBodyContainer>
+              <div class="time-column">
+                <div class="time-slot" *ngFor="let hour of timeSlots">
+                  <span class="time-label">{{ hour }}</span>
+                </div>
+              </div>
+
+              <!-- Day Columns -->
+              <div class="day-columns">
+                <div class="day-column" *ngFor="let day of weekDays">
+                  <!-- Hour lines -->
+                  <div class="hour-line" *ngFor="let hour of timeSlots"></div>
+                  
+                  <!-- Events for this day -->
+                  <div class="event-container">
+                    <div *ngFor="let event of events | eventsForDay:day" 
+                         class="calendar-event"
+                         style="border-radius: 5px;"
+                         [class.availability-event]="event.isAvailability"
+                         [class.class-event]="event.isClass"
+                         [class.is-cancelled]="event.extendedProps?.isCancelled"
+                         [style.top.px]="event | eventTop"
+                         [style.height.px]="event | eventHeight"
+                         [class.past]="event | isEventPast"
+                         [class.short-event]="(event | eventHeight) < 45"
+                         [class.compact-event]="(event | eventHeight) < 30"
+                         (click)="handleEventClick(event)">
+                      
+                      <!-- Trial badge for trial lessons -->
+                      <div class="calendar-trial-badge" 
+                           *ngIf="event.extendedProps?.isTrialLesson">
+                        <ion-icon name="star"></ion-icon>
+                        <span class="trial-tooltip">Trial lesson</span>
+                      </div>
+                      
+                      <div class="event-header">
+                        <!-- First row: Time and duration (left aligned) -->
+                        <div class="event-time-row">
+                          <div class="event-time">{{ event | eventTime }}</div>
+                        </div>
+                        
+                        <!-- Second row: Avatar and name (left aligned) -->
+                        <div class="event-info-row">
+                          <img *ngIf="event.studentAvatar && !event.isAvailability" 
+                               [src]="event.studentAvatar" 
+                               class="event-avatar" 
+                               alt="Student avatar">
+                          <div class="event-title" *ngIf="!event.isAvailability">{{ event.studentName }}</div>
+                          <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Current time indicator -->
+                  <div class="time-indicator" *ngIf="day.date | isToday" [style.top.px]="currentTimePosition"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Day View -->
+          <div class="custom-day-view" *ngIf="customView === 'day'">
+            <!-- Day Header -->
+            <div class="day-view-header">
+              <div class="day-view-date">
+                <h3>{{ selectedDayForDayView.dayName }}</h3>
+                <p>{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.dayNumber }}, {{ selectedDayForDayView.year }}</p>
+              </div>
+              <div class="day-view-free-hours" 
+                   *ngIf="(events | freeHours:selectedDayForDayView) > 0">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{{ events | freeHours:selectedDayForDayView }}h available</span>
+                <div class="hours-tooltip">
+                  <div class="tooltip-row">
+                    <span class="tooltip-label">Total availability:</span>
+                    <span class="tooltip-value">{{ events | totalAvailability:selectedDayForDayView }}h</span>
+                  </div>
+                  <div class="tooltip-row">
+                    <span class="tooltip-label">Booked lessons:</span>
+                    <span class="tooltip-value">{{ events | bookedHours:selectedDayForDayView }}h</span>
+                  </div>
+                  <div class="tooltip-divider"></div>
+                  <div class="tooltip-row total">
+                    <span class="tooltip-label">Available:</span>
+                    <span class="tooltip-value">{{ events | freeHours:selectedDayForDayView }}h</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time Grid -->
+            <div class="day-view-body" #dayViewBodyContainer>
+              <div class="time-column">
+                <div class="time-slot" *ngFor="let hour of timeSlots">
+                  <span class="time-label">{{ hour }}</span>
+                </div>
+              </div>
+
+              <div class="day-content">
+                <!-- Hour lines -->
+                <div class="hour-line" *ngFor="let hour of timeSlots"></div>
+                
+                <!-- Events for selected day -->
+                <div class="event-container" *ngIf="(events | eventsForSelectedDay:selectedDayForDayView).length > 0; else noEventsTemplate">
+                  <div *ngFor="let event of events | eventsForSelectedDay:selectedDayForDayView" 
+                       class="calendar-event"
+                       style="border-radius: 5px;"
+                       [class.availability-event]="event.isAvailability"
+                       [class.class-event]="event.isClass"
+                       [class.is-cancelled]="event.extendedProps?.isCancelled"
+                       [style.top.px]="event | eventTop"
+                       [style.height.px]="event | eventHeight"
+                       [class.past]="event | isEventPast"
+                       [class.short-event]="(event | eventHeight) < 45"
+                       [class.compact-event]="(event | eventHeight) < 30"
+                       (click)="handleEventClick(event)">
+                    
+                    <div class="event-header">
+                      <!-- First row: Time and duration (left aligned) -->
+                      <div class="event-time-row">
+                        <div class="event-time">{{ event | eventTime }}</div>
+                      </div>
+                      
+                      <!-- Second row: Avatar and name (left aligned) -->
+                      <div class="event-info-row">
+                        <img *ngIf="event.studentAvatar && !event.isAvailability" 
+                             [src]="event.studentAvatar" 
+                             class="event-avatar" 
+                             alt="Student avatar">
+                        <div class="event-title" *ngIf="!event.isAvailability">
+                          {{ event.studentName }}
+                          <!-- Inline trial badge for day view -->
+                          <span class="calendar-trial-inline" *ngIf="event.extendedProps?.isTrialLesson">
+                            <ion-icon name="star"></ion-icon> Trial
+                          </span>
+                        </div>
+                        <div class="event-title" *ngIf="event.isAvailability">{{ event.title }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <ng-template #noEventsTemplate>
+                  <div class="no-events-placeholder">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <h4>No events scheduled</h4>
+                    <p>You don't have any lessons or availability blocks for this day</p>
+                  </div>
+                </ng-template>
+
+                <!-- Current time indicator -->
+                <div class="time-indicator" *ngIf="selectedDayForDayView.date | isToday" [style.top.px]="currentTimePosition"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FULLCALENDAR (COMMENTED OUT - BACKUP) -->
+        <!-- 
         <div id="tutor-calendar-container">
-          <!-- Custom full-width now indicator overlay -->
           <div
             *ngIf="customNowVisible"
             class="custom-now-indicator"
@@ -459,20 +679,33 @@
           >
             <span class="custom-now-dot"></span>
           </div>
-          <!-- Loading state -->
           <div class="calendar-loading" *ngIf="!isInitialized">
             <ion-spinner name="crescent"></ion-spinner>
             <p>Loading calendar...</p>
           </div>
-
-          <!-- FullCalendar will render here -->
         </div>
+        -->
 
         <!-- Help Button -->
-        <ion-button class="help-button" fill="clear" size="small" (click)="onHelpClick()">
+        <!-- <ion-button class="help-button" fill="clear" size="small" (click)="onHelpClick()">
           <ion-icon name="help-circle-outline"></ion-icon>
-        </ion-button>
+        </ion-button> -->
       </div>
     </div>
   </ng-template>
 </ion-content>
+
+<!-- Inline Block Time Modal (declarative, no programmatic creation) -->
+<ion-modal 
+  [isOpen]="isBlockTimeModalOpen" 
+  (didDismiss)="onBlockTimeModalDismiss($event)">
+  <ng-template>
+    <app-block-time
+      *ngIf="blockTimeModalData"
+      [date]="blockTimeModalData.date"
+      [startTime]="blockTimeModalData.startTime"
+      [endTime]="blockTimeModalData.endTime"
+      [durationMinutes]="blockTimeModalData.durationMinutes">
+    </app-block-time>
+  </ng-template>
+</ion-modal>

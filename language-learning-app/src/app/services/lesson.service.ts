@@ -21,7 +21,7 @@ export interface Lesson {
   startTime: string;
   endTime: string;
   channelName: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'pending_reschedule';
   subject: string;
   notes?: string;
   price: number;
@@ -45,6 +45,15 @@ export interface Lesson {
   createdAt: string;
   updatedAt: string;
   
+  // Reschedule proposal tracking
+  rescheduleProposal?: {
+    proposedBy: string;
+    proposedStartTime: string;
+    proposedEndTime: string;
+    proposedAt: string;
+    status: 'pending' | 'accepted' | 'rejected';
+  };
+  
   // Class-specific properties (when lesson is actually a group class)
   isClass?: boolean;
   className?: string;
@@ -57,6 +66,7 @@ export interface Lesson {
     declined: number;
   };
   classData?: any; // Full class data from backend
+  cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
   
   // Per-minute billing tracking (for office hours)
   actualCallStartTime?: string;
@@ -194,6 +204,16 @@ export class LessonService {
     );
   }
 
+  // Alias for recordCallEnd
+  endCall(lessonId: string): Observable<{
+    success: boolean;
+    actualCallEndTime: string;
+    actualDurationMinutes: number;
+    actualPrice: number;
+  }> {
+    return this.recordCallEnd(lessonId);
+  }
+
   // Get billing summary for a lesson
   getBillingSummary(lessonId: string): Observable<{
     success: boolean;
@@ -213,8 +233,24 @@ export class LessonService {
   }
 
   // Get lessons by tutor ID (requires authentication)
-  getLessonsByTutor(tutorId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
-    const url = all ? `${this.baseUrl}/by-tutor/${tutorId}?all=true` : `${this.baseUrl}/by-tutor/${tutorId}`;
+  getLessonsByTutor(tutorId: string, all: boolean = false, startDate?: string, endDate?: string): Observable<{ success: boolean; lessons: Lesson[] }> {
+    let url = `${this.baseUrl}/by-tutor/${tutorId}`;
+    const params: string[] = [];
+    
+    if (all) {
+      params.push('all=true');
+    }
+    if (startDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+    }
+    if (endDate) {
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+    
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
+    
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
   }
@@ -345,6 +381,32 @@ export class LessonService {
     return this.http.put<{ success: boolean; lesson: Lesson; message: string }>(`${this.baseUrl}/${lessonId}/reschedule`, body, { headers });
   }
 
+  // Propose a reschedule for a lesson
+  proposeReschedule(lessonId: string, proposedStartTime: string, proposedEndTime: string): Observable<{ success: boolean; lesson: any; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const body = {
+      proposedStartTime,
+      proposedEndTime
+    };
+    return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/propose-reschedule`, body, { headers });
+  }
+
+  // Respond to a reschedule proposal
+  respondToReschedule(lessonId: string, accept: boolean): Observable<{ success: boolean; lesson: any; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const body = { accept };
+    return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/respond-reschedule`, body, { headers });
+  }
+
+  // Cancel a lesson
+  cancelLesson(lessonId: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.delete<{ success: boolean; message: string; lesson: Lesson }>(
+      `${this.baseUrl}/${lessonId}/cancel`,
+      { headers }
+    );
+  }
+
   // Get lessons by student ID (for checking availability conflicts)
   getLessonsByStudent(studentId: string, all: boolean = false): Observable<{ success: boolean; lessons: Lesson[] }> {
     const headers = this.userService.getAuthHeadersSync();
@@ -355,5 +417,15 @@ export class LessonService {
     } else {
       return this.http.get<{ success: boolean; lessons: Lesson[] }>(url, { headers });
     }
+  }
+
+  // Get signed URL for audio playback
+  getAudioSignedUrl(gcsPath: string): Observable<{ url: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    const transcriptionUrl = `${environment.backendUrl}/api/transcription`;
+    return this.http.get<{ url: string }>(`${transcriptionUrl}/audio-url`, {
+      params: { gcsPath },
+      headers
+    });
   }
 }

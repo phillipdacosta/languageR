@@ -5,6 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 
 import { TabsPageRoutingModule } from './tabs-routing.module';
+import { SharedModule } from '../shared/shared.module';
+import { NotificationFilterPipe } from './notification-filter.pipe';
 
 import { TabsPage } from './tabs.page';
 
@@ -14,7 +16,9 @@ import { TabsPage } from './tabs.page';
     CommonModule,
     FormsModule,
     RouterModule,
-    TabsPageRoutingModule
+    TabsPageRoutingModule,
+    SharedModule,
+    NotificationFilterPipe  // Import standalone pipe
   ],
   declarations: [TabsPage]
 })

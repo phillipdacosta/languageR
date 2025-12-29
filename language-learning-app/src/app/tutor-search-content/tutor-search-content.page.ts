@@ -90,6 +90,11 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   expandedBios: Set<string> = new Set(); // Track which tutor bios are expanded
   highlightedTutorId: string | null = null; // Track which tutor is highlighted
   isReturningFromProfile = false; // Track if we're returning from a profile to prevent animations
+  
+  // Video modal state (inline ion-modal)
+  isVideoModalOpen = false;
+  currentVideoTutor: Tutor | null = null;
+  videoModalCircleBounds: { x: number; y: number; width: number; height: number } | null = null;
 
   // Available languages for the dropdown
   availableLanguages = [
@@ -138,6 +143,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   ) {}
 
   ngOnInit() {
+    // Load view mode from localStorage
+    const savedViewMode = localStorage.getItem('tutorSearchViewMode');
+    if (savedViewMode) {
+      this.viewMode = savedViewMode as 'grid' | 'list';
+    } else {
+      this.viewMode = 'list';
+    }
+    
     // Load saved filters first
     this.loadSavedFilters();
     
@@ -1069,44 +1082,63 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     return this.playingVideos.has(tutorId);
   }
 
-  async openVideoModal(tutor: Tutor) {
+  // Open video modal with zoom animation (inline modal)
+  openVideoModal(tutor: Tutor, circleBounds?: { x: number; y: number; width: number; height: number }) {
     if (!tutor || !tutor.introductionVideo) return;
     
-    const modal = await this.modalController.create({
-      component: VideoPlayerModalComponent,
-      componentProps: {
-        videoUrl: tutor.introductionVideo,
-        thumbnailUrl: tutor.videoThumbnail || '',
-        tutorName: this.formatDisplayName(tutor.firstName, tutor.lastName, tutor.name)
-      },
-      cssClass: 'video-player-modal',
-      backdropDismiss: true
-    });
-    
-    await modal.present();
+    this.currentVideoTutor = tutor;
+    this.videoModalCircleBounds = circleBounds || null;
+    this.isVideoModalOpen = true;
+    this.markVideoAsWatched(tutor.id);
   }
 
-  async openVideoModalWithAnimation(tutor: Tutor, circleBounds: { x: number; y: number; width: number; height: number }) {
-    if (!tutor || !tutor.introductionVideo) return;
+  // Close video modal
+  closeVideoModal() {
+    this.isVideoModalOpen = false;
+    // Clear tutor and bounds after animation completes
+    setTimeout(() => {
+      this.currentVideoTutor = null;
+      this.videoModalCircleBounds = null;
+    }, 300);
+  }
+
+  // Handle video modal dismissed event
+  onVideoModalDismiss() {
+    this.closeVideoModal();
+  }
+
+  // Animation factory for zoom enter (bound to inline modal)
+  createVideoModalEnterAnimation = (baseEl: any) => {
+    if (!this.videoModalCircleBounds) {
+      // No animation, just fade in
+      return this.animationCtrl.create()
+        .addElement(baseEl)
+        .duration(200)
+        .fromTo('opacity', '0', '1');
+    }
     
-    const modal = await this.modalController.create({
-      component: VideoPlayerModalComponent,
-      componentProps: {
-        videoUrl: tutor.introductionVideo,
-        thumbnailUrl: tutor.videoThumbnail || '',
-        tutorName: this.formatDisplayName(tutor.firstName, tutor.lastName, tutor.name)
-      },
-      cssClass: 'video-player-modal',
-      backdropDismiss: true,
-      enterAnimation: (baseEl: any) => {
-        return this.createZoomEnterAnimation(baseEl, circleBounds);
-      },
-      leaveAnimation: (baseEl: any) => {
-        return this.createZoomLeaveAnimation(baseEl, circleBounds);
-      }
-    });
+    return this.createZoomEnterAnimation(baseEl, this.videoModalCircleBounds);
+  }
+
+  // Animation factory for zoom leave (bound to inline modal)
+  createVideoModalLeaveAnimation = (baseEl: any) => {
+    if (!this.videoModalCircleBounds) {
+      // No animation, just fade out
+      return this.animationCtrl.create()
+        .addElement(baseEl)
+        .duration(200)
+        .fromTo('opacity', '1', '0');
+    }
     
-    await modal.present();
+    return this.createZoomLeaveAnimation(baseEl, this.videoModalCircleBounds);
+  }
+  
+  // Get embed URL with autoplay for external videos
+  getVideoEmbedUrl(videoUrl: string): string {
+    if (!videoUrl) return '';
+    // Add autoplay parameter to external videos
+    const separator = videoUrl.includes('?') ? '&' : '?';
+    return `${videoUrl}${separator}autoplay=1`;
   }
 
   private createZoomEnterAnimation(baseEl: any, circleBounds: { x: number; y: number; width: number; height: number }) {
@@ -1115,7 +1147,6 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       .fromTo('opacity', '0', '0.4')
       .duration(200);
 
-    // Get the modal wrapper element
     const root = baseEl.shadowRoot || baseEl;
     const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
     
@@ -1124,13 +1155,9 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       return this.animationCtrl.create();
     }
 
-    // Force layout so measurements are current
     const forcedLayout = modalWrapper.offsetHeight;
-    
-    // Get the modal's bounding rectangle
     const modalRect = modalWrapper.getBoundingClientRect();
     
-    // Compute modal center – if modalRect.top isn't near 0, use window dimensions
     let modalCenterX: number;
     let modalCenterY: number;
     
@@ -1142,21 +1169,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       modalCenterY = modalRect.top + modalRect.height / 2;
     }
     
-    // Compute clicked element (circle) center
     const circleCenterX = circleBounds.x + circleBounds.width / 2;
     const circleCenterY = circleBounds.y + circleBounds.height / 2;
     
-    // Adjust for safe area
     const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
       .getPropertyValue('--ion-safe-area-top')) || 0;
     
     const adjustedCircleCenterY = circleCenterY + safeAreaTop;
     
-    // Calculate translation values so that modal center aligns with the circle's center
     const translateX = circleCenterX - modalCenterX;
     const translateY = adjustedCircleCenterY - modalCenterY;
     
-    // Add extra vertical offset for iOS devices
     let extraOffset = 0;
     if (window.navigator.userAgent.includes('iPhone')) {
       extraOffset = 10;
@@ -1164,7 +1187,6 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     
     const adjustedTranslateY = translateY - extraOffset;
     
-    // Calculate scale factor
     const scaleX = circleBounds.width / modalRect.width;
     const scaleY = circleBounds.height / modalRect.height;
     const finalScale = Math.min(scaleX, scaleY);
@@ -1188,7 +1210,6 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       .fromTo('opacity', '0.4', '0')
       .duration(250);
 
-    // Get the modal wrapper element
     const root = baseEl.shadowRoot || baseEl;
     const modalWrapper = root.querySelector('.modal-wrapper') as HTMLElement;
     
@@ -1197,10 +1218,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       return this.animationCtrl.create();
     }
 
-    // Get the modal's bounding rectangle
     const modalRect = modalWrapper.getBoundingClientRect();
     
-    // Compute modal center
     let modalCenterX: number;
     let modalCenterY: number;
     
@@ -1212,21 +1231,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       modalCenterY = modalRect.top + modalRect.height / 2;
     }
     
-    // Compute clicked element (circle) center
     const circleCenterX = circleBounds.x + circleBounds.width / 2;
     const circleCenterY = circleBounds.y + circleBounds.height / 2;
     
-    // Adjust for safe area
     const safeAreaTop = parseFloat(getComputedStyle(document.documentElement)
       .getPropertyValue('--ion-safe-area-top')) || 0;
     
     const adjustedCircleCenterY = circleCenterY + safeAreaTop;
     
-    // Calculate translation values
     const translateX = circleCenterX - modalCenterX;
     const translateY = adjustedCircleCenterY - modalCenterY;
     
-    // Add extra vertical offset for iOS devices
     let extraOffset = 0;
     if (window.navigator.userAgent.includes('iPhone')) {
       extraOffset = 10;
@@ -1234,7 +1249,6 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     
     const adjustedTranslateY = translateY - extraOffset;
     
-    // Calculate scale factor
     const scaleX = circleBounds.width / modalRect.width;
     const scaleY = circleBounds.height / modalRect.height;
     const finalScale = Math.min(scaleX, scaleY);
@@ -1310,6 +1324,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   // Toggle view mode
   toggleViewMode(mode: 'grid' | 'list') {
     this.viewMode = mode;
+    localStorage.setItem('tutorSearchViewMode', mode);
   }
 
   // Open tutor profile (new tab on desktop, same page on mobile)
@@ -1357,8 +1372,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
         height: rect.height
       };
       
-      this.openVideoModalWithAnimation(tutor, circleBounds);
-      this.markVideoAsWatched(tutor.id);
+      this.openVideoModal(tutor, circleBounds);
     }
   }
 
@@ -1378,8 +1392,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       height: rect.height
     };
     
-    this.openVideoModalWithAnimation(tutor, circleBounds);
-    this.markVideoAsWatched(tutor.id);
+    this.openVideoModal(tutor, circleBounds);
   }
 
   // Load watched videos from localStorage

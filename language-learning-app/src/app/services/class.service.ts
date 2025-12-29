@@ -31,6 +31,9 @@ export interface ClassInvitation {
   price: number;
   startTime: string;
   endTime: string;
+  status?: 'scheduled' | 'completed' | 'cancelled'; // Class status
+  cancelledAt?: string; // When it was cancelled
+  cancelReason?: string; // Why it was cancelled (e.g., 'minimum_not_met')
   invitedStudents: Array<{
     studentId: any;
     status: 'pending' | 'accepted' | 'declined';
@@ -93,12 +96,27 @@ export class ClassService {
     );
   }
 
-  getClassesForTutor(tutorId: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
+  getClassesForTutor(tutorId: string, startDate?: string, endDate?: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
-        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(`${this.apiUrl}/classes/tutor/${tutorId}`, { headers });
+        
+        let url = `${this.apiUrl}/classes/tutor/${tutorId}`;
+        const params: string[] = [];
+        
+        if (startDate) {
+          params.push(`startDate=${encodeURIComponent(startDate)}`);
+        }
+        if (endDate) {
+          params.push(`endDate=${encodeURIComponent(endDate)}`);
+        }
+        
+        if (params.length > 0) {
+          url += '?' + params.join('&');
+        }
+        
+        return this.http.get<{ success: boolean; classes: ClassInvitation[] }>(url, { headers });
       })
     );
   }
@@ -200,6 +218,19 @@ export class ClassService {
         const headers = this.userService.getAuthHeadersSync();
         return this.http.get<{ success: boolean; classes: any[] }>(
           `${this.apiUrl}/classes/public/all`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  cancelClass(classId: string): Observable<{ success: boolean; message: string; class: any }> {
+    return this.userService.currentUser$.pipe(
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.delete<{ success: boolean; message: string; class: any }>(
+          `${this.apiUrl}/classes/${classId}`,
           { headers }
         );
       })

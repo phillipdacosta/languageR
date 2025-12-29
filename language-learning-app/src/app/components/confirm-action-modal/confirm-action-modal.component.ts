@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
@@ -10,7 +10,7 @@ import { IonicModule } from '@ionic/angular';
   standalone: true,
   imports: [CommonModule, IonicModule]
 })
-export class ConfirmActionModalComponent {
+export class ConfirmActionModalComponent implements OnInit {
   @Input() title!: string;
   @Input() message!: string;
   @Input() notificationMessage?: string; // Separate notification line (e.g., "Jason G. will be notified...")
@@ -23,6 +23,18 @@ export class ConfirmActionModalComponent {
   @Input() participantAvatar?: string;
 
   constructor(private modalController: ModalController) {}
+  
+  ngOnInit() {
+    console.log('🔍 ConfirmActionModal initialized with:', {
+      title: this.title,
+      message: this.message,
+      notificationMessage: this.notificationMessage,
+      participantName: this.participantName,
+      participantAvatar: this.participantAvatar,
+      icon: this.icon,
+      iconColor: this.iconColor
+    });
+  }
 
   dismiss() {
     this.modalController.dismiss({ confirmed: false });

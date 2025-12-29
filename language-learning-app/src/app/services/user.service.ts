@@ -17,6 +17,8 @@ export interface User {
   emailVerified: boolean;
   userType: 'student' | 'tutor';
   onboardingCompleted: boolean;
+  nativeLanguage?: string;
+  interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -35,6 +37,9 @@ export interface User {
     timezone: string;
     preferredLanguage: string;
     officeHoursEnabled?: boolean;
+    showWalletBalance?: boolean;  // Privacy setting for wallet display
+    remindersEnabled?: boolean;   // Lesson reminder notifications
+    aiAnalysisEnabled?: boolean;  // Enable/disable AI analysis of lessons
   };
   stats?: {
     totalLessons: number;
@@ -189,8 +194,17 @@ export class UserService {
     
     return new HttpHeaders({
       'Authorization': `Bearer ${mockToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest' // Helps backend identify AJAX requests
     });
+  }
+
+  // Options for HTTP requests that need credentials (cookies)
+  private getHttpOptions(headers: HttpHeaders) {
+    return {
+      headers,
+      withCredentials: true // Enable sending cookies with requests
+    };
   }
 
   // Public method to get auth headers for current user (synchronous)
@@ -199,23 +213,13 @@ export class UserService {
     let currentUser = this.currentUserSubject.value;
     let userEmail = currentUser?.email;
     
-    // If not available, try to get from AuthService user$ (check if it has a value)
-    // Note: We can't access BehaviorSubject.value directly from another service,
-    // but we can check if authService has the user available
+    // If not available, check if we can get it from localStorage or another source
     if (!userEmail) {
-      // During page refresh, currentUserSubject might not be set yet
-      // but authService.user$ should have the Auth0 user available
-      // Since we can't access it synchronously, we'll use 'unknown' as fallback
-      // This is expected during the brief moment before getCurrentUser() completes
-      userEmail = 'unknown';
-      
-      // Suppress error logging during initial page load
-      // The user will be loaded shortly via getCurrentUser()
-      // Only log if we're in development mode and want to debug
-      if (currentUser === null && !this.isInitialLoadComplete()) {
-        // This is expected during page refresh - don't log as error
-        // The API call will likely fail, but that's okay - it will retry once user is loaded
-      }
+      console.warn('⚠️ getAuthHeadersSync: No user email available yet');
+      // Return empty headers instead of 'unknown' to prevent malformed token
+      return new HttpHeaders({
+        'Content-Type': 'application/json'
+      });
     }
     
     return this.getAuthHeaders(userEmail);
@@ -252,7 +256,8 @@ export class UserService {
         const headers = this.getAuthHeaders(userEmail);
         
         return this.http.get<{success: boolean, user: User}>(`${this.apiUrl}/users/me`, {
-          headers: headers
+          headers: headers,
+          withCredentials: true // Enable cookies for cross-tab auth in incognito
         });
       }),
       map(response => {
@@ -321,7 +326,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  updateProfile(profileData: Partial<User['profile']>): Observable<User> {
+  updateProfile(profileData: Partial<User['profile']> & { interfaceLanguage?: string }): Observable<User> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -333,6 +338,13 @@ export class UserService {
       map(response => response.user),
       tap(user => this.currentUserSubject.next(user))
     );
+  }
+
+  /**
+   * Update user interface language
+   */
+  updateInterfaceLanguage(language: 'en' | 'es' | 'fr' | 'pt' | 'de'): Observable<User> {
+    return this.updateProfile({ interfaceLanguage: language });
   }
 
   /**
@@ -348,6 +360,43 @@ export class UserService {
   getOfficeHoursStatus(): boolean {
     const currentUser = this.currentUserSubject.value;
     return currentUser?.profile?.officeHoursEnabled || false;
+  }
+  
+  /**
+   * Update show wallet balance setting
+   */
+  updateShowWalletBalance(show: boolean): Observable<User> {
+    return this.updateProfile({ showWalletBalance: show });
+  }
+  
+  /**
+   * Update reminders enabled setting
+   */
+  updateRemindersEnabled(enabled: boolean): Observable<User> {
+    return this.updateProfile({ remindersEnabled: enabled });
+  }
+
+  /**
+   * Update AI analysis enabled setting
+   */
+  updateAIAnalysisEnabled(enabled: boolean): Observable<User> {
+    return this.updateProfile({ aiAnalysisEnabled: enabled });
+  }
+  
+  /**
+   * Get show wallet balance setting (default false for privacy)
+   */
+  getShowWalletBalance(): boolean {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.showWalletBalance || false;
+  }
+  
+  /**
+   * Get reminders enabled setting (default true)
+   */
+  getRemindersEnabled(): boolean {
+    const currentUser = this.currentUserSubject.value;
+    return currentUser?.profile?.remindersEnabled !== false; // Default true
   }
 
   /**
@@ -375,10 +424,12 @@ export class UserService {
   }
 
   /**
-   * Clear current user
+   * Clear current user (should be called on logout)
    */
   clearCurrentUser(): void {
+    console.log('🧹 UserService: Clearing cached user');
     this.currentUserSubject.next(null);
+    this.initialLoadComplete = false;
   }
 
   /**
@@ -507,27 +558,28 @@ export class UserService {
   /**
    * Update user profile picture
    */
-  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; user: User }> {
+  updatePicture(pictureUrl: string): Observable<{ success: boolean; message: string; picture: string }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
         const userEmail = user?.email || 'unknown';
         
-        return this.http.put<{ success: boolean; message: string; user: User }>(
-          `${this.apiUrl}/users/picture`,
-          { picture: pictureUrl },
+        return this.http.put<{ success: boolean; message: string; picture: string }>(
+          `${this.apiUrl}/users/profile-picture`,
+          { imageUrl: pictureUrl },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
+        console.log('✅ Profile picture updated in database');
         // Update the current user subject with the new picture
-        if (response.user) {
-          const currentUser = this.currentUserSubject.value;
-          if (currentUser) {
-            currentUser.picture = response.user.picture;
-            this.currentUserSubject.next(currentUser);
-          }
+        const currentUser = this.currentUserSubject.value;
+        if (currentUser && response.picture) {
+          currentUser.picture = response.picture;
+          this.currentUserSubject.next(currentUser);
         }
+        // Also refresh from server
+        this.getCurrentUser().pipe(take(1)).subscribe();
       }),
       catchError(error => {
         console.error('🖼️ Error updating profile picture:', error);
@@ -699,6 +751,40 @@ export class UserService {
         } catch {
           return of('UTC');
         }
+      })
+    );
+  }
+
+  /**
+   * Remove user's profile picture (restores to Auth0/Google picture if available)
+   */
+  removePicture(): Observable<{ success: boolean; message: string; picture?: string }> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        if (!user?.email) {
+          throw new Error('User not authenticated');
+        }
+
+        return this.http.delete<{ success: boolean; message: string; picture?: string }>(
+          `${this.apiUrl}/users/profile-picture`,
+          { headers: this.getAuthHeaders(user.email) }
+        ).pipe(
+          tap((response) => {
+            console.log('✅ Profile picture removed');
+            if (response.picture) {
+              console.log('✅ Restored to Auth0 picture:', response.picture);
+            }
+            // Update current user with restored picture
+            const currentUser = this.currentUserSubject.value;
+            if (currentUser) {
+              currentUser.picture = response.picture;
+              this.currentUserSubject.next(currentUser);
+            }
+            // Also refresh from server
+            this.getCurrentUser().pipe(take(1)).subscribe();
+          })
+        );
       })
     );
   }

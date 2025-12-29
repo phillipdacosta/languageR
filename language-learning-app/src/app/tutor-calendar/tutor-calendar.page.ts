@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
@@ -16,6 +16,18 @@ import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
+import { BlockTimeComponent } from '../modals/block-time/block-time.component';
+// Performance pipes
+import { EventsForDayPipe } from './pipes/events-for-day.pipe';
+import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
+import { EventTopPipe } from './pipes/event-top.pipe';
+import { EventHeightPipe } from './pipes/event-height.pipe';
+import { EventTimePipe } from './pipes/event-time.pipe';
+import { IsTodayPipe } from './pipes/is-today.pipe';
+import { IsEventPastPipe } from './pipes/is-event-past.pipe';
+import { FreeHoursPipe } from './pipes/free-hours.pipe';
+import { TotalAvailabilityPipe } from './pipes/total-availability.pipe';
+import { BookedHoursPipe } from './pipes/booked-hours.pipe';
 
 interface MobileDayContext {
   date: Date;
@@ -40,9 +52,11 @@ interface TimelineEntry {
   location?: string;
   avatarUrl?: string;
   isPast?: boolean;
+  isHappeningNow?: boolean;
   isTrialLesson?: boolean;
   isClass?: boolean;
   isOfficeHours?: boolean; // True if this is an office hours session
+  isCancelled?: boolean; // True if this event is cancelled
   attendees?: any[];
   capacity?: number;
   id?: string; // Lesson ID or Class ID
@@ -64,7 +78,24 @@ interface AgendaSection {
   templateUrl: './tutor-calendar.page.html',
   styleUrls: ['./tutor-calendar.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ClassAttendeesComponent],
+  imports: [
+    CommonModule, 
+    IonicModule, 
+    FormsModule, 
+    ClassAttendeesComponent,
+    BlockTimeComponent, // Preload to avoid JIT compilation freeze
+    // Performance pipes
+    EventsForDayPipe,
+    EventsForSelectedDayPipe,
+    EventTopPipe,
+    EventHeightPipe,
+    EventTimePipe,
+    IsTodayPipe,
+    IsEventPastPipe,
+    FreeHoursPipe,
+    TotalAvailabilityPipe,
+    BookedHoursPipe
+  ],
   animations: [
     trigger('slideInUp', [
       state('void', style({})),
@@ -106,6 +137,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isInitialized = false;
   private initializationAttempts = 0; // Track initialization attempts
   
+  // Custom Calendar Properties
+  customView: 'week' | 'day' = 'week';
+  currentWeekStart: Date = new Date();
+  weekDays: Array<{date: Date, shortDay: string, dayNumber: string, dayName: string}> = [];
+  selectedDayForDayView: {date: Date, shortDay: string, dayNumber: string, dayName: string, monthLabel: string, year: number} = {
+    date: new Date(),
+    shortDay: '',
+    dayNumber: '',
+    dayName: '',
+    monthLabel: '',
+    year: new Date().getFullYear()
+  };
+  timeSlots: string[] = [];
+  currentTimePosition: number = 0;
+  currentWeekTitle: string = '';
+  private timeUpdateInterval: any;
+  
+  // ViewChild references for scroll containers
+  @ViewChild('weekBodyContainer', { read: ElementRef }) weekBodyContainer?: ElementRef;
+  @ViewChild('dayViewBodyContainer', { read: ElementRef }) dayViewBodyContainer?: ElementRef;
+  
   // Custom full-width now indicator state
   enableCustomNowIndicator = false;
   customNowVisible = false;
@@ -113,6 +165,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   customNowLeft = 0;
   customNowWidth = 0;
   private customNowInterval: any;
+  private hasScrolledToNow = false; // Track if we've already scrolled to prevent repeated scrolls
   
   // Mobile expandable sections
   sidebarExpanded = false;
@@ -137,6 +190,29 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   isLoadingMobileData = true; // Track loading state to prevent empty state flash
   private availabilityLoaded = false;
   private lessonsLoaded = false;
+  
+  // Lazy loading state
+  private earliestLoadedDate: Date | null = null;
+  private latestLoadedDate: Date | null = null;
+  private readonly LOAD_WINDOW_WEEKS = 4; // Load 4 weeks at a time
+  private readonly INITIAL_PAST_WEEKS = 2; // Initially load 2 weeks in the past
+  private readonly INITIAL_FUTURE_WEEKS = 8; // Initially load 8 weeks in the future
+  private loadedEvents: Map<string, EventInput> = new Map(); // Store all loaded events by ID
+  
+  // Inline modal state for Block Time modal
+  isBlockTimeModalOpen = false;
+  blockTimeModalData: {
+    date: Date;
+    startTime?: Date;
+    endTime?: Date;
+    durationMinutes?: number;
+  } | null = null;
+  // Note: Classes load separately and update asynchronously - they don't block initial render
+  
+  // Computed property to check if desktop calendar is ready
+  get isDesktopCalendarReady(): boolean {
+    return this.availabilityLoaded && this.lessonsLoaded; // Classes can load after
+  }
   
   // Reschedule mode state
   rescheduleMode = false;
@@ -285,7 +361,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private modalController: ModalController,
     private toastController: ToastController,
     private alertController: AlertController,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   private evaluateViewport() {
@@ -487,6 +564,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const dayStart = this.getStartOfDay(activeDay.date);
     const dayEnd = this.addDays(dayStart, 1);
     
+    console.log('📱 [DAY-VIEW] Building timeline for:', dayStart.toISOString());
+    
     // Build timeline in temporary variable to avoid flashing
     const timeline = this.buildDayEntries(dayStart, dayEnd);
     
@@ -498,10 +577,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // But keep classes (which have custom titles like "Class", "Spanish Class", etc.)
       const isGenericAvailability = item.title === 'Available' && !item.subtitle && !item.avatarUrl;
       const isFreeSlot = item.title === 'Open time slot';
-      // Exclude past events (end time has passed)
-      const now = new Date();
-      const isPastEvent = item.end.getTime() < now.getTime();
-      return !isGenericAvailability && !isFreeSlot && !isPastEvent;
+      // Show ALL events including cancelled ones
+      return !isGenericAvailability && !isFreeSlot;
+    });
+    
+    console.log('📱 [DAY-VIEW] Timeline events:', {
+      total: timelineEvents.length,
+      events: timelineEvents.map(e => ({
+        title: e.title,
+        isClass: e.isClass,
+        isCancelled: e.isCancelled
+      }))
     });
     
     // Assign all at once to prevent intermediate empty states
@@ -511,6 +597,27 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   private collectEventsForDay(dayStart: Date, dayEnd: Date): TimelineEntry[] {
     const results: TimelineEntry[] = [];
+    
+    // Log for debugging
+    const dayStr = dayStart.toISOString().split('T')[0]; // Get YYYY-MM-DD
+    console.log('📅 [COLLECT] collectEventsForDay called for:', dayStr, {
+      dayStart: dayStart.toISOString(),
+      dayEnd: dayEnd.toISOString(),
+      totalEvents: this.events?.length || 0
+    });
+    
+    // Log all class events in this.events
+    const classEventsInArray = (this.events || []).filter(e => {
+      const ext = e.extendedProps as any;
+      return ext?.isClass || ext?.classId;
+    });
+    console.log('📅 [COLLECT] Class events in this.events:', classEventsInArray.map(e => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      classId: (e.extendedProps as any)?.classId,
+      isCancelled: (e.extendedProps as any)?.isCancelled
+    })));
     
     for (const event of this.events || []) {
       if (!event.start || !event.end) {
@@ -522,14 +629,50 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         continue;
       }
       
-      if (rawStart >= dayEnd || rawEnd <= dayStart) {
+      // Check if this event falls within the day range
+      const isInRange = rawStart < dayEnd && rawEnd > dayStart;
+      
+      // Log cancelled class specifically
+      const ext = event.extendedProps as any;
+      if ((ext?.isClass || ext?.classId) && ext?.isCancelled) {
+        console.log('🔴 [CANCELLED-CLASS] Checking cancelled class:', {
+          title: event.title,
+          classId: ext.classId,
+          rawStart: rawStart.toISOString(),
+          rawEnd: rawEnd.toISOString(),
+          dayStart: dayStart.toISOString(),
+          dayEnd: dayEnd.toISOString(),
+          isInRange,
+          startBeforeDayEnd: rawStart < dayEnd,
+          endAfterDayStart: rawEnd > dayStart,
+          comparison: {
+            'rawStart < dayEnd': rawStart < dayEnd,
+            'rawEnd > dayStart': rawEnd > dayStart,
+            'both': rawStart < dayEnd && rawEnd > dayStart
+          }
+        });
+      }
+      
+      if (!isInRange) {
         continue;
       }
+      
       const clampedStart = rawStart.getTime() < dayStart.getTime() ? new Date(dayStart.getTime()) : rawStart;
       const clampedEnd = rawEnd.getTime() > dayEnd.getTime() ? new Date(dayEnd.getTime()) : rawEnd;
       
       results.push(this.buildTimelineEvent(event, clampedStart, clampedEnd));
     }
+    
+    console.log('📅 [COLLECT] Collected timeline entries:', {
+      total: results.length,
+      classLessonCount: results.filter(e => e.isClass || e.isLesson).length,
+      events: results.filter(e => e.isClass || e.isLesson).map(e => ({
+        title: e.title,
+        isClass: e.isClass,
+        isCancelled: e.isCancelled
+      }))
+    });
+    
     return results.sort((a, b) => a.start.getTime() - b.start.getTime());
   }
 
@@ -540,10 +683,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const isClass = extended.isClass || (event.title && event.title !== 'Available' && event.title.includes('Class'));
     const isOfficeHours = Boolean(extended.isOfficeHours);
     
-    // Debug logging for the 12:00-1:00 PM slot
-    const debugStartTimeStr = start.toLocaleTimeString();
-    const debugEndTimeStr = end.toLocaleTimeString();
-    if (debugStartTimeStr.includes('12:00') || debugEndTimeStr.includes('1:00')) {
+    // For classes, check the classesMap for the latest status
+    let isCancelled = extended.isCancelled || false;
+    if (isClass && extended.classId) {
+      const classId = String(extended.classId);
+      const classData = this.classesMap.get(classId);
+      if (classData) {
+        isCancelled = classData.status === 'cancelled';
+      }
     }
     
     const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
@@ -568,9 +715,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const avatarUrl = isLesson ? extended.studentAvatar : undefined;
     const isTrialLesson = isLesson ? (extended.isTrialLesson || false) : false;
     
-    // Check if event is in the past
+    // Check if event is in the past and if it's happening now
     const now = new Date();
     const isPast = end.getTime() < now.getTime();
+    const isHappeningNow = start.getTime() <= now.getTime() && end.getTime() > now.getTime();
 
     // Look up class data from classesMap if this is a class
     let attendees: any[] | undefined = undefined;
@@ -599,9 +747,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       location,
       avatarUrl,
       isPast,
+      isHappeningNow,
       isTrialLesson,
       isClass: isClass || false,
       isOfficeHours: isOfficeHours || false,
+      isCancelled: isCancelled, // Use the local variable that was updated from classesMap
       attendees,
       capacity,
       thumbnail,
@@ -651,6 +801,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     };
   }
   ngOnInit() {
+    // Initialize custom calendar
+    this.initializeCustomCalendar();
+    this.startTimeUpdater();
+    
     // Check if we're in reschedule mode
     this.route.queryParams.subscribe(params => {
       if (params['mode'] === 'reschedule') {
@@ -717,6 +871,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.websocketService.newNotification$
       .pipe(takeUntil(this.destroy$))
       .subscribe(async (notification) => {
+        // Handle office hours bookings
         if (notification.type === 'office_hours_booking' && notification.urgent) {
           console.log('⚡ Received urgent office hours booking notification');
           
@@ -751,6 +906,52 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           // Refresh calendar to show the new booking
           this.refreshCalendar();
         }
+        
+        // Handle class auto-cancelled notifications
+        if (notification.type === 'class_auto_cancelled' && notification.data?.classId) {
+          console.log('🔔 [TUTOR-CALENDAR] Received class cancellation notification:', notification);
+          
+          // Refresh calendar to show the cancelled class
+          this.refreshCalendar();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A class has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
+        
+        // Handle lesson cancelled notifications
+        if (notification.type === 'lesson_cancelled' && notification.data?.lessonId) {
+          console.log('🔔 [TUTOR-CALENDAR] Received lesson cancellation notification:', notification);
+          
+          // Refresh calendar to show the cancelled lesson
+          this.refreshCalendar();
+          
+          // Show toast notification
+          const toast = await this.toastController.create({
+            message: notification.message || 'A lesson has been cancelled',
+            duration: 5000,
+            position: 'top',
+            color: 'warning',
+            buttons: [
+              {
+                text: 'OK',
+                role: 'cancel'
+              }
+            ]
+          });
+          await toast.present();
+        }
       });
     
   }
@@ -762,6 +963,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return;
     }
     
+    // Scroll to current time indicator after view is ready
+    setTimeout(() => {
+      this.scrollToNowIndicator();
+    }, 500); // Delay to ensure DOM is fully rendered
+    
+    // CUSTOM CALENDAR - No FullCalendar initialization needed
+    // FullCalendar initialization commented out
+    /*
     // Immediate simple test
     const calendarEl = document.getElementById('tutor-calendar-container');
     
@@ -769,6 +978,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     setTimeout(() => {
       this.initCalendar();
     }, 2000);
+    */
   }
 
   ngOnDestroy() {
@@ -786,6 +996,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.isInitialized = false;
     this.initializationAttempts = 0; // Reset counter
     if (this.customNowInterval) clearInterval(this.customNowInterval);
+    if (this.timeUpdateInterval) clearInterval(this.timeUpdateInterval);
     window.removeEventListener('resize', this.updateCustomNowIndicatorBound);
     
     // Clean up session storage
@@ -794,17 +1005,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   ionViewWillEnter() {
     // Reset initialization attempts when entering the page
     this.initializationAttempts = 0;
+    
     // Always set loading state when entering view to prevent flash
+    this.availabilityLoaded = false;
+    this.lessonsLoaded = false;
+    // Classes load separately and don't block initial render
+    
     if (this.isMobileView) {
       this.isLoadingMobileData = true;
-      // Reset loading flags to track fresh data load
-      this.availabilityLoaded = false;
-      this.lessonsLoaded = false;
     }
   }
 
   ionViewDidEnter() {
-    
     // Check if we're coming from availability setup
     const currentUrl = this.router.url;
     
@@ -836,7 +1048,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.forceReinitializeCalendar();
       }
     } else {
-      console.warn('📅 No user found, reloading user...');
       this.loadCurrentUser();
     }
   }
@@ -867,7 +1078,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         
         // Load lessons after user is loaded
         if (user && user.id) {
-          this.loadLessons(user.id);
+          this.loadLessonsAndClasses(user.id);
         }
       },
       error: (error) => {
@@ -880,42 +1091,149 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     });
   }
 
-  private loadLessons(tutorId: string) {
-    // Fetch all lessons (including past ones)
-    this.lessonService.getLessonsByTutor(tutorId, true).subscribe({
+  private loadLessons(tutorId: string, startDate?: Date, endDate?: Date) {
+    console.log('📚 [LOAD-DEBUG] loadLessons START');
+    
+    const startDateStr = startDate ? startDate.toISOString() : undefined;
+    const endDateStr = endDate ? endDate.toISOString() : undefined;
+    
+    console.log('   - tutorId:', tutorId);
+    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
+    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    // Fetch lessons with optional date range
+    this.lessonService.getLessonsByTutor(tutorId, true, startDateStr, endDateStr).subscribe({
       next: (response) => {
         if (response.success && response.lessons) {
           this.convertLessonsToEvents(response.lessons);
-          this.updateCalendarEvents();
+          
+          // Update loaded date range
+          if (startDate && (!this.earliestLoadedDate || startDate < this.earliestLoadedDate)) {
+            this.earliestLoadedDate = startDate;
+          }
+          if (endDate && (!this.latestLoadedDate || endDate > this.latestLoadedDate)) {
+            this.latestLoadedDate = endDate;
+          }
         }
-        // Mark lessons as loaded
+        // Mark lessons as loaded - this will trigger checkIfBothLoaded()
         this.lessonsLoaded = true;
+        console.log('📚 [LOAD-DEBUG] Lessons loaded, calling checkIfBothLoaded');
         this.checkIfBothLoaded();
       },
       error: (error) => {
-        console.error('📅 Error loading lessons:', error);
+        console.error('Error loading lessons:', error);
         // Mark lessons as loaded (even on error)
         this.lessonsLoaded = true;
         this.checkIfBothLoaded();
       }
     });
+  }
+  
+  // Helper to load both lessons and classes in parallel
+  private loadLessonsAndClasses(tutorId: string) {
+    // Calculate initial date range: 2 weeks past, 8 weeks future
+    const today = new Date();
+    const startDate = this.addDays(today, -this.INITIAL_PAST_WEEKS * 7);
+    const endDate = this.addDays(today, this.INITIAL_FUTURE_WEEKS * 7);
     
-    // Also load classes with attendees data
-    this.loadClasses(tutorId);
+    
+    this.loadLessons(tutorId, startDate, endDate);
+    this.loadClasses(tutorId, startDate, endDate);
   }
 
-  private loadClasses(tutorId: string) {
-    this.classService.getClassesForTutor(tutorId).subscribe({
+  private loadClasses(tutorId: string, startDate?: Date, endDate?: Date) {
+    console.log('📚 [LOAD-CLASSES] loadClasses() called with tutorId:', tutorId);
+    
+    const startDateStr = startDate ? startDate.toISOString() : undefined;
+    const endDateStr = endDate ? endDate.toISOString() : undefined;
+    
+    console.log('   - tutorId:', tutorId);
+    console.log('   - startDate:', startDateStr || 'NONE (will load ALL)');
+    console.log('   - endDate:', endDateStr || 'NONE (will load ALL)');
+    
+    this.classService.getClassesForTutor(tutorId, startDateStr, endDateStr).subscribe({
       next: (response) => {
+        console.log('📚 [LOAD-CLASSES] Backend response:', response);
+        
         if (response.success && response.classes) {
-          // Store classes in map for quick lookup (use string ID for consistency)
+          // Log all classes including cancelled ones
+          console.log('📚 [LOAD-CLASSES] Total classes received:', response.classes.length);
+          response.classes.forEach((cls: any) => {
+            console.log(`  - ${cls.name}: status=${cls.status}, startTime=${cls.startTime}, cancelled=${cls.status === 'cancelled'}`);
+          });
+          
+          // Update loaded date range
+          if (startDate && (!this.earliestLoadedDate || startDate < this.earliestLoadedDate)) {
+            this.earliestLoadedDate = startDate;
+          }
+          if (endDate && (!this.latestLoadedDate || endDate > this.latestLoadedDate)) {
+            this.latestLoadedDate = endDate;
+          }
+          
+          // Clear and update classes map
           this.classesMap.clear();
           response.classes.forEach((cls: any) => {
-            const classId = String(cls._id); // Convert to string for consistent lookup
-            this.classesMap.set(classId, cls);
+            this.classesMap.set(String(cls._id), cls);
           });
-          // Update calendar events to include attendees data
-          this.updateCalendarEvents();
+          
+          // Create class events
+          const allClasses = response.classes;
+          
+          const classEvents = allClasses.map((cls: any) => {
+            const isCancelled = cls.status === 'cancelled';
+            return {
+              id: String(cls._id),
+              title: cls.name || 'Class',
+              start: new Date(cls.startTime).toISOString(),
+              end: new Date(cls.endTime).toISOString(),
+              backgroundColor: isCancelled ? '#9ca3af' : '#8b5cf6',
+              borderColor: isCancelled ? '#6b7280' : '#6d28d9',
+              textColor: isCancelled ? '#6b7280' : '#ffffff',
+              classNames: [
+                'calendar-class-event', 
+                new Date(cls.endTime).getTime() < Date.now() ? 'is-past' : 'is-future',
+                isCancelled ? 'is-cancelled' : ''
+              ].filter(Boolean),
+              extendedProps: {
+                classId: String(cls._id),
+                isClass: true,
+                className: cls.name || 'Class',
+                classThumbnail: cls.thumbnail,
+                type: 'class',
+                classData: cls,
+                isCancelled: isCancelled,
+                cancelReason: cls.cancelReason,
+                status: cls.status,
+                createdAt: cls.createdAt // Include createdAt for overlap logic
+              }
+            } as EventInput;
+          });
+          
+          console.log('📚 [LOAD-CLASSES] Created class events:', classEvents.length);
+          classEvents.forEach(evt => {
+            const extProps = evt.extendedProps as any;
+            console.log(`  - ${evt.title}: cancelled=${extProps?.isCancelled}, start=${evt.start}`);
+          });
+          
+          // Filter out ALL class events (from availability AND from previous loads)
+          const nonClassEvents = this.events.filter(event => {
+            const extendedProps = event.extendedProps as any;
+            // Remove if it's a class OR if it's an availability block of type 'class'
+            return !extendedProps?.isClass && !extendedProps?.classId && extendedProps?.type !== 'class';
+          });
+          
+          
+          // Merge new class events
+          this.events = [...nonClassEvents, ...classEvents];
+          
+          
+          // Rebuild mobile views
+          if (this.isMobileView) {
+            this.buildMobileTimeline();
+            this.buildMobileAgenda();
+          }
+          
+          this.cdr.detectChanges();
         }
       },
       error: (error) => {
@@ -923,19 +1241,59 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
   }
+  
+  // Check if we need to load more data for a given date range
+  private checkAndLoadMoreData(viewStart: Date, viewEnd: Date) {
+    if (!this.currentUser?.id) return;
+    
+    console.log('   - View start:', viewStart.toISOString());
+    console.log('   - View end:', viewEnd.toISOString());
+    console.log('   - Earliest loaded:', this.earliestLoadedDate?.toISOString() || 'NONE');
+    console.log('   - Latest loaded:', this.latestLoadedDate?.toISOString() || 'NONE');
+    
+    const needsEarlierData = !this.earliestLoadedDate || viewStart < this.earliestLoadedDate;
+    const needsLaterData = !this.latestLoadedDate || viewEnd > this.latestLoadedDate;
+    
+    console.log('   - Needs earlier data?', needsEarlierData);
+    console.log('   - Needs later data?', needsLaterData);
+    
+    if (needsEarlierData) {
+      // Load more past data
+      const newStart = this.addDays(viewStart, -this.LOAD_WINDOW_WEEKS * 7);
+      const newEnd = this.earliestLoadedDate || viewStart;
+      
+      
+      this.loadLessons(this.currentUser.id, newStart, newEnd);
+      this.loadClasses(this.currentUser.id, newStart, newEnd);
+    }
+    
+    if (needsLaterData) {
+      // Load more future data
+      const newStart = this.latestLoadedDate || viewEnd;
+      const newEnd = this.addDays(viewEnd, this.LOAD_WINDOW_WEEKS * 7);
+      
+      
+      this.loadLessons(this.currentUser.id, newStart, newEnd);
+      this.loadClasses(this.currentUser.id, newStart, newEnd);
+    }
+    
+    if (!needsEarlierData && !needsLaterData) {
+    }
+  }
 
   private convertLessonsToEvents(lessons: Lesson[]): void {
-    // Convert lessons to events but don't replace existing events (availability/classes)
-    // Filter out cancelled lessons to avoid cluttering the calendar
-    const activeAndCompletedLessons = lessons.filter(lesson => lesson.status !== 'cancelled');
     
-    const lessonEvents = activeAndCompletedLessons.map(lesson => {
+    // Convert all lessons to events (including cancelled) to show them crossed out
+    const allLessons = lessons;
+    
+    const lessonEvents = allLessons.map(lesson => {
       const student = lesson.studentId as any;
       const studentFirst = typeof student?.firstName === 'string' ? student.firstName.trim() : '';
       const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
       const studentFullName = [studentFirst, studentLast].filter(Boolean).join(' ');
       const studentName = studentFullName || student?.name || student?.displayName || student?.email || 'Student';
       const subject = lesson.subject || 'Language Lesson';
+      const isCancelled = lesson.status === 'cancelled';
       
       // Debug logging for 12:00 PM lesson
       const debugStartTime = new Date(lesson.startTime);
@@ -950,6 +1308,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       if (lesson.isOfficeHours) {
         backgroundColor = '#f59e0b'; // Gold for office hours
         borderColor = '#d97706';
+      } else if (isCancelled) {
+        backgroundColor = '#9ca3af'; // Gray for cancelled
+        borderColor = '#6b7280';
       } else {
         switch (lesson.status) {
           case 'scheduled':
@@ -988,8 +1349,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         end: lesson.endTime,
         backgroundColor: backgroundColor,
         borderColor: borderColor,
-        textColor: '#ffffff',
-        classNames: [isPast ? 'is-past' : 'is-future', 'calendar-lesson-event'],
+        textColor: isCancelled ? '#6b7280' : '#ffffff',
+        classNames: [
+          isPast ? 'is-past' : 'is-future', 
+          'calendar-lesson-event',
+          isCancelled ? 'is-cancelled' : ''
+        ].filter(Boolean),
         extendedProps: {
           lessonId: lesson._id,
           studentName: studentName,
@@ -1003,7 +1368,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           notes: lesson.notes,
           isTrialLesson: lesson.isTrialLesson || false,
           isOfficeHours: lesson.isOfficeHours || false,
-          officeHoursType: lesson.officeHoursType || null
+          officeHoursType: lesson.officeHoursType || null,
+          isCancelled: isCancelled,
+          cancelReason: lesson.cancelReason
         }
       } as EventInput;
       
@@ -1015,28 +1382,28 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     });
     
     // Merge lesson events with existing events (availability/classes)
-    // Remove any existing lesson events first to avoid duplicates
-    const nonLessonEvents = this.events.filter(event => !event.extendedProps?.['lessonId']);
+    // Remove any existing lesson events first to avoid duplicates, but keep classes and availability
+    const nonLessonEvents = this.events.filter(event => {
+      const extendedProps = event.extendedProps as any;
+      // Keep everything except lessons (we're replacing lessons)
+      return !extendedProps?.lessonId;
+    });
+    
+    
     this.events = [...nonLessonEvents, ...lessonEvents];
     
     
-    // Debug: Check what 12:00 PM events exist in this.events
-    const noon12Events = this.events.filter(event => {
-      if (!event.start) return false;
-      const eventStart = new Date(event.start as string | number | Date);
-      return eventStart.getHours() === 12 && eventStart.getMinutes() === 0;
-    });
-    
+    // Don't trigger change detection here - let the caller handle it
   }
 
   private initCalendar(): boolean {
+    // CUSTOM CALENDAR: FullCalendar completely disabled
+    console.log('📅 FullCalendar disabled - using custom calendar');
+    return true; // Return true to prevent retry attempts
+    
+    /* FullCalendar initialization code (completely commented out)
     if (this.isMobileView) {
       this.isInitialized = false;
-      return false;
-    }
-    // Prevent multiple initialization attempts
-    if (this.initializationAttempts > 3) {
-      console.warn('📅 Too many initialization attempts, stopping');
       return false;
     }
     
@@ -1165,6 +1532,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       console.error('Error initializing FullCalendar:', error);
       return false;
     }
+    */
   }
 
   private forceReinitializeCalendar() {
@@ -1173,11 +1541,25 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       // Just reload the mobile timeline data
       this.loadAndUpdateCalendarData();
       if (this.currentUser && this.currentUser.id) {
-        this.loadLessons(this.currentUser.id);
+        this.loadLessonsAndClasses(this.currentUser.id);
       }
       return;
     }
     
+    // Desktop view: Using custom calendar, just reload data
+    console.log('📅 [FORCE-REINIT-DESKTOP] Reloading calendar data for custom calendar');
+    
+    // DON'T clear events - let loaders merge data properly
+    // this.events = [];  // REMOVED
+    
+    this.loadAndUpdateCalendarData();
+    if (this.currentUser && this.currentUser.id) {
+      this.loadLessonsAndClasses(this.currentUser.id);
+    }
+    // Trigger change detection to ensure events render
+    this.cdr.detectChanges();
+    
+    /* FullCalendar reinitialization (commented out - using custom calendar)
     // Desktop view: Only destroy if calendar exists and is initialized
     if (this.calendar && this.isInitialized) {
       this.calendar.destroy();
@@ -1190,9 +1572,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     
     // Multiple attempts to ensure calendar renders
     this.attemptCalendarInitialization(0);
+    */
   }
 
   private attemptCalendarInitialization(attempt: number) {
+    // CUSTOM CALENDAR: FullCalendar initialization attempts disabled
+    console.log('📅 FullCalendar attemptCalendarInitialization disabled - using custom calendar');
+    return;
+    
+    /* FullCalendar initialization attempts commented out
     const maxAttempts = 5;
     const delay = Math.min(200 * Math.pow(2, attempt), 2000); // Exponential backoff, max 2s
     
@@ -1223,27 +1611,20 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.initializeCalendarWithData();
       
     }, delay);
+    */
   }
 
   private initializeCalendarWithData() {
+    // CUSTOM CALENDAR: Skip FullCalendar initialization
+    console.log('📅 Using custom calendar - skipping FullCalendar initialization');
     
-    // First try to initialize calendar (skip when mobile)
-    const success = this.isMobileView ? true : this.initCalendar();
-    
-    if (!success && !this.isMobileView) {
-      console.error('📅 Calendar initialization failed');
-      return;
-    }
-    
-    // Then load data and update calendar (if user exists)
+    // Load data for the custom calendar
     this.loadAndUpdateCalendarData();
     
     // Load lessons if we have a user
     if (this.currentUser && this.currentUser.id) {
-      this.loadLessons(this.currentUser.id);
+      this.loadLessonsAndClasses(this.currentUser.id);
     }
-    
-    // Mobile timeline will be built automatically when data loads via updateCalendarEvents()
   }
 
   private loadAndUpdateCalendarData() {
@@ -1257,12 +1638,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Restore user state if it was lost
           if (!this.currentUser) {
-            console.warn('📅 User state lost during API call, restoring...');
             this.currentUser = preservedUser;
           }
           
+ 
           if (!res.availability || res.availability.length === 0) {
-            console.warn('📅 No availability data found');
             this.events = [];
             this.updateCalendarEvents();
             // Mark availability as loaded
@@ -1271,9 +1651,42 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
             return;
           }
           
-          this.events = res.availability.map((b, index) => {
+  
+          
+          const beforeCount = this.events.length;
+          
+          // Filter OUT ghost class blocks before converting to events
+          // Classes should come from Classes API, not availability array
+          const actualAvailability = res.availability.filter(b => b.type !== 'class');
+          
+          // Map availability blocks to events (excluding ghost classes)
+          const availabilityEvents = actualAvailability.map((b, index) => {
             return this.blockToEvent(b);
           });
+          
+
+          
+          // Merge with existing events (keep lessons/classes, replace availability)
+          const nonAvailabilityEvents = this.events.filter(event => {
+            const extendedProps = event.extendedProps as any;
+            // Keep lessons (have lessonId) AND keep classes (have isClass or classId)
+            // Don't keep availability blocks - they'll be re-added from res.availability
+            return extendedProps?.lessonId || extendedProps?.isClass || extendedProps?.classId;
+          });
+          
+          console.log('📅 [CLASS-DEBUG] Keeping', nonAvailabilityEvents.length, 'lesson events');
+          
+          this.events = [...availabilityEvents, ...nonAvailabilityEvents];
+          const afterCount = this.events.length;
+          
+          console.log('📅 [CLASS-DEBUG] Final events array:', this.events.length, 'events');
+          console.log('🟢 [AVAIL-DEBUG] Availability events count:', availabilityEvents.length);
+          console.log('🟢 [AVAIL-DEBUG] First few availability events:', availabilityEvents.slice(0, 3).map(e => ({
+            title: e.title,
+            type: (e.extendedProps as any)?.type,
+            start: e.start,
+            end: e.end
+          })));
           
           // Update calendar with events smoothly
           this.updateCalendarEvents();
@@ -1282,13 +1695,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           this.checkIfBothLoaded();
         },
         error: (error) => {
-          console.error('📅 Error loading availability:', error);
-          console.error('📅 Error details:', error.error);
-          console.error('📅 Error status:', error.status);
           
           // Restore user state if it was lost
           if (!this.currentUser) {
-            console.warn('📅 User state lost during API call, restoring...');
             this.currentUser = preservedUser;
           }
           
@@ -1298,7 +1707,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       });
     } else {
-      console.warn('📅 No current user found, initializing empty calendar');
       this.events = [];
       this.updateCalendarEvents();
       // Mark both as loaded since we're not loading any data
@@ -1309,9 +1717,25 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
   
   private checkIfBothLoaded() {
-    if (this.isMobileView && this.availabilityLoaded && this.lessonsLoaded) {
-      // Both API calls completed - mark data as loaded
-      this.isLoadingMobileData = false;
+    console.log('🔍 [LOAD-DEBUG] checkIfBothLoaded called - availability:', this.availabilityLoaded, 'lessons:', this.lessonsLoaded);
+    
+    if (this.availabilityLoaded && this.lessonsLoaded) {
+      console.log('✅ [LOAD-DEBUG] Both availability and lessons loaded! Triggering change detection. Events:', this.events.length);
+      // Both API calls completed - trigger ONE final change detection
+      // Classes will load asynchronously and update without a full re-render
+      this.cdr.detectChanges();
+      
+      // Update reminders with upcoming events
+      // NOTE: Disabled because reminders are now tracked globally in app.component.ts
+      // This prevents conflicts with global reminder tracking
+      // this.updateReminders();
+      
+      // Mark mobile data as loaded
+      if (this.isMobileView) {
+        this.isLoadingMobileData = false;
+      }
+    } else {
+      console.log('⏳ [LOAD-DEBUG] Still waiting...');
     }
   }
 
@@ -1324,7 +1748,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       return;
     }
     
-    // Desktop view: Update FullCalendar
+    // Desktop view: Update FullCalendar - DISABLED FOR CUSTOM CALENDAR
+    // CUSTOM CALENDAR: All FullCalendar code disabled
+    console.log('📅 FullCalendar updateCalendarEvents disabled - using custom calendar');
+    return;
+    
+    /* FullCalendar code commented out
     if (this.calendar) {
       // Add loading class for smooth transition
       const calendarEl = document.querySelector('.fc');
@@ -1376,6 +1805,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }, 100);
     }
+    */
   }
 
   private updateCustomNowIndicatorBound = () => this.updateCustomNowIndicator();
@@ -1423,12 +1853,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
 
   private reinitializeCalendar() {
+    // CUSTOM CALENDAR: FullCalendar reinitialization disabled
+    console.log('📅 FullCalendar reinitializeCalendar disabled - using custom calendar');
+    return;
+    
+    /* FullCalendar reinitialize code commented out
     // Skip FullCalendar reinitialization on mobile view
     if (this.isMobileView) {
       // Just reload the mobile timeline data
       this.loadAndUpdateCalendarData();
       if (this.currentUser && this.currentUser.id) {
-        this.loadLessons(this.currentUser.id);
+        this.loadLessonsAndClasses(this.currentUser.id);
       }
       return;
     }
@@ -1475,6 +1910,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.initCalendar();
       }, 100);
     }
+    */
   }
 
   // FullCalendar handlers
@@ -1509,13 +1945,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.persistEvent(updatedEvent);
   }
 
-  handleEventClick(clickInfo: any) {
-    const event = clickInfo.event;
+  handleEventClick(clickInfoOrEvent: any) {
+    // Handle both FullCalendar format (clickInfo.event) and custom calendar format (direct event)
+    const event = clickInfoOrEvent.event || clickInfoOrEvent;
     const extendedProps = event.extendedProps;
     
     // Check if this is a lesson event (has lessonId) or an availability block
     if (extendedProps?.lessonId) {
-      // Save current view before navigating
+      // Save current view before navigating (only if FullCalendar is active)
       if (this.calendar) {
         const currentView = this.calendar.view.type;
         localStorage.setItem('tutor-calendar-view', currentView);
@@ -1525,8 +1962,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     } else {
       // This is an availability block - keep existing delete behavior
       if (confirm('Delete this availability block?')) {
-        clickInfo.event.remove();
-        this.deleteEvent(clickInfo.event.id);
+        event.remove();
+        this.deleteEvent(event.id);
       }
     }
   }
@@ -1586,19 +2023,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       start = new Date(b.absoluteStart);
       end = new Date(b.absoluteEnd);
     } else {
-      // Weekly availability: map to current week
-      const today = new Date();
+      // Weekly availability: map to the DISPLAYED week, not the current week
+      // Use currentWeekStart to ensure availability shows on the correct week
+      const weekStart = this.currentWeekStart || new Date();
       
-      // Calculate the start of the current week (Sunday)
-      const currentDay = today.getDay();
-      const sundayOffset = -currentDay; // Sunday is 0, so offset from current day
-      const sunday = new Date(today);
-      sunday.setDate(today.getDate() + sundayOffset);
-      sunday.setHours(0, 0, 0, 0);
-      
-      // Add the day index directly to Sunday to get the correct day
-      const dayDate = new Date(sunday);
-      dayDate.setDate(sunday.getDate() + b.day);
+      // Calculate the target day in the displayed week
+      const dayDate = new Date(weekStart);
+      dayDate.setDate(weekStart.getDate() + b.day);
       
       start = this.withTime(dayDate, b.startTime);
       end = this.withTime(dayDate, b.endTime);
@@ -1629,14 +2060,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         ...(b.extendedProps || {}),
         ...(isClass ? {
           classId: b.id, // b.id contains the class _id
-          isClass: true
-        } : {})
+          isClass: true,
+          className: b.title || b.className || 'Class',
+          classThumbnail: b.thumbnail,
+          // Store original class data for access
+          classData: b
+        } : {}),
+        type: b.type // Preserve the type
       }
     };
     
-    // Log class events for debugging
-    if (b.type === 'class') {
-    }
     return event;
   }
 
@@ -1687,21 +2120,23 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   async onAddTimeOff(date?: Date, timeSlot?: TimelineEntry) {
-    const { BlockTimeComponent } = await import('../modals/block-time/block-time.component');
+    // Set modal data and open inline modal (no programmatic creation = no freeze)
+    this.blockTimeModalData = {
+      date: date || new Date(),
+      startTime: timeSlot?.start,
+      endTime: timeSlot?.end,
+      durationMinutes: timeSlot?.durationMinutes
+    };
     
-    const modal = await this.modalController.create({
-      component: BlockTimeComponent,
-      componentProps: {
-        date: date || new Date(),
-        startTime: timeSlot?.start,
-        endTime: timeSlot?.end,
-        durationMinutes: timeSlot?.durationMinutes
-      }
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
+    this.isBlockTimeModalOpen = true;
+  }
+  
+  // Handle block time modal dismissal
+  onBlockTimeModalDismiss(event: any) {
+    console.log('Block time modal dismissed:', event);
+    this.isBlockTimeModalOpen = false;
+    
+    const data = event.detail?.data;
     if (data?.success) {
       // Refresh calendar to show the new time-off block
       this.refreshCalendar();
@@ -1985,7 +2420,12 @@ When enabled:
 
   // Method to refresh calendar when returning from availability setup
   refreshCalendar() {
+    console.log('🔄 [REFRESH] refreshCalendar() called');
     if (this.calendar && this.isInitialized) {
+      // Don't clear events - just reload data and merge
+      if (this.currentUser && this.currentUser.id) {
+        this.loadLessonsAndClasses(this.currentUser.id);
+      }
       this.loadAndUpdateCalendarData();
     } else {
       this.forceReinitializeCalendar();
@@ -1994,23 +2434,32 @@ When enabled:
 
   // Force refresh availability data after saving from availability setup
   private forceRefreshAvailability() {
+    console.log('🔄 [FORCE-REFRESH-AVAIL] forceRefreshAvailability() called');
     
     if (!this.currentUser) {
       console.warn('📅 No current user for availability refresh');
       return;
     }
 
-    // Clear existing events to avoid stale data
-    this.events = [];
+    // DON'T clear all events - only update availability, preserve lessons/classes
+    // this.events = [];  // REMOVED
     
     // Force reload availability data
     this.userService.getAvailability().subscribe({
       next: (res) => {
+        console.log('📅 [FORCE-REFRESH-AVAIL] Got availability data');
+        
+        // Remove old availability events, keep lessons and classes
+        const nonAvailabilityEvents = this.events.filter(event => {
+          const extendedProps = event.extendedProps as any;
+          return extendedProps?.type !== 'availability' && extendedProps?.isLesson !== undefined || extendedProps?.isClass;
+        });
         
         if (res.availability && res.availability.length > 0) {
-          this.events = res.availability.map(b => this.blockToEvent(b));
+          const availEvents = res.availability.map(b => this.blockToEvent(b));
+          this.events = [...availEvents, ...nonAvailabilityEvents];
         } else {
-          this.events = [];
+          this.events = nonAvailabilityEvents;
         }
         
         // Update calendar display
@@ -2027,7 +2476,7 @@ When enabled:
         
         // Also reload lessons to ensure complete data
         if (this.currentUser?.id) {
-          this.loadLessons(this.currentUser.id);
+          this.loadLessonsAndClasses(this.currentUser.id);
         }
       },
       error: (error) => {
@@ -2047,7 +2496,7 @@ When enabled:
       this.loadAndUpdateCalendarData();
       // Reload lessons if we have a user
       if (this.currentUser && this.currentUser.id) {
-        this.loadLessons(this.currentUser.id);
+        this.loadLessonsAndClasses(this.currentUser.id);
       }
       return;
     }
@@ -2057,7 +2506,7 @@ When enabled:
       this.loadAndUpdateCalendarData();
       // Reload lessons if we have a user
       if (this.currentUser && this.currentUser.id) {
-        this.loadLessons(this.currentUser.id);
+        this.loadLessonsAndClasses(this.currentUser.id);
       }
     } else {
       this.forceReinitializeCalendar();
@@ -2232,6 +2681,510 @@ When enabled:
     
     // Navigate to the event details page
     this.router.navigate(['/tabs/tutor-calendar/event', item.id]);
+  }
+
+  // ============ CUSTOM CALENDAR METHODS ============
+  
+  private initializeCustomCalendar() {
+    // Set current week start (Sunday)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    this.currentWeekStart = new Date(today);
+    this.currentWeekStart.setDate(today.getDate() - dayOfWeek);
+    this.currentWeekStart.setHours(0, 0, 0, 0);
+    
+    // Generate week days
+    this.updateWeekDays();
+    
+    // Initialize selected day for day view (today)
+    this.updateSelectedDayForDayView(today);
+    
+    // Generate time slots (6 AM to 10 PM)
+    this.generateTimeSlots();
+    
+    // Update week title
+    this.updateWeekTitle();
+    
+    // Reload availability data to map it to the correct week
+    // This is needed because availability was loaded before currentWeekStart was initialized
+    if (this.currentUser && this.currentUser.id) {
+      console.log('🔄 [INIT] Reloading availability for displayed week');
+      this.loadAndUpdateCalendarData();
+    }
+    
+    // Trigger change detection to ensure events render
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 100);
+  }
+  
+  private updateWeekDays() {
+    this.weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(this.currentWeekStart);
+      date.setDate(this.currentWeekStart.getDate() + i);
+      
+      this.weekDays.push({
+        date: date,
+        shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayNumber: date.getDate().toString(),
+        dayName: date.toLocaleDateString('en-US', { weekday: 'long' })
+      });
+    }
+  }
+  
+  private updateSelectedDayForDayView(date: Date) {
+    this.selectedDayForDayView = {
+      date: new Date(date),
+      shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayNumber: date.getDate().toString(),
+      dayName: date.toLocaleDateString('en-US', { weekday: 'long' }),
+      monthLabel: date.toLocaleDateString('en-US', { month: 'long' }),
+      year: date.getFullYear()
+    };
+  }
+  
+  getEventsForSelectedDay(): any[] {
+    return this.getEventsForDay(this.selectedDayForDayView);
+  }
+  
+  getFreeHoursForSelectedDay(): number {
+    if (!this.selectedDayForDayView || !this.selectedDayForDayView.date) {
+      return 0;
+    }
+    
+    // Only calculate for the calendar's visible hours (6 AM to 11 PM)
+    const dayStart = new Date(this.selectedDayForDayView.date);
+    dayStart.setHours(6, 0, 0, 0); // Start at 6 AM
+    const dayEnd = new Date(this.selectedDayForDayView.date);
+    dayEnd.setHours(23, 0, 0, 0); // End at 11 PM
+    
+    let totalAvailableMinutes = 0;
+    let totalBookedMinutes = 0;
+    
+    console.log('🔍 Calculating free hours for:', this.selectedDayForDayView.date);
+    console.log('🔍 Total events:', this.events?.length || 0);
+    
+    // Loop through all events for this day
+    for (const event of this.events || []) {
+      if (!event.start || !event.end) continue;
+      
+      const eventStart = new Date(event.start as string | number | Date);
+      const eventEnd = new Date(event.end as string | number | Date);
+      
+      if (isNaN(eventStart.getTime()) || isNaN(eventEnd.getTime())) continue;
+      
+      // Check if event overlaps with this day's visible hours
+      if (eventStart >= dayEnd || eventEnd <= dayStart) continue;
+      
+      // Clamp to visible hours
+      const clampedStart = eventStart.getTime() < dayStart.getTime() ? dayStart : eventStart;
+      const clampedEnd = eventEnd.getTime() > dayEnd.getTime() ? dayEnd : eventEnd;
+      const durationMinutes = Math.round((clampedEnd.getTime() - clampedStart.getTime()) / 60000);
+      
+      const extended = (event.extendedProps as any) || {};
+      // Check for 'available' (not 'availability')
+      const isAvailability = extended.type === 'available';
+      const isLesson = Boolean(extended.lessonId);
+      const isClass = Boolean(extended.classId || extended.isClass);
+      
+      if (isAvailability) {
+        // Count availability blocks
+        totalAvailableMinutes += durationMinutes;
+        console.log('✅ Found availability:', durationMinutes, 'min', eventStart, '-', eventEnd);
+      } else if (isLesson || isClass) {
+        // Count booked lessons/classes
+        totalBookedMinutes += durationMinutes;
+        console.log('📚 Found lesson/class:', durationMinutes, 'min', eventStart, '-', eventEnd);
+      }
+    }
+    
+    console.log('📊 Total available:', totalAvailableMinutes, 'min');
+    console.log('📊 Total booked:', totalBookedMinutes, 'min');
+    
+    // Available but not booked = total availability - booked lessons
+    const freeMinutes = Math.max(0, totalAvailableMinutes - totalBookedMinutes);
+    const freeHours = Math.round((freeMinutes / 60) * 10) / 10;
+    
+    console.log('📊 Free hours result:', freeHours);
+    
+    // Convert to hours (rounded to 1 decimal place)
+    return freeHours;
+  }
+  
+  private generateTimeSlots() {
+    this.timeSlots = [];
+    // Generate from 6 AM to 11 PM (hour 6 to hour 23)
+    for (let hour = 6; hour <= 23; hour++) {
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      this.timeSlots.push(`${displayHour} ${period}`);
+    }
+    console.log('Time slots generated:', this.timeSlots.length, this.timeSlots);
+  }
+  
+  private updateWeekTitle() {
+    const startMonth = this.currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+    const endDate = new Date(this.currentWeekStart);
+    endDate.setDate(this.currentWeekStart.getDate() + 6);
+    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
+    
+    if (startMonth === endMonth) {
+      this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
+    } else {
+      this.currentWeekTitle = `${startMonth} - ${endMonth} ${endDate.getFullYear()}`;
+    }
+  }
+  
+  navigatePrevious() {
+    if (this.customView === 'week') {
+      this.currentWeekStart.setDate(this.currentWeekStart.getDate() - 7);
+      this.updateWeekDays();
+      this.updateWeekTitle();
+      // Check if we need to load more data for this week
+      const weekEnd = this.addDays(this.currentWeekStart, 6);
+      this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
+      // Regenerate availability events for the new week
+      this.loadAndUpdateCalendarData();
+    } else {
+      // Day view - go back one day
+      const newDate = new Date(this.selectedDayForDayView.date);
+      newDate.setDate(newDate.getDate() - 1);
+      this.updateSelectedDayForDayView(newDate);
+      // Check if we need to load more data for this day
+      this.checkAndLoadMoreData(newDate, newDate);
+    }
+  }
+  
+  navigateNext() {
+    if (this.customView === 'week') {
+      this.currentWeekStart.setDate(this.currentWeekStart.getDate() + 7);
+      this.updateWeekDays();
+      this.updateWeekTitle();
+      // Check if we need to load more data for this week
+      const weekEnd = this.addDays(this.currentWeekStart, 6);
+      this.checkAndLoadMoreData(this.currentWeekStart, weekEnd);
+      // Regenerate availability events for the new week
+      this.loadAndUpdateCalendarData();
+    } else {
+      // Day view - go forward one day
+      const newDate = new Date(this.selectedDayForDayView.date);
+      newDate.setDate(newDate.getDate() + 1);
+      this.updateSelectedDayForDayView(newDate);
+      // Check if we need to load more data for this day
+      this.checkAndLoadMoreData(newDate, newDate);
+    }
+  }
+  
+  navigateToday() {
+    const today = new Date();
+    if (this.customView === 'week') {
+      const dayOfWeek = today.getDay();
+      this.currentWeekStart = new Date(today);
+      this.currentWeekStart.setDate(today.getDate() - dayOfWeek);
+      this.currentWeekStart.setHours(0, 0, 0, 0);
+      this.updateWeekDays();
+      this.updateWeekTitle();
+      // Regenerate availability events for today's week
+      this.loadAndUpdateCalendarData();
+    } else {
+      // Day view - go to today
+      this.updateSelectedDayForDayView(today);
+    }
+  }
+  
+  isToday(date: Date): boolean {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  }
+  
+  getEventsForDay(day: any): any[] {
+    const dayStart = new Date(day.date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(day.date);
+    dayEnd.setHours(23, 59, 59, 999);
+    
+    // Log all events for debugging
+    if (day.dayNumber === 23 || day.dayNumber === 24) {
+      console.log(`🔍 [DAY-${day.dayNumber}] Checking ${this.events.length} total events`);
+      console.log(`🔍 [DAY-${day.dayNumber}] Date range:`, dayStart, 'to', dayEnd);
+    }
+    
+    const filteredEvents = this.events.filter(event => {
+      if (!event.start) return false;
+      const eventStart = new Date(event.start as any);
+      const isInRange = eventStart >= dayStart && eventStart <= dayEnd;
+      
+      // Show lessons AND availability blocks (experimenting with showing availability)
+      const extendedProps = (event.extendedProps || {}) as any;
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
+      const isLesson = extendedProps.lessonId || extendedProps.lesson || extendedProps.classId;
+      
+      // Debug logging for first couple days
+      if (day.dayNumber === 23 || day.dayNumber === 24) {
+        console.log(`  📌 Event: start=${eventStart.toISOString()}, type=${extendedProps.type}, isInRange=${isInRange}, isAvail=${isAvailability}, isLesson=${isLesson}`);
+      }
+      
+      if (isInRange && isAvailability) {
+        console.log('🟢 [AVAIL-FOUND] Day', day.dayNumber, '- Found availability event:', {
+          title: event.title,
+          type: extendedProps.type,
+          start: eventStart,
+          end: event.end
+        });
+      }
+      
+      // Show both lessons and availability
+      return isInRange && (isLesson || isAvailability);
+    }).map(event => {
+      const extendedProps = (event.extendedProps || {}) as any;
+      const studentName = extendedProps.studentName || extendedProps.student?.name || '';
+      const formattedName = this.formatNameWithInitial(studentName);
+      const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
+      
+      return {
+        ...event,
+        title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
+        studentName: isAvailability ? '' : formattedName,
+        studentAvatar: isAvailability ? '' : (extendedProps.studentAvatar || extendedProps.student?.profilePicture || ''),
+        isAvailability: isAvailability,
+        isClass: extendedProps.isClass || extendedProps.classId,
+        start: new Date(event.start as any),
+        end: new Date(event.end as any)
+      };
+    });
+    
+    if (day.dayNumber === 23 || day.dayNumber === 24) {
+      console.log(`✅ [DAY-${day.dayNumber}] Returning ${filteredEvents.length} events`);
+    }
+    
+    return filteredEvents;
+  }
+  
+  private formatNameWithInitial(fullName: string): string {
+    if (!fullName) return '';
+    
+    const parts = fullName.trim().split(' ');
+    if (parts.length === 1) return parts[0]; // Only first name
+    
+    const firstName = parts[0];
+    const lastName = parts[parts.length - 1];
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    
+    return `${firstName} ${lastInitial}.`;
+  }
+  
+  calculateEventTop(event: any): number {
+    const startHour = event.start.getHours();
+    const startMinute = event.start.getMinutes();
+    const startOffset = 6; // Calendar starts at 6 AM
+    const slotHeight = 70; // 70px per hour (increased from 60px)
+    
+    return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
+  }
+  
+  calculateEventHeight(event: any): number {
+    const durationMs = event.end.getTime() - event.start.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+    return durationHours * 70; // 70px per hour (increased from 60px)
+  }
+  
+  formatEventTime(event: any): string {
+    const startTime = this.formatTime(event.start);
+    const durationMs = event.end.getTime() - event.start.getTime();
+    const durationMinutes = Math.round(durationMs / (1000 * 60));
+    
+    return `${startTime} (${durationMinutes}min)`;
+  }
+  
+  isEventPast(event: any): boolean {
+    return event.end.getTime() < Date.now();
+  }
+  
+  
+  private startTimeUpdater() {
+    this.updateCurrentTimePosition();
+    this.timeUpdateInterval = setInterval(() => {
+      this.updateCurrentTimePosition();
+    }, 60000); // Update every minute
+  }
+  
+  private updateCurrentTimePosition() {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const startOffset = 6; // Calendar starts at 6 AM
+    const slotHeight = 110; // 110px per hour (must match CSS .hour-line height)
+    
+    this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);
+    
+    console.log('🕐 [TIME-DEBUG] Time indicator:', {
+      now: now.toLocaleTimeString(),
+      currentHour,
+      currentMinute,
+      startOffset,
+      calculatedPosition: this.currentTimePosition,
+      expectedHourFromTop: (currentHour - startOffset)
+    });
+  }
+  
+  // Scroll to "now" indicator on page load
+  scrollToNowIndicator() {
+    if (this.hasScrolledToNow) {
+      return; // Only scroll once per view
+    }
+    
+    // Update position first
+    this.updateCurrentTimePosition();
+    this.cdr.detectChanges();
+    
+    // Wait for next frame
+    requestAnimationFrame(() => {
+      const container = this.customView === 'week' 
+        ? this.weekBodyContainer?.nativeElement 
+        : this.dayViewBodyContainer?.nativeElement;
+      
+      if (!container) {
+        return;
+      }
+      
+      // Find the time indicator element
+      const indicator = container.querySelector('.time-indicator') as HTMLElement;
+      
+      if (indicator) {
+        const rect = indicator.getBoundingClientRect();
+        
+        // Check if indicator is visible
+        if (rect.width === 0 || rect.height === 0) {
+          return;
+        }
+        
+        // Calculate scroll position to center the indicator in view
+        const containerRect = container.getBoundingClientRect();
+        const indicatorTopRelative = rect.top - containerRect.top + container.scrollTop;
+        const targetScroll = indicatorTopRelative - (containerRect.height / 3); // Position at top third of view
+        
+        container.scrollTo({
+          top: Math.max(0, targetScroll),
+          behavior: 'smooth'
+        });
+        
+        this.hasScrolledToNow = true;
+      }
+    });
+  }
+  
+  // Switch between week and day view with scroll to now
+  switchView(view: 'week' | 'day') {
+    this.customView = view;
+    this.hasScrolledToNow = false; // Reset scroll flag
+    
+    // Wait for view to render, then scroll to now
+    setTimeout(() => {
+      this.scrollToNowIndicator();
+    }, 100);
+  }
+  
+  // 🧪 DEV TEST: Manually trigger auto-cancel for testing
+  async testAutoCancelClass() {
+    // Find first upcoming class from events
+    const upcomingClass = this.events.find((e: any) => 
+      e.extendedProps?.isClass && 
+      e.extendedProps?.status === 'scheduled' &&
+      new Date(e.start) > new Date()
+    );
+    
+    if (!upcomingClass) {
+      const toast = await this.toastController.create({
+        message: 'No upcoming scheduled classes to test',
+        duration: 2000,
+        color: 'warning'
+      });
+      await toast.present();
+      return;
+    }
+    
+    const classId = upcomingClass.extendedProps?.['classId'] || upcomingClass.id;
+    const className = upcomingClass.title || 'Class';
+    
+    if (!classId) {
+      const toast = await this.toastController.create({
+        message: 'Could not find class ID',
+        duration: 2000,
+        color: 'danger'
+      });
+      await toast.present();
+      return;
+    }
+    
+    // Confirm before triggering
+    const alert = await this.alertController.create({
+      header: 'Test Auto-Cancel',
+      message: `This will cancel "${className}" and send notifications. Continue?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Test Cancel',
+          role: 'confirm',
+          handler: async () => {
+            await this.executeTestAutoCancel(classId, className);
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  private async executeTestAutoCancel(classId: string, className: string) {
+    const loading = await this.toastController.create({
+      message: 'Testing auto-cancel...',
+      duration: 0
+    });
+    await loading.present();
+    
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+      const response = await fetch(`http://localhost:3000/api/classes/${classId}/test-auto-cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': headers.get('Authorization') || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const result = await response.json();
+      await loading.dismiss();
+      
+      if (result.success) {
+        const toast = await this.toastController.create({
+          message: `✅ "${className}" test cancelled successfully`,
+          duration: 3000,
+          color: 'success'
+        });
+        await toast.present();
+        
+        // Refresh calendar to show the cancelled class
+        this.refreshCalendar();
+      } else {
+        throw new Error(result.message || 'Test failed');
+      }
+    } catch (error) {
+      await loading.dismiss();
+      console.error('Test auto-cancel error:', error);
+      
+      const toast = await this.toastController.create({
+        message: `❌ Test failed: ${error}`,
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 }
 

@@ -7,6 +7,8 @@ import { IonicModule } from '@ionic/angular';
 import { ProfilePageRoutingModule } from './profile-routing.module';
 import { ProfilePage } from './profile.page';
 import { SharedModule } from '../shared/shared.module';
+import { PicturePreviewModalComponent } from '../components/picture-preview-modal/picture-preview-modal.component';
+import { SafeUrlPipe } from '../pipes/safe-url.pipe';
 
 @NgModule({
   imports: [
@@ -16,6 +18,10 @@ import { SharedModule } from '../shared/shared.module';
     ProfilePageRoutingModule,
     SharedModule
   ],
-  declarations: [ProfilePage]
+  declarations: [
+    ProfilePage,
+    PicturePreviewModalComponent,
+    SafeUrlPipe
+  ]
 })
 export class ProfilePageModule {}

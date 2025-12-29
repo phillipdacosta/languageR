@@ -191,11 +191,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     return d;
   }
 
-  // Now indicator state
-  showNowIndicator = false;
-  nowIndicatorTop = 0;
-  nowIndicatorLeft = 0;
-  nowIndicatorWidth = 0;
+  // Now indicator state (simple, like tutor-calendar)
+  currentTimePosition: number = 0;
   private nowIntervalId: any;
   private boundResizeHandler = () => {
     const previousMobile = this.isMobileView;
@@ -205,9 +202,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     } else {
       this.refreshDisplayedWeekDays();
     }
-    this.updateNowIndicator();
+    this.updateCurrentTimePosition();
   };
-  private hasScrolledToNow = false;
 
   // Selection state
   isSelecting = false;
@@ -252,8 +248,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ionViewWillEnter() {
-    // this.forceRefreshAvailability();
-    this.forceScrollToNowIndicator();
+    // Just update the time position
+    this.updateCurrentTimePosition();
   }
 
   ngOnChanges(changes: any) {
@@ -275,9 +271,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         this.loadExistingAvailability();
       }
       
-      // Reset scroll state and trigger scroll after view updates
-      this.hasScrolledToNow = false;
-      
       // Reset scroll position to top when switching between views
       // This is needed because Ionic preserves scroll position, but content changes
       const ionContent = document.querySelector('ion-content');
@@ -294,12 +287,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       // Also try to reset window scroll
       window.scrollTo(0, 0);
       
-      // Trigger scroll with a delay to allow view to settle
-      // The parent page's ionViewDidEnter should also trigger this, but we have
-      // a fallback here in case it doesn't fire (e.g., when navigating between child routes)
-      setTimeout(() => {
-        this.scrollToNowIndicator();
-      }, 200);
+      // Just update time position - no need for complex scrolling
+      this.updateCurrentTimePosition();
     }
   }
 
@@ -416,128 +405,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.loadBookedSlots();
   }
 
-  // Force scroll to current time indicator on page entry
-  private async scrollUsingIonicAPI(ionContent: any, force: boolean, retryCount = 0) {
-    const maxRetries = 20;
-    const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement;
-    if (!timeSlotsElement) {
-      if (retryCount < maxRetries) {
-        setTimeout(() => {
-          this.scrollUsingIonicAPI(ionContent, force, retryCount + 1);
-        }, 200);
-      }
-      return;
-    }
-    
-    // Get the scroll element to check if it has scrollable content
-    const scrollElement = await ionContent.getScrollElement();
-    
-    // Check if content is scrollable yet - need BOTH dimensions and actual content
-    const hasValidDimensions = scrollElement.scrollHeight > 0 && scrollElement.clientHeight > 0;
-    const hasScrollableContent = scrollElement.scrollHeight > scrollElement.clientHeight;
-    
-    if (!hasValidDimensions) {
-      if (retryCount < maxRetries) {
-        // Content not ready yet, wait and retry with progressive backoff
-        const delay = Math.min(200 + (retryCount * 100), 1000); // Cap at 1000ms
-        setTimeout(() => {
-          this.scrollUsingIonicAPI(ionContent, force, retryCount + 1);
-        }, delay);
-        return;
-      }
-      // Try to scroll anyway, might work
-    }
-    
-    // Calculate the scroll position relative to the scroll container
-    // Walk up the DOM tree to get total offset
-    let element: HTMLElement | null = timeSlotsElement;
-    let totalOffsetTop = 0;
-    
-    while (element && element !== scrollElement) {
-      totalOffsetTop += element.offsetTop;
-      element = element.offsetParent as HTMLElement;
-      
-      if (element === document.body || element === document.documentElement) {
-        break;
-      }
-    }
-    
-    const indicator = this.nowIndicatorTop;
-    const indicatorPosition = totalOffsetTop + indicator;
-    
-    // Center the indicator in the viewport
-    const targetY = indicatorPosition - (window.innerHeight / 2);
-    
-    // Use Ionic's scrollToPoint method - parameters are (x, y, duration)
-    // Note: x is horizontal (left), y is vertical (top)
-    try {
-      await ionContent.scrollToPoint(0, Math.max(0, targetY), 300);
-      this.hasScrolledToNow = true;
-    } catch (error) {
-      // Silently fail
-    }
-  }
-
-  private forceScrollToNowIndicator() {
-    this.hasScrolledToNow = false;
-    
-    // Always update and show the now indicator, even if not viewing today
-    setTimeout(() => {
-      this.updateNowIndicatorForced();
-      // Wait for DOM to be ready, then scroll
-      setTimeout(() => {
-        this.scrollNowIndicatorIntoView(true);
-      }, 300);
-    }, 500);
-  }
-
-  // Update now indicator without checking if current week is in view
-  private updateNowIndicatorForced() {
-    const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
-    if (!timeSlotsElement) {
-      return;
-    }
-    
-    // Find the scrollable container (.time-grid-container)
-    const container = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
-    if (!container) {
-      return;
-    }
-
-    // Calculate position based on current time
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    const totalMinutes = 24 * 60;
-    
-    // Calculate position relative to the time slots content, not the scrollable container
-    const timeSlotsHeight = timeSlotsElement.scrollHeight;
-    const calculatedTop = Math.round((minutes / totalMinutes) * timeSlotsHeight);
-    this.nowIndicatorTop = Math.max(0, Math.min(timeSlotsHeight - 1, calculatedTop));
-
-    // Calculate left position and width (same logic as original)
-    const timeLabels = timeSlotsElement.querySelectorAll('.time-label');
-    let labelWidth = 60; // fallback
-    if (timeLabels.length > 0) {
-      const firstLabel = timeLabels[0] as HTMLElement;
-      labelWidth = firstLabel.offsetWidth + 8;
-    }
-
-    const containerWidth = timeSlotsElement.clientWidth;
-    
-    if (this.isSingleDayMode) {
-      // Single day mode: span the single day column
-      this.nowIndicatorLeft = labelWidth;
-      this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
-    } else {
-      // Regular mode: span all day columns
-      this.nowIndicatorLeft = labelWidth;
-      this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
-    }
-
-    // Always show the indicator when forced
-    this.showNowIndicator = true;
-  }
-  
   private getWeekStart(date: Date): Date {
     // Create a new date to avoid mutating the original
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -553,7 +420,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.displayedWeekDays = [];
     
     // Use local timezone for display
-    const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'short' });
     const shortName = targetDate.toLocaleDateString('en-US', { weekday: 'short' });
     const dayOfMonth = targetDate.getDate();
     const monthName = targetDate.toLocaleDateString('en-US', { month: 'short' });
@@ -590,111 +457,50 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     // Don't auto-scroll here - let the parent page's ionViewDidEnter trigger it
     // This ensures ion-content is fully initialized before we try to scroll
     
-    // Update every minute (using regular update that respects current week view)
-    this.nowIntervalId = setInterval(() => this.updateNowIndicator(), 60_000);
+    // Start time updater like tutor-calendar
+    this.startTimeUpdater();
+    
+    // Scroll to current time after a short delay
+    setTimeout(() => {
+      this.scrollToCurrentTime();
+    }, 300);
+    
     // Recompute on resize
     window.addEventListener('resize', this.boundResizeHandler);
   }
-
-  private isScrolling = false; // Prevent multiple simultaneous scroll attempts
-
-  // Public method that can be called by parent page when view is ready
-  public scrollToNowIndicator() {
-    if (this.isScrolling) {
+  
+  private scrollToCurrentTime() {
+    const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
+    if (!timeSlotsElement) {
       return;
     }
     
-    this.isScrolling = true;
-    this.hasScrolledToNow = false;
+    // Find the scrollable container
+    const scrollContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
+    if (!scrollContainer) {
+      return;
+    }
     
-    // Update the indicator position first
-    this.updateNowIndicatorForced();
+    // Calculate scroll position (position minus some offset to center it)
+    const targetScroll = Math.max(0, this.currentTimePosition - 200);
     
-    // Force Angular to detect changes and apply style bindings to DOM
-    this.cdr.detectChanges();
+    scrollContainer.scrollTo({
+      top: targetScroll,
+      behavior: 'smooth'
+    });
     
-    // Wait for browser to paint the changes (minimal delay for fastest response)
-    requestAnimationFrame(() => {
-      // Query within the component's time slots container, not globally!
-      // This prevents finding old elements from previous routes
-      const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement;
-      if (!timeSlotsElement) {
-        this.isScrolling = false;
-        return;
-      }
-      
-      const nowIndicator = timeSlotsElement.querySelector('.now-indicator') as HTMLElement;
-      
-      if (nowIndicator) {
-        const rect = nowIndicator.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(nowIndicator);
-        
-        if (rect.width === 0 || rect.height === 0) {
-          this.isScrolling = false;
-          return;
-        }
-        
-        if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
-          this.isScrolling = false;
-          return;
-        }
-        
-        // On desktop, use custom scroll calculation to account for header-card
-        if (!this.isMobileView) {
-          const scrollContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
-          if (scrollContainer) {
-            const headerCard = document.querySelector('.header-card') as HTMLElement;
-            const headerHeight = headerCard ? headerCard.getBoundingClientRect().height : 0;
-            const headerPadding = 73; // Top padding from .content-header
-            const totalHeaderSpace = headerHeight + headerPadding + 40; // Add buffer for spacing
-            
-            // Get the indicator's position relative to the scroll container
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const indicatorRect = nowIndicator.getBoundingClientRect();
-            const indicatorTopRelative = indicatorRect.top - containerRect.top + scrollContainer.scrollTop;
-            
-            // Calculate target scroll to position indicator below header
-            const targetScroll = indicatorTopRelative - totalHeaderSpace;
-            
-            scrollContainer.scrollTo({
-              top: Math.max(0, targetScroll),
-              behavior: 'smooth'
-            });
-            
-            this.hasScrolledToNow = true;
-          } else {
-            // Fallback to scrollIntoView if container not found
-            nowIndicator.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'center',
-              inline: 'nearest'
-            });
-            this.hasScrolledToNow = true;
-          }
-        } else {
-          // On mobile, use standard scrollIntoView
-          nowIndicator.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center',
-            inline: 'nearest'
-          });
-          this.hasScrolledToNow = true;
-        }
-      }
-      
-      // Reset scrolling flag
-      setTimeout(() => {
-        this.isScrolling = false;
-      }, 1500);
+    console.log('📜 Scrolled to current time:', {
+      currentTimePosition: this.currentTimePosition,
+      targetScroll
     });
   }
 
   private initializeCurrentWeek() {
     const today = new Date();
     const dayOfWeek = today.getDay();
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const sundayOffset = -dayOfWeek; // Get to Sunday of current week
     this.currentWeek = new Date(today);
-    this.currentWeek.setDate(today.getDate() + mondayOffset);
+    this.currentWeek.setDate(today.getDate() + sundayOffset);
     this.currentWeek.setHours(0, 0, 0, 0);
   }
 
@@ -706,7 +512,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       const date = new Date(start);
       date.setDate(start.getDate() + i);
       
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
       const shortName = date.toLocaleDateString('en-US', { weekday: 'short' });
       const dayOfMonth = date.getDate();
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
@@ -722,6 +528,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     }
 
     this.refreshDisplayedWeekDays(focusDate);
+    
+    // Just update the time position (no complex indicator logic needed)
+    this.updateCurrentTimePosition();
   }
 
   getWeekRange(): string {
@@ -735,17 +544,13 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const endDate = days[days.length - 1]?.date;
     if (!startDate || !endDate) return '';
     
-    const startMonth = startDate.toLocaleDateString('en-US', { month: 'short' });
-    const endMonth = endDate.toLocaleDateString('en-US', { month: 'short' });
-    const startDay = startDate.getDate();
-    const endDay = endDate.getDate();
-    const year = startDate.getFullYear();
+    // Just show the month and year (full month name)
+    // If week spans two months, show the end month (where most of the week is)
+    const displayDate = endDate; // Use end date's month
+    const month = displayDate.toLocaleDateString('en-US', { month: 'long' });
+    const year = displayDate.getFullYear();
     
-    if (startMonth === endMonth) {
-      return `${startMonth} ${startDay} - ${endDay}, ${year}`;
-    } else {
-      return `${startMonth} ${startDay} - ${endMonth} ${endDay}, ${year}`;
-    }
+    return `${month} ${year}`;
   }
 
   navigateWeek(direction: 'prev' | 'next') {
@@ -760,16 +565,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.mobileStartIndex = 0;
     }
     this.updateWeekDays();
-    // Recompute indicator after DOM updates
-    this.hasScrolledToNow = false;
-    setTimeout(() => {
-      this.updateNowIndicator();
-      setTimeout(() => {
-        if (!this.hasScrolledToNow) {
-          this.scrollNowIndicatorIntoView(true);
-        }
-      }, 200);
-    });
+    // Just update the time position
+    this.updateCurrentTimePosition();
   }
 
   navigateMonth(direction: 'prev' | 'next') {
@@ -783,22 +580,34 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.mobileStartIndex = 0;
     }
     this.updateWeekDays();
-    this.hasScrolledToNow = false;
   }
 
   goToToday() {
     this.initializeCurrentWeek();
     this.mobileStartIndex = 0;
     this.updateWeekDays(new Date());
-    this.hasScrolledToNow = false;
-    setTimeout(() => {
-      this.updateNowIndicator();
-      setTimeout(() => {
-        if (!this.hasScrolledToNow) {
-          this.scrollNowIndicatorIntoView(true);
-        }
-      }, 200);
-    });
+    // Just update the time position
+    this.updateCurrentTimePosition();
+  }
+
+  switchToWeekView() {
+    if (!this.isSingleDayMode) return; // Already in week view
+    
+    // Switch to week view
+    this.isSingleDayMode = false;
+    this.initializeCurrentWeek();
+    this.updateWeekDays(new Date());
+    this.updateCurrentTimePosition();
+  }
+
+  switchToDayView() {
+    if (this.isSingleDayMode) return; // Already in day view
+    
+    // Switch to single day view (today)
+    const today = new Date();
+    this.isSingleDayMode = true;
+    this.updateWeekDaysForSingleDay(today);
+    this.updateCurrentTimePosition();
   }
 
   ngOnDestroy() {
@@ -811,6 +620,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   private initializeTimeSlots() {
     this.timeSlots = [];
     let idx = 0;
+    // Generate slots from 12:00 AM to 11:30 PM
     for (let hour = 0; hour < 24; hour++) {
       for (let min of [0, 30]) {
         this.timeSlots.push({
@@ -819,9 +629,18 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         });
       }
     }
+    // Add final slot for 12:00 AM (midnight end)
+    this.timeSlots.push({
+      index: idx++,
+      display: this.formatTime12Hour(24, 0)
+    });
   }
 
   private formatTime12Hour(hour: number, minute: number): string {
+    // Handle midnight (24:00 = 12:00 AM)
+    if (hour === 24) {
+      return '12:00 AM';
+    }
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     const displayMinute = minute === 0 ? '00' : '30';
@@ -863,6 +682,41 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
             
             const dateStr = this.formatDateKey(blockDate);
             console.log(`🔧 Block date: ${dateStr} (${blockDate.toDateString()})`);
+            
+            // CRITICAL: Check if block applies to currently displayed week
+            // For blocks with absoluteStart/absoluteEnd, only load if they fall within displayed dates
+            if (block.absoluteStart && block.absoluteEnd) {
+              const blockStart = new Date(block.absoluteStart);
+              const blockEnd = new Date(block.absoluteEnd);
+              blockStart.setHours(0, 0, 0, 0);
+              blockEnd.setHours(0, 0, 0, 0);
+              
+              // Get the range of dates currently displayed in the grid
+              const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+              const firstDisplayedDate = dayArray[0]?.date;
+              const lastDisplayedDate = dayArray[dayArray.length - 1]?.date;
+              
+              if (!firstDisplayedDate || !lastDisplayedDate) {
+                console.warn('🔧 No displayed dates found');
+                return;
+              }
+              
+              const firstDate = new Date(firstDisplayedDate);
+              const lastDate = new Date(lastDisplayedDate);
+              firstDate.setHours(0, 0, 0, 0);
+              lastDate.setHours(0, 0, 0, 0);
+              
+              // Check if block's date range overlaps with displayed week
+              // Block is valid if: blockEnd >= firstDate AND blockStart <= lastDate
+              const blockApplies = blockEnd >= firstDate && blockStart <= lastDate;
+              
+              if (!blockApplies) {
+                console.log(`🔧 ⏭️ Skipping block - date range ${blockStart.toDateString()} to ${blockEnd.toDateString()} doesn't overlap with displayed week ${firstDate.toDateString()} to ${lastDate.toDateString()}`);
+                return;
+              }
+              
+              console.log(`🔧 ✅ Block applies to displayed week`);
+            }
             
             // In single day mode, only load slots for the selected day
             if (this.isSingleDayMode) {
@@ -1332,53 +1186,34 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     return now >= start && now <= end;
   }
 
-  private updateNowIndicator() {
-    const container = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
-    if (!container) {
-      this.showNowIndicator = false;
-      return;
-    }
-
-    // Always show the now indicator regardless of which day/week is being viewed
-    // This helps users see the current time even when viewing other dates
-
-    // Top position based on minutes since midnight across full 24h height
+  // Simple time position update (like tutor-calendar)
+  private startTimeUpdater() {
+    this.updateCurrentTimePosition();
+    this.nowIntervalId = setInterval(() => {
+      this.updateCurrentTimePosition();
+    }, 60000); // Update every minute
+  }
+  
+  private updateCurrentTimePosition() {
     const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    const totalMinutes = 24 * 60;
-    const containerRect = container.getBoundingClientRect();
-    const height = container.clientHeight;
-    this.nowIndicatorTop = Math.max(0, Math.min(height - 1, Math.round((minutes / totalMinutes) * height)));
-
-    // Left and width: measure the first time-label width to start the line after labels
-    const firstLabel = container.querySelector('.time-slot-row .time-label') as HTMLElement | null;
-    const containerWidth = container.clientWidth;
-    const labelWidth = firstLabel ? firstLabel.offsetWidth : 80; // fallback
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const startOffset = 0; // Availability starts at midnight (0:00)
+    const slotHeight = 26; // Each row is 24px + 2px margin-bottom = 26px per 30min slot
     
-    // In single day mode, the line should span only the single day column
-    if (this.isSingleDayMode) {
-      const dayColumn = container.querySelector('.day-column') as HTMLElement | null;
-      if (dayColumn) {
-        const dayColumnRect = dayColumn.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        this.nowIndicatorLeft = dayColumnRect.left - containerRect.left;
-        this.nowIndicatorWidth = dayColumn.offsetWidth;
-      } else {
-        // Fallback: span from label to end
-        this.nowIndicatorLeft = labelWidth;
-        this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
-      }
-    } else {
-      // Regular mode: span all day columns
-      this.nowIndicatorLeft = labelWidth;
-      this.nowIndicatorWidth = Math.max(0, containerWidth - labelWidth);
-    }
-
-    this.showNowIndicator = true;
-
-    if (!this.hasScrolledToNow) {
-      this.scrollNowIndicatorIntoView(true);
-    }
+    // Each time slot is 30 minutes, so we have 2 slots per hour
+    const totalSlotsFromStart = ((currentHour - startOffset) * 2) + Math.floor(currentMinute / 30);
+    const minutesIntoCurrentSlot = currentMinute % 30;
+    
+    // Position includes partial slot progress
+    this.currentTimePosition = (totalSlotsFromStart * slotHeight) + (minutesIntoCurrentSlot / 30 * slotHeight);
+    
+    console.log('🕐 Time indicator position:', {
+      time: `${currentHour}:${currentMinute.toString().padStart(2, '0')}`,
+      totalSlotsFromStart,
+      minutesIntoSlot: minutesIntoCurrentSlot,
+      position: this.currentTimePosition
+    });
   }
 
   private async getScrollContainer(retryCount = 0): Promise<HTMLElement | Window | null> {
@@ -1412,142 +1247,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     return window;
   }
 
-  private scrollNowIndicatorIntoView(force = false, attempt = 0) {
-    const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
-    if (!timeSlotsElement) {
-      if (attempt < 5) {
-        setTimeout(() => this.scrollNowIndicatorIntoView(force, attempt + 1), 100);
-      }
-      return;
-    }
-    
-    // On mobile, the entire page scrolls (window/document), not a container
-    // On desktop, the .time-grid-container scrolls
-    if (this.isMobileView) {
-      // Mobile: Use Ionic's ion-content scrollToPoint API directly
-      const ionContent = document.querySelector('ion-content');
-      if (ionContent) {
-        ionContent.getScrollElement().then((scrollElement) => {
-          if (scrollElement && scrollElement.scrollHeight > 0) {
-            // We have a valid scroll element, use it
-            this.performScroll(scrollElement, false, force, attempt);
-          } else {
-            // Scroll element not ready, use Ionic's scrollToPoint which handles this better
-            this.scrollUsingIonicAPI(ionContent, force);
-          }
-        }).catch(() => {
-          this.scrollUsingIonicAPI(ionContent, force);
-        });
-      }
-      return;
-    } else {
-      // Desktop: find the scrollable container (.time-grid-container)
-      const gridContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
-      if (!gridContainer) {
-        if (attempt < 5) {
-          setTimeout(() => this.scrollNowIndicatorIntoView(force, attempt + 1), 100);
-        }
-        return;
-      }
-      this.performScroll(gridContainer, false, force, attempt);
-    }
-  }
-
-  private performScroll(container: HTMLElement | Window, isWindowScroll: boolean, force: boolean, attempt: number) {
-    const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement;
-
-    if (!this.showNowIndicator && !force) {
-      return;
-    }
-
-    const maxAttempts = 5;
-    let currentScroll: number;
-    let viewHeight: number;
-    let scrollHeight: number;
-    
-    if (isWindowScroll) {
-      currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-      viewHeight = window.innerHeight;
-      scrollHeight = document.documentElement.scrollHeight;
-    } else {
-      const containerEl = container as HTMLElement;
-      currentScroll = containerEl.scrollTop;
-      viewHeight = containerEl.clientHeight;
-      scrollHeight = containerEl.scrollHeight;
-    }
-    
-    const indicator = this.nowIndicatorTop;
-    const buffer = 40;
-
-    // Check if we have valid dimensions
-    if (viewHeight === 0 || scrollHeight === 0) {
-      if (attempt < maxAttempts) {
-        setTimeout(() => this.performScroll(container, isWindowScroll, force, attempt + 1), 150);
-      }
-      return;
-    }
-
-    const needsScroll =
-      force ||
-      indicator < currentScroll + buffer ||
-      indicator > currentScroll + viewHeight - buffer;
-
-    if (needsScroll) {
-      let indicatorScrollPosition: number;
-      
-      if (isWindowScroll) {
-        // Window scroll: Calculate position relative to the document
-        const timeSlotsRect = timeSlotsElement.getBoundingClientRect();
-        const documentScrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const timeSlotsTopInDocument = timeSlotsRect.top + documentScrollTop;
-        indicatorScrollPosition = timeSlotsTopInDocument + indicator;
-      } else {
-        // Container scroll: Calculate position relative to the scrollable container
-        const containerEl = container as HTMLElement;
-        
-        // Get the absolute position of timeSlotsElement relative to the scroll container
-        // We need to walk up the DOM tree and sum all offsetTops until we reach the scroll container
-        let element: HTMLElement | null = timeSlotsElement;
-        let totalOffsetTop = 0;
-        
-        while (element && element !== containerEl) {
-          totalOffsetTop += element.offsetTop;
-          element = element.offsetParent as HTMLElement;
-          
-          // Safety: stop if we've gone too far up
-          if (element === document.body || element === document.documentElement) {
-            break;
-          }
-        }
-        
-        indicatorScrollPosition = totalOffsetTop + indicator;
-      }
-      
-      // Center the indicator in the view, but ensure we don't scroll past the content
-      const idealTarget = indicatorScrollPosition - viewHeight / 2;
-      const maxScroll = Math.max(0, scrollHeight - viewHeight);
-      const target = Math.max(0, Math.min(maxScroll, idealTarget));
-      
-      requestAnimationFrame(() => {
-        if (isWindowScroll) {
-          // Mobile: scroll the window with fast smooth animation
-          window.scrollTo({ 
-            top: target, 
-            behavior: 'smooth'
-          });
-        } else {
-          // Desktop: scroll the container with fast smooth animation
-          (container as HTMLElement).scrollTo({ 
-            top: target, 
-            behavior: 'smooth'
-          });
-        }
-        this.hasScrolledToNow = true;
-      });
-    } else {
-      this.hasScrolledToNow = true;
-    }
-  }
 
   private updateSelectedCount() {
     this.selectedSlotsCount = this.selectedSlots.size;

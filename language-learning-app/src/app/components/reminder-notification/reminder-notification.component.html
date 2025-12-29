@@ -1,0 +1,58 @@
+<div class="reminder-container" *ngIf="reminders.length > 0 && !isHidden">
+  <div class="reminder-card">
+    <!-- Header -->
+    <div class="reminder-header">
+      <div class="reminder-title">
+        <ion-icon name="notifications"></ion-icon>
+        <span>Reminders</span>
+        <span class="reminder-count">{{ reminders.length }}</span>
+      </div>
+      <div class="reminder-header-actions">
+        <button class="dismiss-all-btn text-btn" (click)="dismissAll($event)" title="Dismiss all reminders permanently">
+          Dismiss All
+        </button>
+        <button class="dismiss-all-btn icon-btn" (click)="hideCard($event)" title="Hide reminders temporarily">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Reminder List -->
+    <div class="reminder-list">
+      <div *ngFor="let reminder of reminders" class="reminder-item">
+        <!-- Main Content (always visible) -->
+        <div class="reminder-content">
+          <div class="reminder-icon">
+            <ion-icon [name]="getEventIcon(reminder.type)"></ion-icon>
+          </div>
+          
+          <div class="reminder-details">
+            <div class="reminder-event-name">{{ reminder.title }}</div>
+            <div class="reminder-subtitle" *ngIf="reminder.studentName || reminder.type === 'class'">
+              <img *ngIf="reminder.studentAvatar || reminder.thumbnail" 
+                   [src]="reminder.studentAvatar || reminder.thumbnail" 
+                   class="reminder-avatar" 
+                   alt="">
+              <span>{{ reminder.studentName || 'Group Class' }}</span>
+            </div>
+          </div>
+          
+          <div class="reminder-time">
+            {{ getTimeUntil(reminder.startTime) }}
+          </div>
+        </div>
+
+        <!-- Hover Actions -->
+        <div class="reminder-actions">
+          <button class="join-btn" (click)="joinLesson(reminder, $event)">
+            <ion-icon name="videocam"></ion-icon>
+            <span>Join</span>
+          </button>
+          <button class="dismiss-btn" (click)="dismissReminder(reminder.id, $event)" title="Dismiss">
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

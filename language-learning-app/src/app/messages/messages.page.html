@@ -4,8 +4,10 @@
        *ngIf="showContextMenu"
        (click)="closeContextMenu()">
     <div class="context-menu-container" 
-         [style.top.px]="contextMenuPosition?.top" 
+         [style.top.px]="contextMenuPosition?.showBelow ? contextMenuPosition?.top : null"
+         [style.bottom.px]="!contextMenuPosition?.showBelow ? contextMenuPosition?.bottom : null"
          [style.left.px]="contextMenuPosition?.left"
+         [style.max-height.px]="contextMenuPosition?.maxHeight"
          [class.show-below]="contextMenuPosition?.showBelow"
          (click)="$event.stopPropagation()">
       
@@ -16,8 +18,9 @@
       
       <!-- Quick Emoji Reactions -->
       <div class="emoji-reactions" *ngIf="contextMenuMessage && !isMyMessage(contextMenuMessage)">
-        <button class="emoji-btn" *ngFor="let emoji of ['❤️', '👍', '👎', '😂', '‼️', '❓', '🤔']" 
-                (click)="onContextMenuAction('emoji')">
+        <button class="emoji-btn" *ngFor="let emoji of quickReactions" 
+                [class.selected]="hasReaction(contextMenuMessage, emoji)"
+                (click)="addReactionToMessage(contextMenuMessage, emoji); $event.stopPropagation()">
           {{ emoji }}
         </button>
       </div>
@@ -57,7 +60,9 @@
   <div class="messages-container" [class.desktop-layout]="isDesktop">
     
     <!-- Desktop Two-Column Layout -->
-    <div class="desktop-messages-wrapper" *ngIf="isDesktop">
+    <div class="desktop-messages-wrapper" 
+         [class.details-open]="showDetailsPanel"
+         *ngIf="isDesktop">
       <!-- Left Column: Conversation List -->
       <div class="conversations-panel">
         <div class="conversations-header">
@@ -70,11 +75,6 @@
               <ion-icon name="search-outline"></ion-icon>
             </ion-button>
           </div>
-        </div>
-
-        <!-- Loading State (only on initial load) -->
-        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
-          <ion-spinner name="crescent"></ion-spinner>
         </div>
 
         <!-- Conversations Search Header -->
@@ -95,13 +95,35 @@
           </ion-icon>
         </div>
 
+        <!-- Conversations Filter Buttons -->
+        <div class="conversations-filter-container">
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'all'"
+            (click)="setConversationsFilter('all')">
+            All
+          </button>
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'unread'"
+            (click)="setConversationsFilter('unread')">
+            Unread
+          </button>
+        </div>
+
+        <!-- Loading State (only on initial load) -->
+        <div *ngIf="isInitialLoad && isLoading" class="loading-container">
+          <ion-spinner name="crescent"></ion-spinner>
+        </div>
+
         <!-- Conversations List (stays visible after first load) -->
         <div class="conversations-list" *ngIf="!isInitialLoad || !isLoading" [@fadeInOut]>
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
+            [attr.data-conversation-id]="conversation.conversationId"
             [class.active]="selectedConversation?.conversationId === conversation.conversationId"
-            (click)="selectConversation(conversation)"
+            (click)="selectConversation(conversation, $event)"
             [@slideInUp]
             [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
@@ -122,14 +144,24 @@
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
                 <span class="timestamp">
                   {{ formatTime(conversation.lastMessage.createdAt) }}
-                  <span class="timestamp-day">• {{ formatRelativeDay(conversation.lastMessage.createdAt) }}</span>
                 </span>
               </div>
               <div class="conversation-preview-row">
                 <p class="preview-text" 
                    [class.sent-by-me]="conversation.lastMessage.senderId === getCurrentUserId()">
-                  <span *ngIf="conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
-                  {{ conversation.lastMessage.content }}
+                  <!-- For reactions, show the person's name who reacted -->
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
+                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
+                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
+                    You: {{ conversation.lastMessage.content }}
+                  </span>
+                  <!-- Regular messages with You: prefix -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">You: </span>
+                  <!-- Regular message content -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
+                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
                 </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
@@ -139,8 +171,15 @@
           </div>
         </div>
 
+        <!-- Search Empty State -->
+        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+          <ion-icon name="search-outline" class="empty-icon"></ion-icon>
+          <p>Hmm, can't find that</p>
+          <p class="empty-hint">Try searching with a different name</p>
+        </div>
+
         <!-- Empty State -->
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <p>No conversations yet</p>
           <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
@@ -149,11 +188,41 @@
       </div>
 
       <!-- Middle Column: Chat View or Empty State -->
-      <div class="chat-panel" *ngIf="selectedConversation; else noConversationSelected">
-        <!-- Simplified header for desktop - just typing indicator -->
+      
+      <!-- STABLE NAME - Always rendered, visibility controlled by opacity -->
+      <div class="stable-chat-header" 
+           [style.opacity]="hasConversationSelected ? '1' : '0'"
+           [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
+           <ion-avatar class="stable-chat-avatar">
+            <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" />
+            <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture && selectedConversation">
+              {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
+            </div>
+          </ion-avatar>
+        <div class="stable-chat-name" 
+             [textContent]="selectedConversation?.otherUser?.name || ''"
+             (click)="toggleDetailsPanel()"
+             (mouseenter)="showHoverCard()"
+             (mouseleave)="hideHoverCard()">
+        </div>
+
+        <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student'">
+          <ion-icon name="calendar-outline" slot="start"></ion-icon>
+          Book Lesson
+        </ion-button>
+      </div>
+      <!-- Chat Panel (always in DOM, visibility controlled by opacity) -->
+      <div class="chat-panel" 
+           [style.opacity]="hasConversationSelected ? '1' : '0'"
+           [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'"
+           [style.display]="hasConversationSelected ? 'flex' : 'none'">
+        <!-- Simplified header for desktop - always visible when panel shown -->
         <div class="chat-header">
-          <div class="chat-header-info">
-            <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>
+          <div class="chat-header-info" 
+               (click)="toggleDetailsPanel()" 
+               (mouseenter)="showHoverCard()"
+               (mouseleave)="hideHoverCard()">
+            <!-- Name moved above, this space for other header elements -->
             <p class="typing-indicator" *ngIf="otherUserTyping">
               <span class="typing-dots">
                 <span></span>
@@ -162,6 +231,46 @@
               </span>
               Typing...
             </p>
+
+            <!-- Hover Card -->
+            <div class="user-hover-card" 
+                 *ngIf="showUserHoverCard && selectedConversation?.otherUser"
+                 (mouseenter)="showHoverCard()"
+                 (mouseleave)="hideHoverCard()">
+              <!-- Row 1: Avatar + Name -->
+              <div class="hover-card-header">
+                <ion-avatar class="hover-card-avatar">
+                  <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" />
+                  <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture">
+                    {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
+                  </div>
+                </ion-avatar>
+                <h4 class="hover-card-name">{{ selectedConversation?.otherUser?.name }}</h4>
+              </div> 
+
+              <!-- Row 2: Time + Action Buttons -->
+              <div class="hover-card-actions">
+                <span class="local-time" *ngIf="selectedConversation?.otherUser?.timezone">
+                  <ion-icon name="time-outline"></ion-icon>
+                  {{ getUserLocalTime(selectedConversation?.otherUser) }}
+                </span>
+                <span class="local-time-placeholder" *ngIf="!selectedConversation?.otherUser?.timezone">
+                  <ion-icon name="time-outline"></ion-icon>
+                  Time unavailable
+                </span>
+              </div>
+
+              <div class="hover-card-buttons">
+                <ion-button size="small" fill="default" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="currentUserType === 'student'">
+                  <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                  Book Lesson
+                </ion-button>
+                <ion-button size="small" fill="clear" (click)="openOtherUserProfile($event)">
+                  <ion-icon name="person-outline" slot="start"></ion-icon>
+                  View Profile  
+                </ion-button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -176,6 +285,12 @@
 
           <!-- Messages List - hidden when loading to prevent flash -->
           <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Lazy Loading Spinner at Top -->
+            <div *ngIf="isLoadingOlderMessages" class="lazy-loading-spinner">
+              <ion-spinner name="crescent" color="primary"></ion-spinner>
+              <span>Loading older messages...</span>
+            </div>
+            
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
@@ -195,15 +310,16 @@
             <!-- System Message -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
               <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
-              <div class="message-bubble system-message">
-                <span class="message-text">{{ message.content }}</span>
+              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
+                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
               </div>
             </div>
 
               <!-- Regular Message Bubble -->
               <div *ngIf="message.type !== 'system' && !message.isSystemMessage"
-                   class="message-wrapper">
+                   class="message-wrapper"
+                   [class.has-reactions]="message.reactions && message.reactions.length > 0">
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()"
@@ -231,7 +347,9 @@
                 </div>
                 
                 <!-- Text message -->
-                <div *ngIf="message.type === 'text'" class="message-content">
+                <div *ngIf="message.type === 'text'" 
+                     class="message-content"
+                     [class.emoji-only]="isEmojiOnly(message.content)">
                   {{ message.content }}
                 </div>
                 
@@ -263,6 +381,20 @@
                 
                 <div class="message-time">
                   {{ formatTime(message.createdAt) }}
+                </div>
+
+                <!-- Reactions Display -->
+                <div class="message-reactions" *ngIf="message.reactions && message.reactions.length > 0">
+                  <div class="reaction-bubble" *ngFor="let reaction of message.reactions" 
+                       [title]="reaction.userName">
+                    <div class="bubble-tail">
+                      <span class="tail-dot tail-dot-small"></span>
+                      <span class="tail-dot tail-dot-medium"></span>
+                    </div>
+                    <span class="reaction-main" (click)="onReactionClick(message, reaction.emoji, $event)">
+                      {{ reaction.emoji }}
+                    </span>
+                  </div>
                 </div>
               </div>
               </div> <!-- Close message-wrapper for regular messages -->
@@ -348,16 +480,49 @@
       </div>
 
       <!-- Right Panel: User Details (Desktop Only) -->
-      <div class="details-panel" *ngIf="selectedConversation?.otherUser as otherUser">
+      <div class="details-panel" *ngIf="showDetailsPanel && selectedConversation?.otherUser as otherUser">
         <div class="details-header">
-          <h3>Details</h3>
+          <ion-button fill="clear" size="small" *ngIf="showAvailabilityViewer || showCheckout" (click)="showCheckout ? onCheckoutCancelled() : closeAvailabilityViewer()">
+            <ion-icon name="arrow-back"></ion-icon>
+          </ion-button>
+          <h3>{{ showCheckout ? 'Checkout' : showAvailabilityViewer ? 'Book Lesson' : 'Details' }}</h3>
+          <ion-button fill="clear" size="small" (click)="toggleDetailsPanel()">
+            <ion-icon name="close"></ion-icon>
+          </ion-button>
+        </div>
+
+        <!-- Availability Viewer -->
+        <div class="details-content availability-viewer-container" *ngIf="showAvailabilityViewer && !showCheckout && otherUser" style="padding: 6px; overflow-y: auto; font-size: 10px;" #availabilityContainer>
+
+          <app-tutor-availability-viewer
+            [tutorId]="otherUser.id"
+            [tutorName]="otherUser.name"
+            [inline]="true"
+            [showDurationSelector]="true"
+            (slotSelected)="onSlotSelected($event)"
+            [selectionMode]="true" 
+            style="font-size: 10px;">
+          </app-tutor-availability-viewer>
+        </div>
+
+        <!-- Checkout -->
+        <div class="details-content checkout-container" *ngIf="showCheckout && checkoutData">
+          <app-checkout
+            [tutorId]="checkoutData.tutorId"
+            [dateIso]="checkoutData.date"
+            [time]="checkoutData.time"
+            [lessonMinutes]="checkoutData.duration"
+            [embedded]="true"
+            (bookingComplete)="onCheckoutComplete()"
+            (cancelled)="onCheckoutCancelled()">
+          </app-checkout>
         </div>
 
         <!-- User Profile Section -->
-        <div class="details-content">
+        <div class="details-content" *ngIf="!showAvailabilityViewer && !showCheckout">
           <div class="user-profile-section">
             <div class="profile-image-container">
-              <ion-avatar class="profile-avatar" (click)="openOtherUserProfile()" style="cursor: pointer;">
+              <ion-avatar class="profile-avatar" (click)="openOtherUserProfile($event)" style="cursor: pointer;">
                 <img [src]="otherUser?.picture" *ngIf="otherUser?.picture" />
                 <div class="avatar-fallback" *ngIf="!otherUser?.picture">
                   {{ otherUser?.name?.charAt(0) || '?' }}
@@ -365,7 +530,7 @@
               </ion-avatar>
             </div>
             
-            <h2 class="user-name" (click)="openOtherUserProfile()" style="cursor: pointer;">
+            <h2 class="user-name" (click)="openOtherUserProfile($event)" style="cursor: pointer;">
               {{ otherUser?.name || 'Unknown User' }}
             </h2>
 
@@ -385,7 +550,7 @@
 
             <!-- Action Buttons -->
             <div class="action-buttons">
-              <ion-button expand="block" color="primary" class="primary-action-btn">
+              <ion-button expand="block" color="primary" class="primary-action-btn" (click)="openBookLesson()">
                 <ion-icon name="calendar-outline" slot="start"></ion-icon>
                 Schedule lessons
               </ion-button>
@@ -443,15 +608,13 @@
       </div>
 
       <!-- Desktop: Empty State when no conversation selected -->
-      <ng-template #noConversationSelected>
-        <div class="chat-panel-empty">
-          <div class="empty-chat-state">
-            <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
-            <h2>Select a conversation</h2>
-            <p>Choose a conversation from the list to start messaging</p>
-          </div>
+      <div class="chat-panel-empty" [style.display]="hasConversationSelected || selectedConversation ? 'none' : 'flex'">
+        <div class="empty-chat-state">
+          <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
+          <h2>Select a conversation</h2>
+          <p>Choose a conversation from the list to start messaging</p>
         </div>
-      </ng-template>
+      </div>
     </div>
 
     <!-- Mobile Single Column Layout -->
@@ -480,6 +643,22 @@
           </ion-icon>
         </div>
 
+        <!-- Mobile: Conversations Filter Buttons -->
+        <div class="conversations-filter-container">
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'all'"
+            (click)="setConversationsFilter('all')">
+            All
+          </button>
+          <button 
+            class="filter-button" 
+            [class.active]="conversationsFilter === 'unread'"
+            (click)="setConversationsFilter('unread')">
+            Unread
+          </button>
+        </div>
+
         <div *ngIf="isInitialLoad && isLoading" class="loading-container">
           <ion-spinner name="crescent"></ion-spinner>
         </div>
@@ -488,7 +667,8 @@
           <div 
             *ngFor="let conversation of filteredConversations; let i = index; trackBy: trackByConversationId" 
             class="conversation-item"
-            (click)="selectConversation(conversation)"
+            [attr.data-conversation-id]="conversation.conversationId"
+            (click)="selectConversation(conversation, $event)"
             [@slideInUp]
             [style.animation-delay]="i * 50 + 'ms'">
             <ion-avatar class="conversation-avatar">
@@ -509,11 +689,22 @@
                 <h3>{{ conversation.otherUser?.name || 'Unknown User' }}</h3>
                 <span class="timestamp">
                   {{ formatTime(conversation.lastMessage.createdAt) }}
-                  <span class="timestamp-day">• {{ formatRelativeDay(conversation.lastMessage.createdAt) }}</span>
                 </span>
               </div>
               <div class="conversation-preview-row">
-                <p class="preview-text">{{ conversation.lastMessage.content }}</p>
+                <p class="preview-text">
+                  <!-- For reactions, show the person's name who reacted -->
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId !== getCurrentUserId()">
+                    {{ conversation.otherUser?.name }}: {{ conversation.lastMessage.content }}
+                  </span>
+                  <span *ngIf="conversation.lastMessage.type === 'reaction' && conversation.lastMessage.senderId === getCurrentUserId()">
+                    You: {{ conversation.lastMessage.content }}
+                  </span>
+                  <!-- Regular message content -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && conversation.lastMessage.type !== 'system' && !conversation.lastMessage.isSystemMessage">{{ conversation.lastMessage.content }}</span>
+                  <!-- System messages with HTML -->
+                  <span *ngIf="conversation.lastMessage.type !== 'reaction' && (conversation.lastMessage.type === 'system' || conversation.lastMessage.isSystemMessage)" [innerHTML]="conversation.lastMessage.content"></span>
+                </p>
                 <ion-badge *ngIf="conversation.unreadCount > 0" color="primary" class="unread-badge">
                   {{ conversation.unreadCount }}
                 </ion-badge>
@@ -522,7 +713,14 @@
           </div>
         </div>
 
-        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState" class="empty-state" [@fadeInOut]>
+        <!-- Search Empty State (Mobile) -->
+        <div *ngIf="!isInitialLoad && searchTerm && filteredConversations.length === 0 && conversations.length > 0" class="empty-state search-empty-state" [@fadeInOut]>
+          <ion-icon name="search-outline" class="empty-icon"></ion-icon>
+          <h2>Hmm, can't find that</h2>
+          <p class="empty-hint">Try searching with a different name</p>
+        </div>
+
+        <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <h2>No messages yet</h2>
           <p *ngIf="currentUserType === 'student'">Start a conversation by messaging a tutor from their profile.</p>
@@ -533,39 +731,51 @@
       <!-- Chat View (Mobile) -->
       <div class="chat-view-mobile" *ngIf="selectedConversation">
         <div class="chat-header">
-          <ion-button fill="clear" (click)="clearSelectedConversation()">
-            <ion-icon name="arrow-back"></ion-icon>
+          <ion-button fill="clear" (click)="clearSelectedConversation()" class="back-button">
+            <ion-icon name="chevron-back"></ion-icon>
           </ion-button>
-          <div class="chat-header-info" (click)="openOtherUserProfile()" style="cursor: pointer;">
-            <ion-avatar class="chat-avatar">
-              <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
-              <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
-                {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
-              </div>
-            </ion-avatar>
+          <ion-avatar class="chat-avatar" (click)="openOtherUserProfile($event)">
+            <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
+            <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
+              {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
+            </div>
+          </ion-avatar>
+          <div class="chat-header-info" (click)="openOtherUserProfile($event)">
             <div class="chat-user-info">
               <h3>{{ selectedConversation.otherUser?.name || 'Unknown User' }}</h3>
               <p class="typing-indicator" *ngIf="otherUserTyping">Typing...</p>
               <div class="user-details" *ngIf="!otherUserTyping && selectedConversation.otherUser">
-                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && selectedConversation.otherUser.languages && selectedConversation.otherUser.languages.length">
-                  <ion-icon name="language-outline"></ion-icon>
-                  {{ selectedConversation.otherUser.languages.join(', ') }}
-                  <span *ngIf="selectedConversation.otherUser.hourlyRate" class="rate">
-                    • ${{ selectedConversation.otherUser.hourlyRate }}/hr
-                  </span>
-                  <span *ngIf="selectedConversation.otherUser.rating" class="rating">
-                    • ⭐ {{ selectedConversation.otherUser.rating.toFixed(1) }}
-                  </span>
-                </p>
-                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor' && (!selectedConversation.otherUser.languages || !selectedConversation.otherUser.languages.length)">
+                <!-- User type -->
+                <p class="user-status" *ngIf="selectedConversation.otherUser.userType === 'tutor'">
                   Tutor
                 </p>
                 <p class="user-status" *ngIf="selectedConversation.otherUser.userType !== 'tutor'">
                   {{ selectedConversation.otherUser.userType || 'User' }}
                 </p>
+                <!-- Time status under user type -->
+                <p class="time-status-mobile" *ngIf="selectedConversation.otherUser.userType === 'tutor'">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span *ngIf="selectedConversation.otherUser.timezone">
+                    {{ getUserLocalTime(selectedConversation.otherUser) }}
+                  </span>
+                  <span *ngIf="!selectedConversation.otherUser.timezone">
+                    Time unavailable
+                  </span>
+                </p>
               </div>
             </div>
           </div>
+          
+          <!-- Mobile: Book Lesson Button (right side) -->
+          <ion-button 
+            *ngIf="selectedConversation.otherUser?.userType === 'tutor' && currentUserType === 'student'"
+            fill="solid" 
+            size="small" 
+            color="primary"
+            class="mobile-book-btn" 
+            (click)="openBookLesson(); $event.stopPropagation()">
+            <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
+          </ion-button>
         </div>
 
         <div class="chat-messages" #chatContainer>
@@ -579,6 +789,12 @@
 
           <!-- Messages List - hidden when loading to prevent flash -->
           <div class="messages-list" [hidden]="isLoadingMessages" [style.display]="isLoadingMessages ? 'none' : 'flex'">
+            <!-- Lazy Loading Spinner at Top -->
+            <div *ngIf="isLoadingOlderMessages" class="lazy-loading-spinner">
+              <ion-spinner name="crescent" color="primary"></ion-spinner>
+              <span>Loading older messages...</span>
+            </div>
+            
             <!-- Empty State -->
             <div *ngIf="messages.length === 0" class="empty-state">
               <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
@@ -597,15 +813,16 @@
             <!-- System Message (Mobile) -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
               <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
-              <div class="message-bubble system-message">
-                <span class="message-text">{{ message.content }}</span>
+              <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
+                <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
               </div>
             </div>
 
               <!-- Regular Message Bubble (Mobile) -->
               <div *ngIf="message.type !== 'system' && !message.isSystemMessage"
-                   class="message-wrapper">
+                   class="message-wrapper"
+                   [class.has-reactions]="message.reactions && message.reactions.length > 0">
               <div class="message-bubble" 
                    [class.sent]="message.senderId === getCurrentUserId()"
                    [class.received]="message.senderId !== getCurrentUserId()"
@@ -633,7 +850,9 @@
                 </div>
                 
                 <!-- Text message -->
-                <div *ngIf="message.type === 'text'" class="message-content">{{ message.content }}</div>
+                <div *ngIf="message.type === 'text'" 
+                     class="message-content"
+                     [class.emoji-only]="isEmojiOnly(message.content)">{{ message.content }}</div>
                 
                 <!-- Image message -->
                 <div *ngIf="message.type === 'image'" class="message-image">
@@ -660,6 +879,20 @@
                 </div>
                 
                 <div class="message-time">{{ formatTime(message.createdAt) }}</div>
+
+                <!-- Reactions Display (Mobile) -->
+                <div class="message-reactions" *ngIf="message.reactions && message.reactions.length > 0">
+                  <div class="reaction-bubble" *ngFor="let reaction of message.reactions" 
+                       [title]="reaction.userName">
+                    <div class="bubble-tail">
+                      <span class="tail-dot tail-dot-small"></span>
+                      <span class="tail-dot tail-dot-medium"></span>
+                    </div>
+                    <span class="reaction-main" (click)="onReactionClick(message, reaction.emoji, $event)">
+                      {{ reaction.emoji }}
+                    </span>
+                  </div>
+                </div>
               </div>
               </div> <!-- Close message-wrapper for regular messages (Mobile) -->
             </div> <!-- Close message iteration (Mobile) -->

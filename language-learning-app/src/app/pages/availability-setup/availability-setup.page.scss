@@ -1,5 +1,5 @@
 ion-content {
-  --background: #f8f9fa;
+  --background: #ffffff;
   --padding-start: 0;
   --padding-end: 0;
   --padding-top: 0;
@@ -10,10 +10,42 @@ ion-content {
 @media (min-width: 769px) {
   ion-header {
     display: block;
+    
+    ion-toolbar {
+      --background: #ffffff;
+      --border-width: 0 0 1px 0;
+      --border-color: rgba(0, 0, 0, 0.08);
+      
+      ion-title {
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: #000000;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      }
+      
+      ion-button {
+        --color: #007AFF;
+        font-size: 15px;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: -0.01em;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        
+        &:hover {
+          opacity: 0.7;
+        }
+        
+        &:active {
+          opacity: 0.5;
+          transform: scale(0.98);
+        }
+      }
+    }
   }
 
   app-availability-setup {
-    height: calc(100vh - 56px); // Account for header height
+    height: calc(100vh - 56px);
   }
 }
 

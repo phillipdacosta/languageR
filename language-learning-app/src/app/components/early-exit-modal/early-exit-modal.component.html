@@ -1,0 +1,56 @@
+<div class="early-exit-modal">
+  <div class="modal-header">
+    <ion-icon name="alert-circle-outline" class="header-icon"></ion-icon>
+    <h2>You're Leaving Early</h2>
+    <p>There are <strong>{{ minutesRemaining }} minutes</strong> remaining in your scheduled lesson.</p>
+  </div>
+
+  <div class="modal-content">
+    <p class="question-text">What would you like to do?</p>
+
+    <div class="action-buttons">
+      <!-- Report Technical Error -->
+      <button class="action-btn error-btn" (click)="reportTechnicalError()">
+        <div class="btn-icon-wrapper">
+          <ion-icon name="bug-outline"></ion-icon>
+        </div>
+        <div class="btn-content">
+          <h3>Report a Technical Error</h3>
+          <p>Something went wrong during the call</p>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+      </button>
+
+      <!-- End Lesson -->
+      <button class="action-btn end-btn" (click)="endLesson()">
+        <div class="btn-icon-wrapper">
+          <ion-icon name="stop-circle-outline"></ion-icon>
+        </div>
+        <div class="btn-content">
+          <h3>End Lesson</h3>
+          <p>Permanently end the lesson now</p>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+      </button>
+
+      <!-- Rejoin Call -->
+      <button class="action-btn rejoin-btn" (click)="rejoinCall()">
+        <div class="btn-icon-wrapper">
+          <ion-icon name="videocam-outline"></ion-icon>
+        </div>
+        <div class="btn-content">
+          <h3>Rejoin Call</h3>
+          <p>Go back to the lesson</p>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="chevron"></ion-icon>
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <ion-button fill="clear" (click)="dismiss()">
+      <ion-icon name="close-outline" slot="start"></ion-icon>
+      Close
+    </ion-button>
+  </div>
+</div>

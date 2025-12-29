@@ -14,7 +14,7 @@ import { Lesson } from '../../services/lesson.service';
         <ion-icon name="person-add-outline" slot="start"></ion-icon>
         <ion-label>Invite student</ion-label>
       </ion-item>
-      <ion-item button (click)="selectAction('reschedule')">
+      <ion-item button (click)="selectAction('reschedule')" *ngIf="!hasLessonStarted()">
         <ion-icon name="calendar-outline" slot="start"></ion-icon>
         <ion-label>Reschedule lesson</ion-label>
       </ion-item>
@@ -44,6 +44,23 @@ export class ClassMenuPopoverComponent {
   @Input() isClass: boolean = false;
 
   constructor(private popoverController: PopoverController) {}
+
+  hasLessonStarted(): boolean {
+    if (!this.lesson) return false;
+    
+    const status = (this.lesson as any)?.status;
+    
+    // Cannot reschedule if lesson is in progress, completed, or cancelled
+    if (status === 'in_progress' || status === 'completed' || status === 'cancelled') {
+      return true;
+    }
+    
+    // Cannot reschedule if the start time has passed
+    const now = new Date();
+    const startTime = new Date(this.lesson.startTime);
+    
+    return now >= startTime;
+  }
 
   selectAction(action: 'invite' | 'reschedule' | 'cancel') {
     this.popoverController.dismiss({ action });

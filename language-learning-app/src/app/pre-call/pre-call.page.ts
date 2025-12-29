@@ -7,6 +7,7 @@ import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
+import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -63,6 +64,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
   
+  // AI Previous Lesson Notes (for tutors)
+  previousLessonNotes: LessonAnalysis | null = null;
+  loadingPreviousNotes = false;
+  
   // Error recovery
   showRetryButton = false;
   
@@ -84,6 +89,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private alertController: AlertController,
     private loadingController: LoadingController,
     private toastController: ToastController,
+    private transcriptionService: TranscriptionService,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -96,6 +102,13 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     const waitingForTutor = params['waitingForTutor'] === 'true';
     const role = params['role'];
     
+    console.log('🚀 PRE-CALL ngOnInit() - Query Params:', {
+      lessonId: this.lessonId,
+      isClass: this.isClass,
+      isOfficeHours,
+      waitingForTutor,
+      role
+    });
 
     
     // Handle student waiting for tutor to accept office hours request
@@ -245,11 +258,32 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (!this.lessonId) {
       this.errorMessage = this.isClass ? 'Class ID is required' : 'Lesson ID is required';
       this.isLoading = false;
+      console.log('❌ No lessonId provided, stopping initialization');
       return;
     }
 
     // Load lesson/class details
+    console.log('⏰ About to call loadLessonDetails()...');
     await this.loadLessonDetails();
+    console.log('⏰ loadLessonDetails() returned');
+    
+    console.log('📊 After loadLessonDetails():', {
+      isTutor: this.isTutor,
+      isTrialLesson: this.isTrialLesson,
+      isClass: this.isClass,
+      shouldLoadNotes: this.isTutor && !this.isTrialLesson
+    });
+
+    // Load previous lesson notes for tutors (skip for trial lessons)
+    if (this.isTutor && !this.isTrialLesson) {
+      console.log('✅ Calling loadPreviousLessonNotes() from ngOnInit');
+      this.loadPreviousLessonNotes();
+    } else {
+      console.log('⏭️ NOT calling loadPreviousLessonNotes() - Reason:', {
+        isTutor: this.isTutor,
+        isTrialLesson: this.isTrialLesson
+      });
+    }
 
     // Connect to WebSocket and listen for lesson presence
     this.websocketService.connect();
@@ -312,8 +346,17 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     await this.setupPreview();
   }
 
+  // Store lesson data to avoid re-fetching
+  private currentLessonData: any = null;
+
   async loadLessonDetails() {
     try {
+      console.log('🎓 PRE-CALL: loadLessonDetails() called', {
+        lessonId: this.lessonId,
+        isClass: this.isClass,
+        isOfficeHoursWaitingRoom: this.isOfficeHoursWaitingRoom
+      });
+      
       // Get current user to determine role
       const currentUser = await firstValueFrom(this.userService.getCurrentUser());
       const params = this.route.snapshot.queryParams;
@@ -336,6 +379,29 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Handle both lesson and class responses
       const session = (response as any)?.lesson || (response as any)?.class;
+      
+      // Store lesson data for later use
+      this.currentLessonData = session;
+      
+      // Check if lesson is already completed (prevents rejoining after early exit)
+      if (session?.status === 'completed') {
+        console.log('⛔ Lesson already completed, preventing rejoin');
+        const alert = await this.alertController.create({
+          header: 'Lesson Already Ended',
+          message: 'This lesson has already been completed and cannot be rejoined.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: () => {
+                this.router.navigate(['/tabs/home']);
+              }
+            }
+          ],
+          backdropDismiss: false
+        });
+        await alert.present();
+        return;
+      }
       
       if (response?.success && session) {
         const lesson = session;
@@ -713,6 +779,124 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Navigate back to previous page
     this.location.back();
+  }
+
+  /**
+   * Load previous lesson notes for tutors
+   * Shows AI analysis from last lesson with this student
+   * Note: Not shown for trial lessons
+   */
+  private async loadPreviousLessonNotes() {
+    console.log('🔍 loadPreviousLessonNotes() called', {
+      isTutor: this.isTutor,
+      lessonId: this.lessonId,
+      isTrialLesson: this.isTrialLesson,
+      isClass: this.isClass,
+      hasLessonData: !!this.currentLessonData
+    });
+    
+    if (!this.isTutor || !this.lessonId || this.isTrialLesson) {
+      console.log('⏭️ Skipping previous notes: isTutor=%s, lessonId=%s, isTrialLesson=%s', 
+        this.isTutor, this.lessonId, this.isTrialLesson);
+      return;
+    }
+
+    console.log('✅ Passed first check (isTutor && lessonId && !isTrialLesson)');
+
+    try {
+      console.log('🔄 Getting current user...');
+      // Get current user
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      console.log('✅ Got current user:', !!currentUser);
+      
+      if (this.isClass) {
+        console.log('⏭️ Skipping previous notes - this is a class (group lesson)');
+        return;
+      }
+      
+      console.log('✅ Not a class, proceeding...');
+      
+      // Use cached lesson data instead of re-fetching
+      const lesson = this.currentLessonData;
+      
+      console.log('🔍 Checking lesson and user data:', {
+        hasLesson: !!lesson,
+        hasCurrentUser: !!currentUser,
+        lessonType: typeof lesson
+      });
+      
+      if (!lesson || !currentUser) {
+        console.log('⏭️ Missing lesson or user data for previous notes', {
+          hasLesson: !!lesson,
+          hasCurrentUser: !!currentUser
+        });
+        return;
+      }
+      
+      console.log('✅ Have both lesson and user data');
+      
+      console.log('🔍 Lesson details for notes check:', {
+        isOfficeHours: lesson.isOfficeHours,
+        isTrialLesson: lesson.isTrialLesson,
+        duration: lesson.duration,
+        studentId: lesson.studentId?._id || lesson.studentId
+      });
+      
+      // Skip if this is an office hours session (quick session)
+      if (lesson.isOfficeHours) {
+        console.log('⏭️ Skipping previous notes - this is an office hours session');
+        return;
+      }
+
+      console.log('✅ Not an office hours session, proceeding...');
+
+      const studentId = lesson.studentId?._id || lesson.studentId;
+      
+      // The current user object uses 'id' not '_id'
+      const tutorId = (currentUser as any).id || (currentUser as any)._id;
+
+      console.log('🔍 Extracted IDs:', { 
+        studentId, 
+        tutorId,
+        currentUserKeys: Object.keys(currentUser || {})
+      });
+
+      if (!studentId || !tutorId) {
+        console.log('⏭️ Missing IDs for previous notes', { studentId, tutorId });
+        return;
+      }
+
+      console.log(`📋 Loading previous lesson notes for student ${studentId} with tutor ${tutorId}...`);
+      
+      // Only show loading state after we've confirmed we'll make the API call
+      this.loadingPreviousNotes = true;
+
+      this.transcriptionService.getLatestAnalysis(studentId, tutorId).subscribe({
+        next: (analysis) => {
+          console.log('✅ Previous lesson notes loaded:', {
+            lessonDate: analysis.lessonDate,
+            lessonId: analysis.lessonId,
+            proficiencyLevel: analysis.overallAssessment?.proficiencyLevel,
+            hasRecommendedFocus: !!analysis.recommendedFocus?.length
+          });
+          this.previousLessonNotes = analysis;
+          this.loadingPreviousNotes = false;
+        },
+        error: (error) => {
+          // No previous non-trial lessons - that's okay
+          console.log('ℹ️ No previous lesson notes available (first regular lesson or no analyses yet)', {
+            status: error.status,
+            message: error.message
+          });
+          this.previousLessonNotes = null;
+          this.loadingPreviousNotes = false;
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error loading previous lesson notes:', error);
+      this.previousLessonNotes = null;
+      this.loadingPreviousNotes = false;
+    }
   }
 
   ngOnDestroy() {
@@ -1521,9 +1705,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Manually trigger re-initialization after navigation
     setTimeout(async () => {
       console.log('🔄 Manually re-initializing pre-call page with lessonId:', lessonId);
+      
+      // Reset all relevant state
       this.lessonId = lessonId;
+      this.isClass = false; // Office hours are always 1:1 lessons
       this.isOfficeHoursWaitingRoom = false;
+      this.isLoading = true; // Show loading while fetching lesson data
+      this.errorMessage = '';
+      
+      // Load lesson details
       await this.loadLessonDetails();
+      
+      // Set loading to false after data loads
+      this.isLoading = false;
       
       // Restart camera preview for tutor after acceptance
       console.log('📹 Restarting camera preview after acceptance...');

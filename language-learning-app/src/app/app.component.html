@@ -1,4 +1,20 @@
 <ion-app>
   <ion-router-outlet [animated]="true"></ion-router-outlet>
   <app-global-loading></app-global-loading>
+  <app-reminder-notification></app-reminder-notification>
+  
+  <!-- Early Exit Modal (Inline) -->
+  <ion-modal 
+    [isOpen]="isEarlyExitModalOpen" 
+    (didDismiss)="isEarlyExitModalOpen = false"
+    cssClass="early-exit-modal">
+    <ng-template>
+      <app-early-exit-modal
+        [lessonId]="earlyExitLessonId"
+        [minutesRemaining]="earlyExitMinutesRemaining"
+        [userRole]="earlyExitUserRole"
+        (modalDismissed)="onEarlyExitModalDismiss($event)">
+      </app-early-exit-modal>
+    </ng-template>
+  </ion-modal>
 </ion-app>

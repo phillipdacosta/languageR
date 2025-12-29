@@ -16,6 +16,9 @@ const ClassSchema = new mongoose.Schema({
   suggestedPrice: { type: Number, default: 0 }, // Platform-calculated suggested price per student
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
+  status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' }, // Class status
+  cancelledAt: { type: Date }, // When the class was cancelled
+  cancelReason: { type: String }, // Reason for cancellation (e.g., "minimum_not_met", "tutor_cancelled")
   recurrence: {
     type: { type: String, enum: ['none', 'daily', 'weekly', 'monthly'], default: 'none' },
     count: { type: Number, default: 1 }

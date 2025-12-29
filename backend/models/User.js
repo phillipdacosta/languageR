@@ -38,6 +38,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  auth0Picture: {
+    type: String,
+    default: null  // Store original Auth0/Google picture to restore later
+  },
   emailVerified: {
     type: Boolean,
     default: false
@@ -129,7 +133,37 @@ const userSchema = new mongoose.Schema({
     officeHoursLastActive: {
       type: Date,
       default: null
+    },
+    showWalletBalance: {
+      type: Boolean,
+      default: false,
+      comment: 'Privacy setting: show or hide wallet balance (default hidden)'
+    },
+    remindersEnabled: {
+      type: Boolean,
+      default: true,
+      comment: 'Enable/disable lesson reminder notifications'
+    },
+    aiAnalysisEnabled: {
+      type: Boolean,
+      default: true,
+      comment: 'Enable/disable AI analysis of lessons. When disabled, tutor must provide manual feedback.'
     }
+  },
+  // Native language for providing feedback in the user's language
+  nativeLanguage: {
+    type: String,
+    default: 'en',
+    trim: true,
+    comment: 'ISO 639-1 language code of student\'s native language for analysis feedback'
+  },
+  // Interface language preference for the app UI
+  interfaceLanguage: {
+    type: String,
+    enum: ['en', 'es', 'fr', 'pt', 'de'],
+    default: 'en',
+    trim: true,
+    comment: 'Preferred language for app interface (UI text)'
   },
   stats: {
     totalLessons: {

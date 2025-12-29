@@ -1,0 +1,289 @@
+.reminder-container {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.reminder-card {
+  width: 380px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  pointer-events: all;
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.reminder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.reminder-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  
+  ion-icon {
+    font-size: 18px;
+    color: #007AFF;
+  }
+}
+
+.reminder-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #007AFF;
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.reminder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dismiss-all-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8e8e93;
+  transition: all 0.2s;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1a1a1a;
+  }
+  
+  &.text-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  
+  &.icon-btn {
+    padding: 6px;
+    
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+.reminder-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.reminder-item {
+  position: relative;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  transition: background 0.2s;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: #f8f9fa;
+    
+    .reminder-actions {
+      opacity: 1;
+      pointer-events: all;
+    }
+  }
+}
+
+.reminder-content {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  transition: all 0.2s;
+}
+
+.reminder-item:hover .reminder-content {
+  padding-right: 140px; // Make room for the actions
+}
+
+.reminder-item:hover .reminder-time {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.reminder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #007AFF;
+  border-radius: 8px;
+  
+  ion-icon {
+    font-size: 22px;
+    color: white;
+  }
+}
+
+.reminder-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reminder-event-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminder-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #8e8e93;
+  
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.reminder-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.reminder-time {
+  font-size: 13px;
+  font-weight: 500;
+  color: #FF3B30;
+  white-space: nowrap;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  padding-right: 4px;
+  transition: opacity 0.2s, visibility 0.2s;
+}
+
+.reminder-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: linear-gradient(to right, transparent, #f8f9fa 20%, #f8f9fa);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.join-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #007AFF;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  
+  &:hover {
+    background: #0051D5;
+    transform: scale(1.02);
+  }
+  
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.dismiss-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #8e8e93;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: #1a1a1a;
+  }
+  
+  ion-icon {
+    font-size: 18px;
+  }
+}
+
+// Mobile adjustments
+@media (max-width: 768px) {
+  .reminder-container {
+    top: 60px; // Below mobile header
+    left: 10px;
+    right: 10px;
+  }
+  
+  .reminder-card {
+    width: auto;
+  }
+}
+

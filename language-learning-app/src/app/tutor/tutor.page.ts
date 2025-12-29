@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
 import { UserService } from '../services/user.service';
+import { LanguageService } from '../services/language.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { MessagingService, Message } from '../services/messaging.service';
@@ -13,6 +14,7 @@ import { TutorSearchContentPageModule } from '../tutor-search-content/tutor-sear
 import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-modal.component';
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
+import { DisplayNamePipe } from '../pipes/display-name.pipe';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 
@@ -21,7 +23,7 @@ import { Subject, firstValueFrom } from 'rxjs';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
@@ -34,6 +36,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput', { static: false }) messageInput?: ElementRef;
   cameFromModal = false;
   justLoggedIn = false;
+  returnTo: string | null = null; // Track where to return when back button is clicked
   availabilityRefreshTrigger = 0;
   private backButtonSubscription: any;
   private routerSubscription: any;
@@ -73,6 +76,7 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private route: ActivatedRoute,
     private router: Router,
     private userService: UserService,
+    private languageService: LanguageService,
     private modalController: ModalController,
     private platform: Platform,
     private location: Location,
@@ -91,6 +95,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (!this.tutorId) {
       this.router.navigate(['/tabs']);
       return;
+    }
+    
+    // Check for language query parameter (for shareable links)
+    const langParam = this.route.snapshot.queryParamMap.get('lang');
+    if (langParam && this.languageService.isSupported(langParam)) {
+      console.log('🌐 Language query parameter detected:', langParam);
+      this.languageService.setLanguage(langParam as any);
     }
     
     // Check if user just logged in via returnUrl
@@ -112,6 +123,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     // Check if we came from the modal (via query params)
     const fromModal = this.route.snapshot.queryParamMap.get('fromModal');
     this.cameFromModal = fromModal === 'true';
+    
+    // Check where to return to when back button is clicked
+    this.returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+    console.log('🔙 ReturnTo parameter:', this.returnTo);
     
     const startTime = performance.now();
     console.log(`⏱️ [Tutor Page] Starting to load tutor: ${this.tutorId}`);
@@ -212,7 +227,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     // Handle platform/hardware back button
     if (this.platform.is('mobile')) {
       this.backButtonSubscription = this.platform.backButton.subscribeWithPriority(10, () => {
-        this.reopenSearchModal();
+        // If returnTo is specified, navigate there instead of reopening modal
+        if (this.returnTo === 'messages') {
+          console.log('🔙 Hardware back button - returning to messages');
+          this.router.navigate(['/tabs/messages']);
+        } else {
+          this.reopenSearchModal();
+        }
       });
     }
     
@@ -221,6 +242,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       if (this.cameFromModal) {
         history.pushState(null, '', window.location.href); // Prevent actual navigation
         this.reopenSearchModal();
+      } else if (this.returnTo === 'messages') {
+        // If coming from messages, navigate back there
+        history.pushState(null, '', window.location.href); // Prevent actual navigation
+        this.router.navigate(['/tabs/messages']);
       }
     };
     
@@ -242,6 +267,16 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
   
   goBackToSearch() {
+    console.log('🔙 Going back...', { returnTo: this.returnTo });
+    
+    // If returnTo is specified, navigate there
+    if (this.returnTo === 'messages') {
+      console.log('🔙 Returning to messages page');
+      this.router.navigate(['/tabs/messages']);
+      return;
+    }
+    
+    // Default: go back to tutor search
     console.log('🔙 Going back to tutor search - localStorage should have the ID');
     // Simply navigate back - localStorage already has returnToTutorId
     this.router.navigate(['/tabs/tutor-search']);
@@ -506,6 +541,31 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
     
+    // Get user from backend (has userType field)
+    let currentUser: any;
+    try {
+      currentUser = await firstValueFrom(this.userService.getCurrentUser());
+    } catch (error) {
+      console.error('Failed to get user from backend:', error);
+      return;
+    }
+    
+    if (!currentUser) {
+      console.log('User not authenticated');
+      return;
+    }
+    
+    // Check if user is a student
+    if (currentUser.userType !== 'student') {
+      const alert = await this.alertController.create({
+        header: 'Student Account Required',
+        message: 'Only students can message tutors. Please log in with a student account.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+    
     // Open messaging sidebar instead of navigating
     this.showMessagingSidebar = true;
     
@@ -690,8 +750,27 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
   
-  sendMessage() {
+  async sendMessage() {
     if (!this.newMessage.trim() || !this.tutor?.auth0Id || this.isSending || this.isUploading || this.isRecording) {
+      return;
+    }
+
+    // Check if user is a student before allowing message
+    try {
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      if (!currentUser || currentUser.userType !== 'student') {
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can message tutors. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to verify user type:', error);
+      // If we can't verify, don't allow the message
       return;
     }
 
@@ -842,9 +921,27 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   // Upload file to server
-  private uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
+  private async uploadFile(file: File, messageType: 'image' | 'file' | 'voice', caption?: string) {
     if (!this.tutor?.auth0Id) {
       console.error('No tutor selected');
+      return;
+    }
+
+    // Check if user is a student before allowing file upload
+    try {
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      if (!currentUser || currentUser.userType !== 'student') {
+        const alert = await this.alertController.create({
+          header: 'Student Account Required',
+          message: 'Only students can message tutors. Please log in with a student account.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to verify user type:', error);
       return;
     }
 
@@ -1215,7 +1312,15 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
       
-      const currentUser = await firstValueFrom(this.authService.user$);
+      // Get user from backend (has userType field)
+      let currentUser: any;
+      try {
+        currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      } catch (error) {
+        console.error('Failed to get user from backend:', error);
+        // Fallback to Auth0 user
+        currentUser = await firstValueFrom(this.authService.user$);
+      }
       
       if (!currentUser) {
         console.log('User not authenticated');

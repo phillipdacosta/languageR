@@ -19,8 +19,10 @@ export class VideoUploadComponent implements OnInit, OnDestroy {
   @Input() videoUrl: string = '';
   @Input() thumbnailUrl: string = '';
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
+  @Input() enableModalPlayer: boolean = false; // New input to enable modal mode
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
+  @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
   @ViewChild('videoElement') videoElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
 
@@ -105,6 +107,12 @@ export class VideoUploadComponent implements OnInit, OnDestroy {
   
   // Method to hide thumbnail and play video with autoplay
   playVideo() {
+    // If modal mode is enabled, emit event instead of playing inline
+    if (this.enableModalPlayer) {
+      this.thumbnailClick.emit();
+      return;
+    }
+    
     this.showThumbnailOverlay = false;
     
     // For external videos (YouTube/Vimeo), add autoplay parameter to the URL

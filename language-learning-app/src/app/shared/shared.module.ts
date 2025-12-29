@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { TranslateModule } from '@ngx-translate/core';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { FlagIconComponent } from '../components/flag-icon/flag-icon.component';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
@@ -19,14 +20,16 @@ import { DisplayNamePipe } from './pipes/display-name.pipe';
   imports: [
     CommonModule,
     FormsModule,
-    IonicModule
+    IonicModule,
+    TranslateModule
   ],
   exports: [
     VideoUploadComponent,
     FlagIconComponent,
     CountrySelectModalComponent,
     SafeUrlPipe,
-    DisplayNamePipe
+    DisplayNamePipe,
+    TranslateModule
   ]
 })
 export class SharedModule { }

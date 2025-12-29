@@ -17,12 +17,13 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
 export class OnboardingPage implements OnInit {
   user$: Observable<any>;
   currentStep = 1;
-  totalSteps = 4; // Students: Name + Languages + Goals + Experience/Schedule
+  totalSteps = 5; // Students: Name + Native Language + Languages + Goals + Experience/Schedule
   currentUser: User | null = null;
 
   // Onboarding data
   firstName = '';
   lastName = '';
+  nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
   experienceLevel = '';
@@ -34,12 +35,44 @@ export class OnboardingPage implements OnInit {
   tutorSchedule = '';
   tutorBio = '';
   tutorHourlyRate = 25;
-  tutorIntroductionVideo = '';
 
   // Available options
   availableLanguages = [
     'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
     'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
+  ];
+
+  // Native language options with ISO codes
+  nativeLanguageOptions = [
+    { code: 'en', name: 'English', native: 'English' },
+    { code: 'es', name: 'Spanish', native: 'Español' },
+    { code: 'fr', name: 'French', native: 'Français' },
+    { code: 'de', name: 'German', native: 'Deutsch' },
+    { code: 'it', name: 'Italian', native: 'Italiano' },
+    { code: 'pt', name: 'Portuguese', native: 'Português' },
+    { code: 'ru', name: 'Russian', native: 'Русский' },
+    { code: 'zh', name: 'Chinese', native: '中文' },
+    { code: 'ja', name: 'Japanese', native: '日本語' },
+    { code: 'ko', name: 'Korean', native: '한국어' },
+    { code: 'ar', name: 'Arabic', native: 'العربية' },
+    { code: 'hi', name: 'Hindi', native: 'हिन्दी' },
+    { code: 'nl', name: 'Dutch', native: 'Nederlands' },
+    { code: 'pl', name: 'Polish', native: 'Polski' },
+    { code: 'tr', name: 'Turkish', native: 'Türkçe' },
+    { code: 'sv', name: 'Swedish', native: 'Svenska' },
+    { code: 'no', name: 'Norwegian', native: 'Norsk' },
+    { code: 'da', name: 'Danish', native: 'Dansk' },
+    { code: 'fi', name: 'Finnish', native: 'Suomi' },
+    { code: 'el', name: 'Greek', native: 'Ελληνικά' },
+    { code: 'cs', name: 'Czech', native: 'Čeština' },
+    { code: 'ro', name: 'Romanian', native: 'Română' },
+    { code: 'uk', name: 'Ukrainian', native: 'Українська' },
+    { code: 'vi', name: 'Vietnamese', native: 'Tiếng Việt' },
+    { code: 'th', name: 'Thai', native: 'ไทย' },
+    { code: 'id', name: 'Indonesian', native: 'Bahasa Indonesia' },
+    { code: 'ms', name: 'Malay', native: 'Bahasa Melayu' },
+    { code: 'he', name: 'Hebrew', native: 'עברית' },
+    { code: 'fa', name: 'Persian', native: 'فارسی' }
   ];
 
   availableGoals = [
@@ -283,6 +316,10 @@ export class OnboardingPage implements OnInit {
     }
   }
 
+  setNativeLanguage(code: string) {
+    this.nativeLanguage = code;
+  }
+
   toggleGoal(goal: string) {
     const index = this.learningGoals.indexOf(goal);
     if (index > -1) {
@@ -342,14 +379,6 @@ export class OnboardingPage implements OnInit {
     this.tutorHourlyRate = rate;
   }
 
-  onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
-    this.tutorIntroductionVideo = data.url;
-  }
-
-  onVideoRemoved() {
-    this.tutorIntroductionVideo = '';
-  }
-
   // Helper method to check if user is a tutor (from localStorage)
   isTutorOnboarding(): boolean {
     return localStorage.getItem('selectedUserType') === 'tutor';
@@ -399,8 +428,7 @@ export class OnboardingPage implements OnInit {
           experience: this.tutorExperience,
           schedule: this.tutorSchedule,
           bio: this.tutorBio,
-          hourlyRate: this.tutorHourlyRate,
-          introductionVideo: this.tutorIntroductionVideo
+          hourlyRate: this.tutorHourlyRate
         };
 
         console.log('💾 Saving tutor onboarding data (user will be created if needed)');
@@ -414,10 +442,11 @@ export class OnboardingPage implements OnInit {
         ).toPromise();
       } else {
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string } = {
           userType: 'student',
           firstName: this.firstName,
           lastName: this.lastName,
+          nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
           languages: this.selectedLanguages,
           goals: this.learningGoals,
           experienceLevel: this.experienceLevel,
@@ -459,7 +488,6 @@ export class OnboardingPage implements OnInit {
         schedule: this.tutorSchedule,
         bio: this.tutorBio,
         hourlyRate: this.tutorHourlyRate,
-        introductionVideo: this.tutorIntroductionVideo,
         completedAt: new Date().toISOString()
       } : {
         languages: this.selectedLanguages,
@@ -574,13 +602,15 @@ export class OnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return true; // Welcome step, always can proceed
+        return this.firstName.trim() !== '' && this.lastName.trim() !== ''; // Name step
       case 2:
-        return this.selectedLanguages.length > 0;
+        return this.nativeLanguage !== ''; // Native language step
       case 3:
-        return this.learningGoals.length > 0;
+        return this.selectedLanguages.length > 0; // Learning languages step
       case 4:
-        return this.experienceLevel !== '' && this.preferredSchedule !== '';
+        return this.learningGoals.length > 0; // Goals step
+      case 5:
+        return this.experienceLevel !== '' && this.preferredSchedule !== ''; // Experience/Schedule step
       default:
         return false;
     }

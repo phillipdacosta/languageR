@@ -7,7 +7,9 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 // Get all notifications for current user
 router.get('/', verifyToken, async (req, res) => {
   try {
-    console.log('📬 Fetching notifications for user:', req.user?.sub);
+    const { limit = 50, before } = req.query; // Add pagination support
+    
+    console.log('📬 Fetching notifications for user:', req.user?.sub, { limit, before });
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) {
       console.error('❌ User not found for auth0Id:', req.user?.sub);
@@ -18,9 +20,25 @@ router.get('/', verifyToken, async (req, res) => {
     }
 
     console.log('📬 Found user:', user._id, 'Fetching notifications...');
-    const notifications = await Notification.find({ userId: user._id })
+    
+    // Build query with optional 'before' filter
+    const query = { userId: user._id };
+    
+    if (before) {
+      // Find the notification with this ID to get its createdAt timestamp
+      const beforeNotification = await Notification.findById(before).lean();
+      
+      if (beforeNotification) {
+        console.log(`📅 Loading notifications before: ${before} (timestamp: ${beforeNotification.createdAt})`);
+        query.createdAt = { $lt: beforeNotification.createdAt };
+      } else {
+        console.warn(`⚠️ Before notification not found: ${before}, loading from beginning`);
+      }
+    }
+    
+    const notifications = await Notification.find(query)
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(parseInt(limit));
 
     console.log('📬 Found', notifications.length, 'notifications for user:', user._id);
 

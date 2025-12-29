@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { LessonService, LessonCreateRequest } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
 import { AuthService } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -15,31 +16,45 @@ import { HttpErrorResponse } from '@angular/common/http';
   standalone: true,
   imports: [CommonModule, IonicModule, RouterLink]
 })
-export class CheckoutPage {
-  tutorId = '';
-  dateIso = '';
-  time = '';
+export class CheckoutPage implements OnInit {
+  @Input() tutorId = '';
+  @Input() dateIso = '';
+  @Input() time = '';
+  @Input() lessonMinutes = 25;
+  @Input() embedded = false; // When true, render without back button and emit events instead of navigating
+  @Output() bookingComplete = new EventEmitter<void>();
+  @Output() cancelled = new EventEmitter<void>();
+  
   tutor: any = null;
-  lessonMinutes = 60;
   currentUser: any = null;
   isBooking = false;
+  returnTo: string | null = null; // Track where to return after booking
 
   constructor(
     private route: ActivatedRoute, 
     private router: Router,
     private userService: UserService,
     private lessonService: LessonService,
+    private classService: ClassService,
     private auth: AuthService,
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController
-  ) {
+  ) {}
+
+  ngOnInit() {
+    // If inputs weren't provided, read from query params (for standalone page mode)
+    if (!this.tutorId) {
+      const qp = this.route.snapshot.queryParamMap;
+      this.tutorId = qp.get('tutorId') || '';
+      this.dateIso = qp.get('date') || '';
+      this.time = qp.get('time') || '';
+      this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+    }
+    
+    // Read returnTo parameter to know where to navigate after booking
     const qp = this.route.snapshot.queryParamMap;
-    this.tutorId = qp.get('tutorId') || '';
-    this.dateIso = qp.get('date') || '';
-    this.time = qp.get('time') || '';
-    // Read duration from query params (default to 25 if not provided)
-    this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+    this.returnTo = qp.get('returnTo');
     
     // Load tutor and current user data
     this.loadData();
@@ -61,17 +76,127 @@ export class CheckoutPage {
     }
   }
 
+  /**
+   * Check if the student has any lessons or classes scheduled that conflict with the proposed time
+   * Returns conflict details if found, null if no conflict
+   */
+  private async checkSchedulingConflict(proposedStart: Date, proposedEnd: Date): Promise<{ message: string } | null> {
+    try {
+      // Get all user's lessons
+      const lessonsResponse = await firstValueFrom(this.lessonService.getMyLessons());
+      
+      if (!lessonsResponse.success) {
+        console.error('Failed to fetch lessons for conflict check');
+        return null; // Allow booking if we can't check (fail open)
+      }
+
+      const allLessons = lessonsResponse.lessons || [];
+      
+      // Filter out cancelled and completed lessons
+      const activeScheduledLessons = allLessons.filter((lesson: any) => 
+        lesson.status !== 'cancelled' && lesson.status !== 'completed'
+      );
+
+      console.log(`🔍 Checking ${activeScheduledLessons.length} active lessons for conflicts`);
+      console.log('🕐 Proposed time:', proposedStart.toISOString(), 'to', proposedEnd.toISOString());
+
+      // Check each lesson for time overlap
+      for (const lesson of activeScheduledLessons) {
+        const lessonStart = new Date(lesson.startTime);
+        const lessonEnd = new Date(lesson.endTime);
+
+        // Check if times overlap
+        // Two time ranges overlap if one starts before the other ends
+        const hasOverlap = proposedStart < lessonEnd && proposedEnd > lessonStart;
+
+        if (hasOverlap) {
+          console.log('⚠️ CONFLICT FOUND with lesson:', {
+            lessonId: lesson._id,
+            subject: lesson.subject,
+            start: lessonStart.toISOString(),
+            end: lessonEnd.toISOString(),
+            status: lesson.status
+          });
+          
+          const timeStr = lessonStart.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          });
+          
+          return {
+            message: `You already have a ${lesson.subject} lesson scheduled at ${timeStr}. Please choose a different time slot.`
+          };
+        }
+      }
+
+      // Also check for class conflicts (using pending invitations that are accepted)
+      try {
+        const classesResponse = await firstValueFrom(this.classService.getPendingInvitations());
+        
+        if (classesResponse.success && classesResponse.classes) {
+          // Only check classes that have been accepted and are not cancelled
+          const activeClasses = classesResponse.classes.filter((cls: any) => {
+            const myInvitation = cls.invitedStudents?.find((inv: any) => inv.studentId === this.currentUser?.id);
+            return myInvitation?.status === 'accepted' && cls.status !== 'cancelled';
+          });
+
+          console.log(`🔍 Checking ${activeClasses.length} active classes for conflicts`);
+
+          for (const cls of activeClasses) {
+            const classStart = new Date(cls.startTime);
+            const classEnd = new Date(cls.endTime);
+
+            const hasOverlap = proposedStart < classEnd && proposedEnd > classStart;
+
+            if (hasOverlap) {
+              console.log('⚠️ CONFLICT FOUND with class:', {
+                classId: cls._id,
+                className: cls.name,
+                start: classStart.toISOString(),
+                end: classEnd.toISOString()
+              });
+              
+              const timeStr = classStart.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+              });
+              
+              return {
+                message: `You already have a class "${cls.name}" scheduled at ${timeStr}. Please choose a different time slot.`
+              };
+            }
+          }
+        }
+      } catch (classError) {
+        console.warn('Could not check class conflicts, continuing with lesson check only:', classError);
+        // Don't fail the whole check if class checking fails
+      }
+
+      console.log('✅ No scheduling conflicts found');
+      return null;
+
+    } catch (error) {
+      console.error('Error checking scheduling conflict:', error);
+      return null; // Fail open - allow booking if check fails
+    }
+  }
+
   async confirmBooking() {
     if (this.isBooking || !this.tutor || !this.currentUser) return;
 
     this.isBooking = true;
-    const loading = await this.loadingController.create({
-      message: 'Booking your lesson...',
-      spinner: 'crescent'
-    });
-    await loading.present();
-
+    let loading: HTMLIonLoadingElement | null = null;
+    let bookingLoading: HTMLIonLoadingElement | null = null;
+    
     try {
+      loading = await this.loadingController.create({
+        message: 'Checking availability...',
+        spinner: 'crescent'
+      });
+      await loading.present();
+
       // Calculate start and end times
       const startTime = this.parseStartDate();
       if (!startTime) {
@@ -79,6 +204,32 @@ export class CheckoutPage {
       }
       
       const endTime = new Date(startTime.getTime() + this.lessonMinutes * 60000);
+
+      // CHECK FOR SCHEDULING CONFLICTS
+      console.log('🔍 Checking for scheduling conflicts...');
+      const conflictDetails = await this.checkSchedulingConflict(startTime, endTime);
+      
+      if (conflictDetails) {
+        if (loading) await loading.dismiss();
+        this.isBooking = false;
+        
+        // Show conflict alert with details
+        const alert = await this.alertController.create({
+          header: 'Schedule Conflict',
+          message: conflictDetails.message,
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
+      }
+
+      // Update loading message
+      if (loading) await loading.dismiss();
+      bookingLoading = await this.loadingController.create({
+        message: 'Booking your lesson...',
+        spinner: 'crescent'
+      });
+      await bookingLoading.present();
 
       // Get the primary language from tutor (first language they teach)
       const tutorLanguages = this.tutor?.onboardingData?.languages || this.tutor?.languages || [];
@@ -107,24 +258,54 @@ export class CheckoutPage {
       const response = await firstValueFrom(this.lessonService.createLesson(lessonData));
       
       if (response.success) {
-        // Show success message
-        const toast = await this.toastController.create({
-          message: 'Lesson booked successfully! You can join 15 minutes before the start time.',
-          duration: 4000,
-          color: 'success',
-          position: 'top'
-        });
-        await toast.present();
-
-        // Navigate to lessons page or home
-        this.router.navigate(['/tabs/home'], { 
-          queryParams: { bookingSuccess: true, lessonId: response.lesson._id } 
-        });
+        // DISMISS LOADING BEFORE SHOWING SUCCESS PAGE
+        if (bookingLoading) await bookingLoading.dismiss();
+        
+        // If embedded, emit event instead of navigating
+        if (this.embedded) {
+          this.bookingComplete.emit();
+        } else {
+          // Prepare tutor name (First Name + Last Initial)
+          const tutorFirstName = this.tutor?.firstName || this.tutor?.name?.split(' ')[0] || '';
+          const tutorLastName = this.tutor?.lastName || this.tutor?.name?.split(' ')[1] || '';
+          
+          // Navigate to booking success page with lesson details
+          this.router.navigate(['/booking-success'], {
+            state: {
+              lessonDetails: {
+                ...response.lesson,
+                tutor: {
+                  firstName: tutorFirstName,
+                  lastName: tutorLastName,
+                  picture: this.tutor?.picture || this.tutor?.profilePicture,
+                  profilePicture: this.tutor?.picture || this.tutor?.profilePicture
+                },
+                subject: lessonData.subject,
+                startTime: lessonData.startTime,
+                endTime: lessonData.endTime,
+                duration: lessonData.duration,
+                price: lessonData.price
+              }
+            }
+          });
+        }
       } else {
         throw new Error('Failed to create lesson');
       }
     } catch (error: any) {
       console.error('❌ Error booking lesson:', error);
+      
+      // Dismiss loading spinners
+      try {
+        if (loading) await loading.dismiss();
+      } catch (dismissError) {
+        // Loading might already be dismissed
+      }
+      try {
+        if (bookingLoading) await bookingLoading.dismiss();
+      } catch (dismissError) {
+        // Loading might already be dismissed
+      }
       
       // Check if this is a time slot conflict (409 Conflict)
       const isConflict = error instanceof HttpErrorResponse && error.status === 409;
@@ -132,8 +313,6 @@ export class CheckoutPage {
       
       // If the slot is no longer available, show a more prominent alert
       if (isConflict && errorCode === 'SLOT_NO_LONGER_AVAILABLE') {
-        // Dismiss loading spinner BEFORE showing alert
-        await loading.dismiss();
         this.isBooking = false;
         
         const alert = await this.alertController.create({
@@ -159,7 +338,11 @@ export class CheckoutPage {
             queryParams: { refreshAvailability: 'true' }
           });
         } else {
-          this.router.navigate(['/tabs/home']);
+          // Navigate based on returnTo parameter
+          const destination = this.returnTo === 'messages' 
+            ? '/tabs/messages' 
+            : '/tabs/home';
+          this.router.navigate([destination]);
         }
         return;
       }
@@ -190,9 +373,14 @@ export class CheckoutPage {
       }
     } finally {
       this.isBooking = false;
-      // Try to dismiss loading, but catch if already dismissed
+      // Try to dismiss both loaders, but catch if already dismissed
       try {
-        await loading.dismiss();
+        if (loading) await loading.dismiss();
+      } catch (e) {
+        // Already dismissed, ignore
+      }
+      try {
+        if (bookingLoading) await bookingLoading.dismiss();
       } catch (e) {
         // Already dismissed, ignore
       }

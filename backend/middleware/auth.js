@@ -3,7 +3,16 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Check for token in multiple places:
+    // 1. Authorization header (existing behavior)
+    // 2. Cookie (new for cross-tab support in incognito)
+    let token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    // If no Authorization header, check for cookie
+    if (!token && req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+      console.log('🍪 Using token from cookie');
+    }
     
     if (!token) {
       return res.status(401).json({ message: 'No token, authorization denied' });
@@ -30,7 +39,12 @@ const auth = async (req, res, next) => {
 
 const optionalAuth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Check for token in Authorization header or cookie
+    let token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token && req.cookies && req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    }
     
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
@@ -49,3 +63,4 @@ const optionalAuth = async (req, res, next) => {
 };
 
 module.exports = { auth, optionalAuth };
+

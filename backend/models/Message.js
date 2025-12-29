@@ -97,6 +97,21 @@ const messageSchema = new mongoose.Schema({
       required: false
     }
   },
+  // Reactions to the message
+  reactions: [{
+    emoji: {
+      type: String,
+      required: true
+    },
+    userId: {
+      type: String,
+      required: true
+    },
+    userName: {
+      type: String,
+      required: true
+    }
+  }],
   read: {
     type: Boolean,
     default: false

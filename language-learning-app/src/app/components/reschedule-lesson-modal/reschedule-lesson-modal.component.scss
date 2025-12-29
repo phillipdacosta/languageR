@@ -1,33 +1,165 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-content {
+  flex: 1;
+  overflow-y: auto;
+  --background: #ffffff;
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// Floating back button (top-left, when opened from proposal modal)
+.floating-back-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1001;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+// Floating close button (always visible, matches other modals)
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1001; // Above sticky banner
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+// Button group for footer
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+
+  ion-button {
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    font-size: 16px;
+  }
+}
+
 // Modal content optimization
 .reschedule-modal-content {
-  --padding-top: 16px;
-  --padding-bottom: 16px;
-  --padding-start: 16px;
-  --padding-end: 16px;
-  position: relative;
-  min-height: 400px;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
 }
 
 .view-container {
   width: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  min-height: 100%;
+  padding: 70px 24px 24px 24px; // Top padding to account for sticky banner
   will-change: transform, opacity;
+}
+
+.original-time-banner {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+  border-radius: 12px;
+  border: 1px solid #ffd699;
+
+  &.sticky-banner {
+    position: sticky;
+    top: 6px;
+    z-index: 100;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.15);
+  }
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .banner-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 152, 0, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 20px;
+      color: #ff9800;
+    }
+  }
+
+  .banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+
+    .banner-label {
+      font-size: 12px;
+      color: #b36200;
+      font-weight: 500;
+      letter-spacing: -0.1px;
+    }
+
+    .banner-time {
+      font-size: 15px;
+      color: #1d1d1f;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+  }
 }
 
 .participant-section {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid #f5f5f7;
+  margin-bottom: 20px;
 
   .participant-avatar {
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
     flex-shrink: 0;
 
     img {
@@ -35,8 +167,8 @@
     }
 
     .avatar-placeholder {
-      font-size: 32px;
-      color: #94a3b8;
+      font-size: 28px;
+      color: #86868b;
     }
   }
 
@@ -44,22 +176,24 @@
     flex: 1;
 
     h3 {
-      font-size: 20px;
+      font-size: 17px;
       font-weight: 600;
-      color: #1e293b;
+      color: #1d1d1f;
       margin: 0 0 4px 0;
+      letter-spacing: -0.4px;
     }
 
     p {
-      font-size: 14px;
-      color: #64748b;
+      font-size: 13px;
+      color: #86868b;
       margin: 0;
+      letter-spacing: -0.1px;
     }
   }
 }
 
 .calendar-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .loading-state {
@@ -67,75 +201,125 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px;
   
   ion-spinner {
     margin-bottom: 16px;
-    --color: #667eea;
+    --color: #007AFF;
   }
   
   p {
-    font-size: 14px;
-    color: #64748b;
+    font-size: 15px;
+    color: #86868b;
     margin: 0;
+    letter-spacing: -0.2px;
   }
 }
 
 .info-message {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: #f0f9ff;
+  background: #f5f5f7;
   border-radius: 12px;
-  border: 1px solid #bae6fd;
+  margin-top: 16px;
 
   ion-icon {
-    font-size: 24px;
-    color: #0284c7;
+    font-size: 20px;
+    color: #007AFF;
     flex-shrink: 0;
+    margin-top: 1px;
   }
 
   p {
-    font-size: 14px;
-    color: #0369a1;
+    font-size: 13px;
+    color: #1d1d1f;
     margin: 0;
     line-height: 1.5;
+    letter-spacing: -0.1px;
+  }
+}
+
+// Floating close button for confirmation view
+.floating-close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #86868b;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 20px;
   }
 }
 
 // Confirmation View Styles
 .confirmation-view {
-  padding: 8px 0;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  padding: 60px 32px 32px 32px;
+  min-height: 100%;
+  align-items: center;
+  text-align: center;
+  justify-content: center;
 }
 
-.confirmation-header {
-  text-align: center;
-  margin-bottom: 20px;
-  flex-shrink: 0;
+.icon-section {
+  margin-bottom: 24px;
+}
 
-  .confirmation-icon {
-    font-size: 48px;
-    color: #667eea;
-    margin-bottom: 8px;
-  }
+.icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(102, 126, 234, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  h2 {
-    font-size: 20px;
+.confirmation-icon {
+  font-size: 48px;
+  color: #667eea;
+}
+
+.confirmation-heading {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1d1d1f;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.confirmation-subheading {
+  font-size: 16px;
+  line-height: 1.5;
+  color: #6b7280;
+  margin: 0 0 40px 0;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+  max-width: 90%;
+
+  strong {
     font-weight: 600;
-    color: #1e293b;
-    margin: 0;
+    color: #1d1d1f;
   }
 }
 
 .confirmation-content {
-  margin-bottom: 20px;
-  flex: 1;
-  min-height: 0;
+  margin-bottom: 40px;
+  width: 100%;
+  max-width: 500px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -143,26 +327,27 @@
 
 .selected-time-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  padding: 20px 16px;
+  border-radius: 16px;
+  padding: 24px 20px;
   color: white;
   text-align: center;
-  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
 
   .time-display {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 
     .date-display {
-      font-size: 15px;
-      font-weight: 500;
-      opacity: 0.9;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.85;
       margin-bottom: 6px;
+      letter-spacing: -0.2px;
     }
 
     .time-display-value {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 700;
-      letter-spacing: -0.5px;
+      letter-spacing: -1px;
     }
   }
 
@@ -171,27 +356,29 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding-top: 16px;
+    padding-top: 18px;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 
     .confirmation-avatar {
-      width: 36px;
-      height: 36px;
+      width: 28px;
+      height: 28px;
 
       img {
         object-fit: cover;
       }
 
       .avatar-placeholder {
-        font-size: 20px;
-        color: rgba(255, 255, 255, 0.8);
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.9);
       }
     }
 
     p {
-      font-size: 14px;
+      font-size: 13px;
       margin: 0;
-      opacity: 0.95;
+      opacity: 0.9;
+      letter-spacing: -0.2px;
+      font-weight: 500;
     }
   }
 }
@@ -200,49 +387,63 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 12px;
-  background: #f0f9ff;
-  border-radius: 10px;
-  border: 1px solid #bae6fd;
-  flex-shrink: 0;
-  text-align: center;
-
-  ion-icon {
-    font-size: 20px;
-    color: #0284c7;
-    flex-shrink: 0;
-  }
+  padding: 12px 16px;
+  background: #f5f5f7;
+  border-radius: 12px;
 
   p {
     font-size: 13px;
-    color: #0369a1;
+    color: #64748b;
     margin: 0;
     line-height: 1.4;
+    letter-spacing: -0.1px;
     text-align: center;
   }
 }
 
-.confirmation-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  flex-shrink: 0;
-  padding-top: 8px;
-  padding: 0px 16px;
-  
-  ion-button {
-    margin: 0;
-    --border-radius: 10px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    font-weight: 600;
-    text-transform: none;
-    font-size: 15px;
+// Desktop adjustments
+@media (min-width: 768px) {
+  .confirmation-view {
+    padding: 32px 40px;
+  }
 
-    ion-icon {
-      font-size: 18px;
+  .icon-section {
+    margin-bottom: 24px;
+  }
+
+  .icon-wrapper {
+    width: 80px;
+    height: 80px;
+  }
+
+  .confirmation-icon {
+    font-size: 40px;
+  }
+
+  .confirmation-heading {
+    font-size: 26px;
+    margin-bottom: 14px;
+  }
+
+  .confirmation-subheading {
+    font-size: 16px;
+    margin-bottom: 36px;
+  }
+
+  .confirmation-content {
+    margin-bottom: 36px;
+  }
+
+  .selected-time-card {
+    padding: 28px 24px;
+
+    .time-display-value {
+      font-size: 36px;
     }
+  }
+
+  .confirmation-actions ion-button {
+    height: 52px;
   }
 }
 

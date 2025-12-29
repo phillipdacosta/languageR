@@ -1,4 +1,4 @@
-<ion-header>
+<ion-header *ngIf="!embedded">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-back-button [defaultHref]="tutorId ? '/tutor/' + tutorId : '/tabs/tutor-search'"></ion-back-button>
@@ -7,11 +7,11 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content>
-  <div class="checkout-layout">
+<ion-content [class.embedded-checkout]="embedded">
+  <div class="checkout-layout" [class.embedded-layout]="embedded">
     <section class="summary">
-      <h2>Your tutor</h2>
-      <div class="tutor-card">
+      <h2 *ngIf="!embedded">Your tutor</h2>
+      <div class="tutor-card" [class.compact-tutor-card]="embedded">
         <div class="avatar">
           <img *ngIf="tutor?.picture" [src]="tutor.picture" alt="{{ tutor?.name }}">
         </div>

@@ -1,0 +1,199 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/tab3"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Review Deck</ion-title>
+    <ion-buttons slot="end" *ngIf="!practiceMode && items.length > 0">
+      <ion-button (click)="startPracticeMode()">
+        <ion-icon slot="icon-only" name="school"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Practice Mode -->
+  <div *ngIf="practiceMode" class="practice-mode">
+    <div class="practice-header">
+      <div class="practice-progress">
+        <span class="progress-text">{{ currentPracticeIndex + 1 }} / {{ practiceItems.length }}</span>
+        <ion-progress-bar [value]="(currentPracticeIndex + 1) / practiceItems.length"></ion-progress-bar>
+      </div>
+      <ion-button fill="clear" (click)="exitPracticeMode()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </div>
+
+    <div class="practice-card" *ngIf="practiceItems[currentPracticeIndex]">
+      <div class="practice-context" *ngIf="practiceItems[currentPracticeIndex].context">
+        💬 {{ practiceItems[currentPracticeIndex].context }}
+      </div>
+
+      <div class="practice-question">
+        <h3>What you said:</h3>
+        <p class="incorrect-text">"{{ practiceItems[currentPracticeIndex].original }}"</p>
+      </div>
+
+      <div class="practice-answer" *ngIf="showAnswer">
+        <h3>Correct version:</h3>
+        <p class="correct-text">"{{ practiceItems[currentPracticeIndex].corrected }}"</p>
+        
+        <div class="explanation" *ngIf="practiceItems[currentPracticeIndex].explanation">
+          <ion-icon name="information-circle"></ion-icon>
+          {{ practiceItems[currentPracticeIndex].explanation }}
+        </div>
+      </div>
+
+      <div class="practice-actions">
+        <ion-button *ngIf="!showAnswer" expand="block" color="primary" (click)="toggleShowAnswer()">
+          Show Answer
+        </ion-button>
+        
+        <div *ngIf="showAnswer" class="answer-actions">
+          <ion-button expand="block" color="success" (click)="markCurrentMastered()">
+            <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+            I've Mastered This!
+          </ion-button>
+          <ion-button expand="block" fill="outline" (click)="nextPracticeItem()">
+            Next
+            <ion-icon name="arrow-forward" slot="end"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
+      <div class="practice-navigation">
+        <ion-button fill="clear" [disabled]="currentPracticeIndex === 0" (click)="previousPracticeItem()">
+          <ion-icon name="chevron-back"></ion-icon>
+        </ion-button>
+        <ion-button fill="clear" [disabled]="currentPracticeIndex === practiceItems.length - 1" (click)="nextPracticeItem()">
+          <ion-icon name="chevron-forward"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Normal View -->
+  <div *ngIf="!practiceMode" class="normal-mode">
+    <!-- Stats Cards -->
+    <div class="stats-section" *ngIf="stats">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-label">Total Items</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.notMastered }}</div>
+          <div class="stat-label">Active</div>
+        </div>
+        <div class="stat-card mastered">
+          <div class="stat-value">{{ stats.mastered }}</div>
+          <div class="stat-label">Mastered</div>
+        </div>
+        <div class="stat-card needs-review">
+          <div class="stat-value">{{ stats.needsReview }}</div>
+          <div class="stat-label">Need Review</div>
+        </div>
+      </div>
+
+      <ion-button 
+        expand="block" 
+        color="primary" 
+        class="practice-button"
+        (click)="startPracticeMode()"
+        [disabled]="stats.needsReview === 0">
+        <ion-icon name="school" slot="start"></ion-icon>
+        Practice Now ({{ stats.needsReview }} items)
+      </ion-button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+      <ion-segment [(ngModel)]="filterMastered" (ionChange)="onFilterChange()">
+        <ion-segment-button value="all">
+          <ion-label>All</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="active">
+          <ion-label>Active</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="mastered">
+          <ion-label>Mastered</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-state">
+      <ion-spinner></ion-spinner>
+      <p>Loading your review deck...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && items.length === 0" class="empty-state">
+      <ion-icon name="bookmark-outline"></ion-icon>
+      <h2>No Items Yet</h2>
+      <p>Save corrections from your lesson summaries to build your review deck!</p>
+    </div>
+
+    <!-- Items List -->
+    <div *ngIf="!loading && items.length > 0" class="items-list">
+      <div *ngFor="let item of items" class="review-item" [class.mastered]="item.mastered">
+        <div class="item-header">
+          <ion-chip [color]="getErrorTypeColor(item.errorType)" size="small">
+            {{ item.errorType }}
+          </ion-chip>
+          <span class="review-count" *ngIf="item.reviewCount > 0">
+            {{ item.reviewCount }} review{{ item.reviewCount > 1 ? 's' : '' }}
+          </span>
+        </div>
+
+        <div class="item-content">
+          <div class="original">
+            <span class="label">You said:</span>
+            <p>"{{ item.original }}"</p>
+          </div>
+          <ion-icon name="arrow-forward" class="arrow"></ion-icon>
+          <div class="corrected">
+            <span class="label">Correct:</span>
+            <p>"{{ item.corrected }}"</p>
+          </div>
+        </div>
+
+        <div class="item-explanation" *ngIf="item.explanation">
+          <ion-icon name="information-circle"></ion-icon>
+          {{ item.explanation }}
+        </div>
+
+        <div class="item-footer">
+          <span class="saved-date">{{ formatDate(item.savedAt) }}</span>
+          <div class="item-actions">
+            <ion-button 
+              fill="clear" 
+              size="small"
+              [color]="item.mastered ? 'success' : 'medium'"
+              (click)="toggleMastered(item, $event)">
+              <ion-icon 
+                slot="icon-only" 
+                [name]="item.mastered ? 'checkmark-circle' : 'checkmark-circle-outline'">
+              </ion-icon>
+            </ion-button>
+            <ion-button 
+              fill="clear" 
+              size="small" 
+              color="danger"
+              (click)="deleteItem(item, $event)">
+              <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+
+
+
+
+
+

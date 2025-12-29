@@ -3,14 +3,16 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-profile',
@@ -30,21 +32,40 @@ export class ProfilePage implements OnInit {
   tutorVideoThumbnail = '';
   tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   isDarkMode$: Observable<boolean>;
+  remindersEnabled: boolean = true; // Default to enabled
+  showWalletBalance: boolean = false; // Default to hidden
+  aiAnalysisEnabled: boolean = true; // Default to enabled
+  
+  // Video player modal state
+  isVideoPlayerModalOpen = false;
+  videoPlayerData: {
+    videoUrl: string;
+    safeVideoUrl?: SafeResourceUrl;
+    videoType: 'upload' | 'youtube' | 'vimeo';
+  } | null = null;
+  
+  // Language support
+  availableLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
 
   constructor(
     private authService: AuthService,
     private userService: UserService,
     private themeService: ThemeService,
+    private languageService: LanguageService,
     private fileUploadService: FileUploadService,
     private loadingController: LoadingController,
     private alertController: AlertController,
+    private toastController: ToastController,
     private route: ActivatedRoute,
     private router: Router,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private sanitizer: DomSanitizer
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.isDarkMode$ = this.themeService.darkMode$;
+    this.availableLanguages = this.languageService.supportedLanguages;
   }
 
   ngOnInit() {
@@ -74,6 +95,14 @@ export class ProfilePage implements OnInit {
         hasPicture: !!user?.picture
       });
       this.currentUser = user;
+      
+      // Set current interface language
+      this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
+      
+      // Load settings from user profile (database)
+      this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
+      this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
+      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false; // Default true
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -202,6 +231,32 @@ export class ProfilePage implements OnInit {
     this.updateTutorVideo('', '', 'upload');
   }
 
+  openVideoPlayerModal() {
+    if (!this.tutorIntroductionVideo) return;
+    
+    let videoUrl = this.tutorIntroductionVideo;
+    
+    // Add autoplay parameter for external videos
+    if (this.tutorVideoType === 'youtube' || this.tutorVideoType === 'vimeo') {
+      const separator = videoUrl.includes('?') ? '&' : '?';
+      if (!videoUrl.includes('autoplay=')) {
+        videoUrl = videoUrl + separator + 'autoplay=1';
+      }
+    }
+    
+    this.videoPlayerData = {
+      videoUrl: videoUrl,
+      safeVideoUrl: this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl),
+      videoType: this.tutorVideoType
+    };
+    this.isVideoPlayerModalOpen = true;
+  }
+
+  onVideoPlayerModalDismiss() {
+    this.isVideoPlayerModalOpen = false;
+    this.videoPlayerData = null;
+  }
+
   private async updateTutorVideo(
     videoUrl: string, 
     thumbnailUrl?: string, 
@@ -254,6 +309,104 @@ export class ProfilePage implements OnInit {
     this.themeService.toggleDarkMode();
     console.log('✅ Dark mode toggled, new state:', this.themeService.isDarkMode());
   }
+  
+  /**
+   * Toggle reminders on/off
+   */
+  toggleReminders(event: any): void {
+    this.remindersEnabled = event.detail.checked;
+    
+    // Save to database
+    this.userService.updateRemindersEnabled(this.remindersEnabled).subscribe({
+      next: (user) => {
+        console.log('🔔 Reminders setting saved to database:', this.remindersEnabled);
+        // Reload page to apply changes
+        window.location.reload();
+      },
+      error: (error) => {
+        console.error('❌ Error saving reminders setting:', error);
+        // Revert on error
+        this.remindersEnabled = !this.remindersEnabled;
+      }
+    });
+  }
+  
+  /**
+   * Toggle show wallet balance on/off
+   */
+  toggleShowWalletBalance(event: any): void {
+    this.showWalletBalance = event.detail.checked;
+    
+    // Save to database
+    this.userService.updateShowWalletBalance(this.showWalletBalance).subscribe({
+      next: (user) => {
+        console.log('💰 Show wallet balance setting saved to database:', this.showWalletBalance);
+        // Update the current user to ensure cache is updated
+        this.currentUser = user;
+      },
+      error: (error) => {
+        console.error('❌ Error saving wallet balance setting:', error);
+        // Revert on error
+        this.showWalletBalance = !this.showWalletBalance;
+      }
+    });
+  }
+
+  /**
+   * Toggle AI analysis on/off
+   */
+  toggleAIAnalysis(event: any): void {
+    this.aiAnalysisEnabled = event.detail.checked;
+    
+    // Save to database
+    this.userService.updateAIAnalysisEnabled(this.aiAnalysisEnabled).subscribe({
+      next: (user) => {
+        console.log('🤖 AI analysis setting saved to database:', this.aiAnalysisEnabled);
+        // Update the current user to ensure cache is updated
+        this.currentUser = user;
+      },
+      error: (error) => {
+        console.error('❌ Error saving AI analysis setting:', error);
+        // Revert on error
+        this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
+      }
+    });
+  }
+
+  /**
+   * Handle interface language change
+   */
+  async onInterfaceLanguageChange(event: any) {
+    const newLanguage = event.detail.value as SupportedLanguage;
+    console.log('🌐 Interface language changed to:', newLanguage);
+
+    // Update UI immediately
+    this.languageService.setLanguage(newLanguage);
+
+    // Save to backend
+    this.userService.updateInterfaceLanguage(newLanguage).subscribe({
+      next: async (updatedUser) => {
+        console.log('✅ Interface language saved to backend');
+        // const toast = await this.toastController.create({
+        //   message: this.languageService.instant('PROFILE.INTERFACE_LANGUAGE') + ' updated',
+        //   duration: 2000,
+        //   position: 'bottom',
+        //   color: 'success'
+        // });
+        // await toast.present();
+      },
+      error: async (error) => {
+        console.error('❌ Error saving interface language:', error);
+        const toast = await this.toastController.create({
+          message: 'Error updating language preference',
+          duration: 3000,
+          position: 'bottom',
+          color: 'danger'
+        });
+        await toast.present();
+      }
+    });
+  }
 
   /**
    * Handle profile picture upload
@@ -271,9 +424,62 @@ export class ProfilePage implements OnInit {
         buttons: ['OK']
       });
       await alert.present();
+      // Reset file input
+      event.target.value = '';
       return;
     }
 
+    // Create preview - read file as data URL
+    const reader = new FileReader();
+    reader.onload = async (e: any) => {
+      const imageDataUrl = e.target.result;
+      
+      // Show confirmation with inline preview
+      const alert = await this.alertController.create({
+        header: 'Upload Profile Picture?',
+        message: 'Do you want to upload this image as your profile picture?',
+        cssClass: 'profile-picture-confirm-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => {
+              event.target.value = '';
+            }
+          },
+          {
+            text: 'Upload',
+            handler: async () => {
+              await this.uploadProfilePicture(file, event);
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+      
+      // After alert is presented, inject the image into the alert
+      setTimeout(() => {
+        const alertElement = document.querySelector('ion-alert.profile-picture-confirm-alert');
+        if (alertElement) {
+          const messageElement = alertElement.querySelector('.alert-message');
+          if (messageElement) {
+            const imgElement = document.createElement('img');
+            imgElement.src = imageDataUrl;
+            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 50%; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+            messageElement.insertBefore(imgElement, messageElement.firstChild);
+          }
+        }
+      }, 100);
+    };
+    
+    reader.readAsDataURL(file);
+  }
+
+  /**
+   * Upload profile picture to server
+   */
+  async uploadProfilePicture(file: File, event: any) {
     const loading = await this.loadingController.create({
       message: 'Uploading image...',
       spinner: 'crescent'
@@ -328,13 +534,96 @@ export class ProfilePage implements OnInit {
   }
 
   /**
+   * Check if user has a custom uploaded picture (vs Auth0/Google picture)
+   */
+  hasCustomPicture(): boolean {
+    const picture = this.getDisplayUser()?.picture;
+    if (!picture) return false;
+    
+    // Check if it's a custom picture (uploaded to GCS)
+    // Custom pictures will be in storage.googleapis.com with our bucket
+    return picture.includes('storage.googleapis.com') && picture.includes('profile-pictures');
+  }
+
+  /**
    * Trigger file input click
    */
   triggerPictureUpload() {
+    console.log('🖼️ triggerPictureUpload called');
     const fileInput = document.getElementById('profile-picture-input') as HTMLInputElement;
+    console.log('🖼️ File input element:', fileInput);
     if (fileInput) {
+      console.log('🖼️ Clicking file input');
       fileInput.click();
+    } else {
+      console.error('❌ File input element not found in DOM');
     }
+  }
+
+  /**
+   * Remove profile picture
+   */
+  async removePicture() {
+    // Show confirmation alert
+    const alert = await this.alertController.create({
+      header: 'Remove Picture',
+      message: 'Are you sure you want to remove your profile picture?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Removing picture...',
+              spinner: 'crescent'
+            });
+            await loading.present();
+
+            try {
+              const result = await this.userService.removePicture().pipe(take(1)).toPromise();
+              
+              if (result?.success) {
+                // Update current user with restored picture (or undefined if no Auth0 picture)
+                if (this.currentUser) {
+                  this.currentUser.picture = result.picture;
+                }
+
+                // Also reload from server to ensure consistency
+                this.userService.getCurrentUser().subscribe(user => {
+                  this.currentUser = user;
+                });
+
+                const successAlert = await this.alertController.create({
+                  header: 'Success',
+                  message: result.message || 'Profile picture removed successfully!',
+                  buttons: ['OK']
+                });
+                await successAlert.present();
+              } else {
+                throw new Error('Failed to remove profile picture');
+              }
+            } catch (error) {
+              console.error('Error removing profile picture:', error);
+              
+              const errorAlert = await this.alertController.create({
+                header: 'Error',
+                message: 'Failed to remove profile picture. Please try again.',
+                buttons: ['OK']
+              });
+              await errorAlert.present();
+            } finally {
+              await loading.dismiss();
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   /**

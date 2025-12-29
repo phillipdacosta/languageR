@@ -1,0 +1,521 @@
+.smart-island-container {
+  position: relative;
+  bottom: 130px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  padding: 12px 0;
+  min-height: 110px; // Fixed height to accommodate island (56px) + dots (30px) + gap
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  // When collapsed, move to fixed position (top-right)
+  &.collapsed {
+    position: fixed;
+    top: 90px;
+    right: 16px;
+    left: auto;
+    width: auto !important;
+    max-width: none !important;
+    min-width: auto !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    max-height: none !important;
+    height: auto !important;
+    z-index: 1000;
+    
+    @media (max-width: 768px) {
+      top: 16px;
+      right: 12px;
+    }
+  }
+}
+
+// Collapsed ball state
+.smart-island-ball {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.08),
+    0 4px 24px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  flex-shrink: 0;
+  
+  // Only animate when class is added (collapsing from expanded)
+  &.animate-roll {
+    animation: rollIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.12),
+      0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  .ball-arrow {
+    font-size: 18px;
+    color: rgba(0, 0, 0, 0.7);
+    animation: pulseArrow 2s ease-in-out infinite;
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    
+    .ball-arrow {
+      font-size: 16px;
+    }
+  }
+}
+
+.smart-island {
+  position: relative; // Needed for absolute positioning of close button
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  min-width: 220px;
+  max-width: 340px;
+  width: 100%;
+  height: 48px; // Fixed height (reduced from 56px)
+  min-height: 48px; // Ensure consistent height
+  margin: 0 auto; // Center horizontally
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: 24px; // Adjusted border radius to match smaller height
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.08),
+    0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: visible; // Allow close button to stick out
+  
+  // Smooth transition state
+  &.transitioning {
+    pointer-events: none; // Prevent clicks during transition
+    transform: scale(0.98); // Subtle scale down during transition
+    opacity: 0.9;
+  }
+  
+  // Expand animation (reverse of rollIn)
+  &.animate-expand {
+    animation: rollOut 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  
+  &.sleeping {
+    // Sleeping state styling - more subdued
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 
+      0 1px 8px rgba(0, 0, 0, 0.04),
+      0 2px 16px rgba(0, 0, 0, 0.03);
+    
+    .island-icon {
+      background: rgba(0, 0, 0, 0.04);
+      
+      ion-icon {
+        color: rgba(0, 0, 0, 0.4);
+      }
+    }
+    
+    .island-title, .island-subtitle {
+      color: rgba(0, 0, 0, 0.5);
+    }
+  }
+  
+  // Wake-up animation when transitioning from sleeping to active
+  &:not(.sleeping) {
+    animation: wakeUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  
+  &.has-action {
+    cursor: pointer;
+    
+    &:hover {
+      transform: scale(1.02);
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+  
+  // Glowing effect for urgent moments
+  &.glowing:not(.sleeping) {
+    animation: glow 2s ease-in-out infinite;
+  }
+  
+  @media (max-width: 480px) {
+    min-width: 240px;
+    max-width: calc(100vw - 40px);
+    padding: 8px 16px;
+    height: 52px;
+    gap: 10px;
+  }
+}
+
+// Close Button (X in circle) - Sticks out like a favicon
+.island-close-button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  pointer-events: auto; // Ensure it's clickable
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  
+  ion-icon {
+    font-size: 12px;
+    color: white;
+    font-weight: bold;
+    pointer-events: none; // Prevent icon from blocking clicks
+  }
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.95);
+    transform: scale(1.15);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (max-width: 480px) {
+    width: 18px;
+    height: 18px;
+    top: -5px;
+    right: -5px;
+    
+    ion-icon {
+      font-size: 11px;
+    }
+  }
+}
+
+// Avatar styles
+.island-avatars {
+  flex-shrink: 0;
+}
+
+.island-avatar {
+  width: 36px;
+  height: 36px;
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.avatar-stack {
+  display: flex;
+  align-items: center;
+  
+  .stacked-avatar {
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    @media (max-width: 480px) {
+      width: 28px;
+      height: 28px;
+    }
+  }
+}
+
+.island-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 50%;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 20px;
+    color: rgba(0, 0, 0, 0.7);
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+}
+
+.island-emoji {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  
+  @media (max-width: 480px) {
+    font-size: 24px;
+  }
+}
+
+.island-content {
+  flex: 1;
+  min-width: 0;
+  
+  .island-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.87);
+    margin: 0;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.2px;
+    
+    @media (max-width: 480px) {
+      font-size: 13px;
+    }
+  }
+  
+  .island-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 2px 0 0 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    
+    @media (max-width: 480px) {
+      font-size: 11px;
+    }
+  }
+}
+
+// Navigation arrows container
+.island-nav-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+// Navigation arrows (back/forward)
+.island-nav-arrow {
+  font-size: 18px;
+  color: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+  padding: 8px;
+  margin: -8px 0;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  
+  &:hover {
+    color: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.05);
+  }
+  
+  &:active {
+    transform: scale(0.9);
+  }
+  
+  &.nav-back {
+    &:hover {
+      transform: translateX(-2px);
+    }
+    &:active {
+      transform: translateX(-4px) scale(0.9);
+    }
+  }
+  
+  &.nav-forward {
+    &:hover {
+      transform: translateX(2px);
+    }
+    &:active {
+      transform: translateX(4px) scale(0.9);
+    }
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 16px;
+    padding: 6px;
+    margin: -6px 0;
+  }
+}
+
+// Queue indicator dots
+.queue-dots {
+  display: flex;
+  gap: 5px;
+  padding: 4px 8px;
+//   min-height: 30px; // Reserve space to prevent layout shift
+  margin-top: 6px; // Fixed spacing from island (reduced from 8px)
+  margin-bottom: 12px; // Add space below to prevent touching content below
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 10px; // Reduced from 12px
+  transition: opacity 0.3s ease, background 0.3s ease;
+  
+  &.hidden {
+    opacity: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    pointer-events: none;
+    
+    .dot {
+      display: none; // Hide dots but keep container space
+    }
+  }
+  
+  .dot {
+    width: 5px; // Reduced from 6px
+    height: 5px; // Reduced from 6px
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transition: all 0.3s ease;
+    
+    &.active {
+      background: white;
+      width: 16px;
+      border-radius: 3px;
+    }
+  }
+}
+
+// Animations
+@keyframes rollIn {
+  0% {
+    transform: translateX(0) scale(1);
+    border-radius: 24px;
+    width: 220px;
+    height: 48px;
+  }
+  50% {
+    transform: translateX(100px) rotate(180deg) scale(0.8);
+    border-radius: 50%;
+  }
+  100% {
+    transform: translateX(200px) rotate(360deg) scale(1);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@keyframes rollOut {
+  0% {
+    transform: rotate(0deg) scale(1);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+  }
+  50% {
+    transform: rotate(-180deg) scale(0.8);
+    border-radius: 50%;
+  }
+  100% {
+    transform: rotate(-360deg) scale(1);
+    border-radius: 24px;
+    width: 220px;
+    height: 48px;
+  }
+}
+
+@keyframes pulseArrow {
+  0%, 100% {
+    opacity: 0.7;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes wakeUp {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 24px rgba(0, 0, 0, 0.2),
+      0 8px 48px rgba(99, 102, 241, 0.3),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    box-shadow: 
+      0 4px 32px rgba(0, 0, 0, 0.3),
+      0 8px 64px rgba(99, 102, 241, 0.5),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+}
+

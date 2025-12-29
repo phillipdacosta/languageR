@@ -59,6 +59,21 @@ export class WebSocketService {
   private newNotificationSubject = new Subject<any>();
   public newNotification$ = this.newNotificationSubject.asObservable();
 
+  private reactionUpdatedSubject = new Subject<{ 
+    messageId: string; 
+    message: Message; 
+    conversationId: string;
+    isReaction?: boolean;
+    reactorName?: string;
+    reactorId?: string;
+    emoji?: string | null;
+    messageAuthorId?: string;
+  }>();
+  public reactionUpdated$ = this.reactionUpdatedSubject.asObservable();
+
+  private messageDeletedSubject = new Subject<{ messageId: string; conversationId: string }>();
+  public messageDeleted$ = this.messageDeletedSubject.asObservable();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
@@ -85,6 +100,8 @@ export class WebSocketService {
     this.socket.off('message_error');
     this.socket.off('new_notification');
     this.socket.off('office_hours_booking');
+    this.socket.off('reaction_updated');
+    this.socket.off('message_deleted');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
@@ -94,6 +111,27 @@ export class WebSocketService {
     // Listen for message sent confirmation (outgoing)
     this.socket.on('message_sent', (message: Message) => {
       this.newMessageSubject.next(message);
+    });
+
+    // Listen for reaction updates
+    this.socket.on('reaction_updated', (data: { 
+      messageId: string; 
+      message: Message; 
+      conversationId: string;
+      isReaction?: boolean;
+      reactorName?: string;
+      reactorId?: string;
+      emoji?: string | null;
+      messageAuthorId?: string;
+    }) => {
+      console.log('🎉 Received reaction_updated:', data);
+      this.reactionUpdatedSubject.next(data);
+    });
+
+    // Listen for message deletions
+    this.socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
+      console.log('🗑️ Received message_deleted:', data);
+      this.messageDeletedSubject.next(data);
     });
 
     // Listen for typing indicators
@@ -214,6 +252,29 @@ export class WebSocketService {
       this.isConnected = false;
       this.connectionSubject.next(false);
     }
+  }
+
+  // Generic method to listen to any WebSocket event
+  on(eventName: string): Observable<any> {
+    return new Observable((observer) => {
+      if (!this.socket) {
+        console.warn(`⚠️ [WebSocket] Cannot listen to '${eventName}': socket not initialized`);
+        return;
+      }
+
+      const handler = (data: any) => {
+        observer.next(data);
+      };
+
+      this.socket.on(eventName, handler);
+
+      // Cleanup
+      return () => {
+        if (this.socket) {
+          this.socket.off(eventName, handler);
+        }
+      };
+    });
   }
 
   sendMessage(

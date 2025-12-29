@@ -810,6 +810,22 @@
   font-weight: 600;
   color: #10b981;
   
+  &.enrolled {
+    color: #10b981;
+    
+    ion-icon {
+      color: #10b981;
+    }
+  }
+  
+  &.cancelled {
+    color: #ef4444;
+    
+    ion-icon {
+      color: #ef4444;
+    }
+  }
+  
   ion-icon {
     color: #10b981;
     font-size: 14px;

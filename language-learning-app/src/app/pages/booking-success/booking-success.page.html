@@ -1,0 +1,102 @@
+<div class="success-container">
+  <!-- Close Button -->
+  <button class="close-button" (click)="close()">
+    <ion-icon name="close"></ion-icon>
+  </button>
+
+  <!-- Success Content -->
+  <div class="success-content" @fadeInUp>
+    <!-- Success Icon with Checkmark -->
+    <div class="success-icon" @scaleIn>
+      <div class="checkmark-circle">
+        <ion-icon name="checkmark" class="checkmark" @checkmark></ion-icon>
+      </div>
+    </div>
+
+    <!-- Heading -->
+    <h1 class="success-title">Lesson Booked!</h1>
+    <p class="success-subtitle">Your lesson has been confirmed</p>
+
+    <!-- Tutor Card -->
+    <div class="tutor-card" @fadeInUp>
+      <ion-avatar class="tutor-avatar">
+        <img [src]="tutorAvatar" *ngIf="tutorAvatar" alt="{{ tutorName }}" />
+        <ion-icon name="person" *ngIf="!tutorAvatar"></ion-icon>
+      </ion-avatar>
+      <div class="tutor-info">
+        <h2 class="tutor-name">{{ tutorName }}</h2>
+        <p class="tutor-label">Your Tutor</p>
+      </div>
+    </div>
+
+    <!-- Lesson Details Card -->
+    <div class="details-card" @fadeInUp *ngIf="lessonDetails">
+      <div class="detail-row">
+        <div class="detail-icon">
+          <span class="subject-emoji">{{ getSubjectEmoji(lessonDetails.subject) }}</span>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Subject</p>
+          <p class="detail-value">{{ lessonDetails.subject }}</p>
+        </div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <div class="detail-row">
+        <div class="detail-icon">
+          <ion-icon name="calendar-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Date</p>
+          <p class="detail-value">{{ formattedDate }}</p>
+        </div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <div class="detail-row">
+        <div class="detail-icon">
+          <ion-icon name="time-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Time</p>
+          <p class="detail-value">{{ formattedTime }}</p>
+        </div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <div class="detail-row">
+        <div class="detail-icon">
+          <ion-icon name="hourglass-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Duration</p>
+          <p class="detail-value">{{ lessonDetails.duration }} minutes</p>
+        </div>
+      </div>
+
+      <div class="detail-divider"></div>
+
+      <div class="detail-row">
+        <div class="detail-icon">
+          <ion-icon name="cash-outline"></ion-icon>
+        </div>
+        <div class="detail-content">
+          <p class="detail-label">Price</p>
+          <p class="detail-value">${{ lessonDetails.price }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Next Steps -->
+    <div class="next-steps" @fadeInUp>
+      <p class="next-steps-text">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        You'll receive a confirmation email and reminder before your lesson
+      </p>
+    </div>
+  </div>
+</div>
+

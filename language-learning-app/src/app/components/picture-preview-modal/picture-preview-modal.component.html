@@ -1,0 +1,47 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Preview Profile Picture</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="preview-container">
+    <div class="preview-image-wrapper">
+      <img 
+        *ngIf="imageUrl"
+        [src]="imageUrl | safeUrl" 
+        alt="Profile Picture Preview" 
+        class="preview-image" 
+        (error)="onImageError($event)" 
+        (load)="onImageLoad()">
+      <div *ngIf="!imageUrl" class="no-image">
+        <ion-icon name="image-outline"></ion-icon>
+        <p>No image to preview</p>
+      </div>
+    </div>
+    <p class="preview-text">Do you want to use this image as your profile picture?</p>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button fill="clear" (click)="cancel()">
+        Cancel
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="solid" color="primary" (click)="confirm()">
+        Upload
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>
+
+
+

@@ -1,6 +1,23 @@
+// Force proper modal layout with inline modals
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-header {
+  flex-shrink: 0;
+}
+
+ion-content {
+  flex: 1;
+  --background: transparent;
+}
+
 .block-time-container {
   max-width: 500px;
   margin: 0 auto;
+  padding: 20px 0;
 }
 
 .date-display {

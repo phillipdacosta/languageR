@@ -77,18 +77,31 @@ router.get('/me', verifyToken, async (req, res) => {
       areDifferent: auth0Picture !== user.picture
     });
     
-    if (auth0Picture && auth0Picture !== user.picture) {
-      console.log('🖼️ Picture changed in Auth0, updating database:', {
-        old: user.picture,
+    // Always update auth0Picture if we have a new Auth0 picture (even if user has custom picture)
+    const hasCustomPicture = user.picture && user.picture.includes('storage.googleapis.com') && user.picture.includes('profile-pictures');
+    
+    if (auth0Picture && auth0Picture !== user.auth0Picture) {
+      console.log('🖼️ Auth0 picture changed, updating auth0Picture:', {
+        old: user.auth0Picture,
         new: auth0Picture
       });
-      user.picture = auth0Picture;
+      user.auth0Picture = auth0Picture;
+      
+      // If user doesn't have a custom picture, also update main picture
+      if (!hasCustomPicture) {
+        console.log('🖼️ User has no custom picture, also updating main picture');
+        user.picture = auth0Picture;
+      } else {
+        console.log('🖼️ User has custom picture, keeping it but updating auth0Picture for future restore');
+      }
+      
       await user.save();
-      console.log('✅ Picture updated in database');
+      console.log('✅ Pictures updated in database');
     } else if (auth0Picture && !user.picture) {
       // If Auth0 has a picture but database doesn't, sync it
-      console.log('🖼️ Auth0 has picture but database doesn\')t, syncing...');
+      console.log('🖼️ Auth0 has picture but database doesn\'t, syncing...');
       user.picture = auth0Picture;
+      user.auth0Picture = auth0Picture;
       await user.save();
       console.log('✅ Picture synced to database');
     }
@@ -106,6 +119,45 @@ router.get('/me', verifyToken, async (req, res) => {
       await user.save();
     }
     
+    // Ensure interfaceLanguage and nativeLanguage have default values if not set
+    let needsSave = false;
+    if (!user.interfaceLanguage) {
+      console.log('🌐 User has no interfaceLanguage, setting default to "en"');
+      user.interfaceLanguage = 'en';
+      needsSave = true;
+    }
+    if (!user.nativeLanguage) {
+      console.log('🌐 User has no nativeLanguage, setting default to "en"');
+      user.nativeLanguage = 'en';
+      needsSave = true;
+    }
+    
+    // Ensure profile exists and has default values for new fields
+    if (!user.profile) {
+      user.profile = {};
+      needsSave = true;
+    }
+    if (user.profile.showWalletBalance === undefined) {
+      console.log('💰 User has no showWalletBalance, setting default to false');
+      user.profile.showWalletBalance = false;
+      needsSave = true;
+    }
+    if (user.profile.remindersEnabled === undefined) {
+      console.log('🔔 User has no remindersEnabled, setting default to true');
+      user.profile.remindersEnabled = true;
+      needsSave = true;
+    }
+    
+    if (needsSave) {
+      await user.save();
+      console.log('✅ Saved default language and profile preferences');
+    }
+    
+    console.log('🌐 Returning user with languages:', {
+      interfaceLanguage: user.interfaceLanguage,
+      nativeLanguage: user.nativeLanguage
+    });
+    
     res.json({
       success: true,
       user: {
@@ -122,6 +174,8 @@ router.get('/me', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -208,6 +262,23 @@ router.post('/', verifyToken, async (req, res) => {
       }
     }
     
+    // Ensure language defaults are set for new users
+    let needsSave = false;
+    if (!user.interfaceLanguage) {
+      console.log('🌐 POST: User has no interfaceLanguage, setting default to "en"');
+      user.interfaceLanguage = 'en';
+      needsSave = true;
+    }
+    if (!user.nativeLanguage) {
+      console.log('🌐 POST: User has no nativeLanguage, setting default to "en"');
+      user.nativeLanguage = 'en';
+      needsSave = true;
+    }
+    if (needsSave) {
+      await user.save();
+      console.log('✅ POST: Saved default language preferences');
+    }
+    
     res.json({
       success: true,
       user: {
@@ -224,6 +295,8 @@ router.post('/', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -397,8 +470,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
 // PUT /api/users/profile - Update user profile
 router.put('/profile', verifyToken, async (req, res) => {
   try {
-    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled } = req.body;
-    console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled);
+    const { bio, timezone, preferredLanguage, userType, picture, officeHoursEnabled, interfaceLanguage, showWalletBalance, remindersEnabled, aiAnalysisEnabled } = req.body;
+    console.log('📝 Updating profile for user:', req.user.sub, 'officeHoursEnabled:', officeHoursEnabled, 'aiAnalysisEnabled:', aiAnalysisEnabled);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     
@@ -406,17 +479,29 @@ router.put('/profile', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled);
+    console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled, 'aiAnalysisEnabled:', user.profile?.aiAnalysisEnabled);
     
-    // Update profile data
+    // Update profile data - preserve existing values if not provided, use defaults if field doesn't exist
     user.profile = {
-      bio: bio !== undefined ? bio : user.profile.bio,
-      timezone: timezone !== undefined ? timezone : user.profile.timezone,
-      preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : user.profile.preferredLanguage,
-      officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : user.profile.officeHoursEnabled
+      bio: bio !== undefined ? bio : (user.profile?.bio ?? ''),
+      timezone: timezone !== undefined ? timezone : (user.profile?.timezone ?? 'UTC'),
+      preferredLanguage: preferredLanguage !== undefined ? preferredLanguage : (user.profile?.preferredLanguage ?? 'en'),
+      officeHoursEnabled: officeHoursEnabled !== undefined ? officeHoursEnabled : (user.profile?.officeHoursEnabled ?? false),
+      officeHoursLastActive: user.profile?.officeHoursLastActive ?? null,
+      showWalletBalance: showWalletBalance !== undefined ? showWalletBalance : (user.profile?.showWalletBalance ?? false),
+      remindersEnabled: remindersEnabled !== undefined ? remindersEnabled : (user.profile?.remindersEnabled ?? true),
+      aiAnalysisEnabled: aiAnalysisEnabled !== undefined ? aiAnalysisEnabled : (user.profile?.aiAnalysisEnabled ?? true)
     };
     
-    console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled);
+    console.log('📝 After update - showWalletBalance:', user.profile.showWalletBalance, 'remindersEnabled:', user.profile.remindersEnabled);
+    
+    // Update interface language if provided
+    if (interfaceLanguage !== undefined && ['en', 'es', 'fr', 'pt', 'de'].includes(interfaceLanguage)) {
+      user.interfaceLanguage = interfaceLanguage;
+      console.log('🌐 Interface language updated to:', interfaceLanguage);
+    }
+    
+    console.log('📝 After update - officeHoursEnabled:', user.profile.officeHoursEnabled, 'aiAnalysisEnabled:', user.profile.aiAnalysisEnabled);
     
     // Update userType if provided
     if (userType) {
@@ -428,7 +513,9 @@ router.put('/profile', verifyToken, async (req, res) => {
       user.picture = picture;
     }
     
+    console.log('💾 About to save user with interfaceLanguage:', user.interfaceLanguage);
     await user.save();
+    console.log('✅ User saved. Verifying interfaceLanguage:', user.interfaceLanguage);
     
     res.json({
       success: true,
@@ -447,6 +534,8 @@ router.put('/profile', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
@@ -473,7 +562,7 @@ router.post('/office-hours-heartbeat', verifyToken, async (req, res) => {
 
     const conflictingLessons = await Lesson.find({
       tutorId: user._id,
-      status: { $in: ['scheduled', 'in_progress'] },
+      status: { $in: ['scheduled', 'in_progress', 'pending_reschedule'] },
       isOfficeHours: { $ne: true }, // Exclude office hours lessons from conflict check
       $or: [
         // Currently in progress
@@ -899,6 +988,127 @@ router.post('/tutor-video-upload', verifyToken, upload.single('video'), uploadVi
 // POST /api/users/profile-picture-upload - Upload profile picture
 router.post('/profile-picture-upload', verifyToken, uploadImage.single('image'), uploadImageToGCS);
 
+// PUT /api/users/profile-picture - Update user's profile picture URL in database
+router.put('/profile-picture', verifyToken, async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+
+    // Find and update user
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Save current picture as auth0Picture if it's not a custom GCS picture
+    // This preserves the original Auth0/Google picture for restoration later
+    if (user.picture && !user.picture.includes('storage.googleapis.com') && !user.auth0Picture) {
+      user.auth0Picture = user.picture;
+      console.log('💾 Saving original Auth0 picture:', user.auth0Picture);
+    }
+
+    // Update picture
+    user.picture = imageUrl;
+    await user.save();
+
+    console.log('✅ Profile picture updated for user:', user.email);
+
+    res.json({
+      success: true,
+      message: 'Profile picture updated successfully',
+      picture: imageUrl
+    });
+  } catch (error) {
+    console.error('❌ Error updating profile picture:', error);
+    res.status(500).json({ error: 'Failed to update profile picture' });
+  }
+});
+
+// DELETE /api/users/profile-picture - Remove profile picture and restore Auth0 picture
+router.delete('/profile-picture', verifyToken, async (req, res) => {
+  try {
+    const { Storage } = require('@google-cloud/storage');
+    const axios = require('axios');
+    
+    // Find user
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const oldPictureUrl = user.picture;
+    let restoredPicture = null;
+
+    // Try to restore from saved auth0Picture
+    if (user.auth0Picture) {
+      restoredPicture = user.auth0Picture;
+      console.log('🔄 Restoring from saved Auth0 picture:', restoredPicture);
+    } else if (req.user && req.user.picture) {
+      // Fallback: try to get from token
+      restoredPicture = req.user.picture;
+      console.log('🔄 Restoring Auth0 picture from token:', restoredPicture);
+    } else {
+      console.warn('⚠️ No Auth0 picture to restore - user will see initials');
+    }
+
+    // Update picture in database (restore to Auth0 picture or null)
+    user.picture = restoredPicture;
+    await user.save();
+
+    console.log('✅ Profile picture removed for user:', user.email);
+    if (restoredPicture) {
+      console.log('✅ Restored to Auth0 picture');
+    }
+
+    // Try to delete custom picture from GCS if it's a GCS URL
+    if (oldPictureUrl && oldPictureUrl.includes('storage.googleapis.com') && oldPictureUrl.includes('profile-pictures')) {
+      try {
+        // Extract bucket name and file path from URL
+        // Format: https://storage.googleapis.com/bucket-name/path/to/file
+        const urlParts = oldPictureUrl.replace('https://storage.googleapis.com/', '').split('/');
+        const bucketName = urlParts[0];
+        const filePath = urlParts.slice(1).join('/');
+
+        // Initialize storage client
+        const storageConfig = {
+          projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+        };
+
+        if (process.env.GOOGLE_CLOUD_KEY_FILE) {
+          storageConfig.keyFilename = process.env.GOOGLE_CLOUD_KEY_FILE;
+        } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+          storageConfig.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        }
+
+        const storage = new Storage(storageConfig);
+        const bucket = storage.bucket(bucketName);
+        const file = bucket.file(filePath);
+
+        // Delete file from GCS
+        await file.delete();
+        console.log('✅ Deleted custom profile picture from GCS:', filePath);
+      } catch (gcsError) {
+        // Don't fail if GCS deletion fails - picture is already restored in DB
+        console.warn('⚠️ Could not delete old picture from GCS:', gcsError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: restoredPicture ? 'Custom picture removed, restored to account picture' : 'Profile picture removed successfully',
+      picture: restoredPicture
+    });
+  } catch (error) {
+    console.error('❌ Error removing profile picture:', error);
+    res.status(500).json({ error: 'Failed to remove profile picture' });
+  }
+});
+
 // PUT /api/users/availability - Update tutor availability
 router.put('/availability', verifyToken, async (req, res) => {
   try {
@@ -1004,15 +1214,47 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
       return res.status(404).json({ message: 'Tutor not found' });
     }
 
-    console.log('📅 Tutor found:', tutor.name, 'Availability blocks:', tutor.availability?.length || 0);
-    console.log('📅 Availability data:', JSON.stringify(tutor.availability, null, 2));
+    console.log('📅 Tutor found:', tutor.name, 'Availability blocks (raw):', tutor.availability?.length || 0);
+    
+    // Filter OUT class blocks - classes should come from Classes API only
+    // This prevents fetching thousands of old/ghost class blocks
+    const withoutClasses = (tutor.availability || []).filter(block => block.type !== 'class');
+    
+    // Also filter out old blocks (older than 7 days ago) to prevent performance issues
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    
+    const actualAvailability = withoutClasses.filter(block => {
+      // Keep blocks without date (recurring patterns)
+      if (!block.absoluteStart && !block.absoluteEnd) {
+        return true;
+      }
+      
+      // Keep blocks that end after 7 days ago
+      if (block.absoluteEnd) {
+        const blockEnd = new Date(block.absoluteEnd);
+        return blockEnd >= sevenDaysAgo;
+      }
+      
+      // Keep blocks that start after 7 days ago
+      if (block.absoluteStart) {
+        const blockStart = new Date(block.absoluteStart);
+        return blockStart >= sevenDaysAgo;
+      }
+      
+      return true;
+    });
+    
+    console.log('📅 Availability blocks (filtered, excluding classes and old blocks):', actualAvailability.length);
+    console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
-      availability: tutor.availability || [],
+      availability: actualAvailability,
       timezone: tutor.profile?.timezone || 'America/New_York'
     });
 
@@ -1113,14 +1355,20 @@ router.get('/availability', verifyToken, async (req, res) => {
 
     console.log('🔧 GET /api/users/availability (current user)');
     console.log('🔧 User:', user.email, user.name);
-    console.log('🔧 Availability blocks count:', user.availability?.length || 0);
-    if (user.availability && user.availability.length > 0) {
-      console.log('🔧 First 3 blocks:', JSON.stringify(user.availability.slice(0, 3), null, 2));
+    console.log('🔧 Availability blocks count (raw):', user.availability?.length || 0);
+    
+    // Filter OUT class blocks - classes should come from Classes API only
+    // This prevents fetching thousands of old/ghost class blocks
+    const actualAvailability = (user.availability || []).filter(block => block.type !== 'class');
+    
+    console.log('🔧 Availability blocks count (filtered, excluding classes):', actualAvailability.length);
+    if (actualAvailability.length > 0) {
+      console.log('🔧 First 3 blocks:', JSON.stringify(actualAvailability.slice(0, 3), null, 2));
     }
 
     res.json({ 
       success: true, 
-      availability: user.availability || [] 
+      availability: actualAvailability
     });
 
   } catch (error) {

@@ -15,8 +15,8 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'lessons',
-    loadComponent: () => import('./lessons/lessons.page').then(m => m.LessonsPage),
+    path: 'booking-success',
+    loadComponent: () => import('./pages/booking-success/booking-success.page').then(m => m.BookingSuccessPage),
     canActivate: [AuthGuard]
   },
   {
@@ -76,6 +76,25 @@ const routes: Routes = [
   {
     path: 'availability-setup',
     loadComponent: () => import('./pages/availability-setup/availability-setup.page').then( m => m.AvailabilitySetupPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'terms-privacy',
+    loadChildren: () => import('./legal/terms-privacy/terms-privacy.module').then( m => m.TermsPrivacyPageModule)
+  },
+  {
+    path: 'review-deck',
+    loadChildren: () => import('./review-deck/review-deck.module').then( m => m.ReviewDeckPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'lesson-analysis/:id',
+    loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tutor-feedback/:feedbackId',
+    loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
     canActivate: [AuthGuard]
   }
 ];

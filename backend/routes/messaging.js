@@ -233,8 +233,8 @@ router.get('/conversations', verifyToken, async (req, res) => {
         });
       }
       
-      // Count unread messages (skip system messages for unread count)
-      if (!message.isSystemMessage && message.receiverId === userId && !message.read) {
+      // Count unread messages (include system messages for unread count)
+      if (message.receiverId === userId && !message.read) {
         conversationMap.get(conversationId).unreadCount++;
       }
     }
@@ -287,7 +287,8 @@ router.get('/conversations', verifyToken, async (req, res) => {
             senderId: conv.lastMessage.senderId,
             createdAt: conv.lastMessage.createdAt,
             type: conv.lastMessage.type || (conv.lastMessage.isSystemMessage ? 'system' : 'text'),
-            isSystemMessage: conv.lastMessage.isSystemMessage || false
+            isSystemMessage: conv.lastMessage.isSystemMessage || false,
+            reactions: conv.lastMessage.reactions || [] // Include reactions array
           },
           unreadCount: conv.unreadCount,
           updatedAt: conv.lastMessage.createdAt
@@ -370,15 +371,25 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
     // If user is a tutor, show all messages including system messages
     // (tutors can see system messages in potential student conversations)
     
+    // Handle 'before' parameter (message ID, not date)
     if (before) {
-      if (query.$or) {
-        query.$and = [
-          { $or: query.$or },
-          { createdAt: { $lt: new Date(before) } }
-        ];
-        delete query.$or;
+      // Find the message with this ID to get its createdAt timestamp
+      const beforeMessage = await Message.findById(before).lean();
+      
+      if (beforeMessage) {
+        console.log(`📅 Loading messages before message: ${before} (timestamp: ${beforeMessage.createdAt})`);
+        
+        if (query.$or) {
+          query.$and = [
+            { $or: query.$or },
+            { createdAt: { $lt: beforeMessage.createdAt } }
+          ];
+          delete query.$or;
+        } else {
+          query.createdAt = { $lt: beforeMessage.createdAt };
+        }
       } else {
-        query.createdAt = { $lt: new Date(before) };
+        console.warn(`⚠️ Before message not found: ${before}, loading from beginning`);
       }
     }
 
@@ -402,7 +413,10 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
         console.log('🔍 Trying reverse conversationId:', reverseConversationId);
         let altQuery = { conversationId: reverseConversationId };
         if (before) {
-          altQuery.createdAt = { $lt: new Date(before) };
+          const beforeMessage = await Message.findById(before).lean();
+          if (beforeMessage) {
+            altQuery.createdAt = { $lt: beforeMessage.createdAt };
+          }
         }
         messages = await Message.find(altQuery)
           .sort({ createdAt: -1 })
@@ -421,7 +435,10 @@ router.get('/conversations/:otherUserId/messages', verifyToken, async (req, res)
           ]
         };
         if (before) {
-          directQuery.createdAt = { $lt: new Date(before) };
+          const beforeMessage = await Message.findById(before).lean();
+          if (beforeMessage) {
+            directQuery.createdAt = { $lt: beforeMessage.createdAt };
+          }
         }
         messages = await Message.find(directQuery)
           .sort({ createdAt: -1 })
@@ -732,7 +749,8 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
           userId: receiver._id,
           type: 'message',
           title: 'New Message',
-          message: senderDisplayName ? `${senderDisplayName} sent you a message` : 'You have a new message',
+          message: senderDisplayName ? `<strong>${senderDisplayName}</strong> sent you a message` : 'You have a new message',
+          relatedUserPicture: sender?.picture || null,
           data: {
             messageId: savedMessage._id.toString(),
             conversationId: savedMessage.conversationId,
@@ -821,6 +839,267 @@ router.put('/conversations/:otherUserId/read', verifyToken, async (req, res) => 
     res.status(500).json({
       success: false,
       message: 'Failed to mark messages as read'
+    });
+  }
+});
+
+// Add reaction to a message
+router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!emoji) {
+      return res.status(400).json({
+        success: false,
+        message: 'Emoji is required'
+      });
+    }
+
+    // Find the message
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Get user info
+    const user = await User.findOne({ auth0Id: userId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!message.reactions) {
+      message.reactions = [];
+    }
+
+    // Check if user already reacted with this exact emoji
+    const existingReaction = message.reactions.find(
+      r => r.userId === userId && r.emoji === emoji
+    );
+
+    let reactionAdded = false; // Track if reaction was added or removed
+    
+    if (existingReaction) {
+      // Remove the reaction if clicking the same emoji (toggle off)
+      message.reactions = message.reactions.filter(
+        r => r.userId !== userId
+      );
+      reactionAdded = false;
+    } else {
+      // Remove any existing reaction from this user first (only one reaction allowed)
+      message.reactions = message.reactions.filter(
+        r => r.userId !== userId
+      );
+      // Add the new reaction
+      message.reactions.push({
+        emoji,
+        userId,
+        userName: formatDisplayName(user)
+      });
+      reactionAdded = true;
+      
+      // Create notification for the message author (if not reacting to own message)
+      if (message.senderId !== userId) {
+        try {
+          const Notification = require('../models/Notification');
+          await Notification.create({
+            userId: message.senderId,
+            type: 'message',
+            title: 'Message Reaction',
+            message: `<strong>${formatDisplayName(user)}</strong> reacted ${emoji} to your message`,
+            relatedUserPicture: user.picture || null,
+            relatedUserId: userId,
+            read: false
+          });
+          
+          // Emit notification via WebSocket
+          if (req.io && req.connectedUsers) {
+            const authorSocketId = req.connectedUsers.get(message.senderId);
+            if (authorSocketId) {
+              req.io.to(authorSocketId).emit('new_notification', {
+                type: 'message',
+                title: 'Message Reaction',
+                message: `${formatDisplayName(user)} reacted ${emoji} to your message`,
+                userId: message.senderId
+              });
+            }
+          }
+        } catch (notifError) {
+          console.error('Error creating reaction notification:', notifError);
+          // Don't fail the reaction if notification fails
+        }
+      }
+    }
+
+    await message.save();
+
+    // Populate sender info for response
+    const updatedMessage = await Message.findById(messageId).lean();
+    const sender = await User.findOne({ auth0Id: updatedMessage.senderId });
+    if (sender) {
+      updatedMessage.sender = {
+        id: sender.auth0Id,
+        name: formatDisplayName(sender),
+        picture: sender.picture
+      };
+    }
+
+    // Emit WebSocket event for real-time update
+    console.log('📡 Emitting reaction update, req.io exists:', !!req.io, 'req.connectedUsers exists:', !!req.connectedUsers);
+    if (req.io && req.connectedUsers) {
+      const senderSocketId = req.connectedUsers.get(updatedMessage.senderId);
+      const receiverSocketId = req.connectedUsers.get(updatedMessage.receiverId);
+      console.log('🔍 Sender socket:', senderSocketId, 'Receiver socket:', receiverSocketId);
+      
+      const reactionUpdate = {
+        messageId: updatedMessage._id,
+        message: updatedMessage,
+        conversationId: updatedMessage.conversationId,
+        // Add metadata for conversation preview
+        isReaction: reactionAdded, // Only true if reaction was added, false if removed
+        reactorName: formatDisplayName(user),
+        reactorId: userId,
+        emoji: reactionAdded ? emoji : null, // Only send emoji if reaction was added
+        messageAuthorId: updatedMessage.senderId
+      };
+      
+      // Notify sender
+      if (senderSocketId) {
+        req.io.to(senderSocketId).emit('reaction_updated', reactionUpdate);
+        console.log('📤 Emitted reaction_updated to sender:', updatedMessage.senderId);
+      }
+      
+      // Notify receiver
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit('reaction_updated', reactionUpdate);
+        console.log('📤 Emitted reaction_updated to receiver:', updatedMessage.receiverId);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: updatedMessage
+    });
+  } catch (error) {
+    console.error('Error adding reaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add reaction'
+    });
+  }
+});
+
+// Delete a message
+router.delete('/messages/:messageId', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { messageId } = req.params;
+
+    // Find the message
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Verify that the user is the sender of the message (only sender can delete)
+    if (message.senderId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only delete your own messages'
+      });
+    }
+
+    // Store conversation info before deletion for WebSocket notification
+    const conversationId = message.conversationId;
+    const senderId = message.senderId;
+    const receiverId = message.receiverId;
+
+    // Delete associated files from GCS if they exist
+    if (message.fileUrl && (message.type === 'image' || message.type === 'file' || message.type === 'voice')) {
+      try {
+        const { bucket } = initializeGCS();
+        if (bucket) {
+          // Extract the GCS filename from the URL
+          // URL format: https://storage.googleapis.com/bucket-name/path/to/file
+          const urlParts = message.fileUrl.split(`${bucket.name}/`);
+          if (urlParts.length > 1) {
+            const gcsFilename = urlParts[1];
+            console.log('🗑️ Deleting file from GCS:', gcsFilename);
+            
+            const file = bucket.file(gcsFilename);
+            await file.delete();
+            console.log('✅ File deleted from GCS successfully');
+          }
+
+          // Also delete thumbnail if it exists
+          if (message.thumbnailUrl) {
+            const thumbnailParts = message.thumbnailUrl.split(`${bucket.name}/`);
+            if (thumbnailParts.length > 1) {
+              const thumbnailFilename = thumbnailParts[1];
+              console.log('🗑️ Deleting thumbnail from GCS:', thumbnailFilename);
+              
+              const thumbnailFile = bucket.file(thumbnailFilename);
+              await thumbnailFile.delete();
+              console.log('✅ Thumbnail deleted from GCS successfully');
+            }
+          }
+        }
+      } catch (gcsError) {
+        // Log error but don't fail the message deletion
+        console.error('⚠️ Error deleting file from GCS:', gcsError);
+        // Continue with message deletion even if GCS deletion fails
+      }
+    }
+
+    // Delete the message from database
+    await Message.findByIdAndDelete(messageId);
+
+    // Emit WebSocket event for real-time deletion
+    console.log('📡 Emitting message deletion, req.io exists:', !!req.io, 'req.connectedUsers exists:', !!req.connectedUsers);
+    if (req.io && req.connectedUsers) {
+      const senderSocketId = req.connectedUsers.get(senderId);
+      const receiverSocketId = req.connectedUsers.get(receiverId);
+      console.log('🔍 Sender socket:', senderSocketId, 'Receiver socket:', receiverSocketId);
+      
+      const deleteEvent = {
+        messageId: messageId,
+        conversationId: conversationId
+      };
+      
+      // Notify sender
+      if (senderSocketId) {
+        req.io.to(senderSocketId).emit('message_deleted', deleteEvent);
+        console.log('📤 Emitted message_deleted to sender:', senderId);
+      }
+      
+      // Notify receiver
+      if (receiverSocketId) {
+        req.io.to(receiverSocketId).emit('message_deleted', deleteEvent);
+        console.log('📤 Emitted message_deleted to receiver:', receiverId);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully',
+      messageId: messageId
+    });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete message'
     });
   }
 });
@@ -1004,8 +1283,9 @@ router.post('/potential-student', verifyToken, async (req, res) => {
       type: 'potential_student',
       title: 'Potential Student Interest',
       message: triggerType === 'favorite' 
-        ? `${studentName} saved your profile`
-        : `${studentName} clicked "Book lesson" on your profile`,
+        ? `<strong>${studentName}</strong> saved your profile`
+        : `<strong>${studentName}</strong> clicked "Book lesson" on your profile`,
+      relatedUserPicture: student.picture || null,
       data: {
         studentId: student._id.toString(),
         studentName: studentName,
@@ -1028,6 +1308,8 @@ router.post('/potential-student', verifyToken, async (req, res) => {
     const tutorSocketId = req.connectedUsers?.get(tutorId);
     if (tutorSocketId && req.io) {
       console.log('📤 Emitting potential_student notification to tutor:', tutorId);
+      
+      // Emit notification event
       req.io.to(tutorSocketId).emit('new_notification', {
         type: 'potential_student',
         title: 'Potential Student Interest',
@@ -1041,6 +1323,19 @@ router.post('/potential-student', verifyToken, async (req, res) => {
           conversationId,
           triggerType
         }
+      });
+      
+      // Also emit new_message event to update Messages tab unread count
+      req.io.to(tutorSocketId).emit('new_message', {
+        id: systemMessage._id.toString(),
+        conversationId,
+        senderId: 'system',
+        receiverId: tutorId,
+        content: systemMessageContent.substring(0, 100) + '...',
+        type: 'system',
+        isSystemMessage: true,
+        read: false,
+        createdAt: systemMessage.createdAt
       });
     }
 

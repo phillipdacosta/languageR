@@ -1,10 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Message = require('../models/Message');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { generateTrialLessonMessage } = require('../utils/systemMessages');
+
+// Helper function to get socket ID by auth0Id
+async function getUserSocketId(auth0Id) {
+  // Return the room name format that matches socket.join in server.js
+  // Users are joined to rooms with format: user:${auth0Id}
+  return `user:${auth0Id}`;
+}
+
+
+// Configure multer for beacon endpoint (parses FormData)
+const beaconUpload = multer();
 
 // Helper function to format names as "FirstName LastInitial."
 const formatDisplayName = (user) => {
@@ -147,7 +161,7 @@ router.post('/', verifyToken, async (req, res) => {
     // We need to check if any existing lesson (with its buffer) conflicts with the new lesson (with its buffer)
     const existingLessons = await Lesson.find({
       tutorId: tutorId,
-      status: { $in: ['scheduled', 'in_progress'] }
+      status: { $in: ['scheduled', 'in_progress', 'pending_reschedule'] }
     });
 
     let conflictingLesson = null;
@@ -363,27 +377,30 @@ router.post('/', verifyToken, async (req, res) => {
     const lessonTypePrefix = isTrialLesson ? 'trial ' : '';
     const lessonTypeLabel = isTrialLesson ? 'Trial Lesson' : 'Lesson';
 
-    // Create notification for tutor
-    try {
-      await Notification.create({
-        userId: tutor._id,
-        type: 'lesson_created',
-        title: isTrialLesson ? 'New Trial Lesson Scheduled' : 'New Lesson Scheduled',
-        message: `${studentDisplayName} set up a ${language} ${lessonTypePrefix}lesson with you for ${formattedDate} at ${formattedTime}`,
-        data: {
-          lessonId: lesson._id,
-          studentId: student._id,
-          studentName: studentDisplayName,
-          language: language,
-          date: formattedDate,
-          time: formattedTime,
-          startTime: lesson.startTime,
-          isTrialLesson: isTrialLesson
-        }
-      });
-      console.log('✅ Notification created for tutor:', tutor._id);
-    } catch (notifError) {
-      console.error('❌ Error creating notification for tutor:', notifError);
+    // Create notification for tutor (skip for trial lessons - they get a special system message instead)
+    if (!isTrialLesson) {
+      try {
+        await Notification.create({
+          userId: tutor._id,
+          type: 'lesson_created',
+          title: 'New Lesson Scheduled',
+          message: `<strong>${studentDisplayName}</strong> set up a <strong>${language}</strong> lesson with you for <strong>${formattedDate} at ${formattedTime}</strong>`,
+          relatedUserPicture: student.picture || null,
+          data: {
+            lessonId: lesson._id,
+            studentId: student._id,
+            studentName: studentDisplayName,
+            language: language,
+            date: formattedDate,
+            time: formattedTime,
+            startTime: lesson.startTime,
+            isTrialLesson: false
+          }
+        });
+        console.log('✅ Notification created for tutor:', tutor._id);
+      } catch (notifError) {
+        console.error('❌ Error creating notification for tutor:', notifError);
+      }
     }
 
     // Create notification for student
@@ -392,7 +409,8 @@ router.post('/', verifyToken, async (req, res) => {
         userId: student._id,
         type: 'lesson_created',
         title: isTrialLesson ? 'Trial Lesson Scheduled' : 'Lesson Scheduled',
-        message: `You set up a ${language} ${lessonTypePrefix}lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
+        message: `You set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with <strong>${tutorDisplayName}</strong> for <strong>${formattedDate} at ${formattedTime}</strong>`,
+        relatedUserPicture: tutor.picture || null,
         data: {
           lessonId: lesson._id,
           tutorId: tutor._id,
@@ -417,7 +435,7 @@ router.post('/', verifyToken, async (req, res) => {
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `${studentDisplayName} set up a ${language} ${lessonTypePrefix}lesson with you for ${formattedDate} at ${formattedTime}`,
+          message: `<strong>${studentDisplayName}</strong> set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with you for <strong>${formattedDate} at ${formattedTime}</strong>`,
           isTrialLesson: isTrialLesson
         });
       }
@@ -425,10 +443,122 @@ router.post('/', verifyToken, async (req, res) => {
       if (studentSocketId) {
         req.io.to(studentSocketId).emit('new_notification', {
           type: 'lesson_created',
-          message: `You set up a ${language} ${lessonTypePrefix}lesson with ${tutorDisplayName} for ${formattedDate} at ${formattedTime}`,
+          message: `You set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with <strong>${tutorDisplayName}</strong> for <strong>${formattedDate} at ${formattedTime}</strong>`,
           isTrialLesson: isTrialLesson
         });
       }
+    }
+
+    // Send system message to tutor if this is a trial lesson
+    console.log('🔍 [TRIAL LESSON] Checking isTrialLesson:', isTrialLesson);
+    if (isTrialLesson) {
+      console.log('🔍 [TRIAL LESSON] Starting system message creation...');
+      try {
+        // Get tutor's interface language preference
+        const tutorLanguage = tutor.interfaceLanguage || 'en';
+        console.log('🔍 [TRIAL LESSON] Tutor language:', tutorLanguage);
+        
+        // Generate the multilingual system message
+        const systemMessageContent = generateTrialLessonMessage({
+          studentName: studentDisplayName,
+          studentId: student._id.toString(),
+          startTime: lessonDate,
+          duration: lesson.duration,
+          tutorLanguage
+        });
+        
+        console.log('🔍 [TRIAL LESSON] Message generated, length:', systemMessageContent.length);
+        
+        // Create conversation ID between tutor and student using auth0Ids (NOT MongoDB ObjectIds)
+        const ids = [student.auth0Id, tutor.auth0Id].sort();
+        const conversationId = `${ids[0]}_${ids[1]}`;
+        console.log('🔍 [TRIAL LESSON] ConversationId:', conversationId);
+        
+        // Create the system message
+        const systemMessage = new Message({
+          conversationId,
+          senderId: 'system',
+          receiverId: tutor.auth0Id, // Use auth0Id, not MongoDB ObjectId
+          content: systemMessageContent,
+          type: 'system',
+          isSystemMessage: true,
+          visibleToTutorOnly: true,
+          triggerType: 'book_lesson',
+          read: false
+        });
+        
+        await systemMessage.save();
+        
+        console.log('✅ System message sent to tutor about trial lesson:', {
+          messageId: systemMessage._id.toString(),
+          tutorAuth0Id: tutor.auth0Id,
+          studentAuth0Id: student.auth0Id,
+          conversationId,
+          language: tutorLanguage
+        });
+        
+        // Create notification for tutor about the trial lesson message
+        const trialNotification = await Notification.create({
+          userId: tutor._id,
+          type: 'lesson_created',
+          title: 'Trial Lesson Tips',
+          message: `<strong>${studentDisplayName}</strong> booked a <strong>trial lesson</strong> on <strong>${new Date(lesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>. Check your messages for preparation tips.`,
+          relatedUserPicture: student.picture || null,
+          data: {
+            lessonId: lesson._id.toString(),
+            studentId: student._id.toString(),
+            studentName: studentDisplayName,
+            studentPicture: student.picture,
+            conversationId,
+            messageId: systemMessage._id.toString(),
+            startTime: lesson.startTime
+          }
+        });
+        
+        console.log('✅ Trial lesson notification created:', trialNotification._id);
+        
+        // Emit websocket notification to tutor if connected
+        if (req.io && req.connectedUsers) {
+          const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+          if (tutorSocketId) {
+            console.log('📤 Emitting trial lesson notification to tutor');
+            
+            // Emit notification event
+            req.io.to(tutorSocketId).emit('new_notification', {
+              type: 'lesson_created',
+              title: 'Trial Lesson Tips',
+              message: `${studentDisplayName} booked a trial lesson on ${new Date(lesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
+              data: {
+                lessonId: lesson._id.toString(),
+                studentId: student._id.toString(),
+                studentName: studentDisplayName,
+                studentPicture: student.picture,
+                conversationId,
+                startTime: lesson.startTime
+              }
+            });
+            
+            // Also emit new_message event to update Messages tab unread count and dropdown
+            req.io.to(tutorSocketId).emit('new_message', {
+              id: systemMessage._id.toString(),
+              conversationId,
+              senderId: 'system',
+              receiverId: tutor.auth0Id,
+              content: systemMessageContent, // Send full content, not truncated
+              type: 'system',
+              isSystemMessage: true,
+              read: false,
+              createdAt: systemMessage.createdAt
+            });
+          }
+        }
+      } catch (systemMsgError) {
+        console.error('❌ Error creating trial lesson system message:', systemMsgError);
+        console.error('❌ Error stack:', systemMsgError.stack);
+        // Don't fail the lesson creation if system message fails
+      }
+    } else {
+      console.log('ℹ️ [TRIAL LESSON] Not a trial lesson, skipping system message');
     }
 
     res.json({ 
@@ -543,7 +673,7 @@ router.post('/office-hours', verifyToken, async (req, res) => {
     // Check for conflicts with existing lessons
     const existingLessons = await Lesson.find({
       tutorId: tutorId,
-      status: { $in: ['scheduled', 'in_progress'] },
+      status: { $in: ['scheduled', 'in_progress', 'pending_reschedule'] },
       startTime: { $lt: lessonEndTime },
       endTime: { $gt: lessonStartTime }
     });
@@ -661,7 +791,7 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
   try {
     const startTime = Date.now();
     const { tutorId } = req.params;
-    const { all } = req.query; // Query param to get all lessons (including past)
+    const { all, startDate, endDate } = req.query; // Add date range parameters
     
     console.log(`⏱️ [Lessons By Tutor] Request started for tutorId: ${tutorId}`);
     
@@ -672,12 +802,29 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
       });
     }
 
-    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all);
+    console.log('📅 Fetching lessons for tutor:', tutorId, 'all:', all, 'dateRange:', startDate, '-', endDate);
 
     // Build query - if 'all' is true, get all lessons; otherwise only active ones
     const query = { tutorId: tutorId };
-    if (!all || all !== 'true') {
-      query.status = { $in: ['scheduled', 'in_progress'] };
+    
+    // Add date range filter if provided
+    if (startDate || endDate) {
+      query.startTime = {};
+      if (startDate) {
+        query.startTime.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.startTime.$lte = new Date(endDate);
+      }
+      console.log('📅 ✅ Date range filter applied:', query.startTime);
+      console.log('📅 ✅ Final query:', JSON.stringify(query));
+    } else if (!all || all !== 'true') {
+      // Only filter by status if no date range provided
+      // Include pending_reschedule so the original slot stays blocked until confirmed
+      query.status = { $in: ['scheduled', 'in_progress', 'pending_reschedule'] };
+      console.log('📅 ⚠️ No date range, filtering by status:', query.status);
+    } else {
+      console.log('📅 ⚠️ No date range AND all=true, will fetch ALL lessons');
     }
 
     // Find lessons for this tutor
@@ -719,7 +866,8 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
         price: lesson.price,
         duration: lesson.duration,
         isTrialLesson: lesson.isTrialLesson,
-        bookingData: lesson.bookingData
+        bookingData: lesson.bookingData,
+        rescheduleProposal: lesson.rescheduleProposal // ADDED: Include reschedule proposal
       }))
     });
   } catch (error) {
@@ -757,9 +905,43 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
     .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
+    // Load LessonAnalysis for each completed lesson to check if analysis exists
+    const LessonAnalysis = require('../models/LessonAnalysis');
+    const lessonIds = lessons.map(l => l._id);
+    const analyses = await LessonAnalysis.find({ 
+      lessonId: { $in: lessonIds },
+      status: { $in: ['completed', 'generating'] }
+    }).select('lessonId status');
+    
+    // Create a map of lessonId -> analysis status
+    const analysisMap = new Map();
+    analyses.forEach(analysis => {
+      analysisMap.set(analysis.lessonId.toString(), analysis.status);
+    });
+    
+    // Attach analysis status to each lesson
+    const lessonsWithAnalysis = lessons.map(lesson => {
+      const lessonObj = lesson.toObject();
+      const analysisStatus = analysisMap.get(lesson._id.toString());
+      
+      if (analysisStatus) {
+        lessonObj.aiAnalysis = {
+          status: analysisStatus,
+          hasAnalysis: analysisStatus === 'completed'
+        };
+      } else {
+        lessonObj.aiAnalysis = {
+          status: 'unavailable',
+          hasAnalysis: false
+        };
+      }
+      
+      return lessonObj;
+    });
+
     res.json({ 
       success: true, 
-      lessons 
+      lessons: lessonsWithAnalysis 
     });
   } catch (error) {
     console.error('❌ Error fetching lessons:', error);
@@ -826,8 +1008,8 @@ router.get('/student/:studentId', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture firstName lastName')
-      .populate('studentId', 'name email picture firstName lastName');
+      .populate('tutorId', 'name email picture firstName lastName profile')
+      .populate('studentId', 'name email picture firstName lastName profile');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -1348,13 +1530,14 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
       
       // Populate tutor and student to get auth0Ids
       await lesson.populate([
-        { path: 'tutorId', select: 'auth0Id name firstName lastName' },
+        { path: 'tutorId', select: 'auth0Id name firstName lastName picture' },
         { path: 'studentId', select: 'auth0Id name firstName lastName' }
       ]);
 
       const studentAuth0Id = lesson.studentId?.auth0Id;
       const studentMongoId = lesson.studentId?._id;
       const tutorName = lesson.tutorId?.name || lesson.tutorId?.firstName || 'Tutor';
+      const tutorPicture = lesson.tutorId?.picture || null;
       const studentSocketId = req.connectedUsers?.get(studentAuth0Id);
       
       console.log('🔍 Student notification info:', {
@@ -1370,7 +1553,8 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
           userId: studentMongoId,
           type: 'office_hours_accepted',
           title: 'Tutor Ready!',
-          message: `${tutorName} is ready for your session! Join now.`,
+          message: `<strong>${tutorName}</strong> is ready for your session! Join now.`,
+          relatedUserPicture: tutorPicture,
           data: {
             lessonId: lesson._id,
             tutorName: tutorName
@@ -1401,8 +1585,8 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
       
       // Populate tutor and student to get auth0Ids
       await lesson.populate([
-        { path: 'tutorId', select: 'auth0Id name firstName lastName' },
-        { path: 'studentId', select: 'auth0Id name firstName lastName' }
+        { path: 'tutorId', select: 'auth0Id name firstName lastName picture' },
+        { path: 'studentId', select: 'auth0Id name firstName lastName picture' }
       ]);
 
       const tutorAuth0Id = lesson.tutorId?.auth0Id;
@@ -1424,6 +1608,7 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
       const recipientAuth0Id = cancellerAuth0Id === tutorAuth0Id ? studentAuth0Id : tutorAuth0Id;
       const recipientMongoId = cancellerAuth0Id === tutorAuth0Id ? studentMongoId : tutorMongoId;
       const recipientSocketId = req.connectedUsers?.get(recipientAuth0Id);
+      const cancellerPicture = user.picture || null;
       
       console.log('🔍 Recipient info:', {
         recipientAuth0Id,
@@ -1449,14 +1634,15 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
       try {
         const cancellerName = user.name || 'Participant';
         const notificationMessage = isTutor 
-          ? `Your session scheduled for ${formattedDate} at ${formattedTime} has been cancelled. You have not been charged.`
-          : `The student cancelled the session scheduled for ${formattedDate} at ${formattedTime}.`;
+          ? `Your session scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been cancelled. You have not been charged.`
+          : `The student cancelled the session scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`;
 
         await Notification.create({
           userId: recipientMongoId,
           type: 'lesson_cancelled',
           title: 'Session Cancelled',
           message: notificationMessage,
+          relatedUserPicture: cancellerPicture,
           data: {
             lessonId: lesson._id,
             cancelledBy: isTutor ? 'tutor' : 'student',
@@ -1593,7 +1779,8 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
 });
 
 // Special endpoint for navigator.sendBeacon (doesn't support custom headers)
-router.post('/:id/leave-beacon', async (req, res) => {
+// Use multer to parse FormData (sendBeacon sends multipart/form-data)
+router.post('/:id/leave-beacon', beaconUpload.none(), async (req, res) => {
   console.log('🚪🚪🚪 LESSON LEAVE BEACON ENDPOINT CALLED 🚪🚪🚪');
   console.log('🚪 Request params:', req.params);
   console.log('🚪 Request body:', req.body);
@@ -1731,10 +1918,18 @@ router.post('/:id/call-start', verifyToken, async (req, res) => {
 // POST /api/lessons/:id/call-end - Record when the call ends and calculate actual billing
 router.post('/:id/call-end', verifyToken, async (req, res) => {
   try {
-    const lesson = await Lesson.findById(req.params.id);
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName email auth0Id picture')
+      .populate('studentId', 'name firstName lastName email auth0Id picture');
+      
     if (!lesson) {
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
+
+    // Get current user to determine who ended the lesson
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    const userId = user?._id;
+    const userRole = userId && userId.toString() === lesson.tutorId._id.toString() ? 'tutor' : 'student';
 
     // Only calculate if call was started and not already ended
     if (lesson.actualCallStartTime && !lesson.actualCallEndTime) {
@@ -1773,15 +1968,184 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
         lesson.billingStatus = 'charged';
       }
       
+      // Mark lesson as completed (prevents rejoining)
+      lesson.status = 'completed';
+      
       await lesson.save();
       console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
+      console.log(`✅ Lesson marked as completed by ${userRole}`);
+      
+      // Notify the OTHER participant via WebSocket that lesson was ended
+      const otherParticipant = userRole === 'tutor' ? lesson.studentId : lesson.tutorId;
+      const otherSocketId = await getUserSocketId(otherParticipant.auth0Id);
+      const endedByName = formatDisplayName(userRole === 'tutor' ? lesson.tutorId : lesson.studentId);
+      
+      if (otherSocketId && req.io) {
+        console.log(`📡 Notifying ${userRole === 'tutor' ? 'student' : 'tutor'} that lesson was ended early...`);
+        req.io.to(otherSocketId).emit('lesson_ended_by_participant', {
+          lessonId: lesson._id.toString(),
+          endedBy: userRole,
+          endedByName,
+          message: `${endedByName} has ended the lesson early.`,
+          actualDuration: lesson.actualDurationMinutes,
+          scheduledDuration: lesson.duration
+        });
+      }
+      
+      // Auto-trigger AI analysis generation OR request tutor feedback
+      setTimeout(async () => {
+        try {
+          const lessonForAnalysis = await Lesson.findById(lesson._id)
+            .populate('tutorId', 'name firstName lastName email auth0Id picture profile')
+            .populate('studentId', 'name firstName lastName email auth0Id picture profile');
+          
+          if (!lessonForAnalysis) return;
+          
+          /* 
+          TEMPORARILY DISABLED: Tutor Feedback Flow (AI opt-out)
+          TODO: Re-enable if we want to support AI-disabled mode
+          
+          // Check if student has AI analysis enabled
+          const studentProfile = lessonForAnalysis.studentId?.profile;
+          const aiAnalysisEnabled = studentProfile?.aiAnalysisEnabled !== false; // Default to true
+          
+          console.log(`🤖 AI Analysis Enabled for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
+          
+          if (!aiAnalysisEnabled) {
+            // AI disabled - require manual tutor feedback
+            console.log('📝 AI disabled - Creating tutor feedback requirement...');
+            
+            const TutorFeedback = require('../models/TutorFeedback');
+            const feedbackExists = await TutorFeedback.findOne({ lessonId: lessonForAnalysis._id });
+            
+            if (!feedbackExists) {
+              await TutorFeedback.create({
+                lessonId: lessonForAnalysis._id,
+                tutorId: lessonForAnalysis.tutorId._id,
+                studentId: lessonForAnalysis.studentId._id,
+                status: 'pending'
+              });
+              
+              // Get dynamic feedback message
+              const feedbackMessages = [
+                { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
+                { title: '✍️ Share Your Insights', message: 'Your student is waiting for your feedback!' },
+                { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
+                { title: '📊 Feedback Time', message: 'Help your student improve with your feedback!' }
+              ];
+              const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+              
+              console.log('📝 Creating notification for tutor:', lessonForAnalysis.tutorId.email);
+              console.log('   Tutor ID:', lessonForAnalysis.tutorId._id);
+              console.log('   Student:', formatDisplayName(lessonForAnalysis.studentId));
+              
+              try {
+                // Create notification for tutor
+                const notification = await Notification.create({
+                  userId: lessonForAnalysis.tutorId._id,
+                  type: 'feedback_required',
+                  title: randomMsg.title,
+                  message: randomMsg.message,
+                  data: {
+                    lessonId: lessonForAnalysis._id,
+                    studentName: formatDisplayName(lessonForAnalysis.studentId),
+                    studentAuth0Id: lessonForAnalysis.studentId.auth0Id
+                  }
+                });
+                console.log('✅ Notification created:', notification._id);
+              } catch (notifError) {
+                console.error('❌ Error creating notification:', notifError);
+              }
+              
+              try {
+                // Emit WebSocket event
+                if (req.io) {
+                  const socketRoom = `user:${lessonForAnalysis.tutorId.auth0Id}`;
+                  console.log('📡 Emitting feedback_required to room:', socketRoom);
+                  req.io.to(socketRoom).emit('feedback_required', {
+                    lessonId: lessonForAnalysis._id.toString(),
+                    studentName: formatDisplayName(lessonForAnalysis.studentId),
+                    title: randomMsg.title,
+                    message: randomMsg.message
+                  });
+                  console.log('✅ WebSocket event emitted');
+                } else {
+                  console.warn('⚠️ req.io is not available - WebSocket event not sent');
+                }
+              } catch (socketError) {
+                console.error('❌ Error emitting WebSocket event:', socketError);
+              }
+              
+              console.log(`📢 Feedback request process completed for tutor: ${lessonForAnalysis.tutorId.email}`);
+            }
+            
+            return; // Skip AI analysis generation
+          }
+          */
+          
+          // AI is always enabled - generate analysis for all completed lessons
+          console.log(`🤖 Generating AI analysis for lesson ${lessonForAnalysis._id}`);
+          
+          const actualDuration = lessonForAnalysis.actualDurationMinutes || lessonForAnalysis.duration;
+          const scheduledDuration = lessonForAnalysis.duration;
+          const endedEarly = actualDuration < scheduledDuration;
+          
+          // Generate mock analysis
+          const analysis = {
+            summary: endedEarly 
+              ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
+              : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
+            strengths: [
+              'Good pronunciation and accent work',
+              'Active participation in conversation',
+              'Quick to grasp new vocabulary'
+            ],
+            areasForImprovement: [
+              'Grammar structures in complex sentences',
+              'Verb conjugation in past tense',
+              'Building confidence in spontaneous speaking'
+            ],
+            recommendations: [
+              'Practice daily with language exchange partners',
+              'Focus on past tense exercises before next lesson',
+              'Watch movies/shows in target language with subtitles'
+            ],
+            generatedAt: new Date(),
+            status: 'completed'
+          };
+
+          // Update lesson with analysis
+          lessonForAnalysis.aiAnalysis = analysis;
+          await lessonForAnalysis.save();
+
+          // Create notification for the student that analysis is ready
+          await Notification.create({
+            userId: lessonForAnalysis.studentId._id,
+            type: 'lesson_analysis_ready',
+            title: 'Lesson Analysis Ready',
+            message: `Your analysis for the lesson with <strong>${formatDisplayName(lessonForAnalysis.tutorId)}</strong> is now available.`,
+            relatedUserPicture: lessonForAnalysis.tutorId.picture || null,
+            data: {
+              lessonId: lessonForAnalysis._id,
+              tutorName: formatDisplayName(lessonForAnalysis.tutorId),
+              lessonDate: lessonForAnalysis.startTime
+            }
+          });
+
+          console.log(`✅ AI analysis auto-generated for lesson ${lessonForAnalysis._id}`);
+        } catch (error) {
+          console.error(`❌ Error auto-generating AI analysis:`, error);
+        }
+      }, 3000); // Generate analysis 3 seconds after call ends
     }
 
     res.json({ 
-      success: true, 
+      success: true,
+      message: 'Call ended and lesson completed',
       actualCallEndTime: lesson.actualCallEndTime,
       actualDurationMinutes: lesson.actualDurationMinutes,
-      actualPrice: lesson.actualPrice
+      actualPrice: lesson.actualPrice,
+      status: lesson.status
     });
   } catch (error) {
     console.error('Error recording call end:', error);
@@ -1813,6 +2177,554 @@ router.get('/:id/billing', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting billing summary:', error);
     res.status(500).json({ success: false, message: 'Failed to get billing summary' });
+  }
+});
+
+// POST /api/lessons/:id/generate-analysis - Generate AI analysis for a completed lesson
+router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName')
+      .populate('studentId', 'name firstName lastName');
+    
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Verify the requester is either the tutor or student
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Check if lesson is completed or ended early
+    if (lesson.status !== 'completed' && !lesson.actualCallEndTime) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Analysis can only be generated for completed lessons' 
+      });
+    }
+
+    // Mark analysis as generating
+    lesson.aiAnalysis = lesson.aiAnalysis || {};
+    lesson.aiAnalysis.status = 'generating';
+    await lesson.save();
+
+    // In a real implementation, this would call an AI service (OpenAI, etc.)
+    // For now, we'll generate a mock analysis based on lesson duration
+    setTimeout(async () => {
+      try {
+        const actualDuration = lesson.actualDurationMinutes || lesson.duration;
+        const scheduledDuration = lesson.duration;
+        const endedEarly = actualDuration < scheduledDuration;
+        
+        // Generate mock analysis
+        const analysis = {
+          summary: endedEarly 
+            ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
+            : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
+          strengths: [
+            'Good pronunciation and accent work',
+            'Active participation in conversation',
+            'Quick to grasp new vocabulary'
+          ],
+          areasForImprovement: [
+            'Grammar structures in complex sentences',
+            'Verb conjugation in past tense',
+            'Building confidence in spontaneous speaking'
+          ],
+          recommendations: [
+            'Practice daily with language exchange partners',
+            'Focus on past tense exercises before next lesson',
+            'Watch movies/shows in target language with subtitles'
+          ],
+          generatedAt: new Date(),
+          status: 'completed'
+        };
+
+        // Update lesson with analysis
+        const updatedLesson = await Lesson.findById(lesson._id);
+        updatedLesson.aiAnalysis = analysis;
+        await updatedLesson.save();
+
+        // Create notification for the student that analysis is ready
+        await Notification.create({
+          userId: lesson.studentId._id,
+          type: 'lesson_analysis_ready',
+          title: 'Lesson Analysis Ready',
+          message: `Your analysis for the lesson with <strong>${formatDisplayName(lesson.tutorId)}</strong> is now available.`,
+          relatedUserPicture: lesson.tutorId.picture || null,
+          data: {
+            lessonId: lesson._id,
+            tutorName: formatDisplayName(lesson.tutorId),
+            lessonDate: lesson.startTime
+          }
+        });
+
+        console.log(`✅ AI analysis generated for lesson ${lesson._id}`);
+      } catch (error) {
+        console.error(`❌ Error generating AI analysis for lesson ${lesson._id}:`, error);
+        // Mark as failed
+        const failedLesson = await Lesson.findById(lesson._id);
+        if (failedLesson) {
+          failedLesson.aiAnalysis = failedLesson.aiAnalysis || {};
+          failedLesson.aiAnalysis.status = 'failed';
+          await failedLesson.save();
+        }
+      }
+    }, 2000); // Simulate AI processing delay (2 seconds)
+
+    res.json({ 
+      success: true, 
+      message: 'Analysis generation started',
+      status: 'generating'
+    });
+  } catch (error) {
+    console.error('Error starting analysis generation:', error);
+    res.status(500).json({ success: false, message: 'Failed to start analysis generation' });
+  }
+});
+
+// GET /api/lessons/:id/analysis - Get AI analysis for a lesson
+router.get('/:id/analysis', verifyToken, async (req, res) => {
+  try {
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName picture')
+      .populate('studentId', 'name firstName lastName picture');
+    
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Verify the requester is either the tutor or student
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!lesson.aiAnalysis || !lesson.aiAnalysis.status) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No analysis available for this lesson',
+        canGenerate: lesson.status === 'completed' || !!lesson.actualCallEndTime
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      analysis: lesson.aiAnalysis,
+      lesson: {
+        _id: lesson._id,
+        subject: lesson.subject,
+        startTime: lesson.startTime,
+        endTime: lesson.endTime,
+        duration: lesson.duration,
+        actualDurationMinutes: lesson.actualDurationMinutes,
+        tutor: {
+          _id: lesson.tutorId._id,
+          name: formatDisplayName(lesson.tutorId),
+          picture: lesson.tutorId.picture
+        },
+        student: {
+          _id: lesson.studentId._id,
+          name: formatDisplayName(lesson.studentId),
+          picture: lesson.studentId.picture
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error getting analysis:', error);
+    res.status(500).json({ success: false, message: 'Failed to get analysis' });
+  }
+});
+
+// Cancel a lesson (DELETE /:id/cancel)
+router.delete('/:id/cancel', verifyToken, async (req, res) => {
+  try {
+    const { id: lessonId } = req.params;
+    
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    
+    const lesson = await Lesson.findById(lessonId)
+      .populate('tutorId', 'name email firstName lastName auth0Id')
+      .populate('studentId', 'name email firstName lastName auth0Id');
+      
+    if (!lesson) return res.status(404).json({ success: false, message: 'Lesson not found' });
+    
+    // Verify user is either the tutor or student
+    const isTutor = lesson.tutorId._id.toString() === user._id.toString();
+    const isStudent = lesson.studentId._id.toString() === user._id.toString();
+    
+    if (!isTutor && !isStudent) {
+      return res.status(403).json({ success: false, message: 'Not authorized to cancel this lesson' });
+    }
+    
+    // Check if lesson is already cancelled
+    if (lesson.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Lesson is already cancelled' });
+    }
+    
+    // Check if lesson has already started or ended
+    const now = new Date();
+    const lessonStart = new Date(lesson.startTime);
+    if (lessonStart <= now) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot cancel a lesson that has already started or ended' 
+      });
+    }
+    
+    // Cancel the lesson
+    lesson.status = 'cancelled';
+    lesson.cancelledAt = new Date();
+    lesson.cancelReason = isTutor ? 'tutor_cancelled' : 'student_cancelled';
+    lesson.cancelledBy = user._id;
+    await lesson.save();
+    
+    const cancelledByName = user.firstName && user.lastName 
+      ? `${user.firstName} ${user.lastName.charAt(0)}.`
+      : user.name;
+    
+    console.log(`🔴 [LESSON-CANCEL] Lesson ${lesson._id} cancelled by ${isTutor ? 'tutor' : 'student'} ${cancelledByName}`);
+    
+    // NOTE: Lessons don't create availability blocks like classes do.
+    // The tutor-availability-viewer component queries lessons directly from the database
+    // and filters out cancelled lessons, so the time slot will automatically become available.
+    
+    // Format date/time for notifications
+    const startTime = new Date(lesson.startTime);
+    const formattedDate = startTime.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const formattedTime = startTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit' 
+    });
+    
+    // Notify the other participant
+    const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
+    const otherParticipantName = otherParticipant.firstName && otherParticipant.lastName
+      ? `${otherParticipant.firstName} ${otherParticipant.lastName.charAt(0)}.`
+      : otherParticipant.name;
+    
+    try {
+      const notification = await Notification.create({
+        userId: otherParticipant._id,
+        type: 'lesson_cancelled',
+        title: 'Lesson Cancelled',
+        message: `<strong>${cancelledByName}</strong> cancelled the <strong>${lesson.subject || 'lesson'}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`,
+        relatedUserPicture: user.picture || null,
+        relatedItemId: lesson._id,
+        relatedItemType: 'Lesson',
+        metadata: {
+          lessonSubject: lesson.subject,
+          cancelledByName: cancelledByName,
+          startTime: lesson.startTime,
+          cancelReason: lesson.cancelReason,
+          cancelledByType: isTutor ? 'tutor' : 'student'
+        }
+      });
+      console.log(`📧 [LESSON-CANCEL] Notified ${isTutor ? 'student' : 'tutor'} ${otherParticipantName} about cancellation`);
+      
+      // Emit WebSocket event to the other participant if connected
+      if (req.io && req.connectedUsers && otherParticipant.auth0Id) {
+        const otherSocketId = req.connectedUsers.get(otherParticipant.auth0Id);
+        if (otherSocketId) {
+          req.io.to(otherSocketId).emit('new_notification', {
+            type: 'lesson_cancelled',
+            title: 'Lesson Cancelled',
+            message: `${cancelledByName} cancelled the ${lesson.subject || 'lesson'} scheduled for ${formattedDate} at ${formattedTime}.`,
+            data: {
+              lessonId: lesson._id.toString(),
+              lessonSubject: lesson.subject,
+              cancelledByName: cancelledByName,
+              startTime: lesson.startTime,
+              cancelledByType: isTutor ? 'tutor' : 'student'
+            }
+          });
+          console.log(`🔔 [LESSON-CANCEL] WebSocket notification sent to ${isTutor ? 'student' : 'tutor'} ${otherParticipantName}`);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ [LESSON-CANCEL] Error notifying ${isTutor ? 'student' : 'tutor'}:`, error);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Lesson cancelled successfully',
+      lesson: lesson
+    });
+  } catch (error) {
+    console.error('❌ [LESSON-CANCEL] Error cancelling lesson:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// POST /api/lessons/:id/propose-reschedule - Propose a new time for a lesson
+router.post('/:id/propose-reschedule', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { proposedStartTime, proposedEndTime } = req.body;
+    const proposerId = req.user.sub;
+
+    console.log('📅 Reschedule proposal for lesson:', id, 'by', proposerId);
+
+    const lesson = await Lesson.findById(id).populate('tutorId studentId');
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    // Verify proposer is part of the lesson
+    const proposerUser = await User.findOne({ auth0Id: proposerId });
+    if (!proposerUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isProposerTutor = lesson.tutorId._id.toString() === proposerUser._id.toString();
+    const isProposerStudent = lesson.studentId._id.toString() === proposerUser._id.toString();
+
+    if (!isProposerTutor && !isProposerStudent) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Update lesson with reschedule proposal
+    lesson.rescheduleProposal = {
+      proposedBy: proposerUser._id,
+      proposedStartTime: new Date(proposedStartTime),
+      proposedEndTime: new Date(proposedEndTime),
+      proposedAt: new Date(),
+      status: 'pending'
+    };
+    lesson.status = 'pending_reschedule';
+    await lesson.save();
+
+    // Determine the other participant
+    const otherParticipant = isProposerTutor ? lesson.studentId : lesson.tutorId;
+    const proposerName = `${proposerUser.firstName || proposerUser.name} ${proposerUser.lastName || ''}`.trim();
+
+    // Create notification for the other participant
+    const notification = new Notification({
+      userId: otherParticipant._id,
+      type: 'reschedule_proposed',
+      title: 'New Time Proposed',
+      message: `<strong>${proposerName}</strong> proposed a new time for your lesson on <strong>${new Date(proposedStartTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(proposedStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>`,
+      relatedLesson: lesson._id,
+      relatedUser: proposerUser._id,
+      relatedUserPicture: proposerUser.picture
+    });
+    await notification.save();
+
+    // Send WebSocket notification
+    if (req.io && req.connectedUsers) {
+      // Notify the recipient (other participant)
+      const otherSocketId = req.connectedUsers.get(otherParticipant.auth0Id);
+      if (otherSocketId) {
+        console.log('📤 [RESCHEDULE-PROPOSE] Emitting to recipient:', otherSocketId, 'for user:', otherParticipant.auth0Id);
+        
+        req.io.to(otherSocketId).emit('new_notification', {
+          notification: {
+            ...notification.toObject(),
+            user: otherParticipant
+          }
+        });
+
+        // Emit reschedule_proposed event for real-time UI update
+        req.io.to(otherSocketId).emit('reschedule_proposed', {
+          lessonId: lesson._id,
+          proposal: lesson.rescheduleProposal,
+          proposerName
+        });
+        
+        console.log(`🔔 [RESCHEDULE-PROPOSE] WebSocket notification sent to ${isProposerTutor ? 'student' : 'tutor'}`);
+      } else {
+        console.warn('⚠️ [RESCHEDULE-PROPOSE] No socket connection found for recipient:', otherParticipant.auth0Id);
+      }
+
+      // Also notify the proposer to update their UI (lesson status changed)
+      const proposerSocketId = req.connectedUsers.get(proposerId);
+      if (proposerSocketId) {
+        console.log('📤 [RESCHEDULE-PROPOSE] Emitting to proposer:', proposerSocketId, 'for user:', proposerId);
+        
+        // Emit lesson_updated event for the proposer to refresh their lesson list
+        req.io.to(proposerSocketId).emit('lesson_updated', {
+          lessonId: lesson._id,
+          status: 'pending_reschedule',
+          rescheduleProposal: lesson.rescheduleProposal
+        });
+        
+        console.log(`🔔 [RESCHEDULE-PROPOSE] Lesson update sent to proposer`);
+      } else {
+        console.warn('⚠️ [RESCHEDULE-PROPOSE] No socket connection found for proposer:', proposerId);
+      }
+    } else {
+      console.warn('⚠️ [RESCHEDULE-PROPOSE] req.io or req.connectedUsers not available');
+    }
+
+    res.json({ 
+      success: true, 
+      lesson: lesson,
+      message: 'Reschedule proposal sent'
+    });
+
+  } catch (error) {
+    console.error('Error proposing reschedule:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/lessons/:id/respond-reschedule - Accept or reject reschedule proposal
+router.post('/:id/respond-reschedule', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { accept } = req.body;
+    const responderId = req.user.sub;
+
+    console.log('📅 Reschedule response for lesson:', id, 'accept:', accept);
+
+    const lesson = await Lesson.findById(id).populate('tutorId studentId rescheduleProposal.proposedBy');
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+
+    if (!lesson.rescheduleProposal || lesson.rescheduleProposal.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'No pending reschedule proposal' });
+    }
+
+    // Verify responder is the other participant
+    const responderUser = await User.findOne({ auth0Id: responderId });
+    if (!responderUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const proposer = lesson.rescheduleProposal.proposedBy;
+    if (proposer._id.toString() === responderUser._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Cannot respond to your own proposal' });
+    }
+
+    const responderName = `${responderUser.firstName || responderUser.name} ${responderUser.lastName || ''}`.trim();
+
+    if (accept) {
+      // Accept: Update lesson times
+      lesson.startTime = lesson.rescheduleProposal.proposedStartTime;
+      lesson.endTime = lesson.rescheduleProposal.proposedEndTime;
+      lesson.rescheduleProposal.status = 'accepted';
+      lesson.status = 'scheduled';
+      await lesson.save();
+
+      // Notify proposer
+      const notification = new Notification({
+        userId: proposer._id,
+        type: 'reschedule_accepted',
+        title: 'Reschedule Accepted',
+        message: `<strong>${responderName}</strong> accepted your proposed time for <strong>${new Date(lesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>`,
+        relatedLesson: lesson._id,
+        relatedUser: responderUser._id,
+        relatedUserPicture: responderUser.picture
+      });
+      await notification.save();
+
+      // Send WebSocket notification to BOTH proposer AND responder
+      if (req.io && req.connectedUsers) {
+        // Send to proposer
+        const proposerSocketId = req.connectedUsers.get(proposer.auth0Id);
+        if (proposerSocketId) {
+          req.io.to(proposerSocketId).emit('new_notification', {
+            notification: {
+              ...notification.toObject(),
+              user: proposer
+            }
+          });
+
+          req.io.to(proposerSocketId).emit('reschedule_accepted', {
+            lessonId: lesson._id,
+            newStartTime: lesson.startTime,
+            newEndTime: lesson.endTime
+          });
+          
+          console.log('🔔 [RESCHEDULE-ACCEPT] WebSocket notification sent to proposer');
+        }
+        
+        // ALSO send to responder (the person who accepted)
+        const responderSocketId = req.connectedUsers.get(responderUser.auth0Id);
+        if (responderSocketId) {
+          req.io.to(responderSocketId).emit('reschedule_accepted', {
+            lessonId: lesson._id,
+            newStartTime: lesson.startTime,
+            newEndTime: lesson.endTime
+          });
+          
+          console.log('🔔 [RESCHEDULE-ACCEPT] WebSocket notification sent to responder (acceptor)');
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        lesson: lesson,
+        message: 'Reschedule accepted'
+      });
+
+    } else {
+      // Reject: Clear proposal
+      lesson.rescheduleProposal.status = 'rejected';
+      lesson.status = 'scheduled'; // Back to scheduled
+      await lesson.save();
+
+      // Notify proposer
+      const notification = new Notification({
+        userId: proposer._id,
+        type: 'reschedule_rejected',
+        title: 'Reschedule Declined',
+        message: `<strong>${responderName}</strong> declined your proposed time change`,
+        relatedLesson: lesson._id,
+        relatedUser: responderUser._id,
+        relatedUserPicture: responderUser.picture
+      });
+      await notification.save();
+
+      // Send WebSocket notification to BOTH proposer AND responder
+      if (req.io && req.connectedUsers) {
+        // Send to proposer
+        const proposerSocketId = req.connectedUsers.get(proposer.auth0Id);
+        if (proposerSocketId) {
+          req.io.to(proposerSocketId).emit('new_notification', {
+            notification: {
+              ...notification.toObject(),
+              user: proposer
+            }
+          });
+
+          req.io.to(proposerSocketId).emit('reschedule_rejected', {
+            lessonId: lesson._id
+          });
+          
+          console.log('🔔 [RESCHEDULE-REJECT] WebSocket notification sent to proposer');
+        }
+        
+        // ALSO send to responder (the person who rejected)
+        const responderSocketId = req.connectedUsers.get(responderUser.auth0Id);
+        if (responderSocketId) {
+          req.io.to(responderSocketId).emit('reschedule_rejected', {
+            lessonId: lesson._id
+          });
+          
+          console.log('🔔 [RESCHEDULE-REJECT] WebSocket notification sent to responder (rejecter)');
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        lesson: lesson,
+        message: 'Reschedule rejected'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error responding to reschedule:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

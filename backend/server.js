@@ -3,8 +3,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const http = require('http');
 const { Server } = require('socket.io');
+const cron = require('node-cron');
+const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
+const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
+const { autoCancelClasses } = require('./jobs/autoCancelClasses');
+const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 require('dotenv').config({ path: './config.env' });
 
 const app = express();
@@ -31,6 +37,7 @@ app.get('/health', (req, res) => {
 // Middleware
 app.use(helmet());
 app.use(morgan('combined'));
+app.use(cookieParser()); // Add cookie parser middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:8100',
   credentials: true
@@ -93,6 +100,10 @@ app.use('/api/messaging', messagingRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
+app.use('/api/transcription', require('./routes/transcription'));
+app.use('/api/analysis', require('./routes/analysis'));
+app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
+app.use('/api/review-deck', require('./routes/review-deck'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -302,11 +313,43 @@ io.on('connection', async (socket) => {
   });
 });
 
+// TEMPORARILY COMMENTED OUT: Deepgram WebSocket (causing conflicts with Socket.IO)
+// setupDeepgramWebSocket(server);
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check available at: http://0.0.0.0:${PORT}/health`);
   console.log(`Server bound to all interfaces (0.0.0.0)`);
   console.log(`WebSocket server ready`);
+  console.log(`Deepgram WebSocket ready at: ws://0.0.0.0:${PORT}/api/deepgram-audio`);
+  
+  // Start background job to auto-complete transcripts for ended lessons
+  // Runs every minute
+  cron.schedule('* * * * *', () => {
+    autoCompleteTranscripts().catch(err => {
+      console.error('❌ [Cron] Error in autoCompleteTranscripts:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-complete transcripts (every minute)');
+  
+  // Start background job to auto-cancel classes that don't meet minimum enrollment
+  // Runs every 10 minutes (checks for classes 11-21 minutes out, ~16 min window)
+  cron.schedule('*/10 * * * *', () => {
+    autoCancelClasses(io, connectedUsers).catch(err => {
+      console.error('❌ [Cron] Error in autoCancelClasses:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
+  
+  // Initialize audio backup and retry cron jobs
+  initializeAudioCronJobs();
+  console.log('✅ Audio backup system initialized');
+  
+  // Run auto-cancel immediately on startup for testing
+  console.log('🚀 Running auto-cancel check immediately on startup...');
+  autoCancelClasses(io, connectedUsers).catch(err => {
+    console.error('❌ [Startup] Error in autoCancelClasses:', err);
+  });
 });
 
 // Handle server errors

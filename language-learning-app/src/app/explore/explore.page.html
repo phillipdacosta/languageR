@@ -195,9 +195,14 @@
                     <span>{{ getLevelLabel(classItem.level) }}</span>
                   </div>
                   <!-- Status Badge -->
-                  <div class="status-badge-inline" *ngIf="classItem.isEnrolled">
+                  <div class="status-badge-inline enrolled" *ngIf="classItem.isEnrolled">
                     <ion-icon name="checkmark-circle"></ion-icon>
                     <span>Enrolled</span>
+                  </div>
+                  <!-- Cancelled Badge -->
+                  <div class="status-badge-inline cancelled" *ngIf="classItem.status === 'cancelled'">
+                    <ion-icon name="close-circle"></ion-icon>
+                    <span>Cancelled</span>
                   </div>
                 </div>
               </div>
@@ -253,17 +258,18 @@
             fill="solid" 
             size="default" 
             class="action-btn primary"
-            [disabled]="classItem.isFull && !classItem.isEnrolled && !classItem.hasInvitation"
+            [disabled]="(classItem.isFull && !classItem.isEnrolled && !classItem.hasInvitation) || classItem.status === 'cancelled'"
             [color]="classItem.hasInvitation && classItem.invitationStatus === 'pending' ? 'warning' : 'primary'"
             (click)="handleClassAction(classItem, $event)">
             <ion-icon 
-              [name]="classItem.isEnrolled ? 'checkmark-circle' : (classItem.hasInvitation && classItem.invitationStatus === 'pending' ? 'mail' : (classItem.isFull ? 'lock-closed' : 'calendar'))" 
+              [name]="classItem.status === 'cancelled' ? 'close-circle' : (classItem.isEnrolled ? 'checkmark-circle' : (classItem.hasInvitation && classItem.invitationStatus === 'pending' ? 'mail' : (classItem.isFull ? 'lock-closed' : 'calendar')))" 
               slot="start">
             </ion-icon>
-            <span *ngIf="classItem.isEnrolled">Enrolled</span>
-            <span *ngIf="!classItem.isEnrolled && classItem.hasInvitation && classItem.invitationStatus === 'pending'">Respond</span>
-            <span *ngIf="!classItem.isEnrolled && !classItem.hasInvitation && !classItem.isFull">Join Class</span>
-            <span *ngIf="!classItem.isEnrolled && !classItem.hasInvitation && classItem.isFull">Full</span>
+            <span *ngIf="classItem.status === 'cancelled'">Cancelled</span>
+            <span *ngIf="classItem.status !== 'cancelled' && classItem.isEnrolled">Enrolled</span>
+            <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && classItem.hasInvitation && classItem.invitationStatus === 'pending'">Respond</span>
+            <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && !classItem.isFull">Join Class</span>
+            <span *ngIf="classItem.status !== 'cancelled' && !classItem.isEnrolled && !classItem.hasInvitation && classItem.isFull">Full</span>
           </ion-button>
         </div>
       </div>

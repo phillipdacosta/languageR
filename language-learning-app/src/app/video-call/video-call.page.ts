@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef, HostListener, NgZone } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AgoraService } from '../services/agora.service';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
@@ -8,9 +8,13 @@ import { ClassService } from '../services/class.service';
 import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
+import { EarlyExitService } from '../services/early-exit.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { WhiteboardService } from '../services/whiteboard.service';
+import { TranscriptionService } from '../services/transcription.service';
+import { DeepgramAudioService } from '../services/deepgram-audio.service';
+import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
 import { environment } from '../../environments/environment';
 
@@ -139,6 +143,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
 
+  // AI Transcription & Analysis properties
+  private isTranscriptionEnabled = false;
+  private lessonLanguage = 'en'; // Will be set from lesson data
+  private TRANSCRIPTION_SESSION_KEY = 'activeTranscriptionSession';
+  private currentTranscriptId: string = '';
+  
+  // OpenAI Audio recording for transcription (COMMENTED OUT - keeping as fallback)
+  private transcriptionRecorder: MediaRecorder | null = null;
+  private transcriptionAudioChunks: Blob[] = [];
+  private transcriptionUploadInterval: any = null;
+  
+  // Deepgram real-time transcription
+  private deepgramService: DeepgramAudioService | null = null;
+  private deepgramSubscriptions: Subscription[] = [];
+
   // Chat properties
   chatMessages: Message[] = [];
   messages: Message[] = [];  // Alias for compatibility
@@ -246,7 +265,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private whiteboardService: WhiteboardService,
     private cdr: ChangeDetectorRef,
     private modalController: ModalController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private transcriptionService: TranscriptionService,
+    private deepgramAudioService: DeepgramAudioService,
+    private earlyExitService: EarlyExitService,
+    private ngZone: NgZone
   ) { }
 
   async ngOnInit() {
@@ -303,6 +326,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Add beforeunload listener to handle browser close/refresh
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    
+    // Listen for early exit confirmation to stop transcription
+    this.earlyExitService.lessonEndedEarly$.subscribe(async (lessonId) => {
+      console.log('🛑 VIDEO-CALL: Received lesson ended early notification for:', lessonId);
+      if (lessonId === this.lessonId) {
+        console.log('🛑 VIDEO-CALL: Stopping transcription for current lesson');
+        await this.stopTranscriptionImmediately();
+      }
+    });
 
     // Store query params for later use in ngAfterViewInit
     this.queryParams = qp;
@@ -311,6 +343,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (qp?.lessonId) {
       this.lessonId = qp.lessonId;
       console.log('📚 VideoCall: Stored lessonId:', this.lessonId);
+      
+      // Check for existing transcription session and auto-resume if valid
+      await this.checkAndResumeTranscription();
     }
     
     // Store classId if available
@@ -457,6 +492,30 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             // Store tutor and student user IDs for proper role identification
             this.tutorUserId = lesson.tutorId?._id || '';
             this.studentUserId = lesson.studentId?._id || '';
+            
+            // CRITICAL FIX: Verify role matches lesson data (override query param if wrong)
+            // This fixes stale cache issues where userType might be incorrect
+            const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
+            const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
+            const meResponse = await firstValueFrom(this.userService.getCurrentUser());
+            const myAuth0Id = (meResponse as any)?.auth0Id;
+            
+            const correctRole = (myAuth0Id === tutorAuth0Id) ? 'tutor' : 
+                               (myAuth0Id === studentAuth0Id) ? 'student' : 
+                               this.userRole; // fallback to query param
+            
+            if (correctRole !== this.userRole) {
+              console.warn('⚠️ ROLE MISMATCH DETECTED! Correcting...', {
+                queryParamRole: this.userRole,
+                correctRole: correctRole,
+                myAuth0Id,
+                tutorAuth0Id,
+                studentAuth0Id
+              });
+              this.userRole = correctRole; // OVERRIDE with correct role
+            } else {
+              console.log('✅ Role verification passed:', this.userRole);
+            }
             
             // Store profile pictures
             this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
@@ -693,6 +752,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Force change detection to show participant tiles immediately
       this.cdr.detectChanges();
       
+      // ⏱️ CRITICAL: Record call start time in database
+      // This is essential for billing, transcription, and analytics
+      if (this.lessonId) {
+        try {
+          console.log('⏱️ Recording call start time for lesson:', this.lessonId);
+          const callStartResponse = await firstValueFrom(
+            this.lessonService.recordCallStart(this.lessonId)
+          );
+          console.log('✅ Call start recorded:', callStartResponse);
+        } catch (error) {
+          console.error('❌ Failed to record call start (non-fatal):', error);
+          // Don't block the call if this fails
+        }
+      }
+      
+      // Start AI transcription for scheduled lessons (students only)
+      console.log('🔵 About to call startLessonTranscription() [VIA LESSON PARAMS]...');
+      await this.startLessonTranscription();
+      console.log('🔵 Finished calling startLessonTranscription() [VIA LESSON PARAMS]');
+      
       console.log('✅ Successfully connected to lesson video call');
       console.log('📊 Participant box state:', {
         isConnected: this.isConnected,
@@ -756,6 +835,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.agoraService.joinChannel(this.channelName);
         this.isConnected = true;
         this.cdr.detectChanges(); // Force UI update
+        
+        // Enable adaptive quality monitoring for better video quality
+        this.agoraService.enableAdaptiveQuality();
+        console.log('📊 Adaptive video quality enabled');
       }
 
       // Set up local video display - wait for tracks to be ready
@@ -769,6 +852,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Set up remote video monitoring
       this.monitorRemoteUsers();
+
+      // ⏱️ CRITICAL: Record call start time in database
+      // This is essential for billing, transcription, and analytics
+      if (this.lessonId) {
+        try {
+          console.log('⏱️ Recording call start time for lesson:', this.lessonId);
+          const callStartResponse = await firstValueFrom(
+            this.lessonService.recordCallStart(this.lessonId)
+          );
+          console.log('✅ Call start recorded:', callStartResponse);
+        } catch (error) {
+          console.error('❌ Failed to record call start (non-fatal):', error);
+          // Don't block the call if this fails
+        }
+      }
+
+      // Start AI transcription for scheduled lessons (students only)
+      console.log('🔵 About to call startLessonTranscription()...');
+      await this.startLessonTranscription();
+      console.log('🔵 Finished calling startLessonTranscription()');
 
       console.log('Successfully connected to video call');
 
@@ -2889,6 +2992,67 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.handleLessonCancellation(cancellation);
       }
     });
+    
+    // Listen for when the other participant ends the lesson early
+    this.websocketService.on('lesson_ended_by_participant').pipe(takeUntil(this.destroy$)).subscribe(async (data: any) => {
+      console.log('📭 Other participant ended lesson:', data);
+      
+      if (data.lessonId === this.lessonId) {
+        // Show alert to current user
+        const alert = await this.alertController.create({
+          header: 'Lesson Ended',
+          message: data.message + ' The lesson has been completed.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: async () => {
+                // Leave the call without showing early exit modal (other participant ended it)
+                await this.endCall(true); // Pass true to indicate other participant ended
+                
+                // After navigation completes, check if feedback is required (tutors only)
+                if (this.userRole === 'tutor') {
+                  // Small delay to ensure navigation is complete
+                  setTimeout(() => {
+                    // The home page will handle showing the feedback prompt
+                    console.log('📝 Tutor will see feedback prompt on home page');
+                  }, 1000);
+                }
+              }
+            }
+          ],
+          backdropDismiss: false
+        });
+        await alert.present();
+      }
+    });
+    
+    /* 
+    TEMPORARILY DISABLED: Feedback Required Toast (in video call)
+    TODO: Re-enable if we want to support AI-disabled mode
+    
+    // Listen for feedback_required events (tutors only - shown while in call)
+    if (this.userRole === 'tutor') {
+      this.websocketService.on('feedback_required').pipe(takeUntil(this.destroy$)).subscribe(async (data: any) => {
+        console.log('📝 [VIDEO-CALL] Feedback required:', data);
+        
+        // Show toast notification (less intrusive than alert while in call)
+        const toast = await this.toastController.create({
+          header: data.title || '📝 Feedback Needed',
+          message: data.message || 'Please provide feedback for this lesson when you finish.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top',
+          buttons: [
+            {
+              text: 'Dismiss',
+              role: 'cancel'
+            }
+          ]
+        });
+        await toast.present();
+      });
+    }
+    */
   }
 
   // Load messages for the current conversation
@@ -4526,9 +4690,57 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🧪 Test mute state sent:', testMuteState);
   }
 
-  async endCall() {
+  async endCall(otherParticipantEnded: boolean = false) {
     try {
-      console.log('🚪 VideoCall: Ending video call...');
+      console.log('🚪 VideoCall: Ending video call...', { otherParticipantEnded });
+      
+      // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
+      let isPermanentEnd = false;
+      
+      if (this.lessonId && this.isTranscriptionEnabled) {
+        try {
+          const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+          const lesson = lessonResponse?.lesson;
+          
+          if (lesson?.endTime) {
+            const scheduledEndTime = new Date(lesson.endTime);
+            const now = new Date();
+            isPermanentEnd = now >= scheduledEndTime;
+            
+            console.log('🕐 End call timing check:', {
+              scheduledEndTime: scheduledEndTime.toISOString(),
+              currentTime: now.toISOString(),
+              isPermanentEnd,
+              minutesRemaining: Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000)
+            });
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not check lesson end time:', error);
+          // Default to temporary leave if we can't determine
+        }
+      }
+      
+      // ALWAYS stop audio recording when leaving the page
+      // This prevents audio from continuing to record/upload after navigation
+      if (this.isTranscriptionEnabled) {
+        console.log('🛑 Stopping audio recording on page exit...');
+        await this.stopAudioCapture_FIXED();
+        
+        // Wait for final upload to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('✅ Audio recording stopped');
+      }
+      
+      // Clear transcription session based on whether this is permanent or temporary
+      if (isPermanentEnd) {
+        console.log('✅ Permanent end (at/after scheduled time) - clearing transcription session completely');
+        this.clearTranscriptionSession();
+        this.isTranscriptionEnabled = false;
+      } else {
+        console.log('⏸️ Temporary leave (before scheduled time) - keeping session metadata for potential resume');
+        // DON'T clear localStorage - session metadata stays for resume
+        // But the audio recorder is already stopped above to prevent background recording
+      }
       
       // Call leave endpoint if we have a lessonId
       if (this.lessonId) {
@@ -4537,6 +4749,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         try {
           const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
           console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
+          
         } catch (leaveError: any) {
           console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
           console.error('🚪 VideoCall: Error details:', leaveError?.error || leaveError?.message || 'Unknown error');
@@ -4546,6 +4759,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 VideoCall: ⚠️ No lessonId available, skipping leave endpoint');
         console.log('🚪 VideoCall: Query params were:', this.queryParams);
       }
+      
+      // Stop audio monitoring BEFORE leaving channel
+      console.log('🚪 VideoCall: Stopping audio monitoring...');
+      this.stopAllAudioMonitoring();
       
       console.log('🚪 VideoCall: Leaving Agora channel and cleaning up tracks...');
       await this.agoraService.leaveChannel();
@@ -4558,11 +4775,53 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Longer delay to ensure camera/mic hardware is fully released before navigation
       console.log('🚪 VideoCall: Waiting for camera/mic release...');
       await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('🚪 VideoCall: Camera/mic released, navigating...');
+      console.log('🚪 VideoCall: Camera/mic released');
 
-      // Navigate to tabs after ending call
-      console.log('🚪 VideoCall: Navigating to tabs after ending call');
-      this.router.navigate(['/tabs']);
+      // Navigate to tabs first
+      console.log('🚪 VideoCall: Navigating to tabs');
+      await this.router.navigate(['/tabs']);
+      
+      // If this is NOT a permanent end (early exit) AND other participant didn't end it, trigger early exit modal
+      // For permanent end (on-time), finalize lesson directly
+      // For other participant ended, just dismiss without finalizing (already finalized by them)
+      if (!isPermanentEnd && !otherParticipantEnded) {
+        // Early exit - show modal with options
+        const lesson = await firstValueFrom(this.lessonService.getLesson(this.lessonId!));
+        if (lesson?.lesson) {
+          const scheduledEndTime = new Date(lesson.lesson.endTime);
+          const now = new Date();
+          const minutesRemaining = Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000);
+          
+          setTimeout(() => {
+            console.log('🚪 VideoCall: Triggering early exit modal...');
+            this.earlyExitService.triggerEarlyExit({
+              lessonId: this.lessonId!,
+              scheduledEndTime,
+              currentTime: now,
+              minutesRemaining: Math.max(0, minutesRemaining)
+            });
+          }, 300);
+        }
+      } else if (isPermanentEnd) {
+        // On-time or late exit - finalize and trigger analysis automatically
+        setTimeout(async () => {
+          console.log('🚪 VideoCall: On-time exit - finalizing lesson and generating analysis...');
+          try {
+            // Call call-end endpoint to finalize
+            await firstValueFrom(this.lessonService.endCall(this.lessonId!));
+            console.log('✅ Lesson finalized');
+            
+            // Navigate to analysis page (generating state)
+            await this.router.navigate(['/lesson-analysis', this.lessonId]);
+          } catch (err) {
+            console.error('❌ Error finalizing lesson:', err);
+          }
+        }, 300);
+      } else if (otherParticipantEnded) {
+        // Other participant ended - just go home (lesson already finalized by them)
+        console.log('🚪 VideoCall: Other participant ended lesson - returning to home');
+        // User is already on /tabs from navigation above
+      }
     } catch (error) {
       console.error('Error ending call:', error);
       // Even on error, try to cleanup media
@@ -4571,7 +4830,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
       // Navigate to tabs after ending call (error case)
       console.log('🚪 VideoCall: Navigating to tabs after ending call (error case)');
-      this.router.navigate(['/tabs']);
+      await this.router.navigate(['/tabs']);
+      
+      // Don't try to show anything on error - user can access from lesson history if needed
     }
   }
 
@@ -4803,6 +5064,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
+    
+    // CRITICAL: Always stop audio recording when page is destroyed
+    // This prevents orphaned MediaRecorder from continuing to record/upload
+    if (this.transcriptionRecorder || this.transcriptionUploadInterval) {
+      console.log('🛑🛑🛑 SAFETY: Stopping audio recording in ngOnDestroy');
+      try {
+        await this.stopAudioCapture_FIXED();
+        console.log('✅ Audio recording stopped in ngOnDestroy');
+      } catch (error) {
+        console.error('❌ Error stopping audio in ngOnDestroy:', error);
+      }
+    }
     
     // Stop office hours timer
     if (this.timerInterval) {
@@ -5243,5 +5516,829 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    */
   isInOverage(): boolean {
     return this.elapsedMinutes > this.bookedDuration;
+  }
+
+  // ========================================
+  // AI TRANSCRIPTION & ANALYSIS
+  // ========================================
+
+  /**
+   * Start lesson transcription for AI analysis using Deepgram
+   * Only starts for scheduled lessons with students
+   */
+  private async startLessonTranscription() {
+    console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK START ===');
+    console.log('🎤 lessonId:', this.lessonId);
+    console.log('🎤 userRole:', this.userRole);
+    console.log('🎤 isClass:', this.isClass);
+    console.log('🎤 isOfficeHours:', this.isOfficeHours);
+    console.log('🎤 isTrialLesson:', this.isTrialLesson);
+    
+    // Only transcribe if:
+    // 1. This is a 1:1 lesson (not a class)
+    // 2. This is a scheduled lesson (not office hours, not trial)
+    // 3. User is a student (to avoid race conditions)
+    // 4. We have a lessonId
+    if (!this.lessonId || this.userRole !== 'student' || this.isClass || this.isOfficeHours || this.isTrialLesson) {
+      console.log('⏭️ SKIPPING DEEPGRAM TRANSCRIPTION - Reason:', {
+        noLessonId: !this.lessonId,
+        notStudent: this.userRole !== 'student',
+        isClass: this.isClass,
+        isOfficeHours: this.isOfficeHours,
+        isTrialLesson: this.isTrialLesson
+      });
+      return;
+    }
+
+    console.log('✅ All conditions met - Starting Deepgram transcription...');
+
+    try {
+      // Get lesson details to find language being learned
+      console.log('📋 Fetching lesson details...');
+      const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+      const lesson = lessonResponse?.lesson;
+      
+      console.log('📋 Lesson data:', {
+        hasLesson: !!lesson,
+        subject: lesson?.subject,
+        isTrialLesson: lesson?.isTrialLesson,
+        studentId: lesson?.studentId
+      });
+      
+      if (!lesson) {
+        console.warn('⚠️ Could not load lesson for transcription');
+        return;
+      }
+
+      // Check if student has AI analysis enabled
+      // Default to TRUE if we can't determine (backwards compatibility)
+      console.log('🤖 Checking AI analysis setting for student...');
+      const student = lesson.studentId as any; // Should be populated by backend
+      
+      // Only skip if explicitly disabled
+      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
+        console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
+        return;
+      }
+      
+      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
+
+      // Determine language being learned and convert to ISO code
+      const languageMap: { [key: string]: string } = {
+        'Spanish': 'es',
+        'French': 'fr',
+        'German': 'de',
+        'Italian': 'it',
+        'Portuguese': 'pt',
+        'English': 'en',
+        'Chinese': 'zh',
+        'Japanese': 'ja',
+        'Korean': 'ko',
+        'Russian': 'ru',
+        'Arabic': 'ar'
+      };
+      
+      const subjectLanguage = lesson.subject || 'English';
+      this.lessonLanguage = languageMap[subjectLanguage] || 'en';
+      
+      console.log(`🎙️ Deepgram language conversion:`, {
+        subjectLanguage,
+        lessonLanguage: this.lessonLanguage,
+        subjectType: typeof lesson.subject,
+        languageType: typeof this.lessonLanguage
+      });
+      
+      if (!this.lessonLanguage) {
+        console.error('❌ Failed to determine lesson language!');
+        return;
+      }
+      
+      console.log(`🎙️ Starting Deepgram transcription for ${subjectLanguage} (${this.lessonLanguage}) lesson`);
+      
+      // Use the working OpenAI Whisper approach instead of Deepgram
+      console.log(`🎙️ Starting OpenAI Whisper transcription for ${subjectLanguage} (${this.lessonLanguage}) lesson`);
+      console.log(`🎙️ Calling startTranscription with lessonId: ${this.lessonId}, language: ${this.lessonLanguage}`);
+      
+      this.transcriptionService.startTranscription(this.lessonId, this.lessonLanguage)
+        .subscribe({
+          next: (response) => {
+            this.isTranscriptionEnabled = true;
+            this.currentTranscriptId = response?.transcriptId || '';
+            
+            // CRITICAL: Also set the transcript ID in the transcription service
+            // This is needed for completeTranscription() to work
+            this.transcriptionService.currentTranscriptId = response?.transcriptId || '';
+            
+            console.log('✅ ✅ ✅ WHISPER TRANSCRIPTION STARTED SUCCESSFULLY ✅ ✅ ✅');
+              console.log('Response:', response);
+              console.log('TranscriptId from response:', response?.transcriptId);
+              console.log('✅ Set transcriptionService.currentTranscriptId:', response?.transcriptId);
+            
+            // Save session to localStorage
+            this.saveTranscriptionSession(this.currentTranscriptId);
+            
+            // Start capturing audio from local microphone
+            this.startAudioCapture_FIXED();
+          },
+          error: (error) => {
+            console.error('❌ ❌ ❌ FAILED TO START WHISPER TRANSCRIPTION ❌ ❌ ❌');
+            console.error('Error:', error);
+            console.error('Error details:', error?.error || error?.message);
+            // Fail silently - don't interrupt the lesson
+          }
+        });
+      
+    } catch (error) {
+      console.error('❌ Error in startLessonTranscription (Deepgram):', error);
+      // Fail silently - don't interrupt the lesson
+    }
+    
+    console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END ===');
+  }
+
+  /**
+   * Save transcription session to localStorage
+   */
+  private saveTranscriptionSession(transcriptId: string) {
+    if (!transcriptId || !this.lessonId) {
+      console.warn('⚠️ Cannot save transcription session: missing transcriptId or lessonId');
+      return;
+    }
+    
+    const sessionData = {
+      transcriptId,
+      lessonId: this.lessonId,
+      startTime: new Date().toISOString(),
+      language: this.lessonLanguage
+    };
+    
+    try {
+      localStorage.setItem(this.TRANSCRIPTION_SESSION_KEY, JSON.stringify(sessionData));
+      console.log('💾 Saved transcription session to localStorage:', sessionData);
+    } catch (error) {
+      console.error('❌ Error saving transcription session:', error);
+    }
+  }
+
+  /**
+   * Check for existing transcription session and auto-resume if valid
+   */
+  private async checkAndResumeTranscription() {
+    try {
+      const sessionJson = localStorage.getItem(this.TRANSCRIPTION_SESSION_KEY);
+      
+      if (!sessionJson) {
+        console.log('📝 No saved transcription session found');
+        return;
+      }
+      
+      const session = JSON.parse(sessionJson);
+      console.log('🔍 Found saved transcription session:', session);
+      
+      // Validation 1: Is this the same lesson?
+      if (session.lessonId !== this.lessonId) {
+        console.log('⚠️ Session is for different lesson, cleaning up');
+        this.clearTranscriptionSession();
+        return;
+      }
+      
+      // Validation 2: Is session too old? (> 2 hours = stale)
+      const sessionAge = Date.now() - new Date(session.startTime).getTime();
+      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      
+      if (sessionAge > TWO_HOURS) {
+        console.log('⚠️ Session is stale (>2 hours old), cleaning up');
+        this.clearTranscriptionSession();
+        return;
+      }
+      
+      // Validation 3: Is the lesson still active? (check backend)
+      try {
+        const response = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
+        const lesson = response.lesson;
+        
+        if (lesson.status === 'completed' || lesson.status === 'cancelled') {
+          console.log('⚠️ Lesson already ended, cleaning up session');
+          this.clearTranscriptionSession();
+          return;
+        }
+      } catch (lessonError) {
+        console.warn('⚠️ Could not validate lesson status:', lessonError);
+        // Continue anyway - lesson might just not be loaded yet
+      }
+      
+      // Validation 4: Does the transcription session still exist on backend?
+      try {
+        const transcript = await firstValueFrom(
+          this.transcriptionService.getTranscript(session.transcriptId)
+        );
+        
+        if (transcript.status === 'completed' || transcript.status === 'failed') {
+          console.log('⚠️ Transcription already completed/failed, cleaning up');
+          this.clearTranscriptionSession();
+          return;
+        }
+      } catch (transcriptError: any) {
+        // 404 or error = session doesn't exist anymore
+        console.log('⚠️ Transcription session invalid on backend, cleaning up');
+        this.clearTranscriptionSession();
+        return;
+      }
+      
+      // All validations passed - RESUME transcription!
+      console.log('✅ All validations passed - Resuming transcription session automatically');
+      this.isTranscriptionEnabled = true;
+      this.lessonLanguage = session.language;
+      this.currentTranscriptId = session.transcriptId;
+      
+      // CRITICAL: Also set the transcript ID in the transcription service
+      // Without this, completeTranscription() will fail with "No active transcription"
+      this.transcriptionService.currentTranscriptId = session.transcriptId;
+      console.log('✅ Set transcriptionService.currentTranscriptId:', session.transcriptId);
+      
+      // Start capturing audio again
+      console.log('🎙️ Restarting audio capture for resumed session...');
+      setTimeout(() => {
+        this.startAudioCapture_FIXED();
+      }, 1000); // Small delay to ensure Agora is initialized
+      
+      // Show a subtle toast (non-blocking)
+      this.showToast('Transcription resumed', 'success', 2000);
+      
+    } catch (error) {
+      console.error('❌ Error checking transcription session:', error);
+      this.clearTranscriptionSession();
+    }
+  }
+
+  /**
+   * Clear transcription session from localStorage
+   */
+  private clearTranscriptionSession() {
+    try {
+      localStorage.removeItem(this.TRANSCRIPTION_SESSION_KEY);
+      console.log('🧹 Cleared transcription session from localStorage');
+    } catch (error) {
+      console.error('❌ Error clearing transcription session:', error);
+    }
+  }
+
+  /**
+   * Show toast message
+   */
+  private async showToast(message: string, color: 'success' | 'warning' | 'danger' = 'success', duration: number = 2000) {
+    try {
+      const toast = await this.toastController.create({
+        message,
+        duration,
+        color,
+        position: 'bottom'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('❌ Error showing toast:', error);
+    }
+  }
+
+  /**
+   * UNUSED: Old OpenAI transcription method - keeping as fallback
+   * Start capturing audio from local microphone for transcription
+   */
+  private async startAudioCapture_UNUSED() {
+    try {
+      console.log('🎙️ ========== STARTING AUDIO CAPTURE ==========');
+      console.log('🎙️ Starting audio capture for transcription...');
+      
+      // Get the local audio track from Agora
+      const localAudioTrack = this.agoraService.getLocalAudioTrack();
+      console.log('🎙️ Local audio track from Agora:', !!localAudioTrack);
+      
+      if (!localAudioTrack) {
+        console.error('❌ No local audio track available');
+        return;
+      }
+      
+      // Get the MediaStream from the Agora track
+      const mediaStream = localAudioTrack.getMediaStreamTrack();
+      console.log('🎙️ Media stream from audio track:', !!mediaStream);
+      
+      if (!mediaStream) {
+        console.error('❌ Could not get media stream from audio track');
+        return;
+      }
+      
+      // Create a new MediaStream with just the audio track
+      const audioStream = new MediaStream([mediaStream]);
+      console.log('🎙️ Created audio stream:', {
+        active: audioStream.active,
+        id: audioStream.id,
+        trackCount: audioStream.getTracks().length
+      });
+      
+      // Create MediaRecorder
+      const options: MediaRecorderOptions = {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000 // 128 kbps for good quality
+      };
+      
+      console.log('🎙️ Creating MediaRecorder with options:', options);
+      this.transcriptionRecorder = new MediaRecorder(audioStream, options);
+      this.transcriptionAudioChunks = [];
+      
+      console.log('🎙️ MediaRecorder created:', {
+        state: this.transcriptionRecorder.state,
+        mimeType: this.transcriptionRecorder.mimeType
+      });
+      
+      // Collect audio data
+      this.transcriptionRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.transcriptionAudioChunks.push(event.data);
+          console.log(`🎙️ ✅ Audio chunk captured: ${event.data.size} bytes (Total chunks: ${this.transcriptionAudioChunks.length})`);
+        } else {
+          console.warn('⚠️ Audio chunk with 0 bytes received');
+        }
+      };
+      
+      this.transcriptionRecorder.onerror = (event) => {
+        console.error('❌ MediaRecorder error:', event);
+      };
+      
+      this.transcriptionRecorder.onstart = () => {
+        console.log('✅ MediaRecorder STARTED');
+      };
+      
+      this.transcriptionRecorder.onstop = () => {
+        console.log('🛑 MediaRecorder STOPPED');
+      };
+      
+      // Start recording with timeslice to get periodic ondataavailable events
+      console.log('🎙️ Starting MediaRecorder with 1-second timeslice...');
+      this.transcriptionRecorder.start(1000); // Request data every 1 second
+      console.log('✅ Audio recording started for transcription, state:', this.transcriptionRecorder.state);
+      
+      // Upload audio chunks every 10 seconds
+      console.log('🎙️ Setting up upload interval (every 10 seconds)...');
+      this.transcriptionUploadInterval = setInterval(() => {
+        console.log('⏰ Upload interval triggered');
+        this.uploadAudioChunk_UNUSED();
+      }, 10000); // 10 seconds
+      
+      console.log('🎙️ ========== AUDIO CAPTURE SETUP COMPLETE ==========');
+      
+    } catch (error) {
+      console.error('❌ Error starting audio capture:', error);
+    }
+  }
+
+  /**
+   * UNUSED: Upload captured audio chunk for transcription
+   */
+  private uploadAudioChunk_UNUSED() {
+    console.log('🎙️ ========== UPLOAD AUDIO CHUNK CALLED ==========');
+    console.log('🎙️ Recorder exists:', !!this.transcriptionRecorder);
+    console.log('🎙️ Chunks count:', this.transcriptionAudioChunks.length);
+    
+    if (!this.transcriptionRecorder) {
+      console.log('⏭️ Skipping upload - no recorder');
+      return;
+    }
+    
+    // If no chunks yet, request data and wait for next interval
+    if (this.transcriptionAudioChunks.length === 0) {
+      console.log('⏭️ No chunks yet, requesting data...');
+      if (this.transcriptionRecorder.state === 'recording') {
+        this.transcriptionRecorder.requestData();
+      }
+      return;
+    }
+    
+    try {
+      console.log(`🎙️ Uploading audio chunk (${this.transcriptionAudioChunks.length} chunks)...`);
+      console.log('🎙️ Recorder state:', this.transcriptionRecorder.state);
+      
+      // Create blob from accumulated chunks
+      const audioBlob = new Blob(this.transcriptionAudioChunks, { type: 'audio/webm' });
+      console.log(`📦 Created audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+      
+      // Skip empty or too-small blobs (likely malformed)
+      if (audioBlob.size < 1000) {
+        console.warn('⚠️ Audio blob too small, skipping upload');
+        this.transcriptionAudioChunks = [];
+        return;
+      }
+      
+      // Upload to backend
+      const transcriptId = this.transcriptionService.currentTranscriptId;
+      console.log('🆔 Transcript ID:', transcriptId);
+      
+      if (transcriptId) {
+        console.log('📤 Uploading to backend...');
+        this.transcriptionService.uploadAudio(transcriptId, audioBlob, 'student')
+          .subscribe({
+            next: (response) => {
+              console.log('✅ ✅ ✅ Audio uploaded successfully:', response);
+            },
+            error: (error) => {
+              console.error('❌ ❌ ❌ Error uploading audio:', error);
+              // Don't stop recording - just log the error and continue
+              // Some chunks may fail due to webm format issues, but that's okay
+              console.log('⏩ Continuing to next recording interval...');
+            }
+          });
+      } else {
+        console.error('❌ No transcript ID available for upload');
+      }
+      
+      // Clear chunks for next batch (keep recording without stopping)
+      console.log('🔄 Clearing chunks, keeping recorder running...');
+      this.transcriptionAudioChunks = [];
+      
+      // Request new data for next upload cycle
+      if (this.transcriptionRecorder.state === 'recording') {
+        this.transcriptionRecorder.requestData();
+        console.log('📝 Requested new data from recorder');
+      }
+      
+      console.log('🎙️ ========== UPLOAD COMPLETE ==========');
+      
+    } catch (error) {
+      console.error('❌ Error uploading audio chunk:', error);
+    }
+  }
+
+  /**
+   * UNUSED: Stop audio capture for transcription
+   */
+  private stopAudioCapture_UNUSED() {
+    console.log('🛑 Stopping audio capture...');
+    
+    // Stop upload interval
+    if (this.transcriptionUploadInterval) {
+      clearInterval(this.transcriptionUploadInterval);
+      this.transcriptionUploadInterval = null;
+    }
+    
+    // Upload final chunk
+    if (this.transcriptionRecorder && this.transcriptionAudioChunks.length > 0) {
+      this.uploadAudioChunk_UNUSED();
+    }
+    
+    // Stop recorder
+    if (this.transcriptionRecorder && this.transcriptionRecorder.state === 'recording') {
+      this.transcriptionRecorder.stop();
+      this.transcriptionRecorder = null;
+    }
+    
+    console.log('✅ Audio capture stopped');
+  }
+
+  /**
+   * FIXED: Start capturing audio with better format handling
+   */
+  private async startAudioCapture_FIXED() {
+    try {
+      console.log('🎙️ ========== STARTING FIXED AUDIO CAPTURE ==========');
+      
+      // Get microphone access directly (don't rely on Agora)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,    // Whisper prefers 16kHz
+          channelCount: 1,      // Mono
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+      
+      console.log('✅ Got direct microphone access');
+      
+      // Use audio/webm which is most reliable across browsers
+      // MP3 would be ideal but not supported by MediaRecorder
+      let selectedType = 'audio/webm'; // Default to webm (will be converted to MP3 on backend)
+      
+      const preferredTypes = [
+        'audio/webm;codecs=opus', // Best quality webm
+        'audio/webm',              // Fallback webm
+        'audio/mp4',               // iOS/Safari
+        'audio/wav'                // Last resort
+      ];
+      
+      for (const type of preferredTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          selectedType = type;
+          console.log(`✅ Using supported audio format: ${type}`);
+          break;
+        }
+      }
+      
+      // Create MediaRecorder with optimal settings
+      this.transcriptionRecorder = new MediaRecorder(stream, {
+        mimeType: selectedType,
+        audioBitsPerSecond: 64000  // Lower bitrate for smaller files
+      });
+      
+      this.transcriptionAudioChunks = [];
+      
+      // Collect audio data
+      this.transcriptionRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.transcriptionAudioChunks.push(event.data);
+          console.log(`🎙️ ✅ Audio chunk: ${event.data.size} bytes (Total: ${this.transcriptionAudioChunks.length})`);
+        }
+      };
+      
+      this.transcriptionRecorder.onerror = (event) => {
+        console.error('❌ MediaRecorder error:', event);
+      };
+      
+      // Start recording with longer intervals (30 seconds)
+      this.transcriptionRecorder.start(30000);
+      console.log(`✅ Recording started with format: ${selectedType}`);
+      
+      // Upload chunks every 30 seconds
+      this.transcriptionUploadInterval = setInterval(() => {
+        this.uploadAudioChunk_FIXED();
+      }, 30000);
+      
+      // Add visibility change listener to upload immediately on page hide/refresh
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && this.transcriptionAudioChunks.length > 0) {
+          console.log('🚨 Page hidden - uploading buffer immediately to prevent data loss');
+          this.uploadAudioChunk_FIXED();
+        }
+      });
+      
+      console.log('🎙️ ========== FIXED AUDIO CAPTURE READY ==========');
+      
+    } catch (error) {
+      console.error('❌ Error in fixed audio capture:', error);
+    }
+  }
+
+  /**
+   * FIXED: Upload audio chunk with better error handling
+   */
+  private uploadAudioChunk_FIXED(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      console.log('🎙️ ========== FIXED UPLOAD CALLED ==========');
+      
+      if (!this.transcriptionRecorder || this.transcriptionAudioChunks.length === 0) {
+        console.log('⏭️ No audio to upload yet');
+        resolve();
+        return;
+      }
+      
+      try {
+        // Stop recorder to finalize the current chunk
+        if (this.transcriptionRecorder.state === 'recording') {
+          this.transcriptionRecorder.stop();
+        }
+        
+        // Wait for the final chunk, then upload
+        this.transcriptionRecorder.onstop = () => {
+          const audioBlob = new Blob(this.transcriptionAudioChunks, { 
+            type: this.transcriptionRecorder?.mimeType || 'audio/wav'
+          });
+          
+          console.log(`📦 Created audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+          
+          if (audioBlob.size > 1000) { // Only upload substantial audio
+            const transcriptId = this.transcriptionService.currentTranscriptId;
+            
+            if (transcriptId) {
+              console.log('📤 Uploading to Whisper...');
+              this.transcriptionService.uploadAudio(transcriptId, audioBlob, 'student')
+                .subscribe({
+                  next: (response) => {
+                    console.log('✅ ✅ ✅ WHISPER UPLOAD SUCCESS:', response);
+                    
+                    // Restart recording for next chunk
+                    this.transcriptionAudioChunks = [];
+                    if (this.transcriptionRecorder) {
+                      this.transcriptionRecorder.start(30000);
+                    }
+                    resolve();
+                  },
+                  error: (error) => {
+                    console.error('❌ ❌ ❌ WHISPER UPLOAD ERROR:', error);
+                    reject(error);
+                  }
+                });
+            } else {
+              console.error('❌ No transcript ID');
+              resolve();
+            }
+          } else {
+            console.log('⏭️ Blob too small, skipping');
+            resolve();
+          }
+        };
+        
+      } catch (error) {
+        console.error('❌ Error in fixed upload:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * FIXED: Stop audio capture
+   */
+  private async stopAudioCapture_FIXED(): Promise<void> {
+    console.log('🛑 Stopping fixed audio capture...');
+    
+    try {
+      // Stop upload interval FIRST
+      if (this.transcriptionUploadInterval) {
+        clearInterval(this.transcriptionUploadInterval);
+        this.transcriptionUploadInterval = null;
+        console.log('✅ Upload interval cleared');
+      }
+      
+      // Stop recorder and its tracks
+      if (this.transcriptionRecorder) {
+        if (this.transcriptionRecorder.state === 'recording') {
+          this.transcriptionRecorder.stop();
+        }
+        
+        // Stop all audio tracks to release microphone
+        if (this.transcriptionRecorder.stream) {
+          this.transcriptionRecorder.stream.getTracks().forEach(track => {
+            track.stop();
+            console.log('🛑 Stopped audio track:', track.kind);
+          });
+        }
+        
+        this.transcriptionRecorder = null;
+        console.log('✅ Recorder stopped and tracks released');
+      }
+      
+      // Upload final chunk if there is one (but ONLY if we haven't cleared the interval above)
+      if (this.transcriptionAudioChunks.length > 0 && this.transcriptionUploadInterval === null) {
+        console.log('📤 Uploading final chunk...');
+        try {
+          await Promise.race([
+            this.uploadAudioChunk_FIXED(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Upload timeout after 10 seconds')), 10000)
+            )
+          ]);
+          console.log('✅ Final chunk uploaded');
+        } catch (error) {
+          console.error('❌ Error uploading final chunk:', error);
+        }
+      }
+      
+      // Clear any remaining chunks
+      this.transcriptionAudioChunks = [];
+      
+      console.log('✅ Fixed audio capture stopped');
+    } catch (error) {
+      console.error('❌ Error in stopAudioCapture_FIXED:', error);
+    }
+  }
+  
+  /**
+   * Stop transcription immediately (called when early exit is confirmed)
+   */
+  private async stopTranscriptionImmediately(): Promise<void> {
+    console.log('🛑🛑🛑 STOPPING TRANSCRIPTION IMMEDIATELY (Early Exit)');
+    
+    try {
+      // Stop audio capture
+      await this.stopAudioCapture_FIXED();
+      console.log('✅ Audio capture stopped');
+      
+      // Wait for final upload to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Complete transcription
+      if (this.isTranscriptionEnabled && this.currentTranscriptId) {
+        console.log('📝 Completing transcription for early exit...');
+        this.transcriptionService.completeTranscription().subscribe({
+          next: (response) => {
+            console.log('✅ Transcription completed after early exit:', response);
+          },
+          error: (error) => {
+            console.error('❌ Error completing transcription:', error);
+          }
+        });
+      }
+      
+      // Clear session
+      this.clearTranscriptionSession();
+      this.isTranscriptionEnabled = false;
+      
+      console.log('✅ Transcription stopped completely');
+    } catch (error) {
+      console.error('❌ Error stopping transcription immediately:', error);
+    }
+  }
+
+  /**
+   * Complete transcription and show lesson summary
+   */
+  private async completeLessonWithSummary() {
+    console.log('🎯 completeLessonWithSummary called');
+    console.log('🎯 isTranscriptionEnabled:', this.isTranscriptionEnabled);
+    console.log('🎯 lessonId:', this.lessonId);
+    
+    // Clear transcription session from localStorage
+    this.clearTranscriptionSession();
+    
+    if (!this.isTranscriptionEnabled) {
+      console.warn('⚠️ Transcription was not enabled, skipping analysis modal');
+      return;
+    }
+
+    try {
+      console.log('🎯 Completing Whisper transcription and generating analysis...');
+      
+      // Stop fixed audio capture and WAIT for final upload
+      console.log('🛑 Stopping fixed audio capture and uploading final chunk...');
+      await this.stopAudioCapture_FIXED();
+      console.log('✅ Audio capture stopped and final chunk uploaded');
+      
+      // Wait a bit more to be absolutely sure uploads are processed (5 seconds)
+      console.log('⏳ Waiting 5 seconds for upload processing...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Complete transcription using OpenAI Whisper
+      console.log('📝 Completing transcription now...');
+      this.transcriptionService.completeTranscription().subscribe({
+        next: async (response) => {
+          console.log('✅ Whisper transcription completed:', response);
+          console.log('📊 Transcript metadata:', response.metadata);
+        },
+        error: (error) => {
+          console.error('❌ Error completing transcription:', error);
+        }
+      });
+      
+      // Poll for analysis instead of fixed timeout
+      console.log('⏳ Polling for GPT-4 analysis to complete...');
+      let analysisReady = false;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 attempts × 2 seconds = 2 minutes max
+      
+      while (!analysisReady && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Check every 2 seconds
+        attempts++;
+        
+        try {
+          console.log(`🔍 Checking for analysis (attempt ${attempts}/${maxAttempts})...`);
+          const analysis = await firstValueFrom(
+            this.transcriptionService.getLessonAnalysis(this.lessonId!)
+          );
+          
+          if (analysis && analysis.status === 'completed') {
+            console.log('✅ Analysis ready!', analysis);
+            analysisReady = true;
+          } else if (analysis && analysis.status === 'failed') {
+            console.error('❌ Analysis failed:', analysis);
+            break; // Stop polling if analysis failed
+          } else {
+            console.log(`⏳ Analysis status: ${analysis?.status || 'not found'}, continuing to poll...`);
+          }
+        } catch (error: any) {
+          // Analysis not found yet or still processing - keep polling
+          if (error.status === 404) {
+            console.log(`⏳ Analysis not ready yet (404), continuing to poll...`);
+          } else {
+            console.warn(`⚠️ Error checking for analysis:`, error);
+          }
+        }
+      }
+      
+      if (!analysisReady) {
+        console.warn(`⚠️ Analysis not ready after ${maxAttempts} attempts (${maxAttempts * 2} seconds)`);
+      }
+      
+      console.log('📊 Opening lesson summary modal...');
+      
+      // Show lesson summary modal (use NgZone to avoid assertion errors after navigation)
+      try {
+        await this.ngZone.run(async () => {
+          const modal = await this.modalController.create({
+            component: LessonSummaryComponent,
+            componentProps: {
+              lessonId: this.lessonId
+            },
+            backdropDismiss: false,
+            cssClass: 'fullscreen-modal'  // Use fullscreen modal
+          });
+
+          await modal.present();
+          console.log('✅ Lesson summary modal presented');
+        });
+        
+      } catch (modalError) {
+        console.error('❌ Error showing lesson summary modal:', modalError);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in completeLessonWithSummary:', error);
+    }
   }
 }

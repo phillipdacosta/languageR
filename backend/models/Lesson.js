@@ -26,7 +26,7 @@ const LessonSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled'], 
+    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'pending_reschedule'], 
     default: 'scheduled' 
   },
   subject: {
@@ -102,6 +102,26 @@ const LessonSchema = new mongoose.Schema({
     selectedTime: String,
     timeRange: String
   },
+  // Reschedule proposal tracking
+  rescheduleProposal: {
+    proposedBy: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User'
+    },
+    proposedStartTime: Date,
+    proposedEndTime: Date,
+    proposedAt: Date,
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    }
+  },
+  // Manual feedback tracking (when AI analysis is disabled)
+  requiresTutorFeedback: {
+    type: Boolean,
+    default: false
+  },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {
     type: String,
@@ -110,6 +130,31 @@ const LessonSchema = new mongoose.Schema({
   whiteboardCreatedAt: {
     type: Date,
     default: null
+  },
+  // AI Analysis (generated after lesson ends)
+  aiAnalysis: {
+    summary: {
+      type: String,
+      default: null
+    },
+    strengths: [{
+      type: String
+    }],
+    areasForImprovement: [{
+      type: String
+    }],
+    recommendations: [{
+      type: String
+    }],
+    generatedAt: {
+      type: Date,
+      default: null
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'generating', 'completed', 'failed', null],
+      default: null
+    }
   }
 }, { 
   timestamps: true 

@@ -1,0 +1,39 @@
+.preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 24px;
+}
+
+.preview-image-wrapper {
+  margin-bottom: 24px;
+}
+
+.preview-image {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 4px solid var(--ion-color-light);
+}
+
+.preview-text {
+  text-align: center;
+  font-size: 16px;
+  color: var(--ion-color-medium);
+  margin: 0;
+  max-width: 300px;
+}
+
+ion-footer {
+  ion-toolbar {
+    --padding-start: 16px;
+    --padding-end: 16px;
+  }
+}
+
+
+

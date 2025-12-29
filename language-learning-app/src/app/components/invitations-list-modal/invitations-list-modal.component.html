@@ -1,0 +1,184 @@
+<ion-content class="invitations-list-content">
+  <!-- Floating close button -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <!-- LIST VIEW -->
+  <div class="invitations-container" *ngIf="currentView === 'list'">
+    <!-- Header -->
+    <h1 class="page-title">Class Invitations</h1>
+    <p class="page-subtitle">Choose an invitation to view details</p>
+
+    <!-- Empty State -->
+    <div *ngIf="!activeInvitations || activeInvitations.length === 0" class="empty-state">
+      <ion-icon name="mail-open-outline" class="empty-icon"></ion-icon>
+      <h3>No Invitations</h3>
+      <p>You don't have any pending class invitations at the moment.</p>
+    </div>
+
+    <!-- Invitations List -->
+    <div class="invitations-list" *ngIf="activeInvitations && activeInvitations.length > 0">
+      <div 
+        *ngFor="let invitation of activeInvitations" 
+        class="invitation-card"
+        (click)="selectInvitation(invitation._id)">
+        
+        <!-- Card Header -->
+        <div class="card-header">
+          <ion-avatar class="tutor-avatar-small">
+            <img 
+              *ngIf="invitation.tutorId?.picture" 
+              [src]="invitation.tutorId.picture" 
+              [alt]="invitation.tutorId.name" 
+              referrerpolicy="no-referrer" />
+            <ion-icon 
+              *ngIf="!invitation.tutorId?.picture" 
+              name="person" 
+              class="avatar-placeholder"></ion-icon>
+          </ion-avatar>
+          
+          <div class="card-info">
+            <h3 class="class-name">{{ invitation.name || 'Group Class' }}</h3>
+            <p class="tutor-name-small">{{ invitation.tutorId?.name || 'Unknown' }}</p>
+          </div>
+          
+          <ion-icon name="chevron-forward" class="chevron-icon"></ion-icon>
+        </div>
+
+        <!-- Card Details -->
+        <div class="card-details">
+          <div class="detail-chip">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ formatClassDate(invitation?.startTime) }}</span>
+          </div>
+          <div class="detail-chip">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ formatClassTime(invitation?.startTime) }}</span>
+          </div>
+          <div class="detail-chip" *ngIf="invitation.capacity">
+            <ion-icon name="people-outline"></ion-icon>
+            <span>{{ invitation.confirmedStudents?.length || 0 }}/{{ invitation.capacity }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAILS VIEW (similar to class-invitation-modal) -->
+  <div class="details-container" *ngIf="currentView === 'details'">
+    <!-- Back button -->
+    <ion-button class="floating-back-button" fill="clear" (click)="backToList()">
+      <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+    </ion-button>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="loadingDetails">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading class details...</p>
+    </div>
+
+    <!-- Class Details -->
+    <div class="invitation-container" *ngIf="!loadingDetails && selectedInvitation">
+      <!-- Tutor Info Banner -->
+      <div class="tutor-section-details">
+        <ion-avatar class="tutor-avatar">
+          <img *ngIf="selectedInvitation.tutorId?.picture" [src]="selectedInvitation.tutorId.picture" [alt]="selectedInvitation.tutorId.name" referrerpolicy="no-referrer" />
+          <ion-icon *ngIf="!selectedInvitation.tutorId?.picture" name="person" class="avatar-placeholder"></ion-icon>
+        </ion-avatar>
+        <div class="tutor-info">
+          <p class="tutor-label">Instructor</p>
+          <h3 class="tutor-name">{{ selectedInvitation.tutorId?.name || 'Unknown' }}</h3>
+        </div>
+      </div>
+
+      <!-- Class Title -->
+      <h1 class="class-title-details">{{ selectedInvitation.name }}</h1>
+
+      <!-- Class Details -->
+      <div class="class-details-grid">
+        <!-- Date -->
+        <div class="detail-item-details">
+          <div class="detail-icon">
+            <ion-icon name="calendar-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Date</p>
+            <p class="detail-value">{{ formatDetailedDate(selectedInvitation.startTime) }}</p>
+          </div>
+        </div>
+
+        <!-- Time -->
+        <div class="detail-item-details">
+          <div class="detail-icon">
+            <ion-icon name="time-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Time</p>
+            <p class="detail-value">{{ formatDetailedTime(selectedInvitation.startTime) }} ({{ duration }} minutes)</p>
+          </div>
+        </div>
+
+        <!-- Capacity -->
+        <div class="detail-item-details">
+          <div class="detail-icon">
+            <ion-icon name="people-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Class Size</p>
+            <p class="detail-value">
+              {{ selectedInvitation.confirmedStudents?.length || 0 }} of {{ selectedInvitation.capacity }} students
+              <span class="spots-badge" [class.full]="spotsLeft === 0">{{ spotsText }}</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Price -->
+        <div class="detail-item-details">
+          <div class="detail-icon">
+            <ion-icon [name]="selectedInvitation.price === 0 ? 'gift-outline' : 'cash-outline'"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">Price</p>
+            <p class="detail-value" *ngIf="selectedInvitation.price > 0">${{ selectedInvitation.price }}</p>
+            <p class="detail-value free-text" *ngIf="selectedInvitation.price === 0">Free Class</p>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="detail-item-details description-item" *ngIf="selectedInvitation.description">
+          <div class="detail-icon">
+            <ion-icon name="document-text-outline"></ion-icon>
+          </div>
+          <div class="detail-content">
+            <p class="detail-label">About this class</p>
+            <div class="description-content" [innerHTML]="sanitizedDescription"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<!-- Footer with Action Buttons (only show in details view) -->
+<ion-footer *ngIf="currentView === 'details' && !loadingDetails && selectedInvitation">
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline"
+        [disabled]="processing"
+        (click)="declineInvitation()">
+        Decline
+      </ion-button>
+      <ion-button 
+        expand="block"
+        color="primary"
+        [disabled]="processing || spotsLeft === 0"
+        (click)="acceptInvitation()">
+        <ion-spinner *ngIf="processing" name="crescent" slot="start"></ion-spinner>
+        <span *ngIf="!processing">{{ spotsLeft === 0 ? 'Class is Full' : 'Accept & Join' }}</span>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

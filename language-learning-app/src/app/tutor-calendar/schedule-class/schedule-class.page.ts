@@ -11,7 +11,7 @@ import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { QuillModule } from 'ngx-quill';
+import { QuillEditorComponent } from 'ngx-quill';
 
 interface Student {
   _id: string;
@@ -26,10 +26,10 @@ interface Student {
   templateUrl: './schedule-class.page.html',
   styleUrls: ['./schedule-class.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillModule]
+  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillEditorComponent]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy {
-  classType: 'one' | 'recurring' = 'one';
+  classType: 'one' | 'recurring' = 'recurring'; // Default to multiple students
   students: Student[] = [];
   loadingStudents = false;
   showStudentDropdown = false;
@@ -39,7 +39,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   
   // Pricing properties
   readonly STANDARD_LESSON_DURATION = 50; // Base duration for tutor rates (50 minutes, not 60)
-  readonly PLATFORM_FEE_PERCENTAGE = 15; // 15% platform fee
+  readonly PLATFORM_FEE_PERCENTAGE = 20; // 20% platform fee - competitive and fair
   tutorStandardRate: number = 25; // Tutor's rate for a standard 50-minute lesson
   suggestedPrice: number = 0;
   currentUser: any = null;
@@ -49,8 +49,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     studentIds: [[] as string[]], // For multiple student selection
     name: ['', [Validators.required, Validators.maxLength(80)]],
     description: ['', [Validators.required, Validators.minLength(20)]],
-    maxStudents: [1, [Validators.required, Validators.min(1), Validators.max(50)]],
-    minStudents: [1, [Validators.required, Validators.min(1)]], // Minimum students for class to run
+    maxStudents: [2, [Validators.required, Validators.min(2), Validators.max(50)]], // Default to 2 for group classes
+    minStudents: [2, [Validators.required, Validators.min(2)]], // Minimum students for class to run (default to 2 for group classes)
     flexibleMinimum: [false], // Run class even if minimum not met
     level: ['', Validators.required], // Class level
     duration: ['', Validators.required], // Lesson duration in minutes
@@ -154,7 +154,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       if (minStudentsControl && maxStudents) {
         minStudentsControl.setValidators([
           Validators.required, 
-          Validators.min(1),
+          Validators.min(2), // Minimum 2 students for group classes
           Validators.max(maxStudents)
         ]);
         minStudentsControl.updateValueAndValidity();
@@ -285,9 +285,31 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
                 
                 const studentId = student._id?.toString() || student._id;
                 if (studentId && !studentMap.has(studentId)) {
+                  // Format display name as "FirstName LastInitial."
+                  let displayName = student.name || student.email || 'Unknown';
+                  
+                  // Try to use firstName and lastName if available
+                  if (student.firstName) {
+                    const firstName = student.firstName;
+                    const lastName = student.lastName || '';
+                    displayName = lastName 
+                      ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+                      : firstName;
+                  } else if (student.name) {
+                    // Parse from full name
+                    const nameParts = student.name.trim().split(' ');
+                    if (nameParts.length > 1) {
+                      const firstName = nameParts[0];
+                      const lastName = nameParts[nameParts.length - 1];
+                      displayName = `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+                    } else {
+                      displayName = student.name;
+                    }
+                  }
+                  
                   studentMap.set(studentId, {
                     _id: studentId,
-                    name: student.name || 'Unknown',
+                    name: displayName,
                     email: student.email || '',
                     picture: student.picture,
                     userType: 'student'
@@ -319,7 +341,6 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
               studentName: (l.studentId as any)?.name
             })));
           }
-          
           // Sort by name
           this.students.sort((a, b) => a.name.localeCompare(b.name));
         } else {
@@ -333,36 +354,63 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       }
     });
   }
+  
+  // Availability picker modal state
+  isAvailabilityPickerOpen = false;
+  availabilityPickerProps: any = null;
 
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
+    console.log('🔍 [Schedule Class] Opening availability picker with user:', currentUser);
+    
     if (!currentUser?.id) {
+      console.error('❌ [Schedule Class] Cannot open availability picker: currentUser.id is missing', currentUser);
+      const toast = await this.toast.create({
+        message: 'Unable to load availability. Please try again.',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
       return;
     }
+
+    console.log('✅ [Schedule Class] Valid user ID:', currentUser.id);
 
     // Get selected duration from form (only for recurring/multiple-students classes)
     const selectedDuration = this.classType === 'recurring' && this.form.value.duration 
       ? Number(this.form.value.duration) 
       : 25; // Default to 25
 
-    const modal = await this.modalController.create({
-      component: TutorAvailabilityViewerComponent,
-      componentProps: {
-        tutorId: currentUser.id,
-        tutorName: currentUser.name || 'You',
-        currentUserAuth0Id: currentUser.auth0Id,
-        tutorAuth0Id: currentUser.auth0Id,
-        inline: false,
-        selectionMode: true,  // Enable selection mode for own availability
-        showDurationSelector: false, // Don't show duration selector (we set it from form)
-        selectedDuration: selectedDuration // Pass the selected duration from form
-      },
-      cssClass: 'availability-picker-modal'
+    console.log('📅 [Schedule Class] Setting modal props:', {
+      tutorId: currentUser.id,
+      tutorName: currentUser.name || 'You',
+      currentUserAuth0Id: currentUser.auth0Id,
+      tutorAuth0Id: currentUser.auth0Id,
+      selectedDuration
     });
 
-    await modal.present();
+    // Set props for inline modal
+    this.availabilityPickerProps = {
+      tutorId: currentUser.id,
+      tutorName: currentUser.name || 'You',
+      currentUserAuth0Id: currentUser.auth0Id,
+      tutorAuth0Id: currentUser.auth0Id,
+      inline: true,
+      selectionMode: true,
+      dismissOnSelect: true,
+      showDurationSelector: false,
+      selectedDuration: selectedDuration
+    };
+
+    // Open inline modal
+    this.isAvailabilityPickerOpen = true;
+  }
+
+  onAvailabilityPickerDismiss(event: any) {
+    console.log('📅 Availability picker dismissed:', event);
+    this.isAvailabilityPickerOpen = false;
     
-    const { data } = await modal.onWillDismiss();
+    const data = event.detail?.data;
     if (data?.selectedDate && data?.selectedTime) {
       // Fill in the form with the selected date/time
       this.form.patchValue({
@@ -564,7 +612,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
           name: name as string,
           description: description as string,
           capacity: Number(maxStudents),
-          minStudents: Number(this.form.value.minStudents) || 1,
+          minStudents: Number(this.form.value.minStudents) || 2,
           flexibleMinimum: !!this.form.value.flexibleMinimum,
           level: level as string,
           duration: Number(duration),
@@ -714,7 +762,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
 
   canSelectMoreStudents(): boolean {
     const currentIds = this.form.value.studentIds || [];
-    const maxStudents = this.form.value.maxStudents || 1;
+    const maxStudents = this.form.value.maxStudents || 2;
     return currentIds.length < maxStudents;
   }
 
@@ -726,7 +774,7 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   }
 
   async showMaxStudentsReachedToast() {
-    const maxStudents = this.form.value.maxStudents || 1;
+    const maxStudents = this.form.value.maxStudents || 2;
     const toast = await this.toast.create({
       message: `Maximum of ${maxStudents} student${maxStudents > 1 ? 's' : ''} can be selected`,
       duration: 2000,
@@ -780,18 +828,21 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     const baseRate = this.tutorStandardRate;
     const durationNum = Number(duration);
     const durationMultiplier = durationNum / this.STANDARD_LESSON_DURATION; // Divide by 50, not 60
-    const groupDiscount = 0.6; // 40% off per student for group classes
+    const groupDiscount = 0.80; // 20% off per student (better reward for tutors)
+    const groupRewardMultiplier = 1.10; // 10% bonus for managing group dynamics
     const levelMultiplier = levelMultipliers[level] || 1.0;
 
-    // Calculate: standardRate * (duration/50) * groupDiscount * levelMultiplier
+    // Calculate: standardRate * (duration/50) * groupDiscount * groupRewardMultiplier * levelMultiplier
     this.suggestedPrice = Math.round(
-      baseRate * durationMultiplier * groupDiscount * levelMultiplier * 100
+      baseRate * durationMultiplier * groupDiscount * groupRewardMultiplier * levelMultiplier * 100
     ) / 100;
 
     console.log('💰 Calculated suggested price:', {
       baseRate,
       duration,
       level,
+      groupDiscount,
+      groupRewardMultiplier,
       suggestedPrice: this.suggestedPrice
     });
   }
@@ -905,18 +956,24 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   }
 
   getRecommendedMinimum(): number {
-    if (!this.form.value.duration) return 1;
-    
-    const oneOnOneEarnings = this.calculate1on1Earnings();
+    if (!this.form.value.duration) return 2; // Default to 2 for group classes
+
+    const oneOnOneNet = this.calculate1on1EarningsNet();
     const pricePerStudent = this.getFinalPrice();
-    
-    if (pricePerStudent === 0) return 1;
-    
-    const breakEven = Math.ceil(oneOnOneEarnings / pricePerStudent);
-    const maxStudents = this.form.value.maxStudents || 10;
-    
-    // Return break-even, but cap at maxStudents
-    return Math.min(breakEven, maxStudents);
+    const maxStudents = this.form.value.maxStudents || 2;
+
+    if (pricePerStudent === 0) return 2; // Default to 2 for group classes
+
+    // Find the smallest group size where net earnings meet or exceed 1:1 net
+    for (let count = 2; count <= maxStudents; count++) {
+      const groupNet = this.calculateGroupEarningsNet(count);
+      if (groupNet >= oneOnOneNet) {
+        return count;
+      }
+    }
+
+    // If none meet/exceed, recommend the max available
+    return maxStudents;
   }
 
   getStudentCountRange(): number[] {

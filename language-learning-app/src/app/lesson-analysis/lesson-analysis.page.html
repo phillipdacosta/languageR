@@ -1,0 +1,632 @@
+<ion-header>
+  <ion-toolbar color="primary" class="lesson-header-toolbar">
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Lesson Analysis</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="lesson-content">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Loading analysis...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="!loading && error" class="error-container loading-state">
+    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+    <h2>{{ error }}</h2>
+    <ion-button *ngIf="canGenerate" (click)="generateAnalysis()" expand="block">
+      Generate Analysis
+    </ion-button>
+    <ion-button (click)="goBack()" fill="outline" expand="block">
+      Go Back
+    </ion-button>
+  </div>
+
+  <!-- Generating State -->
+  <div *ngIf="!loading && !error && (analysis?.status === 'processing' || analysis?.status === 'pending')" class="loading-state">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <h3>Generating Your Analysis</h3>
+    <p>Analyzing your lesson... This usually takes 10-30 seconds.</p>
+    <p class="polling-info" *ngIf="pollCount > 0">
+      <ion-icon name="sync-outline"></ion-icon>
+      Checking for updates... ({{pollCount}}/{{maxPollAttempts}})
+    </p>
+  </div>
+
+  <!-- Split Layout with Full Analysis -->
+  <div class="split-layout" *ngIf="!loading && !error && (analysis?.status === 'completed' || analysis?.status === 'failed')">
+    <!-- Show analysis if completed OR if failed but has data (partial analysis is better than nothing) -->
+    
+    <!-- LEFT SIDE: Tutor Info (Fixed) -->
+    <div class="left-panel" *ngIf="lesson">
+      <div class="tutor-card">
+        <div class="tutor-avatar">
+          <img [src]="lesson.tutor.picture || 'assets/default-avatar.png'" [alt]="lesson.tutor.name" />
+        </div>
+        <div class="tutor-name">
+          <h2>{{ lesson.tutor.name }}</h2>
+        </div>
+        
+        <div class="lesson-info-section">
+          <div class="info-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ formatDate(lesson.startTime) }}</span>
+          </div>
+          <div class="info-item">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ formatTime(lesson.startTime) }} - {{ formatTime(lesson.endTime) }}</span>
+          </div>
+          <div class="info-item" *ngIf="lesson.actualDurationMinutes">
+            <ion-icon name="hourglass-outline"></ion-icon>
+            <span>{{ lesson.actualDurationMinutes }} minutes</span>
+            <ion-badge *ngIf="lesson.actualDurationMinutes < lesson.duration" color="warning">
+              Early
+            </ion-badge>
+          </div>
+        </div>
+        
+        <div class="tutor-actions">
+          <ion-button expand="block" fill="solid" color="primary" (click)="leaveReview()">
+            <ion-icon name="star" slot="start"></ion-icon>
+            Leave a Review
+          </ion-button>
+          
+          <ion-button expand="block" fill="outline" color="primary" (click)="rebook()">
+            <ion-icon name="calendar" slot="start"></ion-icon>
+            Book Again
+          </ion-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: Analysis (Scrollable) -->
+    <div class="right-panel" [class.full-width]="!lesson">
+      <div class="analysis-content">
+        
+        <!-- Warning banner and celebration pills container -->
+        <div class="top-banners-container">
+          <!-- Warning banner for failed analysis -->
+          <div *ngIf="analysis?.status === 'failed'" class="warning-banner">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>Analysis encountered an issue during generation but produced complete results.</span>
+          </div>
+          
+          <!-- Celebration / warning pill at top -->
+          <div class="pill-banner" *ngIf="getCelebrationMessage()">
+            {{ getCelebrationMessage() }}
+          </div>
+          <div class="pill-banner pill-banner--warning" *ngIf="getWarningMessage()">
+            {{ getWarningMessage() }}
+          </div>
+        </div>
+
+        <!-- CEFR Level Jump Banner -->
+        <div class="level-jump-banner" *ngIf="analysis!.progressionMetrics?.previousProficiencyLevel && 
+                                               analysis!.progressionMetrics!.previousProficiencyLevel !== 'first_lesson' &&
+                                               analysis!.progressionMetrics!.previousProficiencyLevel !== analysis!.overallAssessment.proficiencyLevel">
+          <ion-icon name="trophy"></ion-icon>
+          <span>You've moved from <strong>{{ analysis!.progressionMetrics!.previousProficiencyLevel }}</strong> to <strong>{{ analysis!.overallAssessment.proficiencyLevel }}</strong> since your last session!</span>
+        </div>
+
+        <!-- Hero row: Level badge + Vocabulary chip -->
+        <div class="level-hero-row">
+          <div class="level-section">
+            <div class="level-badge-large">
+              <div class="level-text">
+                {{ analysis!.overallAssessment.proficiencyLevel }}
+              </div>
+              <div class="confidence-text" (click)="showConfidenceTooltip()">
+                {{ analysis!.overallAssessment.confidence }}% confident
+                <ion-icon
+                  name="information-circle-outline"
+                  class="info-icon"
+                ></ion-icon>
+              </div>
+            </div>
+            <div
+              class="progress-note"
+              *ngIf="shouldShowProgress()"
+              [class]="getProgressColorClass()"
+            >
+              <ion-icon [name]="getProgressIcon()"></ion-icon>
+              {{ analysis!.overallAssessment.progressFromLastLesson }}
+            </div>
+          </div>
+
+          <div class="level-side-chip" *ngIf="analysis!.vocabularyAnalysis">
+            <div class="side-chip-label">Vocabulary</div>
+            <div class="side-chip-value">
+              {{ analysis!.vocabularyAnalysis.uniqueWordCount ?? 0 }} words
+            </div>
+            <div class="side-chip-change" *ngIf="analysis!.progressionMetrics?.vocabularyGrowth && (analysis!.progressionMetrics!.vocabularyGrowth ?? 0) > 0">
+              <ion-icon name="trending-up"></ion-icon>
+              +{{ analysis!.progressionMetrics!.vocabularyGrowth ?? 0 }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary message with Key Improvements -->
+        <div class="summary-message-card">
+          <h3>Great job today! 👏</h3>
+          
+          <!-- Key Improvements -->
+          <div class="key-improvements" *ngIf="analysis!.progressionMetrics?.keyImprovements?.length">
+            <div *ngFor="let improvement of (analysis!.progressionMetrics!.keyImprovements || [])" class="improvement-bullet">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <span>{{ improvement }}</span>
+            </div>
+          </div>
+          
+          <!-- Topics Discussed -->
+          <div class="topics-section" *ngIf="analysis!.topicsDiscussed?.length">
+            <h4>Topics We Discussed</h4>
+            <div class="vocab-chips">
+              <ion-chip *ngFor="let topic of analysis!.topicsDiscussed" color="primary" outline>
+                <ion-label>{{ topic }}</ion-label>
+              </ion-chip>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grammar accuracy progress -->
+        <div
+          class="progress-over-time-card"
+          *ngIf="getPreviousGrammarScore() !== null"
+        >
+          <h4>📈 Grammar Accuracy Progress</h4>
+          <div class="progress-comparison">
+            <div class="progress-item previous">
+              <div class="progress-label">Last Session</div>
+              <div class="progress-value">
+                {{ getPreviousGrammarScore() }}%
+              </div>
+            </div>
+            <div class="progress-arrow">
+              <ion-icon
+                [name]="
+                  (analysis!.progressionMetrics?.grammarAccuracyChange ?? 0) >= 0
+                    ? 'arrow-up'
+                    : 'arrow-down'
+                "
+                [style.color]="
+                  (analysis!.progressionMetrics?.grammarAccuracyChange ?? 0) >= 0
+                    ? '#10b981'
+                    : '#ef4444'
+                "
+              ></ion-icon>
+              <span
+                class="progress-change"
+                [style.color]="
+                  (analysis!.progressionMetrics?.grammarAccuracyChange ?? 0) >= 0
+                    ? '#10b981'
+                    : '#ef4444'
+                "
+              >
+                {{
+                  (analysis!.progressionMetrics?.grammarAccuracyChange ?? 0) > 0
+                    ? '+'
+                    : ''
+                }}{{ analysis!.progressionMetrics?.grammarAccuracyChange ?? 0 }}%
+              </span>
+            </div>
+            <div class="progress-item current">
+              <div class="progress-label">This Session</div>
+              <div class="progress-value">
+                {{ analysis!.grammarAnalysis?.accuracyScore ?? 0 }}%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Words Used -->
+        <div class="advanced-words-section" *ngIf="analysis!.vocabularyAnalysis?.advancedWordsUsed?.length">
+          <div class="section-icon">✨</div>
+          <div class="section-content">
+            <h4>Nice advanced words you used today:</h4>
+            <p class="advanced-words-list">{{ analysis!.vocabularyAnalysis!.advancedWordsUsed!.join(', ') }}</p>
+          </div>
+        </div>
+
+        <!-- Suggested Words to Learn -->
+        <div class="suggested-words-section" *ngIf="analysis!.vocabularyAnalysis?.suggestedWords?.length">
+          <h4>
+            <ion-icon name="book"></ion-icon>
+            New words to learn
+          </h4>
+          <div class="vocab-chips">
+            <ion-chip *ngFor="let word of analysis!.vocabularyAnalysis!.suggestedWords" color="secondary" outline>
+              <ion-label>{{ word }}</ion-label>
+            </ion-chip>
+          </div>
+        </div>
+
+        <!-- Pronunciation Analysis -->
+        <!-- TEMPORARILY DISABLED: Pronunciation scores were inaccurate for native/advanced speakers -->
+        <!-- Audio playback features (student recording + TTS) remain active in other sections -->
+        <!-- To re-enable: Change *ngIf condition below from 'false' to the commented condition -->
+        <ion-card *ngIf="false && analysis!.pronunciationAnalysis && analysis!.pronunciationAnalysis.overallScore" class="pronunciation-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="mic"></ion-icon>
+              Pronunciation Assessment
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <!-- Overall Score -->
+            <div class="pronunciation-score-grid">
+              <div class="score-item">
+                <div class="score-label">Overall</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.overallScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.overallScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Accuracy</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.accuracyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.accuracyScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Fluency</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.fluencyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.fluencyScore }}/100</div>
+                </div>
+              </div>
+              <div class="score-item">
+                <div class="score-label">Prosody</div>
+                <div class="score-circle" [style.--score]="analysis!.pronunciationAnalysis!.prosodyScore">
+                  <div class="score-value">{{ analysis!.pronunciationAnalysis!.prosodyScore }}/100</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Words to Improve -->
+            <div *ngIf="analysis!.pronunciationAnalysis!.mispronunciations?.length" class="words-to-improve">
+              <h4 class="improve-title">
+                <ion-icon name="bulb"></ion-icon>
+                Words to Practice
+              </h4>
+              <div *ngFor="let word of analysis!.pronunciationAnalysis!.mispronunciations; let i = index" class="word-item">
+                <div class="word-header">
+                  <div class="word-left">
+                    <ion-button 
+                      fill="clear" 
+                      size="small" 
+                      class="play-button"
+                      (click)="playWordAudio(word.word, i)"
+                      [color]="isWordPlaying(i) ? 'primary' : 'medium'">
+                      <ion-icon 
+                        slot="icon-only" 
+                        [name]="isWordPlaying(i) ? 'stop-circle' : 'play-circle'">
+                      </ion-icon>
+                    </ion-button>
+                    <ion-button 
+                      fill="clear" 
+                      size="small" 
+                      class="correct-button"
+                      (click)="playCorrectPronunciation(word.word)"
+                      color="success"
+                      title="Hear correct pronunciation">
+                      <ion-icon 
+                        slot="icon-only" 
+                        name="checkmark-circle">
+                      </ion-icon>
+                    </ion-button>
+                    <span class="word-text">{{ word.word }}</span>
+                  </div>
+                  <span class="word-score" [class.good]="word.score >= 80" [class.ok]="word.score >= 60 && word.score < 80" [class.needs-work]="word.score < 60">
+                    {{ word.score }}/100
+                  </span>
+                </div>
+                <p class="word-feedback">{{ word.errorType }}</p>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Main Focus Next Lesson -->
+        <div class="main-focus-card" *ngIf="getMainFocus()">
+          <div class="main-focus-header">
+            <ion-icon name="bulb"></ion-icon>
+            <h4>Main Focus Next Lesson</h4>
+          </div>
+          <p class="main-focus-text">{{ getMainFocus() }}</p>
+        </div>
+
+        <!-- Top Priority Errors -->
+        <ion-card
+          *ngIf="analysis!.topErrors?.length"
+          class="priority-errors-card"
+        >
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="alert-circle"></ion-icon>
+              Top Priority to Fix
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div
+              *ngFor="let error of analysis!.topErrors; let i = index"
+              class="priority-item"
+            >
+              <div class="priority-number">{{ i + 1 }}</div>
+              <div class="priority-details">
+                <strong>{{ error.issue }}</strong>
+                <span class="occurrence-badge">{{ error.occurrences }} times</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Error Patterns with Save -->
+        <ion-card *ngIf="analysis!.errorPatterns?.length" class="patterns-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="analytics"></ion-icon>
+              Your Mistakes & How to Fix Them
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div
+              *ngFor="let pattern of analysis!.errorPatterns"
+              class="pattern-item"
+            >
+              <div class="pattern-header">
+                <h4>{{ pattern.pattern }}</h4>
+                <span
+                  class="frequency-badge"
+                  [class.high]="pattern.frequency >= 5"
+                >
+                  {{ pattern.frequency }}x
+                </span>
+              </div>
+
+              <div class="pattern-examples">
+                <div
+                  *ngFor="let example of pattern.examples"
+                  class="example-item"
+                >
+                  <div class="example-row">
+                    <div class="example-content">
+                      <div class="original-text">
+                        <ion-icon name="close-circle" color="danger"></ion-icon>
+                        {{ example.original }}
+                      </div>
+                      <div class="corrected-text">
+                        <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                        {{ example.corrected }}
+                      </div>
+                      <div class="explanation-text" *ngIf="example.explanation">
+                        💡 {{ example.explanation }}
+                      </div>
+                    </div>
+                    <ion-button
+                      fill="clear"
+                      size="small"
+                      class="save-btn"
+                      [class.saved]="isCorrectionSaved(example.original, example.corrected)"
+                      (click)="toggleSaveCorrection(example.original, example.corrected, example.explanation || pattern.pattern)"
+                    >
+                      <ion-icon
+                        slot="start"
+                        [name]="isCorrectionSaved(example.original, example.corrected) ? 'bookmark' : 'bookmark-outline'"
+                      ></ion-icon>
+                      {{ isCorrectionSaved(example.original, example.corrected) ? 'Saved' : 'Save' }}
+                    </ion-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Corrected Excerpts with Save -->
+        <ion-card *ngIf="getUniqueCorrectedExcerpts()?.length" class="excerpts-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="chatbox-ellipses"></ion-icon>
+              What You Actually Said
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div
+              *ngFor="let excerpt of getUniqueCorrectedExcerpts()"
+              class="excerpt-item"
+            >
+              <div class="excerpt-context">{{ excerpt.context }}</div>
+              <div class="excerpt-comparison">
+                <div class="you-said">
+                  <span class="label">You said:</span>
+                  <p>"{{ excerpt.original }}"</p>
+                </div>
+                <ion-icon name="arrow-forward" class="arrow"></ion-icon>
+                <div class="corrected">
+                  <span class="label">Better way:</span>
+                  <p>"{{ excerpt.corrected }}"</p>
+                </div>
+              </div>
+              <div class="excerpt-actions">
+                <ion-button
+                  fill="clear"
+                  size="small"
+                  class="save-btn"
+                  [class.saved]="isCorrectionSaved(excerpt.original, excerpt.corrected)"
+                  (click)="toggleSaveCorrection(excerpt.original, excerpt.corrected, excerpt.context)"
+                >
+                  <ion-icon
+                    slot="start"
+                    [name]="isCorrectionSaved(excerpt.original, excerpt.corrected) ? 'bookmark' : 'bookmark-outline'"
+                  ></ion-icon>
+                  {{ isCorrectionSaved(excerpt.original, excerpt.corrected) ? 'Saved' : 'Save' }}
+                </ion-button>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <!-- Speaking Time -->
+          <div class="metric-card time-card">
+            <div class="metric-icon">
+              <ion-icon name="time"></ion-icon>
+            </div>
+            <div class="metric-content">
+              <div class="metric-value">
+                {{ (analysis!.progressionMetrics?.speakingTimeMinutes ?? 0) }}m
+              </div>
+              <div class="metric-label">Speaking Time</div>
+            </div>
+          </div>
+
+          <!-- Error Rate -->
+          <div class="metric-card error-rate-card">
+            <div class="metric-icon">
+              <ion-icon name="analytics"></ion-icon>
+            </div>
+            <div class="metric-content">
+              <div class="metric-value">
+                {{ (analysis!.progressionMetrics?.errorRate ?? 0) }}
+              </div>
+              <div class="metric-label">Errors/Minute</div>
+              <div class="metric-change" *ngIf="analysis!.progressionMetrics?.errorRateChange && (analysis!.progressionMetrics!.errorRateChange ?? 0) !== 0">
+                {{ (analysis!.progressionMetrics!.errorRateChange ?? 0) > 0 ? '+' : '' }}{{ (analysis!.progressionMetrics!.errorRateChange ?? 0) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Fluency -->
+          <div class="metric-card fluency-card">
+            <div class="metric-icon">
+              <ion-icon name="flash"></ion-icon>
+            </div>
+            <div class="metric-content">
+              <div class="metric-value">
+                {{ (analysis!.fluencyAnalysis?.overallFluencyScore ?? 0) }}
+              </div>
+              <div class="metric-label">Fluency Score</div>
+              <div class="metric-change positive" *ngIf="analysis!.progressionMetrics?.fluencyImprovement && (analysis!.progressionMetrics!.fluencyImprovement ?? 0) > 0">
+                +{{ (analysis!.progressionMetrics!.fluencyImprovement ?? 0) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Complex sentences -->
+          <div class="metric-card complexity-card">
+            <div class="metric-icon">
+              <ion-icon name="git-branch"></ion-icon>
+            </div>
+            <div class="metric-content">
+              <div class="metric-value">
+                {{ (analysis!.progressionMetrics?.complexSentencesUsed ?? 0) }}
+              </div>
+              <div class="metric-label">Complex Sentences</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Persistent Challenges (Keep an eye on) -->
+        <div class="persistent-challenges-section" *ngIf="hasPersistentChallenges()">
+          <div class="section-header">
+            <ion-icon name="eye"></ion-icon>
+            <h4>Keep an eye on...</h4>
+          </div>
+          <div class="challenge-items">
+            <div *ngFor="let challenge of analysis!.progressionMetrics!.persistentChallenges" class="challenge-item">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              <span>{{ challenge }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strengths -->
+        <ion-card *ngIf="hasStrengths()" class="strengths-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="star"></ion-icon>
+              What You're Doing Well
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="strengths-list">
+              <div *ngFor="let strength of analysis!.strengths" class="strength-item">
+                <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                <span>{{ strength }}</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Areas for Improvement -->
+        <ion-card *ngIf="hasAreasForImprovement()" class="improvement-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="trending-up"></ion-icon>
+              Areas to Work On
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="improvement-list">
+              <div *ngFor="let area of analysis!.areasForImprovement" class="improvement-item">
+                <ion-icon name="arrow-forward-circle" color="primary"></ion-icon>
+                <span>{{ area }}</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Recommended Focus -->
+        <ion-card *ngIf="hasRecommendedFocus()" class="focus-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="flag"></ion-icon>
+              Focus Next Time
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="focus-items">
+              <div *ngFor="let focus of analysis!.recommendedFocus" class="focus-item">
+                <ion-icon name="arrow-forward-circle" color="primary"></ion-icon>
+                <span>{{ focus }}</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Homework / Try This Between Lessons -->
+        <ion-card *ngIf="hasHomeworkItems()" class="homework-card">
+          <ion-card-header>
+            <ion-card-title>
+              <ion-icon name="pencil"></ion-icon>
+              Try This Between Lessons
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <!-- Homework Suggestions -->
+            <div class="homework-list" *ngIf="analysis!.homeworkSuggestions?.length">
+              <div *ngFor="let homework of analysis!.homeworkSuggestions" class="homework-item">
+                <ion-icon name="create"></ion-icon>
+                <span>{{ homework }}</span>
+              </div>
+            </div>
+            
+            <!-- Suggested Exercises -->
+            <div class="exercise-list" *ngIf="analysis!.suggestedExercises?.length">
+              <div *ngFor="let exercise of analysis!.suggestedExercises" class="exercise-item">
+                <ion-icon name="fitness"></ion-icon>
+                <span>{{ exercise }}</span>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+      </div>
+    </div>
+  </div>
+</ion-content>

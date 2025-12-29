@@ -62,8 +62,27 @@
         </div>
       </div>
 
-      <!-- Step 2: Languages -->
+      <!-- Step 2: Native Language -->
       <div *ngIf="currentStep === 2" class="step">
+        <div class="native-language-section">
+          <ion-icon name="language" size="large" color="primary"></ion-icon>
+          <h2>What's your native language?</h2>
+          <p>We'll provide any feedback or notifications in your language</p>
+          
+          <div class="language-grid">
+            <ion-chip 
+              *ngFor="let lang of nativeLanguageOptions" 
+              [class.selected]="nativeLanguage === lang.code"
+              (click)="setNativeLanguage(lang.code)">
+              <span class="language-native">{{ lang.native }}</span>
+              <span class="language-name">({{ lang.name }})</span>
+            </ion-chip>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Languages -->
+      <div *ngIf="currentStep === 3" class="step">
         <h2>What languages do you teach?</h2>
         <p>Select all languages you're comfortable teaching</p>
         
@@ -79,8 +98,8 @@
         </div>
       </div>
 
-      <!-- Step 3: Teaching Experience -->
-      <div *ngIf="currentStep === 3" class="step">
+      <!-- Step 4: Teaching Experience -->
+      <div *ngIf="currentStep === 4" class="step">
         <h2>What's your teaching experience?</h2>
         <p>Help students understand your background</p>
         
@@ -97,8 +116,8 @@
         </div>
       </div>
 
-      <!-- Step 4: Availability -->
-      <div *ngIf="currentStep === 4" class="step">
+      <!-- Step 5: Availability -->
+      <div *ngIf="currentStep === 5" class="step">
         <h2>When are you available?</h2>
         <p>Let students know your teaching schedule</p>
         
@@ -115,8 +134,8 @@
         </div>
       </div>
 
-      <!-- Step 5: Profile Setup -->
-      <div *ngIf="currentStep === 5" class="step">
+      <!-- Step 6: Profile Setup -->
+      <div *ngIf="currentStep === 6" class="step">
         <h2>Complete your profile</h2>
         <p>Add some details about yourself</p>
         
@@ -140,6 +159,20 @@
         <ion-note color="medium" style="padding: 0 16px; font-size: 13px;">
           This is your rate for a standard 50-minute lesson. 25-minute lessons will be priced at 50% of this rate.
         </ion-note>
+        
+        <!-- Introduction Video -->
+        <div class="video-section" style="margin-top: 24px;">
+          <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Introduction Video (optional)</h3>
+          <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">
+            Record a short video introducing yourself and explaining your teaching style. This helps students get to know you better.
+          </p>
+          
+          <app-video-upload
+            [videoUrl]="introductionVideo"
+            (videoUploaded)="onVideoUploaded($event)"
+            (videoRemoved)="onVideoRemoved()">
+          </app-video-upload>
+        </div>
       </div>
     </div>
 

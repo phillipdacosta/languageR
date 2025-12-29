@@ -1,0 +1,120 @@
+.legal-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--ion-color-primary);
+  }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-top: 32px;
+    margin-bottom: 16px;
+    color: var(--ion-color-dark);
+    border-bottom: 2px solid var(--ion-color-light);
+    padding-bottom: 8px;
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: var(--ion-color-medium-shade);
+  }
+
+  p {
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    color: var(--ion-color-dark);
+  }
+
+  ul {
+    margin-left: 20px;
+    margin-bottom: 16px;
+
+    li {
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+      color: var(--ion-color-dark);
+    }
+  }
+
+  .last-updated {
+    font-size: 14px;
+    color: var(--ion-color-medium);
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+
+  ion-card {
+    margin: 24px 0;
+
+    ion-card-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    ion-card-content {
+      font-size: 14px;
+      line-height: 1.5;
+
+      p {
+        margin-bottom: 12px;
+        font-size: 14px;
+      }
+
+      ul {
+        margin-top: 12px;
+        padding-left: 20px;
+
+        li {
+          margin-bottom: 6px;
+          font-size: 14px;
+        }
+      }
+    }
+  }
+
+  .acknowledgment {
+    margin-top: 40px;
+    margin-bottom: 40px;
+    text-align: center;
+
+    ion-button {
+      max-width: 300px;
+      margin: 0 auto;
+    }
+  }
+}
+
+// Mobile adjustments
+@media (max-width: 768px) {
+  .legal-content {
+    padding: 16px;
+
+    h1 {
+      font-size: 24px;
+    }
+
+    h2 {
+      font-size: 20px;
+    }
+
+    h3 {
+      font-size: 16px;
+    }
+
+    p, ul li {
+      font-size: 14px;
+    }
+  }
+}
+

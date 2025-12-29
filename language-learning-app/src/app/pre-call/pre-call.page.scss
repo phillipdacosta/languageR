@@ -434,6 +434,188 @@
     }
   }
 
+  // Previous Lesson Notes Card
+  .previous-notes-card {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    animation: slideIn 0.3s ease-out;
+
+    .notes-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+
+      ion-icon {
+        font-size: 20px;
+        color: var(--ion-color-primary);
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+      }
+    }
+
+    .loading-notes {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 0;
+      justify-content: center;
+
+      ion-spinner {
+        width: 20px;
+        height: 20px;
+      }
+
+      span {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.7);
+      }
+    }
+
+    .notes-content {
+      .notes-date {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 12px;
+
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+      
+      .notes-section {
+        margin-bottom: 16px;
+        
+        h4 {
+          font-size: 14px;
+          font-weight: 600;
+          margin: 0 0 10px 0;
+          color: rgba(255, 255, 255, 0.95);
+        }
+        
+        ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          
+          li {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            padding: 3px 0;
+            position: relative;
+            padding-left: 12px;
+            line-height: 1.5;
+            
+            &:before {
+              content: '•';
+              color: var(--ion-color-primary);
+              position: absolute;
+              left: 0;
+            }
+          }
+        }
+        
+        p {
+          margin: 0;
+          font-size: 13px;
+          line-height: 1.5;
+          color: rgba(255, 255, 255, 0.85);
+        }
+        
+        .error-pattern {
+          margin-bottom: 12px;
+          font-size: 13px;
+          
+          strong {
+            color: #ef4444;
+            display: block;
+            margin-bottom: 4px;
+          }
+          
+          .error-example {
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid rgba(124, 58, 237, 0.5);
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.4;
+          }
+        }
+      }
+
+      .notes-summary {
+        margin-bottom: 16px;
+
+        .summary-text {
+          font-size: 14px;
+          line-height: 1.5;
+          color: rgba(255, 255, 255, 0.9);
+          margin: 0;
+          font-style: italic;
+        }
+      }
+
+      .notes-focus,
+      .notes-improvements {
+        margin-bottom: 12px;
+
+        h4 {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--ion-color-primary);
+          margin: 0 0 8px 0;
+
+          ion-icon {
+            font-size: 16px;
+          }
+        }
+
+        ul {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+
+          li {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            padding: 2px 0;
+            position: relative;
+            padding-left: 12px;
+
+            &:before {
+              content: '•';
+              color: var(--ion-color-primary);
+              position: absolute;
+              left: 0;
+            }
+          }
+        }
+      }
+    }
+
+    @media (max-width: 768px) {
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+  }
+
   @keyframes slideIn {
     from {
       opacity: 0;
