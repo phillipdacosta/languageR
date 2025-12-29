@@ -818,7 +818,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
         language: language
       });
       
-      const audioUrl = `${environment.apiUrl}/transcription/correct-pronunciation?${params.toString()}`;
+      const audioUrl = `${environment.backendUrl}/api/transcription/correct-pronunciation?${params.toString()}`;
       
       // Fetch with proper auth headers
       const authHeaders = this.userService.getAuthHeadersSync();
