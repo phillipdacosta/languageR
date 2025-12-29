@@ -99,7 +99,7 @@ export class EarlyExitModalComponent {
       const headers = this.userService.getAuthHeadersSync();
 
       await firstValueFrom(
-        this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/call-end`, {}, { headers })
+        this.http.post(`${environment.backendUrl}/api/lessons/${this.lessonId}/call-end`, {}, { headers })
       );
 
       console.log('✅ Lesson finalized');
@@ -135,7 +135,7 @@ export class EarlyExitModalComponent {
     try {
       const headers = this.userService.getAuthHeadersSync();
       const response = await firstValueFrom(
-        this.http.get(`${environment.apiUrl}/lessons/${this.lessonId}`, { headers })
+        this.http.get(`${environment.backendUrl}/api/lessons/${this.lessonId}`, { headers })
       );
       
       const lesson = (response as any)?.lesson;
