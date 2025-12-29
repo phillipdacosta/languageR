@@ -493,6 +493,30 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.tutorUserId = lesson.tutorId?._id || '';
             this.studentUserId = lesson.studentId?._id || '';
             
+            // CRITICAL FIX: Verify role matches lesson data (override query param if wrong)
+            // This fixes stale cache issues where userType might be incorrect
+            const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
+            const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
+            const meResponse = await firstValueFrom(this.userService.getCurrentUser());
+            const myAuth0Id = (meResponse as any)?.auth0Id;
+            
+            const correctRole = (myAuth0Id === tutorAuth0Id) ? 'tutor' : 
+                               (myAuth0Id === studentAuth0Id) ? 'student' : 
+                               this.userRole; // fallback to query param
+            
+            if (correctRole !== this.userRole) {
+              console.warn('⚠️ ROLE MISMATCH DETECTED! Correcting...', {
+                queryParamRole: this.userRole,
+                correctRole: correctRole,
+                myAuth0Id,
+                tutorAuth0Id,
+                studentAuth0Id
+              });
+              this.userRole = correctRole; // OVERRIDE with correct role
+            } else {
+              console.log('✅ Role verification passed:', this.userRole);
+            }
+            
             // Store profile pictures
             this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
             this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
@@ -728,6 +752,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Force change detection to show participant tiles immediately
       this.cdr.detectChanges();
       
+      // ⏱️ CRITICAL: Record call start time in database
+      // This is essential for billing, transcription, and analytics
+      if (this.lessonId) {
+        try {
+          console.log('⏱️ Recording call start time for lesson:', this.lessonId);
+          const callStartResponse = await firstValueFrom(
+            this.lessonService.recordCallStart(this.lessonId)
+          );
+          console.log('✅ Call start recorded:', callStartResponse);
+        } catch (error) {
+          console.error('❌ Failed to record call start (non-fatal):', error);
+          // Don't block the call if this fails
+        }
+      }
+      
       // Start AI transcription for scheduled lessons (students only)
       console.log('🔵 About to call startLessonTranscription() [VIA LESSON PARAMS]...');
       await this.startLessonTranscription();
@@ -813,6 +852,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Set up remote video monitoring
       this.monitorRemoteUsers();
+
+      // ⏱️ CRITICAL: Record call start time in database
+      // This is essential for billing, transcription, and analytics
+      if (this.lessonId) {
+        try {
+          console.log('⏱️ Recording call start time for lesson:', this.lessonId);
+          const callStartResponse = await firstValueFrom(
+            this.lessonService.recordCallStart(this.lessonId)
+          );
+          console.log('✅ Call start recorded:', callStartResponse);
+        } catch (error) {
+          console.error('❌ Failed to record call start (non-fatal):', error);
+          // Don't block the call if this fails
+        }
+      }
 
       // Start AI transcription for scheduled lessons (students only)
       console.log('🔵 About to call startLessonTranscription()...');
@@ -2938,6 +2992,67 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         await this.handleLessonCancellation(cancellation);
       }
     });
+    
+    // Listen for when the other participant ends the lesson early
+    this.websocketService.on('lesson_ended_by_participant').pipe(takeUntil(this.destroy$)).subscribe(async (data: any) => {
+      console.log('📭 Other participant ended lesson:', data);
+      
+      if (data.lessonId === this.lessonId) {
+        // Show alert to current user
+        const alert = await this.alertController.create({
+          header: 'Lesson Ended',
+          message: data.message + ' The lesson has been completed.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: async () => {
+                // Leave the call without showing early exit modal (other participant ended it)
+                await this.endCall(true); // Pass true to indicate other participant ended
+                
+                // After navigation completes, check if feedback is required (tutors only)
+                if (this.userRole === 'tutor') {
+                  // Small delay to ensure navigation is complete
+                  setTimeout(() => {
+                    // The home page will handle showing the feedback prompt
+                    console.log('📝 Tutor will see feedback prompt on home page');
+                  }, 1000);
+                }
+              }
+            }
+          ],
+          backdropDismiss: false
+        });
+        await alert.present();
+      }
+    });
+    
+    /* 
+    TEMPORARILY DISABLED: Feedback Required Toast (in video call)
+    TODO: Re-enable if we want to support AI-disabled mode
+    
+    // Listen for feedback_required events (tutors only - shown while in call)
+    if (this.userRole === 'tutor') {
+      this.websocketService.on('feedback_required').pipe(takeUntil(this.destroy$)).subscribe(async (data: any) => {
+        console.log('📝 [VIDEO-CALL] Feedback required:', data);
+        
+        // Show toast notification (less intrusive than alert while in call)
+        const toast = await this.toastController.create({
+          header: data.title || '📝 Feedback Needed',
+          message: data.message || 'Please provide feedback for this lesson when you finish.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top',
+          buttons: [
+            {
+              text: 'Dismiss',
+              role: 'cancel'
+            }
+          ]
+        });
+        await toast.present();
+      });
+    }
+    */
   }
 
   // Load messages for the current conversation
@@ -4575,9 +4690,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🧪 Test mute state sent:', testMuteState);
   }
 
-  async endCall() {
+  async endCall(otherParticipantEnded: boolean = false) {
     try {
-      console.log('🚪 VideoCall: Ending video call...');
+      console.log('🚪 VideoCall: Ending video call...', { otherParticipantEnded });
       
       // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
       let isPermanentEnd = false;
@@ -4666,9 +4781,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🚪 VideoCall: Navigating to tabs');
       await this.router.navigate(['/tabs']);
       
-      // If this is NOT a permanent end (early exit), trigger early exit modal
-      // For permanent end (on-time), finalize lesson and show analysis
-      if (!isPermanentEnd) {
+      // If this is NOT a permanent end (early exit) AND other participant didn't end it, trigger early exit modal
+      // For permanent end (on-time), finalize lesson directly
+      // For other participant ended, just dismiss without finalizing (already finalized by them)
+      if (!isPermanentEnd && !otherParticipantEnded) {
         // Early exit - show modal with options
         const lesson = await firstValueFrom(this.lessonService.getLesson(this.lessonId!));
         if (lesson?.lesson) {
@@ -4686,7 +4802,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             });
           }, 300);
         }
-      } else {
+      } else if (isPermanentEnd) {
         // On-time or late exit - finalize and trigger analysis automatically
         setTimeout(async () => {
           console.log('🚪 VideoCall: On-time exit - finalizing lesson and generating analysis...');
@@ -4701,6 +4817,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             console.error('❌ Error finalizing lesson:', err);
           }
         }, 300);
+      } else if (otherParticipantEnded) {
+        // Other participant ended - just go home (lesson already finalized by them)
+        console.log('🚪 VideoCall: Other participant ended lesson - returning to home');
+        // User is already on /tabs from navigation above
       }
     } catch (error) {
       console.error('Error ending call:', error);
@@ -5417,7 +5537,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Only transcribe if:
     // 1. This is a 1:1 lesson (not a class)
     // 2. This is a scheduled lesson (not office hours, not trial)
-    // 3. User is a student
+    // 3. User is a student (to avoid race conditions)
     // 4. We have a lessonId
     if (!this.lessonId || this.userRole !== 'student' || this.isClass || this.isOfficeHours || this.isTrialLesson) {
       console.log('⏭️ SKIPPING DEEPGRAM TRANSCRIPTION - Reason:', {
@@ -5441,13 +5561,28 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('📋 Lesson data:', {
         hasLesson: !!lesson,
         subject: lesson?.subject,
-        isTrialLesson: lesson?.isTrialLesson
+        isTrialLesson: lesson?.isTrialLesson,
+        studentId: lesson?.studentId
       });
       
       if (!lesson) {
         console.warn('⚠️ Could not load lesson for transcription');
         return;
       }
+
+      // Check if student has AI analysis enabled
+      // Default to TRUE if we can't determine (backwards compatibility)
+      console.log('🤖 Checking AI analysis setting for student...');
+      const student = lesson.studentId as any; // Should be populated by backend
+      
+      // Only skip if explicitly disabled
+      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
+        console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
+        return;
+      }
+      
+      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
 
       // Determine language being learned and convert to ISO code
       const languageMap: { [key: string]: string } = {
@@ -5496,9 +5631,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             this.transcriptionService.currentTranscriptId = response?.transcriptId || '';
             
             console.log('✅ ✅ ✅ WHISPER TRANSCRIPTION STARTED SUCCESSFULLY ✅ ✅ ✅');
-            console.log('Response:', response);
-            console.log('TranscriptId from response:', response?.transcriptId);
-            console.log('✅ Set transcriptionService.currentTranscriptId:', response?.transcriptId);
+              console.log('Response:', response);
+              console.log('TranscriptId from response:', response?.transcriptId);
+              console.log('✅ Set transcriptionService.currentTranscriptId:', response?.transcriptId);
             
             // Save session to localStorage
             this.saveTranscriptionSession(this.currentTranscriptId);

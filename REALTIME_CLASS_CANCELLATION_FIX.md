@@ -103,3 +103,4 @@ The existing HTML already handles the cancelled status with CSS classes:
 ✅ Complete - Classes will now show as cancelled in real-time when auto-cancel runs
 
 
+

@@ -31,41 +31,76 @@
   <!-- Main Progress View -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
-    <h1 class="page-title" padding-bottom="0px !important" >Progress
+    <h1 class="page-title" padding-bottom="0px !important" >Unlock Your Progress Profile
+
       <p class="chart-subtitle-note"> Note: Trial and quick office hours lessons are not included in Progress data.</p>
 
     </h1>
     
 
-    <!-- Unlock Progress Checklist (< 5 lessons) -->
-    <div *ngIf="!isProfileUnlocked" class="unlock-checklist-card">
-      <div class="unlock-header">
-        <div class="unlock-icon-wrapper">
-          <ion-icon name="trophy" class="unlock-icon"></ion-icon>
-        </div>
-        <h2>Unlock Your Progress Profile</h2>
-        <p class="unlock-subtitle">Complete 5 lessons to see your detailed analytics</p>
-      </div>
-      
-      <div class="checklist">
-        <div class="checklist-item" 
-             *ngFor="let i of checklistItems"
-             [class.completed]="analyses.length >= i"
-             [class.clickable]="analyses.length >= i"
-             (click)="viewChecklistLesson(i)">
-          <div class="checklist-dot">
-            <ion-icon *ngIf="analyses.length >= i" name="checkmark"></ion-icon>
-            <span *ngIf="analyses.length < i">{{ i }}</span>
+    <!-- Unlock Progress Checklist (< 5 lessons) - Two Column Layout -->
+    <div *ngIf="!isProfileUnlocked" class="unlock-two-column-card">
+      <div class="unlock-left-section">
+        <div class="unlock-header">
+          <div class="unlock-icon-wrapper">
+            <ion-icon name="trophy" class="unlock-icon"></ion-icon>
           </div>
-          <span class="checklist-label">
-            <span *ngIf="analyses.length >= i" class="completed-text">Lesson {{ i }} - Complete ✓</span>
-            <span *ngIf="analyses.length < i">Lesson {{ i }}</span>
-          </span>
-          <ion-icon *ngIf="analyses.length >= i" name="chevron-forward" class="checklist-arrow"></ion-icon>
+          <!-- <h2>Unlock Your Progress Profile</h2> -->
+          <p class="unlock-subtitle">Complete 5 <strong>analyzed</strong> lessons to see your detailed analytics</p>
+        </div>
+        
+        <div class="checklist">
+          <div class="checklist-item" 
+               *ngFor="let i of checklistItems"
+               [class.completed]="analyses.length >= i"
+               [class.clickable]="analyses.length >= i"
+               (click)="viewChecklistLesson(i)">
+            <div class="checklist-dot">
+              <ion-icon *ngIf="analyses.length >= i" name="checkmark"></ion-icon>
+              <span *ngIf="analyses.length < i">{{ i }}</span>
+            </div>
+            <span class="checklist-label">
+              <span *ngIf="analyses.length >= i" class="completed-text">Lesson {{ i }} - Complete ✓</span>
+              <span *ngIf="analyses.length < i">Lesson {{ i }}</span>
+            </span>
+            <ion-icon *ngIf="analyses.length >= i" name="chevron-forward" class="checklist-arrow"></ion-icon>
+          </div>
+        </div>
+        
+        <div class="unlock-cta">
+          <div class="progress-ring">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <!-- Background circle -->
+              <circle cx="55" cy="55" r="49" stroke="#e5e7eb" stroke-width="7" fill="none"/>
+              <!-- Progress circle -->
+              <circle cx="55" cy="55" r="49" 
+                      [style.stroke-dasharray]="(analyses.length / 5) * 307.876 + ' 307.876'"
+                      stroke="url(#gradient)" 
+                      stroke-width="7" 
+                      fill="none"
+                      stroke-linecap="round"
+                      style="transform: rotate(-90deg); transform-origin: center;"/>
+              <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="progress-text">
+              <div class="progress-number">{{ analyses.length }}/5</div>
+              <div class="progress-label">Lessons</div>
+            </div>
+          </div>
+          <p class="lessons-remaining">
+            {{ lessonsUntilUnlock }} more lesson{{ lessonsUntilUnlock !== 1 ? 's' : '' }} to unlock!
+          </p>
         </div>
       </div>
       
-      <div class="unlock-preview">
+      <div class="unlock-separator"></div>
+      
+      <div class="unlock-right-section">
         <h3>What you'll unlock:</h3>
         <div class="preview-grid">
           <div class="preview-item">
@@ -93,36 +128,6 @@
             <span>Improvement Rate</span>
           </div>
         </div>
-      </div>
-      
-      <div class="unlock-cta">
-        <div class="progress-ring">
-          <svg width="120" height="120" viewBox="0 0 120 120">
-            <!-- Background circle -->
-            <circle cx="60" cy="60" r="54" stroke="#e5e7eb" stroke-width="8" fill="none"/>
-            <!-- Progress circle -->
-            <circle cx="60" cy="60" r="54" 
-                    [style.stroke-dasharray]="(analyses.length / 5) * 339.292 + ' 339.292'"
-                    stroke="url(#gradient)" 
-                    stroke-width="8" 
-                    fill="none"
-                    stroke-linecap="round"
-                    style="transform: rotate(-90deg); transform-origin: center;"/>
-            <defs>
-              <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="progress-text">
-            <div class="progress-number">{{ analyses.length }}/5</div>
-            <div class="progress-label">Lessons</div>
-          </div>
-        </div>
-        <p class="lessons-remaining">
-          {{ lessonsUntilUnlock }} more lesson{{ lessonsUntilUnlock !== 1 ? 's' : '' }} to unlock!
-        </p>
       </div>
     </div>
 

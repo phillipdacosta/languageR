@@ -96,14 +96,41 @@ const lessonTranscriptSchema = new mongoose.Schema({
     studentSpeakingTime: Number,
     tutorSpeakingTime: Number,
     wordCount: Number
-  }
+  },
+  
+  // Audio backup tracking (for transcription retry)
+  audioChunks: [{
+    chunkIndex: Number,
+    gcsPath: String,           // gs://bucket/path/chunk-0.webm
+    uploadedAt: Date,
+    sizeBytes: Number,
+    speaker: String,           // 'student' or 'tutor'
+    transcribed: {
+      type: Boolean,
+      default: false
+    },
+    transcriptionAttempts: {
+      type: Number,
+      default: 0
+    },
+    lastTranscriptionAttempt: Date,
+    deleteAt: Date             // Auto-delete timestamp (48 hours after upload)
+  }],
+  
+  fullText: String  // Concatenated transcript text (used by analysis)
 }, {
   timestamps: true
+});
+
+// Add fullText virtual or field if needed by existing code
+lessonTranscriptSchema.virtual('fullTextComputed').get(function() {
+  return this.segments.map(s => s.text).join(' ');
 });
 
 // Index for efficient querying
 lessonTranscriptSchema.index({ studentId: 1, createdAt: -1 });
 lessonTranscriptSchema.index({ tutorId: 1, createdAt: -1 });
+lessonTranscriptSchema.index({ 'audioChunks.deleteAt': 1 }); // For cleanup cron
 
 const LessonTranscript = mongoose.model('LessonTranscript', lessonTranscriptSchema);
 

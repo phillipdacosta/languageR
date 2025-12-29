@@ -383,6 +383,26 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Store lesson data for later use
       this.currentLessonData = session;
       
+      // Check if lesson is already completed (prevents rejoining after early exit)
+      if (session?.status === 'completed') {
+        console.log('⛔ Lesson already completed, preventing rejoin');
+        const alert = await this.alertController.create({
+          header: 'Lesson Already Ended',
+          message: 'This lesson has already been completed and cannot be rejoined.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: () => {
+                this.router.navigate(['/tabs/home']);
+              }
+            }
+          ],
+          backdropDismiss: false
+        });
+        await alert.present();
+        return;
+      }
+      
       if (response?.success && session) {
         const lesson = session;
         // Use the entire user object for proper formatting (firstName, lastName, etc.)

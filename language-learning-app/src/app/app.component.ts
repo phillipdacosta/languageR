@@ -10,10 +10,10 @@ import { EarlyExitService } from './services/early-exit.service';
 import { ReminderService, ReminderEvent } from './services/reminder.service';
 import { LessonService } from './services/lesson.service';
 import { ClassService } from './services/class.service';
+import { TutorFeedbackService } from './services/tutor-feedback.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
-import { ModalController } from '@ionic/angular';
-import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
+import { AlertController } from '@ionic/angular';
 
 @Component({
   selector: 'app-root',
@@ -25,6 +25,12 @@ export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private currentUserId: string = '';
   private isMessageListenerSetup = false;
+  
+  // Early exit modal state
+  isEarlyExitModalOpen = false;
+  earlyExitLessonId: string = '';
+  earlyExitMinutesRemaining: number = 0;
+  earlyExitUserRole: 'tutor' | 'student' = 'student';
 
   constructor(
     private loadingService: LoadingService,
@@ -35,11 +41,12 @@ export class AppComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private languageService: LanguageService,
     private earlyExitService: EarlyExitService,
-    private modalController: ModalController,
     private router: Router,
     private reminderService: ReminderService,
     private lessonService: LessonService,
-    private classService: ClassService
+    private classService: ClassService,
+    private tutorFeedbackService: TutorFeedbackService,
+    private alertController: AlertController
   ) {}
 
   ngOnInit() {
@@ -112,23 +119,17 @@ export class AppComponent implements OnInit, OnDestroy {
         console.error('Error getting user role:', error);
       }
       
-      // Show the early exit modal
-      const modal = await this.modalController.create({
-        component: EarlyExitModalComponent,
-        componentProps: {
-          lessonId: data.lessonId,
-          minutesRemaining: data.minutesRemaining,
-          userRole: userRole
-        },
-        cssClass: 'early-exit-modal',
-        backdropDismiss: true
-      });
-      
-      await modal.present();
-      
-      const { data: result } = await modal.onWillDismiss();
-      console.log('🚪 AppComponent: Early exit modal dismissed with action:', result?.action);
+      // Set modal state and open
+      this.earlyExitLessonId = data.lessonId;
+      this.earlyExitMinutesRemaining = data.minutesRemaining;
+      this.earlyExitUserRole = userRole;
+      this.isEarlyExitModalOpen = true;
     });
+  }
+  
+  onEarlyExitModalDismiss(event: { action: string }) {
+    console.log('🚪 AppComponent: Early exit modal dismissed with action:', event.action);
+    this.isEarlyExitModalOpen = false;
   }
   
   private setupGlobalMessageListener() {
@@ -181,6 +182,10 @@ export class AppComponent implements OnInit, OnDestroy {
               if (currentUser?.userType === 'tutor' && currentUser.id) {
                 console.log('🔔 [APP] User is tutor, loading tutor reminders');
                 this.loadGlobalReminders(currentUser.id);
+                
+                // Also check for pending feedback globally
+                console.log('📝 [APP] Checking for pending tutor feedback');
+                this.checkPendingFeedbackGlobally();
               } else if (currentUser?.userType === 'student' && currentUser.id) {
                 console.log('🔔 [APP] User is student, loading student reminders');
                 this.loadStudentReminders(currentUser.id);
@@ -189,6 +194,13 @@ export class AppComponent implements OnInit, OnDestroy {
               }
             } else {
               console.log('🔕 [APP] Reminders disabled by user');
+              
+              // Still check for feedback even if reminders are disabled
+              // (feedback is critical, not just a reminder)
+              if (currentUser?.userType === 'tutor' && currentUser.id) {
+                console.log('📝 [APP] Checking for pending tutor feedback (reminders disabled)');
+                this.checkPendingFeedbackGlobally();
+              }
             }
           },
           error: (error) => {
@@ -221,6 +233,21 @@ export class AppComponent implements OnInit, OnDestroy {
               });
             }
           });
+          
+          /* 
+          TEMPORARILY DISABLED: Global Feedback Required Listener
+          TODO: Re-enable if we want to support AI-disabled mode
+          
+          // Listen for feedback_required events globally (for tutors)
+          // Set a flag instead of showing alert immediately to avoid conflicts
+          this.websocketService.on('feedback_required').pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('📝 [APP] Feedback required event received:', data);
+            // Don't show alert here - let the home page handle it
+            // This avoids conflicts with other alerts (e.g., "student left early")
+          });
+          */
         }
       }
     });
@@ -423,6 +450,24 @@ export class AppComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('❌ [APP] Error loading student reminders:', error);
+      }
+    });
+  }
+  
+  /**
+   * Check for pending tutor feedback globally (when app loads)
+   * Just logs the count - the home page will show the actual UI
+   */
+  private checkPendingFeedbackGlobally() {
+    this.tutorFeedbackService.getPendingFeedback().subscribe({
+      next: async (response) => {
+        const count = response.count || 0;
+        console.log(`📝 [APP] Global feedback check: ${count} pending feedback requests`);
+        // Don't show alert here - let the home page handle the UI
+        // This avoids interrupting the user during initial app load
+      },
+      error: (error) => {
+        console.error('❌ [APP] Error checking pending feedback:', error);
       }
     });
   }

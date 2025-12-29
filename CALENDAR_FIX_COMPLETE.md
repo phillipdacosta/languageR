@@ -230,3 +230,4 @@ Class displayed → Auto-cancel → Calendar refreshes → Class stays visible w
 **Date**: December 19, 2025
 
 
+

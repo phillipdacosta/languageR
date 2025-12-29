@@ -1,5 +1,5 @@
-import { Component, Input } from '@angular/core';
-import { ModalController, AlertController, LoadingController, IonicModule } from '@ionic/angular';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { AlertController, LoadingController, IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../../services/user.service';
@@ -19,9 +19,9 @@ export class EarlyExitModalComponent {
   @Input() lessonId!: string;
   @Input() minutesRemaining!: number;
   @Input() userRole!: 'tutor' | 'student';
+  @Output() modalDismissed = new EventEmitter<{ action: string }>();
 
   constructor(
-    private modalController: ModalController,
     private alertController: AlertController,
     private loadingController: LoadingController,
     private router: Router,
@@ -34,9 +34,7 @@ export class EarlyExitModalComponent {
    * Close modal without taking any action
    */
   dismiss() {
-    this.modalController.dismiss({
-      action: 'dismissed'
-    });
+    this.modalDismissed.emit({ action: 'dismissed' });
   }
 
   /**
@@ -47,9 +45,7 @@ export class EarlyExitModalComponent {
     // In the future, this could open a support ticket form
     console.log('📝 Reporting technical error for lesson:', this.lessonId);
     
-    await this.modalController.dismiss({
-      action: 'report_error'
-    });
+    this.modalDismissed.emit({ action: 'report_error' });
   }
 
   /**
@@ -111,9 +107,7 @@ export class EarlyExitModalComponent {
       await loading.dismiss();
 
       // Dismiss modal with action
-      await this.modalController.dismiss({
-        action: 'end_lesson_confirmed'
-      });
+      this.modalDismissed.emit({ action: 'end_lesson_confirmed' });
 
       // Navigate to analysis page with generating state
       await this.router.navigate(['/lesson-analysis', this.lessonId]);
@@ -135,19 +129,50 @@ export class EarlyExitModalComponent {
    * Handle "Rejoin Call"
    */
   async rejoinCall() {
-    console.log('🔄 Rejoining call for lesson:', this.lessonId);
+    console.log('🔄 Attempting to rejoin call for lesson:', this.lessonId);
     
-    await this.modalController.dismiss({
-      action: 'rejoin'
-    });
-
-    // Navigate to pre-call page
-    await this.router.navigate(['/pre-call'], {
-      queryParams: {
-        lessonId: this.lessonId,
-        role: this.userRole,
-        lessonMode: 'true'
+    // First, check if lesson is still joinable
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+      const response = await firstValueFrom(
+        this.http.get(`${environment.apiUrl}/lessons/${this.lessonId}`, { headers })
+      );
+      
+      const lesson = (response as any)?.lesson;
+      
+      if (lesson?.status === 'completed') {
+        // Lesson was ended, cannot rejoin
+        this.modalDismissed.emit({ action: 'dismissed' });
+        
+        const alert = await this.alertController.create({
+          header: 'Lesson Ended',
+          message: 'This lesson has been completed and cannot be rejoined.',
+          buttons: ['OK']
+        });
+        await alert.present();
+        return;
       }
-    });
+      
+      // Lesson is still active, proceed with rejoin
+      this.modalDismissed.emit({ action: 'rejoin' });
+
+      // Navigate to pre-call page
+      await this.router.navigate(['/pre-call'], {
+        queryParams: {
+          lessonId: this.lessonId,
+          role: this.userRole,
+          lessonMode: 'true'
+        }
+      });
+    } catch (error) {
+      console.error('❌ Error checking lesson status:', error);
+      
+      const errorAlert = await this.alertController.create({
+        header: 'Error',
+        message: 'Unable to rejoin the lesson. Please try again.',
+        buttons: ['OK']
+      });
+      await errorAlert.present();
+    }
   }
 }

@@ -14,6 +14,7 @@ const { assessPronunciationScore, intelligentSampleSegments } = require('../serv
 const { assessSegmentPronunciation } = require('../services/pronunciationService');
 const { getWordAudio } = require('../services/audioSlicingService');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const audioBackupService = require('../services/audioBackupService');
 
 // Configure multer for audio upload
 const storage = multer.memoryStorage();
@@ -455,11 +456,35 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     
     console.log(`📤 Attempting transcription with ${isWebm ? 'WebM' : 'original'} format (${audioBuffer.length} bytes)`);
     
+    // BACKUP: Save audio to GCS BEFORE transcription attempt
+    // This allows retry if Whisper/GPT is down
+    let backupInfo = null;
+    try {
+      const chunkIndex = transcript.audioChunks ? transcript.audioChunks.length : 0;
+      backupInfo = await audioBackupService.uploadAudioChunk(
+        originalAudioBuffer,
+        transcript.lessonId.toString(),
+        chunkIndex,
+        speaker,
+        req.file.mimetype
+      );
+      
+      if (backupInfo) {
+        console.log(`💾 Audio backed up to GCS: ${backupInfo.gcsPath}`);
+        console.log(`🗑️  Will auto-delete at: ${backupInfo.deleteAt}`);
+      }
+    } catch (backupError) {
+      console.error('⚠️  Audio backup failed (non-critical):', backupError.message);
+      // Continue - backup failure shouldn't stop transcription
+    }
+    
     // Transcribe audio using OpenAI Whisper (with retry logic)
     let result;
+    let transcriptionSuccess = false;
     try {
       // Try with original format first
       result = await transcribeAudio(audioBuffer, normalizedLanguage, speaker);
+      transcriptionSuccess = true;
       
       console.log('✅ Whisper transcription result:', {
         text: result.text,
@@ -483,6 +508,7 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
           
           // Retry with MP3
           result = await transcribeAudio(audioBuffer, normalizedLanguage, speaker);
+          transcriptionSuccess = true;
           
           console.log('✅ Whisper transcription result (after MP3 conversion):', {
             text: result.text,
@@ -492,24 +518,79 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
           console.error('❌ MP3 conversion failed:', conversionError.message);
           console.error('❌ Original Whisper error:', transcriptionError.message);
           
+          // Save backup info for retry even though transcription failed
+          if (backupInfo) {
+            transcript.audioChunks = transcript.audioChunks || [];
+            transcript.audioChunks.push({
+              chunkIndex: transcript.audioChunks.length,
+              gcsPath: backupInfo.gcsPath,
+              uploadedAt: new Date(),
+              sizeBytes: backupInfo.sizeBytes,
+              speaker: speaker,
+              transcribed: false,
+              transcriptionAttempts: 1,
+              lastTranscriptionAttempt: new Date(),
+              deleteAt: backupInfo.deleteAt
+            });
+            await transcript.save();
+            console.log('💾 Backup info saved for retry');
+          }
+          
           // Return error but don't crash - this chunk will be skipped
           return res.status(500).json({ 
             message: `Transcription failed: ${transcriptionError.message}. Conversion also failed: ${conversionError.message}`,
             error: 'audio_transcription_failed',
-            details: 'This audio chunk will be skipped. Recording continues.'
+            details: 'This audio chunk will be skipped. Recording continues.',
+            hasBackup: !!backupInfo
           });
         }
       } else {
         // Non-format error or not WebM - just fail
         console.error('❌ Whisper transcription failed:', transcriptionError.message);
         
+        // Save backup info for retry
+        if (backupInfo) {
+          transcript.audioChunks = transcript.audioChunks || [];
+          transcript.audioChunks.push({
+            chunkIndex: transcript.audioChunks.length,
+            gcsPath: backupInfo.gcsPath,
+            uploadedAt: new Date(),
+            sizeBytes: backupInfo.sizeBytes,
+            speaker: speaker,
+            transcribed: false,
+            transcriptionAttempts: 1,
+            lastTranscriptionAttempt: new Date(),
+            deleteAt: backupInfo.deleteAt
+          });
+          await transcript.save();
+          console.log('💾 Backup info saved for retry');
+        }
+        
         // Return error but don't crash - this chunk will be skipped
         return res.status(500).json({ 
           message: `Transcription failed: ${transcriptionError.message}`,
           error: 'audio_transcription_failed',
-          details: 'This audio chunk will be skipped. Recording continues.'
+          details: 'This audio chunk will be skipped. Recording continues.',
+          hasBackup: !!backupInfo
         });
       }
+    }
+    
+    // Mark backup as successfully transcribed if we got here
+    if (backupInfo && transcriptionSuccess) {
+      transcript.audioChunks = transcript.audioChunks || [];
+      transcript.audioChunks.push({
+        chunkIndex: transcript.audioChunks.length,
+        gcsPath: backupInfo.gcsPath,
+        uploadedAt: new Date(),
+        sizeBytes: backupInfo.sizeBytes,
+        speaker: speaker,
+        transcribed: true,
+        transcriptionAttempts: 1,
+        lastTranscriptionAttempt: new Date(),
+        deleteAt: backupInfo.deleteAt
+      });
+      console.log('✅ Backup info saved (transcription successful)');
     }
     
     // Pronunciation assessment disabled - not providing meaningful value
@@ -652,7 +733,78 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
     
     console.log(`✅ Transcription completed for lesson ${transcript.lessonId}`);
     
-    // Trigger analysis (async)
+    // Check if student has AI analysis enabled
+    const User = require('../models/User');
+    const student = await User.findOne({ auth0Id: transcript.studentId });
+    
+    if (student?.profile?.aiAnalysisEnabled === false) {
+      console.log('⏭️  AI analysis disabled by student - creating manual feedback requirement');
+      
+      // Mark lesson as requiring tutor feedback
+      const Lesson = require('../models/Lesson');
+      const TutorFeedback = require('../models/TutorFeedback');
+      const Notification = require('../models/Notification');
+      const { getRandomFeedbackMessage } = require('../utils/feedbackMessages');
+      
+      const lesson = await Lesson.findById(transcript.lessonId);
+      if (lesson) {
+        lesson.requiresTutorFeedback = true;
+        lesson.status = 'completed';
+        await lesson.save();
+        
+        // Create pending feedback record
+        await TutorFeedback.create({
+          lessonId: transcript.lessonId,
+          tutorId: transcript.tutorId,
+          studentId: transcript.studentId,
+          status: 'pending'
+        });
+        
+        // Get tutor for notification
+        const tutor = await User.findOne({ auth0Id: transcript.tutorId });
+        const studentData = await User.findOne({ auth0Id: transcript.studentId });
+        
+        // Get dynamic message
+        const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
+        
+        // Create notification for tutor
+        if (tutor) {
+          await Notification.create({
+            userId: tutor._id,
+            type: 'feedback_required',
+            title: feedbackMsg.title,
+            message: feedbackMsg.message,
+            data: {
+              lessonId: transcript.lessonId,
+              studentName: studentData?.name || 'Student',
+              studentAuth0Id: transcript.studentId
+            }
+          });
+          
+          // Emit WebSocket event
+          const io = req.app.get('io');
+          if (io) {
+            io.to(`user:${transcript.tutorId}`).emit('feedback_required', {
+              lessonId: transcript.lessonId,
+              studentName: studentData?.name || 'Student',
+              title: feedbackMsg.title,
+              message: feedbackMsg.message
+            });
+          }
+          
+          console.log(`📢 Sent feedback request to tutor: ${tutor.email}`);
+        }
+      }
+      
+      return res.json({
+        message: 'Transcription completed - Manual feedback required',
+        metadata: transcript.metadata,
+        analysisStarted: false,
+        feedbackRequired: true
+      });
+    }
+    
+    // AI analysis enabled - trigger normal analysis (async)
     analyzeLesson(transcript._id).catch(err => {
       console.error('❌ Error analyzing lesson:', err);
     });
@@ -1660,14 +1812,19 @@ async function analyzeLesson(transcriptId) {
       });
     }
     
-    // Update analysis status to failed
+    // Update analysis status to failed with retry metadata
     await LessonAnalysis.updateOne(
       { transcriptId },
       { 
         status: 'failed',
-        error: error.message
+        error: error.message,
+        retryAttempts: 0,  // Initialize for retry
+        canRetry: true,    // Enable retry
+        lastRetryAttempt: new Date()
       }
     );
+    
+    console.log('💾 Analysis marked as failed - will retry automatically');
     
     throw error;
   }
@@ -1734,9 +1891,11 @@ function formatAnalysisAsNotes(analysis) {
   // Overall assessment summary
   if (analysis.overallAssessment) {
     notes += `Level: ${analysis.overallAssessment.proficiencyLevel} `;
-    if (analysis.progressionMetrics) {
-      notes += `(${analysis.progressionMetrics.proficiencyChange || 'maintained'})\n\n`;
+    if (analysis.progressionMetrics && analysis.progressionMetrics.proficiencyChange) {
+      // Only show progression if there's actual change data (not first lesson)
+      notes += `(${analysis.progressionMetrics.proficiencyChange})\n\n`;
     } else {
+      // First lesson - just show level without progression indicator
       notes += '\n\n';
     }
     
@@ -1845,6 +2004,127 @@ function formatAnalysisAsNotes(analysis) {
   
   return notes.trim();
 }
+
+/**
+ * @route   GET /api/transcription/backup-stats
+ * @desc    Get audio backup and retry statistics
+ * @access  Private (Admin only for now)
+ */
+router.get('/backup-stats', verifyToken, async (req, res) => {
+  try {
+    const transcriptionRetryService = require('../services/transcriptionRetryService');
+    const analysisRetryService = require('../services/analysisRetryService');
+    
+    const [storageStats, retryStats, analysisStats] = await Promise.all([
+      audioBackupService.getStorageStats(),
+      transcriptionRetryService.getRetryStats(),
+      analysisRetryService.getAnalysisRetryStats()
+    ]);
+    
+    res.json({
+      success: true,
+      storage: storageStats,
+      transcriptionRetry: retryStats,
+      analysisRetry: analysisStats
+    });
+  } catch (error) {
+    console.error('❌ Error getting backup stats:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/transcription/:transcriptId/retry
+ * @desc    Manually retry a failed transcription
+ * @access  Private
+ */
+router.post('/:transcriptId/retry', verifyToken, async (req, res) => {
+  try {
+    const { transcriptId } = req.params;
+    const transcriptionRetryService = require('../services/transcriptionRetryService');
+    
+    const result = await transcriptionRetryService.retryTranscript(transcriptId);
+    
+    res.json({
+      success: true,
+      message: `Retry complete: ${result.succeeded} succeeded, ${result.failed} failed`,
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Error retrying transcript:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Retry failed'
+    });
+  }
+});
+
+/**
+ * @route   DELETE /api/transcription/:transcriptId/audio
+ * @desc    Delete all audio backups for a lesson (privacy)
+ * @access  Private (student/tutor only)
+ */
+router.delete('/:transcriptId/audio', verifyToken, async (req, res) => {
+  try {
+    const { transcriptId } = req.params;
+    
+    const transcript = await LessonTranscript.findById(transcriptId);
+    if (!transcript) {
+      return res.status(404).json({ success: false, message: 'Transcript not found' });
+    }
+    
+    // Verify user is student or tutor of this lesson
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    if (transcript.studentId !== user.auth0Id && transcript.tutorId !== user.auth0Id) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+    
+    // Delete from GCS
+    const deleted = await audioBackupService.deleteAllAudioForLesson(transcript.lessonId.toString());
+    
+    // Clear from database
+    transcript.audioChunks = [];
+    await transcript.save();
+    
+    res.json({
+      success: true,
+      message: `Deleted ${deleted} audio files`,
+      filesDeleted: deleted
+    });
+  } catch (error) {
+    console.error('❌ Error deleting audio:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+/**
+ * @route   POST /api/transcription/analysis/:analysisId/retry
+ * @desc    Manually retry a failed analysis
+ * @access  Private
+ */
+router.post('/analysis/:analysisId/retry', verifyToken, async (req, res) => {
+  try {
+    const { analysisId } = req.params;
+    const analysisRetryService = require('../services/analysisRetryService');
+    
+    const result = await analysisRetryService.retryAnalysis(analysisId);
+    
+    res.json({
+      success: result.success,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('❌ Error retrying analysis:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Analysis retry failed'
+    });
+  }
+});
 
 module.exports = router;
 module.exports.analyzeLesson = analyzeLesson;

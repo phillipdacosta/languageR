@@ -34,6 +34,7 @@ export class ProfilePage implements OnInit {
   isDarkMode$: Observable<boolean>;
   remindersEnabled: boolean = true; // Default to enabled
   showWalletBalance: boolean = false; // Default to hidden
+  aiAnalysisEnabled: boolean = true; // Default to enabled
   
   // Video player modal state
   isVideoPlayerModalOpen = false;
@@ -101,6 +102,7 @@ export class ProfilePage implements OnInit {
       // Load settings from user profile (database)
       this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
       this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
+      this.aiAnalysisEnabled = user?.profile?.aiAnalysisEnabled !== false; // Default true
       
       // If user doesn't have a picture but Auth0 user does, reload after a short delay
       // This ensures the picture sync from Auth0 has completed
@@ -346,6 +348,27 @@ export class ProfilePage implements OnInit {
         console.error('❌ Error saving wallet balance setting:', error);
         // Revert on error
         this.showWalletBalance = !this.showWalletBalance;
+      }
+    });
+  }
+
+  /**
+   * Toggle AI analysis on/off
+   */
+  toggleAIAnalysis(event: any): void {
+    this.aiAnalysisEnabled = event.detail.checked;
+    
+    // Save to database
+    this.userService.updateAIAnalysisEnabled(this.aiAnalysisEnabled).subscribe({
+      next: (user) => {
+        console.log('🤖 AI analysis setting saved to database:', this.aiAnalysisEnabled);
+        // Update the current user to ensure cache is updated
+        this.currentUser = user;
+      },
+      error: (error) => {
+        console.error('❌ Error saving AI analysis setting:', error);
+        // Revert on error
+        this.aiAnalysisEnabled = !this.aiAnalysisEnabled;
       }
     });
   }

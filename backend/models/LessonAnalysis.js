@@ -219,7 +219,18 @@ const lessonAnalysisSchema = new mongoose.Schema({
     enum: ['pending', 'processing', 'completed', 'failed'],
     default: 'pending'
   },
-  error: String
+  error: String,
+  
+  // Retry Tracking (for GPT-4 outages)
+  retryAttempts: {
+    type: Number,
+    default: 0
+  },
+  lastRetryAttempt: Date,
+  canRetry: {
+    type: Boolean,
+    default: true
+  }
   
 }, {
   timestamps: true

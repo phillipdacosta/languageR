@@ -15,8 +15,8 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'lessons',
-    loadComponent: () => import('./lessons/lessons.page').then(m => m.LessonsPage),
+    path: 'booking-success',
+    loadComponent: () => import('./pages/booking-success/booking-success.page').then(m => m.BookingSuccessPage),
     canActivate: [AuthGuard]
   },
   {
@@ -90,6 +90,11 @@ const routes: Routes = [
   {
     path: 'lesson-analysis/:id',
     loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tutor-feedback/:feedbackId',
+    loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
     canActivate: [AuthGuard]
   }
 ];

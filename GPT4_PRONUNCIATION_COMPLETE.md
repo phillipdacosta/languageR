@@ -406,3 +406,4 @@ Everything is implemented and ready for your first test lesson. Just:
 *Cost per 50-min lesson: ~$0.23*
 
 
+

@@ -1,6 +1,11 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>My Lessons</ion-title>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Lesson History</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="loadLessons()">
         <ion-icon name="refresh-outline"></ion-icon>
@@ -16,18 +21,65 @@
 
   <div class="page-background">
     <div class="lessons-shell">
-      <!-- Top header area similar to the “Lesson Complete” card -->
+      <!-- Top header area -->
       <div class="page-header">
         <div class="page-header-text">
-          <h1>Lesson Overview</h1>
+          <h1>Lesson History</h1>
           <p>
-            See your upcoming and past lessons in one place. Join live sessions
-            or review what’s already happened.
+            Review your completed lessons, view analysis.
           </p>
         </div>
         <div class="page-header-badge">
-          <span class="badge-label">Lessons</span>
-          <span class="badge-value">{{ lessons.length || 0 }}</span>
+          <span class="badge-label">Completed</span>
+          <span class="badge-value">{{ completedLessons.length || 0 }}</span>
+        </div>
+      </div>
+      
+      <!-- Filters -->
+      <div class="filters-section">
+        <!-- Time Filter -->
+        <div class="filter-group">
+          <label class="filter-label">Time Period</label>
+          <ion-select 
+            [(ngModel)]="selectedTimeFilter" 
+            (ionChange)="onTimeFilterChange($event)"
+            interface="popover"
+            class="filter-select">
+            <ion-select-option value="all">All Time</ion-select-option>
+            <ion-select-option value="7days">Last 7 Days</ion-select-option>
+            <ion-select-option value="30days">Last 30 Days</ion-select-option>
+            <ion-select-option value="3months">Last 3 Months</ion-select-option>
+          </ion-select>
+        </div>
+        
+        <!-- Tutor Filter (Students Only) -->
+        <div class="filter-group" *ngIf="isStudent() && uniqueTutors.length > 1">
+          <label class="filter-label">Tutor</label>
+          <ion-select 
+            [(ngModel)]="selectedTutorFilter" 
+            (ionChange)="onTutorFilterChange($event)"
+            interface="popover"
+            class="filter-select">
+            <ion-select-option value="all">All Tutors</ion-select-option>
+            <ion-select-option *ngFor="let tutor of uniqueTutors" [value]="tutor.id">
+              {{ tutor.name }}
+            </ion-select-option>
+          </ion-select>
+        </div>
+        
+        <!-- Student Filter (Tutors Only) -->
+        <div class="filter-group" *ngIf="isTutor() && uniqueStudents.length > 1">
+          <label class="filter-label">Student</label>
+          <ion-select 
+            [(ngModel)]="selectedStudentFilter" 
+            (ionChange)="onStudentFilterChange($event)"
+            interface="popover"
+            class="filter-select">
+            <ion-select-option value="all">All Students</ion-select-option>
+            <ion-select-option *ngFor="let student of uniqueStudents" [value]="student.id">
+              {{ student.name }}
+            </ion-select-option>
+          </ion-select>
         </div>
       </div>
 
@@ -41,14 +93,18 @@
         </div>
 
         <!-- Empty state -->
-        <div *ngIf="!isLoading && lessons.length === 0" class="state-card empty-state">
-          <ion-icon name="calendar-outline"></ion-icon>
-          <h2>No lessons scheduled</h2>
-          <p>
-            When you book a lesson with a tutor, it will appear here so you can
-            join and review it easily.
+        <div *ngIf="!isLoading && completedLessons.length === 0" class="state-card empty-state">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <h2>No lessons found</h2>
+          <p *ngIf="(selectedTimeFilter === 'all' && selectedTutorFilter === 'all' && selectedStudentFilter === 'all')">
+            <span *ngIf="isStudent()">You haven't completed any lessons yet.</span>
+            <span *ngIf="isTutor()">You haven't completed any lessons with students yet.</span>
+          </p>
+          <p *ngIf="(selectedTimeFilter !== 'all' || selectedTutorFilter !== 'all' || selectedStudentFilter !== 'all')">
+            No completed lessons match your selected filters. Try adjusting your filters.
           </p>
           <ion-button
+            *ngIf="isStudent() && selectedTimeFilter === 'all' && selectedTutorFilter === 'all'"
             routerLink="/tabs/tutor-search"
             fill="solid"
             color="primary"
@@ -60,9 +116,9 @@
         </div>
 
         <!-- Lessons list -->
-        <div *ngIf="!isLoading && lessons.length > 0" class="lessons-list">
+        <div *ngIf="!isLoading && completedLessons.length > 0" class="lessons-list">
           <ion-card
-            *ngFor="let lesson of lessons; trackBy: trackByLessonId"
+            *ngFor="let lesson of displayedLessons; trackBy: trackByLessonId"
             class="lesson-card"
           >
             <ion-card-header>
@@ -80,9 +136,20 @@
                   </ion-card-subtitle>
                 </div>
 
-                <ion-chip [color]="getStatusColor(lesson)" class="status-chip">
-                  {{ getStatusText(lesson) }}
-                </ion-chip>
+                <!-- Badges container -->
+                <div class="badges-container">
+                  <!-- Completed badge -->
+                  <ion-chip color="success" class="status-chip">
+                    <ion-icon name="checkmark-circle"></ion-icon>
+                    <ion-label>Completed</ion-label>
+                  </ion-chip>
+                  
+                  <!-- Trial badge -->
+                  <ion-chip *ngIf="lesson.isTrialLesson" class="status-chip trial-chip">
+                    <ion-icon name="star"></ion-icon>
+                    <ion-label>Trial</ion-label>
+                  </ion-chip>
+                </div>
               </div>
             </ion-card-header>
 
@@ -95,7 +162,13 @@
                 </div>
                 <div class="meta-block">
                   <span class="meta-label">Price</span>
-                  <span class="meta-value">${{ lesson.price }}</span>
+                  <span class="meta-value">
+                    ${{ lesson.price }}
+                    <ion-badge color="success" class="payment-badge">
+                      <ion-icon name="checkmark-circle-outline"></ion-icon>
+                      Settled
+                    </ion-badge>
+                  </span>
                 </div>
                 <div class="meta-block">
                   <span class="meta-label">
@@ -128,82 +201,61 @@
 
               <div class="divider"></div>
 
-              <!-- Actions section (like the “Got it” / buttons area) -->
+              <!-- Actions section -->
               <div class="lesson-actions">
-                <!-- Scheduled lesson -->
-                <ng-container *ngIf="lesson.status === 'scheduled'">
-                  <div *ngIf="canJoinLesson(lesson); else waitingToJoin" class="join-ready">
-                    <ion-button
-                      expand="block"
-                      color="success"
-                      size="large"
-                      (click)="joinLesson(lesson)"
-                    >
-                      <ion-icon name="videocam" slot="start"></ion-icon>
-                      Join Lesson
-                    </ion-button>
-                    <p class="helper-text">
-                      Your room is open. You can join now and wait for the other person.
-                    </p>
-                  </div>
-
-                  <ng-template #waitingToJoin>
-                    <div class="waiting-info">
-                      <ion-icon name="time-outline"></ion-icon>
-                      <p>Available in {{ getTimeUntilJoin(lesson) }}</p>
-                      <ion-button
-                        fill="outline"
-                        color="medium"
-                        size="small"
-                        (click)="cancelLesson(lesson)"
-                      >
-                        Cancel lesson
-                      </ion-button>
-                    </div>
-                  </ng-template>
-                </ng-container>
-
-                <!-- In progress indicator -->
-                <div *ngIf="lesson.status === 'in_progress'" class="rejoin-block">
-                  <ion-button
-                    expand="block"
-                    color="warning"
-                    size="large"
-                    (click)="joinLesson(lesson)"
-                  >
-                    <ion-icon name="videocam" slot="start"></ion-icon>
-                    Rejoin Lesson
-                  </ion-button>
-                  <p class="helper-text">
-                    This lesson is currently in progress. Tap to go back to the call.
-                  </p>
-                </div>
-
                 <!-- Completed lesson info -->
-                <div *ngIf="lesson.status === 'completed'" class="status-info completed-info">
+                <div class="status-info completed-info">
                   <ion-icon name="checkmark-circle" color="success"></ion-icon>
                   <span>Lesson completed</span>
-                  <ion-button
-                    *ngIf="getUserRole(lesson) === 'student'"
-                    fill="outline"
-                    color="primary"
-                    size="small"
-                    (click)="viewAnalysis(lesson)"
-                    class="view-analysis-btn"
-                  >
-                    <ion-icon name="analytics-outline" slot="start"></ion-icon>
-                    View Analysis
-                  </ion-button>
-                </div>
-
-                <!-- Cancelled lesson info -->
-                <div *ngIf="lesson.status === 'cancelled'" class="status-info cancelled-info">
-                  <ion-icon name="close-circle" color="danger"></ion-icon>
-                  <span>Lesson cancelled</span>
+                  
+                  <!-- Analysis Status for Students -->
+                  <div *ngIf="getUserRole(lesson) === 'student'" class="analysis-status-container">
+                    <!-- Analysis Available -->
+                    <ion-button
+                      *ngIf="getAnalysisStatus(lesson) === 'available'"
+                      fill="outline"
+                      color="primary"
+                      size="small"
+                      (click)="viewFeedback(lesson)"
+                      class="view-analysis-btn"
+                    >
+                      <ion-icon [name]="hasTutorFeedback(lesson) ? 'person-outline' : 'analytics-outline'" slot="start"></ion-icon>
+                      {{ hasTutorFeedback(lesson) ? 'View Tutor Feedback' : 'View Analysis' }}
+                    </ion-button>
+                    
+                    <!-- Analysis Generating -->
+                    <div *ngIf="getAnalysisStatus(lesson) === 'generating'" class="analysis-generating">
+                      <ion-spinner name="dots" color="primary"></ion-spinner>
+                      <span>Generating analysis...</span>
+                    </div>
+                    
+                    <!-- Analysis Not Available -->
+                    <div *ngIf="getAnalysisStatus(lesson) === 'unavailable'" class="analysis-unavailable">
+                      <ion-icon name="information-circle-outline" color="medium"></ion-icon>
+                      <span>Analysis not available</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </ion-card-content>
           </ion-card>
+        </div>
+        
+        <!-- Infinite Scroll for Lazy Loading -->
+        <ion-infinite-scroll 
+          *ngIf="!isLoading && completedLessons.length > 0 && hasMoreLessons()"
+          threshold="100px" 
+          (ionInfinite)="loadMoreLessons($event)">
+          <ion-infinite-scroll-content
+            loadingSpinner="crescent"
+            loadingText="Loading more lessons...">
+          </ion-infinite-scroll-content>
+        </ion-infinite-scroll>
+        
+        <!-- End of list message -->
+        <div *ngIf="!isLoading && completedLessons.length > 0 && !hasMoreLessons()" class="end-of-list">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <p>You've reached the end of your lesson history</p>
         </div>
       </div>
     </div>

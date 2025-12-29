@@ -2,7 +2,7 @@
 <ng-container *ngIf="!inline; else inlineTpl">
   <ion-header>
     <ion-toolbar>
-      <ion-title>Your Availability</ion-title>
+      <ion-title>{{ formattedTutorName ? formattedTutorName + "'s Availability" : 'Your Availability' }}</ion-title>
       <ion-buttons slot="end">
         <ion-button (click)="close()">
           <ion-icon name="close"></ion-icon>

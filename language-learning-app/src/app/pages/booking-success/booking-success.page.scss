@@ -1,0 +1,332 @@
+.success-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px 20px;
+  z-index: 10000;
+  overflow-y: auto;
+}
+
+.close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+
+  ion-icon {
+    font-size: 24px;
+    color: white;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.success-content {
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0 20px;
+}
+
+/* Success Icon */
+.success-icon {
+  margin-bottom: 4px;
+  
+  .checkmark-circle {
+    width: 70px;
+    height: 70px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+
+    .checkmark {
+      font-size: 40px;
+      color: #22c55e;
+      font-weight: bold;
+    }
+  }
+}
+
+/* Headings */
+.success-title {
+  font-size: 26px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.success-subtitle {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: -8px 0 0 0;
+  text-align: center;
+}
+
+/* Tutor Card */
+.tutor-card {
+  width: 100%;
+  background: white;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  .tutor-avatar {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+    border: 2px solid #667eea;
+
+    ion-icon {
+      font-size: 26px;
+      color: #9ca3af;
+    }
+  }
+
+  .tutor-info {
+    flex: 1;
+
+    .tutor-name {
+      font-size: 17px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin: 0 0 2px 0;
+      letter-spacing: -0.01em;
+    }
+
+    .tutor-label {
+      font-size: 13px;
+      color: #6e6e73;
+      margin: 0;
+    }
+  }
+}
+
+/* Details Card */
+.details-card {
+  width: 100%;
+  background: white;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  .detail-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+
+    &:first-child {
+      padding-top: 0;
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+  }
+
+  .detail-icon {
+    width: 34px;
+    height: 34px;
+    background: #f3f4f6;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 17px;
+      color: #667eea;
+    }
+
+    .subject-emoji {
+      font-size: 20px;
+    }
+  }
+
+  .detail-content {
+    flex: 1;
+
+    .detail-label {
+      font-size: 11px;
+      color: #6e6e73;
+      margin: 0 0 2px 0;
+      font-weight: 500;
+    }
+
+    .detail-value {
+      font-size: 14px;
+      color: #1d1d1f;
+      margin: 0;
+      font-weight: 500;
+    }
+  }
+
+  .detail-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0;
+  }
+}
+
+/* Next Steps */
+.next-steps {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  .next-steps-text {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: white;
+    margin: 0;
+    line-height: 1.4;
+
+    ion-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+  .success-container {
+    padding: 60px 16px 16px;
+  }
+
+  .success-content {
+    gap: 12px;
+  }
+
+  .close-button {
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+
+  .success-icon .checkmark-circle {
+    width: 60px;
+    height: 60px;
+
+    .checkmark {
+      font-size: 34px;
+    }
+  }
+
+  .success-title {
+    font-size: 22px;
+  }
+
+  .success-subtitle {
+    font-size: 13px;
+  }
+
+  .tutor-card {
+    padding: 12px;
+
+    .tutor-avatar {
+      width: 44px;
+      height: 44px;
+    }
+
+    .tutor-info .tutor-name {
+      font-size: 15px;
+    }
+
+    .tutor-info .tutor-label {
+      font-size: 12px;
+    }
+  }
+
+  .details-card {
+    padding: 12px;
+
+    .detail-row {
+      padding: 6px 0;
+      gap: 10px;
+    }
+
+    .detail-icon {
+      width: 30px;
+      height: 30px;
+
+      ion-icon {
+        font-size: 15px;
+      }
+
+      .subject-emoji {
+        font-size: 18px;
+      }
+    }
+
+    .detail-content {
+      .detail-label {
+        font-size: 10px;
+      }
+
+      .detail-value {
+        font-size: 13px;
+      }
+    }
+  }
+
+  .next-steps {
+    padding: 10px;
+
+    .next-steps-text {
+      font-size: 11px;
+
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+  }
+}
+

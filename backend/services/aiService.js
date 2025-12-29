@@ -36,9 +36,38 @@ function levenshteinDistance(str1, str2) {
 }
 
 /**
- * Check if two words are phonetically similar (likely transcription error)
+ * Get language-specific ending patterns for root extraction
+ * Returns null if language not supported (falls back to general similarity)
+ * Supports major world languages for accurate transcription error detection
  */
-function arePhoneticallySimilar(word1, word2) {
+function getLanguageEndingPatterns(language) {
+  const patterns = {
+    // Romance Languages
+    'spanish': /(s|n|mos|áis|éis|ís|an|en|in|as|es|is|os)$/,
+    'portuguese': /(s|m|mos|is|am|em|im|as|es|os)$/,
+    'italian': /(o|i|a|e|no|te|mo|ano|ono|ino)$/,
+    'french': /(s|x|t|ez|ons|ent|ai|as|a|es|e|er|ir|re)$/,
+    // Germanic Languages
+    'german': /(en|st|t|e|n|te|ten|est|et)$/,
+    'dutch': /(en|t|e|n|te|ten|de|den)$/,
+    // Slavic Languages
+    'russian': /(ть|ет|ит|ют|ят|ем|им|ешь|ишь|ете|ите|у|ю|а|я|ы|и)$/,
+    'polish': /(ć|ę|ą|y|i|sz|my|cie|ją)$/,
+    // Asian Languages with Latin script
+    'turkish': /(lar|ler|yor|mak|mek|di|du|dı|dü)$/,
+    'vietnamese': /(s|n|ng|m|p|t|c|ch)$/, // Tone markers handled by similarity
+    // Add more languages as needed
+  };
+  
+  return patterns[language?.toLowerCase()] || null;
+}
+
+/**
+ * Check if two words are phonetically similar (likely transcription error)
+ * Language-agnostic approach with optional language-specific enhancements
+ * Works across all languages using Levenshtein distance and morphological patterns
+ */
+function arePhoneticallySimilar(word1, word2, language = null) {
   const w1 = word1.toLowerCase().trim();
   const w2 = word2.toLowerCase().trim();
   
@@ -48,9 +77,48 @@ function arePhoneticallySimilar(word1, word2) {
   const maxLength = Math.max(w1.length, w2.length);
   const similarity = 1 - (distance / maxLength);
   
-  // 70% similar = likely transcription error
-  // Examples: "apretas"/"aprietas" (93% similar), "peces"/"pelos" (60% similar)
-  return similarity >= 0.65;
+  // Base threshold: 65% similar = likely transcription error
+  // Examples: "apretas"/"aprietas" (93%), "tiene"/"tienes" (83%), "cat"/"cats" (75%)
+  let threshold = 0.65;
+  
+  // Tighten threshold for very short words (they can differ significantly)
+  if (maxLength <= 3) {
+    threshold = 0.80; // e.g., "se" vs "si" should not be flagged as transcription error
+  }
+  
+  // Loosen threshold for longer words (more room for transcription variation)
+  if (maxLength >= 8) {
+    threshold = 0.60;
+  }
+  
+  // UNIVERSAL RULE: Prefix matching (works across all languages)
+  // If one word is a prefix of another and differs by 1-2 chars
+  // This catches most conjugation/plural transcription errors across languages
+  // Examples: tiene/tienes (Spanish), cat/cats (English), haben/habe (German)
+  if (w1.length >= 4 && w2.length >= 4) {
+    const shorter = w1.length < w2.length ? w1 : w2;
+    const longer = w1.length < w2.length ? w2 : w1;
+    
+    if (longer.startsWith(shorter) && (longer.length - shorter.length <= 2)) {
+      console.log(`🔍 Detected likely conjugation/plural transcription error: "${w1}" ↔ "${w2}"`);
+      return true;
+    }
+    
+    // LANGUAGE-SPECIFIC ENHANCEMENT: Root extraction using morphological patterns
+    // This provides better accuracy for known languages but falls back to general similarity
+    const endingPatterns = getLanguageEndingPatterns(language);
+    if (endingPatterns) {
+      const w1Root = w1.replace(endingPatterns, '');
+      const w2Root = w2.replace(endingPatterns, '');
+      if (w1Root === w2Root && w1Root.length >= 3) {
+        console.log(`🔍 Detected likely ending variation (${language || 'unknown'}): "${w1}" ↔ "${w2}"`);
+        return true;
+      }
+    }
+  }
+  
+  // Check general similarity threshold (universal - works for all languages)
+  return similarity >= threshold;
 }
 
 /**
@@ -664,6 +732,12 @@ IMPORTANT GUIDELINES:
  */
 async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'student') {
   try {
+    // 🧪 TEST MODE: Simulate Whisper downtime
+    if (process.env.FORCE_WHISPER_FAILURE === 'true') {
+      console.log('🧪 TEST MODE: Simulating Whisper API failure');
+      throw new Error('SIMULATED WHISPER FAILURE - Service temporarily unavailable (test mode)');
+    }
+    
     console.log(`🎙️ Transcribing audio for ${speaker} in target language: ${targetLanguage}`);
     console.log(`🎙️ Audio buffer size: ${audioBuffer.length} bytes`);
     
@@ -772,6 +846,12 @@ async function analyzeLessonTranscript({
   previousAnalyses = []
 }) {
   try {
+    // 🧪 TEST MODE: Simulate GPT-4 downtime
+    if (process.env.FORCE_GPT4_FAILURE === 'true') {
+      console.log('🧪 TEST MODE: Simulating GPT-4 API failure');
+      throw new Error('SIMULATED GPT-4 FAILURE - Service temporarily unavailable (test mode)');
+    }
+    
     console.log(`🤖 ========================================`);
     console.log(`🤖 STARTING GPT-4 ANALYSIS`);
     console.log(`🤖 ========================================`);
@@ -911,7 +991,7 @@ IMPORTANT INSTRUCTIONS:
       console.log(`⚠️  Filtered out ${filteredCount} punctuation/spelling errors (transcription artifacts)`);
     }
     
-    // Validate corrections - filter out nonsensical ones
+    // Validate corrections - filter out nonsensical ones and transcription errors
     // Common issue: Model tries to "sanitize" vulgar language or makes incorrect corrections
     const validatedCorrections = meaningfulCorrections.filter(change => {
       const originalLower = change.original.toLowerCase().trim();
@@ -934,6 +1014,36 @@ IMPORTANT INSTRUCTIONS:
         return false;
       }
       
+      // NEW: Filter out phonetically similar single-word changes (likely transcription errors)
+      // Examples: "tiene" → "tienes", "hace" → "se les", "sentido" → "sentidos"
+      const originalWords = change.original.split(/\s+/);
+      const correctedWords = change.corrected.split(/\s+/);
+      
+      // Only check single-word-to-single-word or single-word-to-two-word corrections
+      if (originalWords.length === 1 && correctedWords.length <= 2) {
+        // Extract just the main changed words
+        const origWord = originalWords[0].toLowerCase().replace(/[.,!?¿¡;:]/g, '');
+        const corrWord = correctedWords[correctedWords.length - 1].toLowerCase().replace(/[.,!?¿¡;:]/g, '');
+        
+        // Check phonetic similarity with language context for better accuracy
+        if (arePhoneticallySimilar(origWord, corrWord, language)) {
+          console.log(`⏭️  Skipping phonetically similar words (likely transcription error): "${change.original}" → "${change.corrected}"`);
+          return false;
+        }
+        
+        // Also check if first word of correction is phonetically similar to original
+        // This catches cases like "hace" → "se les hace" where the main verb is similar
+        if (correctedWords.length >= 2) {
+          for (const cWord of correctedWords) {
+            const cleanCWord = cWord.toLowerCase().replace(/[.,!?¿¡;:]/g, '');
+            if (arePhoneticallySimilar(origWord, cleanCWord, language)) {
+              console.log(`⏭️  Skipping phonetically similar phrase (likely transcription error): "${change.original}" → "${change.corrected}"`);
+              return false;
+            }
+          }
+        }
+      }
+      
       // Skip corrections that try to "complete" incomplete sentences
       // If original ends with "..." or is clearly incomplete, don't mark as error
       if (change.original.endsWith('...') || 
@@ -944,9 +1054,7 @@ IMPORTANT INSTRUCTIONS:
       
       // Skip if correction is trying to complete a sentence that was cut off
       // Check if original is very short and corrected adds significant content
-      const originalWords = change.original.split(/\s+/).length;
-      const correctedWords = change.corrected.split(/\s+/).length;
-      if (originalWords <= 3 && correctedWords > originalWords + 2) {
+      if (originalWords.length <= 3 && correctedWords.length > originalWords.length + 2) {
         console.log(`⏭️  Skipping correction that tries to complete sentence: "${change.original}" → "${change.corrected}"`);
         return false;
       }

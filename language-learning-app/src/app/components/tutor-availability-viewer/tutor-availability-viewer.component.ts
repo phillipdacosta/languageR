@@ -86,6 +86,22 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   // Pre-computed date-to-slots array for direct template iteration (avoids function calls in *ngFor)
   weekDateSlots: { date: Date; slots: { label: string; time: string; booked: boolean; isPast: boolean }[] }[] = [];
   
+  // Format tutor name as "FirstName L."
+  get formattedTutorName(): string {
+    if (!this.tutorName) return '';
+    
+    const parts = this.tutorName.trim().split(' ');
+    if (parts.length === 1) {
+      return parts[0]; // Just first name
+    }
+    
+    const firstName = parts[0];
+    const lastName = parts[parts.length - 1];
+    const lastInitial = lastName.charAt(0).toUpperCase();
+    
+    return `${firstName} ${lastInitial}.`;
+  }
+  
   constructor(
     private userService: UserService,
     private lessonService: LessonService,

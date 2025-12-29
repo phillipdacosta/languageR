@@ -10,6 +10,7 @@ const cron = require('node-cron');
 const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
 const { autoCancelClasses } = require('./jobs/autoCancelClasses');
+const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 require('dotenv').config({ path: './config.env' });
 
 const app = express();
@@ -101,6 +102,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));
+app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
 
 // Error handling middleware
@@ -338,6 +340,10 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
+  
+  // Initialize audio backup and retry cron jobs
+  initializeAudioCronJobs();
+  console.log('✅ Audio backup system initialized');
   
   // Run auto-cancel immediately on startup for testing
   console.log('🚀 Running auto-cancel check immediately on startup...');

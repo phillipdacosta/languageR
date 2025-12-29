@@ -117,6 +117,11 @@ const LessonSchema = new mongoose.Schema({
       default: 'pending'
     }
   },
+  // Manual feedback tracking (when AI analysis is disabled)
+  requiresTutorFeedback: {
+    type: Boolean,
+    default: false
+  },
   // Agora Interactive Whiteboard room info
   whiteboardRoomUUID: {
     type: String,

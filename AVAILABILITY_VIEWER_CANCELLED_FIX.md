@@ -201,3 +201,4 @@ The filter `cls.status !== 'cancelled'` is explicit and future-proof.
 **Date**: December 19, 2025
 
 
+

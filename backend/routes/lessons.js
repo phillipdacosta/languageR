@@ -905,9 +905,43 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
     .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
+    // Load LessonAnalysis for each completed lesson to check if analysis exists
+    const LessonAnalysis = require('../models/LessonAnalysis');
+    const lessonIds = lessons.map(l => l._id);
+    const analyses = await LessonAnalysis.find({ 
+      lessonId: { $in: lessonIds },
+      status: { $in: ['completed', 'generating'] }
+    }).select('lessonId status');
+    
+    // Create a map of lessonId -> analysis status
+    const analysisMap = new Map();
+    analyses.forEach(analysis => {
+      analysisMap.set(analysis.lessonId.toString(), analysis.status);
+    });
+    
+    // Attach analysis status to each lesson
+    const lessonsWithAnalysis = lessons.map(lesson => {
+      const lessonObj = lesson.toObject();
+      const analysisStatus = analysisMap.get(lesson._id.toString());
+      
+      if (analysisStatus) {
+        lessonObj.aiAnalysis = {
+          status: analysisStatus,
+          hasAnalysis: analysisStatus === 'completed'
+        };
+      } else {
+        lessonObj.aiAnalysis = {
+          status: 'unavailable',
+          hasAnalysis: false
+        };
+      }
+      
+      return lessonObj;
+    });
+
     res.json({ 
       success: true, 
-      lessons 
+      lessons: lessonsWithAnalysis 
     });
   } catch (error) {
     console.error('❌ Error fetching lessons:', error);
@@ -974,8 +1008,8 @@ router.get('/student/:studentId', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture firstName lastName')
-      .populate('studentId', 'name email picture firstName lastName');
+      .populate('tutorId', 'name email picture firstName lastName profile')
+      .populate('studentId', 'name email picture firstName lastName profile');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -1884,10 +1918,18 @@ router.post('/:id/call-start', verifyToken, async (req, res) => {
 // POST /api/lessons/:id/call-end - Record when the call ends and calculate actual billing
 router.post('/:id/call-end', verifyToken, async (req, res) => {
   try {
-    const lesson = await Lesson.findById(req.params.id);
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('tutorId', 'name firstName lastName email auth0Id picture')
+      .populate('studentId', 'name firstName lastName email auth0Id picture');
+      
     if (!lesson) {
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
+
+    // Get current user to determine who ended the lesson
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    const userId = user?._id;
+    const userRole = userId && userId.toString() === lesson.tutorId._id.toString() ? 'tutor' : 'student';
 
     // Only calculate if call was started and not already ended
     if (lesson.actualCallStartTime && !lesson.actualCallEndTime) {
@@ -1926,22 +1968,123 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
         lesson.billingStatus = 'charged';
       }
       
+      // Mark lesson as completed (prevents rejoining)
+      lesson.status = 'completed';
+      
       await lesson.save();
       console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
+      console.log(`✅ Lesson marked as completed by ${userRole}`);
       
-      // Auto-trigger AI analysis generation
+      // Notify the OTHER participant via WebSocket that lesson was ended
+      const otherParticipant = userRole === 'tutor' ? lesson.studentId : lesson.tutorId;
+      const otherSocketId = await getUserSocketId(otherParticipant.auth0Id);
+      const endedByName = formatDisplayName(userRole === 'tutor' ? lesson.tutorId : lesson.studentId);
+      
+      if (otherSocketId && req.io) {
+        console.log(`📡 Notifying ${userRole === 'tutor' ? 'student' : 'tutor'} that lesson was ended early...`);
+        req.io.to(otherSocketId).emit('lesson_ended_by_participant', {
+          lessonId: lesson._id.toString(),
+          endedBy: userRole,
+          endedByName,
+          message: `${endedByName} has ended the lesson early.`,
+          actualDuration: lesson.actualDurationMinutes,
+          scheduledDuration: lesson.duration
+        });
+      }
+      
+      // Auto-trigger AI analysis generation OR request tutor feedback
       setTimeout(async () => {
         try {
           const lessonForAnalysis = await Lesson.findById(lesson._id)
-            .populate('tutorId', 'name firstName lastName')
-            .populate('studentId', 'name firstName lastName');
+            .populate('tutorId', 'name firstName lastName email auth0Id picture profile')
+            .populate('studentId', 'name firstName lastName email auth0Id picture profile');
           
           if (!lessonForAnalysis) return;
           
-          // Mark analysis as generating
-          lessonForAnalysis.aiAnalysis = lessonForAnalysis.aiAnalysis || {};
-          lessonForAnalysis.aiAnalysis.status = 'generating';
-          await lessonForAnalysis.save();
+          /* 
+          TEMPORARILY DISABLED: Tutor Feedback Flow (AI opt-out)
+          TODO: Re-enable if we want to support AI-disabled mode
+          
+          // Check if student has AI analysis enabled
+          const studentProfile = lessonForAnalysis.studentId?.profile;
+          const aiAnalysisEnabled = studentProfile?.aiAnalysisEnabled !== false; // Default to true
+          
+          console.log(`🤖 AI Analysis Enabled for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
+          
+          if (!aiAnalysisEnabled) {
+            // AI disabled - require manual tutor feedback
+            console.log('📝 AI disabled - Creating tutor feedback requirement...');
+            
+            const TutorFeedback = require('../models/TutorFeedback');
+            const feedbackExists = await TutorFeedback.findOne({ lessonId: lessonForAnalysis._id });
+            
+            if (!feedbackExists) {
+              await TutorFeedback.create({
+                lessonId: lessonForAnalysis._id,
+                tutorId: lessonForAnalysis.tutorId._id,
+                studentId: lessonForAnalysis.studentId._id,
+                status: 'pending'
+              });
+              
+              // Get dynamic feedback message
+              const feedbackMessages = [
+                { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
+                { title: '✍️ Share Your Insights', message: 'Your student is waiting for your feedback!' },
+                { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
+                { title: '📊 Feedback Time', message: 'Help your student improve with your feedback!' }
+              ];
+              const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+              
+              console.log('📝 Creating notification for tutor:', lessonForAnalysis.tutorId.email);
+              console.log('   Tutor ID:', lessonForAnalysis.tutorId._id);
+              console.log('   Student:', formatDisplayName(lessonForAnalysis.studentId));
+              
+              try {
+                // Create notification for tutor
+                const notification = await Notification.create({
+                  userId: lessonForAnalysis.tutorId._id,
+                  type: 'feedback_required',
+                  title: randomMsg.title,
+                  message: randomMsg.message,
+                  data: {
+                    lessonId: lessonForAnalysis._id,
+                    studentName: formatDisplayName(lessonForAnalysis.studentId),
+                    studentAuth0Id: lessonForAnalysis.studentId.auth0Id
+                  }
+                });
+                console.log('✅ Notification created:', notification._id);
+              } catch (notifError) {
+                console.error('❌ Error creating notification:', notifError);
+              }
+              
+              try {
+                // Emit WebSocket event
+                if (req.io) {
+                  const socketRoom = `user:${lessonForAnalysis.tutorId.auth0Id}`;
+                  console.log('📡 Emitting feedback_required to room:', socketRoom);
+                  req.io.to(socketRoom).emit('feedback_required', {
+                    lessonId: lessonForAnalysis._id.toString(),
+                    studentName: formatDisplayName(lessonForAnalysis.studentId),
+                    title: randomMsg.title,
+                    message: randomMsg.message
+                  });
+                  console.log('✅ WebSocket event emitted');
+                } else {
+                  console.warn('⚠️ req.io is not available - WebSocket event not sent');
+                }
+              } catch (socketError) {
+                console.error('❌ Error emitting WebSocket event:', socketError);
+              }
+              
+              console.log(`📢 Feedback request process completed for tutor: ${lessonForAnalysis.tutorId.email}`);
+            }
+            
+            return; // Skip AI analysis generation
+          }
+          */
+          
+          // AI is always enabled - generate analysis for all completed lessons
+          console.log(`🤖 Generating AI analysis for lesson ${lessonForAnalysis._id}`);
           
           const actualDuration = lessonForAnalysis.actualDurationMinutes || lessonForAnalysis.duration;
           const scheduledDuration = lessonForAnalysis.duration;
@@ -1997,10 +2140,12 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
     }
 
     res.json({ 
-      success: true, 
+      success: true,
+      message: 'Call ended and lesson completed',
       actualCallEndTime: lesson.actualCallEndTime,
       actualDurationMinutes: lesson.actualDurationMinutes,
-      actualPrice: lesson.actualPrice
+      actualPrice: lesson.actualPrice,
+      status: lesson.status
     });
   } catch (error) {
     console.error('Error recording call end:', error);

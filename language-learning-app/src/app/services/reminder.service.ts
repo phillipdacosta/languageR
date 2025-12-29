@@ -124,6 +124,15 @@ export class ReminderService {
     this.saveDismissedReminders();
     this.reminders$.next([]);
   }
+
+  // Un-dismiss a reminder (used when a lesson is rescheduled)
+  undismissReminder(eventId: string) {
+    console.log('🔔 [REMINDER-SERVICE] Un-dismissing reminder for rescheduled event:', eventId);
+    this.dismissedReminders.delete(eventId);
+    this.saveDismissedReminders();
+    // Force a check for reminders to show the un-dismissed one if it's within the window
+    this.checkForReminders();
+  }
   
   // Load dismissed reminders from localStorage
   private loadDismissedReminders() {

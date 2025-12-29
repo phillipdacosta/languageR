@@ -308,3 +308,4 @@ const improvement = ((lastLevel - firstLevel) / firstLevel) * 100;
 However, trend-based approach is significantly better for UX and accuracy.
 
 
+

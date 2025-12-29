@@ -14,6 +14,7 @@ import { RescheduleProposalModalComponent } from '../components/reschedule-propo
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { InvitationsListModalComponent } from '../components/invitations-list-modal/invitations-list-modal.component';
+import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { SmartIslandComponent } from '../components/smart-island/smart-island.component';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
@@ -35,6 +36,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     ClassInvitationModalComponent,
     InviteStudentModalComponent,
     InvitationsListModalComponent,
+    TutorAvailabilityViewerComponent,
     SmartIslandComponent
   ],
   declarations: [Tab1Page]

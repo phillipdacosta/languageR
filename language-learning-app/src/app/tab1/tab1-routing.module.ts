@@ -9,6 +9,11 @@ const routes: Routes = [
     component: Tab1Page,
   },
   {
+    path: 'lessons',
+    loadComponent: () => import('../lessons/lessons.page').then(m => m.LessonsPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'explore',
     loadComponent: () => import('../explore/explore.page').then(m => m.ExplorePage),
     canActivate: [AuthGuard]

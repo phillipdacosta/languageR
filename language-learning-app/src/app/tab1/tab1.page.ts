@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
-import { Router } from '@angular/router';
+import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
@@ -15,14 +15,17 @@ import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { NotificationService } from '../services/notification.service';
 import { MessagingService } from '../services/messaging.service';
+import { ReminderService } from '../services/reminder.service';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
+import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { SmartIslandComponent, IslandPriority } from '../components/smart-island/smart-island.component';
 import { FlagService } from '../services/flag.service';
+import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
 
 @Component({
   selector: 'app-tab1',
@@ -95,6 +98,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Student-specific insights
   totalLessonsCompleted = 0;
+  
+  // Tutor pending feedback
+  pendingFeedback: PendingFeedbackItem[] = [];
+  pendingFeedbackCount = 0;
+  hasShownFeedbackAlertThisSession = false; // Track if we've shown the alert in this session (public for debugging)
+  
+  // All tutors modal state
+  isAllTutorsModalOpen = false;
+  
+  // Tutor booking modal state
+  isTutorBookingModalOpen = false;
+  selectedTutorForBooking: any = null;
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -220,12 +235,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     private websocketService: WebSocketService,
     private notificationService: NotificationService,
     private messagingService: MessagingService,
+    private reminderService: ReminderService,
     private actionSheetController: ActionSheetController,
     private popoverController: PopoverController,
     private alertController: AlertController,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
-    public flagService: FlagService
+    public flagService: FlagService,
+    private tutorFeedbackService: TutorFeedbackService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -286,6 +303,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     this.isMobile = this.platformService.isMobile();
     const initialStart = this.getStripStartForDate(today);
     this.updateDateStrip(initialStart, false);
+    
+    // Listen for navigation events to close tutor booking modal
+    this.router.events.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(event => {
+      if (event instanceof NavigationStart) {
+        // Close modal when navigating away (e.g., to checkout)
+        if (this.isTutorBookingModalOpen) {
+          this.closeTutorBookingModal();
+        }
+      }
+    });
 
     // Add window resize listener for reactive viewport detection
     this.resizeListener = () => {
@@ -739,6 +768,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
           (lesson as any).rescheduleProposal.status = 'accepted';
         }
         
+        // ✅ NEW: Un-dismiss the reminder for this lesson so it can show again for the new time
+        this.reminderService.undismissReminder(lesson._id);
+        console.log('🔔 [TAB1] Un-dismissed reminder for rescheduled lesson:', lesson._id);
+        
         // Re-sort lessons array by startTime to ensure correct ordering
         this.lessons.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         
@@ -800,6 +833,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         await toast.present();
       }
     });
+    
+    /* 
+    TEMPORARILY DISABLED: Feedback Required WebSocket Listener
+    TODO: Re-enable if we want to support AI-disabled mode
+    
+    // Listen for feedback_required events (tutors only)
+    if (this.currentUser?.userType === 'tutor') {
+      this.websocketService.on('feedback_required').pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(async (data: any) => {
+        console.log('📝 [TAB1] Feedback required:', data);
+        
+        // Reload pending feedback which will trigger the alert via loadPendingFeedback()
+        await this.loadPendingFeedback();
+        this.cdr.detectChanges();
+      });
+    }
+    */
     
     // ====================
     // SMART ISLAND WEBSOCKET EVENTS (for students)
@@ -863,7 +914,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ionViewWillEnter() {
+    console.log('🔄 [TAB1] ========== ionViewWillEnter START ==========');
     console.log('🔄 [TAB1] ionViewWillEnter - hasInitiallyLoaded:', this._hasInitiallyLoaded, 'lastFetch:', new Date(this._lastDataFetch).toLocaleTimeString());
+    console.log('🔄 [TAB1] currentUser:', {
+      exists: !!this.currentUser,
+      email: this.currentUser?.email,
+      userType: this.currentUser?.userType,
+      isTutor: this.isTutor()
+    });
+    
+    // Check if we need to force reload (e.g., after booking a lesson)
+    const navigation = this.router.getCurrentNavigation();
+    const state = navigation?.extras?.state || history.state;
+    const forceReload = state?.forceReload === true;
+    
+    if (forceReload) {
+      console.log('🔄 [TAB1] Force reload requested, invalidating cache');
+      this._lastDataFetch = 0; // Invalidate cache
+      // Clear the state to prevent repeated reloads
+      if (history.state?.forceReload) {
+        history.replaceState({ ...history.state, forceReload: false }, '');
+      }
+    }
     
     // Refresh presence data when returning to the home page
     // This ensures we see updated presence if someone joined while we were away
@@ -888,6 +960,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
           this.checkNoUpcomingLessons();
         }, 10000);
       }
+      
+      /* 
+      TEMPORARILY DISABLED: Tutor Feedback Loading
+      TODO: Re-enable if we want to support AI-disabled mode
+      
+      // Load pending feedback for tutors
+      if (this.currentUser.userType === 'tutor') {
+        console.log('📝 [TAB1] ionViewWillEnter - User IS a tutor, calling loadPendingFeedback()');
+        this.loadPendingFeedback();
+      } else {
+        console.log('📝 [TAB1] ionViewWillEnter - User is NOT a tutor (userType:', this.currentUser.userType, ')');
+      }
+      */
+    } else {
+      console.warn('⚠️ [TAB1] ionViewWillEnter - No currentUser available!');
     }
     
     // Reload user settings to ensure wallet display is up to date
@@ -1380,6 +1467,131 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     
     if (completedLessons.length === 0) return null;
     return completedLessons[0].tutorId;
+  }
+  
+  // Helper: Get list of recent tutors (all unique tutors) from completed lessons
+  getRecentTutors(): any[] {
+    if (this.lessons.length === 0) return [];
+    
+    const completedLessons = this.lessons.filter(l => {
+      const endTime = new Date(l.endTime);
+      return endTime < new Date() && l.status !== 'cancelled' && l.tutorId;
+    }).sort((a, b) => 
+      new Date(b.endTime).getTime() - new Date(a.endTime).getTime()
+    );
+    
+    if (completedLessons.length === 0) return [];
+    
+    // Get ALL unique tutors
+    const uniqueTutors = new Map();
+    for (const lesson of completedLessons) {
+      const tutorId = lesson.tutorId._id || lesson.tutorId;
+      if (!uniqueTutors.has(String(tutorId))) {
+        uniqueTutors.set(String(tutorId), lesson.tutorId);
+      }
+    }
+    
+    return Array.from(uniqueTutors.values());
+  }
+  
+  // Helper: Get tutors for display (max 5)
+  getRecentTutorsForDisplay(): any[] {
+    const allTutors = this.getRecentTutors();
+    return allTutors.slice(0, 5);
+  }
+  
+  // Helper: Check if there are more than 5 tutors
+  hasMoreTutors(): boolean {
+    return this.getRecentTutors().length > 5;
+  }
+  
+  // Navigate to all tutors (tutor search)
+  navigateToAllTutors() {
+    this.router.navigate(['/tabs/tutor-search']);
+  }
+  
+  // Show recent tutors list for booking
+  async showRecentTutors() {
+    const recentTutors = this.getRecentTutors();
+    
+    if (recentTutors.length === 0) {
+      // Shouldn't happen, but fallback to search
+      this.router.navigate(['/tabs/tutor-search']);
+      return;
+    }
+    
+    // Navigate to tutor search (it will show all tutors, but user can easily find recent ones)
+    this.router.navigate(['/tabs/tutor-search']);
+  }
+  
+  // Navigate to tutor profile for booking
+  navigateToTutorProfile(tutor: any) {
+    const tutorId = tutor._id || tutor.id;
+    if (tutorId) {
+      this.router.navigate(['/tabs/tutor-search/tutor-profile', tutorId]);
+    }
+  }
+  
+  // Format tutor name for tooltip: "FirstName L."
+  getTutorTooltipName(tutor: any): string {
+    if (!tutor) return '';
+    
+    const firstName = tutor.firstName || (tutor.name ? tutor.name.split(' ')[0] : '');
+    const lastName = tutor.lastName || (tutor.name && tutor.name.split(' ').length > 1 ? tutor.name.split(' ')[tutor.name.split(' ').length - 1] : '');
+    
+    if (lastName) {
+      return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+    }
+    return firstName;
+  }
+  
+  // Open tutor availability viewer for a specific tutor
+  openTutorAvailability(tutor: any) {
+    console.log('🎓 Opening tutor availability for:', tutor);
+    
+    // Format tutor name properly
+    let tutorName = '';
+    if (tutor.firstName && tutor.lastName) {
+      tutorName = `${tutor.firstName} ${tutor.lastName}`;
+    } else if (tutor.firstName) {
+      tutorName = tutor.firstName;
+    } else if (tutor.name) {
+      tutorName = tutor.name;
+    } else {
+      tutorName = tutor.email || 'Tutor';
+    }
+    
+    this.selectedTutorForBooking = {
+      ...tutor,
+      name: tutorName
+    };
+    this.isTutorBookingModalOpen = true;
+    console.log('🎓 Modal state:', {
+      isOpen: this.isTutorBookingModalOpen,
+      tutor: this.selectedTutorForBooking
+    });
+  }
+  
+  // Close tutor booking modal
+  closeTutorBookingModal() {
+    console.log('🎓 Closing tutor booking modal');
+    this.isTutorBookingModalOpen = false;
+    this.selectedTutorForBooking = null;
+  }
+  
+  // Navigate to completed lessons page
+  navigateToCompletedLessons() {
+    this.router.navigate(['/tabs/home/lessons']);
+  }
+  
+  // Open modal showing all tutors
+  openAllTutorsModal() {
+    this.isAllTutorsModalOpen = true;
+  }
+  
+  // Close all tutors modal
+  closeAllTutorsModal() {
+    this.isAllTutorsModalOpen = false;
   }
 
   // Helper: Check if student has no upcoming lessons and nudge them
@@ -1898,6 +2110,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     this.lessonsThisWeek = this.lessons.filter(l => {
       const lessonDate = new Date(l.startTime);
       return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+    }).length;
+    
+    // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
+    const currentTime = new Date();
+    this.totalLessonsCompleted = this.lessons.filter(l => {
+      const lessonEndTime = new Date(l.endTime);
+      return lessonEndTime < currentTime && l.status !== 'cancelled';
     }).length;
 
     // Get tutor rating from user profile or calculate from reviews
@@ -2453,6 +2672,55 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     return lastInitial ? `${first} ${lastInitial}.` : first;
   }
 
+  formatTutorDisplayName(tutorOrName: any): string {
+    // Handle if it's a tutor object with firstName and lastName
+    if (typeof tutorOrName === 'object' && tutorOrName) {
+      const firstName = tutorOrName.firstName;
+      const lastName = tutorOrName.lastName;
+      
+      if (firstName && lastName) {
+        return `${this.capitalize(firstName)} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return this.capitalize(firstName);
+      }
+      
+      // Fall back to name field if firstName/lastName not available
+      const rawName = tutorOrName.name || tutorOrName.email;
+      if (!rawName) return 'Tutor';
+      return this.formatTutorDisplayName(rawName); // Recursively handle the string
+    }
+    
+    // Handle if it's just a string name
+    const rawName = tutorOrName;
+    if (!rawName || typeof rawName !== 'string') {
+      return 'Tutor';
+    }
+
+    const name = rawName.trim();
+
+    // If it's an email, use the part before @ as a fallback
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      if (!base) return 'Tutor';
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
   private capitalize(value: string): string {
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1);
@@ -2612,26 +2880,33 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         rating: 0,
         isClass: true
       };
-    } else if (nextLesson.studentId && typeof nextLesson.studentId === 'object') {
-      // For regular lessons, show student info
-      const studentData = nextLesson.studentId as any;
-      // Build full name from firstName and lastName if available, otherwise use name field
-      let fullName = studentData.name || studentData.email;
-      if (studentData.firstName && studentData.lastName) {
-        fullName = `${studentData.firstName} ${studentData.lastName}`;
-      } else if (studentData.firstName) {
-        fullName = studentData.firstName;
-      }
+    } else {
+      // For regular lessons, show the OTHER participant (tutor for students, student for tutors)
+      const isTutorView = this.isTutor();
+      const participantData = isTutorView 
+        ? (nextLesson.studentId && typeof nextLesson.studentId === 'object' ? nextLesson.studentId : null)
+        : (nextLesson.tutorId && typeof nextLesson.tutorId === 'object' ? nextLesson.tutorId : null);
       
-      student = {
-        id: studentData._id,
-        name: fullName,
-        firstName: studentData.firstName,
-        lastName: studentData.lastName,
-        profilePicture: studentData.picture || studentData.profilePicture || 'assets/avatar.png',
-        email: studentData.email,
-        rating: studentData.rating || 4.5,
-      };
+      if (participantData) {
+        const participant = participantData as any;
+        // Build full name from firstName and lastName if available, otherwise use name field
+        let fullName = participant.name || participant.email;
+        if (participant.firstName && participant.lastName) {
+          fullName = `${participant.firstName} ${participant.lastName}`;
+        } else if (participant.firstName) {
+          fullName = participant.firstName;
+        }
+        
+        student = {
+          id: participant._id,
+          name: fullName,
+          firstName: participant.firstName,
+          lastName: participant.lastName,
+          profilePicture: participant.picture || participant.profilePicture || 'assets/avatar.png',
+          email: participant.email,
+          rating: participant.rating || 4.5,
+        };
+      }
     }
     
     const dateTag = this.getDateTag(lessonDate);
@@ -2788,7 +3063,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Get time until lesson starts (e.g., "55 minutes", "2h 30m")
+  // Get time until lesson starts (e.g., "55 minutes", "2h 30m", "2d 3h")
   // Or elapsed time if already started (e.g., "5m ago", "1h 15m ago")
   getTimeUntilLesson(lesson: any): string {
     if (!lesson) return '';
@@ -2820,14 +3095,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     
     // Lesson hasn't started yet
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMinutes / 60);
+    
+    // If 0 or negative minutes, show "NOW" instead
+    if (diffMinutes <= 0) {
+      return 'NOW';
+    }
+    
+    const totalHours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     
-    if (hours > 0) {
-      if (minutes > 0) {
-        return `${hours}h ${minutes}m`;
+    // If more than 24 hours, show days
+    if (totalHours >= 24) {
+      const days = Math.floor(totalHours / 24);
+      const remainingHours = totalHours % 24;
+      
+      if (remainingHours > 0) {
+        return `${days}d ${remainingHours}h`;
       }
-      return `${hours}h`;
+      return `${days} day${days !== 1 ? 's' : ''}`;
+    }
+    
+    // Less than 24 hours
+    if (totalHours > 0) {
+      if (minutes > 0) {
+        return `${totalHours}h ${minutes}m`;
+      }
+      return `${totalHours}h`;
     }
     
     return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
@@ -2890,8 +3183,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
     
-    // Get the next class being shown in the "Up Next" card (if tutor view)
-    const nextClassLesson = this.isTutor() ? this.nextLesson : null;
+    // Get the next class being shown in the "Up Next" card (for both tutors and students)
+    const nextClassLesson = this.nextLesson;
     // Get the lesson ID - it could be in lessonId, lesson._id, or the lesson object itself
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
@@ -2912,6 +3205,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const startTime = new Date(lesson.startTime);
         const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
         const student = lesson.studentId as any;
+        const tutor = lesson.tutorId as any;
         const isClass = (lesson as any).isClass;
         const isCancelled = lesson.status === 'cancelled';
         
@@ -2919,19 +3213,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const isRescheduleProposer = this.isRescheduleProposer(lesson);
         const rescheduleAccepted = lesson.rescheduleProposal?.status === 'accepted';
         
+        // Determine which participant to show based on user role
+        const isStudentView = this.isStudent();
+        const participantToShow = isStudentView ? tutor : student;
+        
         return {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
           date: this.formatRelativeDate(startTime),
           name: isClass 
             ? ((lesson as any).className || lesson.subject || 'Group Class')
-            : (student ? this.formatStudentDisplayName(student) : 'Unknown'),
+            : (participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown'),
           subject: isClass 
             ? 'Group Class'
             : this.formatSubject(lesson.subject),
           avatar: isClass 
             ? ((lesson as any).classData?.thumbnail || null) // Show class thumbnail if available
-            : (student?.picture || student?.profilePicture || null),
+            : (participantToShow?.picture || participantToShow?.profilePicture || null),
           lesson: lesson,
           isTrialLesson: lesson.isTrialLesson || false,
           isCancelled: isCancelled,
@@ -2947,8 +3245,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const now = new Date();
     const futureLessons = allLessons.filter(lesson => new Date(lesson.startTime) > now);
     
-    // Get the next class being shown in the "Up Next" card
-    const nextClassLesson = this.isTutor() ? this.nextLesson : null;
+    // Get the next class being shown in the "Up Next" card (for both tutors and students)
+    const nextClassLesson = this.nextLesson;
     const nextClassLessonId = nextClassLesson?.lessonId || 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
@@ -2994,7 +3292,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
   
 navigateToLessons() {
-    this.router.navigate(['/lessons']);
+    this.router.navigate(['/tabs/home/lessons']);
   }
 
   // Format time only (e.g., "2:00 PM")
@@ -3041,12 +3339,49 @@ navigateToLessons() {
   // Helper to navigate to pre-call for lesson or class
   async joinLessonById(lesson: Lesson) {
     const isClass = (lesson as any).isClass;
-    const role = this.isTutor() ? 'tutor' : 'student';
+    
+    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
+    // This prevents stale cache issues where userType might be wrong
+    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
+    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
+    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
+    
+    console.log('🔍 DEBUG: Role determination:', {
+      currentUserId,
+      currentUserType: typeof lesson.tutorId,
+      tutorId,
+      studentId,
+      tutorIdRaw: lesson.tutorId,
+      studentIdRaw: lesson.studentId,
+      idsMatch: {
+        matchesTutor: currentUserId === tutorId,
+        matchesStudent: currentUserId === studentId
+      }
+    });
+    
+    // Determine role by comparing IDs
+    let role: 'tutor' | 'student';
+    if (currentUserId === tutorId) {
+      role = 'tutor';
+      console.log('✅ Determined role: TUTOR (ID match)');
+    } else if (currentUserId === studentId) {
+      role = 'student';
+      console.log('✅ Determined role: STUDENT (ID match)');
+    } else {
+      // Fallback to currentUser if IDs don't match (shouldn't happen)
+      console.warn('⚠️ Could not determine role from lesson IDs, using currentUser.userType');
+      role = this.isTutor() ? 'tutor' : 'student';
+      console.log('⚠️ Fallback role from currentUser.userType:', role);
+    }
     
     console.log('🎯 TAB1: Navigating to pre-call:', {
       sessionId: lesson._id,
       isClass: isClass,
-      role: role
+      role: role,
+      currentUserId,
+      tutorId,
+      studentId,
+      determinedBy: (currentUserId === tutorId || currentUserId === studentId) ? 'lesson IDs' : 'currentUser.userType'
     });
     
     // Navigate directly to pre-call - don't call backend join yet
@@ -3887,13 +4222,49 @@ navigateToLessons() {
   async joinUpcomingLesson() {
     if (!this.upcomingLesson || !this.currentUser) return;
     
-    const role = this.getUserRole(this.upcomingLesson);
     const isClass = (this.upcomingLesson as any).isClass || false;
+    
+    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
+    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
+    const tutorId = typeof this.upcomingLesson.tutorId === 'object' ? (this.upcomingLesson.tutorId as any)._id : this.upcomingLesson.tutorId;
+    const studentId = typeof this.upcomingLesson.studentId === 'object' ? (this.upcomingLesson.studentId as any)._id : this.upcomingLesson.studentId;
+    
+    console.log('🔍 DEBUG: Role determination (upcoming lesson):', {
+      currentUserId,
+      tutorIdType: typeof this.upcomingLesson.tutorId,
+      studentIdType: typeof this.upcomingLesson.studentId,
+      tutorId,
+      studentId,
+      tutorIdRaw: this.upcomingLesson.tutorId,
+      studentIdRaw: this.upcomingLesson.studentId,
+      idsMatch: {
+        matchesTutor: currentUserId === tutorId,
+        matchesStudent: currentUserId === studentId
+      }
+    });
+    
+    // Determine role by comparing IDs
+    let role: 'tutor' | 'student';
+    if (currentUserId === tutorId) {
+      role = 'tutor';
+      console.log('✅ Determined role: TUTOR (ID match)');
+    } else if (currentUserId === studentId) {
+      role = 'student';
+      console.log('✅ Determined role: STUDENT (ID match)');
+    } else {
+      // Fallback to getUserRole method
+      console.warn('⚠️ Could not determine role from lesson IDs, using getUserRole fallback');
+      role = this.getUserRole(this.upcomingLesson) as 'tutor' | 'student';
+      console.log('⚠️ Fallback role:', role);
+    }
     
     console.log('🎯 TAB1: Joining upcoming session:', {
       sessionId: this.upcomingLesson._id,
       isClass: isClass,
-      role: role
+      role: role,
+      currentUserId,
+      tutorId,
+      studentId
     });
     
     // Navigate to pre-call page first
@@ -4202,11 +4573,36 @@ navigateToLessons() {
     const lesson = student.lesson as Lesson;
     const isClass = (lesson as any).isClass || false;
     
+    // CRITICAL FIX: Determine role from the LESSON, not hardcoded
+    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
+    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
+    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
+    
+    // Determine role by comparing IDs
+    let role: 'tutor' | 'student';
+    if (currentUserId === tutorId) {
+      role = 'tutor';
+    } else if (currentUserId === studentId) {
+      role = 'student';
+    } else {
+      // Fallback - this method is typically called from tutor view, but check to be sure
+      role = this.isTutor() ? 'tutor' : 'student';
+    }
+    
+    console.log('🎯 TAB1: joinStudentLesson navigating to pre-call:', {
+      lessonId: lesson._id,
+      role,
+      currentUserId,
+      tutorId,
+      studentId,
+      isClass
+    });
+    
     // Navigate to pre-call page first
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
-        role: 'tutor',
+        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -4946,6 +5342,107 @@ navigateToLessons() {
         endTime: this.upcomingLesson?.endTime
       });
     }
+  }
+
+  /**
+   * Load pending feedback requests for tutors
+   */
+  async loadPendingFeedback() {
+    if (!this.isTutor()) return;
+    
+    console.log('📝 [TAB1] loadPendingFeedback called');
+    
+    try {
+      const response = await firstValueFrom(this.tutorFeedbackService.getPendingFeedback());
+      const previousCount = this.pendingFeedbackCount;
+      this.pendingFeedback = response.pendingFeedback || [];
+      this.pendingFeedbackCount = response.count || 0;
+      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests (previous: ${previousCount})`);
+      console.log(`📝 [TAB1] hasShownFeedbackAlertThisSession: ${this.hasShownFeedbackAlertThisSession}`);
+      
+      // Show feedback alert if:
+      // 1. There's pending feedback (count > 0)
+      // 2. AND either:
+      //    - We haven't shown the alert this session yet
+      //    - OR the count increased (new feedback added)
+      const shouldShowAlert = this.pendingFeedbackCount > 0 && 
+                             (!this.hasShownFeedbackAlertThisSession || this.pendingFeedbackCount > previousCount);
+      
+      console.log(`📝 [TAB1] Should show alert: ${shouldShowAlert} (count: ${this.pendingFeedbackCount}, shown: ${this.hasShownFeedbackAlertThisSession}, prev: ${previousCount})`);
+      
+      if (shouldShowAlert) {
+        // Longer delay to ensure the "lesson ended" alert is fully dismissed
+        setTimeout(() => {
+          console.log('📝 [TAB1] Showing feedback alert after 1.5s delay');
+          this.showFeedbackAlert();
+        }, 1500); // Increased from 500ms to 1500ms to avoid conflicts
+      }
+    } catch (error) {
+      console.error('❌ [TAB1] Error loading pending feedback:', error);
+    }
+  }
+  
+  /**
+   * Show feedback alert to tutor
+   */
+  async showFeedbackAlert() {
+    console.log('📝 [TAB1] showFeedbackAlert called');
+    this.hasShownFeedbackAlertThisSession = true;
+    
+    const feedbackMessages = [
+      { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
+      { title: '✍️ Share Your Insights', message: `You have ${this.pendingFeedbackCount} lesson${this.pendingFeedbackCount > 1 ? 's' : ''} waiting for your feedback!` },
+      { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
+      { title: '📊 Feedback Time', message: `${this.pendingFeedbackCount} student${this.pendingFeedbackCount > 1 ? 's are' : ' is'} waiting for your feedback!` }
+    ];
+    const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+    
+    console.log('📝 [TAB1] Creating alert with message:', randomMsg);
+    
+    const alert = await this.alertController.create({
+      header: randomMsg.title,
+      message: randomMsg.message,
+      buttons: [
+        {
+          text: 'Later',
+          role: 'cancel',
+          handler: () => {
+            console.log('📝 [TAB1] User chose to provide feedback later');
+            // Reset flag so alert can show again if user returns to home
+            this.hasShownFeedbackAlertThisSession = false;
+          }
+        },
+        {
+          text: 'Provide Feedback',
+          handler: () => {
+            console.log('📝 [TAB1] User chose to provide feedback now');
+            // Open the first pending feedback item
+            if (this.pendingFeedback.length > 0) {
+              this.openFeedbackForm(this.pendingFeedback[0]._id);
+            }
+          }
+        }
+      ],
+      backdropDismiss: false
+    });
+    
+    console.log('📝 [TAB1] Presenting alert');
+    await alert.present();
+  }
+
+  /**
+   * Navigate to feedback form
+   */
+  async openFeedbackForm(feedbackId: string) {
+    this.router.navigate(['/tutor-feedback', feedbackId]);
+  }
+  
+  /**
+   * TEST: Open feedback form with a mock ID for testing UI
+   */
+  async openTestFeedbackForm() {
+    // Use 'test' as the feedback ID to trigger test mode in the feedback form
+    this.router.navigate(['/tutor-feedback', 'test']);
   }
 
 }

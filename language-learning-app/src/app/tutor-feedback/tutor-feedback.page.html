@@ -1,0 +1,150 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Provide Feedback</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <!-- Loading state -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading feedback request...</p>
+  </div>
+
+  <!-- Feedback form -->
+  <div *ngIf="!isLoading && feedbackItem" class="feedback-container">
+    <!-- Student info banner -->
+    <div class="student-banner">
+      <ion-avatar>
+        <img [src]="feedbackItem.studentPicture" *ngIf="feedbackItem.studentPicture" />
+        <div class="avatar-placeholder" *ngIf="!feedbackItem.studentPicture">
+          {{ feedbackItem.studentName?.charAt(0) || 'S' }}
+        </div>
+      </ion-avatar>
+      <div class="student-info">
+        <h2>{{ feedbackItem.studentName }}</h2>
+        <p *ngIf="feedbackItem.lesson">
+          {{ formatDate(feedbackItem.lesson.startTime) }} • {{ feedbackItem.lesson.duration }} min
+        </p>
+      </div>
+    </div>
+
+    <!-- Feedback form -->
+    <div class="form-content">
+      <!-- Strengths section -->
+      <div class="form-section">
+        <div class="section-header">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          <h3>Strengths</h3>
+        </div>
+        <p class="section-subtitle">What did the student do well?</p>
+        
+        <div class="dynamic-list">
+          <div *ngFor="let strength of strengths; let i = index" class="list-item">
+            <ion-textarea
+              [(ngModel)]="strengths[i]"
+              placeholder="e.g., Great pronunciation of difficult words"
+              rows="2"
+              class="feedback-input"
+            ></ion-textarea>
+            <ion-button 
+              fill="clear" 
+              color="danger" 
+              (click)="removeStrength(i)"
+              *ngIf="strengths.length > 1"
+            >
+              <ion-icon slot="icon-only" name="close-circle"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+        
+        <ion-button fill="outline" size="small" (click)="addStrength()">
+          <ion-icon slot="start" name="add"></ion-icon>
+          Add Strength
+        </ion-button>
+      </div>
+
+      <!-- Areas for Improvement section -->
+      <div class="form-section">
+        <div class="section-header">
+          <ion-icon name="trending-up" color="primary"></ion-icon>
+          <h3>Areas for Improvement</h3>
+        </div>
+        <p class="section-subtitle">What should the student focus on?</p>
+        
+        <div class="dynamic-list">
+          <div *ngFor="let area of areasForImprovement; let i = index" class="list-item">
+            <ion-textarea
+              [(ngModel)]="areasForImprovement[i]"
+              placeholder="e.g., Practice using past tense verbs"
+              rows="2"
+              class="feedback-input"
+            ></ion-textarea>
+            <ion-button 
+              fill="clear" 
+              color="danger" 
+              (click)="removeAreaForImprovement(i)"
+              *ngIf="areasForImprovement.length > 1"
+            >
+              <ion-icon slot="icon-only" name="close-circle"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+        
+        <ion-button fill="outline" size="small" (click)="addAreaForImprovement()">
+          <ion-icon slot="start" name="add"></ion-icon>
+          Add Area
+        </ion-button>
+      </div>
+
+      <!-- Homework section -->
+      <div class="form-section">
+        <div class="section-header">
+          <ion-icon name="book" color="secondary"></ion-icon>
+          <h3>Homework (Optional)</h3>
+        </div>
+        <p class="section-subtitle">Suggested practice or exercises</p>
+        
+        <ion-textarea
+          [(ngModel)]="homework"
+          placeholder="e.g., Watch a movie in Spanish, practice conjugating 10 irregular verbs"
+          rows="3"
+          class="feedback-input"
+        ></ion-textarea>
+      </div>
+
+      <!-- Overall notes section -->
+      <div class="form-section">
+        <div class="section-header">
+          <ion-icon name="create" color="tertiary"></ion-icon>
+          <h3>Overall Notes (Optional)</h3>
+        </div>
+        <p class="section-subtitle">Any additional comments or observations</p>
+        
+        <ion-textarea
+          [(ngModel)]="overallNotes"
+          placeholder="e.g., Student is making great progress and shows strong motivation"
+          rows="4"
+          class="feedback-input"
+        ></ion-textarea>
+      </div>
+
+      <!-- Submit button -->
+      <ion-button 
+        expand="block" 
+        (click)="submitFeedback()"
+        [disabled]="isSubmitting"
+        class="submit-button"
+      >
+        <ion-spinner name="crescent" *ngIf="isSubmitting"></ion-spinner>
+        <span *ngIf="!isSubmitting">Submit Feedback</span>
+      </ion-button>
+    </div>
+  </div>
+</ion-content>
+

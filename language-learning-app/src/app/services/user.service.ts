@@ -39,6 +39,7 @@ export interface User {
     officeHoursEnabled?: boolean;
     showWalletBalance?: boolean;  // Privacy setting for wallet display
     remindersEnabled?: boolean;   // Lesson reminder notifications
+    aiAnalysisEnabled?: boolean;  // Enable/disable AI analysis of lessons
   };
   stats?: {
     totalLessons: number;
@@ -373,6 +374,13 @@ export class UserService {
    */
   updateRemindersEnabled(enabled: boolean): Observable<User> {
     return this.updateProfile({ remindersEnabled: enabled });
+  }
+
+  /**
+   * Update AI analysis enabled setting
+   */
+  updateAIAnalysisEnabled(enabled: boolean): Observable<User> {
+    return this.updateProfile({ aiAnalysisEnabled: enabled });
   }
   
   /**

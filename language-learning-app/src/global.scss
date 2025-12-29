@@ -706,3 +706,18 @@ ion-modal.invite-student-modal {
     }
   }
 }
+
+// Early Exit Modal Styling
+ion-modal.early-exit-modal {
+  --width: 90%;
+  --max-width: 500px;
+  --height: auto;
+  --max-height: 90vh;
+  --border-radius: 16px;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: none;
+  }
+}

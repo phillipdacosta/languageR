@@ -143,6 +143,11 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
       comment: 'Enable/disable lesson reminder notifications'
+    },
+    aiAnalysisEnabled: {
+      type: Boolean,
+      default: true,
+      comment: 'Enable/disable AI analysis of lessons. When disabled, tutor must provide manual feedback.'
     }
   },
   // Native language for providing feedback in the user's language

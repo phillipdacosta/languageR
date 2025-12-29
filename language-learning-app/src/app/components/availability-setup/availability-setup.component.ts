@@ -683,6 +683,41 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
             const dateStr = this.formatDateKey(blockDate);
             console.log(`🔧 Block date: ${dateStr} (${blockDate.toDateString()})`);
             
+            // CRITICAL: Check if block applies to currently displayed week
+            // For blocks with absoluteStart/absoluteEnd, only load if they fall within displayed dates
+            if (block.absoluteStart && block.absoluteEnd) {
+              const blockStart = new Date(block.absoluteStart);
+              const blockEnd = new Date(block.absoluteEnd);
+              blockStart.setHours(0, 0, 0, 0);
+              blockEnd.setHours(0, 0, 0, 0);
+              
+              // Get the range of dates currently displayed in the grid
+              const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+              const firstDisplayedDate = dayArray[0]?.date;
+              const lastDisplayedDate = dayArray[dayArray.length - 1]?.date;
+              
+              if (!firstDisplayedDate || !lastDisplayedDate) {
+                console.warn('🔧 No displayed dates found');
+                return;
+              }
+              
+              const firstDate = new Date(firstDisplayedDate);
+              const lastDate = new Date(lastDisplayedDate);
+              firstDate.setHours(0, 0, 0, 0);
+              lastDate.setHours(0, 0, 0, 0);
+              
+              // Check if block's date range overlaps with displayed week
+              // Block is valid if: blockEnd >= firstDate AND blockStart <= lastDate
+              const blockApplies = blockEnd >= firstDate && blockStart <= lastDate;
+              
+              if (!blockApplies) {
+                console.log(`🔧 ⏭️ Skipping block - date range ${blockStart.toDateString()} to ${blockEnd.toDateString()} doesn't overlap with displayed week ${firstDate.toDateString()} to ${lastDate.toDateString()}`);
+                return;
+              }
+              
+              console.log(`🔧 ✅ Block applies to displayed week`);
+            }
+            
             // In single day mode, only load slots for the selected day
             if (this.isSingleDayMode) {
               const selectedDate = this.displayedWeekDays[0]?.date;

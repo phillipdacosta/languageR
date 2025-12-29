@@ -275,6 +275,19 @@
             <ion-label>Show Wallet Balance</ion-label>
             <ion-toggle slot="end" [checked]="showWalletBalance" (ionChange)="toggleShowWalletBalance($event)"></ion-toggle>
           </ion-item>
+          <!-- 
+          TEMPORARILY DISABLED: AI Analysis Toggle
+          TODO: Re-enable if we want to allow users to disable AI analysis
+          
+          <ion-item button *ngIf="isStudent()">
+            <ion-icon name="analytics" slot="start"></ion-icon>
+            <ion-label>
+              <h3>AI Analysis</h3>
+              <p>Get detailed feedback from AI after lessons. When disabled, your tutor will provide all feedback.</p>
+            </ion-label>
+            <ion-toggle slot="end" [checked]="aiAnalysisEnabled" (ionChange)="toggleAIAnalysis($event)"></ion-toggle>
+          </ion-item>
+          -->
           <ion-item button>
             <ion-icon name="help-circle" slot="start"></ion-icon>
             <ion-label>{{ 'PROFILE_SCREEN.HELP_SUPPORT' | translate }}</ion-label>
