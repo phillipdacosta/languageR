@@ -43,6 +43,11 @@ const routes: Routes = [
     canActivate: [OnboardingGuard]
   },
   {
+    path: 'explore',
+    loadComponent: () => import('./explore/explore.page').then(m => m.ExplorePage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'tutor-search-content',
     loadChildren: () => import('./tutor-search-content/tutor-search-content.module').then( m => m.TutorSearchContentPageModule),
     canActivate: [AuthGuard]
