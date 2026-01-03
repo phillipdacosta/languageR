@@ -186,6 +186,18 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     await lesson.save();
     console.log(`✅ [AutoComplete] Lesson ${lesson._id} finalized: status=${lesson.status}, duration=${lesson.actualDurationMinutes}min, price=$${lesson.actualPrice}`);
     
+    // Mark payment as succeeded when lesson completes
+    if (lesson.paymentId) {
+      const Payment = require('../models/Payment');
+      const payment = await Payment.findById(lesson.paymentId);
+      if (payment && payment.status === 'authorized') {
+        payment.status = 'succeeded';
+        payment.chargedAt = endTime;
+        await payment.save();
+        console.log(`💳 [AutoComplete] Payment ${payment._id} marked as succeeded`);
+      }
+    }
+    
   } catch (error) {
     console.error(`❌ [AutoComplete] Error finalizing lesson ${lesson._id}:`, error.message);
     throw error;

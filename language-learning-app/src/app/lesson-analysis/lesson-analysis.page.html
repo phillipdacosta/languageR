@@ -626,6 +626,35 @@
           </ion-card-content>
         </ion-card>
 
+        <!-- Tutor's Note (at the bottom) -->
+        <ion-card *ngIf="analysis?.tutorNote" class="tutor-note-card">
+          <ion-card-header>
+            <div class="tutor-note-header">
+              <ion-avatar class="tutor-note-avatar">
+                <img [src]="lesson?.tutor?.picture || 'assets/default-avatar.png'" />
+              </ion-avatar>
+              <div class="tutor-note-info">
+                <h3>💬 Note from {{ lesson?.tutor?.name || 'Your Tutor' }}</h3>
+                <span class="timestamp">{{ analysis?.tutorNote?.addedAt | date: 'short' }}</span>
+              </div>
+              <ion-chip *ngIf="analysis?.tutorNote?.quickImpression" color="primary" class="impression-chip">
+                {{ analysis?.tutorNote?.quickImpression }}
+              </ion-chip>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="note-content" [innerHTML]="analysis?.tutorNote?.text" *ngIf="analysis?.tutorNote?.text"></div>
+            
+            <div class="homework-box" *ngIf="analysis?.tutorNote?.homework">
+              <div class="homework-header">
+                <ion-icon name="book"></ion-icon>
+                <strong>Homework</strong>
+              </div>
+              <p style="font-size: 15px;">{{ analysis?.tutorNote?.homework }}</p>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
       </div>
     </div>
   </div>

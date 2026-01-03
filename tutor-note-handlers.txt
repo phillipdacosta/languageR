@@ -1,0 +1,52 @@
+
+  /**
+   * Handle tutor note modal dismissal
+   */
+  onTutorNoteModalDismiss() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Close tutor note modal
+   */
+  closeTutorNoteModal() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Handle tutor note saved event
+   */
+  async onTutorNoteSaved(noteData: { quickImpression: string; text: string; homework: string }) {
+    if (!this.tutorNoteModalData) return;
+    
+    try {
+      await firstValueFrom(
+        this.lessonService.saveTutorNote(this.tutorNoteModalData.lessonId, noteData)
+      );
+      
+      const successToast = await this.toastController.create({
+        message: '✅ Note saved!',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom'
+      });
+      await successToast.present();
+      
+      // Close the modal
+      this.closeTutorNoteModal();
+    } catch (error) {
+      console.error('❌ Error saving tutor note:', error);
+      const errorToast = await this.toastController.create({
+        message: '❌ Failed to save note. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await errorToast.present();
+    }
+  }
+
+}
+

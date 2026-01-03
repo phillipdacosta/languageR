@@ -83,8 +83,43 @@ const LessonSchema = new mongoose.Schema({
   },
   billingStatus: {
     type: String,
-    enum: ['pending', 'authorized', 'charged', 'refunded', null],
+    enum: ['pending', 'authorized', 'charged', 'refunded', 'partially_refunded', null],
+    default: null,
+    index: true
+  },
+  // Payment Integration
+  paymentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+    index: true,
+    comment: 'Link to Payment record for this lesson'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['wallet', 'card', 'saved-card', 'apple_pay', 'google_pay', null],
+    default: null,
+    comment: 'How the student paid for this lesson'
+  },
+  // Platform Revenue Recognition (deferred until lesson completion)
+  revenueRecognized: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether platform fee has been recognized as revenue'
+  },
+  revenueRecognizedAt: {
+    type: Date,
     default: null
+  },
+  platformFee: {
+    type: Number,
+    default: 0,
+    comment: 'Platform fee amount (15% of lesson price)'
+  },
+  tutorPayout: {
+    type: Number,
+    default: 0,
+    comment: 'Amount paid to tutor (lesson price - platform fee)'
   },
   // Track participant join/leave history for rejoin logic
   participants: {

@@ -122,12 +122,12 @@
         <p>Loading notifications...</p>
       </div>
 
-      <ng-container *ngIf="notifications$ | async as notifications">
+      <ng-container *ngIf="formattedNotifications$ | async as notifications">
         <!-- Important Section (Unread Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
           <h4 class="notification-section-title">Important</h4>
           <div class="notification-item" 
-               *ngFor="let notification of (notifications | notificationFilter:'unread')"
+               *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"
                (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
@@ -144,8 +144,8 @@
               </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
-              <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+              <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
             <div class="notification-item-right">
               <button class="notification-options-btn" (click)="$event.stopPropagation()">
@@ -160,7 +160,7 @@
           <h4 class="notification-section-title">More notifications</h4>
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
-                 *ngFor="let notification of (notifications | notificationFilter:'read')"
+                 *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"
                  (click)="onNotificationClick(notification)">
               <div class="notification-item-left">
                 <img 
@@ -176,8 +176,8 @@
                 </div>
               </div>
               <div class="notification-item-content">
-                <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
-                <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+                <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+                <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>
               <div class="notification-item-right">
                 <button class="notification-options-btn" (click)="$event.stopPropagation()">

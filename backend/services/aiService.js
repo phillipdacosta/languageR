@@ -663,6 +663,23 @@ language_code: ${languageCode || "null"}
 TEXT:
 ${text}
 
+🚨 CRITICAL ANTI-HALLUCINATION RULES:
+
+1. **ONLY correct errors that ACTUALLY EXIST in the TEXT above**
+   - Your "original" field MUST be a VERBATIM quote from the TEXT section
+   - DO NOT paraphrase, reconstruct, or imagine what might have been said
+   - DO NOT correct errors that don't appear in the text above
+   - If you're unsure whether something was said, DO NOT mark it as an error
+
+2. **Verify before correcting:**
+   - Can you find the exact "original" text in the TEXT section above?
+   - If not, it's NOT a real error - you may be hallucinating
+
+3. **When in doubt, DON'T correct:**
+   - Natural spoken language has variations
+   - Regional expressions are valid
+   - Colloquialisms are acceptable
+
 IMPORTANT GUIDELINES:
 - This is SPOKEN language (transcription), so colloquialisms and informal expressions are normal and acceptable
 - Only mark things as "error" if they are grammatically incorrect in standard language
@@ -981,6 +998,192 @@ IMPORTANT INSTRUCTIONS:
     
     const correctionResult = await correctTextWithStructuredOutput(studentText, language);
     
+    // NEW: Verify that corrections are grounded in the actual transcript
+    // This prevents GPT-4 from hallucinating errors that were never said
+    console.log(`\n🔍 ========================================`);
+    console.log(`🔍 VERIFYING CORRECTIONS AGAINST TRANSCRIPT`);
+    console.log(`🔍 ========================================`);
+    
+    // Calculate adaptive threshold based on transcript length
+    // Longer transcripts = more repetitions expected = higher threshold
+    const wordCount = studentText.split(/\s+/).length;
+    const estimatedSpeakingMinutes = Math.max(1, Math.round(wordCount / 100)); // ~100 words/min speaking rate
+    const threshold = estimatedSpeakingMinutes < 10 ? 2 : 
+                      estimatedSpeakingMinutes < 20 ? 3 : 4;
+    
+    console.log(`📊 Transcript: ${wordCount} words (~${estimatedSpeakingMinutes} min speaking)`);
+    console.log(`📊 Frequency threshold: ${threshold}x (words must appear ${threshold}+ times to reject correction)`);
+    
+    // NEW: Build low-confidence word set from Whisper confidence scores
+    const lowConfidenceWords = new Set();
+    const confidenceThreshold = 0.75; // Whisper confidence below this = uncertain
+    
+    if (studentSegments && studentSegments.length > 0) {
+      studentSegments.forEach(seg => {
+        if (seg.confidence && seg.confidence < confidenceThreshold) {
+          // This segment has low ASR confidence - flag all words in it
+          const words = seg.text.toLowerCase().split(/\s+/);
+          words.forEach(word => {
+            if (word.length > 2) { // Only meaningful words
+              lowConfidenceWords.add(word.trim());
+            }
+          });
+        }
+      });
+      
+      if (lowConfidenceWords.size > 0) {
+        console.log(`⚠️  Found ${lowConfidenceWords.size} words in low-confidence segments (< ${confidenceThreshold})`);
+        console.log(`   Low-confidence words: ${Array.from(lowConfidenceWords).slice(0, 10).join(', ')}${lowConfidenceWords.size > 10 ? '...' : ''}`);
+      } else {
+        console.log(`✅ All segments have high ASR confidence (>= ${confidenceThreshold})`);
+      }
+    }
+    
+    const transcriptLower = studentText.toLowerCase();
+    
+    // Helper: Count occurrences of a word/phrase in transcript
+    const countOccurrences = (text, word) => {
+      const regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      return (text.match(regex) || []).length;
+    };
+    
+    // Helper: Calculate Levenshtein distance for edit distance
+    const levenshteinDistance = (s1, s2) => {
+      const len1 = s1.length, len2 = s2.length;
+      const matrix = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(0));
+      
+      for (let i = 0; i <= len1; i++) matrix[i][0] = i;
+      for (let j = 0; j <= len2; j++) matrix[0][j] = j;
+      
+      for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+          const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j] + 1,      // deletion
+            matrix[i][j - 1] + 1,      // insertion
+            matrix[i - 1][j - 1] + cost // substitution
+          );
+        }
+      }
+      return matrix[len1][len2];
+    };
+    
+    const verifiedChanges = correctionResult.changes.map(change => {
+      const original = change.original.toLowerCase().trim();
+      const corrected = change.corrected.toLowerCase().trim();
+      
+      // Initialize ASR artifact tracking
+      change.isLikelyASRArtifact = false;
+      change.asrEvidence = null;
+      
+      // ASR ARTIFACT CHECK 1: Low confidence segment
+      // If the corrected word appears in a low-confidence segment, it's likely ASR mishear
+      const correctedWords = corrected.split(/\s+/);
+      const hasLowConfWord = correctedWords.some(word => lowConfidenceWords.has(word));
+      
+      if (hasLowConfWord) {
+        change.isLikelyASRArtifact = true;
+        change.asrEvidence = {
+          reason: "Correction involves word(s) from low-confidence ASR segment",
+          method: "confidence_gate",
+          confidence: "< " + confidenceThreshold
+        };
+        change.severity = "optional"; // Don't count toward proficiency level
+        console.log(`🔍 ASR ARTIFACT (low confidence): "${original}" → "${corrected}"`);
+        return change; // Early return - already classified
+      }
+      
+      // ASR ARTIFACT CHECK 2: One-edit grammatical fix
+      // Small edit distance + restores grammaticality = likely ASR confusion
+      const editDistance = levenshteinDistance(original, corrected);
+      const isSmallEdit = editDistance <= 2;
+      
+      if (isSmallEdit) {
+        change.isLikelyASRArtifact = true;
+        change.asrEvidence = {
+          reason: `Minor edit (${editDistance} char${editDistance > 1 ? 's' : ''}) likely ASR phonetic confusion`,
+          method: "one_edit_heuristic",
+          editDistance: editDistance
+        };
+        change.severity = "optional"; // Don't count toward proficiency level
+        console.log(`🔍 ASR ARTIFACT (small edit): "${original}" → "${corrected}" (edit distance: ${editDistance})`);
+        return change; // Early return
+      }
+      
+      return change; // Not an ASR artifact
+    });
+    
+    // Continue with frequency-based verification for non-ASR-artifacts
+    const verifiedChangesWithFrequency = verifiedChanges.filter(change => {
+      const original = change.original.toLowerCase().trim();
+      const corrected = change.corrected.toLowerCase().trim();
+      
+      // If already marked as ASR artifact, keep it but don't use for frequency check
+      if (change.isLikelyASRArtifact) {
+        return true; // Keep, but won't affect scoring
+      }
+      
+      // CRITICAL FIX: If the "corrected" version is already in the transcript,
+      // check frequency before rejecting
+      if (transcriptLower.includes(corrected)) {
+        const occurrences = countOccurrences(transcriptLower, corrected);
+        
+        if (occurrences >= threshold) {
+          // High frequency = strong signal that speaker uses this form correctly
+          // Unlikely that Whisper misheard it multiple times consistently
+          console.log(`❌ REJECTED (inverted hallucination): Corrected version appears ${occurrences}x in transcript (threshold: ${threshold})`);
+          console.log(`   GPT-4 claimed speaker said: "${change.original}"`);
+          console.log(`   GPT-4 suggested correction: "${change.corrected}"`);
+          console.log(`   Reality: Speaker uses "${change.corrected}" consistently (${occurrences} times) - likely correct!`);
+          console.log(`   Type: ${change.type}, Severity: ${change.severity}`);
+          return false; // Reject - speaker consistently uses correct form
+        } else {
+          // Low frequency = might be single Whisper error OR real mistake
+          // Allow correction through to avoid missing real errors
+          console.log(`⚠️  CAUTION: "${change.corrected}" appears ${occurrences}x (below threshold ${threshold})`);
+          console.log(`   Allowing correction: might be Whisper error or real student mistake`);
+          console.log(`   Original: "${change.original}" → Corrected: "${change.corrected}"`);
+          // Continue to next check (verify original exists)
+        }
+      }
+      
+      // Check if the "original" text actually appears in the transcript
+      const exactMatch = transcriptLower.includes(original);
+      
+      if (!exactMatch) {
+        // Try fuzzy matching - check if all significant words are present
+        const words = original.split(/\s+/).filter(w => w.length > 2); // Ignore short words
+        const allWordsPresent = words.length === 0 || words.every(word => 
+          transcriptLower.includes(word)
+        );
+        
+        if (!allWordsPresent) {
+          console.log(`❌ REJECTED (hallucinated): Original text not found in transcript`);
+          console.log(`   Claimed: "${change.original}"`);
+          console.log(`   Type: ${change.type}, Severity: ${change.severity}`);
+          return false; // Reject - this correction is hallucinated
+        }
+      }
+      
+      return true; // Keep it - the original text exists in transcript
+    });
+    
+    const hallucinatedCount = correctionResult.changes.length - verifiedChangesWithFrequency.length;
+    const asrArtifactCount = verifiedChangesWithFrequency.filter(c => c.isLikelyASRArtifact).length;
+    const realErrorCount = verifiedChangesWithFrequency.filter(c => !c.isLikelyASRArtifact).length;
+    
+    if (hallucinatedCount > 0) {
+      console.log(`⚠️  CRITICAL: Filtered out ${hallucinatedCount} hallucinated corrections (not in transcript)`);
+    }
+    if (asrArtifactCount > 0) {
+      console.log(`🔍 ASR ARTIFACTS: Identified ${asrArtifactCount} likely transcription errors (won't affect proficiency)`);
+    }
+    console.log(`✅ REAL ERRORS: ${realErrorCount} verified corrections will be used for analysis`);
+    console.log(`📊 SUMMARY: ${correctionResult.changes.length} total → ${hallucinatedCount} hallucinated, ${asrArtifactCount} ASR artifacts, ${realErrorCount} real errors`);
+    
+    // Replace with verified changes only
+    correctionResult.changes = verifiedChangesWithFrequency;
+    
     // Filter out punctuation errors - they're likely transcription artifacts from Whisper
     let meaningfulCorrections = correctionResult.changes.filter(change => 
       change.type !== 'punctuation' && change.type !== 'spelling'
@@ -990,6 +1193,41 @@ IMPORTANT INSTRUCTIONS:
     if (filteredCount > 0) {
       console.log(`⚠️  Filtered out ${filteredCount} punctuation/spelling errors (transcription artifacts)`);
     }
+    
+    // CRITICAL: Separate ASR artifacts from real errors
+    // ASR artifacts are kept for transparency but don't affect proficiency scoring
+    const asrArtifacts = meaningfulCorrections.filter(c => c.isLikelyASRArtifact);
+    const realErrors = meaningfulCorrections.filter(c => !c.isLikelyASRArtifact);
+    
+    console.log(`\n📊 ERROR CLASSIFICATION:`);
+    console.log(`   Total corrections: ${correctionResult.changes.length}`);
+    console.log(`   After filtering punctuation/spelling: ${meaningfulCorrections.length}`);
+    console.log(`   ├─ ASR artifacts (won't affect level): ${asrArtifacts.length}`);
+    console.log(`   └─ Real learner errors (scorable): ${realErrors.length}`);
+    
+    // Use only REAL errors for validation (not ASR artifacts)
+    meaningfulCorrections = realErrors;
+    
+    // FILTER: Minimum word-count (language-agnostic)
+    // Only flag errors that are 3+ words long (sentence-level issues)
+    // This filters out nitpicky 1-2 word corrections like "con yo" → "conmigo"
+    const substantiveErrors = meaningfulCorrections.filter(change => {
+      const wordCount = change.original.trim().split(/\s+/).length;
+      
+      if (wordCount < 3) {
+        console.log(`⏭️  Skipping ${wordCount}-word correction (too short, likely nitpicky): "${change.original}" → "${change.corrected}"`);
+        return false;
+      }
+      
+      return true; // Keep 3+ word corrections (sentence-level issues)
+    });
+    
+    const filteredShortCount = meaningfulCorrections.length - substantiveErrors.length;
+    if (filteredShortCount > 0) {
+      console.log(`📏 Filtered out ${filteredShortCount} short corrections (< 3 words) - focusing on sentence-level issues`);
+    }
+    
+    meaningfulCorrections = substantiveErrors;
     
     // Validate corrections - filter out nonsensical ones and transcription errors
     // Common issue: Model tries to "sanitize" vulgar language or makes incorrect corrections
@@ -1365,7 +1603,7 @@ Respond ONLY with valid JSON:
     "proficiencyLevel": "string (A1/A2/B1/B2/C1/C2)",
     "confidence": 85,
     "summary": "string - MUST reference specific topics from transcript (e.g., 'Discussed going to the supermarket, meeting friend Maria, and declining coffee')",
-    "progressFromLastLesson": "string - **CRITICAL**: Use EXACT scores from PREVIOUS LESSON HISTORY above, DO NOT hallucinate numbers. For C2 (native) speakers with C2 performance: leave empty or 'Native speaker - comparisons not applicable'. For first lesson: 'First analyzed lesson - baseline established at [LEVEL] level with [X]% grammar accuracy.' Otherwise: MUST include specific metrics with ACTUAL numbers from previous lesson data, NO second-person pronouns. Good: 'Grammar accuracy improved from 85% to 92%' (using exact previous score). Bad: 'Grammar accuracy declined from 98% to 92%' (when previous was actually 85%), 'You made 3 fewer errors' or 'slight improvement' or 'Vocabulary expanded by X words'. DO NOT mention vocabulary expansion."
+    "progressFromLastLesson": "string - **CRITICAL**: Use EXACT scores from PREVIOUS LESSON HISTORY above, DO NOT hallucinate numbers. For C2 (native) speakers with C2 performance: leave empty or 'Native speaker - comparisons not applicable'. For first lesson: 'First analyzed lesson - baseline established at [LEVEL] level with [X]% grammar accuracy.' If current score EQUALS previous score (e.g., 75% to 75%): use 'Performance maintained at [X]% grammar accuracy. Consistent [error type] noted.' Otherwise: MUST include specific metrics with ACTUAL numbers from previous lesson data, NO second-person pronouns. Good: 'Grammar accuracy improved from 85% to 92%' (using exact previous score). Bad: 'Grammar accuracy declined from 98% to 92%' (when previous was actually 85%), 'declined from 75% to 75%' (same score), 'You made 3 fewer errors' or 'slight improvement' or 'Vocabulary expanded by X words'. DO NOT mention vocabulary expansion."
   },
   "progressionMetrics": {
     "previousProficiencyLevel": "string (A1/A2/B1/B2/C1/C2)",
@@ -1630,6 +1868,36 @@ You MUST include errorPatterns and correctedExcerpts arrays with actual quotes f
     console.log(`🤖 ========================================`);
     
     const analysis = JSON.parse(analysisText);
+    
+    // 🔧 FIX: Clean up "declined from 75% to 75%" type messages (identical scores)
+    if (analysis.overallAssessment?.progressFromLastLesson) {
+      const progressText = analysis.overallAssessment.progressFromLastLesson;
+      
+      // Regex to find "X% to X%" patterns (same number twice)
+      const sameScorePattern = /(\d+)%\s+to\s+(\d+)%/gi;
+      let hasIdenticalScores = false;
+      
+      progressText.replace(sameScorePattern, (match, score1, score2) => {
+        if (score1 === score2) {
+          hasIdenticalScores = true;
+          console.log(`⚠️  Detected identical scores in progress message: "${match}"`);
+        }
+        return match;
+      });
+      
+      // If we found identical scores, replace the message with a "maintained" version
+      if (hasIdenticalScores) {
+        const scoreMatch = progressText.match(/(\d+)%/);
+        const score = scoreMatch ? scoreMatch[1] : '';
+        const issueMatch = progressText.match(/with\s+([^.]+)/i) || progressText.match(/issues\s+with\s+([^.]+)/i);
+        const issue = issueMatch ? issueMatch[1] : 'grammar patterns';
+        
+        analysis.overallAssessment.progressFromLastLesson = 
+          `Performance maintained at ${score}% grammar accuracy. Consistent ${issue} noted.`;
+        
+        console.log(`✅ Fixed progress message to: "${analysis.overallAssessment.progressFromLastLesson}"`);
+      }
+    }
     
     // Add metadata about sampling if transcript was long
     const fullWordCount = studentSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);

@@ -5,7 +5,7 @@ import { UserService, TutorOnboardingData } from '../services/user.service';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 
 @Component({
@@ -30,6 +30,8 @@ export class TutorOnboardingPage implements OnInit {
   profileBio = '';
   hourlyRate = 25;
   introductionVideo = ''; // Introduction video URL
+  thumbnailUrl = ''; // Custom thumbnail URL for the video
+  videoType: 'upload' | 'youtube' | 'vimeo' = 'upload'; // Video type
 
   // Available options
   availableLanguages = [
@@ -206,6 +208,7 @@ export class TutorOnboardingPage implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
+    private toastController: ToastController,
     private onboardingGuard: OnboardingGuard
   ) {
     this.user$ = this.authService.user$;
@@ -282,16 +285,22 @@ export class TutorOnboardingPage implements OnInit {
 
   // Open country selection modal
   async openCountryModal() {
+    console.log('🔵 Opening country modal, countryOptions:', this.countryOptions?.length);
+    
     const modal = await this.modalController.create({
       component: CountrySelectModalComponent,
       componentProps: {
         countries: this.countryOptions,
         selectedCountry: this.country
       },
-      cssClass: 'country-select-modal',
+      cssClass: 'modern-modal',
       showBackdrop: true,
       backdropDismiss: true
     });
+
+    console.log('🔵 Modal created, presenting...');
+    await modal.present();
+    console.log('🔵 Modal presented');
 
     await modal.present();
 
@@ -302,13 +311,22 @@ export class TutorOnboardingPage implements OnInit {
   }
 
   onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    console.log('✅ Video uploaded in tutor-onboarding:', data);
+    console.log('🖼️ Thumbnail to save:', data.thumbnail);
+    
+    // Store locally - will be saved when user completes onboarding
     this.introductionVideo = data.url;
-    console.log('✅ Video uploaded:', data.url);
+    this.thumbnailUrl = data.thumbnail;
+    this.videoType = data.type;
   }
 
   onVideoRemoved() {
+    console.log('🗑️ Video removed in tutor-onboarding');
+    
+    // Clear local properties
     this.introductionVideo = '';
-    console.log('🗑️ Video removed');
+    this.thumbnailUrl = '';
+    this.videoType = 'upload';
   }
 
   async completeOnboarding() {
@@ -347,7 +365,9 @@ export class TutorOnboardingPage implements OnInit {
         schedule: this.selectedSchedule,
         bio: this.profileBio,
         hourlyRate: this.hourlyRate,
-        introductionVideo: this.introductionVideo // Include introduction video
+        introductionVideo: this.introductionVideo, // Include introduction video
+        videoThumbnail: this.thumbnailUrl, // Include custom thumbnail
+        videoType: this.videoType // Include video type
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);
@@ -419,5 +439,15 @@ export class TutorOnboardingPage implements OnInit {
       default:
         return false;
     }
+  }
+
+  private async showToast(message: string, color: string = 'success') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'top',
+      color
+    });
+    await toast.present();
   }
 }

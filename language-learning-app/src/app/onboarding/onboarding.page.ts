@@ -350,7 +350,7 @@ export class OnboardingPage implements OnInit {
         countries: this.tutorCountryOptions,
         selectedCountry: this.tutorCountry
       },
-      cssClass: 'country-select-modal',
+      cssClass: 'modern-modal',
       showBackdrop: true,
       backdropDismiss: true
     });

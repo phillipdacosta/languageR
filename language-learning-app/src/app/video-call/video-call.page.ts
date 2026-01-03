@@ -4811,16 +4811,43 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             await firstValueFrom(this.lessonService.endCall(this.lessonId!));
             console.log('✅ Lesson finalized');
             
-            // Navigate to analysis page (generating state)
-            await this.router.navigate(['/lesson-analysis', this.lessonId]);
+            // Navigate based on role: students see analysis, tutors go home
+            if (this.userRole === 'student') {
+              console.log('📊 Navigating student to analysis page');
+              await this.router.navigate(['/lesson-analysis', this.lessonId]);
+            } else {
+              console.log('🏠 Navigating tutor to home page');
+              await this.router.navigate(['/tabs/home']);
+            }
           } catch (err) {
             console.error('❌ Error finalizing lesson:', err);
           }
         }, 300);
       } else if (otherParticipantEnded) {
-        // Other participant ended - just go home (lesson already finalized by them)
-        console.log('🚪 VideoCall: Other participant ended lesson - returning to home');
-        // User is already on /tabs from navigation above
+        // Other participant ended - navigate based on role (lesson already finalized by them)
+        console.log('🚪 VideoCall: Other participant ended lesson');
+        setTimeout(async () => {
+          try {
+            if (this.userRole === 'student') {
+              // Students see the analysis page
+              console.log('📊 Navigating student to analysis page');
+              await this.router.navigate(['/lesson-analysis', this.lessonId]);
+            } else {
+              // Tutors return to home
+              console.log('🏠 Navigating tutor to home page');
+              await this.router.navigate(['/tabs/home']);
+            }
+          } catch (err) {
+            console.error('❌ Error navigating after other participant ended:', err);
+          }
+        }, 300);
+      }
+      
+      // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
+      if (this.userRole === 'tutor') {
+        setTimeout(() => {
+          this.promptTutorNote();
+        }, 2000); // Give tutor a moment to breathe after lesson
       }
     } catch (error) {
       console.error('Error ending call:', error);
@@ -5570,19 +5597,24 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // Check if student has AI analysis enabled
-      // Default to TRUE if we can't determine (backwards compatibility)
-      console.log('🤖 Checking AI analysis setting for student...');
-      const student = lesson.studentId as any; // Should be populated by backend
+      // FEATURE TEMPORARILY DISABLED: AI analysis toggle
+      // Always enable transcription for now
+      // 
+      // // Check if student has AI analysis enabled
+      // // Default to TRUE if we can't determine (backwards compatibility)
+      // console.log('🤖 Checking AI analysis setting for student...');
+      // const student = lesson.studentId as any; // Should be populated by backend
+      // 
+      // // Only skip if explicitly disabled
+      // if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+      //   console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
+      //   console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
+      //   return;
+      // }
+      // 
+      // console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
       
-      // Only skip if explicitly disabled
-      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
-        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
-        console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
-        return;
-      }
-      
-      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
+      console.log('✅ Proceeding with transcription (AI analysis always enabled)');
 
       // Determine language being learned and convert to ISO code
       const languageMap: { [key: string]: string } = {
@@ -6339,6 +6371,45 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
     } catch (error) {
       console.error('❌ Error in completeLessonWithSummary:', error);
+    }
+  }
+
+  /**
+   * Prompt tutor to add a quick note after lesson
+   */
+  async promptTutorNote() {
+    try {
+      const toast = await this.toastController.create({
+        header: '📝 Quick Note?',
+        message: 'Add a note for your student? (optional)',
+        duration: 8000,
+        position: 'bottom',
+        cssClass: 'tutor-note-toast',
+        buttons: [
+          {
+            text: 'Skip',
+            role: 'cancel'
+          },
+          {
+            text: 'Add Note',
+            handler: () => {
+              // Navigate to home tab and trigger modal opening via localStorage
+              this.router.navigate(['/tabs/home']).then(() => {
+                // Signal to home page to open tutor note modal
+                localStorage.setItem('openTutorNoteModal', JSON.stringify({
+                  lessonId: this.lessonId,
+                  timestamp: Date.now()
+                }));
+                // Dispatch custom event to trigger modal
+                window.dispatchEvent(new CustomEvent('openTutorNoteModal'));
+              });
+            }
+          }
+        ]
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('❌ Error showing tutor note toast:', error);
     }
   }
 }

@@ -21,7 +21,7 @@ const lessonAnalysisSchema = new mongoose.Schema({
   transcriptId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'LessonTranscript',
-    required: true
+    required: false  // Made optional - tutor notes can be added before transcript is created
   },
   studentId: {
     type: String,
@@ -230,6 +230,18 @@ const lessonAnalysisSchema = new mongoose.Schema({
   canRetry: {
     type: Boolean,
     default: true
+  },
+  
+  // Tutor's supplementary note (added immediately after lesson)
+  tutorNote: {
+    text: String,              // Rich text from Quill editor
+    quickImpression: String,   // Tag: '⭐ Excellent', '✅ Good Progress', etc.
+    homework: String,          // Homework suggestion
+    addedAt: Date,
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
   }
   
 }, {

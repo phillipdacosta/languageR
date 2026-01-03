@@ -37,6 +37,16 @@ const routes: Routes = [
             loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then(m => m.TutorOnboardingPageModule),
             canActivate: [AuthGuard]
           },
+          {
+            path: 'tutor-approval',
+            loadComponent: () => import('./components/tutor-onboarding/tutor-onboarding.component').then(m => m.TutorOnboardingComponent),
+            canActivate: [AuthGuard]
+          },
+          {
+            path: 'admin/tutor-review',
+            loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage),
+            canActivate: [AuthGuard]
+          },
   {
     path: 'tabs',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule),
@@ -96,6 +106,10 @@ const routes: Routes = [
     path: 'tutor-feedback/:feedbackId',
     loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'wallet',
+    loadChildren: () => import('./wallet/wallet.module').then( m => m.WalletPageModule)
   }
 ];
 @NgModule({

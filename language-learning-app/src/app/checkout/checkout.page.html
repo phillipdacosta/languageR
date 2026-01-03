@@ -13,10 +13,10 @@
       <h2 *ngIf="!embedded">Your tutor</h2>
       <div class="tutor-card" [class.compact-tutor-card]="embedded">
         <div class="avatar">
-          <img *ngIf="tutor?.picture" [src]="tutor.picture" alt="{{ tutor?.name }}">
+          <img *ngIf="tutor?.picture" [src]="tutor.picture" alt="{{ tutorDisplayName }}">
         </div>
         <div class="meta">
-          <div class="name">{{ tutor?.name || ('Tutor ' + (tutorId | slice:0:6)) }}</div>
+          <div class="name">{{ tutorDisplayName }}</div>
           <div class="slot-line">
             <div class="date-badge">
               <div class="mon">{{ dateMonthShort }}</div>
@@ -31,10 +31,29 @@
         </div>
       </div>
 
+      <!-- Lesson Details Info Card -->
+      <div class="lesson-info-card">
+        <div class="info-item">
+          <ion-icon name="videocam-outline"></ion-icon>
+          <span>Live video lesson</span>
+        </div>
+        <div class="info-item">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <span>Session transcript included</span>
+        </div>
+        <div class="info-item">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <span>Flexible rescheduling</span>
+        </div>
+      </div>
+
       <div class="details">
-        <div class="detail-row">
-          <div class="label">Lesson length</div>
-          <div class="value">{{ lessonMinutes }} min</div>
+        <div class="detail-row lesson-length-highlight">
+          <div class="label">
+            <ion-icon name="time-outline"></ion-icon>
+            Lesson length
+          </div>
+          <div class="value">{{ lessonMinutes }} minutes</div>
         </div>
         <div class="detail-row">
           <div class="label">Processing fee</div>
@@ -44,24 +63,140 @@
           <div class="label">Total</div>
           <div class="value total">${{ total | number:'1.2-2' }}</div>
         </div>
+
+        <!-- Payment Breakdown (if hybrid payment) -->
+        <div class="payment-breakdown" *ngIf="isHybridPayment">
+          <div class="breakdown-header">Payment Breakdown</div>
+          <div class="breakdown-row">
+            <div class="label">
+              <ion-icon name="wallet-outline"></ion-icon>
+              Wallet Credit
+            </div>
+            <div class="value">-${{ walletAmountToUse | number:'1.2-2' }}</div>
+          </div>
+          <div class="breakdown-row remaining">
+            <div class="label">{{ selectedPaymentMethod === 'saved-card' ? 'Card' : (selectedPaymentMethod === 'apple' ? 'Apple Pay' : (selectedPaymentMethod === 'google' ? 'Google Pay' : 'Card')) }}</div>
+            <div class="value">${{ remainingAmountToPay | number:'1.2-2' }}</div>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="payment">
-      <h2>Choose how to pay</h2>
-      <ion-item class="pay-method" lines="none">
-        <ion-icon name="card-outline" slot="start"></ion-icon>
-        <ion-label>Credit / Debit card</ion-label>
-      </ion-item>
+      <h2>Payment Method</h2>
+
+      <!-- Wallet Balance Display -->
+      <div class="wallet-balance-display" *ngIf="walletBalance">
+        <ion-icon name="wallet-outline"></ion-icon>
+        <div class="balance-info">
+          <span class="balance-label">Wallet Balance</span>
+          <span class="balance-amount">${{ formattedAvailableBalance }}</span>
+        </div>
+      </div>
+
+      <div class="payment-methods-grid">
+        <!-- Wallet Payment -->
+        <div 
+          class="payment-card wallet-compact" 
+          [class.selected]="selectedPaymentMethod === 'wallet'"
+          [class.disabled]="!canUseWallet"
+          (click)="canUseWallet && selectPaymentMethod('wallet')">
+          <div class="payment-card-icon">
+            <ion-icon name="wallet"></ion-icon>
+          </div>
+          <div class="payment-card-content">
+            <div class="payment-card-title">Wallet</div>
+            <div class="payment-card-subtitle" *ngIf="!canUseWallet">Insufficient funds</div>
+            <div class="payment-card-subtitle available" *ngIf="canUseWallet">${{ formattedAvailableBalance }} available</div>
+          </div>
+          <ion-icon *ngIf="selectedPaymentMethod === 'wallet'" name="checkmark-circle" class="check-icon"></ion-icon>
+        </div>
+
+        <!-- Default Card Tile -->
+        <div 
+          class="default-card-tile"
+          [class.has-default]="defaultCard && selectedPaymentMethod === 'saved-card'"
+          (click)="defaultCard ? selectPaymentMethod('saved-card') : openCardManagementModal()">
+          
+          <!-- No Default Card - Show (+) -->
+          <ng-container *ngIf="!defaultCard">
+            <ion-icon name="add-circle" class="plus-icon"></ion-icon>
+            <div class="add-card-text">Add Card</div>
+          </ng-container>
+          
+          <!-- Has Default Card - Show Card Details -->
+          <ng-container *ngIf="defaultCard">
+            <div class="card-content">
+              <ion-icon name="card" class="card-brand-icon"></ion-icon>
+              <div class="card-details">
+                {{ defaultCard.brand | titlecase }} •••• {{ defaultCard.last4 }}
+              </div>
+              <div class="card-number">
+                Expires {{ defaultCard.expiryMonth }}/{{ defaultCard.expiryYear }}
+              </div>
+              <div class="default-badge">Default</div>
+              <!-- Manage Cards Button -->
+              <ion-icon 
+                name="settings-outline" 
+                class="manage-icon" 
+                (click)="$event.stopPropagation(); openCardManagementModal()">
+              </ion-icon>
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Apple Pay -->
+        <div 
+          class="payment-card" 
+          [class.selected]="selectedPaymentMethod === 'apple'"
+          [class.disabled]="!isApplePayAvailable"
+          (click)="isApplePayAvailable && selectPaymentMethod('apple')">
+          <div class="payment-card-icon apple">
+            <ion-icon name="logo-apple"></ion-icon>
+          </div>
+          <div class="payment-card-content">
+            <div class="payment-card-title">Apple Pay</div>
+            <div class="payment-card-subtitle" *ngIf="!isApplePayAvailable">Not available</div>
+          </div>
+          <ion-icon *ngIf="selectedPaymentMethod === 'apple'" name="checkmark-circle" class="check-icon"></ion-icon>
+        </div>
+
+        <!-- Google Pay -->
+        <div 
+          class="payment-card" 
+          [class.selected]="selectedPaymentMethod === 'google'"
+          [class.disabled]="!isGooglePayAvailable"
+          (click)="isGooglePayAvailable && selectPaymentMethod('google')">
+          <div class="payment-card-icon google">
+            <ion-icon name="logo-google"></ion-icon>
+          </div>
+          <div class="payment-card-content">
+            <div class="payment-card-title">Google Pay</div>
+            <div class="payment-card-subtitle" *ngIf="!isGooglePayAvailable">Not available</div>
+          </div>
+          <ion-icon *ngIf="selectedPaymentMethod === 'google'" name="checkmark-circle" class="check-icon"></ion-icon>
+        </div>
+      </div>
+
+      <!-- Top Up Wallet Link -->
+      <ion-button 
+        *ngIf="!canUseWallet && selectedPaymentMethod === 'wallet'"
+        fill="clear" 
+        size="small"
+        class="top-up-link"
+        routerLink="/tabs/home/wallet">
+        <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+        Add funds to wallet
+      </ion-button>
 
       <ion-button 
         expand="block" 
         color="primary" 
         class="confirm-btn"
-        [disabled]="isBooking || !tutor || !currentUser"
+        [disabled]="isBooking || !tutor || !currentUser || !hasValidPaymentMethod"
         (click)="confirmBooking()">
         <ion-spinner *ngIf="isBooking" name="crescent"></ion-spinner>
-        {{ isBooking ? 'Booking...' : 'Confirm & Book Lesson' }}
+        {{ isBooking ? 'Processing...' : 'CONFIRM & BOOK LESSON' }}
       </ion-button>
       <p class="note">By confirming, you agree to our terms and refund policy.</p>
     </section>

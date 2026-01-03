@@ -1,0 +1,105 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Manage Cards</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="modal-content">
+    <!-- Add New Card Section -->
+    <div class="add-card-section" *ngIf="!isAddingNewCard">
+      <ion-button expand="block" fill="outline" class="add-card-btn" (click)="showAddCardForm()">
+        <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+        Add New Card
+      </ion-button>
+    </div>
+
+    <!-- New Card Form -->
+    <div class="new-card-form" *ngIf="isAddingNewCard">
+      <h3>Add New Card</h3>
+      
+      <div class="card-element-container">
+        <div id="modal-card-element"></div>
+      </div>
+
+      <ion-item lines="none" class="set-default-checkbox">
+        <ion-checkbox slot="start" [(ngModel)]="setAsDefault"></ion-checkbox>
+        <ion-label>Set as default card</ion-label>
+      </ion-item>
+
+      <div class="form-actions">
+        <ion-button fill="clear" (click)="cancelAddCard()" [disabled]="isSaving">
+          Cancel
+        </ion-button>
+        <ion-button (click)="saveNewCard()" [disabled]="isSaving">
+          <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+          {{ isSaving ? 'Saving...' : 'Save Card' }}
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Saved Cards List -->
+    <div class="saved-cards-section" *ngIf="savedCards.length > 0">
+      <h3 *ngIf="!isAddingNewCard">Your Cards</h3>
+      <h3 *ngIf="isAddingNewCard">Saved Cards</h3>
+      
+      <div class="cards-list">
+        <div 
+          *ngFor="let card of savedCards" 
+          class="card-item"
+          [class.default-card]="card.isDefault"
+          (click)="selectCard(card)">
+          
+          <div class="card-icon">
+            <ion-icon name="card"></ion-icon>
+          </div>
+          
+          <div class="card-info">
+            <div class="card-title">
+              {{ card.brand | titlecase }} •••• {{ card.last4 }}
+            </div>
+            <div class="card-subtitle">
+              Expires {{ card.expiryMonth }}/{{ card.expiryYear }}
+            </div>
+          </div>
+          
+          <ion-badge *ngIf="card.isDefault" color="primary" class="default-badge">
+            Default
+          </ion-badge>
+          
+          <div class="card-actions" (click)="$event.stopPropagation()">
+            <ion-button 
+              *ngIf="!card.isDefault"
+              fill="clear" 
+              size="small"
+              class="set-default-btn"
+              (click)="setDefaultCard(card.stripePaymentMethodId)">
+              Set Default
+            </ion-button>
+            <ion-button 
+              fill="clear" 
+              size="small"
+              color="danger"
+              class="remove-btn"
+              (click)="removeCard(card.stripePaymentMethodId)">
+              <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="savedCards.length === 0 && !isAddingNewCard">
+      <ion-icon name="card-outline"></ion-icon>
+      <p>No saved cards yet</p>
+      <p class="subtitle">Add a card to get started</p>
+    </div>
+  </div>
+</ion-content>
+

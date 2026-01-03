@@ -13,7 +13,8 @@ import { ClassService } from './services/class.service';
 import { TutorFeedbackService } from './services/tutor-feedback.service';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
-import { AlertController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -46,7 +47,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private lessonService: LessonService,
     private classService: ClassService,
     private tutorFeedbackService: TutorFeedbackService,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private toastController: ToastController
   ) {}
 
   ngOnInit() {
@@ -137,6 +139,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.authService.user$.pipe(takeUntil(this.destroy$)).subscribe(user => {
       if (user?.email) {
         this.currentUserId = `dev-user-${user.email}`;
+        
+        // Sync Stripe status for tutors
+        this.syncStripeStatus();
         
         // Detect and save timezone automatically
         this.userService.detectAndSaveTimezone().subscribe({
@@ -248,6 +253,46 @@ export class AppComponent implements OnInit, OnDestroy {
             // This avoids conflicts with other alerts (e.g., "student left early")
           });
           */
+
+          // Listen for tutor video approval notifications
+          this.websocketService.tutorVideoApproved$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('🎉 [APP] Video approved notification:', data);
+            
+            // Show success toast
+            const toast = await this.toastController.create({
+              message: data.message,
+              duration: 5000,
+              color: 'success',
+              position: 'top',
+              icon: 'checkmark-circle'
+            });
+            await toast.present();
+
+            // Refresh user data to update approval status across the app
+            this.userService.getCurrentUser(true).subscribe();
+          });
+
+          // Listen for tutor video rejection notifications
+          this.websocketService.tutorVideoRejected$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('❌ [APP] Video rejected notification:', data);
+            
+            // Show rejection toast
+            const toast = await this.toastController.create({
+              message: data.message,
+              duration: 7000,
+              color: 'danger',
+              position: 'top',
+              icon: 'close-circle'
+            });
+            await toast.present();
+
+            // Refresh user data to update approval status across the app
+            this.userService.getCurrentUser(true).subscribe();
+          });
         }
       }
     });
@@ -470,5 +515,48 @@ export class AppComponent implements OnInit, OnDestroy {
         console.error('❌ [APP] Error checking pending feedback:', error);
       }
     });
+  }
+
+  /**
+   * Sync Stripe Connect status from Stripe API to user document
+   * This ensures the user's stripeConnectOnboarded field is always up-to-date
+   */
+  private async syncStripeStatus() {
+    try {
+      const currentUser = await this.userService.getCurrentUser().toPromise();
+      
+      // Only check for tutors
+      if (currentUser?.userType !== 'tutor') return;
+      
+      console.log('🏦 [APP] Syncing Stripe Connect status...');
+      
+      // The backend /stripe-connect/status endpoint automatically updates the user document
+      // when it detects onboarding is complete, so we just need to call it
+      const headers = this.userService.getAuthHeadersSync();
+      fetch(`${environment.apiUrl}/payments/stripe-connect/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': headers.get('Authorization') || '',
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.onboarded) {
+          console.log('✅ [APP] Stripe Connect status synced: Onboarded');
+          // Force refresh the user data and approval status
+          this.userService.getCurrentUser(true).subscribe(() => {
+            this.userService.refreshTutorApprovalStatus();
+          });
+        } else {
+          console.log('ℹ️ [APP] Stripe Connect status: Not onboarded');
+        }
+      })
+      .catch(error => {
+        console.error('❌ [APP] Error syncing Stripe status:', error);
+      });
+    } catch (error) {
+      console.error('❌ [APP] Error in syncStripeStatus:', error);
+    }
   }
 }

@@ -76,6 +76,15 @@ router.post('/', verifyToken, async (req, res) => {
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
 
+    // Check if tutor has completed Stripe Connect onboarding
+    if (!tutor.stripeConnectOnboarded) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You must complete payment setup before creating classes.',
+        code: 'TUTOR_NOT_ONBOARDED'
+      });
+    }
+
     const recType = recurrence?.type || 'none';
     const count = Math.max(1, Math.min(100, parseInt(recurrence?.count || 1)));
 
@@ -550,6 +559,15 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
     
     const tutor = await User.findOne({ auth0Id: req.user.sub });
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
+    
+    // Check if tutor has completed Stripe Connect onboarding
+    if (!tutor.stripeConnectOnboarded) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You must complete payment setup before inviting students.',
+        code: 'TUTOR_NOT_ONBOARDED'
+      });
+    }
     
     const cls = await ClassModel.findById(classId);
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });

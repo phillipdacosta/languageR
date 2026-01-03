@@ -1,0 +1,574 @@
+// Apple-Inspired Tutor Onboarding - Two Column Layout
+// Clean, modern, efficient use of space
+
+.onboarding-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.loading-state {
+  text-align: center;
+  color: white;
+  
+  ion-spinner {
+    transform: scale(1.5);
+    margin-bottom: 20px;
+  }
+  
+  p {
+    font-size: 16px;
+    margin: 0;
+  }
+}
+
+.onboarding-content {
+  max-width: 1200px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 400px 1px 1fr;
+  gap: 40px;
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  min-height: 600px;
+  max-height: 90vh; // Limit to viewport height
+  overflow: hidden; // Prevent outer scroll
+  position: relative; // For close button positioning
+}
+
+.close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f2f2f7;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+  
+  ion-icon {
+    font-size: 24px;
+    color: #8e8e93;
+  }
+  
+  &:hover {
+    background: #e5e5ea;
+    transform: scale(1.05);
+    
+    ion-icon {
+      color: #1c1c1e;
+    }
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// Left Column - Progress & Navigation
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.onboarding-header {
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.6px;
+  }
+  
+  p {
+    font-size: 15px;
+    color: #8e8e93;
+    margin: 0;
+  }
+}
+
+// Progress Bar
+.progress-section {
+  .progress-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: #f2f2f7;
+    border-radius: 4px;
+    overflow: hidden;
+    
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      border-radius: 4px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  }
+  
+  .progress-text {
+    text-align: center;
+    font-size: 13px;
+    color: #8e8e93;
+    margin: 8px 0 0 0;
+    font-weight: 500;
+  }
+}
+
+// Steps List
+.steps-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  
+  .step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+    
+    &:hover {
+      background: #f9f9f9;
+    }
+    
+    &.current {
+      background: #f2f2f7;
+      border-color: #667eea;
+    }
+    
+    &.completed {
+      opacity: 0.7;
+      
+      .step-indicator {
+        background: #34c759;
+        
+        ion-icon {
+          color: white;
+          font-size: 20px;
+        }
+      }
+    }
+    
+    .step-indicator {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #e5e5ea;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      
+      .step-number {
+        font-size: 14px;
+        font-weight: 600;
+        color: #8e8e93;
+      }
+    }
+    
+    &.current .step-indicator {
+      background: #667eea;
+      
+      .step-number {
+        color: white;
+      }
+    }
+    
+    .step-info {
+      flex: 1;
+      
+      h3 {
+        margin: 0 0 4px 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: #1c1c1e;
+        letter-spacing: -0.2px;
+      }
+      
+      p {
+        margin: 0;
+        font-size: 13px;
+        color: #8e8e93;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+// Navigation Buttons
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e5ea;
+  
+  ion-button {
+    flex: 1;
+    --border-radius: 10px;
+    height: 44px;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: none;
+  }
+}
+
+.skip-button {
+  --color: #8e8e93;
+  font-size: 13px;
+  margin-top: -16px;
+  
+  &.done-button {
+    --background: #34c759;
+    --background-hover: #2da84e;
+    --border-radius: 12px;
+    --box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+    --padding-start: 24px;
+    --padding-end: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    height: 44px;
+    
+    &:hover {
+      transform: translateY(-1px);
+      --box-shadow: 0 6px 16px rgba(52, 199, 89, 0.4);
+    }
+  }
+}
+
+// Vertical Separator
+.separator {
+  width: 1px;
+  background: linear-gradient(to bottom, 
+    transparent 0%, 
+    #e5e5ea 10%, 
+    #e5e5ea 90%, 
+    transparent 100%
+  );
+}
+
+// Right Column - Step Content
+.right-column {
+  display: flex;
+  align-items: flex-start; // Changed from center to flex-start
+  justify-content: flex-start; // Changed from center to flex-start
+  overflow-y: auto; // Make scrollable
+  max-height: 600px; // Limit height
+  min-height: 600px; // Force consistent height
+  padding-right: 8px; // Space for scrollbar
+  
+  // Custom scrollbar styling
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f2f2f7;
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #c7c7cc;
+    border-radius: 3px;
+    
+    &:hover {
+      background: #b0b0b5;
+    }
+  }
+}
+
+.step-content-card {
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  padding: 20px 0; // Add vertical padding
+  min-height: 500px; // Ensure minimum height for consistency
+  
+  .step-icon-circle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px auto;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+    
+    ion-icon {
+      font-size: 40px;
+      color: white;
+    }
+  }
+  
+  .step-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0 0 12px 0;
+    letter-spacing: -0.5px;
+  }
+  
+  .step-description {
+    font-size: 15px;
+    color: #8e8e93;
+    margin: 0 0 32px 0;
+    line-height: 1.5;
+  }
+}
+
+// Step Content
+.step-content {
+  margin-bottom: 32px;
+  
+  .current-photo {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+    position: relative;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      border-radius: 60px;
+      object-fit: cover;
+      border: 3px solid #34c759;
+    }
+    
+    .check-badge {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      font-size: 32px;
+      background: white;
+      border-radius: 50%;
+    }
+  }
+  
+  .no-photo {
+    ion-icon {
+      font-size: 100px;
+      color: #c7c7cc;
+    }
+    
+    p {
+      margin: 8px 0 0 0;
+      font-size: 14px;
+      color: #8e8e93;
+    }
+  }
+  
+  .status-card {
+    padding: 20px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    
+    ion-icon {
+      font-size: 48px;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    
+    &.success {
+      background: #e8f5e9;
+      ion-icon { color: #34c759; }
+      p { color: #34c759; }
+    }
+    
+    &.pending {
+      background: #fff8e1;
+      ion-icon { color: #ffb300; }
+      p { color: #f57c00; }
+    }
+    
+    &.rejected {
+      background: #ffebee;
+      ion-icon { color: #ff3b30; }
+      p { color: #ff3b30; }
+      
+      .rejection-reason {
+        font-size: 13px;
+        color: #8e8e93;
+        margin-top: 4px;
+      }
+    }
+    
+    &.empty {
+      background: #f2f2f7;
+      ion-icon { color: #c7c7cc; }
+      p { color: #8e8e93; }
+    }
+  }
+  
+  .video-preview {
+    width: 100%;
+    margin-top: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    
+    video {
+      width: 100%;
+      max-height: 300px;
+      display: block;
+      background: #000;
+    }
+  }
+  
+  .video-step {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .video-status-info {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+
+      &.success {
+        background: rgba(52, 199, 89, 0.1);
+        color: #34C759;
+        border: 1px solid rgba(52, 199, 89, 0.3);
+      }
+
+      &.pending {
+        background: rgba(255, 149, 0, 0.1);
+        color: #FF9500;
+        border: 1px solid rgba(255, 149, 0, 0.3);
+      }
+
+      &.rejected {
+        background: rgba(255, 59, 48, 0.1);
+        color: #FF3B30;
+        border: 1px solid rgba(255, 59, 48, 0.3);
+      }
+    }
+  }
+}
+
+// Action Buttons
+.primary-action {
+  --border-radius: 12px;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.2px;
+  margin-bottom: 12px;
+}
+
+.submit-action {
+  --border-radius: 12px;
+  height: 52px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.2px;
+}
+
+// Responsive - Mobile/Tablet
+@media (max-width: 900px) {
+  .onboarding-content {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 32px 24px;
+  }
+  
+  .separator {
+    display: none;
+  }
+  
+  .left-column {
+    gap: 24px;
+  }
+  
+  .onboarding-header {
+    h1 {
+      font-size: 24px;
+    }
+    
+    p {
+      font-size: 14px;
+    }
+  }
+  
+  .steps-list {
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .onboarding-container {
+    padding: 20px 16px;
+  }
+  
+  .onboarding-content {
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+  
+  .step-content-card {
+    .step-icon-circle {
+      width: 70px;
+      height: 70px;
+      
+      ion-icon {
+        font-size: 36px;
+      }
+    }
+    
+    .step-title {
+      font-size: 22px;
+    }
+    
+    .step-description {
+      font-size: 14px;
+    }
+  }
+  
+  .nav-buttons {
+    flex-direction: column;
+    
+    ion-button {
+      width: 100%;
+    }
+  }
+}

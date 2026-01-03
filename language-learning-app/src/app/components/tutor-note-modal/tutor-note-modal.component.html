@@ -1,0 +1,84 @@
+<ion-content class="ion-padding tutor-note-modal-content">
+  <!-- Floating close button -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <div class="view-container">
+    <!-- Lesson Summary Banner -->
+    <div class="lesson-summary-banner">
+      <div class="banner-content">
+        <div class="banner-icon">
+          <ion-icon name="book-outline"></ion-icon>
+        </div>
+        <div class="banner-text">
+          <span class="banner-label">{{ lessonSubject }} Lesson</span>
+          <span class="banner-time">with {{ studentName }} • {{ duration }} minutes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Student Info Section -->
+    <div class="student-section">
+      <h1 class="main-heading">Quick Note for Your Student</h1>
+      <p class="subheading">Share what stood out in this lesson (optional)</p>
+    </div>
+
+    <!-- Quick Impression Tags -->
+    <div class="quick-impressions">
+      <h3>Quick Impression</h3>
+      <div class="tag-buttons">
+        <ion-button 
+          *ngFor="let tag of quickTags"
+          [fill]="selectedTag === tag ? 'solid' : 'outline'"
+          size="default"
+          (click)="selectTag(tag)">
+          {{ tag }}
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Note Field with Quill -->
+    <div class="note-field">
+      <h3>Your Note</h3>
+      <quill-editor
+        [(ngModel)]="noteText"
+        [modules]="quillModules"
+        placeholder="What stood out? Any tips for the student?">
+      </quill-editor>
+      <div class="char-count">{{ getPlainTextLength() }}/200</div>
+    </div>
+
+    <!-- Homework Field -->
+    <div class="homework-field">
+      <h3>Homework Suggestion</h3>
+      <ion-textarea
+        [(ngModel)]="homework"
+        placeholder="Practice past tense verbs, review subjunctive mood..."
+        [maxlength]="150"
+        rows="3">
+      </ion-textarea>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline"
+        (click)="dismiss()">
+        Skip
+      </ion-button>
+      <ion-button 
+        expand="block"
+        color="primary"
+        (click)="saveNote()"
+        [disabled]="!canSave()">
+        Save Note
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>
+

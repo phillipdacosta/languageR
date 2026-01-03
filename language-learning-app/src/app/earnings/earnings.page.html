@@ -1,0 +1,126 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>My Earnings</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading earnings...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadEarnings()" fill="outline">
+      <ion-icon name="refresh" slot="start"></ion-icon>
+      Retry
+    </ion-button>
+  </div>
+
+  <!-- Earnings Summary -->
+  <div *ngIf="!loading && !error" class="earnings-content">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card total">
+        <div class="card-icon">
+          <ion-icon name="checkmark-circle"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Transferred</div>
+          <div class="card-value">${{ totalEarnings.toFixed(2) }}</div>
+          <div class="card-sublabel">In your bank account</div>
+        </div>
+      </div>
+
+      <div class="summary-card pending">
+        <div class="card-icon">
+          <ion-icon name="time"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Pending</div>
+          <div class="card-value">${{ pendingEarnings.toFixed(2) }}</div>
+          <div class="card-sublabel">Awaiting transfer</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Earnings -->
+    <div class="total-earnings">
+      <h2>Total Earnings</h2>
+      <div class="total-amount">${{ (totalEarnings + pendingEarnings).toFixed(2) }}</div>
+    </div>
+
+    <!-- Payment Breakdown -->
+    <div class="payment-breakdown">
+      <h3>Recent Lessons</h3>
+      
+      <div *ngIf="recentPayments.length === 0" class="no-payments">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <p>No completed lessons yet</p>
+        <p class="sublabel">Earnings from completed lessons will appear here</p>
+      </div>
+
+      <ion-list *ngIf="recentPayments.length > 0" class="payments-list">
+        <ion-item 
+          *ngFor="let payment of recentPayments" 
+          class="payment-item"
+          button
+          (click)="viewLesson(payment.lessonId)">
+          <div class="payment-info">
+            <div class="payment-header">
+              <div class="student-info">
+                <ion-icon name="person" class="student-icon"></ion-icon>
+                <span class="student-name">{{ payment.studentName }}</span>
+              </div>
+              <div class="payment-status" [attr.data-status]="payment.status">
+                <ion-icon [name]="getStatusIcon(payment.status)" [color]="getStatusColor(payment.status)"></ion-icon>
+                <span>{{ getStatusText(payment.status) }}</span>
+              </div>
+            </div>
+            
+            <div class="payment-details">
+              <div class="payment-date">
+                <ion-icon name="calendar-outline"></ion-icon>
+                <span>{{ payment.date | date:'MMM d, y' }}</span>
+              </div>
+              
+              <div class="payment-amounts">
+                <div class="amount-row tutor-payout">
+                  <span class="amount-label">Your Earnings</span>
+                  <span class="amount-value">${{ payment.tutorPayout.toFixed(2) }}</span>
+                </div>
+                <div class="amount-row platform-fee">
+                  <span class="amount-label">Platform Fee (20%)</span>
+                  <span class="amount-value">-${{ payment.platformFee.toFixed(2) }}</span>
+                </div>
+                <div class="amount-row total-divider"></div>
+                <div class="amount-row total">
+                  <span class="amount-label">Lesson Price</span>
+                  <span class="amount-value">${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <ion-icon name="chevron-forward" slot="end" class="nav-icon"></ion-icon>
+        </ion-item>
+      </ion-list>
+    </div>
+
+    <!-- Help Text -->
+    <div class="help-text">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <p>Earnings are transferred to your bank account within 2-7 business days after lesson completion.</p>
+    </div>
+  </div>
+</ion-content>
+

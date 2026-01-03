@@ -1,0 +1,62 @@
+<ion-content>
+  <!-- Floating close button -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <div class="modal-content">
+    <!-- Icon -->
+    <div class="icon-wrapper">
+      <ion-icon name="globe-outline"></ion-icon>
+    </div>
+    
+    <!-- Heading -->
+    <h1 class="modal-heading">Select Your Country</h1>
+    
+    <!-- Description -->
+    <p class="modal-description">
+      Help us personalize your experience
+    </p>
+
+    <!-- Search Bar -->
+    <div class="search-wrapper">
+      <ion-searchbar
+        [(ngModel)]="searchTerm"
+        placeholder="Search countries..."
+        (ionInput)="filterCountries()"
+        mode="ios"
+        debounce="300"
+        show-clear-button="focus"
+        class="modern-search">
+      </ion-searchbar>
+    </div>
+
+    <!-- Country List -->
+    <div class="country-list">
+      <div
+        *ngFor="let country of filteredCountries; let i = index"
+        class="country-item"
+        [class.selected]="selectedCountry === country.name"
+        (click)="selectCountry(country.name)">
+        <div class="country-flag">
+          <app-flag-icon 
+            [country]="country.name" 
+            [size]="28">
+          </app-flag-icon>
+        </div>
+        <span class="country-name">{{ country.name }}</span>
+        <ion-icon 
+          *ngIf="selectedCountry === country.name" 
+          name="checkmark-circle"
+          class="check-icon">
+        </ion-icon>
+      </div>
+    </div>
+
+    <!-- No Results -->
+    <div *ngIf="filteredCountries?.length === 0 && searchTerm.trim()" class="no-results">
+      <ion-icon name="search-outline"></ion-icon>
+      <p>No countries found matching <strong>"{{ searchTerm }}"</strong></p>
+    </div>
+  </div>
+</ion-content>

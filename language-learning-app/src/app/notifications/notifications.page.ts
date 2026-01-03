@@ -8,6 +8,12 @@ import { WebSocketService } from '../services/websocket.service';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 
+// 🚀 PERFORMANCE FIX: Type for cached, formatted notifications
+interface FormattedNotification extends Notification {
+  formattedTime: string;
+  sanitizedMessage: SafeHtml;
+}
+
 @Component({
   selector: 'app-notifications',
   templateUrl: './notifications.page.html',
@@ -16,6 +22,12 @@ import { ClassInvitationModalComponent } from '../components/class-invitation-mo
 })
 export class NotificationsPage implements OnDestroy {
   notifications: Notification[] = [];
+  // 🚀 PERFORMANCE FIX: Cache formatted AND grouped notifications
+  todayNotifications: FormattedNotification[] = [];
+  yesterdayNotifications: FormattedNotification[] = [];
+  laterNotifications: FormattedNotification[] = [];
+  unreadNotifications: FormattedNotification[] = [];
+  
   isLoading = false;
   searchTerm: string = '';
   activeFilters: string[] = ['all'];
@@ -67,6 +79,9 @@ export class NotificationsPage implements OnDestroy {
       next: response => {
         if (response.success && response.notifications) {
           this.notifications = response.notifications;
+          
+          // 🚀 PERFORMANCE FIX: Pre-compute formatted values AND group notifications
+          this.groupAndFormatNotifications();
           
           // Track oldest notification and check if there are more
           if (this.notifications.length > 0) {
@@ -125,10 +140,6 @@ export class NotificationsPage implements OnDestroy {
         if (event) event.target.complete();
       }
     });
-  }
-
-  getUnreadNotifications(): Notification[] {
-    return this.notifications.filter(n => !n.read);
   }
 
   getReadNotifications(): Notification[] {
@@ -319,6 +330,9 @@ export class NotificationsPage implements OnDestroy {
       // Add filter if not selected
       this.activeFilters.push(filter);
     }
+    
+    // Re-group notifications when filters change
+    this.groupAndFormatNotifications();
   }
 
   isFilterActive(filter: string): boolean {
@@ -338,18 +352,80 @@ export class NotificationsPage implements OnDestroy {
     return notificationDate.toDateString() === yesterday.toDateString();
   }
 
-  getTodayNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => this.isToday(n.createdAt));
-  }
-
-  getYesterdayNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => this.isYesterday(n.createdAt));
-  }
-
-  getLaterNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => 
+  // 🚀 NEW: Pre-compute and cache grouped notifications
+  private groupAndFormatNotifications() {
+    // Format all notifications once
+    const formatted = this.notifications.map(n => ({
+      ...n,
+      formattedTime: this.formatNotificationTime(n.createdAt),
+      sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+    }));
+    
+    // Apply filters once
+    const filtered = this.applyFiltersToArray(formatted);
+    
+    // Group into today/yesterday/later
+    this.todayNotifications = filtered.filter(n => this.isToday(n.createdAt));
+    this.yesterdayNotifications = filtered.filter(n => this.isYesterday(n.createdAt));
+    this.laterNotifications = filtered.filter(n => 
       !this.isToday(n.createdAt) && !this.isYesterday(n.createdAt)
     );
+    this.unreadNotifications = filtered.filter(n => !n.read);
+  }
+  
+  private applyFiltersToArray(notifications: any[]): any[] {
+    let filtered = [...notifications];
+    
+    // Filter by search term
+    if (this.searchTerm && this.searchTerm.trim() !== '') {
+      const search = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(n => 
+        n.message?.toLowerCase().includes(search) ||
+        n.title?.toLowerCase().includes(search)
+      );
+    }
+    
+    // Filter by type
+    if (this.activeFilters && !this.activeFilters.includes('all')) {
+      filtered = filtered.filter(n => {
+        if (this.activeFilters.includes('lessons')) {
+          return n.type && (
+            n.type.includes('lesson') || 
+            n.type.includes('class') ||
+            n.type.includes('office_hours')
+          );
+        }
+        if (this.activeFilters.includes('payment')) {
+          return n.type && n.type.includes('payment');
+        }
+        if (this.activeFilters.includes('progress')) {
+          return n.type && (n.type.includes('analysis') || n.type.includes('progress'));
+        }
+        return true;
+      });
+    }
+    
+    return filtered;
+  }
+
+  getTodayNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.todayNotifications;
+  }
+
+  getYesterdayNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.yesterdayNotifications;
+  }
+
+  getLaterNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.laterNotifications;
+  }
+  
+  getUnreadNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.unreadNotifications;
   }
 
   getNotificationTitle(notification: Notification): string {
@@ -375,6 +451,8 @@ export class NotificationsPage implements OnDestroy {
 
   onSearchInput(event: any) {
     this.searchTerm = event.detail.value || '';
+    // Re-group notifications when search changes
+    this.groupAndFormatNotifications();
   }
 
   sanitizeMessage(message: string): SafeHtml {

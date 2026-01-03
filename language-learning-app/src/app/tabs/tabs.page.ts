@@ -2,12 +2,18 @@ import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, Afte
 import { Router, NavigationEnd } from '@angular/router';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
-import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take, combineLatest, of, observeOn, asyncScheduler } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take, combineLatest, of, observeOn, asyncScheduler, map } from 'rxjs';
 import { UserService } from '../services/user.service';
 import { MessagingService, Conversation } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
 import { WebSocketService } from '../services/websocket.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+
+// 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
+interface FormattedNotification extends Notification {
+  formattedTime: string;
+  sanitizedMessage: SafeHtml;
+}
 
 @Component({
   selector: 'app-tabs',
@@ -40,6 +46,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   unreadNotificationCount$: Observable<number>;
   // Notifications list (subscribed from service)
   notifications$: Observable<Notification[]>;
+  // 🚀 PERFORMANCE FIX: Pre-formatted notifications with cached values
+  formattedNotifications$!: Observable<FormattedNotification[]>;
   // Notification dropdown state
   isNotificationDropdownOpen = false;
   private notificationHoverTimer: any = null;
@@ -99,6 +107,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.isAuthenticated$ = this.authService.isAuthenticated$;
     this.unreadNotificationCount$ = this.notificationService.unreadCount$;
     this.notifications$ = this.notificationService.notifications$;
+    
+    // 🚀 PERFORMANCE FIX: Transform notifications to pre-compute formatted values
+    this.formattedNotifications$ = this.notifications$.pipe(
+      map(notifications => notifications.map(n => ({
+        ...n,
+        formattedTime: this.formatNotificationTime(n.createdAt),
+        sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+      })))
+    );
     
     console.log('✅ TabsPage constructor completed (observables assigned, no subscriptions)');
   }
@@ -578,6 +595,15 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   sanitizeNotificationMessage(message: string): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(message);
+  }
+
+  // 🚀 PERFORMANCE FIX: TrackBy functions to prevent unnecessary DOM re-rendering
+  trackByNotificationId(index: number, notification: Notification): string {
+    return notification._id || index.toString();
+  }
+
+  trackByConversationId(index: number, conversation: any): string {
+    return conversation._id || conversation.id || index.toString();
   }
 
   getNotificationIcon(type: string): string {

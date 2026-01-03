@@ -31,7 +31,8 @@
   <!-- Main Progress View -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
-    <h1 class="page-title" padding-bottom="0px !important" >Unlock Your Progress Profile
+    <h1 class="page-title" padding-bottom="0px !important" >
+      {{ isProfileUnlocked ? 'Your Progress' : 'Unlock Your Progress Profile' }}
 
       <p class="chart-subtitle-note"> Note: Trial and quick office hours lessons are not included in Progress data.</p>
 
@@ -51,7 +52,7 @@
         
         <div class="checklist">
           <div class="checklist-item" 
-               *ngFor="let i of checklistItems"
+               *ngFor="let i of checklistItems; trackBy: trackByChecklistItem"
                [class.completed]="analyses.length >= i"
                [class.clickable]="analyses.length >= i"
                (click)="viewChecklistLesson(i)">
@@ -151,7 +152,7 @@
           
           <div class="time-section">
             <div class="stat-content">
-              <div class="stat-value">{{ getTotalStudyTimeFormatted() }}</div>
+              <div class="stat-value">{{ stats.totalStudyTimeFormatted }}</div>
               <div class="stat-label">Total Speaking Time</div>
               <div class="stat-sublabel">Your active practice</div>
             </div>
@@ -160,7 +161,7 @@
 
         <!-- Level Badge Below Streak Card -->
         <div class="level-badge-card">
-          <div class="level-badge-large" [ngClass]="'level-badge-large--' + getLevelClass(stats.currentLevel)">
+          <div class="level-badge-large" [ngClass]="'level-badge-large--' + stats.currentLevelClass">
             {{ stats.currentLevel }}
           </div>
           <div class="level-text">
@@ -199,7 +200,7 @@
         </div>
         <div class="goal-progress-bar">
           <div class="goal-progress-fill" 
-               [style.width.%]="getProgressPercentage(nextGoal)"
+               [style.width.%]="nextGoal.progressPercentage"
                [style.background]="nextGoal.color"></div>
         </div>
         <div class="goal-stats">
@@ -231,7 +232,7 @@
        Milestone Selector Tabs -->
         <!-- <div class="milestone-tabs">
           <button 
-            *ngFor="let snapshot of milestoneSnapshots; let i = index"
+            *ngFor="let snapshot of milestoneSnapshots; let i = index; trackBy: trackByMilestoneNumber"
             class="milestone-tab"
             [class.active]="selectedMilestone === i"
             (click)="selectMilestone(i)">
@@ -343,7 +344,7 @@
         </p>
         
         <div class="challenges-list" *ngIf="struggles.length > 0">
-          <div class="challenge-item" *ngFor="let struggle of struggles; let i = index">
+          <div class="challenge-item" *ngFor="let struggle of struggles; let i = index; trackBy: trackByStruggleIssue">
             <div class="challenge-content">
               <div class="challenge-header-row">
                 <div class="challenge-icon-wrapper" [style.background]="'#' + (i * 40 + 200).toString(16).repeat(3).slice(0,6)">
@@ -353,7 +354,7 @@
                 <div class="challenge-issue" (click)="toggleStruggle(i)">
                   {{ struggle.userFriendlyTitle || struggle.issue }}
                   <ion-icon 
-                    [name]="isStruggleExpanded(i) ? 'chevron-up' : 'chevron-down'"
+                    [name]="struggle.isExpanded ? 'chevron-up' : 'chevron-down'"
                     class="expand-icon">
                   </ion-icon>
                 </div>
@@ -369,14 +370,14 @@
               </div>
               
               <!-- Expanded description -->
-              <div class="challenge-description" *ngIf="isStruggleExpanded(i)">
+              <div class="challenge-description" *ngIf="struggle.isExpanded">
                 <p class="description-text" *ngIf="struggle.description">
                   {{ struggle.description }}
                 </p>
                 
                 <div class="challenge-examples">
                   <!-- Specific examples from lessons -->
-                  <div class="example-item" *ngFor="let ex of struggle.examples">
+                  <div class="example-item" *ngFor="let ex of struggle.examples; trackBy: trackByExampleOriginal">
                     <div class="example-original">
                       <strong>You said:</strong> "{{ ex.original }}"
                     </div>
@@ -400,7 +401,7 @@
         
         <div class="challenges-empty" *ngIf="struggles.length === 0">
           <ion-icon name="checkmark-circle" color="success"></ion-icon>
-          <p>Great work! No recurring challenges detected in your recent lessons.</p>
+          <p>Great work! No recurring challenges detected in your last 5 milestone lessons.</p>
         </div>
         
         <div class="challenges-tip" *ngIf="struggles.length > 0">
@@ -417,7 +418,7 @@
         </div>
         
         <div class="badge-grid">
-          <div *ngFor="let badge of badges" 
+          <div *ngFor="let badge of badges; trackBy: trackByBadgeId" 
                class="badge-item"
                [class.earned]="badge.earned"
                [class.locked]="!badge.earned">
@@ -448,6 +449,7 @@
           <span class="skill-percent">{{ stats.avgGrammar }}%</span>
         </div>
         
+        <!-- DISABLED: Pronunciation tracking not yet implemented
         <div class="skill-item">
           <span class="skill-name">Pronunciation</span>
           <div class="skill-bar-bg">
@@ -455,6 +457,7 @@
           </div>
           <span class="skill-percent">{{ stats.avgPronunciation }}%</span>
         </div>
+        -->
         
         <div class="skill-item">
           <span class="skill-name">Fluency</span>
@@ -464,6 +467,7 @@
           <span class="skill-percent">{{ stats.avgFluency }}%</span>
         </div>
         
+        <!-- DISABLED: Listening tracking not yet implemented
         <div class="skill-item">
           <span class="skill-name">Listening</span>
           <div class="skill-bar-bg">
@@ -471,6 +475,7 @@
           </div>
           <span class="skill-percent">{{ stats.avgListening }}%</span>
         </div>
+        -->
       </div>
       
       <!-- Lesson Analyses Timeline -->
@@ -480,21 +485,21 @@
           <div class="analyses-timeline">
             <div 
               class="analysis-node"
-              *ngFor="let analysis of sortedAnalyses; let i = index; let last = last; let first = first"
+              *ngFor="let analysis of sortedAnalyses; let i = index; let last = last; let first = first; trackBy: trackByAnalysisId"
               (click)="viewAnalysis(analysis._id, analysis.lessonId)">
               
               <!-- Connector Line (before the node, except for first) -->
               <div class="node-line-before" *ngIf="!first"></div>
               
               <!-- Node Circle with Level -->
-              <div class="node-circle" [ngClass]="'node-circle--' + getLevelClass(analysis.proficiencyLevel)">
+              <div class="node-circle" [ngClass]="'node-circle--' + analysis.levelClass">
                 <span class="node-level">{{ analysis.proficiencyLevel }}</span>
               </div>
               
               <!-- Node Info -->
               <div class="node-info">
                 <div class="node-level-label">{{ analysis.proficiencyLevel }}</div>
-                <div class="node-date">{{ formatDate(analysis.lessonDate) }}</div>
+                <div class="node-date">{{ analysis.formattedDate }}</div>
                 <div class="node-tutor">
                   <img *ngIf="analysis.tutorPicture" 
                        [src]="analysis.tutorPicture" 
@@ -502,9 +507,9 @@
                        class="tutor-avatar"
                        referrerpolicy="no-referrer">
                   <div *ngIf="!analysis.tutorPicture" class="tutor-avatar-placeholder">
-                    {{ getTutorInitial(analysis.tutorName) }}
+                    {{ analysis.tutorInitial }}
                   </div>
-                  <span class="tutor-name">{{ formatTutorName(analysis.tutorName) }}</span>
+                  <span class="tutor-name">{{ analysis.formattedTutorName }}</span>
                 </div>
               </div>
             </div>

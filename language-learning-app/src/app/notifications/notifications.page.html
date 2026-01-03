@@ -94,10 +94,10 @@
               </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+              <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
             </div>
             <div class="notification-item-right">
-              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+              <span class="notification-time-inline">{{ notification.formattedTime }}</span>
             </div>
           </div>
         </div>
@@ -126,10 +126,10 @@
               </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+              <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
             </div>
             <div class="notification-item-right">
-              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+              <span class="notification-time-inline">{{ notification.formattedTime }}</span>
             </div>
           </div>
         </div>
@@ -158,10 +158,10 @@
               </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text" [innerHTML]="sanitizeMessage(notification.message)"></p>
+              <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
             </div>
             <div class="notification-item-right">
-              <span class="notification-time-inline">{{ formatNotificationTime(notification.createdAt) }}</span>
+              <span class="notification-time-inline">{{ notification.formattedTime }}</span>
             </div>
           </div>
         </div>

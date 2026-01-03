@@ -1,0 +1,243 @@
+ion-header {
+  ion-toolbar {
+    --background: #ffffff;
+    --border-width: 0;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    
+    ion-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1c1c1e;
+      letter-spacing: -0.3px;
+    }
+    
+    ion-button {
+      --color: #667eea;
+    }
+  }
+}
+
+.modal-content {
+  padding: 24px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.3px;
+}
+
+// Add Card Section
+.add-card-section {
+  margin-bottom: 24px;
+}
+
+.add-card-btn {
+  --border-width: 2px;
+  --border-color: #667eea;
+  --color: #667eea;
+  --border-radius: 12px;
+  height: 48px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  
+  &:hover {
+    --background: rgba(102, 126, 234, 0.05);
+  }
+}
+
+// New Card Form
+.new-card-form {
+  background: #f9f9f9;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.card-element-container {
+  margin: 16px 0;
+  
+  #modal-card-element {
+    border: 2px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 16px;
+    background: #ffffff;
+    transition: border-color 0.2s ease;
+    
+    &:focus-within {
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+    }
+  }
+}
+
+.set-default-checkbox {
+  --background: transparent;
+  --padding-start: 0;
+  margin: 12px 0;
+  
+  ion-label {
+    font-size: 14px;
+    color: #1c1c1e;
+  }
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  
+  ion-button {
+    --border-radius: 10px;
+    text-transform: none;
+    font-weight: 600;
+    
+    &[fill="clear"] {
+      --color: #8e8e93;
+    }
+    
+    &:not([fill="clear"]) {
+      --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+  }
+}
+
+// Saved Cards Section
+.saved-cards-section {
+  margin-top: 24px;
+}
+
+.cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #ffffff;
+  border: 2px solid #f2f2f7;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #667eea;
+    background: #fafafa;
+    transform: translateX(4px);
+  }
+  
+  &.default-card {
+    border-color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  }
+  
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    
+    ion-icon {
+      font-size: 24px;
+      color: #ffffff;
+    }
+  }
+  
+  .card-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin-bottom: 4px;
+    letter-spacing: -0.2px;
+  }
+  
+  .card-subtitle {
+    font-size: 13px;
+    color: #8e8e93;
+  }
+  
+  .default-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .card-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    
+    ion-button {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      height: 32px;
+      
+      &.set-default-btn {
+        font-size: 12px;
+        text-transform: none;
+        font-weight: 600;
+      }
+      
+      &.remove-btn {
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+    }
+  }
+}
+
+// Empty State
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 80px;
+    color: #d1d1d6;
+    margin-bottom: 20px;
+  }
+  
+  p {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin: 0 0 8px 0;
+  }
+  
+  .subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    color: #8e8e93;
+  }
+}
+

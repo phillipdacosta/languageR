@@ -11,12 +11,14 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { filter, takeUntil } from 'rxjs/operators';
-import { Subject } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { PlatformService } from '../services/platform.service';
 import { trigger, state, style, transition, animate, query, stagger } from '@angular/animations';
 import { ClassAttendeesComponent } from '../components/class-attendees/class-attendees.component';
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -222,6 +224,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   rescheduleOriginalEndTime: string | null = null;
   participantAvailability: any[] = [];
 
+  // Stripe Connect status - subscribe to UserService
+  stripeConnectOnboarded = false;
+  approvalStatus: any; // Tutor approval status from UserService
+  private approvalStatusSubscription?: any;
+
   private viewportResizeHandler = () => this.evaluateViewport();
 
   get agendaRangeLabel(): string {
@@ -362,7 +369,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private toastController: ToastController,
     private alertController: AlertController,
     private websocketService: WebSocketService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private http: HttpClient
   ) { }
 
   private evaluateViewport() {
@@ -801,6 +809,15 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     };
   }
   ngOnInit() {
+    // Subscribe to approval status from UserService
+    this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
+      if (status) {
+        this.approvalStatus = status;
+        this.stripeConnectOnboarded = status.stripeComplete;
+        console.log(`💰 [TUTOR-CALENDAR] Approval status from service:`, status);
+      }
+    });
+    
     // Initialize custom calendar
     this.initializeCustomCalendar();
     this.startTimeUpdater();
@@ -986,6 +1003,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.destroy$.next();
     this.destroy$.complete();
     
+    if (this.approvalStatusSubscription) {
+      this.approvalStatusSubscription.unsubscribe();
+    }
+    
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.viewportResizeHandler);
     }
@@ -1010,6 +1031,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.availabilityLoaded = false;
     this.lessonsLoaded = false;
     // Classes load separately and don't block initial render
+    
+    // Re-check Stripe Connect status when returning to page (e.g., after onboarding)
+    this.checkStripeConnectStatus();
     
     if (this.isMobileView) {
       this.isLoadingMobileData = true;
@@ -2116,6 +2140,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
 
   // Sidebar button handlers
   onScheduleLesson() {
+    if (!this.stripeConnectOnboarded) {
+      this.showStripeOnboardingAlert();
+      return;
+    }
     this.router.navigate(['/tabs/tutor-calendar/schedule-class']);
   }
 
@@ -2379,6 +2407,11 @@ When enabled:
   }
 
   onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
+    
+    if (!this.stripeConnectOnboarded) {
+      this.showStripeOnboardingAlert();
+      return;
+    }
     
     if (date) {
       // Format date as YYYY-MM-DD using local timezone to avoid UTC conversion issues
@@ -3185,6 +3218,55 @@ When enabled:
       });
       await toast.present();
     }
+  }
+
+  // Check Stripe Connect status
+  private async checkStripeConnectStatus() {
+    console.log('🔍 Checking Stripe Connect status...');
+    console.log('Current user:', this.currentUser);
+    console.log('User type:', this.currentUser?.userType);
+    
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      console.log('📡 Stripe status response:', response);
+      
+      if (response.success) {
+        this.stripeConnectOnboarded = response.onboarded;
+        console.log(`💰 Stripe Connect onboarded: ${this.stripeConnectOnboarded}`);
+        console.log(`🎯 Banner should ${this.stripeConnectOnboarded ? 'NOT' : ''} show (using *ngIf="!stripeConnectOnboarded")`);
+        this.cdr.detectChanges(); // Force change detection
+      }
+    } catch (error) {
+      console.error('❌ Error checking Stripe Connect status:', error);
+      this.stripeConnectOnboarded = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  // Show alert when trying to use features without Stripe onboarding
+  private async showStripeOnboardingAlert() {
+    const alert = await this.alertController.create({
+      header: 'Payment Setup Required',
+      message: 'You must complete payment setup before creating classes or setting availability. Please complete your Stripe Connect onboarding in the Profile tab.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Go to Profile',
+          handler: () => {
+            this.router.navigate(['/tabs/profile']);
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 }
 

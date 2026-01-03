@@ -214,6 +214,19 @@ export class LessonService {
     return this.recordCallEnd(lessonId);
   }
 
+  // Save tutor's supplementary note
+  saveTutorNote(
+    lessonId: string,
+    note: { text: string; quickImpression: string; homework: string }
+  ): Observable<{ success: boolean; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.baseUrl}/${lessonId}/tutor-note`,
+      note,
+      { headers }
+    );
+  }
+
   // Get billing summary for a lesson
   getBillingSummary(lessonId: string): Observable<{
     success: boolean;

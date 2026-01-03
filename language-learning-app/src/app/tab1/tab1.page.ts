@@ -5,6 +5,7 @@ import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
+import { WalletService } from '../services/wallet.service';
 import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
@@ -23,9 +24,12 @@ import { RescheduleProposalModalComponent } from '../components/reschedule-propo
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
 import { SmartIslandComponent, IslandPriority } from '../components/smart-island/smart-island.component';
 import { FlagService } from '../services/flag.service';
 import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-tab1',
@@ -52,6 +56,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
   isLoadingInvitations = false;
+  
+  // Wallet balance
+  currentWalletBalance = 0;
+
+  // Stripe Connect status (for tutors)
+  stripeConnectOnboarded = false;
+  isLoadingStripeConnect = false;
+
+  // Tutor earnings
+  tutorTotalEarnings = 0;
+  tutorPendingEarnings = 0;
 
   // Getter for active (non-cancelled) invitations
   get activeInvitationsCount(): number {
@@ -91,9 +106,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   lessonsThisWeek = 0;
   tutorRating = '0.0';
   unreadMessages = 0;
+  totalConversations = 0;
   walletBalance = 0; // TODO: Load from actual wallet service
   showWalletBalance = false; // Hide by default
   walletDisplay = '$•••••'; // Computed display value
+  insightsLoading = true; // Loading state for insights panel
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
   
   // Student-specific insights
@@ -110,6 +127,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Tutor booking modal state
   isTutorBookingModalOpen = false;
   selectedTutorForBooking: any = null;
+  
+  // Tutor onboarding state
+  showOnboardingBanner = false;
+  tutorOnboardingStatus: any = null;
+  isTutorUser = false; // Use property instead of function call in template
+  isStudentUser = false; // Use property instead of function call in template
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -153,6 +176,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     originalDate: string;
     originalTime: string;
     otherParticipant: any; // Store for counter-propose action
+  } | null = null;
+  
+  // Inline modal state for tutor note modal
+  isTutorNoteModalOpen = false;
+  tutorNoteModalData: {
+    lessonId: string;
+    studentName: string;
+    lessonSubject: string;
+    duration: number;
   } | null = null;
   
   // Inline modal state for confirm action modal (reschedule)
@@ -227,6 +259,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     public platformService: PlatformService,
     private authService: AuthService,
     private userService: UserService,
+    private walletService: WalletService,
     private lessonService: LessonService,
     private classService: ClassService,
     private agoraService: AgoraService,
@@ -242,7 +275,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     public flagService: FlagService,
-    private tutorFeedbackService: TutorFeedbackService
+    private tutorFeedbackService: TutorFeedbackService,
+    private http: HttpClient
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -254,12 +288,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe(user => {
         this.currentUser = user;
+        this.isTutorUser = this.isTutor(); // Set property once
+        this.isStudentUser = this.isStudent(); // Set property once
         
         // Load notification count when user is available
         if (user) {
           setTimeout(() => {
             this.loadUnreadNotificationCount();
           }, 500);
+        }
+        
+        // Check tutor onboarding status when user loads
+        if (this.isTutorUser) {
+          this.checkTutorOnboardingStatus();
         }
         
         // Only load lessons on initial user setup, not on every navigation
@@ -272,9 +313,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         if (this.isTutor()) {
           this.loadTutorInsights();
           this.loadAvailability();
+          this.loadTutorEarnings(); // Load earnings for tutors
         } else {
           // Load student-specific data
           this.loadStudentInsights();
+          // Load wallet balance for students
+          this.loadWalletBalance();
           // Load pending class invitations for students
           this.loadPendingInvitations();
         }
@@ -291,6 +335,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit() {
     // Load user data and stats
     this.loadUserStats();
+    
+    // Subscribe to wallet balance updates for students
+    if (this.isStudent()) {
+      this.subscribeToWalletBalance();
+    }
 
     const today = this.startOfDay(new Date());
     this.selectedDate = today;
@@ -901,6 +950,38 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       });
     }
     
+    // Listen for tutor note modal trigger from video-call page
+    window.addEventListener('openTutorNoteModal', async () => {
+      const modalDataStr = localStorage.getItem('openTutorNoteModal');
+      if (modalDataStr) {
+        try {
+          const modalData = JSON.parse(modalDataStr);
+          const lessonId = modalData.lessonId;
+          
+          // Clear the flag
+          localStorage.removeItem('openTutorNoteModal');
+          
+          // Fetch lesson details and open modal
+          const lessonResponse = await firstValueFrom(
+            this.lessonService.getLesson(lessonId)
+          );
+          const lesson = lessonResponse.lesson;
+          const student = lesson.studentId;
+          
+          this.tutorNoteModalData = {
+            lessonId,
+            studentName: this.formatTutorDisplayName(student),
+            lessonSubject: lesson.subject || 'Language',
+            duration: lesson.actualDurationMinutes || lesson.duration
+          };
+          
+          this.isTutorNoteModalOpen = true;
+        } catch (error) {
+          console.error('❌ Error opening tutor note modal:', error);
+        }
+      }
+    });
+    
     console.log('🌟 [TAB1] ngOnInit completed');
   }
   
@@ -920,8 +1001,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       exists: !!this.currentUser,
       email: this.currentUser?.email,
       userType: this.currentUser?.userType,
-      isTutor: this.isTutor()
+      isTutor: this.isTutorUser,
+      isStudent: this.isStudentUser
     });
+    
+    // Refresh wallet balance or earnings when returning to this page
+    if (this.currentUser) {
+      if (this.currentUser.userType === 'student') {
+        this.loadWalletBalance();
+      } else if (this.currentUser.userType === 'tutor') {
+        this.loadTutorEarnings();
+      }
+    }
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -2068,6 +2159,50 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     });
   }
   
+  // Check tutor onboarding status and show banner if incomplete
+  checkTutorOnboardingStatus() {
+    if (!this.isTutorUser) return;
+    if (!this.currentUser) return; // Only check if we have current user
+    
+    console.log('🔄 [TAB1] Checking tutor onboarding status from current user...');
+    
+    const user = this.currentUser;
+    
+    console.log('📊 [TAB1] User data:', {
+      email: user.email,
+      tutorApproved: user.tutorApproved,
+      onboardingCompleted: user.onboardingCompleted,
+      picture: !!user.picture,
+      stripeConnectOnboarded: user.stripeConnectOnboarded,
+      tutorOnboarding: user.tutorOnboarding
+    });
+    
+    // Only show approval banner if basic onboarding is complete
+    if (!user.onboardingCompleted) {
+      this.showOnboardingBanner = false;
+      console.log('ℹ️ [TAB1] Basic onboarding not complete, hiding banner');
+      return;
+    }
+    
+    this.tutorOnboardingStatus = user.tutorOnboarding || {};
+    
+    // Show banner only if user is NOT fully approved
+    // tutorApproved is set to true on the backend only when ALL steps are complete
+    this.showOnboardingBanner = !user.tutorApproved;
+    
+    console.log('🎯 [TAB1] Tutor approval banner decision:', {
+      tutorApproved: user.tutorApproved,
+      showBanner: this.showOnboardingBanner
+    });
+    
+    this.cdr.detectChanges();
+  }
+  
+  // Open tutor onboarding modal/page
+  openTutorOnboarding() {
+    this.router.navigate(['/tutor-approval']);
+  }
+  
   // Update wallet display property
   private updateWalletDisplay(): void {
     this.walletDisplay = this.showWalletBalance 
@@ -2129,6 +2264,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const userAny = this.currentUser as any;
     this.tutorRating = userAny?.rating ? userAny.rating.toFixed(1) : '0.0';
     
+    // Get total conversations (unique students the tutor has messaged)
+    this.totalConversations = uniqueStudents.size;
+    
+    // Insights loaded
+    this.insightsLoading = false;
+    
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
   }
@@ -2163,6 +2304,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     // Count unique tutors (from lessons)
     const uniqueTutorIds = new Set(this.lessons.map((l: any) => l.tutorId?._id || l.tutorId).filter(Boolean));
     this.totalTutors = uniqueTutorIds.size;
+    
+    // Insights loaded
+    this.insightsLoading = false;
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
@@ -3200,6 +3344,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       .filter(lesson => {
         // Exclude if it's in the past
         if (new Date(lesson.startTime) <= now) return false;
+        // Exclude if it's completed (ended early)
+        if (lesson.status === 'completed') return false;
         // Exclude if it's the next class being shown in the "Up Next" card
         if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
         return true;
@@ -4499,6 +4645,134 @@ navigateToLessons() {
     return this.currentUser?.['userType'] === 'student';
   }
 
+  // Subscribe to wallet balance updates (real-time)
+  subscribeToWalletBalance() {
+    // Subscribe to the balance observable for automatic updates
+    this.walletService.balance$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (balance) => {
+          if (balance) {
+            this.currentWalletBalance = balance.availableBalance;
+            this.cdr.detectChanges();
+          }
+        }
+      });
+
+    // Initial load
+    this.loadWalletBalance();
+  }
+
+  // Load wallet balance
+  loadWalletBalance() {
+    this.walletService.getBalance()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.currentWalletBalance = response.availableBalance;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (error) => {
+          console.error('Error loading wallet balance:', error);
+          this.currentWalletBalance = 0;
+        }
+      });
+  }
+
+  // Navigate to wallet page
+  navigateToWallet() {
+    this.router.navigate(['/tabs/home/wallet']);
+  }
+
+  navigateToEarnings() {
+    this.router.navigate(['/tabs/earnings']);
+  }
+
+  // Check Stripe Connect status for tutors
+  async checkStripeConnectStatus() {
+    if (!this.isTutor()) return;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.stripeConnectOnboarded = response.onboarded;
+        console.log(`💰 Stripe Connect status: ${this.stripeConnectOnboarded ? 'Onboarded' : 'Not onboarded'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error checking Stripe Connect status:', error);
+    }
+  }
+
+  // Start Stripe Connect onboarding
+  async startStripeConnectOnboarding() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.onboardingUrl) {
+        // Open Stripe onboarding in new window
+        window.open(response.onboardingUrl, '_blank');
+        
+        const toast = await this.toastController.create({
+          message: 'Complete the setup in the new window. Refresh this page when done.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error starting Stripe Connect onboarding:', error);
+      
+      const toast = await this.toastController.create({
+        message: error.error?.message || 'Failed to start payout setup. Please try again.',
+        duration: 4000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  // Load tutor earnings summary
+  async loadTutorEarnings() {
+    if (!this.isTutorUser) {
+      return;
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.tutorTotalEarnings = response.totalEarnings || 0;
+        this.tutorPendingEarnings = response.pendingEarnings || 0;
+        this.walletBalance = this.tutorTotalEarnings + this.tutorPendingEarnings; // Sum for display
+        this.updateWalletDisplay(); // Update the hidden/revealed display
+        this.cdr.detectChanges();
+      }
+    } catch (error) {
+      console.error('❌ [TAB1] Error loading tutor earnings:', error);
+    }
+  }
+
   isTutor(): boolean {
     return this.currentUser?.['userType'] === 'tutor';
   }
@@ -5450,4 +5724,68 @@ navigateToLessons() {
     this.router.navigate(['/tutor-feedback', 'test']);
   }
 
+  /**
+   * TEST: Open tutor note modal with mock data for testing UI
+   */
+  async openTestTutorNoteModal() {
+    // Use a REAL lesson ID (69527f6d6d02ed29ab721d32 from logs)
+    this.tutorNoteModalData = {
+      lessonId: '69527f6d6d02ed29ab721d32',
+      studentName: 'Phillip D.',
+      lessonSubject: 'Spanish Lesson',
+      duration: 25
+    };
+    this.isTutorNoteModalOpen = true;
+  }
+
+  /**
+   * Handle tutor note modal dismissal
+   */
+  onTutorNoteModalDismiss() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Close tutor note modal
+   */
+  closeTutorNoteModal() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Handle tutor note saved event
+   */
+  async onTutorNoteSaved(noteData: { quickImpression: string; text: string; homework: string }) {
+    if (!this.tutorNoteModalData) return;
+    
+    try {
+      await firstValueFrom(
+        this.lessonService.saveTutorNote(this.tutorNoteModalData.lessonId, noteData)
+      );
+      
+      const successToast = await this.toastController.create({
+        message: '✅ Note saved!',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom'
+      });
+      await successToast.present();
+      
+      // Close the modal
+      this.closeTutorNoteModal();
+    } catch (error) {
+      console.error('❌ Error saving tutor note:', error);
+      const errorToast = await this.toastController.create({
+        message: '❌ Failed to save note. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await errorToast.present();
+    }
+  }
+
 }
+

@@ -29,8 +29,9 @@
       </div>
     </div>
 
-    <!-- Lesson Details Card -->
+    <!-- Lesson Details Card (iOS List Style) -->
     <div class="details-card" @fadeInUp *ngIf="lessonDetails">
+      <!-- Subject -->
       <div class="detail-row">
         <div class="detail-icon">
           <span class="subject-emoji">{{ getSubjectEmoji(lessonDetails.subject) }}</span>
@@ -43,6 +44,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- Date -->
       <div class="detail-row">
         <div class="detail-icon">
           <ion-icon name="calendar-outline"></ion-icon>
@@ -55,6 +57,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- Time -->
       <div class="detail-row">
         <div class="detail-icon">
           <ion-icon name="time-outline"></ion-icon>
@@ -67,6 +70,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- Duration -->
       <div class="detail-row">
         <div class="detail-icon">
           <ion-icon name="hourglass-outline"></ion-icon>
@@ -79,6 +83,7 @@
 
       <div class="detail-divider"></div>
 
+      <!-- Price -->
       <div class="detail-row">
         <div class="detail-icon">
           <ion-icon name="cash-outline"></ion-icon>
@@ -90,7 +95,7 @@
       </div>
     </div>
 
-    <!-- Next Steps -->
+    <!-- Next Steps (Frosted Glass) -->
     <div class="next-steps" @fadeInUp>
       <p class="next-steps-text">
         <ion-icon name="information-circle-outline"></ion-icon>
@@ -99,4 +104,3 @@
     </div>
   </div>
 </div>
-

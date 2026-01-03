@@ -1,0 +1,236 @@
+<div class="onboarding-container">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading...</p>
+  </div>
+
+  <!-- Onboarding Content - Two Column Layout -->
+  <div *ngIf="!loading" class="onboarding-content">
+    
+    <!-- Close Button -->
+    <button class="close-button" (click)="closeOnboarding()">
+      <ion-icon name="close"></ion-icon>
+    </button>
+    
+    <!-- Left Column: Progress & Navigation -->
+    <div class="left-column">
+      <!-- Header -->
+      <div class="onboarding-header">
+        <h1>Tutor Approval</h1>
+        <p>Complete these final steps to start teaching</p>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" [style.width.%]="progressPercentage"></div>
+        </div>
+        <p class="progress-text">{{ completedStepsCount }} of {{ steps.length }} steps completed</p>
+      </div>
+
+      <!-- Steps List -->
+      <div class="steps-list">
+        <div 
+          *ngFor="let step of steps; let i = index" 
+          class="step-item"
+          [class.completed]="step.completed"
+          [class.current]="i === currentStepIndex"
+          (click)="currentStepIndex = i">
+          <div class="step-indicator">
+            <ion-icon *ngIf="step.completed" name="checkmark-circle"></ion-icon>
+            <span *ngIf="!step.completed" class="step-number">{{ i + 1 }}</span>
+          </div>
+          <div class="step-info">
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.description }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="nav-buttons">
+        <ion-button 
+          fill="clear" 
+          [disabled]="isFirstStep"
+          (click)="previousStep()">
+          <ion-icon name="chevron-back" slot="start"></ion-icon>
+          Previous
+        </ion-button>
+
+        <ion-button 
+          fill="clear" 
+          *ngIf="!isLastStep"
+          (click)="nextStep()">
+          Next
+          <ion-icon name="chevron-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
+
+      <!-- Skip Option -->
+      <ion-button 
+        [fill]="allStepsComplete ? 'solid' : 'clear'"
+        [color]="allStepsComplete ? 'success' : 'medium'"
+        size="small"
+        class="skip-button"
+        [class.done-button]="allStepsComplete"
+        (click)="skipForNow()">
+        {{ allStepsComplete ? 'Done! 🎉' : "I'll do this later" }}
+      </ion-button>
+    </div>
+
+    <!-- Vertical Separator -->
+    <div class="separator"></div>
+
+    <!-- Right Column: Current Step Content -->
+    <div class="right-column">
+      <div class="step-content-card">
+        <!-- Step Icon -->
+        <div class="step-icon-circle">
+          <ion-icon [name]="currentStep.icon"></ion-icon>
+        </div>
+        
+        <h2 class="step-title">{{ currentStep.title }}</h2>
+        <p class="step-description">{{ currentStep.description }}</p>
+
+        <!-- Step-specific content -->
+        <div class="step-content">
+          <!-- Photo Step -->
+          <div *ngIf="currentStep.id === 'photo'" class="photo-step">
+            <div class="current-photo" *ngIf="currentUser?.picture">
+              <img [src]="currentUser.picture" alt="Profile photo">
+              <ion-icon name="checkmark-circle" class="check-badge" color="success"></ion-icon>
+            </div>
+            <div class="no-photo" *ngIf="!currentUser?.picture">
+              <ion-icon name="person-circle-outline"></ion-icon>
+              <p>No photo uploaded</p>
+            </div>
+            <ion-button 
+              expand="block" 
+              class="primary-action"
+              (click)="goToProfileUploadPhoto()">
+              {{ currentUser?.picture ? 'Change Photo' : 'Upload Photo' }}
+            </ion-button>
+          </div>
+
+          <!-- Video Step -->
+          <div *ngIf="currentStep.id === 'video'" class="video-step">
+            <!-- Use the full video upload component -->
+            <app-video-upload
+              [videoUrl]="currentUser?.onboardingData?.introductionVideo || ''"
+              [thumbnailUrl]="currentUser?.onboardingData?.videoThumbnail || ''"
+              [videoType]="getVideoType(currentUser?.onboardingData?.introductionVideo)"
+              [enableModalPlayer]="true"
+              (thumbnailClick)="openVideoPlayerModal()"
+              (videoUploaded)="onVideoUploaded($event)"
+              (videoRemoved)="onVideoRemoved()">
+            </app-video-upload>
+            
+            <!-- Show current status below the upload UI if video exists -->
+            <div *ngIf="approvalStatus?.videoComplete" class="video-status-info">
+              <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>Video Approved</span>
+              </div>
+              <div *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoRejected" class="status-badge pending">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>Pending Admin Review</span>
+              </div>
+              <div *ngIf="approvalStatus?.videoRejected" class="status-badge rejected">
+                <ion-icon name="close-circle"></ion-icon>
+                <span>Rejected: {{ currentUser?.tutorOnboarding?.videoRejectionReason }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stripe Step -->
+          <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
+            <div *ngIf="approvalStatus?.stripeComplete" class="status-card success">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              <p>Bank account connected!</p>
+            </div>
+            <div *ngIf="!approvalStatus?.stripeComplete" class="status-card empty">
+              <ion-icon name="card-outline"></ion-icon>
+              <p>Not connected yet</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Primary Action Button -->
+        <ion-button 
+          expand="block" 
+          color="primary" 
+          size="large"
+          class="primary-action"
+          [disabled]="currentStep.completed"
+          (click)="handleStepAction()">
+          <ion-icon [name]="currentStep.icon" slot="start"></ion-icon>
+          {{ currentStep.completed ? 'Completed' : currentStep.title }}
+        </ion-button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Video Player Modal -->
+<ion-modal 
+  [isOpen]="isVideoPlayerModalOpen"
+  (didDismiss)="onVideoPlayerModalDismiss()"
+  cssClass="video-player-modal">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Introduction Video</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="onVideoPlayerModalDismiss()">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="video-player-content">
+      <div *ngIf="videoPlayerData" class="video-player-container">
+        <!-- Show thumbnail overlay first, then video on click -->
+        <div *ngIf="!isVideoPlaying" class="modal-thumbnail-overlay" (click)="startVideoPlayback()">
+          <img 
+            *ngIf="currentUser?.onboardingData?.videoThumbnail" 
+            [src]="currentUser.onboardingData.videoThumbnail" 
+            alt="Video preview"
+            class="modal-thumbnail-image">
+          <video 
+            *ngIf="!currentUser?.onboardingData?.videoThumbnail && videoPlayerData.videoUrl"
+            [src]="videoPlayerData.videoUrl + '#t=0.001'"
+            class="modal-thumbnail-image"
+            preload="metadata">
+          </video>
+          <div class="modal-play-overlay">
+            <ion-icon name="play"></ion-icon>
+          </div>
+        </div>
+        
+        <!-- Video player (shown after clicking thumbnail) -->
+        <div *ngIf="isVideoPlaying" class="video-player-wrapper-inline">
+          <!-- External videos (YouTube/Vimeo) -->
+          <iframe 
+            *ngIf="videoPlayerData.videoType === 'youtube' || videoPlayerData.videoType === 'vimeo'"
+            [src]="videoPlayerData.safeVideoUrl"
+            frameborder="0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen
+            class="video-iframe">
+          </iframe>
+          <!-- Direct video files -->
+          <video 
+            *ngIf="videoPlayerData.videoType === 'upload'"
+            [src]="videoPlayerData.videoUrl"
+            [poster]="currentUser?.onboardingData?.videoThumbnail || ''"
+            controls
+            autoplay
+            class="video-player">
+          </video>
+        </div>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

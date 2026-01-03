@@ -133,7 +133,16 @@ export interface LessonAnalysis {
   
   studentSummary: string;
   
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  // Tutor's supplementary note (added immediately after lesson)
+  tutorNote?: {
+    text: string;
+    quickImpression: string;
+    homework: string;
+    addedAt: Date;
+    addedBy: string;
+  };
+  
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'generating';
   error?: string; // Optional error message when status is 'failed'
 }
 
@@ -330,10 +339,13 @@ export class TranscriptionService {
   /**
    * Get latest analysis for a student (optionally with specific tutor)
    */
-  getLatestAnalysis(studentId: string, tutorId?: string): Observable<LessonAnalysis> {
+  getLatestAnalysis(studentId: string, tutorId?: string, currentLessonId?: string): Observable<LessonAnalysis> {
     const params: any = {};
     if (tutorId) {
       params.tutorId = tutorId;
+    }
+    if (currentLessonId) {
+      params.currentLessonId = currentLessonId;
     }
     const headers = this.userService.getAuthHeadersSync();
     return this.http.get<LessonAnalysis>(`${this.apiUrl}/student/${studentId}/latest`, { params, headers });

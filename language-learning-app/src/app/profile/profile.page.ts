@@ -1,18 +1,20 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { FileUploadService } from '../services/file-upload.service';
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-profile',
@@ -48,6 +50,17 @@ export class ProfilePage implements OnInit {
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
 
+  // Stripe Connect (for tutors)
+  stripeConnectOnboarded = false;
+  isLoadingStripeConnect = false;
+  private approvalStatusSubscription?: any;
+
+  // Earnings (for tutors)
+  totalEarnings = 0;
+  pendingEarnings = 0;
+  recentPayments: any[] = [];
+  loadingEarnings = false;
+
   constructor(
     private authService: AuthService,
     private userService: UserService,
@@ -60,7 +73,9 @@ export class ProfilePage implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private modalController: ModalController,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private http: HttpClient,
+    private platform: Platform
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -69,9 +84,25 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    // Subscribe to approval status from UserService
+    this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
+      if (status) {
+        this.stripeConnectOnboarded = status.stripeComplete;
+        console.log(`💰 [PROFILE] Stripe status from service: ${this.stripeConnectOnboarded}`);
+      }
+    });
+    
     // Check if viewing another user's profile
     this.route.queryParams.subscribe(params => {
       const userId = params['userId'];
+      
+      // Check if returning from Stripe Connect
+      if (params['stripe_success'] === 'true') {
+        this.handleStripeConnectReturn(true);
+      } else if (params['stripe_refresh'] === 'true') {
+        this.handleStripeConnectReturn(false);
+      }
+      
       if (userId) {
         // Viewing another user's profile
         this.isViewingOtherUser = true;
@@ -98,6 +129,12 @@ export class ProfilePage implements OnInit {
       
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
+      
+      // Load Stripe Connect status for tutors
+      if (this.isTutor()) {
+        this.checkStripeConnectStatus();
+        this.loadEarnings();
+      }
       
       // Load settings from user profile (database)
       this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
@@ -466,7 +503,7 @@ export class ProfilePage implements OnInit {
           if (messageElement) {
             const imgElement = document.createElement('img');
             imgElement.src = imageDataUrl;
-            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 50%; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 16px; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
             messageElement.insertBefore(imgElement, messageElement.firstChild);
           }
         }
@@ -699,6 +736,177 @@ export class ProfilePage implements OnInit {
       return 'Auto-detected';
     }
     return getTimezoneLabel(timezone);
+  }
+
+  // Handle return from Stripe Connect onboarding
+  async handleStripeConnectReturn(success: boolean) {
+    if (success) {
+      // Show success message
+      const toast = await this.toastController.create({
+        message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+        duration: 5000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    }
+    
+    // Refresh Stripe Connect status
+    setTimeout(() => {
+      this.checkStripeConnectStatus();
+      this.loadEarnings(); // Also refresh earnings
+    }, 1000);
+    
+    // Clean up URL
+    this.router.navigate(['/tabs/profile'], { replaceUrl: true });
+  }
+
+  // Load earnings summary and recent payments
+  async loadEarnings() {
+    if (!this.isTutor()) return;
+
+    this.loadingEarnings = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.totalEarnings = response.totalEarnings || 0;
+        this.pendingEarnings = response.pendingEarnings || 0;
+        this.recentPayments = response.recentPayments || [];
+        console.log(`💰 Loaded earnings: Total $${this.totalEarnings}, Pending $${this.pendingEarnings}`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading earnings:', error);
+    } finally {
+      this.loadingEarnings = false;
+    }
+  }
+
+  // Check Stripe Connect status for tutors
+  async checkStripeConnectStatus() {
+    if (!this.isTutor()) return;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.stripeConnectOnboarded = response.onboarded;
+        console.log(`💰 Stripe Connect status: ${this.stripeConnectOnboarded ? 'Onboarded' : 'Not onboarded'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error checking Stripe Connect status:', error);
+    }
+  }
+
+  // Start Stripe Connect onboarding
+  async startStripeConnectOnboarding() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.onboardingUrl) {
+        // On mobile, open in same window (_self) to keep it within the app
+        // On desktop, open in new tab (_blank)
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(response.onboardingUrl, target);
+        
+        const toast = await this.toastController.create({
+          message: 'Complete the setup in the new window. Refresh this page when done.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error starting Stripe Connect onboarding:', error);
+      
+      // Show helpful error message
+      const errorMessage = error.error?.message || error.message || 'Failed to start payout setup';
+      
+      const alert = await this.alertController.create({
+        header: 'Setup Not Available',
+        message: errorMessage.includes('signed up for Connect') 
+          ? 'Stripe Connect needs to be enabled in the platform settings. Please contact support.'
+          : errorMessage,
+        buttons: ['OK']
+      });
+      await alert.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  // NEW: Edit existing Stripe Connect account
+  async editStripeConnectAccount() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      // Generate a Stripe dashboard login link
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/dashboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.dashboardUrl) {
+        // On mobile, open in same window (_self) to keep it within the app
+        // On desktop, open in new tab (_blank)
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(response.dashboardUrl, target);
+        
+        const toast = await this.toastController.create({
+          message: 'Opening Stripe Express Dashboard...',
+          duration: 3000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error opening Stripe dashboard:', error);
+      
+      // Fallback: restart onboarding
+      const alert = await this.alertController.create({
+        header: 'Update Payout Settings',
+        message: 'Would you like to update your payout information?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Update',
+            handler: () => {
+              this.startStripeConnectOnboarding();
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.approvalStatusSubscription) {
+      this.approvalStatusSubscription.unsubscribe();
+    }
   }
 
 }

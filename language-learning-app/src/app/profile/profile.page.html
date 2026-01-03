@@ -93,6 +93,64 @@
           </ion-card-content>
         </ion-card>
 
+    <!-- Stripe Connect Setup Card (Tutors Only) -->
+    
+    <!-- Warning Banner for Non-Onboarded Tutors -->
+    <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && isTutor() && !stripeConnectOnboarded" color="warning">
+      <ion-card-content>
+        <div class="warning-content">
+          <ion-icon name="warning" color="warning"></ion-icon>
+          <div class="warning-text">
+            <h3>⚠️ Payment Setup Required</h3>
+            <p><strong>Your profile is hidden from students</strong> until you connect your bank account. Complete the setup below to start accepting bookings.</p>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+    
+    <ion-card class="stripe-connect-card" *ngIf="!isViewingOtherUser && isTutor()">
+      <ion-card-content [class.stripe-connected]="stripeConnectOnboarded">
+        <!-- Not Connected State -->
+        <div class="stripe-connect-content" *ngIf="!stripeConnectOnboarded">
+          <div class="stripe-icon">
+            <ion-icon name="wallet-outline"></ion-icon>
+          </div>
+          <div class="stripe-text">
+            <h3>💰 Connect Bank Account</h3>
+            <p>Set up payouts to receive earnings from your lessons via Stripe.</p>
+          </div>
+          <ion-button 
+            expand="block" 
+            color="primary" 
+            (click)="startStripeConnectOnboarding()"
+            [disabled]="isLoadingStripeConnect">
+            <ion-spinner *ngIf="isLoadingStripeConnect" name="crescent" slot="start"></ion-spinner>
+            {{ isLoadingStripeConnect ? 'Loading...' : 'Set Up Payouts' }}
+          </ion-button>
+        </div>
+        
+        <!-- Connected State -->
+        <div class="stripe-connect-success" *ngIf="stripeConnectOnboarded">
+          <div class="success-header">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+            <div class="stripe-success-text">
+              <h4>✓ Payouts Enabled</h4>
+              <p>Earnings will be automatically transferred to your bank account</p>
+            </div>
+          </div>
+          <ion-button 
+            expand="block" 
+            fill="outline"
+            color="primary" 
+            (click)="editStripeConnectAccount()"
+            [disabled]="isLoadingStripeConnect">
+            <ion-icon name="create-outline" slot="start"></ion-icon>
+            {{ isLoadingStripeConnect ? 'Loading...' : 'Edit Payout Settings' }}
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
     <!-- User Stats - Only show for own profile -->
     <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
@@ -270,7 +328,7 @@
             <ion-label>Lesson Reminders</ion-label>
             <ion-toggle slot="end" [checked]="remindersEnabled" (ionChange)="toggleReminders($event)"></ion-toggle>
           </ion-item>
-          <ion-item button>
+          <ion-item button *ngIf="isTutor()">
             <ion-icon name="wallet" slot="start"></ion-icon>
             <ion-label>Show Wallet Balance</ion-label>
             <ion-toggle slot="end" [checked]="showWalletBalance" (ionChange)="toggleShowWalletBalance($event)"></ion-toggle>

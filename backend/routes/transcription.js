@@ -126,8 +126,11 @@ router.get('/my-analyses', verifyToken, async (req, res) => {
       });
     }
 
-    // Find all analyses for this student
-    const analyses = await LessonAnalysis.find({ studentId: user._id })
+    // Find all COMPLETED analyses for this student
+    const analyses = await LessonAnalysis.find({ 
+      studentId: user._id,
+      status: 'completed'  // Only show completed analyses
+    })
       .populate({
         path: 'lessonId',
         select: 'subject startTime isTrialLesson isOfficeHours officeHoursType bookingType'
@@ -1198,29 +1201,40 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
 router.get('/student/:studentId/latest', verifyToken, async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { tutorId } = req.query;
+    const { tutorId, currentLessonId } = req.query;
     
-    const query = { studentId };
+    const query = { 
+      studentId,
+      status: 'completed' // Only show completed analyses
+    };
     if (tutorId) {
       query.tutorId = tutorId;
     }
     
-    // Get all analyses sorted by date
+    // Exclude the current lesson if provided
+    if (currentLessonId) {
+      query.lessonId = { $ne: currentLessonId };
+    }
+    
+    // Get all analyses sorted by date (most recent first)
     const analyses = await LessonAnalysis.find(query)
       .sort({ lessonDate: -1 })
       .populate('lessonId')
-      .limit(5); // Get up to 5 to find first non-trial
+      .limit(10); // Get up to 10 to find the most recent non-trial
     
-    // Find the first analysis that's NOT from a trial lesson
-    const nonTrialAnalysis = analyses.find(analysis => {
-      return analysis.lessonId && !analysis.lessonId.isTrialLesson;
+    // Find the first COMPLETED analysis that's NOT from a trial lesson
+    // and NOT from the current lesson
+    const previousAnalysis = analyses.find(analysis => {
+      return analysis.lessonId && 
+             !analysis.lessonId.isTrialLesson && 
+             analysis.status === 'completed';
     });
     
-    if (!nonTrialAnalysis) {
+    if (!previousAnalysis) {
       return res.status(404).json({ message: 'No previous analysis found' });
     }
     
-    res.json(nonTrialAnalysis);
+    res.json(previousAnalysis);
     
   } catch (error) {
     console.error('❌ Error getting latest analysis:', error);

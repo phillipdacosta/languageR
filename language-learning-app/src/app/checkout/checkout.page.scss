@@ -1,43 +1,659 @@
+// Apple-Inspired Checkout Design - Matching Tutor Onboarding
+// Clean, minimal, premium feel with gradient background
+
+ion-header {
+  ion-toolbar {
+    --background: transparent;
+    --border-width: 0;
+    
+    ion-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+    }
+  }
+}
+
+ion-content {
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
 .checkout-layout {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 16px; // Reduced from 20px
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 24px;
+  grid-template-columns: 1fr 420px;
+  gap: 16px; // Reduced from 20px
+  min-height: calc(100vh - 60px); // Fit within viewport
+  max-height: calc(100vh - 60px);
+  align-items: stretch; // Changed from 'start' to 'stretch' for equal heights
 }
 
+// Shared card styles - matching tutor-onboarding
 .summary, .payment {
-  background: var(--ion-item-background, #fff);
-  border: 1px solid #e8e8e8;
+  background: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 20px; // Reduced from 24px
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; // Allow internal scrolling if needed
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.35);
+  }
+}
+
+h2 { 
+  margin: 0 0 12px 0; // Reduced from 16px
+  font-size: 18px; // Reduced from 20px
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #1c1c1e;
+}
+
+// Tutor Card - Clean & Compact
+.tutor-card { 
+  display: flex; 
+  gap: 14px; // Reduced from 16px
+  align-items: center; 
+  margin-bottom: 16px; // Reduced from 20px
+  padding: 12px; // Reduced from 16px
+  padding-bottom: 12px; // Reduced
+  border-bottom: 1px solid #f2f2f7;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-radius: 14px; // Reduced from 16px
+  border-bottom: none; // Remove border since we have background now
+}
+
+.avatar { 
+  width: 60px; // Reduced from 72px
+  height: 60px; // Reduced from 72px
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 14px; // Reduced from 16px
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.avatar img { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: cover; 
+  display: block; 
+}
+
+.meta { 
+  flex: 1;
+  min-width: 0;
+}
+
+.meta .name { 
+  font-weight: 700;
+  font-size: 16px; // Reduced from 18px
+  color: #1c1c1e;
+  margin-bottom: 6px; // Reduced from 8px
+  letter-spacing: -0.3px;
+}
+
+.slot-line { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; // Reduced from 12px
+  margin-top: 6px; // Reduced from 10px
+}
+
+.date-badge { 
+  width: 54px; // Reduced from 60px
+  border: 2px solid #f2f2f7;
+  border-radius: 10px; // Reduced from 12px
+  padding: 6px; // Reduced from 8px
+  text-align: center; 
+  background: #fafafa;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.date-badge .mon { 
+  font-size: 10px; // Reduced from 11px
+  color: #667eea;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.date-badge .day { 
+  font-size: 20px; // Reduced from 24px
+  font-weight: 800; 
+  color: #1c1c1e;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
+.slot-text { 
+  flex: 1;
+  min-width: 0;
+}
+
+.slot-text .when { 
+  font-weight: 600;
+  color: #1c1c1e;
+  font-size: 14px; // Reduced from 15px
+  margin-bottom: 3px; // Reduced from 4px
+}
+
+.slot-text .tz-note { 
+  color: #8e8e93;
+  font-size: 12px;
+}
+
+.meta .rate { 
+  color: #667eea;
+  font-size: 14px; // Reduced from 15px
+  font-weight: 700;
+  margin-top: 6px; // Reduced from 8px
+}
+
+// Lesson Info Card - New feature highlights section
+.lesson-info-card {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  border-radius: 12px; // Reduced from 14px
+  padding: 12px; // Reduced from 16px
+  margin-bottom: 16px; // Reduced from 20px
+  display: flex;
+  flex-direction: column;
+  gap: 10px; // Reduced from 12px
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px; // Reduced from 12px
+  color: #1c1c1e;
+  font-size: 13px; // Reduced from 14px
+  font-weight: 500;
+  
+  ion-icon {
+    font-size: 18px; // Reduced from 20px
+    color: #667eea;
+    flex-shrink: 0;
+  }
+  
+  span {
+    line-height: 1.4;
+  }
+}
+
+// Details Section
+.details { 
+  margin-top: auto; // Push to bottom
+  padding-top: 12px; // Reduced from 16px
+}
+
+.detail-row, .total-row { 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0; // Reduced from 16px
+  border-bottom: 1px solid #f2f2f7;
+}
+
+.detail-row:last-of-type {
+  border-bottom: none;
+}
+
+.detail-row .label {
+  display: flex;
+  align-items: center;
+  gap: 6px; // Reduced from 8px
+  color: #1c1c1e;
+  font-size: 14px; // Reduced from 15px
+  font-weight: 500;
+  
+  ion-icon {
+    font-size: 18px; // Reduced from 20px
+    color: #667eea;
+  }
+}
+
+.detail-row .value,
+.total-row .value {
+  font-size: 14px; // Reduced from 15px
+  color: #1c1c1e;
+  font-weight: 600;
+}
+
+.total-row { 
+  border-top: 2px solid #f2f2f7;
+  border-bottom: none;
+  margin-top: 10px; // Reduced from 16px
+  padding-top: 14px; // Reduced from 20px
+}
+
+.total { 
+  font-size: 20px; // Reduced from 24px
+  font-weight: 800;
+  color: #667eea;
+}
+
+// Payment Breakdown Styles
+.payment-breakdown {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #e5e5ea;
+
+  .breakdown-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #8e8e93;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+
+    .label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #3c3c43;
+      font-weight: 500;
+
+      ion-icon {
+        font-size: 16px;
+        color: #667eea;
+      }
+    }
+
+    .value {
+      font-weight: 600;
+      color: #3c3c43;
+    }
+
+    &.remaining {
+      padding-top: 4px;
+
+      .label {
+        color: #1c1c1e;
+        font-weight: 600;
+      }
+
+      .value {
+        color: #667eea;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Wallet Balance Display
+.wallet-balance-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  
+  ion-icon {
+    font-size: 24px;
+    color: #667eea;
+  }
+  
+  .balance-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .balance-label {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+  
+  .balance-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1c1c1e;
+  }
+}
+
+// Payment Methods Grid
+.payment-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+// Default Card Tile (New Design)
+.default-card-tile {
+  background: #f9f9f9;
+  border: 2px solid #e5e5ea;
+  border-radius: 14px;
+  padding: 16px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #667eea;
+    background: #fafafa;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  }
+  
+  &.has-default {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    
+    .card-brand-icon {
+      color: #ffffff;
+    }
+    
+    .card-details {
+      color: #ffffff;
+    }
+    
+    .card-number {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .default-badge {
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+    }
+  }
+  
+  .plus-icon {
+    font-size: 40px;
+    color: #667eea;
+  }
+  
+  .add-card-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1e;
+  }
+  
+  .card-brand-icon {
+    font-size: 28px;
+    color: #667eea;
+  }
+  
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    position: relative; // For positioning the manage icon
+  }
+  
+  .card-details {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1c1c1e;
+  }
+  
+  .card-number {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+  
+  .default-badge {
+    background: #667eea;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
+  }
+  
+  // Manage Cards Icon
+  .manage-icon {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+      color: #ffffff;
+      transform: scale(1.1);
+    }
+  }
+}
+
+// Payment Card Styles
+.payment-card {
+  background: #f9f9f9;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  padding: 16px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+
+  &:hover:not(.disabled):not(.selected) {
+    background: #f2f2f7;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  &.selected {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: transparent;
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+    
+    &:hover {
+      box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+    }
+    
+    .payment-card-icon ion-icon {
+      color: #ffffff;
+    }
+    
+    .payment-card-title {
+      color: #ffffff;
+      font-weight: 600;
+    }
+    
+    .payment-card-subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      
+      &.available {
+        color: rgba(255, 255, 255, 1);
+        font-weight: 600;
+      }
+    }
+    
+    .check-icon {
+      color: #ffffff;
+    }
+  }
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .payment-card-icon {
+    margin-bottom: 8px;
+    
+    ion-icon {
+      font-size: 28px;
+      color: #667eea;
+      transition: color 0.2s ease;
+    }
+  }
+
+  .payment-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin-bottom: 3px;
+    letter-spacing: -0.2px;
+  }
+
+  .payment-card-subtitle {
+    font-size: 12px;
+    color: #8e8e93;
+    
+    &.available {
+      color: #667eea;
+      font-weight: 600;
+    }
+  }
+
+  .check-icon {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 20px;
+    color: #ffffff;
+  }
+}
+
+// Wallet Compact
+.wallet-compact {
+  grid-column: span 2;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  text-align: left !important;
+  padding: 16px 20px !important;
+  
+  .payment-card-icon {
+    margin-bottom: 0 !important;
+    margin-right: 12px;
+  }
+  
+  .payment-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start !important;
+    flex: 1;
+  }
+}
+
+// Card Input
+.card-input-container {
+  margin-top: 16px;
+  padding: 0;
+}
+
+.stripe-card-element {
+  border: 2px solid #e5e5ea;
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 8px 24px rgba(16,24,40,0.06);
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+  
+  &:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+  }
 }
 
-h2 { margin: 0 0 12px 0; font-size: 18px; font-weight: 700; }
+.save-card-checkbox {
+  margin-top: 12px;
+  --background: transparent;
+  --padding-start: 0;
+  
+  ion-label {
+    font-size: 14px;
+    color: #1c1c1e;
+  }
+}
 
-.tutor-card { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-.avatar { width: 48px; height: 48px; background: #e9ecef; border-radius: 8px; overflow: hidden; }
-.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.meta .name { font-weight: 700; }
-.slot-line { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
-.date-badge { width: 56px; border: 1px solid #ececec; border-radius: 8px; padding: 6px 8px; text-align: center; background: #fafafa; }
-.date-badge .mon { font-size: 11px; color: #d35a7f; letter-spacing: .5px; font-weight: 700; }
-.date-badge .day { font-size: 22px; font-weight: 800; color: #111; line-height: 1.1; }
-.slot-text .when { font-weight: 700; color: #111; }
-.slot-text .tz-note { color: #667085; font-size: 12px; }
-.meta .rate { color: #111; font-size: 14px; font-weight: 600; margin-top: 2px; }
+// Buttons
+.confirm-btn {
+  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --border-radius: 12px;
+  --box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  height: 50px;
+  transition: all 0.2s ease;
+  
+  &:hover:not([disabled]) {
+    --box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+    transform: translateY(-2px);
+  }
+  
+  &[disabled] {
+    opacity: 0.6;
+  }
+}
 
-.details { margin-top: 8px; }
-.detail-row, .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
-.total-row { border-top: 1px solid #f0f0f0; margin-top: 8px; }
-.total { font-size: 18px; font-weight: 800; }
+.top-up-link {
+  --color: #667eea;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 10px;
+}
 
-.pay-method { --border-radius: 8px; margin-top: 8px; }
-.confirm-btn { --border-radius: 10px; margin-top: 16px; }
-.note { color: #667085; font-size: 12px; text-align: center; margin-top: 8px; }
+.note {
+  color: #8e8e93;
+  font-size: 11px;
+  text-align: center;
+  margin-top: 12px;
+  line-height: 1.5;
+}
 
+// Responsive
 @media (max-width: 900px) {
-  .checkout-layout { grid-template-columns: 1fr; }
+  .checkout-layout {
+    grid-template-columns: 1fr;
+    padding: 20px 16px;
+  }
+  
+  .payment-methods-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  
+  .wallet-compact {
+    grid-column: span 1;
+  }
 }

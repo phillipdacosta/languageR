@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
 import { FileUploadService } from '../../services/file-upload.service';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { SimpleVideoCompressionService } from '../../services/simple-video-compression.service';
@@ -15,7 +15,7 @@ export interface VideoUploadData {
   styleUrls: ['./video-upload.component.scss'],
   standalone: false
 })
-export class VideoUploadComponent implements OnInit, OnDestroy {
+export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Input() videoUrl: string = '';
   @Input() thumbnailUrl: string = '';
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
@@ -70,7 +70,43 @@ export class VideoUploadComponent implements OnInit, OnDestroy {
       console.log('📹 No thumbnail found');
     }
   }
-  
+
+  ngOnChanges(changes: SimpleChanges) {
+    console.log('📹 VideoUploadComponent ngOnChanges:', changes);
+    console.log('📹 Current state:', {
+      videoUrl: this.videoUrl,
+      thumbnailUrl: this.thumbnailUrl,
+      thumbnailPreview: this.thumbnailPreview,
+      showThumbnailOverlay: this.showThumbnailOverlay
+    });
+    
+    // React to changes in thumbnailUrl
+    if (changes['thumbnailUrl']) {
+      const newValue = changes['thumbnailUrl'].currentValue;
+      const previousValue = changes['thumbnailUrl'].previousValue;
+      console.log('📹 Thumbnail URL changed from:', previousValue, 'to:', newValue);
+      
+      // If thumbnail URL is provided, make sure we show it
+      if (newValue) {
+        this.showThumbnailOverlay = true;
+        this.thumbnailPreview = newValue;
+        console.log('📹 ✅ Set thumbnailPreview to:', this.thumbnailPreview);
+        console.log('📹 ✅ Set showThumbnailOverlay to TRUE');
+      } else {
+        this.showThumbnailOverlay = false;
+        this.thumbnailPreview = '';
+        console.log('📹 ❌ Cleared thumbnail (empty value)');
+      }
+      console.log('📹 After update - showThumbnailOverlay:', this.showThumbnailOverlay);
+    }
+    
+    // React to changes in videoUrl
+    if (changes['videoUrl'] && changes['videoUrl'].currentValue) {
+      console.log('📹 Video URL changed to:', changes['videoUrl'].currentValue);
+      this.autoThumbnailGenerated = this.isExternalVideo(changes['videoUrl'].currentValue);
+    }
+  }
+
   ngOnDestroy() {
     console.log('📹 VideoUploadComponent ngOnDestroy called');
     this.stopVideo();

@@ -59,6 +59,13 @@ export class WebSocketService {
   private newNotificationSubject = new Subject<any>();
   public newNotification$ = this.newNotificationSubject.asObservable();
 
+  // Tutor video approval/rejection subjects
+  private tutorVideoApprovedSubject = new Subject<{ message: string; timestamp: Date; tutorApproved: boolean }>();
+  public tutorVideoApproved$ = this.tutorVideoApprovedSubject.asObservable();
+
+  private tutorVideoRejectedSubject = new Subject<{ message: string; reason: string; timestamp: Date }>();
+  public tutorVideoRejected$ = this.tutorVideoRejectedSubject.asObservable();
+
   private reactionUpdatedSubject = new Subject<{ 
     messageId: string; 
     message: Message; 
@@ -102,6 +109,8 @@ export class WebSocketService {
     this.socket.off('office_hours_booking');
     this.socket.off('reaction_updated');
     this.socket.off('message_deleted');
+    this.socket.off('tutor_video_approved');
+    this.socket.off('tutor_video_rejected');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
@@ -176,6 +185,16 @@ export class WebSocketService {
       this.newNotificationSubject.next(data);
     });
 
+    // Listen for payment received notifications (tutors only)
+    this.socket.on('payment_received', (data: any) => {
+      console.log('💰 Payment received notification:', data);
+      this.newNotificationSubject.next({
+        ...data,
+        type: 'payment_received',
+        urgent: true // Show immediately
+      });
+    });
+
     // Listen for office hours bookings (urgent notifications)
     this.socket.on('office_hours_booking', (data: any) => {
       console.log('⚡ Office hours booking received:', data);
@@ -183,6 +202,18 @@ export class WebSocketService {
         ...data,
         urgent: true
       });
+    });
+
+    // Listen for tutor video approval
+    this.socket.on('tutor_video_approved', (data: { message: string; timestamp: Date; tutorApproved: boolean }) => {
+      console.log('🎉 Tutor video approved:', data);
+      this.tutorVideoApprovedSubject.next(data);
+    });
+
+    // Listen for tutor video rejection
+    this.socket.on('tutor_video_rejected', (data: { message: string; reason: string; timestamp: Date }) => {
+      console.log('❌ Tutor video rejected:', data);
+      this.tutorVideoRejectedSubject.next(data);
     });
 
     this.listenersSetup = true;

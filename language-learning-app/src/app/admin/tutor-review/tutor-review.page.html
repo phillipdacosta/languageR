@@ -1,0 +1,97 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Tutor Review Dashboard</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner></ion-spinner>
+  </div>
+
+  <div *ngIf="!loading" class="review-container">
+    <h2>Pending Approval ({{ pendingTutors.length }})</h2>
+
+    <div *ngIf="pendingTutors.length === 0" class="empty-state">
+      <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+      <p>No tutors pending approval</p>
+    </div>
+
+    <div *ngFor="let tutor of pendingTutors" class="tutor-card">
+      <div class="tutor-info">
+        <img [src]="tutor.picture" *ngIf="tutor.picture" alt="{{tutor.name}}">
+        <div>
+          <h3>{{ tutor.name || tutor.email }}</h3>
+          <p>{{ tutor.email }}</p>
+        </div>
+      </div>
+
+      <div class="video-section" *ngIf="tutor.onboardingData?.introductionVideo">
+        <div class="video-thumbnail-wrapper" (click)="playTutorVideo(tutor)">
+          <!-- Show thumbnail if available, otherwise show video element -->
+          <img *ngIf="tutor.onboardingData.videoThumbnail" 
+               [src]="tutor.onboardingData.videoThumbnail" 
+               alt="Video preview" 
+               class="video-thumbnail-image">
+          <video *ngIf="!tutor.onboardingData.videoThumbnail && tutor.onboardingData.introductionVideo" 
+                 [src]="tutor.onboardingData.introductionVideo + '#t=0.001'" 
+                 class="video-thumbnail-image"
+                 preload="metadata"></video>
+          <div class="video-play-overlay">
+            <ion-icon name="play"></ion-icon>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Video Player Modal (shown when thumbnail is clicked) -->
+      <ion-modal *ngIf="selectedTutor?.id === tutor.id && isVideoModalOpen" 
+                 [isOpen]="isVideoModalOpen"
+                 (didDismiss)="closeVideoModal()">
+        <ng-template>
+          <ion-header>
+            <ion-toolbar>
+              <ion-title>{{ selectedTutor.name }}'s Introduction Video</ion-title>
+              <ion-buttons slot="end">
+                <ion-button (click)="closeVideoModal()">
+                  <ion-icon name="close"></ion-icon>
+                </ion-button>
+              </ion-buttons>
+            </ion-toolbar>
+          </ion-header>
+          <ion-content class="video-modal-content">
+            <!-- Check if it's a Vimeo or YouTube embed URL -->
+            <iframe 
+              *ngIf="selectedTutor.onboardingData.introductionVideo.includes('vimeo.com') || selectedTutor.onboardingData.introductionVideo.includes('youtube.com') || selectedTutor.onboardingData.introductionVideo.includes('youtu.be')"
+              [src]="selectedTutor.onboardingData.introductionVideo | sanitizeUrl"
+              frameborder="0"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowfullscreen
+              class="video-player">
+            </iframe>
+            <!-- Direct video file -->
+            <video 
+              *ngIf="!selectedTutor.onboardingData.introductionVideo.includes('vimeo.com') && !selectedTutor.onboardingData.introductionVideo.includes('youtube.com') && !selectedTutor.onboardingData.introductionVideo.includes('youtu.be')"
+              [src]="selectedTutor.onboardingData.introductionVideo"
+              [poster]="selectedTutor.onboardingData.videoThumbnail || ''"
+              controls
+              autoplay
+              class="video-player">
+            </video>
+          </ion-content>
+        </ng-template>
+      </ion-modal>
+
+      <div class="actions">
+        <ion-button color="success" (click)="approveTutor(tutor)">
+          <ion-icon name="checkmark" slot="start"></ion-icon>
+          Approve
+        </ion-button>
+        <ion-button color="danger" (click)="rejectTutor(tutor)">
+          <ion-icon name="close" slot="start"></ion-icon>
+          Reject
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>
+

@@ -1,12 +1,12 @@
 <ion-content [fullscreen]="true" class="tutor-calendar-page" [class.disable-scroll]="isScreenLocked()">
   
   <!-- 🧪 DEV TEST: Auto-Cancel Button -->
-  <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+  <!-- <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
     <ion-button color="danger" (click)="testAutoCancelClass()" size="small" style="--box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
       <ion-icon name="warning" slot="start"></ion-icon>
       TEST Auto-Cancel
     </ion-button>
-  </div>
+  </div> -->
   
   <!-- Reschedule Mode Banner -->
   <div class="reschedule-banner" *ngIf="rescheduleMode">
@@ -69,10 +69,13 @@
 
         <div class="panel-section">
           <h3>Quick Actions</h3>
-            <ion-button expand="block" class="schedule-lesson-btn" (click)="onScheduleLesson(); toggleMobileSettings()">
+            <ion-button expand="block" class="schedule-lesson-btn" 
+                        (click)="onScheduleLesson(); toggleMobileSettings()"
+                        [disabled]="!stripeConnectOnboarded">
               <ion-icon name="add-outline" slot="start"></ion-icon>
               Schedule Class
             </ion-button>
+            
             <ion-button expand="block" fill="outline" (click)="onAddTimeOff(); toggleMobileSettings()">
               <ion-icon name="time-outline" slot="start"></ion-icon>
               Add time off
@@ -81,7 +84,10 @@
               <ion-icon name="add-circle-outline" slot="start"></ion-icon>
               Add extra slots
             </ion-button>
-            <ion-button expand="block" fill="outline" (click)="onSetUpAvailability(); toggleMobileSettings()">
+            
+            <ion-button expand="block" fill="outline" 
+                        (click)="onSetUpAvailability(); toggleMobileSettings()"
+                        [disabled]="!stripeConnectOnboarded">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               Set up availability
             </ion-button>
@@ -379,7 +385,9 @@
         <div class="sidebar-content" [class.expanded]="sidebarExpanded">
           <!-- Action Buttons -->
           <div class="action-buttons">
-            <ion-button size="small" class="schedule-lesson-btn" (click)="onScheduleLesson()">
+            <ion-button size="small" class="schedule-lesson-btn" 
+                        (click)="onScheduleLesson()"
+                        [disabled]="!stripeConnectOnboarded">
               <ion-icon name="add-outline" slot="start"></ion-icon>
               Schedule Class
             </ion-button>
@@ -394,7 +402,9 @@
               Add extra slots
             </ion-button>
 
-            <ion-button expand="block" fill="outline" class="action-btn" (click)="onSetUpAvailability()" [disabled]="isScreenLocked()">
+            <ion-button expand="block" fill="outline" class="action-btn" 
+                        (click)="onSetUpAvailability()" 
+                        [disabled]="isScreenLocked() || !stripeConnectOnboarded">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               Set up availability
             </ion-button>
@@ -487,8 +497,31 @@
               </button>
               <button class="today-btn" (click)="navigateToday()">Today</button>
             </div>
-            <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
-            <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+            <div class="toolbar-center">
+              <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
+              <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+              
+              <!-- Onboarding Warning Banner -->
+              <div class="stripe-warning-banner-inline" 
+                   *ngIf="!approvalStatus?.photoComplete || !approvalStatus?.videoApproved || !approvalStatus?.stripeComplete"
+                   style="background: #ffa50075; font-size: 14px; padding: 10px; border-radius: 13px; display: flex; align-items: center; gap: 8px;">
+                <ion-icon name="warning-outline"></ion-icon>
+                <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+                  <span>Your must complete onboarding:</span>
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
+                    <span *ngIf="!approvalStatus?.photoComplete">Upload your profile photo</span>
+                    <span *ngIf="!approvalStatus?.photoComplete && (!approvalStatus?.videoApproved || !approvalStatus?.stripeComplete)" style="opacity: 0.6; margin: 0 4px;">|</span>
+                    
+                    <span *ngIf="!approvalStatus?.videoApproved && approvalStatus?.videoComplete">Introduction video pending review</span>
+                    <span *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoComplete">Upload your introduction video</span>
+                    <span *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.stripeComplete" style="opacity: 0.6; margin: 0 4px;">|</span>
+                    
+                    <span *ngIf="!approvalStatus?.stripeComplete">Connect your bank account</span>
+                  </span>
+                  <a (click)="router.navigate(['/tutor-approval'])" style="color: #007bff; text-decoration: underline; cursor: pointer; white-space: nowrap;">Complete now</a>
+                </span>
+              </div>
+            </div>
             <div class="toolbar-right">
               <div class="view-switcher">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>

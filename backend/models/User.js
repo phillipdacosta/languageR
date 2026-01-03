@@ -52,9 +52,60 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: 'student'
   },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   onboardingCompleted: {
     type: Boolean,
     default: false
+  },
+  // Tutor-specific onboarding tracking
+  tutorOnboarding: {
+    photoUploaded: {
+      type: Boolean,
+      default: false
+    },
+    videoUploaded: {
+      type: Boolean,
+      default: false
+    },
+    videoApproved: {
+      type: Boolean,
+      default: false
+    },
+    videoRejected: {
+      type: Boolean,
+      default: false
+    },
+    videoRejectionReason: {
+      type: String,
+      default: null
+    },
+    stripeConnected: {
+      type: Boolean,
+      default: false
+    },
+    completedAt: {
+      type: Date,
+      default: null
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    approvedAt: {
+      type: Date,
+      default: null
+    }
+  },
+  // Whether tutor is approved and can show up in searches
+  tutorApproved: {
+    type: Boolean,
+    default: false,
+    index: true
   },
   onboardingData: {
     languages: [{
@@ -165,6 +216,45 @@ const userSchema = new mongoose.Schema({
     trim: true,
     comment: 'Preferred language for app interface (UI text)'
   },
+  // Payment & Stripe Integration
+  stripeCustomerId: {
+    type: String,
+    default: null,
+    index: true,
+    comment: 'Stripe Customer ID for students making payments'
+  },
+  stripeConnectAccountId: {
+    type: String,
+    default: null,
+    unique: true,
+    sparse: true,
+    index: true,
+    comment: 'Stripe Connect Account ID for tutors receiving payouts'
+  },
+  stripeConnectOnboarded: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether tutor has completed Stripe Connect onboarding'
+  },
+  stripeConnectOnboardedAt: {
+    type: Date,
+    default: null
+  },
+  defaultPaymentMethod: {
+    type: String,
+    enum: ['wallet', 'card', null],
+    default: null,
+    comment: 'Student\'s preferred payment method'
+  },
+  savedPaymentMethods: [{
+    stripePaymentMethodId: String,
+    brand: String, // e.g., 'visa', 'mastercard'
+    last4: String, // Last 4 digits
+    expiryMonth: Number,
+    expiryYear: Number,
+    isDefault: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }],
   stats: {
     totalLessons: {
       type: Number,

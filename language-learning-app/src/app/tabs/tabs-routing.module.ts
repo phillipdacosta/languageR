@@ -44,6 +44,14 @@ const routes: Routes = [
         loadChildren: () => import('../notifications/notifications.module').then(m => m.NotificationsPageModule)
       },
       {
+        path: 'home/wallet',
+        loadChildren: () => import('../wallet/wallet.module').then(m => m.WalletPageModule)
+      },
+      {
+        path: 'earnings',
+        loadComponent: () => import('../earnings/earnings.page').then(m => m.EarningsPage)
+      },
+      {
         path: '',
         redirectTo: 'home',
         pathMatch: 'full'

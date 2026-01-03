@@ -1,205 +1,332 @@
-<ion-content class="ion-padding">
-  <div class="onboarding-container">
-    <!-- Header -->
-    <div class="header">
-      <h1>Welcome, Tutor!</h1>
-      <p>Let's set up your teaching profile to help students find you.</p>
-    </div>
-
-    <!-- Progress Bar -->
-    <div class="progress-section">
-      <ion-progress-bar [value]="getProgressPercentage() / 100"></ion-progress-bar>
-      <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
-    </div>
-
-    <!-- Step Content -->
-    <div class="step-content">
-      
-      <!-- Step 1: Name & Country -->
-      <div *ngIf="currentStep === 1" class="step">
-        <h2>Tell us about yourself</h2>
-        <p>Let's start with some basic information</p>
-        
-        <ion-item>
-          <ion-label position="stacked">First Name *</ion-label>
-          <ion-input 
-            [(ngModel)]="firstName"
-            placeholder="Enter your first name"
-            type="text">
-          </ion-input>
-        </ion-item>
-        
-        <ion-item>
-          <ion-label position="stacked">Last Name *</ion-label>
-          <ion-input 
-            [(ngModel)]="lastName"
-            placeholder="Enter your last name"
-            type="text">
-          </ion-input>
-        </ion-item>
-        
-        <ion-item>
-          <ion-label position="stacked">Where are you from? *</ion-label>
-          <ion-button 
-            fill="outline" 
-            expand="block"
-            (click)="openCountryModal()"
-            class="country-select-button">
-            <span *ngIf="country; else noCountrySelected" style="display: flex; align-items: center; gap: 8px;">
-              <app-flag-icon [country]="country" [size]="20"></app-flag-icon>
-              <span>{{ country }}</span>
-            </span>
-            <ng-template #noCountrySelected>
-              Select your country
-            </ng-template>
-            <ion-icon name="chevron-down" slot="end"></ion-icon>
-          </ion-button>
-        </ion-item>
-        
-        <div class="selected-country" *ngIf="country">
-          <app-flag-icon [country]="country" [size]="24" class="country-flag"></app-flag-icon>
-          <span class="country-name">{{ country }}</span>
-        </div>
+<div class="onboarding-container">
+  <!-- Two Column Layout -->
+  <div class="onboarding-content">
+    
+    <!-- Left Column: Progress & Navigation -->
+    <div class="left-column">
+      <!-- Header -->
+      <div class="onboarding-header">
+        <h1>Welcome, Tutor!</h1>
+        <p>Let's set up your teaching profile</p>
       </div>
 
-      <!-- Step 2: Native Language -->
-      <div *ngIf="currentStep === 2" class="step">
-        <div class="native-language-section">
-          <ion-icon name="language" size="large" color="primary"></ion-icon>
-          <h2>What's your native language?</h2>
-          <p>We'll provide any feedback or notifications in your language</p>
-          
-          <div class="language-grid">
-            <ion-chip 
-              *ngFor="let lang of nativeLanguageOptions" 
-              [class.selected]="nativeLanguage === lang.code"
-              (click)="setNativeLanguage(lang.code)">
-              <span class="language-native">{{ lang.native }}</span>
-              <span class="language-name">({{ lang.name }})</span>
-            </ion-chip>
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
+        </div>
+        <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+      </div>
+
+      <!-- Steps List -->
+      <div class="steps-list">
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 1"
+          [class.current]="currentStep === 1"
+          (click)="currentStep = 1">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 1" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 1" class="step-number">1</span>
+          </div>
+          <div class="step-info">
+            <h3>About You</h3>
+            <p>Name and location</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 2"
+          [class.current]="currentStep === 2"
+          (click)="currentStep > 1 ? currentStep = 2 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 2" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 2" class="step-number">2</span>
+          </div>
+          <div class="step-info">
+            <h3>Native Language</h3>
+            <p>Your primary language</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 3"
+          [class.current]="currentStep === 3"
+          (click)="currentStep > 2 ? currentStep = 3 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 3" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 3" class="step-number">3</span>
+          </div>
+          <div class="step-info">
+            <h3>Languages</h3>
+            <p>What you teach</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 4"
+          [class.current]="currentStep === 4"
+          (click)="currentStep > 3 ? currentStep = 4 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 4" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 4" class="step-number">4</span>
+          </div>
+          <div class="step-info">
+            <h3>Experience</h3>
+            <p>Your background</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 5"
+          [class.current]="currentStep === 5"
+          (click)="currentStep > 4 ? currentStep = 5 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 5" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 5" class="step-number">5</span>
+          </div>
+          <div class="step-info">
+            <h3>Availability</h3>
+            <p>Your schedule</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 6"
+          [class.current]="currentStep === 6"
+          (click)="currentStep > 5 ? currentStep = 6 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 6" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 6" class="step-number">6</span>
+          </div>
+          <div class="step-info">
+            <h3>Profile Details</h3>
+            <p>Bio, rate & video</p>
           </div>
         </div>
       </div>
 
-      <!-- Step 3: Languages -->
-      <div *ngIf="currentStep === 3" class="step">
-        <h2>What languages do you teach?</h2>
-        <p>Select all languages you're comfortable teaching</p>
-        
-        <div class="options-grid">
-          <ion-button 
-            *ngFor="let language of availableLanguages"
-            [class.selected]="selectedLanguages.includes(language)"
-            fill="outline"
-            class="option-button"
-            (click)="toggleLanguage(language)">
-            {{ language }}
-          </ion-button>
-        </div>
-      </div>
+      <!-- Navigation Buttons -->
+      <div class="nav-buttons">
+        <ion-button 
+          fill="clear" 
+          [disabled]="currentStep === 1"
+          (click)="prevStep()">
+          <ion-icon name="chevron-back" slot="start"></ion-icon>
+          Previous
+        </ion-button>
 
-      <!-- Step 4: Teaching Experience -->
-      <div *ngIf="currentStep === 4" class="step">
-        <h2>What's your teaching experience?</h2>
-        <p>Help students understand your background</p>
-        
-        <div class="options-list">
-          <ion-button 
-            *ngFor="let experience of experienceLevels"
-            [class.selected]="selectedExperience === experience"
-            fill="outline"
-            expand="block"
-            class="option-button"
-            (click)="setExperience(experience)">
-            {{ experience }}
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- Step 5: Availability -->
-      <div *ngIf="currentStep === 5" class="step">
-        <h2>When are you available?</h2>
-        <p>Let students know your teaching schedule</p>
-        
-        <div class="options-list">
-          <ion-button 
-            *ngFor="let schedule of scheduleOptions"
-            [class.selected]="selectedSchedule === schedule"
-            fill="outline"
-            expand="block"
-            class="option-button"
-            (click)="setSchedule(schedule)">
-            {{ schedule }}
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- Step 6: Profile Setup -->
-      <div *ngIf="currentStep === 6" class="step">
-        <h2>Complete your profile</h2>
-        <p>Add some details about yourself</p>
-        
-        <ion-item>
-          <ion-label position="stacked">Bio (optional)</ion-label>
-          <ion-textarea 
-            [(ngModel)]="profileBio"
-            placeholder="Tell students about yourself..."
-            rows="4">
-          </ion-textarea>
-        </ion-item>
-        
-        <ion-item>
-          <ion-label position="stacked">Your Rate (USD)</ion-label>
-          <ion-input 
-            [(ngModel)]="hourlyRate"
-            type="number"
-            placeholder="25">
-          </ion-input>
-        </ion-item>
-        <ion-note color="medium" style="padding: 0 16px; font-size: 13px;">
-          This is your rate for a standard 50-minute lesson. 25-minute lessons will be priced at 50% of this rate.
-        </ion-note>
-        
-        <!-- Introduction Video -->
-        <div class="video-section" style="margin-top: 24px;">
-          <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Introduction Video (optional)</h3>
-          <p style="font-size: 14px; color: #64748b; margin-bottom: 16px;">
-            Record a short video introducing yourself and explaining your teaching style. This helps students get to know you better.
-          </p>
-          
-          <app-video-upload
-            [videoUrl]="introductionVideo"
-            (videoUploaded)="onVideoUploaded($event)"
-            (videoRemoved)="onVideoRemoved()">
-          </app-video-upload>
-        </div>
+        <ion-button 
+          fill="clear" 
+          *ngIf="currentStep < totalSteps"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Next
+          <ion-icon name="chevron-forward" slot="end"></ion-icon>
+        </ion-button>
       </div>
     </div>
 
-    <!-- Navigation -->
-    <div class="navigation">
-      <ion-button 
-        *ngIf="currentStep > 1"
-        fill="clear"
-        (click)="prevStep()">
-        <ion-icon name="chevron-back" slot="start"></ion-icon>
-        Back
-      </ion-button>
-      
-      <ion-button 
-        *ngIf="currentStep < totalSteps"
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        Next
-        <ion-icon name="chevron-forward" slot="end"></ion-icon>
-      </ion-button>
-      
-      <ion-button 
-        *ngIf="currentStep === totalSteps"
-        [disabled]="!canProceed()"
-        (click)="completeOnboarding()">
-        Complete Setup
-      </ion-button>
+    <!-- Vertical Separator -->
+    <div class="separator"></div>
+
+    <!-- Right Column: Current Step Content -->
+    <div class="right-column">
+      <div class="step-content-card">
+        
+        <!-- Step 1: Name & Country -->
+        <div *ngIf="currentStep === 1">
+          <div class="step-icon-circle">
+            <ion-icon name="person"></ion-icon>
+          </div>
+          <h2 class="step-title">Tell us about yourself</h2>
+          <p class="step-description">Let's start with some basic information</p>
+
+          <div class="form-fields">
+            <div class="form-field">
+              <label>First Name *</label>
+              <input 
+                type="text"
+                [(ngModel)]="firstName"
+                placeholder="Enter your first name"
+                class="modern-input">
+            </div>
+
+            <div class="form-field">
+              <label>Last Name *</label>
+              <input 
+                type="text"
+                [(ngModel)]="lastName"
+                placeholder="Enter your last name"
+                class="modern-input">
+            </div>
+
+            <div class="form-field">
+              <label>Where are you from? *</label>
+              <button 
+                class="country-select-button"
+                (click)="openCountryModal()">
+                <span *ngIf="country; else noCountry" class="country-display">
+                  <app-flag-icon [country]="country" [size]="20"></app-flag-icon>
+                  <span>{{ country }}</span>
+                </span>
+                <ng-template #noCountry>
+                  Select your country
+                </ng-template>
+                <ion-icon name="chevron-down"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Native Language -->
+        <div *ngIf="currentStep === 2">
+          <div class="step-icon-circle">
+            <ion-icon name="language"></ion-icon>
+          </div>
+          <h2 class="step-title">What's your native language?</h2>
+          <p class="step-description">We'll provide feedback in your language</p>
+
+          <div class="language-grid">
+            <button 
+              *ngFor="let lang of nativeLanguageOptions" 
+              class="language-chip"
+              [class.selected]="nativeLanguage === lang.code"
+              (click)="setNativeLanguage(lang.code)">
+              <span class="language-native">{{ lang.native }}</span>
+              <span class="language-name">({{ lang.name }})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Languages -->
+        <div *ngIf="currentStep === 3">
+          <div class="step-icon-circle">
+            <ion-icon name="globe"></ion-icon>
+          </div>
+          <h2 class="step-title">What languages do you teach?</h2>
+          <p class="step-description">Select all languages you're comfortable teaching</p>
+
+          <div class="options-grid">
+            <button 
+              *ngFor="let language of availableLanguages"
+              class="option-button"
+              [class.selected]="selectedLanguages.includes(language)"
+              (click)="toggleLanguage(language)">
+              {{ language }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: Experience -->
+        <div *ngIf="currentStep === 4">
+          <div class="step-icon-circle">
+            <ion-icon name="school"></ion-icon>
+          </div>
+          <h2 class="step-title">What's your teaching experience?</h2>
+          <p class="step-description">Help students understand your background</p>
+
+          <div class="options-list">
+            <button 
+              *ngFor="let experience of experienceLevels"
+              class="option-button-block"
+              [class.selected]="selectedExperience === experience"
+              (click)="setExperience(experience)">
+              {{ experience }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 5: Availability -->
+        <div *ngIf="currentStep === 5">
+          <div class="step-icon-circle">
+            <ion-icon name="calendar"></ion-icon>
+          </div>
+          <h2 class="step-title">When are you available?</h2>
+          <p class="step-description">Let students know your teaching schedule</p>
+
+          <div class="options-list">
+            <button 
+              *ngFor="let schedule of scheduleOptions"
+              class="option-button-block"
+              [class.selected]="selectedSchedule === schedule"
+              (click)="setSchedule(schedule)">
+              {{ schedule }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 6: Profile Setup -->
+        <div *ngIf="currentStep === 6">
+          <div class="step-icon-circle">
+            <ion-icon name="create"></ion-icon>
+          </div>
+          <h2 class="step-title">Complete your profile</h2>
+          <p class="step-description">Add some final details</p>
+
+          <div class="form-fields">
+            <div class="form-field">
+              <label>Bio (optional)</label>
+              <textarea 
+                [(ngModel)]="profileBio"
+                placeholder="Tell students about yourself..."
+                rows="4"
+                class="modern-textarea"></textarea>
+            </div>
+
+            <div class="form-field">
+              <label>Hourly Rate (USD) *</label>
+              <input 
+                type="number"
+                [(ngModel)]="hourlyRate"
+                placeholder="25"
+                class="modern-input">
+              <p class="field-note">For 50-minute lessons. 25-min lessons are 50% of this rate.</p>
+            </div>
+
+            <div class="video-section">
+              <h4>Introduction Video (optional)</h4>
+              <p class="video-description">Record a short video introducing yourself</p>
+              <app-video-upload
+                [videoUrl]="introductionVideo"
+                [thumbnailUrl]="thumbnailUrl"
+                (videoUploaded)="onVideoUploaded($event)"
+                (videoRemoved)="onVideoRemoved()">
+              </app-video-upload>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <ion-button 
+          *ngIf="currentStep < totalSteps"
+          expand="block"
+          size="large"
+          class="primary-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+
+        <ion-button 
+          *ngIf="currentStep === totalSteps"
+          expand="block"
+          size="large"
+          color="success"
+          class="submit-action"
+          [disabled]="!canProceed()"
+          (click)="completeOnboarding()">
+          Complete Setup
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-button>
+      </div>
     </div>
+
   </div>
-</ion-content>
+</div>

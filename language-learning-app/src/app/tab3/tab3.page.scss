@@ -1713,7 +1713,7 @@ $purple: #8b5cf6;
 .node-circle {
   width: 60px;
   height: 60px;
-  border-radius: 50%;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1873,7 +1873,7 @@ $purple: #8b5cf6;
   .node-circle {
     width: 20px;
     height: 20px;
-    border-radius: 50%;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1976,7 +1976,7 @@ $purple: #8b5cf6;
     .tutor-avatar {
       width: 20px;
       height: 20px;
-      border-radius: 50%;
+      border-radius: 16px;
       object-fit: cover;
       border: 1.5px solid #e5e7eb;
     }

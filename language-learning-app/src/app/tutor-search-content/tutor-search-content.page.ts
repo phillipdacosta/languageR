@@ -799,7 +799,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
         width: 60px;
         height: 60px;
         background-color: #cccccc;
-        border-radius: 50%;
+        border-radius: 16px;
         display: flex;
         align-items: center;
         justify-content: center;

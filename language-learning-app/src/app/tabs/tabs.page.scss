@@ -152,7 +152,7 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 50%;
+        border-radius: 9px !important;
       }
       
       .user-initials {
@@ -165,7 +165,7 @@
         color: white;
         font-weight: 600;
         font-size: 12px;
-        border-radius: 50%;
+        border-radius: 16px;
       }
     }
   }
@@ -426,7 +426,7 @@
             .notification-avatar {
               width: 40px;
               height: 40px;
-              border-radius: 50%;
+              border-radius: 16px;
               object-fit: cover;
               border: 2px solid #e5e7eb;
             }
@@ -705,7 +705,7 @@
               width: 100%;
               height: 100%;
               object-fit: cover;
-              border-radius: 50%;
+              border-radius: 16px;
             }
             
             .avatar-fallback {
@@ -718,7 +718,7 @@
               color: white;
               font-weight: 600;
               font-size: 18px;
-              border-radius: 50%;
+              border-radius: 16px;
             }
           }
         }
@@ -902,8 +902,8 @@
         height: 10px !important;
         background-color: #ff3b30 !important;
         border-radius: 50% !important;
-        top: 5px !important;
-        right: 25px !important;
+        top: 2px !important;
+        right: 23px !important;
         border: 2px solid white !important;
         box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
         z-index: 9999 !important;

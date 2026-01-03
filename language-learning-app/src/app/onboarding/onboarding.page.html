@@ -1,238 +1,282 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Welcome to Language Learning</ion-title>
-    <!-- <ion-buttons slot="end">
-      <ion-button (click)="skipOnboarding()" fill="clear">
-        Skip
-      </ion-button>
-    </ion-buttons> -->
-    <ion-buttons slot="end">
-        <ion-button (click)="logout()" fill="clear">
-          Logout
+<div class="onboarding-container">
+  <!-- Two Column Layout -->
+  <div class="onboarding-content">
+    
+    <!-- Left Column: Progress & Navigation -->
+    <div class="left-column">
+      <!-- Header -->
+      <div class="onboarding-header">
+        <h1>Welcome!</h1>
+        <p>Let's get you started</p>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
+        </div>
+        <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+      </div>
+
+      <!-- Steps List -->
+      <div class="steps-list">
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 1"
+          [class.current]="currentStep === 1"
+          (click)="currentStep = 1">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 1" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 1" class="step-number">1</span>
+          </div>
+          <div class="step-info">
+            <h3>About You</h3>
+            <p>Your name</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 2"
+          [class.current]="currentStep === 2"
+          (click)="currentStep > 1 ? currentStep = 2 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 2" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 2" class="step-number">2</span>
+          </div>
+          <div class="step-info">
+            <h3>Native Language</h3>
+            <p>Your primary language</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 3"
+          [class.current]="currentStep === 3"
+          (click)="currentStep > 2 ? currentStep = 3 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 3" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 3" class="step-number">3</span>
+          </div>
+          <div class="step-info">
+            <h3>Languages</h3>
+            <p>What you want to learn</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 4"
+          [class.current]="currentStep === 4"
+          (click)="currentStep > 3 ? currentStep = 4 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 4" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 4" class="step-number">4</span>
+          </div>
+          <div class="step-info">
+            <h3>Goals</h3>
+            <p>Your learning goals</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 5"
+          [class.current]="currentStep === 5"
+          (click)="currentStep > 4 ? currentStep = 5 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 5" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 5" class="step-number">5</span>
+          </div>
+          <div class="step-info">
+            <h3>Experience</h3>
+            <p>Your level & schedule</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Buttons -->
+      <div class="nav-buttons">
+        <ion-button 
+          fill="clear" 
+          [disabled]="currentStep === 1"
+          (click)="previousStep()">
+          <ion-icon name="chevron-back" slot="start"></ion-icon>
+          Previous
         </ion-button>
-      </ion-buttons>
-  </ion-toolbar>
-</ion-header>
 
-<ion-content class="ion-padding">
-  <div class="onboarding-container">
-    <!-- Progress Bar -->
-    <div class="progress-section">
-      <ion-progress-bar [value]="getProgressPercentage() / 100"></ion-progress-bar>
-      <p class="step-indicator">Step {{ currentStep }} of {{ totalSteps }}</p>
+        <ion-button 
+          fill="clear" 
+          *ngIf="currentStep < totalSteps"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Next
+          <ion-icon name="chevron-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
     </div>
 
-    <!-- Step 1: Name -->
-    <div *ngIf="currentStep === 1" class="step-content">
-      <div class="name-section">
-        <ion-icon name="person" size="large" color="primary"></ion-icon>
-        <h2>What's your name?</h2>
-        <p>Let's start with the basics</p>
+    <!-- Vertical Separator -->
+    <div class="separator"></div>
+
+    <!-- Right Column: Current Step Content -->
+    <div class="right-column">
+      <div class="step-content-card">
         
-        <ion-item class="name-input">
-          <ion-label position="stacked">First Name</ion-label>
-          <ion-input 
-            [(ngModel)]="firstName" 
-            placeholder="Enter your first name"
-            type="text"
-            required>
-          </ion-input>
-        </ion-item>
-        
-        <ion-item class="name-input">
-          <ion-label position="stacked">Last Name</ion-label>
-          <ion-input 
-            [(ngModel)]="lastName" 
-            placeholder="Enter your last name"
-            type="text"
-            required>
-          </ion-input>
-        </ion-item>
-      </div>
-    </div>
+        <!-- Step 1: Name -->
+        <div *ngIf="currentStep === 1">
+          <div class="step-icon-circle">
+            <ion-icon name="person"></ion-icon>
+          </div>
+          <h2 class="step-title">What's your name?</h2>
+          <p class="step-description">Let's start with the basics</p>
 
-    <!-- Step 2: Native Language Selection -->
-    <div *ngIf="currentStep === 2" class="step-content">
-      <div class="native-language-section">
-        <ion-icon name="language" size="large" color="primary"></ion-icon>
-        <h2>What's your native language?</h2>
-        <p>We'll provide lesson feedback in your language</p>
-        
-        <div class="language-grid">
-          <ion-chip 
-            *ngFor="let lang of nativeLanguageOptions" 
-            [class.selected]="nativeLanguage === lang.code"
-            (click)="setNativeLanguage(lang.code)">
-            <span class="language-native">{{ lang.native }}</span>
-            <span class="language-name">({{ lang.name }})</span>
-          </ion-chip>
+          <div class="form-fields">
+            <div class="form-field">
+              <label>First Name *</label>
+              <input 
+                type="text"
+                [(ngModel)]="firstName"
+                placeholder="Enter your first name"
+                class="modern-input">
+            </div>
+
+            <div class="form-field">
+              <label>Last Name *</label>
+              <input 
+                type="text"
+                [(ngModel)]="lastName"
+                placeholder="Enter your last name"
+                class="modern-input">
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Step 3: Language Selection -->
-    <div *ngIf="currentStep === 3" class="step-content">
-      <h2>What languages would you like to learn?</h2>
-      <p>Select all that interest you:</p>
-      
-      <div class="language-grid">
-        <ion-chip 
-          *ngFor="let language of availableLanguages" 
-          [class.selected]="selectedLanguages.includes(language)"
-          (click)="toggleLanguage(language)">
-          {{ language }}
-        </ion-chip>
-      </div>
-    </div>
+        <!-- Step 2: Native Language -->
+        <div *ngIf="currentStep === 2">
+          <div class="step-icon-circle">
+            <ion-icon name="language"></ion-icon>
+          </div>
+          <h2 class="step-title">What's your native language?</h2>
+          <p class="step-description">We'll provide lesson feedback in your language</p>
 
-    <!-- Step 4: Learning Goals (Students Only) -->
-    <div *ngIf="currentStep === 4 && !isTutorOnboarding()" class="step-content">
-      <h2>What are your learning goals?</h2>
-      <p>Choose what you want to achieve:</p>
-      
-      <div class="goals-list">
-        <ion-item 
-          *ngFor="let goal of availableGoals" 
-          button 
-          (click)="toggleGoal(goal)"
-          [class.selected]="learningGoals.includes(goal)">
-          <ion-checkbox 
-            slot="start" 
-            [checked]="learningGoals.includes(goal)">
-          </ion-checkbox>
-          <ion-label>{{ goal }}</ion-label>
-        </ion-item>
-      </div>
-    </div>
-
-    <!-- Step 5: Experience & Schedule (Students Only) -->
-    <div *ngIf="currentStep === 5 && !isTutorOnboarding()" class="step-content">
-      <h2>Tell us about your experience</h2>
-      
-      <div class="experience-section">
-        <h3>What's your current level?</h3>
-        <div class="level-options">
-          <ion-button 
-            *ngFor="let level of experienceLevels" 
-            [fill]="experienceLevel === level ? 'solid' : 'outline'"
-            (click)="setExperienceLevel(level)">
-            {{ level }}
-          </ion-button>
+          <div class="language-grid">
+            <button 
+              *ngFor="let lang of nativeLanguageOptions" 
+              class="language-chip"
+              [class.selected]="nativeLanguage === lang.code"
+              (click)="setNativeLanguage(lang.code)">
+              <span class="language-native">{{ lang.native }}</span>
+              <span class="language-name">({{ lang.name }})</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="schedule-section">
-        <h3>How often would you like to practice?</h3>
-        <div class="schedule-options">
-          <ion-button 
-            *ngFor="let schedule of scheduleOptions" 
-            [fill]="preferredSchedule === schedule ? 'solid' : 'outline'"
-            (click)="setPreferredSchedule(schedule)">
-            {{ schedule }}
-          </ion-button>
+        <!-- Step 3: Languages to Learn -->
+        <div *ngIf="currentStep === 3">
+          <div class="step-icon-circle">
+            <ion-icon name="globe"></ion-icon>
+          </div>
+          <h2 class="step-title">What languages would you like to learn?</h2>
+          <p class="step-description">Select all languages that interest you</p>
+
+          <div class="options-grid">
+            <button 
+              *ngFor="let language of availableLanguages"
+              class="option-button"
+              [class.selected]="selectedLanguages.includes(language)"
+              (click)="toggleLanguage(language)">
+              {{ language }}
+            </button>
+          </div>
         </div>
+
+        <!-- Step 4: Learning Goals -->
+        <div *ngIf="currentStep === 4">
+          <div class="step-icon-circle">
+            <ion-icon name="trophy"></ion-icon>
+          </div>
+          <h2 class="step-title">What are your learning goals?</h2>
+          <p class="step-description">Choose what you want to achieve</p>
+
+          <div class="goals-list">
+            <button 
+              *ngFor="let goal of availableGoals"
+              class="goal-button"
+              [class.selected]="learningGoals.includes(goal)"
+              (click)="toggleGoal(goal)">
+              <ion-icon 
+                [name]="learningGoals.includes(goal) ? 'checkbox' : 'square-outline'"
+                class="checkbox-icon">
+              </ion-icon>
+              <span>{{ goal }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 5: Experience & Schedule -->
+        <div *ngIf="currentStep === 5">
+          <div class="step-icon-circle">
+            <ion-icon name="school"></ion-icon>
+          </div>
+          <h2 class="step-title">Tell us about your experience</h2>
+          <p class="step-description">This helps us match you with the right tutors</p>
+
+          <div class="form-fields">
+            <div class="form-field">
+              <label>What's your current level?</label>
+              <div class="options-list">
+                <button 
+                  *ngFor="let level of experienceLevels"
+                  class="option-button-block"
+                  [class.selected]="experienceLevel === level"
+                  (click)="setExperienceLevel(level)">
+                  {{ level }}
+                </button>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>How often would you like to practice?</label>
+              <div class="options-list">
+                <button 
+                  *ngFor="let schedule of scheduleOptions"
+                  class="option-button-block"
+                  [class.selected]="preferredSchedule === schedule"
+                  (click)="setPreferredSchedule(schedule)">
+                  {{ schedule }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <ion-button 
+          *ngIf="currentStep < totalSteps"
+          expand="block"
+          size="large"
+          class="primary-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+
+        <ion-button 
+          *ngIf="currentStep === totalSteps"
+          expand="block"
+          size="large"
+          color="success"
+          class="submit-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Complete Setup
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-button>
       </div>
     </div>
 
-    <!-- Step 3: Tutor-specific steps (Tutors Only) -->
-    <div *ngIf="currentStep === 3 && isTutorOnboarding()" class="step-content">
-      <h2>Complete your tutor profile</h2>
-      
-      <!-- Tutor Country -->
-      <div class="tutor-country-section">
-        <h3>Where are you from?</h3>
-        <p class="section-hint">This helps students find tutors from specific regions</p>
-        <ion-item class="country-select-item">
-          <ion-label position="stacked">Country</ion-label>
-          <ion-button 
-            fill="outline" 
-            expand="block"
-            (click)="openCountryModal()"
-            class="country-select-button">
-            <span *ngIf="tutorCountry; else noCountrySelected" style="display: flex; align-items: center; gap: 8px;">
-              <app-flag-icon [country]="tutorCountry" [size]="20"></app-flag-icon>
-              <span>{{ tutorCountry }}</span>
-            </span>
-            <ng-template #noCountrySelected>
-              Select your country
-            </ng-template>
-            <ion-icon name="chevron-down" slot="end"></ion-icon>
-          </ion-button>
-        </ion-item>
-      </div>
-      
-      <!-- Tutor Experience -->
-      <div class="tutor-experience-section">
-        <h3>Teaching Experience</h3>
-        <div class="experience-options">
-          <ion-button 
-            *ngFor="let experience of tutorExperienceOptions" 
-            [fill]="tutorExperience === experience ? 'solid' : 'outline'"
-            (click)="setTutorExperience(experience)">
-            {{ experience }}
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- Tutor Schedule -->
-      <div class="tutor-schedule-section">
-        <h3>When are you available?</h3>
-        <div class="schedule-options">
-          <ion-button 
-            *ngFor="let schedule of tutorScheduleOptions" 
-            [fill]="tutorSchedule === schedule ? 'solid' : 'outline'"
-            (click)="setTutorSchedule(schedule)">
-            {{ schedule }}
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- Tutor Bio -->
-      <div class="tutor-bio-section">
-        <h3>Tell students about yourself</h3>
-        <ion-textarea
-          [(ngModel)]="tutorBio"
-          placeholder="Write a brief description of your teaching style, background, and what students can expect from your lessons..."
-          rows="4"
-          maxlength="1000">
-        </ion-textarea>
-        <p class="character-count">{{ tutorBio.length }}/1000 characters</p>
-      </div>
-
-      <!-- Lesson Rate -->
-      <div class="hourly-rate-section">
-        <h3>Set your lesson rate</h3>
-        <p style="font-size: 14px; color: #64748b; margin: 8px 0 16px 0;">This is your rate for a standard 50-minute lesson</p>
-        <div class="rate-input">
-          <ion-label>$</ion-label>
-          <ion-input
-            type="number"
-            [(ngModel)]="tutorHourlyRate"
-            min="5"
-            max="200"
-            placeholder="25">
-          </ion-input>
-          <ion-label>/hour</ion-label>
-        </div>
-        <p class="rate-hint">Recommended: $15-50 per hour</p>
-      </div>
-    </div>
-
-    <!-- Navigation Buttons -->
-    <div class="navigation-buttons">
-      <ion-button 
-        *ngIf="currentStep > 1" 
-        fill="outline" 
-        (click)="previousStep()">
-        Previous
-      </ion-button>
-      
-      <ion-button 
-        expand="block" 
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        {{ currentStep === totalSteps ? 'Complete Setup' : 'Next' }}
-      </ion-button>
-    </div>
   </div>
-</ion-content>
+</div>

@@ -19,6 +19,21 @@ export interface User {
   onboardingCompleted: boolean;
   nativeLanguage?: string;
   interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
+  // Tutor-specific onboarding tracking
+  tutorOnboarding?: {
+    photoUploaded: boolean;
+    videoUploaded: boolean;
+    videoApproved: boolean;
+    videoRejected: boolean;
+    videoRejectionReason?: string;
+    stripeConnected: boolean;
+    completedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+  };
+  tutorApproved?: boolean;
+  stripeConnectOnboarded?: boolean;
+  stripeConnectAccountId?: string;
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -30,6 +45,8 @@ export interface User {
     bio?: string;
     hourlyRate?: number;
     introductionVideo?: string;
+    videoThumbnail?: string;
+    videoType?: 'upload' | 'youtube' | 'vimeo';
     completedAt: string;
   };
   profile?: {
@@ -141,6 +158,18 @@ export class UserService {
   private apiUrl = `${environment.backendUrl}/api`;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+
+  // Tutor approval status tracking
+  private tutorApprovalStatusSubject = new BehaviorSubject<{
+    photoComplete: boolean;
+    videoComplete: boolean;
+    videoApproved: boolean;
+    videoRejected: boolean;
+    stripeComplete: boolean;
+    fullyApproved: boolean;
+    needsApproval: boolean;
+  } | null>(null);
+  public tutorApprovalStatus$ = this.tutorApprovalStatusSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -266,8 +295,51 @@ export class UserService {
       tap(user => {
         this.currentUserSubject.next(user);
         this.initialLoadComplete = true;
+        
+        // Update tutor approval status if user is a tutor
+        if (user.userType === 'tutor') {
+          this.updateTutorApprovalStatus(user);
+        }
       })
     );
+  }
+
+  /**
+   * Calculate and update tutor approval status based on user data
+   */
+  private updateTutorApprovalStatus(user: User): void {
+    const photoComplete = !!user.picture;
+    const videoComplete = !!user.onboardingData?.introductionVideo;
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const videoRejected = user.tutorOnboarding?.videoRejected === true;
+    const stripeComplete = user.stripeConnectOnboarded === true;
+    const fullyApproved = user.tutorApproved === true;
+    
+    // Needs approval if onboarding is complete but not fully approved
+    const needsApproval = user.onboardingCompleted && !fullyApproved;
+    
+    const status = {
+      photoComplete,
+      videoComplete,
+      videoApproved,
+      videoRejected,
+      stripeComplete,
+      fullyApproved,
+      needsApproval
+    };
+    
+    console.log('📊 [UserService] Tutor approval status:', status);
+    this.tutorApprovalStatusSubject.next(status);
+  }
+
+  /**
+   * Force refresh tutor approval status (call after video upload, Stripe connect, etc.)
+   */
+  public refreshTutorApprovalStatus(): void {
+    const user = this.currentUserSubject.value;
+    if (user && user.userType === 'tutor') {
+      this.updateTutorApprovalStatus(user);
+    }
   }
 
   /**

@@ -1,5 +1,5 @@
 import { Component, OnInit, Input } from '@angular/core';
-import { ModalController } from '@ionic/angular';
+import { ModalController, NavParams } from '@ionic/angular';
 
 export interface Country {
   name: string;
@@ -9,84 +9,8 @@ export interface Country {
 @Component({
   selector: 'app-country-select-modal',
   standalone: false,
-  template: `
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Select Country</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="dismiss()">
-            <ion-icon name="close"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-
-    <ion-content>
-      <!-- Search Bar -->
-      <ion-searchbar
-        [(ngModel)]="searchTerm"
-        placeholder="Search countries..."
-        (ionInput)="filterCountries()"
-        debounce="300"
-        show-clear-button="focus">
-      </ion-searchbar>
-
-      <!-- Country List -->
-      <ion-list>
-        <ion-item
-          *ngFor="let country of filteredCountries"
-          button
-          (click)="selectCountry(country.name)"
-          [class.selected]="selectedCountry === country.name">
-          <app-flag-icon 
-            [country]="country.name" 
-            [size]="24"
-            slot="start"
-            style="margin-right: 12px;">
-          </app-flag-icon>
-          <ion-label>
-            <h2>{{ country.name }}</h2>
-          </ion-label>
-          <ion-icon 
-            *ngIf="selectedCountry === country.name" 
-            name="checkmark" 
-            color="primary"
-            slot="end">
-          </ion-icon>
-        </ion-item>
-      </ion-list>
-
-      <!-- No Results -->
-      <div *ngIf="filteredCountries.length === 0 && searchTerm.trim()" class="no-results">
-        <p>No countries found matching "{{ searchTerm }}"</p>
-      </div>
-    </ion-content>
-  `,
-  styles: [`
-    ion-searchbar {
-      padding: 8px;
-    }
-
-    ion-item {
-      --padding-start: 16px;
-      --padding-end: 16px;
-    }
-
-    ion-item.selected {
-      --background: var(--ion-color-light);
-    }
-
-    .no-results {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--ion-color-medium);
-    }
-
-    .no-results p {
-      margin: 0;
-      font-size: 16px;
-    }
-  `]
+  templateUrl: './country-select-modal.component.html',
+  styleUrls: ['./country-select-modal.component.scss']
 })
 export class CountrySelectModalComponent implements OnInit {
   @Input() countries: Country[] = [];
@@ -95,10 +19,49 @@ export class CountrySelectModalComponent implements OnInit {
   searchTerm = '';
   filteredCountries: Country[] = [];
 
-  constructor(private modalController: ModalController) {}
+  constructor(
+    private modalController: ModalController,
+    private navParams: NavParams
+  ) {}
 
   ngOnInit() {
-    this.filteredCountries = this.countries;
+    // Get data from NavParams (Ionic modal's way of passing data)
+    const countriesFromParams = this.navParams.get('countries');
+    const selectedFromParams = this.navParams.get('selectedCountry');
+    
+    console.log('🌍 Country Modal - Raw NavParams:', {
+      countries: countriesFromParams,
+      selected: selectedFromParams,
+      inputCountries: this.countries
+    });
+    
+    if (countriesFromParams) {
+      this.countries = countriesFromParams;
+    }
+    if (selectedFromParams) {
+      this.selectedCountry = selectedFromParams;
+    }
+    
+    console.log('🌍 Country Modal - ngOnInit, countries:', this.countries?.length);
+    console.log('🌍 First 3 countries:', this.countries?.slice(0, 3));
+    
+    if (this.countries && this.countries.length > 0) {
+      this.filteredCountries = [...this.countries];
+      console.log('🌍 Filtered countries set:', this.filteredCountries?.length);
+    } else {
+      console.error('❌ No countries data available!');
+    }
+  }
+
+  ionViewWillEnter() {
+    console.log('🌍 Country Modal - ionViewWillEnter, countries:', this.countries?.length);
+    if (this.countries && this.countries.length > 0 && this.filteredCountries.length === 0) {
+      this.filteredCountries = [...this.countries];
+    }
+  }
+
+  trackByCountry(index: number, country: Country): string {
+    return country.name;
   }
 
   filterCountries() {
@@ -123,4 +86,3 @@ export class CountrySelectModalComponent implements OnInit {
     this.modalController.dismiss();
   }
 }
-

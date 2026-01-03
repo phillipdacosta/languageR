@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
+const { autoFinalizeLessons } = require('./jobs/autoFinalizeLessons');
 const { autoCancelClasses } = require('./jobs/autoCancelClasses');
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 require('dotenv').config({ path: './config.env' });
@@ -76,6 +77,8 @@ const messagingRoutes = require('./routes/messaging');
 const classesRoutes = require('./routes/classes');
 const notificationRoutes = require('./routes/notifications');
 const whiteboardRoutes = require('./routes/whiteboard');
+const walletRoutes = require('./routes/wallet');
+const paymentRoutes = require('./routes/payments');
 
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
@@ -100,6 +103,9 @@ app.use('/api/messaging', messagingRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
@@ -331,6 +337,15 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Auto-complete transcripts (every minute)');
+  
+  // Start background job to auto-finalize lessons without transcripts
+  // Runs every minute
+  cron.schedule('* * * * *', () => {
+    autoFinalizeLessons().catch(err => {
+      console.error('❌ [Cron] Error in autoFinalizeLessons:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-finalize lessons (every minute)');
   
   // Start background job to auto-cancel classes that don't meet minimum enrollment
   // Runs every 10 minutes (checks for classes 11-21 minutes out, ~16 min window)

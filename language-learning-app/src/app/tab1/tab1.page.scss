@@ -362,8 +362,8 @@ ion-content {
   padding-bottom: 6px;
   .welcome-header {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
+    align-items: flex-start;
     gap: 16px;
     
     @media (max-width: 600px) {
@@ -1059,6 +1059,10 @@ ion-content {
       background: linear-gradient(135deg, #ffb3d9 0%, #e91e63 100%);
     }
     
+    &.pending {
+      background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+    }
+
     &.wallet {
       background: linear-gradient(135deg, #0baa75 0%, #38cf04 100%);
     }
@@ -1095,6 +1099,19 @@ ion-content {
       color: #1f2937;
       line-height: 1;
       margin-bottom: 4px;
+      
+      &.wallet-clickable {
+        cursor: pointer;
+        transition: color 0.2s ease;
+        
+        &:hover {
+          color: #667eea;
+        }
+      }
+
+      &.pending {
+        color: #f59e0b;
+      }
       
       @media (max-width: 600px) {
         font-size: 21px;
@@ -3762,7 +3779,7 @@ ion-content {
   .skeleton-avatar {
     width: 68px;
     height: 68px;
-    border-radius: 50%;
+    border-radius: 16px;
     background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
     background-size: 200% 100%;
     flex-shrink: 0;
@@ -4869,14 +4886,38 @@ ion-content {
 }
 
 .find-tutor-btn {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --border-radius: 16px;
-  height: 50px;
+  --border-color: #6366f1;
+  --color: #6366f1;
+  --background: transparent;
+  --border-width: 1.5px;
+  --border-style: solid;
+  --border-radius: 8px;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
+  padding: 0 20px;
+  height: 44px;
   text-transform: none;
   margin-top: 24px;
-  // box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    --background: rgba(99, 102, 241, 0.05);
+  }
+  
+  ion-icon {
+    font-size: 18px;
+    margin-left: 6px;
+  }
+  
+  @media (max-width: 600px) {
+    height: 40px;
+    font-size: 13px;
+    padding: 0 18px;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
 }
 
 // Past Tutors Section with Stacked Avatars
@@ -4885,18 +4926,27 @@ ion-content {
   margin-bottom: 0;
   text-align: center;
   
+  .past-tutors-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
   .continue-working-text {
     font-size: 14px;
     color: #6b7280;
-    margin: 0 0 16px 0;
+    margin: 0;
     font-weight: 500;
+    white-space: nowrap;
   }
   
   .past-tutors-label {
     font-size: 14px;
     color: #9ca3af;
     font-weight: 500;
-    margin: 24px 0 0 0;
+    margin: 8px 0 0 0;
   }
 }
 
@@ -4905,7 +4955,7 @@ ion-content {
   justify-content: center;
   align-items: center;
   flex-wrap: nowrap;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -4913,7 +4963,7 @@ ion-content {
 .stacked-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: 30px !important;
   border: 3px solid #ffffff;
   background: #ffffff;
   overflow: hidden;
@@ -4947,7 +4997,7 @@ ion-content {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 50%;
+    border-radius: 16px;
     display: block;
   }
   
@@ -5260,7 +5310,7 @@ ion-content {
               width: 100%;
               height: 100%;
               object-fit: cover;
-              border-radius: 50%;
+              border-radius: 16px;
             }
           }
 
@@ -6546,6 +6596,218 @@ ion-modal.reschedule-proposal-modal {
           p {
             font-size: 11px;
           }
+        }
+      }
+    }
+  }
+}
+
+// Tutor Note Modal - Larger Size
+::ng-deep .tutor-note-modal {
+  --width: 90%;
+  --max-width: 700px;
+  --height: 85%;
+  --max-height: 800px;
+  --border-radius: 16px;
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --height: 90%;
+  }
+}
+
+// Floating Test Button for Tutor Note Modal
+.tutor-note-test-fab {
+  margin: 0 16px 80px 0; // Space from bottom for tab bar
+  
+  ion-fab-button {
+    --background: #0071e3;
+    --background-activated: #0077ed;
+    --box-shadow: 0 4px 12px rgba(0, 113, 227, 0.4);
+    
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+}
+
+// Stripe Connect Banners (Tutors)
+.stripe-connect-banner {
+  margin: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+
+  ion-card-content {
+    padding: 20px;
+  }
+
+  .banner-content {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+
+    .banner-icon {
+      ion-icon {
+        font-size: 48px;
+        color: white;
+      }
+    }
+
+    .banner-text {
+      flex: 1;
+
+      h3 {
+        margin: 0 0 8px 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: white;
+      }
+
+      p {
+        margin: 0 0 16px 0;
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.9);
+        line-height: 1.5;
+      }
+
+      .banner-items {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        
+        .separator {
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 12px;
+          margin: 0 4px;
+        }
+      }
+
+      ion-button {
+        --background: white;
+        --color: var(--ion-color-primary);
+        --border-radius: 12px;
+        height: 44px;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+.stripe-connect-success {
+  margin: 16px;
+  border-radius: 12px;
+  background: #f0f9ff;
+  border: 2px solid var(--ion-color-success);
+
+  ion-card-content {
+    padding: 12px 16px;
+  }
+
+  .banner-content-compact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    ion-icon {
+      font-size: 24px;
+    }
+
+    span {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ion-color-dark);
+    }
+  }
+}
+
+// Tutor Onboarding Banner
+.onboarding-banner-container {
+  margin: 16px 0;
+  animation: slideIn 0.4s ease-out;
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .onboarding-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+    margin: 0;
+
+    ion-card-content {
+      padding: 20px;
+    }
+
+    .banner-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .banner-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        ion-icon {
+          font-size: 24px;
+          color: white;
+        }
+      }
+
+      .banner-text {
+        flex: 1;
+
+        h3 {
+          margin: 0 0 4px 0;
+          font-size: 17px;
+          font-weight: 700;
+          color: white;
+          letter-spacing: -0.3px;
+        }
+
+        p {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.9);
+        }
+      }
+
+      ion-button {
+        --border-radius: 10px;
+        --padding-start: 16px;
+        --padding-end: 16px;
+        height: 40px;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: none;
+        flex-shrink: 0;
+      }
+
+      @media (max-width: 600px) {
+        flex-direction: column;
+        text-align: center;
+
+        .banner-icon {
+          margin: 0 auto;
+        }
+
+        ion-button {
+          width: 100%;
         }
       }
     }

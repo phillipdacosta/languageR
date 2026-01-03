@@ -1,0 +1,641 @@
+// Apple-Inspired Wallet Design
+// Clean, minimalist, premium aesthetic
+
+ion-header {
+  &::after {
+    display: none; // Remove header border
+  }
+  
+  ion-toolbar {
+    --background: transparent;
+    --border-width: 0;
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+    
+    ion-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+    }
+    
+    ion-button {
+      --color: #007aff;
+      
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
+}
+
+.wallet-content {
+  --background: #f2f2f7;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  
+  ion-spinner {
+    transform: scale(1.2);
+  }
+}
+
+.wallet-container {
+  padding: 0 16px 40px 16px;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+// Tab Bar - iOS Style
+.tab-bar-apple {
+  display: flex;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 16px 0 24px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e5ea;
+  
+  .tab-button-apple {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #8e8e93;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    letter-spacing: -0.2px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+    
+    &.active {
+      background: #007aff;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+      
+      ion-icon {
+        color: #ffffff;
+      }
+    }
+    
+    &:not(.active):hover {
+      background: #f2f2f7;
+    }
+    
+    &:not(.active):active {
+      transform: scale(0.97);
+    }
+  }
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+// Apple Card-Style Balance Card - Light & Clean
+.balance-card-apple {
+  position: relative;
+  background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%);
+  border: 1px solid #e5e5ea;
+  border-radius: 16px;
+  padding: 24px 20px;
+  margin: 16px 0 20px 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  
+  // Subtle accent at top
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #007aff 0%, #5856d6 100%);
+  }
+  
+  .card-shine {
+    display: none;
+  }
+  
+  .balance-label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8e8e93;
+    margin-bottom: 8px;
+  }
+  
+  .balance-amount-large {
+    font-size: 36px;
+    font-weight: 700;
+    color: #1c1c1e;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+    line-height: 1;
+  }
+  
+  .balance-breakdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    border-top: 1px solid #e5e5ea;
+    
+    .breakdown-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      
+      .breakdown-label {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #8e8e93;
+      }
+      
+      .breakdown-value {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1c1c1e;
+        letter-spacing: -0.3px;
+        
+        &.reserved {
+          color: #ff9500;
+        }
+      }
+    }
+    
+    .breakdown-divider {
+      width: 1px;
+      height: 30px;
+      background: #e5e5ea;
+    }
+  }
+}
+
+// Add Funds Button - iOS Style
+.add-funds-button {
+  --background: #007aff;
+  --background-hover: #0051d5;
+  --background-activated: #0051d5;
+  --border-radius: 12px;
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+  --box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
+  
+  height: 48px;
+  margin: 0 0 24px 0;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.3px;
+  
+  ion-icon {
+    font-size: 20px;
+    margin-right: 6px;
+  }
+}
+
+// Top-Up Card - Clean White Card
+.top-up-card-apple {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e5e5ea;
+  
+  .top-up-header {
+    margin-bottom: 16px;
+    
+    h3 {
+      margin: 0 0 4px 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #1c1c1e;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 14px;
+      color: #8e8e93;
+    }
+  }
+  
+  .card-input-wrapper {
+    margin-bottom: 12px;
+    
+    #card-element {
+      padding: 14px;
+      border: 1px solid #e5e5ea;
+      border-radius: 10px;
+      background: #f9f9f9;
+      min-height: 44px;
+      transition: all 0.2s ease;
+      
+      &:focus-within {
+        border-color: #007aff;
+        background: #ffffff;
+      }
+    }
+  }
+  
+  .test-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fff8e1;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: #8e8e93;
+    
+    ion-icon {
+      font-size: 16px;
+      color: #ffb300;
+      flex-shrink: 0;
+    }
+  }
+  
+  .action-buttons {
+    .pay-button {
+      --background: #007aff;
+      --background-hover: #0051d5;
+      --border-radius: 12px;
+      --padding-top: 14px;
+      --padding-bottom: 14px;
+      
+      height: 48px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: -0.3px;
+    }
+    
+    .cancel-button {
+      --color: #8e8e93;
+      --border-radius: 12px;
+      --padding-top: 12px;
+      --padding-bottom: 12px;
+      
+      height: 44px;
+      font-size: 15px;
+      font-weight: 500;
+      text-transform: none;
+    }
+  }
+}
+
+// Transaction Section - iOS List Style
+.transactions-section-apple {
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #1c1c1e;
+    margin: 0 0 12px 4px;
+  }
+  
+  .no-transactions-apple {
+    text-align: center;
+    padding: 48px 20px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e5ea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    
+    .empty-icon-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #f2f2f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px auto;
+      
+      ion-icon {
+        font-size: 32px;
+        color: #c7c7cc;
+      }
+    }
+    
+    p {
+      margin: 0 0 6px 0;
+      font-size: 17px;
+      font-weight: 600;
+      color: #1c1c1e;
+      letter-spacing: -0.3px;
+    }
+    
+    .empty-subtitle {
+      font-size: 14px;
+      color: #8e8e93;
+      line-height: 1.5;
+    }
+  }
+  
+  .transaction-list-apple {
+    .transaction-item-apple {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: all 0.15s ease;
+      
+      &:active {
+        transform: scale(0.98);
+        background: #f9f9f9;
+      }
+      
+      .transaction-icon-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        flex-shrink: 0;
+        
+        &.positive {
+          background: #e8f5e9;
+          
+          ion-icon {
+            color: #34c759;
+            font-size: 18px;
+          }
+        }
+        
+        &.negative {
+          background: #ffebee;
+          
+          ion-icon {
+            color: #ff3b30;
+            font-size: 18px;
+          }
+        }
+      }
+      
+      .transaction-info {
+        flex: 1;
+        min-width: 0;
+        
+        .transaction-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1c1c1e;
+          margin-bottom: 2px;
+          letter-spacing: -0.2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .transaction-subtitle {
+          font-size: 12px;
+          color: #8e8e93;
+        }
+      }
+      
+      .transaction-amount-apple {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        margin-left: 12px;
+        flex-shrink: 0;
+        
+        &.positive {
+          color: #34c759;
+        }
+        
+        &.negative {
+          color: #ff3b30;
+        }
+      }
+    }
+  }
+}
+
+// Payment History Section (All Methods)
+.payments-section-apple {
+  margin-top: 8px;
+  
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #1c1c1e;
+    margin: 0 0 4px 4px;
+  }
+  
+  .section-subtitle {
+    font-size: 13px;
+    color: #8e8e93;
+    margin: 0 0 12px 4px;
+    line-height: 1.4;
+  }
+
+  .section-subtitle-standalone {
+    font-size: 14px;
+    color: #8e8e93;
+    margin: 0 0 24px 0;
+    padding: 0 16px;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  .no-transactions-apple {
+    text-align: center;
+    padding: 48px 20px;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e5ea;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    
+    .empty-icon-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #f2f2f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px auto;
+      
+      ion-icon {
+        font-size: 32px;
+        color: #c7c7cc;
+      }
+    }
+    
+    p {
+      margin: 0 0 6px 0;
+      font-size: 17px;
+      font-weight: 600;
+      color: #1c1c1e;
+      letter-spacing: -0.3px;
+    }
+    
+    .empty-subtitle {
+      font-size: 14px;
+      color: #8e8e93;
+      line-height: 1.5;
+    }
+  }
+  
+  .payment-list-apple {
+    .payment-item-apple {
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: all 0.15s ease;
+      
+      &:active {
+        transform: scale(0.98);
+        background: #f9f9f9;
+      }
+      
+      .payment-icon-circle {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #f2f2f7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        flex-shrink: 0;
+        
+        ion-icon {
+          font-size: 18px;
+          color: #007aff;
+        }
+      }
+      
+      .payment-info {
+        flex: 1;
+        min-width: 0;
+        
+        .payment-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1c1c1e;
+          margin-bottom: 2px;
+          letter-spacing: -0.2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .payment-subtitle {
+          font-size: 12px;
+          color: #8e8e93;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+      
+      .payment-amount-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        margin-left: 12px;
+        flex-shrink: 0;
+        
+        .payment-amount-apple {
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: -0.3px;
+          color: #ff3b30;
+          margin-bottom: 4px;
+        }
+        
+        .status-badge {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          padding: 2px 8px;
+          border-radius: 6px;
+          letter-spacing: 0.3px;
+          color: white;
+        }
+      }
+    }
+  }
+}
+
+// Responsive - Larger screens
+@media (min-width: 769px) {
+  .wallet-container {
+    padding: 0 24px 60px 24px;
+    max-width: 600px;
+  }
+  
+  .balance-card-apple {
+    padding: 28px 24px;
+    margin: 24px 0 24px 0;
+    
+    .balance-amount-large {
+      font-size: 40px;
+    }
+  }
+}
+
+// Responsive - Small screens
+@media (max-width: 375px) {
+  .balance-card-apple {
+    padding: 20px 16px;
+    
+    .balance-amount-large {
+      font-size: 32px;
+    }
+    
+    .balance-breakdown {
+      .breakdown-value {
+        font-size: 14px;
+      }
+    }
+  }
+}

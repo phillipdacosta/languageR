@@ -155,7 +155,8 @@ router.get('/me', verifyToken, async (req, res) => {
     
     console.log('🌐 Returning user with languages:', {
       interfaceLanguage: user.interfaceLanguage,
-      nativeLanguage: user.nativeLanguage
+      nativeLanguage: user.nativeLanguage,
+      stripeCustomerId: user.stripeCustomerId // Add logging for debugging
     });
     
     res.json({
@@ -173,6 +174,10 @@ router.get('/me', verifyToken, async (req, res) => {
         userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
+        tutorOnboarding: user.tutorOnboarding,
+        tutorApproved: user.tutorApproved,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
         interfaceLanguage: user.interfaceLanguage,
@@ -412,7 +417,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate, introductionVideo } = req.body;
+      const { languages, experience, schedule, bio, hourlyRate, introductionVideo, videoThumbnail, videoType } = req.body;
       user.onboardingData = {
         languages: languages || [],
         experience: experience || '',
@@ -420,6 +425,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         bio: bio || '',
         hourlyRate: hourlyRate || 25,
         introductionVideo: introductionVideo || '',
+        videoThumbnail: videoThumbnail || '',
+        videoType: videoType || 'upload',
         completedAt: new Date()
       };
     } else {
@@ -701,7 +708,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
     // Build filter query
     const filterQuery = {
       userType: 'tutor',
-      onboardingCompleted: true
+      onboardingCompleted: true,
+      stripeConnectOnboarded: true, // Only show tutors who can receive payments
+      tutorApproved: true // NEW: Only show approved tutors
     };
 
     // Language filter
@@ -1013,6 +1022,22 @@ router.put('/profile-picture', verifyToken, async (req, res) => {
 
     // Update picture
     user.picture = imageUrl;
+    
+    // For tutors: Check if all approval steps are now complete
+    if (user.userType === 'tutor' && !user.tutorApproved) {
+      user.tutorOnboarding = user.tutorOnboarding || {};
+      const photoComplete = !!imageUrl;
+      const videoApproved = user.tutorOnboarding.videoApproved === true;
+      const stripeComplete = user.stripeConnectOnboarded === true;
+      
+      if (photoComplete && videoApproved && stripeComplete) {
+        user.tutorApproved = true;
+        user.tutorOnboarding.photoUploaded = true;
+        user.tutorOnboarding.completedAt = new Date();
+        console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (all steps complete after photo upload)`);
+      }
+    }
+    
     await user.save();
 
     console.log('✅ Profile picture updated for user:', user.email);
@@ -1428,6 +1453,52 @@ router.put('/picture', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating profile picture:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/users/tutor/submit-for-review - Submit tutor profile for review
+router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    if (user.userType !== 'tutor') {
+      return res.status(400).json({ success: false, message: 'Only tutors can submit for review' });
+    }
+    
+    // Initialize tutorOnboarding if it doesn't exist
+    if (!user.tutorOnboarding) {
+      user.tutorOnboarding = {};
+    }
+    
+    // Mark photo as uploaded if picture exists
+    if (user.picture) {
+      user.tutorOnboarding.photoUploaded = true;
+    }
+    
+    // Mark video as uploaded if video exists
+    if (user.onboardingData?.introductionVideo) {
+      user.tutorOnboarding.videoUploaded = true;
+    }
+    
+    // Mark Stripe as connected if onboarded
+    if (user.stripeConnectOnboarded) {
+      user.tutorOnboarding.stripeConnected = true;
+    }
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'Profile submitted for review. You will be notified once approved.',
+      tutorOnboarding: user.tutorOnboarding
+    });
+  } catch (error) {
+    console.error('❌ Error submitting tutor for review:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

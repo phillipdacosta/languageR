@@ -5,6 +5,10 @@ const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Message = require('../models/Message');
+const LessonAnalysis = require('../models/LessonAnalysis');
+const Payment = require('../models/Payment');
+const walletService = require('../services/walletService');
+const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
@@ -1882,7 +1886,14 @@ router.post('/:id/leave-beacon', beaconUpload.none(), async (req, res) => {
       }
     }
     
-    res.json({ success: true, message: 'Left lesson recorded via beacon' });
+    // 🚨 DO NOT finalize the lesson here when user closes browser!
+    // The lesson should continue and be finalized by:
+    // 1. The other participant explicitly clicking "End Call", OR
+    // 2. The autoFinalizeLessons cron job after the scheduled end time
+    // Simply marking the leave time is sufficient for tracking purposes
+    console.log('✅ Browser close recorded - lesson will continue until explicit end or scheduled completion');
+
+    res.json({ success: true, message: 'Left lesson recorded (browser close)' });
   } catch (error) {
     console.error('❌ Error in beacon leave endpoint:', error);
     res.status(500).json({ success: false, message: 'Failed to record leave via beacon' });
@@ -1900,9 +1911,22 @@ router.post('/:id/call-start', verifyToken, async (req, res) => {
     // Only record if not already started
     if (!lesson.actualCallStartTime) {
       lesson.actualCallStartTime = new Date();
-      lesson.billingStatus = 'authorized';
+      lesson.status = 'in_progress';
       await lesson.save();
       console.log(`⏱️ Call started for lesson ${lesson._id}`);
+
+      // 💰 DEDUCT FUNDS: Charge the student when lesson starts (Preply model)
+      if (lesson.paymentId) {
+        try {
+          const paymentService = require('../services/paymentService');
+          await paymentService.deductLessonFunds(lesson._id);
+          console.log(`✅ Funds deducted for lesson ${lesson._id} at START`);
+        } catch (paymentError) {
+          console.error(`❌ Failed to deduct funds at lesson start:`, paymentError.message);
+          // Note: We still allow lesson to continue even if deduction fails
+          // Funds will be deducted as fallback at lesson end
+        }
+      }
     }
 
     res.json({ 
@@ -1974,6 +1998,18 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
       await lesson.save();
       console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
       console.log(`✅ Lesson marked as completed by ${userRole}`);
+      
+      // 💰 COMPLETE PAYMENT: Deduct from wallet and payout to tutor
+      if (lesson.paymentId) {
+        try {
+          const paymentService = require('../services/paymentService');
+          await paymentService.completeLessonPayment(lesson._id, req.io); // Pass io for notifications
+          console.log(`✅ Payment completed for lesson ${lesson._id}`);
+        } catch (paymentError) {
+          console.error(`❌ Payment completion failed for lesson ${lesson._id}:`, paymentError.message);
+          // Don't fail the whole request if payment fails
+        }
+      }
       
       // Notify the OTHER participant via WebSocket that lesson was ended
       const otherParticipant = userRole === 'tutor' ? lesson.studentId : lesson.tutorId;
@@ -2090,33 +2126,41 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
           const scheduledDuration = lessonForAnalysis.duration;
           const endedEarly = actualDuration < scheduledDuration;
           
-          // Generate mock analysis
-          const analysis = {
-            summary: endedEarly 
-              ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
-              : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
-            strengths: [
-              'Good pronunciation and accent work',
-              'Active participation in conversation',
-              'Quick to grasp new vocabulary'
-            ],
-            areasForImprovement: [
-              'Grammar structures in complex sentences',
-              'Verb conjugation in past tense',
-              'Building confidence in spontaneous speaking'
-            ],
-            recommendations: [
-              'Practice daily with language exchange partners',
-              'Focus on past tense exercises before next lesson',
-              'Watch movies/shows in target language with subtitles'
-            ],
-            generatedAt: new Date(),
-            status: 'completed'
-          };
-
-          // Update lesson with analysis
-          lessonForAnalysis.aiAnalysis = analysis;
-          await lessonForAnalysis.save();
+          // Check if analysis already exists
+          const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lessonForAnalysis._id });
+          
+          if (!existingAnalysis) {
+            // Create a new LessonAnalysis document
+            await LessonAnalysis.create({
+              lessonId: lessonForAnalysis._id,
+              tutorId: lessonForAnalysis.tutorId._id,
+              studentId: lessonForAnalysis.studentId._id,
+              summary: endedEarly 
+                ? `This ${actualDuration}-minute lesson ended earlier than the scheduled ${scheduledDuration} minutes. The student made good initial progress on the topic.`
+                : `This ${actualDuration}-minute lesson covered the planned material effectively. The student demonstrated engagement throughout the session.`,
+              strengths: [
+                'Good pronunciation and accent work',
+                'Active participation in conversation',
+                'Quick to grasp new vocabulary'
+              ],
+              areasForImprovement: [
+                'Grammar structures in complex sentences',
+                'Verb conjugation in past tense',
+                'Building confidence in spontaneous speaking'
+              ],
+              recommendations: [
+                'Practice daily with language exchange partners',
+                'Focus on past tense exercises before next lesson',
+                'Watch movies/shows in target language with subtitles'
+              ],
+              status: 'completed',
+              generatedAt: new Date()
+            });
+            
+            console.log(`✅ Created LessonAnalysis document for lesson ${lessonForAnalysis._id}`);
+          } else {
+            console.log(`ℹ️ LessonAnalysis already exists for lesson ${lessonForAnalysis._id}`);
+          }
 
           // Create notification for the student that analysis is ready
           await Notification.create({
@@ -2285,6 +2329,181 @@ router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/lessons/:id/tutor-note - Add tutor's supplementary note to lesson
+router.post('/:id/tutor-note', verifyToken, async (req, res) => {
+  try {
+    const { text, quickImpression, homework } = req.body;
+    const lessonId = req.params.id;
+    
+    // Verify user is a tutor
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can add notes' });
+    }
+    
+    // Verify lesson exists and user is the tutor
+    const lesson = await Lesson.findById(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ success: false, message: 'Lesson not found' });
+    }
+    
+    if (!lesson.tutorId.equals(user._id)) {
+      return res.status(403).json({ success: false, message: 'Only the lesson tutor can add notes' });
+    }
+    
+    const LessonAnalysis = require('../models/LessonAnalysis');
+    
+    // Find or create LessonAnalysis document
+    let analysis = await LessonAnalysis.findOne({ lessonId });
+    
+    if (!analysis) {
+      // Create placeholder analysis (AI will fill it in later)
+      analysis = new LessonAnalysis({
+        lessonId,
+        studentId: lesson.studentId,
+        tutorId: lesson.tutorId,
+        language: lesson.language || lesson.subject,
+        lessonDate: lesson.startTime,
+        status: 'pending', // Use 'pending' instead of 'generating'
+        transcriptId: null,   // Will be added when transcription completes
+        // Add required fields with placeholder values
+        studentSummary: 'Analysis pending - tutor note added',
+        overallAssessment: {
+          proficiencyLevel: 'B1', // Placeholder
+          confidence: 0,
+          summary: 'Tutor feedback provided. AI analysis will be generated when lesson transcription is available.'
+        },
+        strengths: [],
+        areasForImprovement: [],
+        grammarAnalysis: {
+          mistakeTypes: [],
+          suggestions: [],
+          accuracyScore: 0
+        },
+        vocabularyAnalysis: {
+          uniqueWordCount: 0,
+          vocabularyRange: 'moderate',
+          suggestedWords: [],
+          advancedWordsUsed: []
+        },
+        fluencyAnalysis: {
+          speakingSpeed: 'moderate',
+          pauseFrequency: 'moderate',
+          fillerWords: {
+            count: 0,
+            examples: []
+          },
+          overallFluencyScore: 0
+        },
+        topicsDiscussed: [],
+        conversationQuality: 'intermediate',
+        recommendedFocus: [],
+        suggestedExercises: [],
+        homeworkSuggestions: [],
+        tutorNote: {
+          text,
+          quickImpression,
+          homework,
+          addedAt: new Date(),
+          addedBy: user._id
+        }
+      });
+    } else {
+      // Update existing analysis with tutor note
+      analysis.tutorNote = {
+        text,
+        quickImpression,
+        homework,
+        addedAt: new Date(),
+        addedBy: user._id
+      };
+    }
+    
+    await analysis.save();
+    
+    console.log(`✅ Tutor note saved for lesson ${lessonId}`);
+    
+    // Populate lesson with student details for notification
+    // Re-fetch lesson with populated studentId to ensure we have all fields
+    const populatedLesson = await Lesson.findById(lessonId)
+      .populate('studentId', 'name firstName lastName picture onboardingData');
+    
+    if (!populatedLesson || !populatedLesson.studentId) {
+      console.warn('⚠️ Could not populate lesson or student for notification');
+      return res.json({ success: true, message: 'Note saved successfully (notification skipped)' });
+    }
+    
+    // Format student name as "FirstName L."
+    const student = populatedLesson.studentId;
+    const studentFirstName = student.firstName || student.onboardingData?.firstName || (student.name ? student.name.split(' ')[0] : 'Student');
+    const studentLastName = student.lastName || student.onboardingData?.lastName || (student.name && student.name.split(' ').length > 1 ? student.name.split(' ')[1] : null);
+    const studentDisplayName = studentLastName 
+      ? `${studentFirstName} ${studentLastName.charAt(0)}.` 
+      : studentFirstName;
+    
+    // Format lesson date and time
+    const lessonDate = new Date(populatedLesson.startTime);
+    const dateStr = lessonDate.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+    const timeStr = lessonDate.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    // Choose dynamic emoji based on quickImpression
+    let emoji = '📝';
+    if (quickImpression) {
+      if (quickImpression.includes('Excellent')) emoji = '⭐';
+      else if (quickImpression.includes('Good Progress')) emoji = '✅';
+      else if (quickImpression.includes('Needs Focus')) emoji = '🎯';
+      else if (quickImpression.includes('Keep Practicing')) emoji = '💪';
+    }
+    
+    // Create notification for the tutor
+    try {
+      const notification = await Notification.create({
+        userId: user._id,
+        type: 'tutor_note_saved',
+        title: `${emoji} Feedback Saved`,
+        message: `You provided feedback for ${studentDisplayName} for your ${dateStr} at ${timeStr} lesson.`,
+        relatedUserPicture: student.picture || null,
+        data: {
+          lessonId: populatedLesson._id,
+          studentName: studentDisplayName,
+          lessonDate: populatedLesson.startTime,
+          quickImpression,
+          hasText: !!text,
+          hasHomework: !!homework
+        },
+        read: false
+      });
+      
+      console.log(`📬 Notification created for tutor: ${notification._id}`);
+      
+      // Send real-time notification via WebSocket
+      if (req.io) {
+        const tutorSocketRoom = `user:${user.auth0Id}`;
+        req.io.to(tutorSocketRoom).emit('new_notification', notification);
+        console.log(`📤 Sent tutor note notification to ${tutorSocketRoom}`);
+      }
+    } catch (notifError) {
+      console.error('⚠️ Error creating tutor notification (non-critical):', notifError);
+      // Don't fail the request if notification fails
+    }
+    
+    res.json({ success: true, message: 'Note saved successfully' });
+    
+  } catch (error) {
+    console.error('❌ Error saving tutor note:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ success: false, message: 'Failed to save note' });
+  }
+});
+
 // GET /api/lessons/:id/analysis - Get AI analysis for a lesson
 router.get('/:id/analysis', verifyToken, async (req, res) => {
   try {
@@ -2381,6 +2600,69 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     lesson.cancelReason = isTutor ? 'tutor_cancelled' : 'student_cancelled';
     lesson.cancelledBy = user._id;
     await lesson.save();
+    
+    // Release reserved funds if payment was made with wallet
+    if (lesson.paymentId) {
+      try {
+        const payment = await Payment.findById(lesson.paymentId);
+        if (payment) {
+          // If wallet payment or hybrid payment with wallet component
+          const walletPayments = await Payment.find({ 
+            lessonId: lesson._id, 
+            paymentMethod: 'wallet',
+            status: 'authorized' 
+          });
+          
+          for (const walletPayment of walletPayments) {
+            await walletService.releaseReservedFunds({
+              userId: lesson.studentId._id,
+              lessonId: lesson._id,
+              amount: walletPayment.amount,
+              reason: lesson.cancelReason
+            });
+            
+            // Update payment status to cancelled
+            walletPayment.status = 'cancelled';
+            await walletPayment.save();
+            
+            console.log(`💰 Released $${walletPayment.amount} reserved wallet funds for cancelled lesson ${lesson._id}`);
+          }
+          
+          // If there was a card payment, we should refund it via Stripe
+          const cardPayments = await Payment.find({
+            lessonId: lesson._id,
+            paymentMethod: { $in: ['card', 'saved-card', 'apple_pay', 'google_pay'] },
+            status: 'authorized'
+          });
+          
+          for (const cardPayment of cardPayments) {
+            if (cardPayment.stripePaymentIntentId) {
+              try {
+                const refund = await stripeService.createRefund({
+                  paymentIntentId: cardPayment.stripePaymentIntentId,
+                  reason: 'requested_by_customer'
+                });
+                
+                cardPayment.status = 'refunded';
+                cardPayment.refundAmount = cardPayment.amount;
+                cardPayment.refundedAt = new Date();
+                cardPayment.refundReason = lesson.cancelReason;
+                cardPayment.stripeRefundId = refund.id;
+                await cardPayment.save();
+                
+                console.log(`💳 Refunded $${cardPayment.amount} to card for cancelled lesson ${lesson._id}`);
+              } catch (refundError) {
+                console.error(`❌ Failed to refund card payment:`, refundError);
+                // Continue with cancellation even if refund fails
+              }
+            }
+          }
+        }
+      } catch (paymentError) {
+        console.error(`❌ Error processing refunds for cancelled lesson:`, paymentError);
+        // Continue with cancellation even if refund processing fails
+      }
+    }
     
     const cancelledByName = user.firstName && user.lastName 
       ? `${user.firstName} ${user.lastName.charAt(0)}.`
@@ -2511,7 +2793,7 @@ router.post('/:id/propose-reschedule', verifyToken, async (req, res) => {
       userId: otherParticipant._id,
       type: 'reschedule_proposed',
       title: 'New Time Proposed',
-      message: `<strong>${proposerName}</strong> proposed a new time for your lesson on <strong>${new Date(proposedStartTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(proposedStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>`,
+      message: `<strong>${proposerName}</strong> proposed a new time for your lesson for <strong>${new Date(proposedStartTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(proposedStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>`,
       relatedLesson: lesson._id,
       relatedUser: proposerUser._id,
       relatedUserPicture: proposerUser.picture
