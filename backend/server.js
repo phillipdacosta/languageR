@@ -1,3 +1,6 @@
+// Load environment variables FIRST before any other imports
+require('dotenv').config({ path: './config.env' });
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -11,8 +14,11 @@ const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
 const { autoFinalizeLessons } = require('./jobs/autoFinalizeLessons');
 const { autoCancelClasses } = require('./jobs/autoCancelClasses');
+const autoReleaseClassPayments = require('./jobs/autoReleaseClassPayments');
+const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
+const { processPayPalPayouts } = require('./jobs/processPayPalPayouts');
+const { reconcilePayments } = require('./jobs/reconcilePayments');
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
-require('dotenv').config({ path: './config.env' });
 
 const app = express();
 const server = http.createServer(app);
@@ -79,6 +85,7 @@ const notificationRoutes = require('./routes/notifications');
 const whiteboardRoutes = require('./routes/whiteboard');
 const walletRoutes = require('./routes/wallet');
 const paymentRoutes = require('./routes/payments');
+const webhookRoutes = require('./routes/webhooks');
 
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
@@ -95,6 +102,7 @@ app.use((req, res, next) => {
 });
 
 // Use routes
+app.use('/api/webhooks', webhookRoutes); // Webhooks BEFORE other routes (needs raw body)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/lessons', lessonRoutes);
@@ -356,6 +364,42 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
   
+  // Start background job to release authorized payments for class no-shows
+  // Runs every hour at minute 5
+  cron.schedule('5 * * * *', () => {
+    autoReleaseClassPayments().catch(err => {
+      console.error('❌ [Cron] Error in autoReleaseClassPayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-release class payments (every hour)');
+  
+  // Start background job to release authorized payments for lesson no-shows
+  // Runs every hour at minute 10
+  cron.schedule('10 * * * *', () => {
+    autoReleaseLessonPayments().catch(err => {
+      console.error('❌ [Cron] Error in autoReleaseLessonPayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-release lesson payments (every hour)');
+  
+  // Start background job to process PayPal payouts after Stripe payouts clear
+  // Runs every hour at minute 15
+  cron.schedule('15 * * * *', () => {
+    processPayPalPayouts().catch(err => {
+      console.error('❌ [Cron] Error in processPayPalPayouts:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Process PayPal payouts (every hour)');
+  
+  // Start background job to reconcile payments (check DB vs Stripe sync)
+  // Runs nightly at 2:00 AM
+  cron.schedule('0 2 * * *', () => {
+    reconcilePayments().catch(err => {
+      console.error('❌ [Cron] Error in reconcilePayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Reconcile payments (daily at 2 AM)');
+  
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();
   console.log('✅ Audio backup system initialized');
@@ -366,6 +410,9 @@ server.listen(PORT, '0.0.0.0', () => {
     console.error('❌ [Startup] Error in autoCancelClasses:', err);
   });
 });
+
+// Export io instance for use in services
+module.exports.getIO = () => io;
 
 // Handle server errors
 server.on('error', (error) => {

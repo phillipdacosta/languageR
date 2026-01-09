@@ -176,7 +176,24 @@
                   <span>{{ country }}</span>
                 </span>
                 <ng-template #noCountry>
-                  Select your country
+                  Select your country of origin
+                </ng-template>
+                <ion-icon name="chevron-down"></ion-icon>
+              </button>
+            </div>
+
+            <div class="form-field">
+              <label>Where do you currently reside? *</label>
+              <p class="field-hint">This determines your available payout methods</p>
+              <button 
+                class="country-select-button"
+                (click)="openResidenceCountryModal()">
+                <span *ngIf="residenceCountry; else noResidence" class="country-display">
+                  <app-flag-icon [country]="residenceCountry" [size]="20"></app-flag-icon>
+                  <span>{{ residenceCountry }}</span>
+                </span>
+                <ng-template #noResidence>
+                  Select your country of residence
                 </ng-template>
                 <ion-icon name="chevron-down"></ion-icon>
               </button>
@@ -271,7 +288,8 @@
 
           <div class="form-fields">
             <div class="form-field">
-              <label>Bio (optional)</label>
+              <label>Bio</label>
+              <p class="field-note">This will be displayed on your profile page. Max 200 characters.</p>
               <textarea 
                 [(ngModel)]="profileBio"
                 placeholder="Tell students about yourself..."
@@ -290,8 +308,8 @@
             </div>
 
             <div class="video-section">
-              <h4>Introduction Video (optional)</h4>
-              <p class="video-description">Record a short video introducing yourself</p>
+              <h4>Introduction Video (optional for now)</h4>
+              <p class="video-description">Record a short video introducing yourself. Your profile will be hidden until your video is approved.</p>
               <app-video-upload
                 [videoUrl]="introductionVideo"
                 [thumbnailUrl]="thumbnailUrl"

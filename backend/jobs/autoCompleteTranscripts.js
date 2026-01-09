@@ -186,15 +186,38 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     await lesson.save();
     console.log(`✅ [AutoComplete] Lesson ${lesson._id} finalized: status=${lesson.status}, duration=${lesson.actualDurationMinutes}min, price=$${lesson.actualPrice}`);
     
-    // Mark payment as succeeded when lesson completes
-    if (lesson.paymentId) {
-      const Payment = require('../models/Payment');
-      const payment = await Payment.findById(lesson.paymentId);
-      if (payment && payment.status === 'authorized') {
-        payment.status = 'succeeded';
-        payment.chargedAt = endTime;
-        await payment.save();
-        console.log(`💳 [AutoComplete] Payment ${payment._id} marked as succeeded`);
+    // 💰 CAPTURE AND COMPLETE PAYMENT (using proper payment service)
+    if (lesson.paymentId && lesson.actualCallStartTime) {
+      try {
+        const paymentService = require('../services/paymentService');
+        const Payment = require('../models/Payment');
+        const payment = await Payment.findById(lesson.paymentId);
+        
+        if (!payment) {
+          console.error(`❌ [AutoComplete] Payment ${lesson.paymentId} not found`);
+          return;
+        }
+        
+        // Capture payment if still authorized
+        if (payment.status === 'authorized') {
+          console.log(`💳 [AutoComplete] Capturing authorized payment for lesson ${lesson._id}`);
+          try {
+            await paymentService.deductLessonFunds(lesson._id);
+            console.log(`✅ [AutoComplete] Payment captured for lesson ${lesson._id}`);
+          } catch (captureError) {
+            console.error(`❌ [AutoComplete] Payment capture failed:`, captureError.message);
+            throw captureError; // Don't proceed to payout if capture fails
+          }
+        } else if (payment.status === 'succeeded') {
+          console.log(`✅ [AutoComplete] Payment already captured for lesson ${lesson._id}`);
+        }
+        
+        // Complete payment (revenue recognition + tutor payout)
+        await paymentService.completeLessonPayment(lesson._id);
+        console.log(`✅ [AutoComplete] Payment completed (payout sent) for lesson ${lesson._id}`);
+      } catch (paymentError) {
+        console.error(`❌ [AutoComplete] Payment processing failed:`, paymentError.message);
+        // Continue even if payment fails - lesson is already finalized
       }
     }
     

@@ -42,3 +42,4 @@ db.users.findOne(
 //   stripeConnectOnboarded: true  ← Should be true now
 // }
 
+

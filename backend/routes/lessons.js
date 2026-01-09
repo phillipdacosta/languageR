@@ -20,6 +20,57 @@ async function getUserSocketId(auth0Id) {
   return `user:${auth0Id}`;
 }
 
+/**
+ * @route   GET /api/lessons/check-trial/:tutorId
+ * @desc    Check if a booking with this tutor would be a trial lesson
+ * @access  Private
+ */
+router.get('/check-trial/:tutorId', verifyToken, async (req, res) => {
+  try {
+    const { tutorId } = req.params;
+    const studentAuth0Id = req.user.email;
+    
+    // Find the student user
+    const student = await User.findOne({ email: studentAuth0Id });
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+    
+    // Find the tutor user
+    const tutor = await User.findById(tutorId);
+    if (!tutor) {
+      return res.status(404).json({ error: 'Tutor not found' });
+    }
+    
+    // Check if there are any previous SCHEDULED lessons between this student and tutor
+    // (Exclude office hours from trial eligibility)
+    const previousLessons = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: student._id,
+      isOfficeHours: { $ne: true }, // Exclude office hours
+      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+    });
+    
+    const isTrialLesson = previousLessons === 0;
+    
+    console.log('🔍 Trial lesson check:', {
+      tutorId: tutor._id,
+      studentId: student._id,
+      previousScheduledLessons: previousLessons,
+      isTrialLesson
+    });
+    
+    res.json({
+      success: true,
+      isTrialLesson,
+      previousLessons
+    });
+  } catch (error) {
+    console.error('Error checking trial lesson status:', error);
+    res.status(500).json({ error: 'Failed to check trial lesson status', details: error.message });
+  }
+});
+
 
 // Configure multer for beacon endpoint (parses FormData)
 const beaconUpload = multer();
@@ -66,6 +117,11 @@ const TOKEN_TTL_SECONDS = 60 * 60; // 1 hour token validity
 // Create lesson (called after checkout/booking)
 router.post('/', verifyToken, async (req, res) => {
   try {
+    console.log('📅 Received lesson creation request:', {
+      body: req.body,
+      user: req.user
+    });
+    
     const { 
       tutorId, 
       studentId, 
@@ -78,10 +134,18 @@ router.post('/', verifyToken, async (req, res) => {
       bookingData 
     } = req.body;
 
-    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, duration, user: req.user });
+    console.log('📅 Creating lesson:', { tutorId, studentId, startTime, endTime, duration, price, user: req.user });
 
-    // Validate required fields
-    if (!tutorId || !studentId || !startTime || !endTime || !price) {
+    // Validate required fields (note: price can be 0 for trial lessons)
+    if (!tutorId || !studentId || !startTime || !endTime || price === undefined || price === null) {
+      console.error('❌ Missing required fields:', {
+        hasTutorId: !!tutorId,
+        hasStudentId: !!studentId,
+        hasStartTime: !!startTime,
+        hasEndTime: !!endTime,
+        hasPrice: price !== undefined && price !== null,
+        receivedData: { tutorId, studentId, startTime, endTime, price }
+      });
       return res.status(400).json({ 
         success: false, 
         message: 'Missing required fields' 
@@ -994,6 +1058,9 @@ router.get('/student/:studentId', verifyToken, async (req, res) => {
         price: lesson.price,
         duration: lesson.duration,
         isTrialLesson: lesson.isTrialLesson,
+        rescheduleProposal: lesson.rescheduleProposal,
+        cancelReason: lesson.cancelReason,
+        notes: lesson.notes,
         bookingData: lesson.bookingData,
         createdAt: lesson.createdAt,
         updatedAt: lesson.updatedAt
@@ -1244,13 +1311,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       token = null;
     }
 
-    // Update lesson status to in_progress if this is the first join
-    if (lesson.status === 'scheduled' || lesson.status === 'confirmed') {
-      lesson.status = 'in_progress';
-      console.log(`✅ Updated lesson status to in_progress`);
-    }
-
     // Record participant join FIRST (before checking for start time)
+    // NOTE: Status will ONLY change to 'in_progress' when BOTH participants join (see below)
     if (!lesson.participants) lesson.participants = new Map();
     const key = userId.toString();
     const prev = lesson.participants.get(key) || { joinCount: 0 };
@@ -1265,17 +1327,33 @@ router.post('/:id/join', verifyToken, async (req, res) => {
     
     console.log(`👥 Active participants count: ${activeParticipants}`);
 
+    // Track individual attendance (WHO showed up)
+    const isTutorId = lesson.tutorId._id ? lesson.tutorId._id.toString() : lesson.tutorId.toString();
+    const isStudentId = lesson.studentId._id ? lesson.studentId._id.toString() : lesson.studentId.toString();
+    
+    if (userId.toString() === isTutorId && !lesson.tutorJoinedAt) {
+      lesson.tutorJoinedAt = now;
+      console.log(`👨‍🏫 Tutor joined at: ${now.toISOString()}`);
+    }
+    
+    if (userId.toString() === isStudentId && !lesson.studentJoinedAt) {
+      lesson.studentJoinedAt = now;
+      console.log(`👨‍🎓 Student joined at: ${now.toISOString()}`);
+    }
+
     // Record actual call start time ONLY when BOTH participants are present
-    // This ensures billing only starts when both users are actually in the call
+    // This ensures we can verify the lesson actually happened before capturing payment
     // Add a 4-second grace period after second participant joins
     if (!lesson.actualCallStartTime && activeParticipants >= 2) {
       const startTimeWithDelay = new Date(now.getTime() + 4000); // 4 seconds delay
       lesson.actualCallStartTime = startTimeWithDelay;
-      lesson.billingStatus = 'authorized';
+      lesson.billingStatus = 'authorized'; // Still authorized, not captured yet
+      lesson.status = 'in_progress';
       console.log(`⏱️ ✅ Recorded actualCallStartTime (BOTH participants present + 4s grace period): ${startTimeWithDelay}`);
-      console.log(`⏱️ This is when billing starts - both tutor and student are in the call`);
+      console.log(`⏱️ Lesson verified - both tutor and student are in the call`);
+      console.log(`💳 Payment will be captured after scheduled end time (${lesson.endTime})`);
     } else if (!lesson.actualCallStartTime) {
-      console.log(`⏱️ ⏳ Waiting for second participant before recording start time (current: ${activeParticipants})`);
+      console.log(`⏳ Waiting for second participant (current: ${activeParticipants}/2)`);
     }
     
     await lesson.save();
@@ -1901,6 +1979,8 @@ router.post('/:id/leave-beacon', beaconUpload.none(), async (req, res) => {
 });
 
 // POST /api/lessons/:id/call-start - Record when the call actually starts (both parties connected)
+// NOTE: This endpoint is deprecated and no longer handles payment capture
+// Payment capture now happens in the /token endpoint when BOTH participants join
 router.post('/:id/call-start', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -1908,25 +1988,13 @@ router.post('/:id/call-start', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Lesson not found' });
     }
 
-    // Only record if not already started
+    // NOTE: This endpoint is deprecated - actualCallStartTime and status changes
+    // are now handled in the /token endpoint when BOTH participants join
+    // We keep this endpoint for backwards compatibility but it no longer sets status
     if (!lesson.actualCallStartTime) {
-      lesson.actualCallStartTime = new Date();
-      lesson.status = 'in_progress';
-      await lesson.save();
-      console.log(`⏱️ Call started for lesson ${lesson._id}`);
-
-      // 💰 DEDUCT FUNDS: Charge the student when lesson starts (Preply model)
-      if (lesson.paymentId) {
-        try {
-          const paymentService = require('../services/paymentService');
-          await paymentService.deductLessonFunds(lesson._id);
-          console.log(`✅ Funds deducted for lesson ${lesson._id} at START`);
-        } catch (paymentError) {
-          console.error(`❌ Failed to deduct funds at lesson start:`, paymentError.message);
-          // Note: We still allow lesson to continue even if deduction fails
-          // Funds will be deducted as fallback at lesson end
-        }
-      }
+      console.log(`⏱️ Call start attempt recorded, but status will only change when both users join`);
+    } else {
+      console.log(`⏱️ Call already started at ${lesson.actualCallStartTime}`);
     }
 
     res.json({ 
@@ -1989,27 +2057,16 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
       } else {
         // For regular lessons, use the full price
         lesson.actualPrice = lesson.price;
-        lesson.billingStatus = 'charged';
+        lesson.billingStatus = 'authorized'; // Keep as authorized, will be charged after scheduled end time
       }
       
-      // Mark lesson as completed (prevents rejoining)
-      lesson.status = 'completed';
+      // Mark lesson as ended early (prevents rejoining, but allows auto-finalize to process it)
+      lesson.status = 'ended_early';
       
       await lesson.save();
-      console.log(`⏱️ Call ended for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
-      console.log(`✅ Lesson marked as completed by ${userRole}`);
-      
-      // 💰 COMPLETE PAYMENT: Deduct from wallet and payout to tutor
-      if (lesson.paymentId) {
-        try {
-          const paymentService = require('../services/paymentService');
-          await paymentService.completeLessonPayment(lesson._id, req.io); // Pass io for notifications
-          console.log(`✅ Payment completed for lesson ${lesson._id}`);
-        } catch (paymentError) {
-          console.error(`❌ Payment completion failed for lesson ${lesson._id}:`, paymentError.message);
-          // Don't fail the whole request if payment fails
-        }
-      }
+      console.log(`⏱️ Call ended early for lesson ${lesson._id}: ${lesson.actualDurationMinutes} minutes`);
+      console.log(`✅ Lesson marked as 'ended_early' by ${userRole}`);
+      console.log(`💳 Payment will be captured and processed after scheduled end time: ${lesson.endTime}`);
       
       // Notify the OTHER participant via WebSocket that lesson was ended
       const otherParticipant = userRole === 'tutor' ? lesson.studentId : lesson.tutorId;
@@ -3007,6 +3064,245 @@ router.post('/:id/respond-reschedule', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error responding to reschedule:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// POST /api/lessons/:id/tip - Send a tip to the tutor
+router.post('/:id/tip', verifyToken, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const lessonId = req.params.id;
+    const studentAuth0Id = req.user.sub;
+
+    console.log('💰 Processing tip:', { lessonId, amount, studentAuth0Id });
+
+    // Validate amount
+    if (!amount || amount <= 0 || amount > 500) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid tip amount. Must be between $1 and $500.' 
+      });
+    }
+
+    // Get lesson
+    const lesson = await Lesson.findById(lessonId).populate('tutor student');
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    // Verify requester is the student
+    if (lesson.student.auth0Id !== studentAuth0Id) {
+      return res.status(403).json({ success: false, error: 'Only the student can tip' });
+    }
+
+    // Check if already tipped
+    if (lesson.tip) {
+      return res.status(400).json({ success: false, error: 'Tip already sent for this lesson' });
+    }
+
+    // Get student's default payment method
+    const student = lesson.student;
+    if (!student.stripeCustomerId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No payment method on file' 
+      });
+    }
+
+    // Get tutor's Stripe Connect account
+    const tutor = lesson.tutor;
+    if (!tutor.stripeConnectAccountId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Tutor cannot receive tips at this time' 
+      });
+    }
+
+    // Create Stripe payment for tip (100% to tutor, no platform fee)
+    const amountInCents = Math.round(amount * 100);
+    const stripeFee = Math.round(amountInCents * 0.029 + 30); // Stripe's fee
+    const tutorReceives = amountInCents - stripeFee;
+
+    const paymentIntent = await stripeService.stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: 'usd',
+      customer: student.stripeCustomerId,
+      payment_method: student.defaultPaymentMethod,
+      confirm: true,
+      off_session: true,
+      description: `Tip for lesson with ${tutor.name}`,
+      transfer_data: {
+        amount: tutorReceives, // Tutor gets full amount minus Stripe fee
+        destination: tutor.stripeConnectAccountId
+      },
+      metadata: {
+        type: 'tip',
+        lessonId: lessonId,
+        studentId: student._id.toString(),
+        tutorId: tutor._id.toString()
+      }
+    });
+
+    // Update lesson with tip info
+    lesson.tip = {
+      amount: amount,
+      stripeFee: stripeFee / 100,
+      tutorReceived: tutorReceives / 100,
+      paymentIntentId: paymentIntent.id,
+      paidAt: new Date()
+    };
+    await lesson.save();
+
+    // Create notification for tutor
+    const notification = new Notification({
+      userId: tutor._id,
+      type: 'message', // Generic type for tips
+      title: '🎉 You received a tip!',
+      message: `${student.name} sent you a $${amount} tip for your lesson!`,
+      data: {
+        lessonId: lessonId,
+        amount: amount,
+        from: student.name
+      },
+      read: false
+    });
+    await notification.save();
+
+    // Send WebSocket notification to tutor
+    if (req.io && req.connectedUsers) {
+      const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+      if (tutorSocketId) {
+        req.io.to(tutorSocketId).emit('new_notification', {
+          notification: notification,
+          message: `${student.name} sent you a $${amount} tip!`
+        });
+        req.io.to(tutorSocketId).emit('tip_received', {
+          lessonId: lessonId,
+          amount: amount,
+          from: student.name
+        });
+      }
+    }
+
+    console.log('✅ Tip processed successfully:', {
+      amount: amount,
+      stripeFee: stripeFee / 100,
+      tutorReceived: tutorReceives / 100
+    });
+
+    res.json({ 
+      success: true,
+      tip: lesson.tip,
+      message: `Tip sent to ${tutor.name}!`
+    });
+
+  } catch (error) {
+    console.error('❌ Error processing tip:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to process tip' 
+    });
+  }
+});
+
+// POST /api/lessons/:id/tutor-note - Tutor adds a note to the lesson
+router.post('/:id/tutor-note', verifyToken, async (req, res) => {
+  try {
+    const { text, quickImpression, homework } = req.body;
+    const lessonId = req.params.id;
+    const tutorAuth0Id = req.user.sub;
+
+    console.log('📝 Tutor adding note:', { lessonId, tutorAuth0Id });
+
+    // Validate note text
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Note text is required' 
+      });
+    }
+
+    // Get lesson
+    const lesson = await Lesson.findById(lessonId).populate('tutor student');
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    // Verify requester is the tutor
+    if (lesson.tutor.auth0Id !== tutorAuth0Id) {
+      return res.status(403).json({ success: false, error: 'Only the tutor can add notes' });
+    }
+
+    // Update or create the lesson analysis with tutor note
+    let analysis = await LessonAnalysis.findOne({ lessonId: lessonId });
+    
+    const tutorNote = {
+      text: text.trim(),
+      quickImpression: quickImpression || null,
+      homework: homework?.trim() || null,
+      addedAt: new Date()
+    };
+
+    if (analysis) {
+      // Update existing analysis
+      analysis.tutorNote = tutorNote;
+      await analysis.save();
+    } else {
+      // Create new analysis with just the tutor note (AI analysis can be added later)
+      analysis = new LessonAnalysis({
+        lessonId: lessonId,
+        studentId: lesson.student._id,
+        tutorId: lesson.tutor._id,
+        language: lesson.language || 'English',
+        status: 'pending',
+        tutorNote: tutorNote
+      });
+      await analysis.save();
+    }
+
+    // Create notification for student
+    const notification = new Notification({
+      userId: lesson.student._id,
+      type: 'message',
+      title: `💬 Note from ${lesson.tutor.name}`,
+      message: `Your tutor left feedback on your recent lesson`,
+      data: {
+        lessonId: lessonId,
+        tutorName: lesson.tutor.name
+      },
+      read: false
+    });
+    await notification.save();
+
+    // Send WebSocket notification to student
+    if (req.io && req.connectedUsers) {
+      const studentSocketId = req.connectedUsers.get(lesson.student.auth0Id);
+      if (studentSocketId) {
+        req.io.to(studentSocketId).emit('new_notification', {
+          notification: notification,
+          message: `${lesson.tutor.name} left you feedback!`
+        });
+        req.io.to(studentSocketId).emit('tutor_note_added', {
+          lessonId: lessonId,
+          tutorName: lesson.tutor.name
+        });
+      }
+    }
+
+    console.log('✅ Tutor note added successfully');
+
+    res.json({ 
+      success: true,
+      tutorNote: tutorNote,
+      message: 'Note sent to student!'
+    });
+
+  } catch (error) {
+    console.error('❌ Error adding tutor note:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to add note' 
+    });
   }
 });
 

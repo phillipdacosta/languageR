@@ -195,6 +195,17 @@
       font-size: 16px;
       color: #007aff;
     }
+    
+    .trial-badge {
+      margin-left: auto;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
   }
 
   .segmented-control {
@@ -241,6 +252,26 @@
         color: #86868b;
         letter-spacing: -0.1px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      
+      .badge {
+        font-size: 10px;
+        color: #86868b;
+        margin-top: 2px;
+      }
+      
+      &.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        
+        &:hover {
+          background: transparent;
+          transform: none;
+        }
+        
+        ion-icon, .label, .time, .badge {
+          color: #86868b !important;
+        }
       }
 
       &.active {

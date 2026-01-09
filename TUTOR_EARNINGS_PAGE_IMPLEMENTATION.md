@@ -282,3 +282,4 @@ language-learning-app/src/app/
 - Lesson prices are calculated including office hours adjustments
 - Payment breakdown includes original lesson price reconstruction
 
+

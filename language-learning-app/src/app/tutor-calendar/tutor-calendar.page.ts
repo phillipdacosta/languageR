@@ -225,7 +225,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   participantAvailability: any[] = [];
 
   // Stripe Connect status - subscribe to UserService
-  stripeConnectOnboarded = false;
+  stripeConnectOnboarded = false; // Legacy name, but now checks for ANY payout method (Stripe/PayPal/Manual)
   approvalStatus: any; // Tutor approval status from UserService
   private approvalStatusSubscription?: any;
 
@@ -1032,8 +1032,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.lessonsLoaded = false;
     // Classes load separately and don't block initial render
     
-    // Re-check Stripe Connect status when returning to page (e.g., after onboarding)
-    this.checkStripeConnectStatus();
+    // Note: Payout status is already tracked via UserService subscription in ngOnInit
+    // No need to check again here as it would override PayPal/Manual setups
     
     if (this.isMobileView) {
       this.isLoadingMobileData = true;
@@ -3252,7 +3252,7 @@ When enabled:
   private async showStripeOnboardingAlert() {
     const alert = await this.alertController.create({
       header: 'Payment Setup Required',
-      message: 'You must complete payment setup before creating classes or setting availability. Please complete your Stripe Connect onboarding in the Profile tab.',
+      message: 'You must complete payment setup before creating classes or setting availability. Please set up your payout method in the Profile tab.',
       buttons: [
         {
           text: 'Cancel',

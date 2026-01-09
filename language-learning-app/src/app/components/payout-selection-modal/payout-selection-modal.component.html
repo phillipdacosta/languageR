@@ -1,0 +1,141 @@
+<ion-content>
+  <!-- Floating close button -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner></ion-spinner>
+    <p>Loading payment options...</p>
+  </div>
+
+  <!-- Payment Options -->
+  <div *ngIf="!loading && options" class="modal-content">
+    <!-- Left Column: Header & Info -->
+    <div class="left-column">
+      <div class="icon-wrapper">
+        <ion-icon name="wallet"></ion-icon>
+      </div>
+
+      <h2 class="modal-heading">Select Payment Method</h2>
+      <p class="modal-description">Choose how you'd like to receive your earnings</p>
+
+      <div class="info-banner">
+        <ion-icon name="information-circle"></ion-icon>
+        <div>
+          <p class="banner-title">Based on your location</p>
+          <p class="banner-text">
+            You are located in <strong>{{ residenceCountry }}</strong>. 
+            Here are the available payout methods:
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Payment Options -->
+    <div class="right-column">
+      <div class="options-container">
+
+    <!-- Stripe Option - Only show if available -->
+    <div 
+      *ngIf="options.stripe.available"
+      class="option-card"
+      [class.recommended]="options.stripe.recommended"
+      [class.selected]="selectedProvider === 'stripe'"
+      (click)="selectProvider('stripe')">
+      
+      <div class="option-header">
+        <ion-icon [name]="getProviderIcon('stripe')"></ion-icon>
+        <div class="option-title">
+          <h3>{{ options.stripe.label }}</h3>
+          <span *ngIf="options.stripe.recommended" class="badge-recommended">Recommended</span>
+        </div>
+        <div class="radio-wrapper">
+          <div class="custom-radio" [class.selected]="selectedProvider === 'stripe'"></div>
+        </div>
+      </div>
+      
+      <p class="option-description">{{ options.stripe.description }}</p>
+    </div>
+
+    <!-- PayPal Option -->
+    <div 
+      class="option-card"
+      [class.recommended]="options.paypal.recommended"
+      [class.selected]="selectedProvider === 'paypal'"
+      (click)="selectProvider('paypal')">
+      
+      <div class="option-header">
+        <ion-icon [name]="getProviderIcon('paypal')"></ion-icon>
+        <div class="option-title">
+          <h3>{{ options.paypal.label }}</h3>
+          <span *ngIf="options.paypal.recommended" class="badge-recommended">Recommended</span>
+        </div>
+        <div class="radio-wrapper">
+          <div class="custom-radio" [class.selected]="selectedProvider === 'paypal'" *ngIf="options.paypal.available"></div>
+        </div>
+      </div>
+      
+      <p class="option-description">{{ options.paypal.description }}</p>
+      
+      <div *ngIf="selectedProvider === 'paypal'" class="paypal-email-input">
+        <ion-item lines="none">
+          <ion-input
+            label="PayPal Email"
+            labelPlacement="stacked"
+            type="email"
+            [(ngModel)]="paypalEmail"
+            placeholder="your.email@example.com"
+            (ionInput)="validatePayPalEmail()"
+            required></ion-input>
+        </ion-item>
+        <div *ngIf="paypalEmailError" class="error-message">
+          <ion-icon name="alert-circle"></ion-icon>
+          <span>{{ paypalEmailError }}</span>
+        </div>
+        <div class="info-note">
+          <ion-icon name="information-circle"></ion-icon>
+          <span>Make sure this email is linked to your PayPal account</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual Option -->
+    <div 
+      class="option-card"
+      [class.selected]="selectedProvider === 'manual'"
+      (click)="selectProvider('manual')">
+      
+      <div class="option-header">
+        <ion-icon [name]="getProviderIcon('manual')"></ion-icon>
+        <div class="option-title">
+          <h3>{{ options.manual.label }}</h3>
+        </div>
+        <div class="radio-wrapper">
+          <div class="custom-radio" [class.selected]="selectedProvider === 'manual'"></div>
+        </div>
+      </div>
+      
+      <p class="option-description">{{ options.manual.description }}</p>
+      
+      <div class="manual-note">
+        <ion-icon name="time"></ion-icon>
+        <span>Payouts may take 5-7 business days</span>
+      </div>
+    </div>
+      </div>
+
+      <!-- Continue Button -->
+      <div class="button-container">
+        <ion-button
+          expand="block"
+          [disabled]="!canContinue()"
+          (click)="continue()">
+          Continue with {{ getProviderLabel() }}
+        </ion-button>
+      </div>
+    </div>
+  </div>
+</ion-content>
+

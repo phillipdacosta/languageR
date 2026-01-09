@@ -4811,13 +4811,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             await firstValueFrom(this.lessonService.endCall(this.lessonId!));
             console.log('✅ Lesson finalized');
             
-            // Navigate based on role: students see analysis, tutors go home
+            // Navigate based on role to NEW post-lesson pages
             if (this.userRole === 'student') {
-              console.log('📊 Navigating student to analysis page');
-              await this.router.navigate(['/lesson-analysis', this.lessonId]);
+              console.log('📊 Navigating student to post-lesson page');
+              await this.router.navigate(['/post-lesson-student', this.lessonId]);
             } else {
-              console.log('🏠 Navigating tutor to home page');
-              await this.router.navigate(['/tabs/home']);
+              console.log('🎉 Navigating tutor to post-lesson page');
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
             }
           } catch (err) {
             console.error('❌ Error finalizing lesson:', err);
@@ -4829,13 +4829,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(async () => {
           try {
             if (this.userRole === 'student') {
-              // Students see the analysis page
-              console.log('📊 Navigating student to analysis page');
-              await this.router.navigate(['/lesson-analysis', this.lessonId]);
+              // Students see the post-lesson page
+              console.log('📊 Navigating student to post-lesson page');
+              await this.router.navigate(['/post-lesson-student', this.lessonId]);
             } else {
-              // Tutors return to home
-              console.log('🏠 Navigating tutor to home page');
-              await this.router.navigate(['/tabs/home']);
+              // Tutors see post-lesson page
+              console.log('🎉 Navigating tutor to post-lesson page');
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
             }
           } catch (err) {
             console.error('❌ Error navigating after other participant ended:', err);

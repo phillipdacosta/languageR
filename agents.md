@@ -79,3 +79,4 @@ ngOnInit() {
 - Comment complex logic
 - Use TypeScript types strictly
 
+

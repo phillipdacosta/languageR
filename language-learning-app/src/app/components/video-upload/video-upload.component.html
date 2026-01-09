@@ -122,12 +122,30 @@
   <!-- VIDEO PREVIEW (for both modes) -->
   <div class="video-preview" *ngIf="videoUrl">
     <div class="video-thumbnail-wrapper" (click)="playVideo()">
-      <!-- Show thumbnail if available, otherwise show video element -->
+      <!-- Show thumbnail if available -->
       <img *ngIf="thumbnailUrl" [src]="thumbnailUrl" alt="Video preview" class="video-thumbnail-image">
-      <video *ngIf="!thumbnailUrl && videoUrl" 
-             src="{{videoUrl}}#t=0.001" 
+      
+      <!-- For uploaded videos without thumbnail, show video element for preview -->
+      <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
+             [src]="videoUrl" 
              class="video-thumbnail-image"
-             preload="metadata"></video>
+             preload="metadata"
+             crossorigin="anonymous"
+             #videoPreview></video>
+      
+      <!-- For YouTube/Vimeo without custom thumbnail, show platform thumbnail or placeholder -->
+      <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo')" 
+           class="external-video-placeholder">
+        <img *ngIf="externalVideoThumbnail" 
+             [src]="externalVideoThumbnail" 
+             alt="Video preview" 
+             class="video-thumbnail-image">
+        <div *ngIf="!externalVideoThumbnail" class="placeholder-content">
+          <ion-icon [name]="videoType === 'youtube' ? 'logo-youtube' : 'logo-vimeo'"></ion-icon>
+          <p>{{ videoType === 'youtube' ? 'YouTube' : 'Vimeo' }} Video</p>
+        </div>
+      </div>
+      
       <div class="video-play-overlay">
         <ion-icon name="play"></ion-icon>
       </div>

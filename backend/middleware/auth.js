@@ -62,5 +62,18 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
-module.exports = { auth, optionalAuth };
+module.exports = { auth, optionalAuth, requireAuth: auth, requireAdmin };
 
+// Admin middleware - check if user is admin
+function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  
+  // Check if user is admin (you can adjust this logic based on your User model)
+  if (req.user.userType !== 'admin' && req.user.email !== process.env.ADMIN_EMAIL) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  
+  next();
+}

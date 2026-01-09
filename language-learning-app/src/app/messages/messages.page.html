@@ -182,7 +182,7 @@
         <div *ngIf="!isInitialLoad && conversations.length === 0 && showEmptyState && !searchTerm" class="empty-state" [@fadeInOut]>
           <ion-icon name="chatbubbles-outline" class="empty-icon"></ion-icon>
           <p>No conversations yet</p>
-          <p class="empty-hint" *ngIf="currentUserType === 'student'">Start messaging from a tutor's profile</p>
+          <p class="empty-hint" *ngIf="currentUserType === 'student'">Find a tutor using 'Find Tutors' in the top menu and begin your learning journey!</p>
           <p class="empty-hint" *ngIf="currentUserType === 'tutor'">Student messages will appear here.</p>
         </div>
       </div>
@@ -611,9 +611,17 @@
       <div class="chat-panel-empty" [style.display]="hasConversationSelected || selectedConversation ? 'none' : 'flex'">
         <div class="empty-chat-state">
           <ion-icon name="chatbubbles-outline" class="empty-chat-icon"></ion-icon>
-          <h2>Select a conversation</h2>
-          <p>Choose a conversation from the list to start messaging</p>
-        </div>
+          <h2>{{ conversations.length === 0 ? "No conversations yet" : "Select a conversation" }}</h2>
+          <p>
+            {{
+              conversations.length === 0
+                ? currentUserType === 'tutor'
+                  ? "You'll be able to interact with students here!"
+                  : "You'll be able to interact with tutors here!"
+                : "Choose a conversation from the list to start messaging"
+            }}
+          </p>
+                  </div>
       </div>
     </div>
 

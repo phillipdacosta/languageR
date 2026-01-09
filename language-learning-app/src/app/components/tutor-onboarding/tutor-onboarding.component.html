@@ -115,32 +115,33 @@
 
           <!-- Video Step -->
           <div *ngIf="currentStep.id === 'video'" class="video-step">
+                        <!-- Show current status below the upload UI if video exists -->
+                        <div *ngIf="approvalStatus?.videoComplete" class="video-status-info">
+                          <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
+                            <ion-icon name="checkmark-circle"></ion-icon>
+                            <span>Video Approved</span>
+                          </div>
+                          <div *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoRejected" class="status-badge pending">
+                            <ion-icon name="time-outline"></ion-icon>
+                            <span>Pending Admin Review</span>
+                          </div>
+                          <div *ngIf="approvalStatus?.videoRejected" class="status-badge rejected">
+                            <ion-icon name="close-circle"></ion-icon>
+                            <span>Rejected: {{ currentUser?.tutorOnboarding?.videoRejectionReason }}</span>
+                          </div>
+                        </div>
             <!-- Use the full video upload component -->
             <app-video-upload
-              [videoUrl]="currentUser?.onboardingData?.introductionVideo || ''"
-              [thumbnailUrl]="currentUser?.onboardingData?.videoThumbnail || ''"
-              [videoType]="getVideoType(currentUser?.onboardingData?.introductionVideo)"
+              [videoUrl]="getCurrentVideoUrl()"
+              [thumbnailUrl]="getCurrentThumbnailUrl()"
+              [videoType]="getCurrentVideoType()"
               [enableModalPlayer]="true"
               (thumbnailClick)="openVideoPlayerModal()"
               (videoUploaded)="onVideoUploaded($event)"
               (videoRemoved)="onVideoRemoved()">
             </app-video-upload>
             
-            <!-- Show current status below the upload UI if video exists -->
-            <div *ngIf="approvalStatus?.videoComplete" class="video-status-info">
-              <div *ngIf="approvalStatus?.videoApproved" class="status-badge success">
-                <ion-icon name="checkmark-circle"></ion-icon>
-                <span>Video Approved</span>
-              </div>
-              <div *ngIf="!approvalStatus?.videoApproved && !approvalStatus?.videoRejected" class="status-badge pending">
-                <ion-icon name="time-outline"></ion-icon>
-                <span>Pending Admin Review</span>
-              </div>
-              <div *ngIf="approvalStatus?.videoRejected" class="status-badge rejected">
-                <ion-icon name="close-circle"></ion-icon>
-                <span>Rejected: {{ currentUser?.tutorOnboarding?.videoRejectionReason }}</span>
-              </div>
-            </div>
+
           </div>
 
           <!-- Stripe Step -->
@@ -194,12 +195,12 @@
         <!-- Show thumbnail overlay first, then video on click -->
         <div *ngIf="!isVideoPlaying" class="modal-thumbnail-overlay" (click)="startVideoPlayback()">
           <img 
-            *ngIf="currentUser?.onboardingData?.videoThumbnail" 
-            [src]="currentUser.onboardingData.videoThumbnail" 
+            *ngIf="getCurrentThumbnailUrl()" 
+            [src]="getCurrentThumbnailUrl()" 
             alt="Video preview"
             class="modal-thumbnail-image">
           <video 
-            *ngIf="!currentUser?.onboardingData?.videoThumbnail && videoPlayerData.videoUrl"
+            *ngIf="!getCurrentThumbnailUrl() && videoPlayerData.videoUrl"
             [src]="videoPlayerData.videoUrl + '#t=0.001'"
             class="modal-thumbnail-image"
             preload="metadata">
@@ -224,7 +225,7 @@
           <video 
             *ngIf="videoPlayerData.videoType === 'upload'"
             [src]="videoPlayerData.videoUrl"
-            [poster]="currentUser?.onboardingData?.videoThumbnail || ''"
+            [poster]="getCurrentThumbnailUrl()"
             controls
             autoplay
             class="video-player">

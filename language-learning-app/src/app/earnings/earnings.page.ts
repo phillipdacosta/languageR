@@ -30,6 +30,7 @@ export class EarningsPage implements OnInit {
   pendingEarnings: number = 0;
   recentPayments: PaymentBreakdown[] = [];
   error: string | null = null;
+  payoutProvider: string = 'unknown';
 
   constructor(
     private http: HttpClient,
@@ -57,6 +58,7 @@ export class EarningsPage implements OnInit {
         this.totalEarnings = response.totalEarnings || 0;
         this.pendingEarnings = response.pendingEarnings || 0;
         this.recentPayments = response.recentPayments || [];
+        this.payoutProvider = response.payoutProvider || 'unknown';
         console.log(`💰 Loaded ${this.recentPayments.length} payments`);
       }
     } catch (error: any) {
@@ -64,6 +66,19 @@ export class EarningsPage implements OnInit {
       this.error = 'Failed to load earnings. Please try again.';
     } finally {
       this.loading = false;
+    }
+  }
+
+  getTransferredLabel(): string {
+    switch(this.payoutProvider) {
+      case 'stripe':
+        return 'In your Stripe account';
+      case 'paypal':
+        return 'In your PayPal account';
+      case 'manual':
+        return 'Paid out';
+      default:
+        return 'Successfully transferred';
     }
   }
 
@@ -87,4 +102,5 @@ export class EarningsPage implements OnInit {
     return status === 'paid' ? 'Transferred' : 'Pending Transfer';
   }
 }
+
 

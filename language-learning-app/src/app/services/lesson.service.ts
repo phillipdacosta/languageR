@@ -441,4 +441,13 @@ export class LessonService {
       headers
     });
   }
+
+  // Check if booking with a tutor would be a trial lesson
+  checkTrialLesson(tutorId: string): Observable<{ success: boolean; isTrialLesson: boolean; previousLessons: number }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<{ success: boolean; isTrialLesson: boolean; previousLessons: number }>(
+      `${this.baseUrl}/check-trial/${tutorId}`,
+      { headers }
+    );
+  }
 }

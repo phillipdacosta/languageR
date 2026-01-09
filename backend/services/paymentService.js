@@ -97,33 +97,49 @@ class PaymentService {
         }
 
         const tutor = lesson.tutorId;
-        if (!tutor.stripeConnectAccountId) {
-          throw new Error('Tutor has not connected their Stripe account');
-        }
+        
+        // Check tutor's payout method
+        const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
+        
+        console.log(`💳 [HYBRID] Processing card portion for tutor with payout: ${tutor.payoutProvider}`, {
+          hasStripeConnect,
+          paymentMethodAmount
+        });
 
         const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-        const paymentIntent = await stripe.paymentIntents.create({
+        const paymentIntentParams = {
           amount: Math.round(paymentMethodAmount * 100),
           currency: 'usd',
           customer: stripeCustomerId,
           payment_method: stripePaymentMethodId,
+          capture_method: 'manual', // Hold funds, capture when lesson starts
           confirm: true,
           off_session: true,
-          application_fee_amount: Math.round((paymentMethodAmount * (this.PLATFORM_FEE_PERCENTAGE / 100)) * 100),
-          transfer_data: {
-            destination: tutor.stripeConnectAccountId
-          },
           metadata: {
             lessonId: lessonId.toString(),
             studentId: lesson.studentId._id.toString(),
             tutorId: tutor._id.toString(),
             paymentType: 'lesson_booking',
-            isHybridPayment: true
+            isHybridPayment: true,
+            tutorPayoutProvider: tutor.payoutProvider || 'none'
           }
-        });
+        };
 
-        if (paymentIntent.status !== 'succeeded') {
-          throw new Error(`Payment failed: ${paymentIntent.status}`);
+        // Only use Stripe Connect transfer for Stripe tutors
+        if (hasStripeConnect) {
+          paymentIntentParams.application_fee_amount = Math.round((paymentMethodAmount * (this.PLATFORM_FEE_PERCENTAGE / 100)) * 100);
+          paymentIntentParams.transfer_data = {
+            destination: tutor.stripeConnectAccountId
+          };
+          console.log(`💸 [HYBRID] Using Stripe Connect transfer for tutor ${tutor._id}`);
+        } else {
+          console.log(`💰 [HYBRID] Collecting to platform for ${tutor.payoutProvider} tutor ${tutor._id}`);
+        }
+
+        const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+        if (paymentIntent.status !== 'requires_capture') {
+          throw new Error(`Payment authorization failed: ${paymentIntent.status}`);
         }
 
         const cardPayment = await Payment.create({
@@ -187,37 +203,58 @@ class PaymentService {
         throw new Error('Stripe Payment Method ID and Customer ID required for saved card payments');
       }
 
-      // Get tutor's Stripe Connect account ID
+      // Get tutor info
       const tutor = lesson.tutorId;
-      if (!tutor.stripeConnectAccountId) {
-        throw new Error('Tutor has not connected their Stripe account');
-      }
+      
+      // Check tutor's payout method
+      const hasStripeConnect = tutor.stripeConnectAccountId && tutor.stripeConnectOnboarded;
+      const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+      const hasManual = tutor.payoutProvider === 'manual';
 
-      // Create PaymentIntent with saved card and Stripe Connect
+      console.log(`💳 Processing saved-card payment for tutor with payout: ${tutor.payoutProvider}`, {
+        hasStripeConnect,
+        hasPayPal,
+        hasManual
+      });
+
+      // Create PaymentIntent with saved card
       // Note: We call Stripe directly here instead of using stripeService.createPaymentIntent
-      // because we need to pass additional params (confirm, off_session, application_fee_amount, transfer_data)
+      // because we need to pass additional params (confirm, off_session, etc.)
       const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency: 'usd',
         customer: stripeCustomerId,
         payment_method: stripePaymentMethodId,
+        capture_method: 'manual', // Hold funds, capture when lesson starts
         confirm: true, // Automatically confirm the payment
         off_session: true, // Payment is made while customer is not present
-        application_fee_amount: Math.round(platformFee * 100), // Platform fee in cents
-        transfer_data: {
-          destination: tutor.stripeConnectAccountId
-        },
         metadata: {
           lessonId: lessonId.toString(),
           studentId: lesson.studentId._id.toString(),
           tutorId: tutor._id.toString(),
-          paymentType: 'lesson_booking'
+          paymentType: 'lesson_booking',
+          tutorPayoutProvider: tutor.payoutProvider || 'none'
         }
-      });
+      };
 
-      if (paymentIntent.status !== 'succeeded') {
-        throw new Error(`Payment failed: ${paymentIntent.status}`);
+      // Only use Stripe Connect transfer for Stripe tutors
+      if (hasStripeConnect) {
+        paymentIntentParams.application_fee_amount = Math.round(platformFee * 100); // Platform fee in cents
+        paymentIntentParams.transfer_data = {
+          destination: tutor.stripeConnectAccountId
+        };
+        console.log(`💸 Using Stripe Connect transfer for tutor ${tutor._id}`);
+      } else {
+        // For PayPal/Manual tutors, collect full amount to platform
+        // Payout will be handled separately in completeLessonPayment()
+        console.log(`💰 Collecting to platform for ${tutor.payoutProvider} tutor ${tutor._id}`);
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+
+      if (paymentIntent.status !== 'requires_capture') {
+        throw new Error(`Payment authorization failed: ${paymentIntent.status}`);
       }
 
       // Create payment record
@@ -245,18 +282,18 @@ class PaymentService {
 
       console.log(`💼 Lesson booked with saved card: ${lessonId} for user ${userId} - payment authorized`);
     } else if (paymentMethod === 'card' || paymentMethod === 'apple_pay') {
-      // Verify Stripe PaymentIntent exists and succeeded
+      // Verify Stripe PaymentIntent exists and is ready for capture
       if (!stripePaymentIntentId) {
         throw new Error('Stripe PaymentIntent ID required for card payments');
       }
 
       const paymentIntent = await stripeService.getPaymentIntent(stripePaymentIntentId);
       
-      if (paymentIntent.status !== 'succeeded') {
-        throw new Error(`Payment failed: ${paymentIntent.status}`);
+      if (paymentIntent.status !== 'requires_capture') {
+        throw new Error(`Payment authorization failed: ${paymentIntent.status}`);
       }
 
-      // Extract Stripe fees
+      // Extract Stripe fees (will be $0 until captured)
       const charges = paymentIntent.charges?.data || [];
       const stripeFee = charges.length > 0 ? (charges[0].application_fee_amount || 0) / 100 : 0;
       const stripeNetAmount = paymentIntent.amount_received / 100;
@@ -270,7 +307,7 @@ class PaymentService {
         amount,
         paymentMethod,
         paymentType: 'lesson_booking',
-        status: 'authorized', // Funds reserved, will be marked 'succeeded' when lesson completes
+        status: 'authorized', // Funds reserved, will be captured when lesson starts
         stripePaymentIntentId,
         stripeChargeId: charges[0]?.id || null,
         stripeFee,
@@ -293,7 +330,7 @@ class PaymentService {
     // Link payment to lesson
     lesson.paymentId = payment._id;
     lesson.paymentMethod = paymentMethod;
-    lesson.billingStatus = 'authorized'; // Funds reserved, not yet charged
+    lesson.billingStatus = 'authorized'; // Funds reserved, not yet captured
     lesson.platformFee = platformFee;
     lesson.tutorPayout = tutorPayout;
     await lesson.save();
@@ -324,19 +361,19 @@ class PaymentService {
       return { payment: null, lesson };
     }
 
-    if (payment.status !== 'succeeded') {
-      throw new Error(`Payment not in valid state for deduction: ${payment.status}`);
+    if (payment.status !== 'authorized') {
+      throw new Error(`Payment not in valid state for capture: ${payment.status}`);
     }
 
-    // Check if already deducted
+    // Check if already captured
     if (payment.chargedAt) {
-      console.log(`ℹ️  Funds already deducted for lesson ${lessonId} at ${payment.chargedAt}`);
+      console.log(`ℹ️  Funds already captured for lesson ${lessonId} at ${payment.chargedAt}`);
       return { payment, lesson };
     }
 
     const amount = lesson.price;
 
-    // Deduct from wallet (if wallet payment)
+    // Handle wallet payments
     if (payment.paymentMethod === 'wallet') {
       await walletService.deductFunds({
         userId: lesson.studentId._id,
@@ -345,17 +382,60 @@ class PaymentService {
         paymentId: payment._id
       });
       console.log(`💸 Deducted $${amount} from wallet at lesson start (lesson ${lessonId})`);
+    } 
+    // Handle Stripe card payments - CAPTURE the authorized payment
+    else if (payment.stripePaymentIntentId) {
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      
+      try {
+        console.log(`💳 [CAPTURE] Attempting to capture PaymentIntent ${payment.stripePaymentIntentId}...`);
+        
+        // Capture the previously authorized payment
+        const capturedIntent = await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
+        
+        console.log(`💳 [CAPTURE] Stripe response status: ${capturedIntent.status}`);
+        
+        if (capturedIntent.status !== 'succeeded') {
+          throw new Error(`Payment capture failed: Stripe returned status '${capturedIntent.status}' instead of 'succeeded'`);
+        }
+
+        // Extract actual Stripe fees after capture
+        const charges = capturedIntent.charges?.data || [];
+        if (charges.length > 0) {
+          const charge = charges[0];
+          payment.stripeChargeId = charge.id;
+          payment.stripeFee = (charge.application_fee_amount || 0) / 100;
+          payment.stripeNetAmount = capturedIntent.amount_received / 100;
+        }
+
+        // ✅ ONLY UPDATE DATABASE AFTER STRIPE CONFIRMS SUCCESS
+        payment.status = 'succeeded'; // Mark as succeeded now that it's captured
+        payment.chargedAt = new Date();
+        await payment.save();
+        
+        console.log(`✅ [CAPTURE] Successfully captured and saved $${amount} for lesson ${lessonId}`);
+      } catch (captureError) {
+        console.error(`❌ [CAPTURE] Failed to capture Stripe payment for lesson ${lessonId}:`, captureError.message);
+        console.error(`❌ [CAPTURE] PaymentIntent ID: ${payment.stripePaymentIntentId}`);
+        console.error(`❌ [CAPTURE] Full error:`, captureError);
+        
+        // ⚠️ DO NOT update database if Stripe capture failed
+        throw new Error(`Payment capture failed: ${captureError.message}`);
+      }
     }
 
-    // Update payment record
-    payment.chargedAt = new Date();
-    await payment.save();
+    // Update payment record (for non-Stripe payments only)
+    if (payment.paymentMethod === 'wallet') {
+      payment.status = 'succeeded';
+      payment.chargedAt = new Date();
+      await payment.save();
+    }
 
     // Update lesson billing status
     lesson.billingStatus = 'charged';
     await lesson.save();
 
-    console.log(`✅ Funds deducted for lesson ${lessonId} at START (Preply model)`);
+    console.log(`✅ Funds captured for lesson ${lessonId} at START (Preply model)`);
 
     return { payment, lesson };
   }
@@ -383,8 +463,40 @@ class PaymentService {
       return { payment: null, lesson };
     }
 
+    // Early return if revenue already recognized (prevents duplicate processing)
+    if (payment.revenueRecognized) {
+      console.log(`ℹ️  Revenue already recognized for lesson ${lessonId} - skipping payment completion`);
+      return { payment, lesson };
+    }
+
+    // FAILSAFE: If payment is still 'authorized' (not captured during call), capture it now
+    // BUT ONLY if the lesson actually happened (both users joined)
+    if (payment.status === 'authorized' && !payment.chargedAt) {
+      // Check if lesson actually happened - if no one joined, don't capture
+      if (!lesson.actualCallStartTime) {
+        console.warn(`⚠️  Payment authorized but lesson never started (no one joined) - not capturing payment for lesson ${lessonId}`);
+        // Don't throw - just return without processing
+        return { payment, lesson };
+      }
+
+      console.warn(`⚠️  Payment was not captured during call - capturing now as failsafe`);
+      try {
+        await this.deductLessonFunds(lessonId);
+        // Reload payment after capture
+        await payment.reload();
+        console.log(`✅ Failsafe capture successful for lesson ${lessonId}`);
+      } catch (captureError) {
+        console.error(`❌ Failsafe capture failed:`, captureError.message);
+        // Don't throw - return without processing to prevent notification for uncaptured payments
+        console.warn(`⚠️  Cannot complete lesson payment - capture failed. Payment remains authorized.`);
+        return { payment, lesson };
+      }
+    }
+
+    // At this point, payment should be 'succeeded' or we return early
     if (payment.status !== 'succeeded') {
-      throw new Error(`Payment not in valid state for completion: ${payment.status}`);
+      console.warn(`⚠️  Payment not in valid state for completion: ${payment.status} - skipping`);
+      return { payment, lesson };
     }
 
     // Use actual price if available (for office hours per-minute billing)
@@ -392,10 +504,10 @@ class PaymentService {
     const platformFee = finalAmount * (this.PLATFORM_FEE_PERCENTAGE / 100);
     const tutorPayout = finalAmount - platformFee;
 
-    // Step 1: Wallet deduction - SKIP (already deducted at lesson start)
-    // Funds were deducted when lesson started (deductLessonFunds method)
+    // Step 1: Wallet deduction - SKIP (already deducted at lesson start or by failsafe above)
+    // This section is now redundant but kept for backwards compatibility
     if (payment.paymentMethod === 'wallet' && !payment.chargedAt) {
-      console.warn(`⚠️  Wallet funds were not deducted at start - deducting now as fallback`);
+      console.warn(`⚠️  Wallet funds were not deducted - this should not happen`);
       await walletService.deductFunds({
         userId: lesson.studentId._id,
         lessonId,
@@ -405,92 +517,183 @@ class PaymentService {
       payment.chargedAt = new Date();
     }
 
-    // Step 2: Transfer to tutor via Stripe Connect (if onboarded)
+    // Step 2: Transfer to tutor based on their payout provider
     let transferSucceeded = false;
-    if (lesson.tutorId.stripeConnectAccountId && lesson.tutorId.stripeConnectOnboarded) {
-      try {
-        const transfer = await stripeService.createTransfer({
-          amount: tutorPayout,
-          destination: lesson.tutorId.stripeConnectAccountId,
-          metadata: {
-            lessonId: lessonId.toString(),
-            tutorId: lesson.tutorId._id.toString(),
-            studentId: lesson.studentId._id.toString(),
-            paymentId: payment._id.toString()
+    const payoutProvider = lesson.tutorId.payoutProvider || 'stripe'; // Default to Stripe for existing tutors
+
+    console.log(`💸 Processing payout via ${payoutProvider} for tutor ${lesson.tutorId._id}`);
+
+    switch (payoutProvider) {
+      case 'stripe':
+        // Stripe Connect payout - immediate transfer
+        if (lesson.tutorId.stripeConnectAccountId && lesson.tutorId.stripeConnectOnboarded) {
+          try {
+            const transfer = await stripeService.createTransfer({
+              amount: tutorPayout,
+              destination: lesson.tutorId.stripeConnectAccountId,
+              metadata: {
+                lessonId: lessonId.toString(),
+                tutorId: lesson.tutorId._id.toString(),
+                studentId: lesson.studentId._id.toString(),
+                paymentId: payment._id.toString()
+              }
+            });
+
+            payment.stripeTransferId = transfer.id;
+            payment.stripeTransferAmount = tutorPayout;
+            payment.transferredAt = new Date();
+            payment.transferStatus = 'succeeded';
+            transferSucceeded = true;
+
+            console.log(`💸 [STRIPE CONNECT] Transferred $${tutorPayout} to tutor ${lesson.tutorId._id} immediately`);
+          } catch (error) {
+            console.error(`❌ Stripe transfer failed:`, error.message);
+            payment.transferStatus = 'failed';
+            payment.errorMessage = error.message;
           }
-        });
+        } else {
+          console.log(`⚠️  Tutor not onboarded to Stripe Connect - marking as pending`);
+          payment.transferStatus = 'pending';
+        }
+        break;
 
-        payment.stripeTransferId = transfer.id;
-        payment.stripeTransferAmount = tutorPayout;
-        payment.transferredAt = new Date();
-        payment.transferStatus = 'succeeded';
-        transferSucceeded = true;
+      case 'paypal':
+        // PayPal Payouts - DELAYED via Stripe Payout
+        // Step 1: Create Stripe Payout to move funds from platform Stripe balance to bank
+        // Step 2: When payout arrives in bank (1-2 days), send PayPal payout (handled by cron job)
+        try {
+          const paypalEmail = lesson.tutorId.payoutDetails?.paypalEmail;
+          if (!paypalEmail) {
+            console.error(`❌ Tutor has no PayPal email configured`);
+            payment.transferStatus = 'pending';
+            payment.errorMessage = 'PayPal email not configured';
+            break;
+          }
 
-        console.log(`💸 Transferred $${tutorPayout} to tutor ${lesson.tutorId._id} (Stripe Connect)`);
-      } catch (error) {
-        console.error(`❌ Transfer to tutor failed:`, error.message);
-        payment.transferStatus = 'failed';
-        payment.errorMessage = error.message;
-      }
-    } else {
-      console.log(`⚠️  Tutor not onboarded to Stripe Connect - skipping payout for lesson ${lessonId}`);
-      payment.transferStatus = 'pending';
+          // Create Stripe payout to move tutor's share from Stripe balance to platform bank
+          console.log(`🏦 [PAYPAL FLOW] Creating Stripe payout for $${tutorPayout} to move to bank...`);
+          
+          const stripePayout = await stripeService.createPayout({
+            amount: tutorPayout,
+            metadata: {
+              lessonId: lessonId.toString(),
+              tutorId: lesson.tutorId._id.toString(),
+              paymentId: payment._id.toString(),
+              purpose: 'paypal_tutor_payout',
+              paypalEmail: paypalEmail
+            }
+          });
+
+          payment.stripePayoutId = stripePayout.id;
+          payment.stripePayoutAmount = tutorPayout;
+          payment.stripePayoutStatus = stripePayout.status; // 'pending', 'in_transit', or 'paid'
+          payment.stripePayoutCreatedAt = new Date();
+          payment.transferStatus = 'awaiting_funds'; // New status: waiting for Stripe payout to clear
+          payment.errorMessage = 'Stripe payout created, awaiting bank transfer (1-2 business days)';
+
+          console.log(`✅ [PAYPAL FLOW] Stripe payout ${stripePayout.id} created (status: ${stripePayout.status})`);
+          console.log(`📅 PayPal payout to ${paypalEmail} will be sent once funds arrive in bank`);
+        } catch (error) {
+          console.error(`❌ [PAYPAL FLOW] Stripe payout creation failed:`, error.message);
+          payment.transferStatus = 'failed';
+          payment.errorMessage = `Stripe payout failed: ${error.message}`;
+        }
+        break;
+
+      case 'manual':
+        // Manual payout - just mark as pending for admin to process
+        console.log(`📋 Manual payout requested for tutor ${lesson.tutorId._id}: $${tutorPayout}`);
+        payment.transferStatus = 'pending';
+        payment.errorMessage = 'Awaiting manual bank transfer';
+        break;
+
+      default:
+        console.warn(`⚠️  Unknown payout provider: ${payoutProvider}`);
+        payment.transferStatus = 'pending';
+        payment.errorMessage = 'Unknown payout provider';
     }
 
-    // 🔔 NEW: Send notification to tutor when they earn money (regardless of transfer status)
-    try {
-      const studentName = lesson.studentId.firstName 
-        ? `${lesson.studentId.firstName} ${(lesson.studentId.lastName || '').charAt(0)}.`
-        : lesson.studentId.name || 'a student';
-      
-      const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-
-      // Create notification in database
-      const notification = new Notification({
-        userId: lesson.tutorId._id,
-        type: 'payment_received',
-        title: '💰 Payment Received',
-        message: `You earned $${tutorPayout.toFixed(2)} from your lesson on ${lessonDate} with ${studentName}`,
-        data: {
-          lessonId: lessonId.toString(),
-          paymentId: payment._id.toString(),
-          amount: tutorPayout,
-          studentName,
-          lessonDate,
-          transferStatus: payment.transferStatus || 'pending'
-        }
-      });
-      await notification.save();
-      console.log(`📬 Payment notification created for tutor: ${notification._id}`);
-
-      // Send real-time WebSocket notification if io instance provided
-      if (io) {
-        const { getUserSocketId } = require('../socket/socketManager');
-        const tutorSocketId = await getUserSocketId(lesson.tutorId.auth0Id);
+    // 🔔 Send notification to tutor when they earn money (ONLY if payment succeeded and revenue not already recognized)
+    // This prevents duplicate notifications if completeLessonPayment is called multiple times
+    if (payment.status === 'succeeded' && !payment.revenueRecognized) {
+      try {
+        const studentName = lesson.studentId.firstName 
+          ? `${lesson.studentId.firstName} ${(lesson.studentId.lastName || '').charAt(0)}.`
+          : lesson.studentId.name || 'a student';
         
-        if (tutorSocketId) {
-          io.to(tutorSocketId).emit('payment_received', {
-            notificationId: notification._id.toString(),
-            title: notification.title,
-            message: notification.message,
-            amount: tutorPayout,
-            lessonId: lessonId.toString(),
-            studentName,
-            lessonDate,
-            transferStatus: payment.transferStatus || 'pending'
+        const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+
+        // Check if notification already exists for this payment to prevent duplicates
+        const existingNotification = await Notification.findOne({
+          userId: lesson.tutorId._id,
+          type: 'payment_received',
+          'data.paymentId': payment._id.toString()
+        });
+
+        if (!existingNotification) {
+          // Customize message based on transfer status
+          let notificationMessage;
+          if (payment.transferStatus === 'succeeded') {
+            notificationMessage = `You earned $${tutorPayout.toFixed(2)} from your lesson on ${lessonDate} with ${studentName}`;
+          } else if (payment.transferStatus === 'awaiting_funds') {
+            notificationMessage = `You earned $${tutorPayout.toFixed(2)} from your lesson on ${lessonDate} with ${studentName}. Payout will be sent within 2-3 business days.`;
+          } else {
+            notificationMessage = `You earned $${tutorPayout.toFixed(2)} from your lesson on ${lessonDate} with ${studentName}`;
+          }
+
+          // Create notification in database
+          const notification = new Notification({
+            userId: lesson.tutorId._id,
+            type: 'payment_received',
+            title: '💰 Payment Received',
+            message: notificationMessage,
+            data: {
+              lessonId: lessonId.toString(),
+              paymentId: payment._id.toString(),
+              amount: tutorPayout,
+              studentName,
+              lessonDate,
+              transferStatus: payment.transferStatus || 'pending',
+              payoutProvider: payoutProvider
+            }
           });
-          console.log(`🔔 Real-time payment notification sent to tutor via WebSocket`);
+          await notification.save();
+          console.log(`📬 Payment notification created for tutor: ${notification._id}`);
+
+          // Send real-time WebSocket notification if io instance provided
+          if (io) {
+            const { getUserSocketId } = require('../socket/socketManager');
+            const tutorSocketId = await getUserSocketId(lesson.tutorId.auth0Id);
+            
+            if (tutorSocketId) {
+              io.to(tutorSocketId).emit('payment_received', {
+                notificationId: notification._id.toString(),
+                title: notification.title,
+                message: notification.message,
+                amount: tutorPayout,
+                lessonId: lessonId.toString(),
+                studentName,
+                lessonDate,
+                transferStatus: payment.transferStatus || 'pending'
+              });
+              console.log(`🔔 Real-time payment notification sent to tutor via WebSocket`);
+            } else {
+              console.log(`ℹ️  Tutor not online - notification saved for later`);
+            }
+          }
         } else {
-          console.log(`ℹ️  Tutor not online - notification saved for later`);
+          console.log(`ℹ️  Payment notification already exists for payment ${payment._id} - skipping duplicate`);
         }
+      } catch (notificationError) {
+        console.error(`❌ Error sending payment notification:`, notificationError);
+        // Don't throw - notification failure shouldn't fail the payment
       }
-    } catch (notificationError) {
-      console.error(`❌ Error sending payment notification:`, notificationError);
-      // Don't throw - notification failure shouldn't fail the payment
+    } else {
+      console.log(`ℹ️  Skipping payment notification - payment status: ${payment.status}, revenueRecognized: ${payment.revenueRecognized}`);
     }
 
     // Step 3: Update payment record

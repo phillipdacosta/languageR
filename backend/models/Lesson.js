@@ -26,8 +26,27 @@ const LessonSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'pending_reschedule'], 
+    enum: ['scheduled', 'confirmed', 'in_progress', 'ended_early', 'completed', 'cancelled', 'pending_reschedule'], 
     default: 'scheduled' 
+  },
+  // Cancellation tracking
+  cancelledBy: {
+    type: String,
+    enum: ['tutor', 'student', 'system', 'admin', null],
+    default: null
+  },
+  cancelReason: {
+    type: String,
+    default: null
+  },
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  cancellationFeeCharged: {
+    type: Number,
+    default: 0,
+    comment: 'Amount charged as cancellation fee (if applicable)'
   },
   subject: {
     type: String,
@@ -64,10 +83,22 @@ const LessonSchema = new mongoose.Schema({
     enum: ['scheduled', 'instant', 'office_hours'],
     default: 'scheduled'
   },
+  // Attendance tracking (who showed up)
+  tutorJoinedAt: {
+    type: Date,
+    default: null,
+    comment: 'When tutor first joined the call'
+  },
+  studentJoinedAt: {
+    type: Date,
+    default: null,
+    comment: 'When student first joined the call'
+  },
   // Per-minute billing tracking (for office hours)
   actualCallStartTime: {
     type: Date,
-    default: null
+    default: null,
+    comment: 'When BOTH tutor and student were present (lesson actually started)'
   },
   actualCallEndTime: {
     type: Date,
@@ -83,7 +114,7 @@ const LessonSchema = new mongoose.Schema({
   },
   billingStatus: {
     type: String,
-    enum: ['pending', 'authorized', 'charged', 'refunded', 'partially_refunded', null],
+    enum: ['pending', 'authorized', 'charged', 'refunded', 'partially_refunded', 'no_show', null],
     default: null,
     index: true
   },
@@ -120,6 +151,29 @@ const LessonSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     comment: 'Amount paid to tutor (lesson price - platform fee)'
+  },
+  // Tip tracking
+  tip: {
+    amount: {
+      type: Number,
+      default: null
+    },
+    stripeFee: {
+      type: Number,
+      default: null
+    },
+    tutorReceived: {
+      type: Number,
+      default: null
+    },
+    paymentIntentId: {
+      type: String,
+      default: null
+    },
+    paidAt: {
+      type: Date,
+      default: null
+    }
   },
   // Track participant join/leave history for rejoin logic
   participants: {

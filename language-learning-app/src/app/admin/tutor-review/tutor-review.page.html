@@ -23,23 +23,38 @@
         <div>
           <h3>{{ tutor.name || tutor.email }}</h3>
           <p>{{ tutor.email }}</p>
+          
+          <!-- Payout Status Badges -->
+          <div class="status-badges">
+            <ion-badge *ngIf="tutor.stripeConnectOnboarded" color="success">
+              <ion-icon name="checkmark-circle"></ion-icon> Stripe Connected
+            </ion-badge>
+            <ion-badge *ngIf="tutor.payoutProvider === 'paypal'" color="success">
+              <ion-icon name="checkmark-circle"></ion-icon> PayPal Connected
+            </ion-badge>
+            <ion-badge *ngIf="tutor.payoutProvider === 'manual'" color="warning">
+              <ion-icon name="alert-circle"></ion-icon> Manual Payout
+            </ion-badge>
+            <ion-badge *ngIf="!tutor.stripeConnectOnboarded && !tutor.payoutProvider" color="danger">
+              <ion-icon name="close-circle"></ion-icon> No Payout Setup
+            </ion-badge>
+          </div>
         </div>
       </div>
 
-      <div class="video-section" *ngIf="tutor.onboardingData?.introductionVideo">
+      <div class="video-section" *ngIf="tutor.onboardingData?.pendingVideo || tutor.onboardingData?.introductionVideo">
+        <!-- Show "Pending Video" badge if there's a new video under review -->
+        <div class="pending-badge" *ngIf="tutor.onboardingData?.pendingVideo">
+          <ion-badge color="warning">New Video Pending Review</ion-badge>
+        </div>
+        
         <div class="video-thumbnail-wrapper" (click)="playTutorVideo(tutor)">
-          <!-- Show thumbnail if available, otherwise show video element -->
-          <img *ngIf="tutor.onboardingData.videoThumbnail" 
-               [src]="tutor.onboardingData.videoThumbnail" 
-               alt="Video preview" 
-               class="video-thumbnail-image">
-          <video *ngIf="!tutor.onboardingData.videoThumbnail && tutor.onboardingData.introductionVideo" 
-                 [src]="tutor.onboardingData.introductionVideo + '#t=0.001'" 
-                 class="video-thumbnail-image"
-                 preload="metadata"></video>
-          <div class="video-play-overlay">
-            <ion-icon name="play"></ion-icon>
-          </div>
+          <app-video-thumbnail
+            [videoUrl]="getVideoUrl(tutor)"
+            [thumbnailUrl]="getVideoThumbnail(tutor)"
+            [videoType]="getVideoType(tutor)"
+            cssClass="video-thumbnail-image">
+          </app-video-thumbnail>
         </div>
       </div>
       
@@ -61,8 +76,8 @@
           <ion-content class="video-modal-content">
             <!-- Check if it's a Vimeo or YouTube embed URL -->
             <iframe 
-              *ngIf="selectedTutor.onboardingData.introductionVideo.includes('vimeo.com') || selectedTutor.onboardingData.introductionVideo.includes('youtube.com') || selectedTutor.onboardingData.introductionVideo.includes('youtu.be')"
-              [src]="selectedTutor.onboardingData.introductionVideo | sanitizeUrl"
+              *ngIf="getVideoUrl(selectedTutor).includes('vimeo.com') || getVideoUrl(selectedTutor).includes('youtube.com') || getVideoUrl(selectedTutor).includes('youtu.be')"
+              [src]="getVideoUrl(selectedTutor) | sanitizeUrl"
               frameborder="0"
               allow="autoplay; fullscreen; picture-in-picture"
               allowfullscreen
@@ -70,9 +85,9 @@
             </iframe>
             <!-- Direct video file -->
             <video 
-              *ngIf="!selectedTutor.onboardingData.introductionVideo.includes('vimeo.com') && !selectedTutor.onboardingData.introductionVideo.includes('youtube.com') && !selectedTutor.onboardingData.introductionVideo.includes('youtu.be')"
-              [src]="selectedTutor.onboardingData.introductionVideo"
-              [poster]="selectedTutor.onboardingData.videoThumbnail || ''"
+              *ngIf="!getVideoUrl(selectedTutor).includes('vimeo.com') && !getVideoUrl(selectedTutor).includes('youtube.com') && !getVideoUrl(selectedTutor).includes('youtu.be')"
+              [src]="getVideoUrl(selectedTutor)"
+              [poster]="getVideoThumbnail(selectedTutor) || ''"
               controls
               autoplay
               class="video-player">

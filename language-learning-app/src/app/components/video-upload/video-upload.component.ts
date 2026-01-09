@@ -1,4 +1,6 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, OnChanges, SimpleChanges, ViewChild, ElementRef } from '@angular/core';
+import { AlertController } from '@ionic/angular';
+import { HttpClient } from '@angular/common/http';
 import { FileUploadService } from '../../services/file-upload.service';
 import { VideoCompressionService } from '../../services/video-compression.service';
 import { SimpleVideoCompressionService } from '../../services/simple-video-compression.service';
@@ -20,11 +22,13 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Input() thumbnailUrl: string = '';
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   @Input() enableModalPlayer: boolean = false; // New input to enable modal mode
+  @Input() isVideoApproved: boolean = false; // New input to check if tutor's video is approved
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
   @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
   @ViewChild('videoElement') videoElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
+  @ViewChild('videoPreview') videoPreviewElement?: ElementRef<HTMLVideoElement>;
 
   isDragOver = false;
   isUploading = false;
@@ -39,11 +43,14 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   thumbnailPreview: string = '';
   autoThumbnailGenerated = false;
   showThumbnailOverlay = true; // Controls whether to show thumbnail or play video
+  externalVideoThumbnail: string | null = null; // Cached thumbnail URL
 
   constructor(
     private fileUploadService: FileUploadService,
     private videoCompressionService: VideoCompressionService,
-    private simpleCompressionService: SimpleVideoCompressionService
+    private simpleCompressionService: SimpleVideoCompressionService,
+    private alertController: AlertController,
+    private http: HttpClient
   ) {}
 
   ngOnInit() {
@@ -55,10 +62,28 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       hasThumbnail: !!this.thumbnailUrl
     });
     
+    // Auto-detect and fix video type if incorrect
+    if (this.videoUrl) {
+      const detectedType = this.detectVideoType(this.videoUrl);
+      if (detectedType && detectedType !== this.videoType) {
+        console.log(`📹 ⚠️ Video type mismatch! Stored: ${this.videoType}, Detected: ${detectedType}. Using detected type.`);
+        this.videoType = detectedType;
+      }
+    }
+    
     // Check if video is external (YouTube/Vimeo)
     if (this.videoUrl) {
       this.autoThumbnailGenerated = this.isExternalVideo(this.videoUrl);
       console.log('📹 Video is external:', this.autoThumbnailGenerated);
+      
+      // Fetch external video thumbnail (async for Vimeo)
+      this.fetchExternalVideoThumbnail();
+      
+      // If it's an uploaded video without thumbnail, load the first frame
+      if (this.videoType === 'upload' && !this.thumbnailUrl) {
+        console.log('📹 Will load first frame for uploaded video');
+        setTimeout(() => this.loadVideoFirstFrame(), 500);
+      }
     }
     
     // If thumbnail exists, show it by default
@@ -340,6 +365,120 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     return url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
   }
 
+  // Detect video type from URL
+  detectVideoType(url: string): 'upload' | 'youtube' | 'vimeo' {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return 'youtube';
+    }
+    if (url.includes('vimeo.com')) {
+      return 'vimeo';
+    }
+    return 'upload';
+  }
+
+  // Fetch external video thumbnail (async for Vimeo, sync for YouTube)
+  async fetchExternalVideoThumbnail() {
+    if (!this.videoUrl) {
+      this.externalVideoThumbnail = null;
+      return;
+    }
+    
+    // YouTube thumbnail - direct URL
+    if (this.videoType === 'youtube' || this.videoUrl.includes('youtube.com') || this.videoUrl.includes('youtu.be')) {
+      const videoId = this.extractYouTubeId(this.videoUrl);
+      if (videoId) {
+        this.externalVideoThumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        console.log('📹 YouTube thumbnail:', this.externalVideoThumbnail);
+      }
+      return;
+    }
+    
+    // Vimeo thumbnail - fetch from oEmbed API
+    if (this.videoType === 'vimeo' || this.videoUrl.includes('vimeo.com')) {
+      const vimeoId = this.extractVimeoId(this.videoUrl);
+      if (vimeoId) {
+        console.log('📹 Fetching Vimeo thumbnail for ID:', vimeoId);
+        try {
+          const oEmbedUrl = `https://vimeo.com/api/oembed.json?url=https://vimeo.com/${vimeoId}`;
+          const response: any = await this.http.get(oEmbedUrl).toPromise();
+          
+          if (response && response.thumbnail_url) {
+            // Get the highest quality thumbnail
+            this.externalVideoThumbnail = response.thumbnail_url.replace(/_\d+x\d+/, '_1280x720');
+            console.log('📹 ✅ Vimeo thumbnail fetched:', this.externalVideoThumbnail);
+          } else {
+            console.log('📹 ⚠️ No thumbnail in Vimeo response');
+            this.externalVideoThumbnail = null;
+          }
+        } catch (error) {
+          console.error('📹 ❌ Error fetching Vimeo thumbnail:', error);
+          this.externalVideoThumbnail = null;
+        }
+      }
+      return;
+    }
+    
+    this.externalVideoThumbnail = null;
+  }
+
+  // Extract Vimeo video ID from various URL formats
+  private extractVimeoId(url: string): string | null {
+    const patterns = [
+      /vimeo\.com\/video\/(\d+)/,
+      /vimeo\.com\/(\d+)/,
+      /player\.vimeo\.com\/video\/(\d+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  // Extract YouTube video ID from various URL formats
+  private extractYouTubeId(url: string): string | null {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+      /youtube\.com\/watch\?.*v=([^&\n?#]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  // Load the first frame of an uploaded video
+  private loadVideoFirstFrame() {
+    if (!this.videoPreviewElement?.nativeElement) {
+      console.log('📹 Video preview element not found, retrying...');
+      setTimeout(() => this.loadVideoFirstFrame(), 200);
+      return;
+    }
+
+    const video = this.videoPreviewElement.nativeElement;
+    
+    video.addEventListener('loadeddata', () => {
+      console.log('📹 Video metadata loaded, seeking to first frame');
+      video.currentTime = 0.1; // Seek to 0.1 seconds to get first frame
+    });
+
+    video.addEventListener('error', (e) => {
+      console.error('📹 Error loading video preview:', e);
+    });
+
+    // Load the video
+    video.load();
+  }
+
   // Upload thumbnail to GCP
   private async uploadThumbnail(file: File): Promise<{url: string}> {
     return new Promise((resolve, reject) => {
@@ -494,7 +633,36 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.showThumbnailOverlay = true;
   }
 
-  changeVideo() {
+  async changeVideo() {
+    // If video is approved, show warning before allowing change
+    if (this.isVideoApproved) {
+      const alert = await this.alertController.create({
+        header: '⚠️ Change Introduction Video',
+        message: 'Your new video will be sent for admin review. Your profile will remain visible to students while the review is in progress.\n\nAre you sure you want to change your video?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'secondary'
+          },
+          {
+            text: 'Continue',
+            cssClass: 'primary',
+            handler: () => {
+              this.proceedWithVideoChange();
+            }
+          }
+        ]
+      });
+      
+      await alert.present();
+    } else {
+      // Not approved yet, allow change without warning
+      this.proceedWithVideoChange();
+    }
+  }
+
+  private proceedWithVideoChange() {
     this.videoUrl = '';
     this.thumbnailUrl = '';
     this.thumbnailPreview = '';

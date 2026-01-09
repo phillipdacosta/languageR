@@ -507,7 +507,7 @@
                    style="background: #ffa50075; font-size: 14px; padding: 10px; border-radius: 13px; display: flex; align-items: center; gap: 8px;">
                 <ion-icon name="warning-outline"></ion-icon>
                 <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
-                  <span>Your must complete onboarding:</span>
+                  <span>Onboarding incomplete:</span>
                   <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
                     <span *ngIf="!approvalStatus?.photoComplete">Upload your profile photo</span>
                     <span *ngIf="!approvalStatus?.photoComplete && (!approvalStatus?.videoApproved || !approvalStatus?.stripeComplete)" style="opacity: 0.6; margin: 0 4px;">|</span>

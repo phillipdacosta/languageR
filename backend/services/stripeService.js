@@ -39,7 +39,8 @@ class StripeService {
         amount: Math.round(amount * 100), // Convert dollars to cents
         currency,
         metadata,
-        capture_method: 'automatic',
+        // Use manual capture for lesson bookings, automatic for wallet top-ups
+        capture_method: metadata.type === 'lesson_booking' ? 'manual' : 'automatic',
         payment_method_types: ['card'] // Can add 'apple_pay', 'google_pay', etc.
       };
 
@@ -53,7 +54,7 @@ class StripeService {
 
       const paymentIntent = await stripe.paymentIntents.create(params);
       
-      console.log(`💳 Created PaymentIntent: ${paymentIntent.id} for $${amount}`);
+      console.log(`💳 Created PaymentIntent: ${paymentIntent.id} for $${amount} (capture: ${params.capture_method})`);
       
       return paymentIntent;
     } catch (error) {
@@ -257,6 +258,48 @@ class StripeService {
     } catch (error) {
       console.error('❌ Failed to retrieve balance:', error.message);
       throw new Error(`Failed to retrieve balance: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Create a payout from platform balance to bank account
+   * Used to move tutor earnings from Stripe balance to platform bank,
+   * which can then be used to fund PayPal payouts
+   * @param {Object} params
+   * @param {number} params.amount - Amount in dollars
+   * @param {Object} params.metadata - Additional metadata
+   * @returns {Promise<Object>} Payout object
+   */
+  async createPayout({ amount, metadata = {} }) {
+    try {
+      const payout = await stripe.payouts.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency: 'usd',
+        metadata,
+        method: 'standard' // standard = 1-2 business days, instant = immediate but has fees
+      });
+      
+      console.log(`💰 Created Stripe payout: ${payout.id} for $${amount} (status: ${payout.status})`);
+      
+      return payout;
+    } catch (error) {
+      console.error('❌ Payout creation failed:', error.message);
+      throw new Error(`Payout failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get payout details
+   * @param {string} payoutId - Stripe Payout ID
+   * @returns {Promise<Object>} Payout object
+   */
+  async getPayout(payoutId) {
+    try {
+      const payout = await stripe.payouts.retrieve(payoutId);
+      return payout;
+    } catch (error) {
+      console.error('❌ Failed to retrieve payout:', error.message);
+      throw new Error(`Failed to retrieve payout: ${error.message}`);
     }
   }
   

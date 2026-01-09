@@ -200,10 +200,28 @@ export class CardManagementModalComponent implements OnInit {
         });
         await toast.present();
 
-        // Reload cards and close add form
+        // Reload cards to get the newly added card
         await this.loadSavedCards();
         this.cancelAddCard();
         this.setAsDefault = false;
+        
+        // If this was set as default (or is the first card), automatically select it
+        if (this.setAsDefault || this.savedCards.length === 1) {
+          // Find the newly added card (should be marked as default)
+          const newDefaultCard = this.savedCards.find(card => card.isDefault);
+          if (newDefaultCard) {
+            // Dismiss modal with the selected card
+            await this.modalController.dismiss({
+              selectedCard: newDefaultCard
+            }, 'card-selected');
+            return; // Exit early
+          }
+        }
+        
+        // Otherwise, just dismiss with cardsUpdated flag
+        await this.modalController.dismiss({
+          cardsUpdated: true
+        });
       }
     } catch (error: any) {
       console.error('Error saving card:', error);
@@ -306,7 +324,7 @@ export class CardManagementModalComponent implements OnInit {
     // Close modal and return selected card
     await this.modalController.dismiss({
       selectedCard: card
-    });
+    }, 'card-selected'); // Add role parameter
   }
 
   dismiss() {

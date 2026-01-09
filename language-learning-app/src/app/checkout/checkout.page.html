@@ -27,12 +27,19 @@
               <div class="tz-note">Time is based on your location</div>
             </div>
           </div>
-          <div class="rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}/hour</div>
+          <div class="tutor-rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">
+            <div class="rate-amount">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}</div>
+            <div class="rate-label">per 50-min lesson</div>
+          </div>
         </div>
       </div>
 
       <!-- Lesson Details Info Card -->
       <div class="lesson-info-card">
+        <div class="info-item" *ngIf="isTrialLesson">
+          <ion-icon name="sparkles-outline" class="trial-icon"></ion-icon>
+          <span class="trial-label"><strong>Trial Lesson</strong> - First lesson with {{ tutorDisplayName }}</span>
+        </div>
         <div class="info-item">
           <ion-icon name="videocam-outline"></ion-icon>
           <span>Live video lesson</span>
@@ -48,13 +55,23 @@
       </div>
 
       <div class="details">
-        <div class="detail-row lesson-length-highlight">
-          <div class="label">
-            <ion-icon name="time-outline"></ion-icon>
-            Lesson length
+        <!-- Price Breakdown -->
+        <div class="price-breakdown-section">
+          <div class="breakdown-title">Price Calculation</div>
+          <div class="breakdown-item">
+            <span class="breakdown-label">Base rate (50 min)</span>
+            <span class="breakdown-value">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate || 0 }}</span>
           </div>
-          <div class="value">{{ lessonMinutes }} minutes</div>
+          <div class="breakdown-item calculation">
+            <span class="breakdown-label">{{ lessonMinutes }} minutes lesson</span>
+            <span class="breakdown-value">× {{ lessonMinutes }}/50</span>
+          </div>
+          <div class="breakdown-item subtotal">
+            <span class="breakdown-label">Lesson price</span>
+            <span class="breakdown-value">${{ pricePerLesson | number:'1.2-2' }}</span>
+          </div>
         </div>
+        
         <div class="detail-row">
           <div class="label">Processing fee</div>
           <div class="value">${{ processingFee | number:'1.2-2' }}</div>
@@ -115,8 +132,9 @@
         <!-- Default Card Tile -->
         <div 
           class="default-card-tile"
-          [class.has-default]="defaultCard && selectedPaymentMethod === 'saved-card'"
-          (click)="defaultCard ? selectPaymentMethod('saved-card') : openCardManagementModal()">
+          [class.selected]="selectedPaymentMethod === 'saved-card'"
+          [class.has-default]="defaultCard"
+          (click)="defaultCard ? selectPaymentMethod('saved-card', defaultCard.stripePaymentMethodId) : openCardManagementModal()">
           
           <!-- No Default Card - Show (+) -->
           <ng-container *ngIf="!defaultCard">
@@ -142,6 +160,7 @@
                 (click)="$event.stopPropagation(); openCardManagementModal()">
               </ion-icon>
             </div>
+            <ion-icon *ngIf="selectedPaymentMethod === 'saved-card'" name="checkmark-circle" class="check-icon"></ion-icon>
           </ng-container>
         </div>
 

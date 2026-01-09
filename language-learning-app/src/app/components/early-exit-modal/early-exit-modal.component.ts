@@ -109,13 +109,13 @@ export class EarlyExitModalComponent {
       // Dismiss modal with action
       this.modalDismissed.emit({ action: 'end_lesson_confirmed' });
 
-      // Navigate based on role: students see analysis, tutors go home
+      // Navigate based on role: students see post-lesson page, tutors see post-lesson page
       if (this.userRole === 'student') {
-        // Students see the analysis page
-        await this.router.navigate(['/lesson-analysis', this.lessonId]);
+        // Students see the post-lesson page with tipping
+        await this.router.navigate(['/post-lesson-student', this.lessonId]);
       } else {
-        // Tutors return to home page
-        await this.router.navigate(['/tabs/home']);
+        // Tutors see the post-lesson page with note form
+        await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
       }
 
     } catch (error) {

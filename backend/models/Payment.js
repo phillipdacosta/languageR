@@ -87,10 +87,32 @@ const paymentSchema = new mongoose.Schema({
   // Stripe Connect Transfer (payout to tutor)
   stripeTransferId: String,
   stripeTransferAmount: Number,
+  
+  // Stripe Payout (for moving funds from platform to bank)
+  stripePayoutId: String, // Payout ID for transferring funds to platform bank
+  stripePayoutAmount: Number, // Amount being moved to bank
+  stripePayoutStatus: {
+    type: String,
+    enum: ['pending', 'in_transit', 'paid', 'failed', 'canceled', null],
+    default: null
+  },
+  stripePayoutCreatedAt: Date,
+  stripePayoutArrivedAt: Date,
+  
+  // PayPal Payouts (alternative payout method)
+  paypalBatchId: String,
+  paypalPayoutItemId: String,
+  paypalPayoutStatus: {
+    type: String,
+    enum: ['pending', 'processing', 'success', 'failed', null],
+    default: null
+  },
+  
+  // Transfer/Payout tracking (applies to all payout methods)
   transferredAt: Date,
   transferStatus: {
     type: String,
-    enum: ['pending', 'succeeded', 'failed', null],
+    enum: ['pending', 'awaiting_funds', 'succeeded', 'failed', 'acknowledged', null],
     default: null
   },
   

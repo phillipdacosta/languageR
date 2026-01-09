@@ -6,6 +6,7 @@ import { Router, RouterModule } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { WalletService, WalletBalance, WalletTransaction, PaymentHistory } from '../services/wallet.service';
 import { UserService } from '../services/user.service';
+import { environment } from '../../environments/environment';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -76,8 +77,8 @@ export class WalletPage implements OnInit, OnDestroy {
   }
 
   async initializeStripe() {
-    // Stripe publishable key
-    const stripeKey = 'pk_test_51SkSi9BKUCCLlfbERkY1hkCVT1cdSlKyTyRN6VkxAwcaT81mV8eXlllJc2vvuRJf8vGRKwaqtGnNbP5LgycSZZ6L00f2UHYKbP';
+    // Stripe publishable key from environment
+    const stripeKey = environment.stripePublishableKey;
     
     if (typeof Stripe === 'undefined') {
       console.error('Stripe.js not loaded');

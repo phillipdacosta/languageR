@@ -78,6 +78,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     { value: 50, label: '50 min', buffer: 10 }
   ];
   
+  // Trial lesson flag
+  isTrialLesson = false;
+  isCheckingTrial = false;
+  
   // Computed properties to avoid function calls in template
   currentUserIsTutor = false;
   weekRangeDisplay = '';
@@ -142,6 +146,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     
     // Detect viewer's timezone
     this.viewerTimezone = detectUserTimezone();
+    
+    // Check if this would be a trial lesson (only for students viewing tutor availability)
+    // Wait for user to load first to ensure auth headers are available
+    if (this.showDurationSelector && !this.currentUserIsTutor) {
+      this.ensureUserLoadedThenCheckTrial();
+    }
     
     // Initialize week dates
     const dates: Date[] = [];
@@ -953,7 +963,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         tutorId: this.tutorId,
         date: dateIso,
         time: slot.time,
-        duration: this.selectedDuration
+        duration: this.selectedDuration,
+        isTrialLesson: this.isTrialLesson // Pass trial lesson status
       }
     });
   }
@@ -980,6 +991,60 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
     }
     return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
+  }
+  
+  /**
+   * Ensure user is loaded before checking trial lesson status
+   */
+  private async ensureUserLoadedThenCheckTrial() {
+    try {
+      // Wait for user to be loaded
+      await firstValueFrom(this.userService.getCurrentUser());
+      console.log('✅ User loaded, checking trial lesson status...');
+      
+      // Now check trial lesson
+      await this.checkTrialLesson();
+    } catch (error) {
+      console.error('❌ Error ensuring user loaded:', error);
+    }
+  }
+  
+  /**
+   * Check if booking with this tutor would be a trial lesson
+   */
+  private async checkTrialLesson() {
+    if (!this.tutorId) return;
+    
+    this.isCheckingTrial = true;
+    try {
+      const result = await firstValueFrom(
+        this.lessonService.checkTrialLesson(this.tutorId)
+      );
+      
+      this.isTrialLesson = result.isTrialLesson;
+      
+      // If it's a trial lesson, force 25min selection and disable 50min
+      if (this.isTrialLesson && this.selectedDuration === 50) {
+        this.selectedDuration = 25;
+        this.onDurationChange(25);
+      }
+      
+      console.log('🔍 Trial lesson check:', {
+        tutorId: this.tutorId,
+        isTrialLesson: this.isTrialLesson,
+        previousLessons: result.previousLessons
+      });
+      
+      // Trigger change detection
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('❌ Error checking trial lesson status:', error);
+      // Default to not trial on error
+      this.isTrialLesson = false;
+    } finally {
+      this.isCheckingTrial = false;
+      this.cdr.detectChanges();
+    }
   }
   
 }

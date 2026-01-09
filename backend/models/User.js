@@ -32,7 +32,14 @@ const userSchema = new mongoose.Schema({
   country: {
     type: String,
     trim: true,
-    default: ''
+    default: '',
+    comment: 'Country of origin (nationality) - "Where are you from?"'
+  },
+  residenceCountry: {
+    type: String,
+    trim: true,
+    default: '',
+    comment: 'Country of residence (where they live/have bank account) - used for payout method selection'
   },
   picture: {
     type: String,
@@ -158,6 +165,22 @@ const userSchema = new mongoose.Schema({
       enum: ['upload', 'youtube', 'vimeo'],
       default: 'upload'
     },
+    // Pending video fields (for videos under review)
+    pendingVideo: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    pendingVideoThumbnail: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    pendingVideoType: {
+      type: String,
+      enum: ['upload', 'youtube', 'vimeo'],
+      default: 'upload'
+    },
     completedAt: {
       type: Date,
       default: Date.now
@@ -225,10 +248,9 @@ const userSchema = new mongoose.Schema({
   },
   stripeConnectAccountId: {
     type: String,
-    default: null,
+    default: undefined, // Use undefined instead of null for sparse index
     unique: true,
     sparse: true,
-    index: true,
     comment: 'Stripe Connect Account ID for tutors receiving payouts'
   },
   stripeConnectOnboarded: {
@@ -239,6 +261,30 @@ const userSchema = new mongoose.Schema({
   stripeConnectOnboardedAt: {
     type: Date,
     default: null
+  },
+  stripePayoutsEnabled: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether tutors Connect account has payouts enabled'
+  },
+  // Payout method configuration
+  payoutProvider: {
+    type: String,
+    enum: ['stripe', 'paypal', 'manual', 'none'],
+    default: 'none',
+    comment: 'Selected payout method: stripe (Connect), paypal (PayPal Payouts), manual (bank transfer), none (not set up)'
+  },
+  payoutDetails: {
+    paypalEmail: {
+      type: String,
+      default: null,
+      comment: 'PayPal email for PayPal payouts'
+    },
+    manualBankInfo: {
+      type: String,
+      default: null,
+      comment: 'Bank account details for manual transfers (encrypted/secure storage recommended)'
+    }
   },
   defaultPaymentMethod: {
     type: String,

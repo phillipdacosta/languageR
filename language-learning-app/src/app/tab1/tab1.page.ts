@@ -3061,9 +3061,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const dateTag = this.getDateTag(lessonDate);
     const isInProgress = this.isLessonInProgress(nextLesson);
     
-    // Precompute reschedule flags to avoid function calls in template
+    // Precompute flags to avoid function calls in template
     const isRescheduleProposer = this.isRescheduleProposer(nextLesson);
     const rescheduleAccepted = (nextLesson as any).rescheduleProposal?.status === 'accepted';
+    const isTrialLesson = nextLesson.isTrialLesson || false;
     
     return {
       ...student,
@@ -3078,7 +3079,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       startTime: nextLesson.startTime,
       joinLabel: this.calculateJoinLabel(nextLesson),
       isRescheduleProposer: isRescheduleProposer,
-      rescheduleAccepted: rescheduleAccepted
+      rescheduleAccepted: rescheduleAccepted,
+      isTrialLesson: isTrialLesson
     };
   }
   

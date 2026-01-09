@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, LoadingController, AlertController, ToastController } from '@ionic/angular';
+import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
 import { HttpClient } from '@angular/common/http';
@@ -8,6 +8,7 @@ import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { SharedModule } from '../../shared/shared.module';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
 
 interface OnboardingStep {
   id: string;
@@ -54,7 +55,7 @@ export class TutorOnboardingComponent implements OnInit {
     {
       id: 'stripe',
       title: 'Connect Bank Account',
-      description: 'Set up payments through Stripe to receive earnings',
+      description: 'Set up payments to receive earnings',
       completed: false,
       icon: 'card',
       action: 'stripe-onboard'
@@ -73,7 +74,8 @@ export class TutorOnboardingComponent implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private toastController: ToastController,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private modalController: ModalController
   ) {}
 
   async ngOnInit() {
@@ -115,20 +117,42 @@ export class TutorOnboardingComponent implements OnInit {
 
       console.log('📹 [TUTOR-APPROVAL] Full onboardingData:', user.onboardingData);
       console.log('📹 [TUTOR-APPROVAL] tutorOnboarding:', user.tutorOnboarding);
-      console.log('📹 [TUTOR-APPROVAL] Video URL:', user.onboardingData?.introductionVideo);
-      console.log('📹 [TUTOR-APPROVAL] Thumbnail URL:', user.onboardingData?.videoThumbnail);
-      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] videoThumbnail value:', user.onboardingData?.videoThumbnail);
-      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] Is GCS URL?', user.onboardingData?.videoThumbnail?.includes('storage.googleapis.com'));
-      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] Is Vimeo CDN?', user.onboardingData?.videoThumbnail?.includes('vimeocdn.com'));
+      console.log('💰 [TUTOR-APPROVAL] payoutProvider:', user.payoutProvider);
+      console.log('💰 [TUTOR-APPROVAL] payoutDetails:', user.payoutDetails);
+      
+      // For display purposes, use pendingVideo if available (new tutor), otherwise use approved video
+      const videoUrl = user.onboardingData?.pendingVideo || user.onboardingData?.introductionVideo || '';
+      const thumbnailUrl = user.onboardingData?.pendingVideoThumbnail || user.onboardingData?.videoThumbnail || '';
+      
+      console.log('📹 [TUTOR-APPROVAL] Video URL (pending or approved):', videoUrl);
+      console.log('📹 [TUTOR-APPROVAL] Thumbnail URL:', thumbnailUrl);
+      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] videoThumbnail value:', thumbnailUrl);
+      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] Is GCS URL?', thumbnailUrl?.includes('storage.googleapis.com'));
+      console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] Is Vimeo CDN?', thumbnailUrl?.includes('vimeocdn.com'));
       console.log('📹 [TUTOR-APPROVAL] Video approved:', user.tutorOnboarding?.videoApproved);
       console.log('📹 [TUTOR-APPROVAL] Video rejected:', user.tutorOnboarding?.videoRejected);
 
+      // Update step 3 title/description based on payout provider
+      if (user.payoutProvider === 'paypal') {
+        this.steps[2].title = 'PayPal Connected';
+        this.steps[2].description = 'Receive earnings via PayPal';
+      } else if (user.payoutProvider === 'manual') {
+        this.steps[2].title = 'Manual Payout Setup';
+        this.steps[2].description = 'Earnings will be processed manually';
+      } else if (user.stripeConnectOnboarded) {
+        this.steps[2].title = 'Stripe Connected';
+        this.steps[2].description = 'Receive earnings via Stripe';
+      } else {
+        this.steps[2].title = 'Connect Bank Account';
+        this.steps[2].description = 'Set up payments to receive earnings';
+      }
+
       // Auto-fetch Vimeo thumbnail if missing
-      if (user.onboardingData?.introductionVideo && 
-          !user.onboardingData?.videoThumbnail && 
-          user.onboardingData.introductionVideo.includes('vimeo.com')) {
+      if (videoUrl && 
+          !thumbnailUrl && 
+          videoUrl.includes('vimeo.com')) {
         console.log('📹 [TUTOR-APPROVAL] Attempting to auto-fetch Vimeo thumbnail...');
-        await this.fetchVimeoThumbnail(user.onboardingData.introductionVideo);
+        await this.fetchVimeoThumbnail(videoUrl);
       }
 
       // The UserService will automatically update tutorApprovalStatus$
@@ -227,8 +251,39 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   async startStripeOnboarding() {
-    console.log('🏦 [STRIPE] Starting Stripe Connect onboarding...');
+    console.log('🏦 [PAYMENT-SETUP] Starting payment setup...');
     
+    // First, show payout selection modal
+    const modal = await this.modalController.create({
+      component: PayoutSelectionModalComponent,
+      cssClass: 'payout-selection-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+
+    if (!data) {
+      console.log('🏦 [PAYMENT-SETUP] User cancelled payout selection');
+      return;
+    }
+
+    console.log('🏦 [PAYMENT-SETUP] User selected:', data.provider);
+
+    // Handle based on selected provider
+    switch (data.provider) {
+      case 'stripe':
+        await this.setupStripeConnect();
+        break;
+      case 'paypal':
+        await this.setupPayPal(data.paypalEmail);
+        break;
+      case 'manual':
+        await this.setupManualPayout();
+        break;
+    }
+  }
+
+  private async setupStripeConnect() {
     const loading = await this.loadingController.create({
       message: 'Setting up Stripe...'
     });
@@ -359,6 +414,26 @@ export class TutorOnboardingComponent implements OnInit {
     return 'upload';
   }
 
+  // Helper method to get the current video URL (pending or approved)
+  getCurrentVideoUrl(): string {
+    return this.currentUser?.onboardingData?.pendingVideo || 
+           this.currentUser?.onboardingData?.introductionVideo || 
+           '';
+  }
+
+  // Helper method to get the current thumbnail URL (pending or approved)
+  getCurrentThumbnailUrl(): string {
+    return this.currentUser?.onboardingData?.pendingVideoThumbnail || 
+           this.currentUser?.onboardingData?.videoThumbnail || 
+           '';
+  }
+
+  // Helper method to get the current video type (pending or approved)
+  getCurrentVideoType(): 'upload' | 'youtube' | 'vimeo' {
+    const videoUrl = this.getCurrentVideoUrl();
+    return this.getVideoType(videoUrl);
+  }
+
   async onVideoUploaded(videoData: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
     console.log('📹 Video uploaded in tutor-approval flow:', videoData);
     console.log('🖼️ Thumbnail URL to save:', videoData.thumbnail);
@@ -410,7 +485,7 @@ export class TutorOnboardingComponent implements OnInit {
   }
 
   openVideoPlayerModal() {
-    const videoUrl = this.currentUser?.onboardingData?.introductionVideo;
+    const videoUrl = this.getCurrentVideoUrl();
     if (!videoUrl) return;
     
     const videoType = this.getVideoType(videoUrl);
@@ -449,5 +524,82 @@ export class TutorOnboardingComponent implements OnInit {
     this.isVideoPlaying = false;
     this.videoPlayerData = null;
     console.log('🎬 Closing video player modal');
+  }
+
+  private async setupPayPal(paypalEmail: string) {
+    const loading = await this.loadingController.create({
+      message: 'Setting up PayPal...'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/payments/setup-paypal`,
+          { paypalEmail },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      await loading.dismiss();
+
+      if (response.success) {
+        this.showToast('PayPal setup complete! You can now receive payments.', 'success');
+        await this.loadOnboardingStatus(); // Refresh status
+      } else {
+        this.showToast('Failed to setup PayPal: ' + (response.message || 'Unknown error'), 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ PayPal setup error:', error);
+      this.showToast('Failed to setup PayPal. Please try again.', 'danger');
+    }
+  }
+
+  private async setupManualPayout() {
+    const alert = await this.alertController.create({
+      header: 'Manual Bank Transfer',
+      message: 'Your payout method has been set to manual bank transfer. You\'ll be able to request withdrawals from your earnings page, and our team will process them manually.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Continue',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Setting up manual payout...'
+            });
+            await loading.present();
+
+            try {
+              const response = await firstValueFrom(
+                this.http.post<any>(
+                  `${environment.apiUrl}/payments/setup-manual`,
+                  {},
+                  { headers: this.userService.getAuthHeadersSync() }
+                )
+              );
+
+              await loading.dismiss();
+
+              if (response.success) {
+                this.showToast('Manual payout method configured successfully!', 'success');
+                await this.loadOnboardingStatus(); // Refresh status
+              } else {
+                this.showToast('Failed to setup manual payout: ' + (response.message || 'Unknown error'), 'danger');
+              }
+            } catch (error: any) {
+              await loading.dismiss();
+              console.error('❌ Manual payout setup error:', error);
+              this.showToast('Failed to setup manual payout. Please try again.', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 }

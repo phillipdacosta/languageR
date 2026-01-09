@@ -85,3 +85,4 @@ walletSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Wallet', walletSchema);
 
+

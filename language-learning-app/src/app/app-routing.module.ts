@@ -47,6 +47,11 @@ const routes: Routes = [
             loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage),
             canActivate: [AuthGuard]
           },
+          {
+            path: 'admin/payment-review',
+            loadChildren: () => import('./admin/payment-review/payment-review.module').then( m => m.PaymentReviewPageModule),
+            canActivate: [AuthGuard]
+          },
   {
     path: 'tabs',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule),
@@ -100,6 +105,16 @@ const routes: Routes = [
   {
     path: 'lesson-analysis/:id',
     loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'post-lesson-student/:id',
+    loadChildren: () => import('./post-lesson-student/post-lesson-student.page.module').then(m => m.PostLessonStudentPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'post-lesson-tutor/:id',
+    loadChildren: () => import('./post-lesson-tutor/post-lesson-tutor.page.module').then(m => m.PostLessonTutorPageModule),
     canActivate: [AuthGuard]
   },
   {

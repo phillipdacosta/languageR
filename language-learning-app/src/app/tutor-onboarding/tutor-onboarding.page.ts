@@ -22,7 +22,8 @@ export class TutorOnboardingPage implements OnInit {
   // Tutor onboarding data
   firstName = '';
   lastName = '';
-  country = '';
+  country = ''; // Nationality / Where are you from?
+  residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   selectedExperience = '';
@@ -283,9 +284,9 @@ export class TutorOnboardingPage implements OnInit {
     this.selectedSchedule = schedule;
   }
 
-  // Open country selection modal
+  // Open country selection modal (for nationality)
   async openCountryModal() {
-    console.log('🔵 Opening country modal, countryOptions:', this.countryOptions?.length);
+    console.log('🔵 Opening country modal (nationality), countryOptions:', this.countryOptions?.length);
     
     const modal = await this.modalController.create({
       component: CountrySelectModalComponent,
@@ -302,11 +303,36 @@ export class TutorOnboardingPage implements OnInit {
     await modal.present();
     console.log('🔵 Modal presented');
 
+    const { data } = await modal.onWillDismiss();
+    if (data && data.selectedCountry) {
+      this.country = data.selectedCountry;
+      // Default residence to same as nationality if not yet set
+      if (!this.residenceCountry) {
+        this.residenceCountry = data.selectedCountry;
+      }
+    }
+  }
+
+  // Open country selection modal (for residence)
+  async openResidenceCountryModal() {
+    console.log('🔵 Opening residence country modal, countryOptions:', this.countryOptions?.length);
+    
+    const modal = await this.modalController.create({
+      component: CountrySelectModalComponent,
+      componentProps: {
+        countries: this.countryOptions,
+        selectedCountry: this.residenceCountry
+      },
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true
+    });
+
     await modal.present();
 
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
-      this.country = data.selectedCountry;
+      this.residenceCountry = data.selectedCountry;
     }
   }
 
@@ -355,10 +381,11 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔍 Tutor userType:', user?.userType);
 
       // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData & { nativeLanguage?: string } = {
+      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string } = {
         firstName: this.firstName,
         lastName: this.lastName,
         country: this.country,
+        residenceCountry: this.residenceCountry, // NEW: For payout method selection
         nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
@@ -376,6 +403,16 @@ export class TutorOnboardingPage implements OnInit {
       const updatedUser = await this.userService.completeTutorOnboarding(onboardingData).toPromise();
       
       console.log('Tutor onboarding completed successfully:', updatedUser);
+
+      // Submit tutor for review (this sets tutorOnboarding.videoUploaded flag)
+      console.log('📝 Submitting tutor for review...');
+      try {
+        await this.userService.submitTutorForReview().toPromise();
+        console.log('✅ Tutor submitted for review successfully');
+      } catch (reviewError) {
+        console.error('⚠️ Error submitting for review:', reviewError);
+        // Don't fail the whole onboarding if this fails
+      }
 
       // Store in localStorage as backup
       localStorage.setItem('onboarding_completed', 'true');
@@ -425,7 +462,7 @@ export class TutorOnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '' && this.residenceCountry !== '';
       case 2:
         return this.nativeLanguage !== ''; // Native language step
       case 3:
@@ -435,7 +472,7 @@ export class TutorOnboardingPage implements OnInit {
       case 5:
         return this.selectedSchedule !== '';
       case 6:
-        return true; // Bio and rate are optional
+        return this.profileBio.length > 0 && this.hourlyRate > 0; // Bio and rate are not optional
       default:
         return false;
     }

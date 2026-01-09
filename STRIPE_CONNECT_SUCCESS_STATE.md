@@ -261,3 +261,4 @@ If the dashboard link fails (rare edge case):
 - Dashboard link requires `stripeConnectAccountId` to exist
 - Backend validates user is a tutor before generating link
 
+

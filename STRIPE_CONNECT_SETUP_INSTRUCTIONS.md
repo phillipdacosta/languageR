@@ -78,3 +78,4 @@ Tutor receives funds in 1-2 business days
 **Button Location**: `/tabs/profile` (tutor profile page)
 **Status**: Moved from home page ✅
 
+

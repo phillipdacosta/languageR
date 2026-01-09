@@ -40,6 +40,7 @@
         <div class="selector-header">
           <ion-icon name="hourglass-outline"></ion-icon>
           <span>Lesson Duration</span>
+          <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span>
         </div>
         <div class="segmented-control">
           <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
@@ -47,10 +48,11 @@
             <span class="label">Quick</span>
             <span class="time">25 min</span>
           </button>
-          <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
+          <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)" [disabled]="isTrialLesson" [class.disabled]="isTrialLesson">
             <ion-icon name="book"></ion-icon>
             <span class="label">Deep</span>
             <span class="time">50 min</span>
+            <span class="badge" *ngIf="isTrialLesson">After 1st lesson</span>
           </button>
         </div>
       </div>
@@ -137,6 +139,7 @@
       <div class="selector-header">
         <ion-icon name="hourglass-outline"></ion-icon>
         <span>Lesson Duration</span>
+        <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span>
       </div>
       <div class="segmented-control">
         <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
@@ -144,10 +147,11 @@
           <span class="label">Quick</span>
           <span class="time">25 min</span>
         </button>
-        <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)">
+        <button class="segment" [class.active]="selectedDuration === 50" (click)="onDurationChange(50)" [disabled]="isTrialLesson" [class.disabled]="isTrialLesson">
           <ion-icon name="book"></ion-icon>
           <span class="label">Deep</span>
           <span class="time">50 min</span>
+          <span class="badge" *ngIf="isTrialLesson">After 1st lesson</span>
         </button>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { UserService } from '../../services/user.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom, filter } from 'rxjs';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { SharedModule } from '../../shared/shared.module';
 
 @Pipe({
   name: 'sanitizeUrl',
@@ -24,7 +25,7 @@ export class SanitizeUrlPipe implements PipeTransform {
   templateUrl: './tutor-review.page.html',
   styleUrls: ['./tutor-review.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SanitizeUrlPipe]
+  imports: [CommonModule, IonicModule, SanitizeUrlPipe, SharedModule]
 })
 export class TutorReviewPage implements OnInit {
   pendingTutors: any[] = [];
@@ -166,6 +167,21 @@ export class TutorReviewPage implements OnInit {
     console.log('🎬 Closing video modal');
     this.isVideoModalOpen = false;
     this.selectedTutor = null;
+  }
+
+  // Helper method to get the video URL (pending video if exists, otherwise current video)
+  getVideoUrl(tutor: any): string {
+    return tutor.onboardingData?.pendingVideo || tutor.onboardingData?.introductionVideo || '';
+  }
+
+  // Helper method to get the video thumbnail (pending thumbnail if exists, otherwise current thumbnail)
+  getVideoThumbnail(tutor: any): string {
+    return tutor.onboardingData?.pendingVideoThumbnail || tutor.onboardingData?.videoThumbnail || '';
+  }
+
+  // Helper method to get the video type (pending type if exists, otherwise current type)
+  getVideoType(tutor: any): 'upload' | 'youtube' | 'vimeo' {
+    return tutor.onboardingData?.pendingVideoType || tutor.onboardingData?.videoType || 'upload';
   }
 }
 

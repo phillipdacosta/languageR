@@ -17,6 +17,7 @@
     "@deepgram/sdk": "^4.11.2",
     "@google-cloud/storage": "^7.18.0",
     "@google-cloud/text-to-speech": "^6.4.0",
+    "@paypal/payouts-sdk": "^1.1.1",
     "@types/fluent-ffmpeg": "^2.1.28",
     "agora-token": "^2.0.5",
     "axios": "^1.13.2",

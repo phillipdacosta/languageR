@@ -19,6 +19,31 @@ const paymentService = require('../services/paymentService');
 const stripeService = require('../services/stripeService');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
+const Notification = require('../models/Notification');
+const Message = require('../models/Message');
+const { generateTrialLessonMessage } = require('../utils/systemMessages');
+
+// Helper function to format names as "FirstName LastInitial."
+const formatDisplayName = (user) => {
+  if (!user) return 'Unknown User';
+  
+  const firstName = user.firstName || user.onboardingData?.firstName || user.name?.split(' ')[0] || '';
+  const lastName = user.lastName || user.onboardingData?.lastName || '';
+  
+  if (firstName && lastName) {
+    return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+  }
+  
+  if (firstName) {
+    return firstName;
+  }
+  
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+  
+  return 'Unknown User';
+};
 
 /**
  * POST /api/payments/create-payment-intent
@@ -92,19 +117,54 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Validate tutor is onboarded to Stripe Connect
+    // Validate tutor has payout setup (Stripe, PayPal, or Manual)
     const tutor = await User.findById(lessonData.tutorId);
     if (!tutor) {
       return res.status(404).json({ success: false, message: 'Tutor not found' });
     }
 
-    if (!tutor.stripeConnectOnboarded) {
+    // Check if tutor has ANY valid payout method configured
+    const hasStripe = tutor.stripeConnectOnboarded === true;
+    const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManual = tutor.payoutProvider === 'manual';
+    const hasPayoutSetup = hasStripe || hasPayPal || hasManual;
+
+    if (!hasPayoutSetup) {
+      console.log(`❌ Tutor ${tutor._id} has no payout setup:`, {
+        stripeConnectOnboarded: tutor.stripeConnectOnboarded,
+        payoutProvider: tutor.payoutProvider,
+        paypalEmail: tutor.payoutDetails?.paypalEmail
+      });
       return res.status(403).json({ 
         success: false, 
-        message: 'This tutor is not yet set up to receive payments. Please choose another tutor.',
+        message: 'This tutor has not yet completed payment setup and cannot accept bookings. Please choose another tutor.',
         code: 'TUTOR_NOT_ONBOARDED'
       });
     }
+    
+    console.log(`✅ Tutor ${tutor._id} has valid payout setup:`, {
+      payoutProvider: tutor.payoutProvider,
+      hasStripe,
+      hasPayPal,
+      hasManual
+    });
+
+    // Check if this is a trial lesson (first lesson between student and tutor)
+    const previousLessons = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: user._id,
+      isOfficeHours: { $ne: true }, // Exclude office hours
+      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+    });
+    
+    const isTrialLesson = previousLessons === 0;
+    
+    console.log('🎓 Trial lesson check during booking:', {
+      tutorId: tutor._id,
+      studentId: user._id,
+      previousScheduledLessons: previousLessons,
+      isTrialLesson
+    });
 
     // Generate a unique channel name for Agora
     const channelName = `lesson_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -114,7 +174,8 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       ...lessonData,
       channelName,
       status: 'scheduled',
-      billingStatus: 'pending'
+      billingStatus: 'pending',
+      isTrialLesson // Add trial lesson flag
     });
 
     await lesson.save();
@@ -136,8 +197,203 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
 
       // Populate lesson data for response
       const populatedLesson = await Lesson.findById(lesson._id)
-        .populate('tutorId', 'name firstName lastName email picture')
-        .populate('studentId', 'name firstName lastName email picture');
+        .populate('tutorId', 'name firstName lastName email picture interfaceLanguage onboardingData auth0Id')
+        .populate('studentId', 'name firstName lastName email picture auth0Id');
+
+      const student = populatedLesson.studentId;
+      const tutor = populatedLesson.tutorId;
+
+      // Format date and time for notifications
+      const lessonDate = new Date(populatedLesson.startTime);
+      const formattedDate = lessonDate.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      const formattedTime = lessonDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+
+      // Get language from bookingData, subject, or tutor's languages
+      let language = 'language';
+      if (populatedLesson.bookingData?.selectedLanguage) {
+        language = populatedLesson.bookingData.selectedLanguage;
+      } else if (populatedLesson.subject && populatedLesson.subject !== 'Language Lesson') {
+        language = populatedLesson.subject.replace(/\s+Lesson$/i, '').trim();
+      } else if (tutor.onboardingData?.languages && tutor.onboardingData.languages.length > 0) {
+        language = tutor.onboardingData.languages[0];
+      }
+
+      // Format names for notifications
+      const studentDisplayName = formatDisplayName(student);
+      const tutorDisplayName = formatDisplayName(tutor);
+      
+      // Check if this is a trial lesson
+      const isTrialLesson = populatedLesson.isTrialLesson || false;
+      const lessonTypePrefix = isTrialLesson ? 'trial ' : '';
+
+      // Create notification for tutor (skip for trial lessons - they get a special system message instead)
+      if (!isTrialLesson) {
+        try {
+          await Notification.create({
+            userId: tutor._id,
+            type: 'lesson_created',
+            title: 'New Lesson Scheduled',
+            message: `<strong>${studentDisplayName}</strong> set up a <strong>${language}</strong> lesson with you for <strong>${formattedDate} at ${formattedTime}</strong>`,
+            relatedUserPicture: student.picture || null,
+            data: {
+              lessonId: populatedLesson._id,
+              studentId: student._id,
+              studentName: studentDisplayName,
+              language: language,
+              date: formattedDate,
+              time: formattedTime,
+              startTime: populatedLesson.startTime,
+              isTrialLesson: false
+            }
+          });
+          console.log('✅ Notification created for tutor:', tutor._id);
+        } catch (notifError) {
+          console.error('❌ Error creating notification for tutor:', notifError);
+        }
+      }
+
+      // Create notification for student
+      try {
+        await Notification.create({
+          userId: student._id,
+          type: 'lesson_created',
+          title: isTrialLesson ? 'Trial Lesson Scheduled' : 'Lesson Scheduled',
+          message: `You set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with <strong>${tutorDisplayName}</strong> for <strong>${formattedDate} at ${formattedTime}</strong>`,
+          relatedUserPicture: tutor.picture || null,
+          data: {
+            lessonId: populatedLesson._id,
+            tutorId: tutor._id,
+            tutorName: tutorDisplayName,
+            language: language,
+            date: formattedDate,
+            time: formattedTime,
+            startTime: populatedLesson.startTime,
+            isTrialLesson: isTrialLesson
+          }
+        });
+        console.log('✅ Notification created for student:', student._id);
+      } catch (notifError) {
+        console.error('❌ Error creating notification for student:', notifError);
+      }
+
+      // Emit WebSocket notifications if users are connected
+      if (req.io && req.connectedUsers) {
+        const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+        const studentSocketId = req.connectedUsers.get(student.auth0Id);
+
+        if (tutorSocketId) {
+          req.io.to(tutorSocketId).emit('new_notification', {
+            type: 'lesson_created',
+            message: `<strong>${studentDisplayName}</strong> set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with you for <strong>${formattedDate} at ${formattedTime}</strong>`,
+            isTrialLesson: isTrialLesson
+          });
+        }
+
+        if (studentSocketId) {
+          req.io.to(studentSocketId).emit('new_notification', {
+            type: 'lesson_created',
+            message: `You set up a <strong>${language}</strong> ${lessonTypePrefix}lesson with <strong>${tutorDisplayName}</strong> for <strong>${formattedDate} at ${formattedTime}</strong>`,
+            isTrialLesson: isTrialLesson
+          });
+        }
+      }
+
+      // Send system message to tutor if this is a trial lesson
+      if (isTrialLesson) {
+        try {
+          // Get tutor's interface language preference
+          const tutorLanguage = tutor.interfaceLanguage || 'en';
+          
+          // Generate the multilingual system message
+          const systemMessageContent = generateTrialLessonMessage({
+            studentName: studentDisplayName,
+            studentId: student._id.toString(),
+            startTime: lessonDate,
+            duration: populatedLesson.duration,
+            tutorLanguage
+          });
+          
+          // Create conversation ID between tutor and student using auth0Ids
+          const ids = [student.auth0Id, tutor.auth0Id].sort();
+          const conversationId = `${ids[0]}_${ids[1]}`;
+          
+          // Create the system message
+          const systemMessage = new Message({
+            conversationId,
+            senderId: 'system',
+            receiverId: tutor.auth0Id,
+            content: systemMessageContent,
+            type: 'system',
+            isSystemMessage: true,
+            visibleToTutorOnly: true,
+            triggerType: 'book_lesson',
+            read: false
+          });
+          
+          await systemMessage.save();
+          
+          console.log('✅ System message sent to tutor about trial lesson:', {
+            messageId: systemMessage._id.toString(),
+            tutorAuth0Id: tutor.auth0Id,
+            studentAuth0Id: student.auth0Id,
+            conversationId,
+            language: tutorLanguage
+          });
+          
+          // Create notification for tutor about the trial lesson message
+          const trialNotification = await Notification.create({
+            userId: tutor._id,
+            type: 'lesson_created',
+            title: 'Trial Lesson Tips',
+            message: `<strong>${studentDisplayName}</strong> booked a <strong>trial lesson</strong> on <strong>${new Date(populatedLesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(populatedLesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</strong>. Check your messages for preparation tips.`,
+            relatedUserPicture: student.picture || null,
+            data: {
+              lessonId: populatedLesson._id.toString(),
+              studentId: student._id.toString(),
+              studentName: studentDisplayName,
+              studentPicture: student.picture,
+              conversationId,
+              messageId: systemMessage._id.toString(),
+              startTime: populatedLesson.startTime
+            }
+          });
+          
+          console.log('✅ Trial lesson notification created:', trialNotification._id);
+          
+          // Emit websocket notification to tutor if connected
+          if (req.io && req.connectedUsers) {
+            const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
+            if (tutorSocketId) {
+              req.io.to(tutorSocketId).emit('new_notification', {
+                type: 'lesson_created',
+                title: 'Trial Lesson Tips',
+                message: `${studentDisplayName} booked a trial lesson on ${new Date(populatedLesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(populatedLesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
+                data: {
+                  lessonId: populatedLesson._id.toString(),
+                  studentId: student._id.toString(),
+                  studentName: studentDisplayName,
+                  studentPicture: student.picture,
+                  conversationId,
+                  messageId: systemMessage._id.toString(),
+                  startTime: populatedLesson.startTime
+                }
+              });
+              console.log('📤 Emitted trial lesson notification to tutor');
+            }
+          }
+        } catch (trialError) {
+          console.error('❌ Error creating trial lesson system message:', trialError);
+        }
+      }
 
       res.json({
         success: true,
@@ -591,9 +847,11 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     // Get all payments for this tutor WHERE revenue has been recognized
     // This means the lesson has been completed and funds have been deducted
+    // Exclude 'acknowledged' status (dismissed failed payouts that shouldn't count)
     const payments = await Payment.find({ 
       tutorId: user._id,
-      revenueRecognized: true // ONLY count completed lessons
+      revenueRecognized: true, // ONLY count completed lessons
+      transferStatus: { $ne: 'acknowledged' } // Exclude dismissed payments
     })
       .populate('lessonId', 'startTime endTime duration status')
       .populate('studentId', 'name firstName lastName')
@@ -638,10 +896,65 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       success: true,
       totalEarnings,
       pendingEarnings,
-      recentPayments
+      recentPayments,
+      payoutProvider: user.payoutProvider || 'unknown', // Add payout provider for frontend label
+      payoutDetails: user.payoutDetails // In case frontend needs it
     });
   } catch (error) {
     console.error('❌ Error fetching tutor earnings:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/payments/payout-options
+ * Get recommended payout provider based on tutor's residence country
+ */
+router.get('/payout-options', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can check payout options' });
+    }
+
+    const { isStripeAvailable, getRecommendedPayoutProvider } = require('../utils/stripeCountries');
+    
+    const residenceCountry = user.residenceCountry || user.country || '';
+    const stripeAvailable = isStripeAvailable(residenceCountry);
+    const recommendedProvider = getRecommendedPayoutProvider(residenceCountry);
+    
+    res.json({
+      success: true,
+      residenceCountry,
+      options: {
+        stripe: {
+          available: stripeAvailable,
+          recommended: recommendedProvider === 'stripe',
+          label: 'Stripe Connect',
+          description: 'Direct bank transfers (fastest payouts)'
+        },
+        paypal: {
+          available: true, // PayPal available in 200+ countries
+          recommended: recommendedProvider === 'paypal',
+          label: 'PayPal',
+          description: 'Receive payments via PayPal account'
+        },
+        manual: {
+          available: true, // Always available as fallback
+          recommended: false,
+          label: 'Manual Bank Transfer',
+          description: 'Request withdrawals via bank transfer (slower)'
+        }
+      },
+      currentProvider: user.payoutProvider || 'none'
+    });
+  } catch (error) {
+    console.error('❌ Error checking payout options:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -971,6 +1284,112 @@ router.put('/payment-method/:paymentMethodId/default', verifyToken, async (req, 
     });
   } catch (error) {
     console.error('❌ Error setting default payment method:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/payments/setup-paypal
+ * Setup PayPal as payout method
+ */
+router.post('/setup-paypal', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
+    }
+
+    const { paypalEmail } = req.body;
+    
+    if (!paypalEmail || !paypalEmail.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Valid PayPal email required' });
+    }
+
+    // Update payout provider
+    user.payoutProvider = 'paypal';
+    user.payoutDetails = user.payoutDetails || {};
+    user.payoutDetails.paypalEmail = paypalEmail;
+    
+    // Mark payout setup as complete for onboarding
+    user.tutorOnboarding = user.tutorOnboarding || {};
+    user.tutorOnboarding.stripeConnected = true; // Use same flag for any payout method
+    
+    // Check if all onboarding steps complete
+    const photoComplete = user.tutorOnboarding.photoUploaded || !!user.picture;
+    const videoApproved = user.tutorOnboarding.videoApproved === true;
+    const payoutComplete = true; // Just completed
+    
+    if (photoComplete && videoApproved && payoutComplete && !user.tutorApproved) {
+      user.tutorApproved = true;
+      user.tutorOnboarding.completedAt = new Date();
+      console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (PayPal setup)`);
+    }
+    
+    await user.save();
+    
+    console.log(`✅ PayPal setup complete for tutor ${user.email}: ${paypalEmail}`);
+    
+    res.json({
+      success: true,
+      message: 'PayPal setup complete',
+      payoutProvider: 'paypal'
+    });
+  } catch (error) {
+    console.error('❌ Error setting up PayPal:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/payments/setup-manual
+ * Setup manual bank transfer as payout method
+ */
+router.post('/setup-manual', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
+    }
+
+    // Update payout provider
+    user.payoutProvider = 'manual';
+    
+    // Mark payout setup as complete for onboarding
+    user.tutorOnboarding = user.tutorOnboarding || {};
+    user.tutorOnboarding.stripeConnected = true; // Use same flag for any payout method
+    
+    // Check if all onboarding steps complete
+    const photoComplete = user.tutorOnboarding.photoUploaded || !!user.picture;
+    const videoApproved = user.tutorOnboarding.videoApproved === true;
+    const payoutComplete = true; // Just completed
+    
+    if (photoComplete && videoApproved && payoutComplete && !user.tutorApproved) {
+      user.tutorApproved = true;
+      user.tutorOnboarding.completedAt = new Date();
+      console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (Manual payout setup)`);
+    }
+    
+    await user.save();
+    
+    console.log(`✅ Manual payout setup complete for tutor ${user.email}`);
+    
+    res.json({
+      success: true,
+      message: 'Manual payout method configured',
+      payoutProvider: 'manual'
+    });
+  } catch (error) {
+    console.error('❌ Error setting up manual payout:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

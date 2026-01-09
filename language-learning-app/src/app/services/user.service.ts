@@ -13,6 +13,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   country?: string;
+  residenceCountry?: string;
   picture?: string;
   emailVerified: boolean;
   userType: 'student' | 'tutor';
@@ -34,6 +35,12 @@ export interface User {
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
   stripeConnectAccountId?: string;
+  // Payout settings
+  payoutProvider?: 'stripe' | 'paypal' | 'manual' | 'none';
+  payoutDetails?: {
+    paypalEmail?: string;
+    bankInfo?: any;
+  };
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -47,6 +54,10 @@ export interface User {
     introductionVideo?: string;
     videoThumbnail?: string;
     videoType?: 'upload' | 'youtube' | 'vimeo';
+    // Pending video fields (for admin review)
+    pendingVideo?: string;
+    pendingVideoThumbnail?: string;
+    pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
     completedAt: string;
   };
   profile?: {
@@ -312,7 +323,23 @@ export class UserService {
     const videoComplete = !!user.onboardingData?.introductionVideo;
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const videoRejected = user.tutorOnboarding?.videoRejected === true;
-    const stripeComplete = user.stripeConnectOnboarded === true;
+    
+    // Check for any payout method: Stripe, PayPal, or Manual
+    const hasStripe = user.stripeConnectOnboarded === true;
+    const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+    const hasManual = user.payoutProvider === 'manual';
+    const stripeComplete = hasStripe || hasPayPal || hasManual;
+    
+    console.log('💰 [UserService] Payout check details:', {
+      stripeConnectOnboarded: user.stripeConnectOnboarded,
+      payoutProvider: user.payoutProvider,
+      paypalEmail: user.payoutDetails?.paypalEmail,
+      hasStripe,
+      hasPayPal,
+      hasManual,
+      stripeComplete
+    });
+    
     const fullyApproved = user.tutorApproved === true;
     
     // Needs approval if onboarding is complete but not fully approved
@@ -392,6 +419,26 @@ export class UserService {
       }),
       map(response => response.user),
       tap(user => this.currentUserSubject.next(user))
+    );
+  }
+
+  /**
+   * Submit tutor profile for review
+   */
+  submitTutorForReview(): Observable<{ success: boolean, message: string, tutorOnboarding: any }> {
+    return from(this.getAuthHeadersAsync()).pipe(
+      switchMap(headers => {
+        return this.http.post<{ success: boolean, message: string, tutorOnboarding: any }>(
+          `${this.apiUrl}/users/tutor/submit-for-review`, 
+          {}, 
+          { headers }
+        );
+      }),
+      tap(response => {
+        console.log('✅ Submit for review response:', response);
+        // Refresh current user to get updated tutorOnboarding status
+        this.getCurrentUser(true).subscribe();
+      })
     );
   }
 

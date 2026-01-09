@@ -1,0 +1,237 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Admin Dashboard</ion-title>
+  </ion-toolbar>
+  
+  <!-- Tab Switcher -->
+  <ion-segment [(ngModel)]="selectedTab" (ionChange)="switchTab(selectedTab)">
+    <ion-segment-button value="payments">
+      <ion-label>Payment Monitoring</ion-label>
+    </ion-segment-button>
+    <ion-segment-button value="tutors">
+      <ion-label>Tutor Review</ion-label>
+    </ion-segment-button>
+  </ion-segment>
+</ion-header>
+
+<ion-content>
+  <!-- PAYMENT MONITORING TAB -->
+  <div *ngIf="selectedTab === 'payments'" class="payment-container">
+    <div class="refresh-button">
+      <ion-button (click)="loadPaymentHealth()" [disabled]="loadingPayments">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Refresh
+      </ion-button>
+    </div>
+
+    <div *ngIf="loadingPayments" class="loading-container">
+      <ion-spinner></ion-spinner>
+    </div>
+
+    <div *ngIf="!loadingPayments && paymentHealth" class="health-dashboard">
+      <!-- Summary Stats -->
+      <div class="stats-grid">
+        <div class="stat-card critical" *ngIf="paymentHealth.stats.criticalAlerts > 0">
+          <ion-icon name="alert-circle"></ion-icon>
+          <div class="stat-number">{{ paymentHealth.stats.criticalAlerts }}</div>
+          <div class="stat-label">Critical Alerts</div>
+        </div>
+
+        <div class="stat-card warning" *ngIf="paymentHealth.stats.outOfSync > 0">
+          <ion-icon name="sync-outline"></ion-icon>
+          <div class="stat-number">{{ paymentHealth.stats.outOfSync }}</div>
+          <div class="stat-label">Out of Sync</div>
+        </div>
+
+        <div class="stat-card info" *ngIf="paymentHealth.stats.stuckAuths > 0">
+          <ion-icon name="time-outline"></ion-icon>
+          <div class="stat-number">{{ paymentHealth.stats.stuckAuths }}</div>
+          <div class="stat-label">Stuck Authorizations</div>
+        </div>
+
+        <div class="stat-card info" *ngIf="paymentHealth.stats.pendingTransfers > 0">
+          <ion-icon name="hourglass-outline"></ion-icon>
+          <div class="stat-number">{{ paymentHealth.stats.pendingTransfers }}</div>
+          <div class="stat-label">Pending Transfers</div>
+        </div>
+
+        <div class="stat-card danger" *ngIf="paymentHealth.stats.failedPayouts > 0">
+          <ion-icon name="cash-outline"></ion-icon>
+          <div class="stat-number">{{ paymentHealth.stats.failedPayouts }}</div>
+          <div class="stat-label">Failed Payouts</div>
+        </div>
+      </div>
+
+      <!-- Active Alerts -->
+      <div class="section-card" *ngIf="paymentHealth.alerts && paymentHealth.alerts.length > 0">
+        <div class="section-header" (click)="toggleSection('alerts')">
+          <h2>
+            <ion-icon name="warning-outline"></ion-icon>
+            Active Alerts ({{ paymentHealth.alerts.length }})
+          </h2>
+          <ion-icon [name]="isSectionExpanded('alerts') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+
+        <div *ngIf="isSectionExpanded('alerts')" class="section-content">
+          <div *ngFor="let alert of paymentHealth.alerts" class="alert-item" [class]="alert.severity.toLowerCase()">
+            <div class="alert-header">
+              <ion-icon [name]="getAlertIcon(alert.type)"></ion-icon>
+              <div class="alert-info">
+                <h3>{{ alert.title }}</h3>
+                <ion-badge [color]="getSeverityColor(alert.severity)">{{ alert.severity }}</ion-badge>
+                <ion-badge color="medium">{{ alert.type }}</ion-badge>
+              </div>
+              <ion-button size="small" (click)="resolveAlert(alert)" *ngIf="alert.status === 'active'">
+                Resolve
+              </ion-button>
+            </div>
+            <p *ngIf="alert.description">{{ alert.description }}</p>
+            <div class="alert-meta">
+              <small>Created: {{ formatDate(alert.createdAt) }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Out of Sync Payments -->
+      <div class="section-card" *ngIf="paymentHealth.issues.outOfSyncPayments.length > 0">
+        <div class="section-header" (click)="toggleSection('outOfSync')">
+          <h2>
+            <ion-icon name="sync-outline"></ion-icon>
+            Out of Sync ({{ paymentHealth.issues.outOfSyncPayments.length }})
+          </h2>
+          <ion-icon [name]="isSectionExpanded('outOfSync') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+
+        <div *ngIf="isSectionExpanded('outOfSync')" class="section-content">
+          <div *ngFor="let payment of paymentHealth.issues.outOfSyncPayments" class="issue-item">
+            <div class="issue-header">
+              <strong>Payment {{ payment.paymentId }}</strong>
+              <ion-badge color="danger">{{ payment.dbStatus }}</ion-badge>
+              <ion-icon name="arrow-forward"></ion-icon>
+              <ion-badge color="warning">{{ payment.stripeStatus }}</ion-badge>
+            </div>
+            <p>Amount: ${{ payment.amount }} | Charged: {{ formatDate(payment.chargedAt) }}</p>
+            <code>{{ payment.stripePaymentIntentId }}</code>
+            <div style="margin-top: 12px;">
+              <ion-button size="small" color="primary" (click)="manualCapture(payment)" *ngIf="payment.stripeStatus === 'requires_capture'">
+                <ion-icon name="card-outline" slot="start"></ion-icon>
+                Capture Payment
+              </ion-button>
+              <ion-button size="small" color="secondary" (click)="syncPaymentStatus(payment)" *ngIf="payment.stripeStatus === 'succeeded'">
+                <ion-icon name="sync-outline" slot="start"></ion-icon>
+                Sync Database
+              </ion-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stuck Authorizations -->
+      <div class="section-card" *ngIf="paymentHealth.issues.stuckAuthorizations.length > 0">
+        <div class="section-header" (click)="toggleSection('stuckAuths')">
+          <h2>
+            <ion-icon name="time-outline"></ion-icon>
+            Stuck Authorizations ({{ paymentHealth.issues.stuckAuthorizations.length }})
+          </h2>
+          <ion-icon [name]="isSectionExpanded('stuckAuths') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+
+        <div *ngIf="isSectionExpanded('stuckAuths')" class="section-content">
+          <div *ngFor="let payment of paymentHealth.issues.stuckAuthorizations" class="issue-item">
+            <div class="issue-header">
+              <strong>Payment {{ payment.paymentId }}</strong>
+              <ion-badge color="warning">{{ payment.daysStuck }} days</ion-badge>
+            </div>
+            <p>Amount: ${{ payment.amount }} | Lesson: {{ payment.lessonStatus }}</p>
+            <ion-button size="small" (click)="manualCapture(payment)">Manual Capture</ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Failed Payouts -->
+      <div class="section-card" *ngIf="paymentHealth.issues.failedPayouts.length > 0">
+        <div class="section-header" (click)="toggleSection('failedPayouts')">
+          <h2>
+            <ion-icon name="cash-outline"></ion-icon>
+            Failed Payouts ({{ paymentHealth.issues.failedPayouts.length }})
+          </h2>
+          <ion-icon [name]="isSectionExpanded('failedPayouts') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+        </div>
+
+        <div *ngIf="isSectionExpanded('failedPayouts')" class="section-content">
+          <div *ngFor="let payout of paymentHealth.issues.failedPayouts" class="issue-item">
+            <div class="issue-header">
+              <strong>{{ payout.tutorName }}</strong>
+              <ion-badge [color]="payout.payoutProvider === 'paypal' ? 'primary' : 'secondary'">
+                {{ payout.payoutProvider }}
+              </ion-badge>
+            </div>
+            <p>Amount: ${{ payout.tutorPayout }} | {{ payout.tutorEmail }}</p>
+            <p class="error-text">{{ payout.errorMessage }}</p>
+            <ion-button size="small" color="medium" (click)="dismissFailedPayout(payout)">
+              <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+              Dismiss
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="paymentHealth.stats.activeAlerts === 0 && paymentHealth.alerts.length === 0" class="empty-state">
+        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+        <h2>All Systems Healthy!</h2>
+        <p>No payment issues detected</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TUTOR REVIEW TAB -->
+  <div *ngIf="selectedTab === 'tutors'" class="tutor-container">
+    <div *ngIf="loadingTutors" class="loading-container">
+      <ion-spinner></ion-spinner>
+    </div>
+
+    <div *ngIf="!loadingTutors" class="review-container">
+      <h2>Pending Approval ({{ pendingTutors.length }})</h2>
+
+      <div *ngIf="pendingTutors.length === 0" class="empty-state">
+        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+        <p>No tutors pending approval</p>
+      </div>
+
+      <div *ngFor="let tutor of pendingTutors" class="tutor-card">
+        <div class="tutor-info">
+          <img [src]="tutor.picture" *ngIf="tutor.picture" alt="{{tutor.name}}">
+          <div>
+            <h3>{{ tutor.name || tutor.email }}</h3>
+            <p>{{ tutor.email }}</p>
+            
+            <div class="status-badges">
+              <ion-badge *ngIf="tutor.stripeConnectOnboarded" color="success">
+                <ion-icon name="checkmark-circle"></ion-icon> Stripe
+              </ion-badge>
+              <ion-badge *ngIf="tutor.payoutProvider === 'paypal'" color="success">
+                <ion-icon name="checkmark-circle"></ion-icon> PayPal
+              </ion-badge>
+              <ion-badge *ngIf="tutor.payoutProvider === 'manual'" color="warning">
+                <ion-icon name="alert-circle"></ion-icon> Manual
+              </ion-badge>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <ion-button color="success" (click)="approveVideo(tutor)">
+            <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+            Approve
+          </ion-button>
+          <ion-button color="danger" (click)="rejectVideo(tutor)">
+            <ion-icon name="close-circle" slot="start"></ion-icon>
+            Reject
+          </ion-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

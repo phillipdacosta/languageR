@@ -1,0 +1,236 @@
+<ion-content class="post-lesson-content">
+  <div class="content-wrapper">
+    <div class="split-layout">
+    <!-- LEFT PANEL: Tutor Info & Actions -->
+    <div class="left-panel">
+      <!-- Loading State for Lesson Info -->
+      <div class="tutor-card" *ngIf="!lesson">
+        <div class="loading-skeleton">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Loading lesson info...</p>
+        </div>
+      </div>
+      
+      <!-- Tutor Card (Show when lesson data loads) -->
+      <div class="tutor-card" *ngIf="lesson && tutor">
+        <!-- Tutor Avatar -->
+        <div class="tutor-avatar">
+          <img [src]="tutor.picture || 'assets/default-avatar.png'" [alt]="tutor.name" />
+        </div>
+        
+        <!-- Tutor Name -->
+        <h2 class="tutor-name">{{ getTutorDisplayName() }}</h2>
+        
+        <!-- Lesson Info -->
+        <div class="lesson-info-section">
+          <div class="info-item">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ formatDate(lesson.startTime) }}</span>
+          </div>
+          <div class="info-item">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ formatTime(lesson.startTime) }} - {{ formatTime(lesson.endTime) }}</span>
+          </div>
+          <div class="info-item" *ngIf="lesson.actualDurationMinutes">
+            <ion-icon name="hourglass-outline"></ion-icon>
+            <span>{{ lesson.actualDurationMinutes }} minutes</span>
+          </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <!-- Tip Button -->
+          <ion-button 
+            expand="block" 
+            fill="solid" 
+            color="success"
+            class="tip-button"
+            (click)="toggleTipSection()"
+            *ngIf="!tipSubmitted">
+            <ion-icon name="gift" slot="start"></ion-icon>
+            Tip {{ tutor.name.split(' ')[0] }}
+          </ion-button>
+          
+          <div class="tip-success" *ngIf="tipSubmitted">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+            <span>Tip sent! Thank you 🎉</span>
+          </div>
+          
+          <!-- Review Button -->
+          <ion-button 
+            expand="block" 
+            fill="outline" 
+            color="primary" 
+            (click)="leaveReview()">
+            <ion-icon name="star" slot="start"></ion-icon>
+            Leave a Review
+          </ion-button>
+          
+          <!-- Book Again Button -->
+          <ion-button 
+            expand="block" 
+            fill="outline" 
+            color="primary" 
+            (click)="bookAgain()">
+            <ion-icon name="calendar" slot="start"></ion-icon>
+            Book Again
+          </ion-button>
+          
+          <!-- Done Button -->
+          <ion-button 
+            expand="block" 
+            fill="clear" 
+            (click)="goHome()">
+            Done
+          </ion-button>
+        </div>
+        
+        <!-- Tip Selector (Collapsible) -->
+        <div class="tip-section" *ngIf="showTipSection && !tipSubmitted">
+          <h3>How much would you like to tip?</h3>
+          
+          <!-- Quick Amount Buttons -->
+          <div class="tip-quick-options">
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipAmount === 5"
+              (click)="selectTipAmount(5)">
+              $5
+            </button>
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipAmount === 10"
+              (click)="selectTipAmount(10)">
+              $10
+            </button>
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipAmount === 15"
+              (click)="selectTipAmount(15)">
+              $15
+            </button>
+          </div>
+          
+          <!-- Percentage Buttons -->
+          <div class="tip-percentage-options" *ngIf="lesson.price">
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipPercentage === 10"
+              (click)="selectTipPercentage(10)">
+              10% (${{ calculatePercentageTip(10).toFixed(2) }})
+            </button>
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipPercentage === 15"
+              (click)="selectTipPercentage(15)">
+              15% (${{ calculatePercentageTip(15).toFixed(2) }})
+            </button>
+            <button 
+              class="tip-option"
+              [class.selected]="selectedTipPercentage === 20"
+              (click)="selectTipPercentage(20)">
+              20% (${{ calculatePercentageTip(20).toFixed(2) }})
+            </button>
+          </div>
+          
+          <!-- Custom Amount -->
+          <div class="custom-tip-input">
+            <ion-input 
+              type="number" 
+              placeholder="Custom amount"
+              [(ngModel)]="customTipAmount"
+              (ionInput)="onCustomTipInput()"
+              min="1"
+              max="500">
+            </ion-input>
+          </div>
+          
+          <!-- Submit Tip Button -->
+          <ion-button 
+            expand="block" 
+            color="success"
+            [disabled]="!getTipAmount() || submittingTip"
+            (click)="submitTip()">
+            <ion-spinner *ngIf="submittingTip" name="crescent"></ion-spinner>
+            <span *ngIf="!submittingTip">
+              Send ${{ getTipAmount() }} Tip
+            </span>
+          </ion-button>
+          
+          <p class="tip-note">
+            💡 100% goes to your tutor (processing fee: ~${{ (getTipAmount() * 0.029 + 0.30).toFixed(2) }})
+          </p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- RIGHT PANEL: Analysis -->
+    <div class="right-panel">
+      <!-- Loading State with Animation -->
+      <div class="analysis-loading" *ngIf="!analysisReady">
+        <div class="ai-animation">
+          <!-- CSS Animation (free alternative to Lottie) -->
+          <div class="thinking-brain">
+            <div class="brain-circle"></div>
+            <div class="brain-circle"></div>
+            <div class="brain-circle"></div>
+          </div>
+          <div class="thinking-dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+        <h2>Analyzing your lesson...</h2>
+        <p>Our AI is processing your session. This usually takes 10-30 seconds.</p>
+        <p class="poll-count" *ngIf="pollCount > 0">Checking for updates... ({{ pollCount }}/{{ maxPollAttempts }})</p>
+      </div>
+      
+      <!-- Analysis Ready -->
+      <div class="analysis-ready" *ngIf="analysisReady && analysis">
+        <div class="analysis-header">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          <h2>Your Analysis is Ready!</h2>
+        </div>
+        
+        <!-- Quick Summary -->
+        <div class="quick-summary">
+          <div class="summary-item">
+            <div class="summary-label">Level</div>
+            <div class="summary-value">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Vocabulary</div>
+            <div class="summary-value">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }} words</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Grammar</div>
+            <div class="summary-value">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</div>
+          </div>
+        </div>
+        
+        <!-- View Full Analysis Button -->
+        <ion-button 
+          expand="block" 
+          fill="solid" 
+          color="primary"
+          (click)="viewFullAnalysis()">
+          <ion-icon name="analytics" slot="start"></ion-icon>
+          View Full Analysis
+        </ion-button>
+        
+        <!-- Top Takeaways -->
+        <div class="takeaways" *ngIf="analysis.progressionMetrics?.keyImprovements?.length">
+          <h3>🎯 Key Takeaways</h3>
+          <ul>
+            <li *ngFor="let improvement of analysis.progressionMetrics?.keyImprovements">
+              {{ improvement }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</ion-content>
+

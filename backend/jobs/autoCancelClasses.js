@@ -48,6 +48,47 @@ async function autoCancelClasses(io = null, connectedUsers = null) {
         classItem.status = 'cancelled';
         classItem.cancelledAt = new Date();
         classItem.cancelReason = 'minimum_not_met';
+        
+        // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const Payment = require('../models/Payment');
+        let releasedCount = 0;
+        
+        for (const studentPayment of classItem.studentPayments || []) {
+          if (studentPayment.paymentStatus === 'authorized') {
+            try {
+              // Cancel the authorization (release the hold)
+              const cancelledIntent = await stripe.paymentIntents.cancel(
+                studentPayment.stripePaymentIntentId
+              );
+              
+              if (cancelledIntent.status === 'canceled') {
+                studentPayment.paymentStatus = 'cancelled';
+                studentPayment.cancelledAt = new Date();
+                
+                // Update Payment model
+                const payment = await Payment.findById(studentPayment.paymentId);
+                if (payment) {
+                  payment.status = 'cancelled';
+                  payment.metadata = payment.metadata || {};
+                  payment.metadata.cancelReason = 'class_cancelled_minimum_not_met';
+                  payment.metadata.cancelledAt = new Date();
+                  await payment.save();
+                }
+                
+                releasedCount++;
+              }
+            } catch (stripeError) {
+              console.error(`❌ Failed to cancel payment authorization:`, stripeError.message);
+              // Continue with cancellation even if payment release fails
+            }
+          }
+        }
+        
+        if (releasedCount > 0) {
+          console.log(`💳 Released ${releasedCount} payment authorization(s) for auto-cancelled class "${classItem.name}"`);
+        }
+        
         await classItem.save();
         
         cancelledCount++;

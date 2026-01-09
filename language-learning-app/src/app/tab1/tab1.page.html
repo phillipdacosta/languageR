@@ -375,62 +375,64 @@
           
           <!-- Modern Spacious Layout -->
           <div class="next-class-layout-modern">
+            <!-- Badge Container at top of card -->
+            <div class="badge-container-card-top">
+              <!-- Main status badge (NEXT LESSON / CANCELLED) -->
+              <span class="badge-modern badge-light" 
+                    [class.badge-cancelled]="nextClass.lesson?.status === 'cancelled'">
+                <span *ngIf="nextClass.lesson?.status === 'cancelled'">CANCELLED</span>
+                <span *ngIf="nextClass.lesson?.status !== 'cancelled'">NEXT LESSON</span>
+              </span>
+              
+              <!-- Trial badge (additional badge for trial lessons) -->
+              <span class="badge-modern badge-trial" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
+                <ion-icon name="star"></ion-icon>
+                TRIAL
+              </span>
+              
+              <!-- Reschedule badges -->
+              <!-- Accepted reschedule (show for both proposer and acceptor) -->
+              <span class="badge-modern badge-reschedule-accepted" 
+                    *ngIf="nextClass.lesson?.rescheduleProposal?.status === 'accepted' && nextClass.lesson?.status === 'scheduled'">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                RESCHEDULE ACCEPTED
+              </span>
+              
+              <!-- Sent reschedule proposal (you are the proposer, still pending) -->
+              <span class="badge-modern badge-reschedule-sent" 
+                    *ngIf="nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && nextClass.isRescheduleProposer">
+                <ion-icon name="time"></ion-icon>
+                RESCHEDULE REQUEST SENT
+              </span>
+              
+              <!-- Received reschedule proposal (you are NOT the proposer, needs response) -->
+              <span class="badge-modern badge-reschedule-proposal" 
+                    *ngIf="nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && !nextClass.isRescheduleProposer"
+                    (click)="showRescheduleProposal(nextClass.lesson)">
+                <ion-icon name="alert-circle"></ion-icon>
+                NEW RESCHEDULE REQUEST
+              </span>
+            </div>
+            
             <!-- Left Section: Avatar + Info -->
             <div class="left-section-modern">
-              <!-- Avatar with Badge -->
-              <div class="avatar-with-badge">
-                <div class="badge-container">
-                  <!-- Main status badge (NEXT LESSON / CANCELLED) -->
-                  <span class="badge-modern badge-light" 
-                        [class.badge-cancelled]="nextClass.lesson?.status === 'cancelled'">
-                    <span *ngIf="nextClass.lesson?.status === 'cancelled'">CANCELLED</span>
-                    <span *ngIf="nextClass.lesson?.status !== 'cancelled'">NEXT LESSON</span>
-                  </span>
-                  
-                  <!-- Trial badge (additional badge for trial lessons) -->
-                  <span class="badge-modern badge-trial" *ngIf="nextClass.lesson?.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
-                    <ion-icon name="star"></ion-icon>
-                    TRIAL
-                  </span>
-                  
-                  <!-- Reschedule badges -->
-                  <!-- Sent reschedule proposal (you are the proposer) -->
-                  <span class="badge-modern badge-reschedule-sent" 
-                        *ngIf="nextClass.rescheduleAccepted && nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'accepted'">
-                    <ion-icon name="checkmark-circle"></ion-icon>
-                    RESCHEDULE ACCEPTED
-                  </span>
-                  <span class="badge-modern badge-reschedule-sent" 
-                        *ngIf="!nextClass.rescheduleAccepted && nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && nextClass.isRescheduleProposer">
-                    <ion-icon name="time"></ion-icon>
-                    RESCHEDULE REQUEST SENT
-                  </span>
-                  
-                  <!-- Received reschedule proposal (you are NOT the proposer) -->
-                  <span class="badge-modern badge-reschedule-proposal" 
-                        *ngIf="!nextClass.rescheduleAccepted && nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && !nextClass.isRescheduleProposer"
-                        (click)="showRescheduleProposal(nextClass.lesson)">
-                    <ion-icon name="alert-circle"></ion-icon>
-                    NEW RESCHEDULE REQUEST
-                  </span>
-                </div>
-                <ion-avatar class="class-avatar-modern">
-                  <img
-                    *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.classData?.thumbnail"
-                    [src]="nextClass.lesson.classData.thumbnail"
-                    [alt]="nextClass.lesson.className || 'Class'"
-                    referrerpolicy="no-referrer"
-                  />
-                  <img
-                    *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
-                    [src]="getOtherParticipantAvatar(nextClass.lesson)"
-                    [alt]="nextClass | displayName"
-                    referrerpolicy="no-referrer"
-                  />
-                  <ion-icon *ngIf="nextClass.lesson?.isClass && !nextClass.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder"></ion-icon>
-                  <ion-icon *ngIf="!nextClass.lesson?.isClass && (!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png')" name="person" class="avatar-placeholder"></ion-icon>
-                </ion-avatar>
-              </div>
+              <!-- Avatar -->
+              <ion-avatar class="class-avatar-modern">
+                <img
+                  *ngIf="nextClass.lesson?.isClass && nextClass.lesson?.classData?.thumbnail"
+                  [src]="nextClass.lesson.classData.thumbnail"
+                  [alt]="nextClass.lesson.className || 'Class'"
+                  referrerpolicy="no-referrer"
+                />
+                <img
+                  *ngIf="!nextClass.lesson?.isClass && getOtherParticipantAvatar(nextClass.lesson) && getOtherParticipantAvatar(nextClass.lesson) !== 'assets/avatar.png'"
+                  [src]="getOtherParticipantAvatar(nextClass.lesson)"
+                  [alt]="nextClass | displayName"
+                  referrerpolicy="no-referrer"
+                />
+                <ion-icon *ngIf="nextClass.lesson?.isClass && !nextClass.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder"></ion-icon>
+                <ion-icon *ngIf="!nextClass.lesson?.isClass && (!getOtherParticipantAvatar(nextClass.lesson) || getOtherParticipantAvatar(nextClass.lesson) === 'assets/avatar.png')" name="person" class="avatar-placeholder"></ion-icon>
+              </ion-avatar>
               
               <!-- Info Section -->
               <div class="info-section-modern">
@@ -853,7 +855,7 @@
     </div>
     
     <!-- No Lessons State (for students only - tutors have their own empty state above) -->
-    <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser">
+    <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser && !nextLesson">
       <ion-card-content>
         <div class="empty-state">
           <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>

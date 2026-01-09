@@ -37,7 +37,7 @@
         <div class="card-content">
           <div class="card-label">Transferred</div>
           <div class="card-value">${{ totalEarnings.toFixed(2) }}</div>
-          <div class="card-sublabel">In your bank account</div>
+          <div class="card-sublabel">{{ getTransferredLabel() }}</div>
         </div>
       </div>
 
@@ -123,4 +123,5 @@
     </div>
   </div>
 </ion-content>
+
 

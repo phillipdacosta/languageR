@@ -409,6 +409,122 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     // Add to confirmed students
     cls.confirmedStudents.push(student._id);
     
+    // 💳 AUTHORIZE PAYMENT: Hold funds when student accepts invitation
+    let paymentAuthorized = false;
+    let paymentError = null;
+    
+    if (cls.price > 0) {
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const tutor = await User.findById(cls.tutorId);
+        
+        if (!tutor || !tutor.stripeConnectAccountId) {
+          throw new Error('Tutor has not connected their Stripe account');
+        }
+        
+        if (!student.stripeCustomerId) {
+          throw new Error('Student has not set up payment method');
+        }
+        
+        // Get student's default payment method
+        const customer = await stripe.customers.retrieve(student.stripeCustomerId);
+        const defaultPaymentMethod = customer.invoice_settings?.default_payment_method || 
+                                     customer.default_source;
+        
+        if (!defaultPaymentMethod) {
+          throw new Error('No default payment method found. Please add a payment method first.');
+        }
+        
+        // Calculate platform fee (20%)
+        const PLATFORM_FEE_PERCENTAGE = 20;
+        const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
+        
+        // Create PaymentIntent with manual capture (authorization only)
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(cls.price * 100), // Convert to cents
+          currency: 'usd',
+          customer: student.stripeCustomerId,
+          payment_method: defaultPaymentMethod,
+          capture_method: 'manual', // HOLD funds, don't capture yet
+          confirm: true,
+          off_session: true,
+          application_fee_amount: Math.round(platformFee * 100),
+          transfer_data: {
+            destination: tutor.stripeConnectAccountId
+          },
+          metadata: {
+            classId: cls._id.toString(),
+            studentId: student._id.toString(),
+            tutorId: tutor._id.toString(),
+            paymentType: 'class_booking',
+            className: cls.name
+          }
+        });
+        
+        if (paymentIntent.status !== 'requires_capture') {
+          throw new Error(`Payment authorization failed: ${paymentIntent.status}`);
+        }
+        
+        // Create Payment record
+        const Payment = require('../models/Payment');
+        const payment = await Payment.create({
+          userId: student._id,
+          studentId: student._id,
+          tutorId: tutor._id,
+          amount: cls.price,
+          paymentMethod: 'saved-card',
+          paymentType: 'class_booking',
+          status: 'authorized',
+          stripePaymentIntentId: paymentIntent.id,
+          platformFee: platformFee,
+          platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+          tutorPayout: cls.price - platformFee,
+          metadata: {
+            classId: cls._id.toString(),
+            className: cls.name,
+            classStartTime: cls.startTime,
+            classDuration: cls.duration
+          }
+        });
+        
+        // Add payment tracking to studentPayments array
+        cls.studentPayments.push({
+          studentId: student._id,
+          paymentId: payment._id,
+          amount: cls.price,
+          paymentStatus: 'authorized',
+          stripePaymentIntentId: paymentIntent.id,
+          authorizedAt: new Date(),
+          attendanceStatus: 'not_joined'
+        });
+        
+        paymentAuthorized = true;
+        console.log(`💳 Payment authorized for student ${student.email} - Class: ${cls.name} ($${cls.price})`);
+        
+      } catch (error) {
+        console.error('❌ Payment authorization failed:', error);
+        paymentError = error.message;
+        
+        // Rollback: Remove from confirmed students if payment fails
+        const studentIndex = cls.confirmedStudents.findIndex(
+          id => id.toString() === student._id.toString()
+        );
+        if (studentIndex !== -1) {
+          cls.confirmedStudents.splice(studentIndex, 1);
+        }
+        invitation.status = 'pending';
+        invitation.respondedAt = null;
+        
+        await cls.save();
+        
+        return res.status(402).json({ 
+          success: false, 
+          message: `Payment authorization failed: ${paymentError}. Please check your payment method and try again.`,
+          requiresPaymentSetup: error.message.includes('payment method')
+        });
+      }
+    }
+    
     await cls.save();
 
     // Notify tutor that student accepted
@@ -927,6 +1043,102 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
       token = null;
     }
 
+    // 💳 CAPTURE PAYMENT: Charge student when they join the class
+    if (isConfirmedStudent && cls.price > 0) {
+      try {
+        // Find this student's payment record
+        const studentPayment = cls.studentPayments.find(
+          sp => sp.studentId.toString() === userIdStr
+        );
+        
+        if (studentPayment && studentPayment.paymentStatus === 'authorized') {
+          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+          
+          // Capture the authorized payment
+          const capturedIntent = await stripe.paymentIntents.capture(
+            studentPayment.stripePaymentIntentId
+          );
+          
+          if (capturedIntent.status !== 'succeeded') {
+            throw new Error(`Payment capture failed: ${capturedIntent.status}`);
+          }
+          
+          // Update studentPayment record
+          studentPayment.paymentStatus = 'captured';
+          studentPayment.capturedAt = new Date();
+          studentPayment.attendanceStatus = 'joined';
+          studentPayment.joinedAt = new Date();
+          
+          // Update Payment model
+          const Payment = require('../models/Payment');
+          const payment = await Payment.findById(studentPayment.paymentId);
+          if (payment) {
+            payment.status = 'succeeded';
+            payment.chargedAt = new Date();
+            
+            // Extract actual Stripe fees after capture
+            const charges = capturedIntent.charges?.data || [];
+            if (charges.length > 0) {
+              const charge = charges[0];
+              payment.stripeChargeId = charge.id;
+              payment.stripeFee = (charge.application_fee_amount || 0) / 100;
+              payment.stripeNetAmount = capturedIntent.amount_received / 100;
+            }
+            
+            await payment.save();
+          }
+          
+          // Update class status to in_progress if not already
+          if (cls.status === 'scheduled') {
+            cls.status = 'in_progress';
+            if (!cls.actualCallStartTime) {
+              cls.actualCallStartTime = new Date();
+            }
+          }
+          
+          // Track participant join
+          if (!cls.participants) cls.participants = new Map();
+          const key = userIdStr;
+          const prev = cls.participants.get(key) || { joinCount: 0 };
+          prev.joinedAt = now;
+          prev.leftAt = null;
+          prev.joinCount = (prev.joinCount || 0) + 1;
+          cls.participants.set(key, prev);
+          
+          await cls.save();
+          
+          console.log(`💳 Payment captured for student ${user.email} joining class: ${cls.name} ($${cls.price})`);
+        } else if (!studentPayment) {
+          console.warn(`⚠️ No payment record found for student ${user.email} in class ${cls.name}`);
+        } else {
+          console.log(`ℹ️ Payment already in status: ${studentPayment.paymentStatus} for student ${user.email}`);
+        }
+      } catch (captureError) {
+        console.error('❌ Payment capture failed:', captureError);
+        // Don't block class join on payment capture failure
+        // Log the error and continue - we can retry capture later
+      }
+    } else if (isTutor) {
+      // Track tutor join
+      if (!cls.participants) cls.participants = new Map();
+      const key = userIdStr;
+      const prev = cls.participants.get(key) || { joinCount: 0 };
+      prev.joinedAt = now;
+      prev.leftAt = null;
+      prev.joinCount = (prev.joinCount || 0) + 1;
+      cls.participants.set(key, prev);
+      
+      // Update class status
+      if (cls.status === 'scheduled') {
+        cls.status = 'in_progress';
+        if (!cls.actualCallStartTime) {
+          cls.actualCallStartTime = new Date();
+        }
+      }
+      
+      await cls.save();
+    }
+
     console.log('📅 Generated Agora token for class:', { 
       classId: cls._id, 
       channelName, 
@@ -1341,6 +1553,48 @@ router.delete('/:classId', verifyToken, async (req, res) => {
     cls.status = 'cancelled';
     cls.cancelledAt = new Date();
     cls.cancelReason = 'tutor_cancelled';
+    
+    // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    let releasedCount = 0;
+    
+    for (const studentPayment of cls.studentPayments) {
+      if (studentPayment.paymentStatus === 'authorized') {
+        try {
+          // Cancel the authorization (release the hold)
+          const cancelledIntent = await stripe.paymentIntents.cancel(
+            studentPayment.stripePaymentIntentId
+          );
+          
+          if (cancelledIntent.status === 'canceled') {
+            studentPayment.paymentStatus = 'cancelled';
+            studentPayment.cancelledAt = new Date();
+            
+            // Update Payment model
+            const Payment = require('../models/Payment');
+            const payment = await Payment.findById(studentPayment.paymentId);
+            if (payment) {
+              payment.status = 'cancelled';
+              payment.metadata = payment.metadata || {};
+              payment.metadata.cancelReason = 'class_cancelled_by_tutor';
+              payment.metadata.cancelledAt = new Date();
+              await payment.save();
+            }
+            
+            releasedCount++;
+            console.log(`💳 Released payment authorization for student in cancelled class`);
+          }
+        } catch (stripeError) {
+          console.error(`❌ Failed to cancel payment authorization:`, stripeError.message);
+          // Continue with cancellation even if payment release fails
+        }
+      }
+    }
+    
+    if (releasedCount > 0) {
+      console.log(`💳 Released ${releasedCount} payment authorization(s) for cancelled class "${cls.name}"`);
+    }
+    
     await cls.save();
     
     console.log(`🔴 [CLASS-CANCEL] Class "${cls.name}" (${cls._id}) cancelled by tutor ${tutor.name}`);

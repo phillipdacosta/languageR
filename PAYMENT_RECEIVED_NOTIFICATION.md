@@ -271,3 +271,4 @@ Tutor sees: "You earned $X from your lesson..."
 - Date is formatted as "Month Day, Year" (e.g., "Dec 31, 2024")
 - Notification type: `payment_received` (can be used for filtering/styling)
 
+
