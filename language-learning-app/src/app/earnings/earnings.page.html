@@ -65,14 +65,16 @@
       
       <div *ngIf="recentPayments.length === 0" class="no-payments">
         <ion-icon name="document-text-outline"></ion-icon>
-        <p>No completed lessons yet</p>
-        <p class="sublabel">Earnings from completed lessons will appear here</p>
+        <p>No lessons yet</p>
+        <p class="sublabel">Earnings from lessons will appear here</p>
       </div>
 
       <ion-list *ngIf="recentPayments.length > 0" class="payments-list">
         <ion-item 
           *ngFor="let payment of recentPayments" 
           class="payment-item"
+          [class.in-progress]="payment.status === 'in_progress'"
+          [class.processing]="payment.status === 'processing'"
           button
           (click)="viewLesson(payment.lessonId)">
           <div class="payment-info">
@@ -87,6 +89,12 @@
               </div>
             </div>
             
+            <!-- Status Note (for in_progress, ended_early, scheduled) -->
+            <div *ngIf="getStatusNote(payment)" class="status-note">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <span>{{ getStatusNote(payment) }}</span>
+            </div>
+            
             <div class="payment-details">
               <div class="payment-date">
                 <ion-icon name="calendar-outline"></ion-icon>
@@ -96,7 +104,10 @@
               <div class="payment-amounts">
                 <div class="amount-row tutor-payout">
                   <span class="amount-label">Your Earnings</span>
-                  <span class="amount-value">${{ payment.tutorPayout.toFixed(2) }}</span>
+                  <span class="amount-value" [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
+                    ${{ payment.tutorPayout.toFixed(2) }}
+                    <span *ngIf="payment.status === 'processing'" class="tentative-label">(updating)</span>
+                  </span>
                 </div>
                 <div class="amount-row platform-fee">
                   <span class="amount-label">Platform Fee (20%)</span>

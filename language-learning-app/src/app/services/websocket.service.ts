@@ -81,6 +81,14 @@ export class WebSocketService {
   private messageDeletedSubject = new Subject<{ messageId: string; conversationId: string }>();
   public messageDeleted$ = this.messageDeletedSubject.asObservable();
 
+  // Lesson status change subjects
+  private lessonStatusChangedSubject = new Subject<{ lessonId: string; status: string; updatedAt: Date }>();
+  public lessonStatusChanged$ = this.lessonStatusChangedSubject.asObservable();
+
+  // Payment status change subjects
+  private paymentStatusChangedSubject = new Subject<{ paymentId: string; lessonId: string; status: string; updatedAt: Date }>();
+  public paymentStatusChanged$ = this.paymentStatusChangedSubject.asObservable();
+
   constructor(
     private authService: AuthService,
     private userService: UserService
@@ -111,6 +119,8 @@ export class WebSocketService {
     this.socket.off('message_deleted');
     this.socket.off('tutor_video_approved');
     this.socket.off('tutor_video_rejected');
+    this.socket.off('lesson_status_changed');
+    this.socket.off('payment_status_changed');
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
@@ -214,6 +224,18 @@ export class WebSocketService {
     this.socket.on('tutor_video_rejected', (data: { message: string; reason: string; timestamp: Date }) => {
       console.log('❌ Tutor video rejected:', data);
       this.tutorVideoRejectedSubject.next(data);
+    });
+
+    // Listen for lesson status changes
+    this.socket.on('lesson_status_changed', (data: { lessonId: string; status: string; updatedAt: Date }) => {
+      console.log('📚 Lesson status changed:', data);
+      this.lessonStatusChangedSubject.next(data);
+    });
+
+    // Listen for payment status changes
+    this.socket.on('payment_status_changed', (data: { paymentId: string; lessonId: string; status: string; updatedAt: Date }) => {
+      console.log('💳 Payment status changed:', data);
+      this.paymentStatusChangedSubject.next(data);
     });
 
     this.listenersSetup = true;

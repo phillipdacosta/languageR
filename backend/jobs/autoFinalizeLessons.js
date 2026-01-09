@@ -14,6 +14,38 @@ const Lesson = require('../models/Lesson');
 const LessonTranscript = require('../models/LessonTranscript');
 const User = require('../models/User');
 
+// Helper function to emit WebSocket events for lesson/payment status changes
+function emitStatusChange(lessonId, status, tutorId, studentId) {
+  try {
+    const io = require('../server').getIO();
+    if (!io) return;
+
+    const payload = {
+      lessonId: lessonId.toString(),
+      status,
+      updatedAt: new Date()
+    };
+
+    // Emit to both tutor and student
+    if (tutorId) {
+      const tutorSocketId = global.userSockets?.[tutorId.toString()];
+      if (tutorSocketId) {
+        io.to(tutorSocketId).emit('lesson_status_changed', payload);
+      }
+    }
+    if (studentId) {
+      const studentSocketId = global.userSockets?.[studentId.toString()];
+      if (studentSocketId) {
+        io.to(studentSocketId).emit('lesson_status_changed', payload);
+      }
+    }
+
+    console.log(`📡 Emitted lesson_status_changed for lesson ${lessonId}: ${status}`);
+  } catch (error) {
+    console.warn('⚠️ Could not emit WebSocket for lesson status change:', error.message);
+  }
+}
+
 /**
  * Main function to auto-finalize eligible lessons
  */
@@ -187,6 +219,9 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     
     await lesson.save();
     console.log(`✅ [AutoFinalize] Lesson ${lesson._id} finalized: status=${lesson.status}, duration=${lesson.actualDurationMinutes}min, price=$${lesson.actualPrice}`);
+    
+    // Emit WebSocket event for lesson status change
+    emitStatusChange(lesson._id, lesson.status, lesson.tutorId, lesson.studentId);
     
     // 💰 HANDLE PAYMENT BASED ON LESSON OUTCOME
     if (lesson.paymentId) {

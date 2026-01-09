@@ -845,39 +845,55 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     console.log(`💰 Fetching earnings for tutor ${user._id}...`);
 
-    // Get all payments for this tutor WHERE revenue has been recognized
-    // This means the lesson has been completed and funds have been deducted
+    // Get ALL payments for this tutor (including in-progress and ended early)
     // Exclude 'acknowledged' status (dismissed failed payouts that shouldn't count)
     const payments = await Payment.find({ 
       tutorId: user._id,
-      revenueRecognized: true, // ONLY count completed lessons
       transferStatus: { $ne: 'acknowledged' } // Exclude dismissed payments
     })
       .populate('lessonId', 'startTime endTime duration status')
       .populate('studentId', 'name firstName lastName')
-      .sort({ revenueRecognizedAt: -1 }) // Sort by completion date
-      .limit(10);
+      .sort({ createdAt: -1 }) // Sort by booking date
+      .limit(20);
 
-    console.log(`💰 Found ${payments.length} completed payments for tutor ${user._id}`);
+    console.log(`💰 Found ${payments.length} payments for tutor ${user._id}`);
 
-    // Calculate totals
+    // Calculate totals (only count completed lessons for totals)
     let totalEarnings = 0; // Earnings that have been successfully transferred
     let pendingEarnings = 0; // Earnings that are pending transfer
 
     const recentPayments = payments.map(payment => {
       const tutorPayout = payment.tutorPayout || 0;
+      const lessonStatus = payment.lessonId?.status || 'unknown';
       
-      console.log(`💰 Payment ${payment._id}: payout=$${tutorPayout}, transferStatus=${payment.transferStatus}, revenueRecognized=${payment.revenueRecognized}`);
+      console.log(`💰 Payment ${payment._id}: payout=$${tutorPayout}, transferStatus=${payment.transferStatus}, revenueRecognized=${payment.revenueRecognized}, lessonStatus=${lessonStatus}`);
       
-      if (payment.transferStatus === 'succeeded') {
-        totalEarnings += tutorPayout;
-      } else {
-        pendingEarnings += tutorPayout;
+      // Only count completed lessons in the totals
+      if (payment.revenueRecognized) {
+        if (payment.transferStatus === 'succeeded') {
+          totalEarnings += tutorPayout;
+        } else {
+          pendingEarnings += tutorPayout;
+        }
       }
 
       const studentName = payment.studentId 
         ? `${payment.studentId.firstName || payment.studentId.name || 'Student'} ${(payment.studentId.lastName || '').charAt(0)}.`
         : 'Student';
+
+      // Determine payment status based on lesson status
+      let paymentStatus = 'pending';
+      if (lessonStatus === 'completed' && payment.transferStatus === 'succeeded') {
+        paymentStatus = 'paid';
+      } else if (lessonStatus === 'completed' && payment.revenueRecognized) {
+        paymentStatus = 'pending';
+      } else if (lessonStatus === 'in_progress') {
+        paymentStatus = 'in_progress';
+      } else if (lessonStatus === 'ended_early') {
+        paymentStatus = 'processing';
+      } else if (lessonStatus === 'scheduled') {
+        paymentStatus = 'scheduled';
+      }
 
       return {
         id: payment._id,
@@ -885,7 +901,8 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         date: payment.lessonId?.startTime || payment.createdAt,
         tutorPayout,
         platformFee: payment.platformFee || 0,
-        status: payment.transferStatus === 'succeeded' ? 'paid' : 'pending',
+        status: paymentStatus,
+        lessonStatus: lessonStatus,
         lessonId: payment.lessonId?._id
       };
     });

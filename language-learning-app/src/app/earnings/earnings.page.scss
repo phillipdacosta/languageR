@@ -142,6 +142,15 @@
     margin-bottom: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 
+    // Highlight active lessons
+    &.in-progress {
+      border-left: 4px solid var(--ion-color-primary);
+    }
+
+    &.processing {
+      border-left: 4px solid var(--ion-color-warning);
+    }
+
     &::part(native) {
       border-radius: 16px;
     }
@@ -193,9 +202,43 @@
           color: var(--ion-color-warning-shade);
         }
 
+        &[data-status='in_progress'] {
+          background: rgba(var(--ion-color-primary-rgb), 0.1);
+          color: var(--ion-color-primary-shade);
+        }
+
+        &[data-status='processing'] {
+          background: rgba(var(--ion-color-warning-rgb), 0.1);
+          color: var(--ion-color-warning-shade);
+        }
+
+        &[data-status='scheduled'] {
+          background: rgba(var(--ion-color-medium-rgb), 0.1);
+          color: var(--ion-color-medium-shade);
+        }
+
         ion-icon {
           font-size: 16px;
         }
+      }
+    }
+
+    // Status note styling
+    .status-note {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      background: rgba(var(--ion-color-primary-rgb), 0.05);
+      border-radius: 8px;
+      font-size: 0.85em;
+      color: var(--ion-color-medium);
+
+      ion-icon {
+        font-size: 18px;
+        color: var(--ion-color-primary);
+        flex-shrink: 0;
       }
     }
 
@@ -232,6 +275,19 @@
           .amount-value {
             font-weight: 600;
             color: var(--ion-color-dark);
+
+            // Tentative amounts (for processing/scheduled)
+            &.tentative {
+              opacity: 0.6;
+              font-style: italic;
+            }
+
+            .tentative-label {
+              font-size: 0.8em;
+              font-weight: 400;
+              color: var(--ion-color-warning);
+              margin-left: 4px;
+            }
           }
 
           &.tutor-payout {

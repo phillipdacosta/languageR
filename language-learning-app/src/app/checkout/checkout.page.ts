@@ -519,11 +519,7 @@ export class CheckoutPage implements OnInit {
     const STANDARD_LESSON_DURATION = 50;
     const basePrice = Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
     
-    // Trial lessons are 50% off!
-    if (this.isTrialLesson) {
-      return Math.round((basePrice * 0.5) * 100) / 100;
-    }
-    
+    // Trial lessons have no discount, just shorter duration (25 min by default)
     return basePrice;
   }
 
