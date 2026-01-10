@@ -56,6 +56,18 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         await handlePayoutCanceled(event.data.object);
         break;
 
+      case 'transfer.created':
+        await handleTransferCreated(event.data.object);
+        break;
+
+      case 'transfer.updated':
+        await handleTransferUpdated(event.data.object);
+        break;
+
+      case 'transfer.reversed':
+        await handleTransferReversed(event.data.object);
+        break;
+
       case 'account.updated':
         console.log(`🔔 [WEBHOOK] Stripe Connect account updated: ${event.data.object.id}`);
         // Could update tutor onboarding status here if needed
@@ -422,6 +434,112 @@ async function handleDisputeCreated(dispute) {
     console.error(`❌ Error handling charge.dispute.created:`, error);
   }
 }
+
+/**
+ * Handle transfer.created - When a transfer to tutor is created
+ */
+async function handleTransferCreated(transfer) {
+  console.log(`💸 [WEBHOOK] Transfer created: ${transfer.id} for $${transfer.amount / 100} to ${transfer.destination}`);
+
+  try {
+    // Find payment by transfer group (contains payment intent ID)
+    const payment = await Payment.findOne({
+      stripePaymentIntentId: transfer.transfer_group?.replace('group_', '')
+    });
+
+    if (payment) {
+      payment.stripeTransferId = transfer.id;
+      payment.transferStatus = 'pending';
+      payment.transferCreatedAt = new Date(transfer.created * 1000);
+      await payment.save();
+      console.log(`✅ [WEBHOOK] Updated payment ${payment._id} with transfer ID`);
+    } else {
+      console.warn(`⚠️  [WEBHOOK] No payment found for transfer ${transfer.id}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error handling transfer.created:`, error);
+  }
+}
+
+/**
+ * Handle transfer.updated - When transfer status changes (e.g., paid, failed)
+ */
+async function handleTransferUpdated(transfer) {
+  console.log(`💸 [WEBHOOK] Transfer updated: ${transfer.id}, status: ${transfer.status || 'N/A'}`);
+
+  try {
+    const payment = await Payment.findOne({
+      stripeTransferId: transfer.id
+    });
+
+    if (payment) {
+      // Update transfer status based on Stripe transfer object
+      // Note: Transfers don't have a 'status' field, but they can be reversed
+      if (transfer.reversed) {
+        payment.transferStatus = 'failed';
+        payment.transferError = 'Transfer was reversed';
+      } else if (transfer.amount_reversed > 0) {
+        payment.transferStatus = 'failed';
+        payment.transferError = `Partial reversal: $${transfer.amount_reversed / 100}`;
+      } else {
+        // If not reversed, consider it succeeded
+        payment.transferStatus = 'succeeded';
+        payment.transferError = null;
+        payment.transferredAt = new Date();
+      }
+      
+      await payment.save();
+      console.log(`✅ [WEBHOOK] Updated payment ${payment._id} transfer status to: ${payment.transferStatus}`);
+    } else {
+      console.warn(`⚠️  [WEBHOOK] No payment found for transfer ${transfer.id}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error handling transfer.updated:`, error);
+  }
+}
+
+/**
+ * Handle transfer.reversed - When a transfer is reversed
+ */
+async function handleTransferReversed(transfer) {
+  console.log(`⚠️  [WEBHOOK] Transfer reversed: ${transfer.id} for $${transfer.amount / 100}`);
+
+  try {
+    const payment = await Payment.findOne({
+      stripeTransferId: transfer.id
+    }).populate('tutorId lessonId');
+
+    if (payment) {
+      payment.transferStatus = 'failed';
+      payment.transferError = 'Transfer was reversed by Stripe';
+      await payment.save();
+
+      // Create alert for reversed transfer
+      await alertService.createAlert({
+        type: 'TRANSFER_REVERSED',
+        severity: 'HIGH',
+        title: `Transfer reversed: ${transfer.id}`,
+        description: `Transfer of $${transfer.amount / 100} to tutor was reversed`,
+        paymentId: payment._id,
+        lessonId: payment.lessonId?._id,
+        userId: payment.tutorId,
+        data: {
+          transferId: transfer.id,
+          amount: transfer.amount / 100,
+          tutorEmail: payment.tutorId?.email,
+          reversalReason: transfer.reversals?.data[0]?.description
+        }
+      });
+
+      console.log(`✅ [WEBHOOK] Updated payment ${payment._id} as reversed`);
+    } else {
+      console.warn(`⚠️  [WEBHOOK] No payment found for reversed transfer ${transfer.id}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error handling transfer.reversed:`, error);
+  }
+}
+
 
 /**
  * Handle charge.dispute.closed
