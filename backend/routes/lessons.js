@@ -1447,6 +1447,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
 });
 
 // End lesson (mark as completed)
+// NOTE: This endpoint is called when user dismisses the lesson page
+// It should NOT interfere with payment capture for early-ended lessons
 router.post('/:id/end', verifyToken, async (req, res) => {
   try {
     // Get user ID from auth token
@@ -1488,10 +1490,40 @@ router.post('/:id/end', verifyToken, async (req, res) => {
       lesson.participants.set(key, prev);
     } catch (_) {}
 
-    lesson.status = 'completed';
-    await lesson.save();
+    // ⚠️ IMPORTANT: Do NOT change status if lesson is already 'ended_early'
+    // The cron job needs to process it to capture payment properly
+    if (lesson.status === 'ended_early') {
+      console.log(`⚠️ Lesson ${lesson._id} already marked as 'ended_early' - preserving status for cron job`);
+      console.log(`💳 Payment will be captured by autoFinalizeLessons cron after scheduled end time`);
+      await lesson.save(); // Save participant left time only
+      
+      return res.json({ 
+        success: true, 
+        message: 'Lesson already ended early, awaiting finalization' 
+      });
+    }
 
-    console.log('📅 Lesson ended:', lesson._id);
+    // ⚠️ IMPORTANT: Do NOT change status if lesson is already 'completed'
+    // This prevents race conditions when both users click "End"
+    if (lesson.status === 'completed') {
+      console.log(`ℹ️ Lesson ${lesson._id} already marked as completed`);
+      await lesson.save(); // Save participant left time only
+      
+      return res.json({ 
+        success: true, 
+        message: 'Lesson already completed' 
+      });
+    }
+
+    // Only mark as completed if lesson is in a state that needs completion
+    if (['scheduled', 'in_progress'].includes(lesson.status)) {
+      lesson.status = 'completed';
+      await lesson.save();
+      console.log('📅 Lesson ended:', lesson._id);
+    } else {
+      await lesson.save();
+      console.log(`ℹ️ Lesson ${lesson._id} status: ${lesson.status} (not changing)`);
+    }
 
     res.json({ 
       success: true, 

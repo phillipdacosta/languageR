@@ -52,6 +52,7 @@ function emitStatusChange(lessonId, status, tutorId, studentId) {
 async function autoFinalizeLessons() {
   try {
     const now = new Date();
+    const Payment = require('../models/Payment');
     
     // Find lessons that should be completed but aren't
     // - Scheduled end time has passed
@@ -61,17 +62,43 @@ async function autoFinalizeLessons() {
       endTime: { $lt: now } // End time is in the past
     }).limit(100); // Process max 100 at a time
     
-    if (eligibleLessons.length === 0) {
+    // 🆕 SAFETY NET: Also find 'completed' lessons with uncaptured payments
+    // This catches race conditions where status changed to 'completed' without payment capture
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const completedWithUncapturedPayment = await Lesson.find({
+      status: 'completed',
+      endTime: { $lt: now, $gt: oneHourAgo }, // Completed within last hour
+      paymentId: { $exists: true, $ne: null }
+    }).populate('paymentId').limit(50);
+    
+    // Filter to only those with uncaptured payments
+    const needsPaymentCapture = completedWithUncapturedPayment.filter(lesson => {
+      const payment = lesson.paymentId;
+      return payment && 
+             payment.status === 'authorized' && 
+             !payment.chargedAt && 
+             lesson.actualCallStartTime; // Only if lesson actually happened
+    });
+    
+    // Combine both lists
+    const allLessonsToProcess = [...eligibleLessons, ...needsPaymentCapture];
+    
+    if (allLessonsToProcess.length === 0) {
       // No lessons to finalize - this is normal most of the time
       return;
     }
     
-    console.log(`🔍 [AutoFinalize] Found ${eligibleLessons.length} lessons past end time to check`);
+    if (needsPaymentCapture.length > 0) {
+      console.log(`⚠️ [AutoFinalize] Found ${needsPaymentCapture.length} completed lessons with uncaptured payments (race condition recovery)`);
+    }
+    
+    console.log(`🔍 [AutoFinalize] Found ${allLessonsToProcess.length} lessons to process (${eligibleLessons.length} pending + ${needsPaymentCapture.length} uncaptured)`);
     
     let finalizedCount = 0;
     let skippedCount = 0;
+    let paymentsCaptured = 0;
     
-    for (const lesson of eligibleLessons) {
+    for (const lesson of allLessonsToProcess) {
       try {
         // Check if lesson has an active transcript
         const transcript = await LessonTranscript.findOne({ 
@@ -92,6 +119,30 @@ async function autoFinalizeLessons() {
           console.log(`⚠️ [AutoFinalize] Lesson ${lesson._id} has completed transcript but wasn't finalized`);
         }
         
+        // Special handling for already-completed lessons (race condition recovery)
+        if (lesson.status === 'completed') {
+          console.log(`🔧 [AutoFinalize] Processing completed lesson ${lesson._id} with uncaptured payment (race condition recovery)`);
+          
+          // Just capture the payment, don't change status
+          if (lesson.paymentId) {
+            const payment = await Payment.findById(lesson.paymentId);
+            if (payment && payment.status === 'authorized') {
+              console.log(`💳 [AutoFinalize] Capturing payment for race-condition lesson ${lesson._id}`);
+              const paymentService = require('../services/paymentService');
+              
+              try {
+                await paymentService.deductLessonFunds(lesson._id);
+                await paymentService.completeLessonPayment(lesson._id);
+                paymentsCaptured++;
+                console.log(`✅ [AutoFinalize] Payment captured and completed for lesson ${lesson._id}`);
+              } catch (paymentError) {
+                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, paymentError.message);
+              }
+            }
+          }
+          continue;
+        }
+        
         console.log(`✅ [AutoFinalize] Finalizing lesson ${lesson._id} without transcript`);
         console.log(`   Scheduled end: ${lesson.endTime}`);
         console.log(`   Current time: ${now.toISOString()}`);
@@ -108,8 +159,8 @@ async function autoFinalizeLessons() {
       }
     }
     
-    if (finalizedCount > 0 || skippedCount > 0) {
-      console.log(`📊 [AutoFinalize] Summary: ${finalizedCount} finalized, ${skippedCount} skipped`);
+    if (finalizedCount > 0 || skippedCount > 0 || paymentsCaptured > 0) {
+      console.log(`📊 [AutoFinalize] Summary: ${finalizedCount} finalized, ${paymentsCaptured} payments captured (race condition), ${skippedCount} skipped`);
     }
     
   } catch (error) {
