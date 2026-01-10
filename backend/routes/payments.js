@@ -830,7 +830,18 @@ router.get('/platform/earnings', verifyToken, async (req, res) => {
  */
 router.get('/tutor/earnings', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    // Fallback: Try finding by email if auth0Id doesn't match
+    if (!user && req.user.email) {
+      console.log('🔍 User not found by auth0Id, trying email:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      if (user) {
+        console.log('✅ Found user by email, updating auth0Id');
+        user.auth0Id = req.user.sub;
+        await user.save();
+      }
+    }
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
