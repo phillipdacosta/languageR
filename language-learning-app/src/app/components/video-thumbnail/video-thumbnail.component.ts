@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -7,7 +7,7 @@ import { HttpClient } from '@angular/common/http';
   styleUrls: ['./video-thumbnail.component.scss'],
   standalone: false
 })
-export class VideoThumbnailComponent implements OnInit {
+export class VideoThumbnailComponent implements OnInit, OnChanges {
   @Input() videoUrl: string = '';
   @Input() thumbnailUrl: string = '';
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
@@ -29,9 +29,50 @@ export class VideoThumbnailComponent implements OnInit {
       }
     }
 
-    // Fetch external thumbnails
+    // UPGRADE LOW-RES VIMEO THUMBNAILS TO HIGH-RES (if thumbnailUrl is provided)
+    if (this.thumbnailUrl && this.thumbnailUrl.includes('vimeocdn.com') && this.thumbnailUrl.includes('_')) {
+      const upgradedUrl = this.thumbnailUrl.replace(/_\d+x\d+/, '_1280x720');
+      if (upgradedUrl !== this.thumbnailUrl) {
+        console.log('📹 [VideoThumbnail] 🔄 Upgrading Vimeo thumbnail in ngOnInit:');
+        console.log('📹 Old:', this.thumbnailUrl);
+        console.log('📹 New:', upgradedUrl);
+        this.thumbnailUrl = upgradedUrl;
+      }
+    }
+
+    // Fetch external thumbnails (only if no thumbnailUrl provided)
     if (this.videoUrl && !this.thumbnailUrl) {
       this.fetchExternalVideoThumbnail();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // React to changes in thumbnailUrl - upgrade Vimeo thumbnails
+    if (changes['thumbnailUrl'] && changes['thumbnailUrl'].currentValue) {
+      const newValue = changes['thumbnailUrl'].currentValue;
+      
+      if (newValue.includes('vimeocdn.com') && newValue.includes('_')) {
+        const upgradedUrl = newValue.replace(/_\d+x\d+/, '_1280x720');
+        if (upgradedUrl !== newValue) {
+          console.log('📹 [VideoThumbnail] 🔄 Upgrading Vimeo thumbnail in ngOnChanges:');
+          console.log('📹 Old:', newValue);
+          console.log('📹 New:', upgradedUrl);
+          this.thumbnailUrl = upgradedUrl;
+        }
+      }
+    }
+
+    // React to changes in videoUrl
+    if (changes['videoUrl'] && changes['videoUrl'].currentValue) {
+      this.detectedVideoType = this.detectVideoType(changes['videoUrl'].currentValue);
+      if (this.detectedVideoType !== this.videoType) {
+        this.videoType = this.detectedVideoType;
+      }
+      
+      // Fetch external thumbnail if no thumbnail URL is provided
+      if (!this.thumbnailUrl) {
+        this.fetchExternalVideoThumbnail();
+      }
     }
   }
 

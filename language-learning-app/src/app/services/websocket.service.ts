@@ -66,6 +66,17 @@ export class WebSocketService {
   private tutorVideoRejectedSubject = new Subject<{ message: string; reason: string; timestamp: Date }>();
   public tutorVideoRejected$ = this.tutorVideoRejectedSubject.asObservable();
 
+  // Tutor video upload subject (for admin notifications)
+  private tutorVideoUploadedSubject = new Subject<{ 
+    tutorId: string; 
+    tutorName: string; 
+    tutorEmail: string;
+    videoUrl: string;
+    thumbnailUrl: string;
+    timestamp: Date;
+  }>();
+  public tutorVideoUploaded$ = this.tutorVideoUploadedSubject.asObservable();
+
   private reactionUpdatedSubject = new Subject<{ 
     messageId: string; 
     message: Message; 
@@ -119,6 +130,7 @@ export class WebSocketService {
     this.socket.off('message_deleted');
     this.socket.off('tutor_video_approved');
     this.socket.off('tutor_video_rejected');
+    this.socket.off('tutor_video_uploaded');
     this.socket.off('lesson_status_changed');
     this.socket.off('payment_status_changed');
 
@@ -224,6 +236,19 @@ export class WebSocketService {
     this.socket.on('tutor_video_rejected', (data: { message: string; reason: string; timestamp: Date }) => {
       console.log('❌ Tutor video rejected:', data);
       this.tutorVideoRejectedSubject.next(data);
+    });
+
+    // Listen for tutor video uploads (for admins)
+    this.socket.on('tutor_video_uploaded', (data: { 
+      tutorId: string; 
+      tutorName: string; 
+      tutorEmail: string;
+      videoUrl: string;
+      thumbnailUrl: string;
+      timestamp: Date;
+    }) => {
+      console.log('📹 Tutor video uploaded (admin notification):', data);
+      this.tutorVideoUploadedSubject.next(data);
     });
 
     // Listen for lesson status changes

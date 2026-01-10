@@ -4,11 +4,12 @@ import { UserService, TutorSearchFilters, Tutor, TutorSearchResponse, User } fro
 import { Subject, timer } from 'rxjs';
 import { takeUntil, debounceTime, distinctUntilChanged, filter } from 'rxjs/operators';
 import { trigger, state, style, transition, animate, stagger } from '@angular/animations';
-import { ModalController, ViewWillEnter, AnimationController, AlertController } from '@ionic/angular';
+import { ModalController, ViewWillEnter, AnimationController, AlertController, PopoverController } from '@ionic/angular';
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
+import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 
 @Component({
   selector: 'app-tutor-search-content',
@@ -134,6 +135,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   constructor(
     private userService: UserService,
     private modalController: ModalController,
+    private popoverController: PopoverController,
     private router: Router,
     private route: ActivatedRoute,
     private messagingService: MessagingService,
@@ -554,6 +556,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
           } else {
             // Direct update for first load
             this.tutors = response.tutors;
+            console.log('🔍 Tutors loaded:', this.tutors);
             this.isLoading = false;
           }
           
@@ -816,16 +819,99 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     // Open price filter popover for desktop
   }
 
-  openCountryFilter() {
-    // Open country filter popover for desktop
+  async openCountryFilter(event: any) {
+    // Get list of countries
+    const countries = [
+      'Any country',
+      'United States',
+      'United Kingdom',
+      'Spain',
+      'Mexico',
+      'Argentina',
+      'Colombia',
+      'France',
+      'Germany',
+      'Italy',
+      'Brazil',
+      'Portugal',
+      'Canada',
+      'Australia',
+      'Japan',
+      'China',
+      'South Korea',
+      'India',
+      'Russia',
+      'Poland',
+      'Netherlands',
+      'Sweden',
+      'Norway',
+      'Denmark',
+      'Finland',
+      'Switzerland',
+      'Austria',
+      'Belgium',
+      'Ireland',
+      'Greece',
+      'Turkey',
+      'South Africa',
+      'New Zealand',
+      'Chile',
+      'Peru',
+      'Venezuela',
+      'Ecuador',
+      'Uruguay',
+      'Costa Rica',
+      'Panama',
+      'Cuba',
+      'Dominican Republic',
+      'Guatemala',
+      'Honduras',
+      'El Salvador',
+      'Nicaragua',
+      'Bolivia',
+      'Paraguay'
+    ].sort((a, b) => {
+      if (a === 'Any country') return -1;
+      if (b === 'Any country') return 1;
+      return a.localeCompare(b);
+    });
+
+    const popover = await this.popoverController.create({
+      component: CountryFilterPopoverComponent,
+      event: event,
+      componentProps: {
+        countries: countries,
+        selectedCountry: this.filters.country || 'any'
+      },
+      cssClass: 'country-filter-popover',
+      mode: 'ios'
+    });
+
+    await popover.present();
+
+    const { data } = await popover.onWillDismiss();
+    if (data?.selectedCountry !== undefined) {
+      const newCountry = data.selectedCountry;
+      this.filters.country = newCountry === 'Any country' ? 'any' : newCountry;
+      await this.searchTutors();
+    }
+  }
+
+  getCountryDisplayName(): string {
+    if (!this.filters.country || this.filters.country === 'any') {
+      return 'Any country';
+    }
+    return this.filters.country;
   }
 
   openAvailabilityFilter() {
-    // Open availability filter popover for desktop
+    // Open the full filters view and focus on availability section
+    this.openFiltersView();
   }
 
   openSpecialtiesFilter() {
-    // Open specialties filter
+    // Open the full filters view and focus on specialties section
+    this.openFiltersView();
   }
 
   openGenderFilter() {

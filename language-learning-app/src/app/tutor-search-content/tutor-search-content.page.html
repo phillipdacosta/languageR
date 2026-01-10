@@ -75,10 +75,10 @@
             </div>
           </div>
 
-          <div class="filter-item" (click)="openCountryFilter()">
+          <div class="filter-item" (click)="openCountryFilter($event)">
             <label>Country of birth</label>
             <div class="filter-value-wrapper">
-              <span class="filter-value">Any country</span>
+              <span class="filter-value">{{ getCountryDisplayName() }}</span>
               <ion-icon name="chevron-down-outline"></ion-icon>
             </div>
           </div>
@@ -211,8 +211,8 @@
                     <app-flag-icon *ngIf="tutor.languages && tutor.languages[0]" [language]="tutor.languages[0]" [size]="14"></app-flag-icon>
                     <span>{{ tutor.languages && tutor.languages[0] }}</span>
                   </div>
-                  <div class="tutor-country-inline" *ngIf="tutor.country">
-                    <ion-icon name="location-outline"></ion-icon>
+                  <div class="tutor-country-inline" *ngIf="tutor.country && tutor.country !== 'Unknown'">
+                    <app-flag-icon [country]="tutor.country" [size]="14"></app-flag-icon>
                     <span>{{ tutor.country }}</span>
                   </div>
                 </div>

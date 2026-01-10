@@ -96,7 +96,8 @@
     <!-- Stripe Connect Setup Card (Tutors Only) -->
     
     <!-- Warning Banner for Non-Onboarded Tutors -->
-    <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && isTutor() && !hasPayoutSetup" color="warning">
+    <!-- Only show after loading is complete (hasPayoutSetup !== undefined) -->
+    <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && isTutor() && hasPayoutSetup === false" color="warning">
       <ion-card-content>
         <div class="warning-content">
           <ion-icon name="warning" color="warning"></ion-icon>
@@ -109,9 +110,15 @@
     </ion-card>
     
     <ion-card class="stripe-connect-card" *ngIf="!isViewingOtherUser && isTutor()">
-      <ion-card-content [class.stripe-connected]="hasPayoutSetup">
+      <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
+        <!-- Loading State -->
+        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">
+          <ion-spinner></ion-spinner>
+          <p style="margin-top: 12px; color: #666;">Loading payment status...</p>
+        </div>
+        
         <!-- Not Connected State -->
-        <div class="stripe-connect-content" *ngIf="!hasPayoutSetup">
+        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === false">
           <div class="stripe-icon">
             <ion-icon name="wallet-outline"></ion-icon>
           </div>
@@ -130,7 +137,7 @@
         </div>
         
         <!-- Connected State -->
-        <div class="stripe-connect-success" *ngIf="hasPayoutSetup">
+        <div class="stripe-connect-success" *ngIf="hasPayoutSetup === true">
           <div class="success-header">
             <ion-icon name="checkmark-circle" color="success"></ion-icon>
             <div class="stripe-success-text">

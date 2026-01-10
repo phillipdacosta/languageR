@@ -122,8 +122,13 @@
   <!-- VIDEO PREVIEW (for both modes) -->
   <div class="video-preview" *ngIf="videoUrl">
     <div class="video-thumbnail-wrapper" (click)="playVideo()">
-      <!-- Show thumbnail if available -->
-      <img *ngIf="thumbnailUrl" [src]="thumbnailUrl" alt="Video preview" class="video-thumbnail-image">
+      <!-- Show thumbnail if available with loading=eager for better quality -->
+      <img *ngIf="thumbnailUrl" 
+           [src]="thumbnailUrl" 
+           alt="Video preview" 
+           class="video-thumbnail-image"
+           loading="eager"
+           decoding="sync">
       
       <!-- For uploaded videos without thumbnail, show video element for preview -->
       <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
@@ -139,7 +144,9 @@
         <img *ngIf="externalVideoThumbnail" 
              [src]="externalVideoThumbnail" 
              alt="Video preview" 
-             class="video-thumbnail-image">
+             class="video-thumbnail-image"
+             loading="eager"
+             decoding="sync">
         <div *ngIf="!externalVideoThumbnail" class="placeholder-content">
           <ion-icon [name]="videoType === 'youtube' ? 'logo-youtube' : 'logo-vimeo'"></ion-icon>
           <p>{{ videoType === 'youtube' ? 'YouTube' : 'Vimeo' }} Video</p>

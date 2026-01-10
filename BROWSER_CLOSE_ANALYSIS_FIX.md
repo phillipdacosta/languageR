@@ -108,3 +108,4 @@ To test the fix:
 **Fix Priority**: CRITICAL - Affects all lessons where tutor/student closes browser
 
 
+

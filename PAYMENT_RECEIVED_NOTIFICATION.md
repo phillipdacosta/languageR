@@ -272,3 +272,4 @@ Tutor sees: "You earned $X from your lesson..."
 - Notification type: `payment_received` (can be used for filtering/styling)
 
 
+

@@ -17,6 +17,7 @@ export interface User {
   picture?: string;
   emailVerified: boolean;
   userType: 'student' | 'tutor';
+  isAdmin?: boolean; // Admin flag for backend access
   onboardingCompleted: boolean;
   nativeLanguage?: string;
   interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
@@ -182,6 +183,18 @@ export class UserService {
   } | null>(null);
   public tutorApprovalStatus$ = this.tutorApprovalStatusSubject.asObservable();
 
+  // Payout status for tutors (loaded once on app init)
+  private payoutStatusSubject = new BehaviorSubject<{
+    provider: 'stripe' | 'paypal' | 'manual' | 'none';
+    hasPayoutSetup: boolean;
+    options: any;
+  }>({
+    provider: 'none',
+    hasPayoutSetup: false,
+    options: null
+  });
+  public payoutStatus$ = this.payoutStatusSubject.asObservable();
+
   constructor(
     private http: HttpClient,
     private authService: AuthService
@@ -320,7 +333,10 @@ export class UserService {
    */
   private updateTutorApprovalStatus(user: User): void {
     const photoComplete = !!user.picture;
-    const videoComplete = !!user.onboardingData?.introductionVideo;
+    // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
+    const videoComplete = !!user.onboardingData?.pendingVideo || 
+                          !!user.onboardingData?.introductionVideo || 
+                          user.tutorOnboarding?.videoRejected === true;
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const videoRejected = user.tutorOnboarding?.videoRejected === true;
     
@@ -367,6 +383,60 @@ export class UserService {
     if (user && user.userType === 'tutor') {
       this.updateTutorApprovalStatus(user);
     }
+  }
+
+  /**
+   * Load and cache payout status for tutors
+   * This should be called once on app init to avoid flashing in the profile page
+   */
+  public async loadPayoutStatus(): Promise<void> {
+    try {
+      const headers = await this.getAuthHeadersAsync();
+      
+      // Fetch payout options (includes migration logic)
+      const optionsResponse = await this.http.get<any>(`${this.apiUrl}/payments/payout-options`, {
+        headers
+      }).toPromise();
+
+      if (optionsResponse?.success) {
+        // Fetch current user to get updated payout provider
+        const user = await this.getCurrentUser(true).toPromise();
+        const payoutProvider = user?.payoutProvider || 'none';
+        
+        // Determine if payout is set up
+        let hasPayoutSetup = false;
+        if (payoutProvider === 'stripe') {
+          hasPayoutSetup = user?.stripeConnectOnboarded === true;
+        } else if (payoutProvider === 'paypal') {
+          hasPayoutSetup = !!user?.payoutDetails?.paypalEmail;
+        } else if (payoutProvider === 'manual') {
+          hasPayoutSetup = true;
+        }
+        
+        console.log('💰 [UserService] Payout status loaded:', {
+          provider: payoutProvider,
+          hasPayoutSetup,
+          stripeConnectOnboarded: user?.stripeConnectOnboarded,
+          paypalEmail: user?.payoutDetails?.paypalEmail
+        });
+        
+        // Update the subject
+        this.payoutStatusSubject.next({
+          provider: payoutProvider as any,
+          hasPayoutSetup,
+          options: optionsResponse.options
+        });
+      }
+    } catch (error) {
+      console.error('❌ [UserService] Error loading payout status:', error);
+    }
+  }
+
+  /**
+   * Get current payout status (synchronous)
+   */
+  public getPayoutStatus() {
+    return this.payoutStatusSubject.value;
   }
 
   /**

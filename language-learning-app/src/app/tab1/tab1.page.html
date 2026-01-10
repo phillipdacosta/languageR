@@ -69,8 +69,8 @@
                 <span *ngIf="!tutorOnboardingStatus?.photoUploaded && !currentUser?.picture"> Upload your profile photo</span>
                 <span class="separator" *ngIf="(!tutorOnboardingStatus?.photoUploaded && !currentUser?.picture) && (!tutorOnboardingStatus?.videoApproved || !tutorOnboardingStatus?.stripeConnected || !currentUser?.stripeConnectOnboarded)"> | </span>
                 
-                <span *ngIf="!tutorOnboardingStatus?.videoApproved && currentUser?.onboardingData?.introductionVideo"> Introduction video pending review </span>
-                <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.introductionVideo"> Upload your introduction video </span>
+                <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> Introduction video pending review </span>
+                <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> Upload your introduction video </span>
                 <span class="separator" *ngIf="!tutorOnboardingStatus?.videoApproved && (!tutorOnboardingStatus?.stripeConnected || !currentUser?.stripeConnectOnboarded)">|</span>
                 
                 <span *ngIf="!tutorOnboardingStatus?.stripeConnected && !currentUser?.stripeConnectOnboarded"> Connect your bank account </span>

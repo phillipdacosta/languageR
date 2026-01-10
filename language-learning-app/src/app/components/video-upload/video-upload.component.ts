@@ -71,6 +71,19 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
     
+    // UPGRADE LOW-RES VIMEO THUMBNAILS TO HIGH-RES
+    if (this.thumbnailUrl && this.thumbnailUrl.includes('vimeocdn.com') && this.thumbnailUrl.includes('_')) {
+      // Replace any resolution (e.g., _295x166, _640x360) with _1280x720
+      const upgradedUrl = this.thumbnailUrl.replace(/_\d+x\d+/, '_1280x720');
+      if (upgradedUrl !== this.thumbnailUrl) {
+        console.log('📹 ⬆️ Upgrading Vimeo thumbnail from low-res to high-res');
+        console.log('📹 Old:', this.thumbnailUrl);
+        console.log('📹 New:', upgradedUrl);
+        this.thumbnailUrl = upgradedUrl;
+        this.thumbnailPreview = upgradedUrl; // Update preview as well
+      }
+    }
+    
     // Check if video is external (YouTube/Vimeo)
     if (this.videoUrl) {
       this.autoThumbnailGenerated = this.isExternalVideo(this.videoUrl);
@@ -89,10 +102,11 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     // If thumbnail exists, show it by default
     if (this.thumbnailUrl) {
       this.showThumbnailOverlay = true;
-      this.thumbnailPreview = this.thumbnailUrl; // Set preview to match thumbnailUrl
+      this.thumbnailPreview = this.thumbnailUrl; // Set preview to match thumbnailUrl (may have been upgraded)
       console.log('📹 Thumbnail loaded, showing overlay');
+      console.log('📹 thumbnailPreview set to:', this.thumbnailPreview);
     } else {
-      console.log('📹 No thumbnail found');
+      console.log('📹 No thumbnail found, will use external thumbnail if available');
     }
   }
 
@@ -113,8 +127,23 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       
       // If thumbnail URL is provided, make sure we show it
       if (newValue) {
+        // UPGRADE LOW-RES VIMEO THUMBNAILS TO HIGH-RES
+        if (newValue.includes('vimeocdn.com') && newValue.includes('_')) {
+          const upgradedUrl = newValue.replace(/_\d+x\d+/, '_1280x720');
+          if (upgradedUrl !== newValue) {
+            console.log('📹 🔄 Upgrading Vimeo thumbnail in ngOnChanges:');
+            console.log('📹 Old:', newValue);
+            console.log('📹 New:', upgradedUrl);
+            this.thumbnailUrl = upgradedUrl;
+            this.thumbnailPreview = upgradedUrl;
+          } else {
+            this.thumbnailPreview = newValue;
+          }
+        } else {
+          this.thumbnailPreview = newValue;
+        }
+        
         this.showThumbnailOverlay = true;
-        this.thumbnailPreview = newValue;
         console.log('📹 ✅ Set thumbnailPreview to:', this.thumbnailPreview);
         console.log('📹 ✅ Set showThumbnailOverlay to TRUE');
       } else {
@@ -129,6 +158,19 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     if (changes['videoUrl'] && changes['videoUrl'].currentValue) {
       console.log('📹 Video URL changed to:', changes['videoUrl'].currentValue);
       this.autoThumbnailGenerated = this.isExternalVideo(changes['videoUrl'].currentValue);
+      
+      // Auto-detect video type
+      const detectedType = this.detectVideoType(changes['videoUrl'].currentValue);
+      if (detectedType && detectedType !== this.videoType) {
+        console.log(`📹 ⚠️ Video type mismatch after URL change! Stored: ${this.videoType}, Detected: ${detectedType}. Using detected type.`);
+        this.videoType = detectedType;
+      }
+      
+      // Fetch external thumbnail if no thumbnailUrl provided
+      if (!this.thumbnailUrl || this.thumbnailUrl === '') {
+        console.log('📹 No thumbnailUrl, fetching external thumbnail...');
+        this.fetchExternalVideoThumbnail();
+      }
     }
   }
 

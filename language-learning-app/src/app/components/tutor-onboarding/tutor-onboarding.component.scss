@@ -269,7 +269,7 @@
   align-items: flex-start; // Changed from center to flex-start
   justify-content: flex-start; // Changed from center to flex-start
   overflow-y: auto; // Make scrollable
-  max-height: 600px; // Limit height
+  // max-height: 600px; // Limit height
   min-height: 600px; // Force consistent height
   padding-right: 8px; // Space for scrollbar
   
@@ -572,3 +572,47 @@
     }
   }
 }
+
+// Video preview styling (matches admin review page)
+.video-preview-wrapper {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  
+  .video-thumbnail-display {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: #fafafa;
+    margin-bottom: 16px;
+    
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateY(-2px);
+      transition: all 0.2s ease;
+    }
+    
+    app-video-thumbnail {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+  
+  .video-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    
+    ion-button {
+      flex: 1;
+      max-width: 200px;
+    }
+  }
+}
+

@@ -1,3 +1,103 @@
+// Segment (tabs) styling
+ion-segment {
+  padding: 8px;
+  
+  ion-segment-button {
+    --border-radius: 8px;
+    --color: var(--ion-color-medium);
+    --color-checked: var(--ion-color-primary);
+    --indicator-color: transparent;
+    font-weight: 500;
+    min-height: 40px;
+    
+    &::part(indicator-background) {
+      background: var(--ion-color-primary-tint);
+      border-radius: 8px;
+    }
+  }
+}
+
+// New Videos Alert Banner
+.new-videos-alert {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(135deg, #ff9800 0%, #ff5722 100%);
+  color: white;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: slideDown 0.3s ease-out;
+  
+  .alert-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 1200px;
+    margin: 0 auto;
+    
+    ion-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+      animation: pulse 2s infinite;
+    }
+    
+    .alert-text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      
+      strong {
+        font-weight: 700;
+        font-size: 15px;
+      }
+      
+      span {
+        font-size: 12px;
+        opacity: 0.95;
+      }
+    }
+    
+    ion-button {
+      --border-radius: 8px;
+      font-weight: 600;
+      
+      &[fill="solid"] {
+        --background: white;
+        --color: #ff5722;
+        
+        &:hover {
+          --background: rgba(255, 255, 255, 0.9);
+        }
+      }
+      
+      &[fill="clear"] {
+        --color: white;
+      }
+    }
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 .loading-container {
   display: flex;
   justify-content: center;
@@ -84,6 +184,95 @@
 
   .video-section {
     margin-bottom: 20px;
+
+    // Individual tutor update alert
+    .tutor-update-alert {
+      background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+      animation: slideDown 0.3s ease-out;
+      
+      .alert-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        
+        ion-icon {
+          font-size: 24px;
+          flex-shrink: 0;
+          
+          &.pulsing-icon {
+            animation: pulse 2s infinite;
+          }
+        }
+        
+        span {
+          flex: 1;
+          font-weight: 600;
+          font-size: 14px;
+        }
+        
+        ion-button {
+          --background: rgba(255, 255, 255, 0.2);
+          --background-hover: rgba(255, 255, 255, 0.3);
+          --background-activated: rgba(255, 255, 255, 0.4);
+          --color: white;
+          font-weight: 600;
+          text-transform: none;
+          height: 32px;
+          
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+      }
+    }
+
+    .video-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      
+      .pending-badge {
+        ion-badge {
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+      }
+      
+      .upload-time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: #666;
+        font-size: 13px;
+        font-weight: 500;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+      
+      .cooling-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        animation: pulse 2s infinite;
+        
+        ion-icon {
+          font-size: 14px;
+        }
+      }
+    }
 
     .video-thumbnail-wrapper {
       position: relative;

@@ -376,7 +376,7 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
               req.io.to(tutorSocketId).emit('new_notification', {
                 type: 'lesson_created',
                 title: 'Trial Lesson Tips',
-                message: `${studentDisplayName} booked a trial lesson on ${new Date(populatedLesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(populatedLesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
+                message: `${studentDisplayName} booked a trial lesson for ${new Date(populatedLesson.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(populatedLesson.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Check your messages for preparation tips.`,
                 data: {
                   lessonId: populatedLesson._id.toString(),
                   studentId: student._id.toString(),
@@ -929,14 +929,37 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
  */
 router.get('/payout-options', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    // Try to find user by auth0Id first, then by email as fallback
+    let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user && req.user.email) {
+      console.log('🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email:', req.user.email);
+      user = await User.findOne({ email: req.user.email });
+      
+      // If found by email, update the auth0Id to match the current token
+      if (user) {
+        console.log('🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id');
+        user.auth0Id = req.user.sub;
+        await user.save();
+      }
+    }
     
     if (!user) {
+      console.log('❌ [PAYOUT-OPTIONS] User not found by auth0Id or email');
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     if (user.userType !== 'tutor') {
       return res.status(403).json({ success: false, message: 'Only tutors can check payout options' });
+    }
+
+    // 🔄 MIGRATION: Fix users who have Stripe connected but payoutProvider = 'none'
+    // This happened to users who onboarded before we implemented the payoutProvider field
+    if (user.stripeConnectOnboarded === true && user.payoutProvider === 'none') {
+      console.log(`🔄 [MIGRATION] Fixing payoutProvider for ${user.email} - has Stripe but provider is 'none'`);
+      user.payoutProvider = 'stripe';
+      await user.save();
+      console.log(`✅ [MIGRATION] Set payoutProvider to 'stripe' for ${user.email}`);
     }
 
     const { isStripeAvailable, getRecommendedPayoutProvider } = require('../utils/stripeCountries');
@@ -1005,6 +1028,7 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
     if (wasJustOnboarded) {
       user.stripeConnectOnboarded = true;
       user.stripeConnectOnboardedAt = new Date();
+      user.payoutProvider = 'stripe'; // Set payout provider when Stripe is connected
       
       // Check if all tutor approval steps are now complete
       user.tutorOnboarding = user.tutorOnboarding || {};

@@ -62,7 +62,7 @@ export class ProfilePage implements OnInit {
 
   // Payout options (for tutors)
   payoutOptions: any = null;
-  hasPayoutSetup = false; // Whether tutor has any payout method configured
+  hasPayoutSetup: boolean | undefined = undefined; // undefined = loading, false = not setup, true = setup
   payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
 
   // Earnings (for tutors)
@@ -95,13 +95,44 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    // For tutors, immediately get cached payout status (prevents flashing)
+    if (this.isTutor()) {
+      const cachedStatus = this.userService.getPayoutStatus();
+      // Only use cached data if it's actually been loaded (has options)
+      if (cachedStatus.options) {
+        this.payoutProvider = cachedStatus.provider;
+        this.hasPayoutSetup = cachedStatus.hasPayoutSetup;
+        this.payoutOptions = cachedStatus.options;
+        console.log('💰 [PROFILE] Using cached payout status from ngOnInit:', {
+          provider: this.payoutProvider,
+          hasPayoutSetup: this.hasPayoutSetup
+        });
+      }
+    }
+    
     // Subscribe to approval status from UserService
     this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
       if (status) {
+        // Note: stripeComplete now includes PayPal and Manual methods too (confusingly named)
+        // But we should NOT overwrite hasPayoutSetup here - let checkPayoutStatus() handle it
+        // to avoid confusion between payout providers
         this.stripeConnectOnboarded = status.stripeComplete;
-        this.hasPayoutSetup = status.stripeComplete; // Sync hasPayoutSetup with approval status
-        console.log(`💰 [PROFILE] Stripe status from service: ${this.stripeConnectOnboarded}`);
-        console.log(`💰 [PROFILE] hasPayoutSetup from service: ${this.hasPayoutSetup}`);
+        console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+      }
+    });
+    
+    // Subscribe to payout status updates from UserService
+    this.userService.payoutStatus$.subscribe(payoutStatus => {
+      if (this.isTutor()) {
+        this.payoutProvider = payoutStatus.provider;
+        this.hasPayoutSetup = payoutStatus.hasPayoutSetup;
+        this.payoutOptions = payoutStatus.options;
+        
+        if (this.payoutProvider === 'stripe') {
+          this.stripeConnectOnboarded = this.hasPayoutSetup;
+        }
+        
+        console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
       }
     });
     
@@ -202,17 +233,34 @@ export class ProfilePage implements OnInit {
         this.hasPendingVideo = !!((user as any).onboardingData?.pendingVideo);
         console.log('⏳ Has pending video:', this.hasPendingVideo);
         
-        if ((user.onboardingData as any)?.introductionVideo) {
-          this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
-          this.tutorVideoThumbnail = (user.onboardingData as any)?.videoThumbnail || '';
-          this.tutorVideoType = (user.onboardingData as any)?.videoType || 'upload';
-          console.log('📹 Loaded video data from DB:', {
+        // Prioritize pending video if it exists (for display to tutor themselves)
+        const onboardingData = user.onboardingData as any;
+        const hasPendingVideo = !!(onboardingData?.pendingVideo);
+        const hasApprovedVideo = !!(onboardingData?.introductionVideo);
+        
+        if (hasPendingVideo) {
+          // Show pending video if it exists
+          this.tutorIntroductionVideo = onboardingData.pendingVideo;
+          this.tutorVideoThumbnail = onboardingData.pendingVideoThumbnail || '';
+          this.tutorVideoType = onboardingData.pendingVideoType || 'upload';
+          console.log('📹 Loaded PENDING video data from DB:', {
             video: this.tutorIntroductionVideo,
             thumbnail: this.tutorVideoThumbnail,
             type: this.tutorVideoType,
             hasVideo: !!this.tutorIntroductionVideo,
-            hasThumbnail: !!this.tutorVideoThumbnail,
-            hasPending: this.hasPendingVideo
+            hasThumbnail: !!this.tutorVideoThumbnail
+          });
+        } else if (hasApprovedVideo) {
+          // Show approved video if no pending video
+          this.tutorIntroductionVideo = onboardingData.introductionVideo;
+          this.tutorVideoThumbnail = onboardingData.videoThumbnail || '';
+          this.tutorVideoType = onboardingData.videoType || 'upload';
+          console.log('📹 Loaded APPROVED video data from DB:', {
+            video: this.tutorIntroductionVideo,
+            thumbnail: this.tutorVideoThumbnail,
+            type: this.tutorVideoType,
+            hasVideo: !!this.tutorIntroductionVideo,
+            hasThumbnail: !!this.tutorVideoThumbnail
           });
         } else {
           console.log('📹 No introduction video in onboardingData');
@@ -811,9 +859,9 @@ export class ProfilePage implements OnInit {
       await toast.present();
     }
     
-    // Refresh Stripe Connect status
+    // Refresh payout status in UserService (will update profile via subscription)
     setTimeout(() => {
-      this.checkPayoutStatus();
+      this.userService.loadPayoutStatus();
       this.loadEarnings(); // Also refresh earnings
     }, 1000);
     
@@ -868,45 +916,46 @@ export class ProfilePage implements OnInit {
   }
 
   // Check overall payout status (Stripe, PayPal, or Manual)
+  // Uses cached data from UserService, or loads it if not yet cached
   async checkPayoutStatus() {
     if (!this.isTutor()) return;
 
     try {
-      // First, get payout options to know what's available
-      const optionsResponse = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/payments/payout-options`, {
-          headers: this.userService.getAuthHeadersSync()
-        })
-      );
-
-      if (optionsResponse.success) {
-        this.payoutOptions = optionsResponse.options;
-        console.log('💰 [PROFILE] Payout options loaded:', this.payoutOptions);
-      }
-
-      // Then, check current user's payout setup (force refresh from backend)
-      const user = await firstValueFrom(this.userService.getCurrentUser(true));
-      this.payoutProvider = (user as any)?.payoutProvider || 'none';
+      // Get cached payout status from UserService
+      let payoutStatus = this.userService.getPayoutStatus();
       
-      console.log('💰 [PROFILE] User data:', {
-        payoutProvider: this.payoutProvider,
-        stripeConnectOnboarded: (user as any)?.stripeConnectOnboarded,
-        paypalEmail: (user as any)?.payoutDetails?.paypalEmail
+      console.log('💰 [PROFILE] Initial cached payout status:', JSON.stringify(payoutStatus, null, 2));
+      
+      // If payout status hasn't been loaded yet (provider is 'none' and no options), load it now
+      if (payoutStatus.provider === 'none' && !payoutStatus.options) {
+        console.log('💰 [PROFILE] Payout status not cached yet, loading now...');
+        await this.userService.loadPayoutStatus();
+        payoutStatus = this.userService.getPayoutStatus();
+        console.log('💰 [PROFILE] Loaded payout status:', JSON.stringify(payoutStatus, null, 2));
+      }
+      
+      console.log('💰 [PROFILE] Setting local properties:', {
+        payoutProvider: payoutStatus.provider,
+        hasPayoutSetup: payoutStatus.hasPayoutSetup,
+        hasOptions: !!payoutStatus.options
       });
       
-      // Determine if user has any payout setup
+      this.payoutProvider = payoutStatus.provider;
+      this.hasPayoutSetup = payoutStatus.hasPayoutSetup;
+      this.payoutOptions = payoutStatus.options;
+      
+      console.log('💰 [PROFILE] Local properties set:', {
+        'this.payoutProvider': this.payoutProvider,
+        'this.hasPayoutSetup': this.hasPayoutSetup,
+        'this.payoutOptions': !!this.payoutOptions
+      });
+      
+      // Set stripeConnectOnboarded for legacy compatibility
       if (this.payoutProvider === 'stripe') {
-        this.hasPayoutSetup = (user as any)?.stripeConnectOnboarded === true;
         this.stripeConnectOnboarded = this.hasPayoutSetup;
-      } else if (this.payoutProvider === 'paypal') {
-        this.hasPayoutSetup = !!(user as any)?.payoutDetails?.paypalEmail;
-      } else if (this.payoutProvider === 'manual') {
-        this.hasPayoutSetup = true; // Manual is always "setup"
-      } else {
-        this.hasPayoutSetup = false;
       }
 
-      console.log(`💰 [PROFILE] Payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
+      console.log(`💰 [PROFILE] Final payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
     } catch (error) {
       console.error('❌ Error checking payout status:', error);
     }
@@ -1105,9 +1154,9 @@ export class ProfilePage implements OnInit {
           paypalEmail: (freshUser as any)?.payoutDetails?.paypalEmail
         });
         
-        console.log('💳 [PROFILE] Checking payout status...');
-        // Then check payout status
-        await this.checkPayoutStatus();
+        console.log('💳 [PROFILE] Reloading payout status in UserService...');
+        // Reload payout status in UserService (will update profile via subscription)
+        await this.userService.loadPayoutStatus();
         
         console.log('💳 [PROFILE] Final state:', {
           payoutProvider: this.payoutProvider,
@@ -1160,8 +1209,8 @@ export class ProfilePage implements OnInit {
                 // Force refresh user data from backend
                 await firstValueFrom(this.userService.getCurrentUser(true));
                 
-                // Then check payout status
-                await this.checkPayoutStatus();
+                // Reload payout status in UserService (will update profile via subscription)
+                await this.userService.loadPayoutStatus();
               } else {
                 this.showToast(response.message || 'Failed to setup manual payout', 'danger');
               }

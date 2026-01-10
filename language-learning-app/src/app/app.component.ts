@@ -168,6 +168,11 @@ export class AppComponent implements OnInit, OnDestroy {
               id: currentUser?.id
             });
             
+            // Load payout status for tutors (cached in UserService to avoid flashing in profile)
+            if (currentUser?.userType === 'tutor') {
+              this.userService.loadPayoutStatus();
+            }
+            
             if (currentUser?.interfaceLanguage) {
               console.log('🌐 AppComponent: Setting language from user profile:', currentUser.interfaceLanguage);
               this.languageService.setLanguage(currentUser.interfaceLanguage);
@@ -547,6 +552,8 @@ export class AppComponent implements OnInit, OnDestroy {
           // Force refresh the user data and approval status
           this.userService.getCurrentUser(true).subscribe(() => {
             this.userService.refreshTutorApprovalStatus();
+            // Reload payout status to reflect Stripe connection
+            this.userService.loadPayoutStatus();
           });
         } else {
           console.log('ℹ️ [APP] Stripe Connect status: Not onboarded');

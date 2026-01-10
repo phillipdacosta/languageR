@@ -2,22 +2,59 @@
   <ion-toolbar>
     <ion-title>Tutor Review Dashboard</ion-title>
   </ion-toolbar>
+  
+  <!-- Tabs for filtering -->
+  <ion-toolbar>
+    <ion-segment [(ngModel)]="selectedTab" (ionChange)="onTabChange($event)">
+      <ion-segment-button value="pending">
+        <ion-label>Pending Review ({{ pendingCount }})</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="approved">
+        <ion-label>Already Approved ({{ approvedCount }})</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="rejected">
+        <ion-label>Rejected ({{ rejectedCount }})</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </ion-toolbar>
 </ion-header>
 
 <ion-content>
+  <!-- New Videos Alert Banner -->
+  <div *ngIf="showNewVideosAlert" class="new-videos-alert">
+    <div class="alert-content">
+      <ion-icon name="information-circle"></ion-icon>
+      <div class="alert-text">
+        <strong>{{ newVideosCount }} new video{{ newVideosCount > 1 ? 's' : '' }} uploaded</strong>
+        <span>Look for the blue refresh button on updated tutor cards below, or refresh all.</span>
+      </div>
+      <ion-button fill="solid" size="small" (click)="refreshTutorList()">
+        <ion-icon name="refresh" slot="start"></ion-icon>
+        Refresh All
+      </ion-button>
+      <ion-button fill="clear" size="small" (click)="dismissNewVideosAlert()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+
   <div *ngIf="loading" class="loading-container">
     <ion-spinner></ion-spinner>
   </div>
 
   <div *ngIf="!loading" class="review-container">
-    <h2>Pending Approval ({{ pendingTutors.length }})</h2>
+    <h2 *ngIf="selectedTab === 'pending'">Pending Approval ({{ displayedTutors.length }})</h2>
+    <h2 *ngIf="selectedTab === 'approved'">Already Approved ({{ displayedTutors.length }})</h2>
+    <h2 *ngIf="selectedTab === 'rejected'">Rejected Videos ({{ displayedTutors.length }})</h2>
 
-    <div *ngIf="pendingTutors.length === 0" class="empty-state">
+    <div *ngIf="displayedTutors.length === 0" class="empty-state">
       <ion-icon name="checkmark-done-circle-outline"></ion-icon>
-      <p>No tutors pending approval</p>
+      <p *ngIf="selectedTab === 'pending'">No tutors pending approval</p>
+      <p *ngIf="selectedTab === 'approved'">No approved tutors</p>
+      <p *ngIf="selectedTab === 'rejected'">No rejected videos</p>
     </div>
 
-    <div *ngFor="let tutor of pendingTutors" class="tutor-card">
+    <div *ngFor="let tutor of displayedTutors" class="tutor-card">
       <div class="tutor-info">
         <img [src]="tutor.picture" *ngIf="tutor.picture" alt="{{tutor.name}}">
         <div>
@@ -43,23 +80,49 @@
       </div>
 
       <div class="video-section" *ngIf="tutor.onboardingData?.pendingVideo || tutor.onboardingData?.introductionVideo">
-        <!-- Show "Pending Video" badge if there's a new video under review -->
-        <div class="pending-badge" *ngIf="tutor.onboardingData?.pendingVideo">
-          <ion-badge color="warning">New Video Pending Review</ion-badge>
+        <!-- Video Update Alert (shown only for this tutor if they have updates) -->
+        <div class="tutor-update-alert" *ngIf="hasUpdates(tutor._id)">
+          <div class="alert-content">
+            <ion-icon name="sync-circle" class="pulsing-icon"></ion-icon>
+            <span>New video uploaded</span>
+            <ion-button fill="solid" size="small" color="primary" (click)="refreshSingleTutor(tutor._id)">
+              <ion-icon name="refresh" slot="start"></ion-icon>
+              Refresh Video
+            </ion-button>
+          </div>
+        </div>
+
+        <!-- Upload timestamp and status badges -->
+        <div class="video-meta">
+          <div class="pending-badge" *ngIf="tutor.onboardingData?.pendingVideo">
+            <ion-badge color="warning">New Video Pending Review</ion-badge>
+          </div>
+          
+          <!-- Time since upload -->
+          <div class="upload-time">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ tutor._timeAgo }}</span>
+          </div>
+          
+          <!-- Cooling period warning -->
+          <ion-badge *ngIf="selectedTab === 'pending' && tutor._isInCoolingPeriod" color="danger" class="cooling-badge">
+            <ion-icon name="alert-circle"></ion-icon>
+            Wait {{ tutor._remainingCoolingMinutes }}m before approving
+          </ion-badge>
         </div>
         
         <div class="video-thumbnail-wrapper" (click)="playTutorVideo(tutor)">
           <app-video-thumbnail
-            [videoUrl]="getVideoUrl(tutor)"
-            [thumbnailUrl]="getVideoThumbnail(tutor)"
-            [videoType]="getVideoType(tutor)"
+            [videoUrl]="tutor._videoUrl"
+            [thumbnailUrl]="tutor._thumbnailUrl"
+            [videoType]="tutor._videoType"
             cssClass="video-thumbnail-image">
           </app-video-thumbnail>
         </div>
       </div>
       
       <!-- Video Player Modal (shown when thumbnail is clicked) -->
-      <ion-modal *ngIf="selectedTutor?.id === tutor.id && isVideoModalOpen" 
+      <ion-modal *ngIf="selectedTutor?._id === tutor._id && isVideoModalOpen" 
                  [isOpen]="isVideoModalOpen"
                  (didDismiss)="closeVideoModal()">
         <ng-template>
@@ -76,8 +139,8 @@
           <ion-content class="video-modal-content">
             <!-- Check if it's a Vimeo or YouTube embed URL -->
             <iframe 
-              *ngIf="getVideoUrl(selectedTutor).includes('vimeo.com') || getVideoUrl(selectedTutor).includes('youtube.com') || getVideoUrl(selectedTutor).includes('youtu.be')"
-              [src]="getVideoUrl(selectedTutor) | sanitizeUrl"
+              *ngIf="selectedTutor._isExternalVideo"
+              [src]="selectedTutor._videoUrl | sanitizeUrl"
               frameborder="0"
               allow="autoplay; fullscreen; picture-in-picture"
               allowfullscreen
@@ -85,9 +148,9 @@
             </iframe>
             <!-- Direct video file -->
             <video 
-              *ngIf="!getVideoUrl(selectedTutor).includes('vimeo.com') && !getVideoUrl(selectedTutor).includes('youtube.com') && !getVideoUrl(selectedTutor).includes('youtu.be')"
-              [src]="getVideoUrl(selectedTutor)"
-              [poster]="getVideoThumbnail(selectedTutor) || ''"
+              *ngIf="!selectedTutor._isExternalVideo"
+              [src]="selectedTutor._videoUrl"
+              [poster]="selectedTutor._thumbnailUrl || ''"
               controls
               autoplay
               class="video-player">
@@ -97,14 +160,25 @@
       </ion-modal>
 
       <div class="actions">
-        <ion-button color="success" (click)="approveTutor(tutor)">
+        <ion-button 
+          *ngIf="selectedTab !== 'approved'" 
+          color="success" 
+          (click)="approveTutor(tutor)"
+          [disabled]="hasUpdates(tutor._id)">
           <ion-icon name="checkmark" slot="start"></ion-icon>
           Approve
         </ion-button>
-        <ion-button color="danger" (click)="rejectTutor(tutor)">
+        <ion-button 
+          *ngIf="selectedTab === 'pending'" 
+          color="danger" 
+          (click)="rejectTutor(tutor)"
+          [disabled]="hasUpdates(tutor._id)">
           <ion-icon name="close" slot="start"></ion-icon>
           Reject
         </ion-button>
+        <ion-badge *ngIf="selectedTab === 'rejected'" color="danger">
+          Rejected: {{ tutor.tutorOnboarding?.rejectionReason || 'No reason provided' }}
+        </ion-badge>
       </div>
     </div>
   </div>

@@ -162,3 +162,4 @@ walletBalance = totalEarnings + pendingEarnings;
 **After**: Tutor sees $6.00 (only completed lesson) ✅
 
 
+

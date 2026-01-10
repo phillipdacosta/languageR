@@ -127,10 +127,10 @@
                           </div>
                           <div *ngIf="approvalStatus?.videoRejected" class="status-badge rejected">
                             <ion-icon name="close-circle"></ion-icon>
-                            <span>Rejected: {{ currentUser?.tutorOnboarding?.videoRejectionReason }}</span>
+                            <span>Video Rejected: {{ currentUser?.tutorOnboarding?.rejectionReason || 'Please re-upload' }}</span>
                           </div>
                         </div>
-            <!-- Use the full video upload component -->
+            <!-- Use the full video upload component (same as profile page) -->
             <app-video-upload
               [videoUrl]="getCurrentVideoUrl()"
               [thumbnailUrl]="getCurrentThumbnailUrl()"

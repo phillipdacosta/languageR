@@ -352,8 +352,26 @@ export class CheckoutPage implements OnInit {
       console.log('💳 Booking with payment:', {
         paymentMethod: bookingPayload.paymentMethod,
         hasPaymentMethodId: !!bookingPayload.stripePaymentMethodId,
-        hasCustomerId: !!bookingPayload.stripeCustomerId
+        paymentMethodId: bookingPayload.stripePaymentMethodId,
+        hasCustomerId: !!bookingPayload.stripeCustomerId,
+        customerId: bookingPayload.stripeCustomerId,
+        currentUserData: {
+          id: this.currentUser.id,
+          email: this.currentUser.email,
+          stripeCustomerId: this.currentUser.stripeCustomerId
+        },
+        defaultCardData: this.defaultCard
       });
+
+      // Validate required fields for saved-card payment
+      if (this.selectedPaymentMethod === 'saved-card') {
+        if (!bookingPayload.stripePaymentMethodId) {
+          throw new Error('No payment method selected. Please select a card.');
+        }
+        if (!bookingPayload.stripeCustomerId) {
+          throw new Error('Stripe customer ID missing. Please try refreshing the page.');
+        }
+      }
 
       // Create the lesson with payment authorization
       const response = await firstValueFrom(
@@ -636,7 +654,10 @@ export class CheckoutPage implements OnInit {
         this.defaultCard = cards.find((card: any) => card.isDefault) || cards[0] || null;
         
         if (this.defaultCard) {
-          console.log('Loaded default card:', this.defaultCard);
+          console.log('✅ Loaded default card:', this.defaultCard);
+          // Automatically select the default card as the payment method
+          this.selectedPaymentMethod = 'saved-card';
+          console.log('✅ Auto-selected saved-card as payment method');
         }
       }
     } catch (error) {

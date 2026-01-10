@@ -173,6 +173,7 @@ router.get('/me', verifyToken, async (req, res) => {
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
+        isAdmin: user.isAdmin, // ADD THIS - Required for admin access
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         tutorOnboarding: user.tutorOnboarding,
@@ -768,10 +769,16 @@ router.get('/tutors', verifyToken, async (req, res) => {
       };
     }
 
-    // Country filter (if you have country data)
+    // Country filter - match either country or residenceCountry (case-insensitive)
     if (country && country !== 'any') {
-      // Assuming you have a country field in the user profile
-      filterQuery['profile.country'] = country;
+      const countryRegex = new RegExp(country, 'i');
+      filterQuery.$and = filterQuery.$and || [];
+      filterQuery.$and.push({
+        $or: [
+          { country: countryRegex },
+          { residenceCountry: countryRegex }
+        ]
+      });
     }
 
     // Availability filter
@@ -845,7 +852,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
             onboardingData: 1,
             profile: 1,
             stats: 1,
-            createdAt: 1
+            createdAt: 1,
+            country: 1,
+            residenceCountry: 1
           }
         }
       ]);
@@ -880,7 +889,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
             onboardingData: 1,
             profile: 1,
             stats: 1,
-            createdAt: 1
+            createdAt: 1,
+            country: 1,
+            residenceCountry: 1
           }
         }
       ]);
@@ -890,7 +901,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         .sort(sortQuery)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
+        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt country residenceCountry');
     }
 
     // Get total count for pagination
@@ -932,7 +943,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         introductionVideo: tutor.onboardingData?.introductionVideo || '',
         videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
         videoType: tutor.onboardingData?.videoType || 'upload',
-        country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
+        country: tutor.country || tutor.residenceCountry || 'Unknown',
         gender: tutor.profile?.gender || 'Not specified',
         nativeSpeaker: tutor.profile?.nativeSpeaker || false,
         rating: tutor.stats?.rating || 0,
@@ -1021,6 +1032,7 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
       user.tutorOnboarding.videoRejected = false; // Clear rejection
       user.tutorOnboarding.videoRejectionReason = null;
       user.tutorOnboarding.videoUploaded = true; // Mark as uploaded for admin queue
+      user.tutorOnboarding.videoUploadedAt = new Date(); // ✅ Set upload timestamp
       
       console.log('📹 Video marked for admin review');
       
@@ -1039,6 +1051,7 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
       user.tutorOnboarding = {
         photoUploaded: !!user.picture,
         videoUploaded: true,
+        videoUploadedAt: new Date(), // ✅ Set upload timestamp for new tutors
         videoApproved: false,
         videoRejected: false,
         videoRejectionReason: null,
@@ -1078,6 +1091,23 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
       videoThumbnail: user.onboardingData.videoThumbnail,
       videoType: user.onboardingData.videoType
     });
+
+    // Notify admins via WebSocket that a new video is pending review
+    try {
+      if (req.io) {
+        req.io.emit('tutor_video_uploaded', {
+          tutorId: user._id,
+          tutorName: user.name || user.email,
+          tutorEmail: user.email,
+          videoUrl: user.onboardingData.pendingVideo,
+          thumbnailUrl: user.onboardingData.pendingVideoThumbnail,
+          timestamp: new Date()
+        });
+        console.log('📬 Notified admins of new video upload from:', user.email);
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+    }
 
   } catch (error) {
     console.error('Error updating tutor video:', error);

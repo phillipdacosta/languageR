@@ -484,6 +484,12 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
+  changeVideo() {
+    // Simply call onVideoRemoved to clear the current video
+    // The upload component will automatically show when no video exists
+    this.onVideoRemoved();
+  }
+
   openVideoPlayerModal() {
     const videoUrl = this.getCurrentVideoUrl();
     if (!videoUrl) return;
