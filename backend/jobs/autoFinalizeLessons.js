@@ -264,7 +264,7 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     }
     
     // Update lesson status (completed if it happened, cancelled if no-show)
-    if (!lesson.status || lesson.status === 'scheduled' || lesson.status === 'in_progress') {
+    if (!lesson.status || lesson.status === 'scheduled' || lesson.status === 'in_progress' || lesson.status === 'ended_early') {
       lesson.status = lesson.actualCallStartTime ? 'completed' : 'cancelled';
     }
     
