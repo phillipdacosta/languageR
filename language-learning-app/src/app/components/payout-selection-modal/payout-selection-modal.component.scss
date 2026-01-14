@@ -16,17 +16,18 @@ ion-content {
 // Floating close button
 .floating-close-button {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   z-index: 1000;
-  --background: #f5f5f7;
-  --background-hover: #e8e8ed;
+  --background: rgba(255, 255, 255, 0.95);
+  --background-hover: rgba(245, 245, 247, 0.95);
   --border-radius: 50%;
   --color: #1d1d1f;
   --padding-start: 0;
   --padding-end: 0;
-  width: 36px;
-  height: 36px;
+  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 40px;
+  height: 40px;
   margin: 0;
 
   ion-icon {
@@ -36,15 +37,16 @@ ion-content {
 
 .modal-content {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 32px;
-  padding: 40px;
+  grid-template-columns: 420px 1fr; // Increased from 380px
+  gap: 40px; // Increased from 32px
+  padding: 40px 40px 40px 40px;
   height: 100%;
   background: white;
+  position: relative; // For proper positioning context
   
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
-    padding: 60px 24px 24px 24px;
+    padding: 70px 20px 24px 20px; // More top padding on mobile
     overflow-y: auto;
   }
 }
@@ -98,31 +100,39 @@ ion-content {
 
 .info-banner {
   display: flex;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 16px;
   color: white;
   text-align: left;
   width: 100%;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
   
   ion-icon {
-    font-size: 22px;
+    font-size: 24px;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 1px;
   }
   
   .banner-title {
     font-weight: 600;
-    font-size: 13px;
-    margin: 0 0 4px 0;
+    font-size: 14px;
+    margin: 0 0 6px 0;
+    
+    strong {
+      font-weight: 700;
+      font-size: 15px;
+      display: inline-block;
+      padding: 0 2px;
+    }
   }
   
   .banner-text {
-    font-size: 12px;
+    font-size: 13px;
     margin: 0;
-    opacity: 0.9;
-    line-height: 1.4;
+    opacity: 0.95;
+    line-height: 1.5;
   }
 }
 
@@ -131,7 +141,8 @@ ion-content {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 8px;
+  padding-top: 0; // Align with left column
   
   &::-webkit-scrollbar {
     width: 6px;
@@ -153,6 +164,7 @@ ion-content {
   @media (max-width: 900px) {
     overflow-y: visible;
     padding-right: 0;
+    padding-top: 0;
   }
 }
 
@@ -161,6 +173,8 @@ ion-content {
   flex-direction: column;
   gap: 14px;
   flex: 1;
+      position: relative;
+    top: 35px;
 }
 
 .loading-container {
@@ -178,25 +192,26 @@ ion-content {
 }
 
 .option-card {
-  padding: 20px;
+  padding: 0;
   border: 2px solid #e5e5ea;
   border-radius: 16px;
   background: white;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   
   &.selected {
     border-color: #667eea;
     background: linear-gradient(135deg, #f7f8ff 0%, #faf7ff 100%);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
-    transform: scale(1.01);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+    transform: translateY(-2px);
   }
   
   &.recommended {
     border-color: #34c759;
     
-    &:not(.disabled):hover {
-      box-shadow: 0 6px 20px rgba(52, 199, 89, 0.2);
+    &:not(.selected):hover {
+      box-shadow: 0 8px 24px rgba(52, 199, 89, 0.15);
     }
   }
   
@@ -206,85 +221,132 @@ ion-content {
     background: #f2f2f7;
   }
   
-  &:not(.disabled):hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  &:not(.disabled):not(.selected):hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
 }
 
 .option-header {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
   
-  > ion-icon {
-    font-size: 32px;
-    color: #667eea;
-    flex-shrink: 0;
+  &.stripe-icon {
+    background: linear-gradient(135deg, #635bff 0%, #7c4dff 100%);
+    
+    ion-icon {
+      font-size: 26px;
+      color: white;
+    }
+  }
+  
+  &.paypal-icon {
+    background: white; // White background to show PayPal logo properly
+    border: 2px solid #e5e5ea;
+    
+    .paypal-logo {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+  }
+  
+  &.manual-icon {
+    background: linear-gradient(135deg, #8e8e93 0%, #636366 100%);
+    
+    ion-icon {
+      font-size: 26px;
+      color: white;
+    }
   }
 }
 
-.option-title {
+.option-content {
   flex: 1;
+  min-width: 0; // Allow text truncation
+}
+
+.option-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
   
   h3 {
-    margin: 0 0 6px 0;
-    font-size: 16px;
+    margin: 0;
+    font-size: 17px;
     font-weight: 600;
     color: #1c1c1e;
+    line-height: 1.2;
   }
 }
 
 .radio-wrapper {
   flex-shrink: 0;
-  padding-top: 2px;
+  padding-top: 0;
+}
+
+.option-description {
+  margin: 0;
+  font-size: 14px;
+  color: #8e8e93;
+  line-height: 1.5;
 }
 
 .custom-radio {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 2px solid #c7c7cc;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: white;
   position: relative;
   
   &.selected {
     border-color: #667eea;
-    border-width: 6px;
+    border-width: 7px;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
   }
 }
 
 .badge-recommended {
   display: inline-block;
-  padding: 3px 8px;
+  padding: 4px 10px;
   background: #34c759;
   color: white;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1;
 }
 
 .badge-unavailable {
   display: inline-block;
-  padding: 3px 8px;
+  padding: 4px 10px;
   background: #ff3b30;
   color: white;
-  border-radius: 8px;
+  border-radius: 6px;
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-}
-
-.option-description {
-  margin: 0 0 0 44px;
-  font-size: 13px;
-  color: #8e8e93;
-  line-height: 1.5;
+  line-height: 1;
 }
 
 .unavailable-note,
@@ -292,15 +354,15 @@ ion-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 0 0 44px;
-  padding: 8px 12px;
-  background: #fff3cd;
-  border-radius: 10px;
-  font-size: 12px;
+  margin: 0;
+  padding: 12px 16px;
+  background: #fff9e6;
+  border-top: 1px solid #e5e5ea;
+  font-size: 13px;
   color: #856404;
   
   ion-icon {
-    font-size: 16px;
+    font-size: 18px;
     flex-shrink: 0;
   }
 }
@@ -314,15 +376,15 @@ ion-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 0 0 0;
-  padding: 8px 12px;
+  margin: 12px 20px 16px 20px;
+  padding: 10px 14px;
   background: #e3f2fd;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: #0d47a1;
   
   ion-icon {
-    font-size: 16px;
+    font-size: 18px;
     flex-shrink: 0;
   }
 }
@@ -331,34 +393,39 @@ ion-content {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 8px 0 0 0;
-  padding: 8px 12px;
+  margin: 12px 20px 0 20px;
+  padding: 10px 14px;
   background: #fee;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: #d32f2f;
   
   ion-icon {
-    font-size: 16px;
+    font-size: 18px;
     flex-shrink: 0;
   }
 }
 
 .paypal-email-input {
-  margin: 12px 0 0 0;
+  margin: 0;
+  padding: 16px 20px 20px 20px;
+  background: #f9f9fb;
+  border-top: 1px solid #e5e5ea;
   
   ion-item {
-    --background: #f2f2f7;
+    --background: white;
     --border-radius: 10px;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --min-height: 44px;
+    --padding-start: 14px;
+    --padding-end: 14px;
+    --min-height: 48px;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
   }
   
   ion-input {
     --padding-top: 10px;
     --padding-bottom: 10px;
-    font-size: 14px;
+    font-size: 15px;
   }
 }
 
@@ -436,6 +503,7 @@ ion-content {
     }
   }
 }
+
 
 
 

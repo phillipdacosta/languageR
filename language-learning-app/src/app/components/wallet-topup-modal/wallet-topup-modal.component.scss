@@ -1,0 +1,653 @@
+.modal-wrapper {
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  max-width: 420px;
+  margin: 0 auto;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 16px 20px 10px 20px;
+  border-bottom: 0.5px solid #e5e5ea;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .back-button {
+    --color: #007aff;
+    --padding-start: 0;
+    --padding-end: 0;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    flex-shrink: 0;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.4px;
+    color: #1c1c1e;
+    text-align: center;
+    flex: 1;
+  }
+}
+
+.modal-content {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 420px; // Fixed height to prevent size changes between steps
+
+  .loading-state {
+    display: flex;
+    justify-content: center;
+    padding: 40px 0;
+
+    ion-spinner {
+      --color: #007aff;
+    }
+  }
+
+  .description {
+    font-size: 14px;
+    color: #8e8e93;
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  .benefits-card {
+    background: #f2f2f7;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 20px;
+
+    .benefit-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+
+      &:not(:last-child) {
+        border-bottom: 0.5px solid #d1d1d6;
+      }
+
+      .benefit-icon {
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .benefit-text {
+        font-size: 13px;
+        color: #3c3c43;
+        line-height: 1.3;
+      }
+    }
+  }
+
+  .input-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1c1c1e;
+    margin: 0 0 8px 0;
+    text-align: center;
+  }
+
+  .amount-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 12px;
+
+    .currency-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8e8e93;
+      letter-spacing: 0.3px;
+      padding: 12px 0;
+    }
+
+    .currency-symbol {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1c1c1e;
+      padding: 12px 4px 12px 0;
+    }
+
+    .amount-input {
+      width: 120px;
+      background: #f2f2f7;
+      border: 1px solid #e5e5ea;
+      border-radius: 10px;
+      padding: 12px 16px 12px 4px;
+      font-size: 20px;
+      font-weight: 600;
+      text-align: center;
+      color: #1c1c1e;
+      transition: all 0.2s ease;
+
+      &:focus {
+        border-color: #007aff;
+        background: #ffffff;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+      }
+
+      &::placeholder {
+        color: #8e8e93;
+        font-weight: 500;
+      }
+
+      // Remove spinner arrows
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+    }
+  }
+
+  // Fee Breakdown
+  .fee-breakdown {
+    background: #f9f9f9;
+    border: 1px solid #e5e5ea;
+    border-radius: 10px;
+    padding: 12px;
+    margin: 12px 0 16px 0;
+
+    .fee-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      
+      &:not(:last-of-type) {
+        border-bottom: 0.5px solid #e5e5ea;
+      }
+
+      .fee-label {
+        font-size: 14px;
+        color: #3c3c43;
+      }
+
+      .fee-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1c1c1e;
+      }
+
+      &.total {
+        padding-top: 8px;
+        margin-top: 4px;
+
+        .fee-label {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1c1c1e;
+        }
+
+        .fee-value {
+          font-size: 18px;
+          color: #007aff;
+          
+          &.fee-tbd {
+            color: #8e8e93;
+            font-style: italic;
+          }
+        }
+      }
+    }
+
+    .fee-value.fee-tbd {
+      color: #8e8e93;
+      font-style: italic;
+      font-size: 15px;
+    }
+
+    .fee-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 8px 0 0 0;
+      padding-top: 8px;
+      border-top: 0.5px solid #e5e5ea;
+      font-size: 11px;
+      color: #8e8e93;
+      line-height: 1.3;
+
+      ion-icon {
+        font-size: 14px;
+        color: #8e8e93;
+        flex-shrink: 0;
+      }
+    }
+  }
+
+  // Payment Methods List
+  .payment-methods-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .payment-method-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #f2f2f7;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: #e5e5ea;
+    }
+
+    &.selected {
+      background: #ffffff;
+      border-color: #007aff;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15);
+
+      .card-radio .radio-outer {
+        border-color: #007aff;
+      }
+    }
+
+    &.new-card {
+      border: 1.5px dashed #c7c7cc;
+      background: #ffffff;
+
+      &:hover {
+        border-color: #007aff;
+        background: #f9f9f9;
+      }
+
+      &.selected {
+        border-style: solid;
+      }
+    }
+
+    .card-radio {
+      flex-shrink: 0;
+
+      .radio-outer {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid #c7c7cc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+
+        .radio-inner {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #007aff;
+        }
+      }
+    }
+
+    .card-icon {
+      font-size: 24px;
+      color: #007aff;
+      flex-shrink: 0;
+    }
+
+    .add-icon {
+      font-size: 24px;
+      color: #007aff;
+      flex-shrink: 0;
+    }
+
+    .card-info {
+      flex: 1;
+
+      .card-brand-last4 {
+        font-size: 15px;
+        font-weight: 500;
+        color: #1c1c1e;
+        margin-bottom: 2px;
+      }
+
+      .card-expiry {
+        font-size: 12px;
+        color: #8e8e93;
+      }
+    }
+
+    .default-badge-small {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .delete-card-btn {
+      --color: #ff3b30;
+      --padding-start: 8px;
+      --padding-end: 8px;
+      height: 32px;
+      width: 32px;
+      margin-left: 8px;
+      flex-shrink: 0;
+
+      ion-icon {
+        font-size: 20px;
+      }
+
+      &:hover {
+        --color: #ff1a0e;
+      }
+    }
+  }
+
+  .new-card-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #e8f4ff;
+    border-radius: 8px;
+    margin-top: 8px;
+
+    ion-icon {
+      font-size: 18px;
+      color: #007aff;
+      flex-shrink: 0;
+    }
+
+    span {
+      font-size: 12px;
+      color: #1c1c1e;
+      line-height: 1.3;
+    }
+  }
+
+  // Card Entry Step
+  .card-entry-step {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    .amount-summary {
+      background: #f9f9f9;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 16px;
+
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+
+        &:not(:last-child) {
+          border-bottom: 0.5px solid #e5e5ea;
+        }
+
+        span:first-child {
+          font-size: 14px;
+          color: #3c3c43;
+        }
+
+        span:last-child {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1c1c1e;
+        }
+
+        &.total {
+          padding-top: 12px;
+          margin-top: 4px;
+
+          span:first-child {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1c1c1e;
+          }
+
+          span:last-child {
+            font-size: 18px;
+            color: #007aff;
+          }
+        }
+      }
+    }
+
+    .card-label {
+      font-size: 15px;
+      font-weight: 500;
+      color: #1c1c1e;
+      margin: 0;
+    }
+
+    .card-element-container {
+      padding: 14px;
+      background: #f9f9f9;
+      border: 1px solid #e5e5ea;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+
+      &:focus-within {
+        border-color: #007aff;
+        background: #ffffff;
+        box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+      }
+    }
+
+    .save-card-option {
+      margin: 12px 0 8px 0;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: #007aff;
+        font-size: 14px;
+        
+        &::part(label) {
+          color: #3c3c43;
+          padding-left: 8px;
+        }
+      }
+    }
+
+    .card-helper-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      font-size: 12px;
+      color: #8e8e93;
+
+      ion-icon {
+        font-size: 14px;
+        color: #34c759;
+      }
+    }
+  }
+
+  // Confirmation Step
+  .confirmation-step {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    .card-detected {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #e8f5e9;
+      border: 1px solid #34c759;
+      border-radius: 12px;
+
+      ion-icon {
+        font-size: 32px;
+      }
+
+      .card-details {
+        flex: 1;
+
+        .card-brand {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1c1c1e;
+          margin: 0 0 4px 0;
+        }
+
+        .card-country {
+          font-size: 13px;
+          color: #3c3c43;
+          margin: 0;
+        }
+      }
+    }
+
+    .final-breakdown {
+      background: #f9f9f9;
+      border: 1px solid #e5e5ea;
+      border-radius: 12px;
+      padding: 20px;
+
+      h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1c1c1e;
+        margin: 0 0 16px 0;
+      }
+
+      .breakdown-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+
+        &:not(:last-child) {
+          border-bottom: 0.5px solid #e5e5ea;
+        }
+
+        span:first-child {
+          font-size: 14px;
+          color: #3c3c43;
+        }
+
+        span:last-child {
+          font-size: 15px;
+          font-weight: 500;
+          color: #1c1c1e;
+        }
+
+        &.fee-row {
+          span:first-child {
+            color: #8e8e93;
+          }
+          span:last-child {
+            color: #8e8e93;
+          }
+        }
+
+        &.total-row {
+          margin-top: 8px;
+          padding-top: 16px;
+          border-top: 2px solid #c7c7cc !important;
+
+          span {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1c1c1e;
+          }
+        }
+      }
+
+      .final-fee-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin: 12px 0 0 0;
+        font-size: 12px;
+        color: #8e8e93;
+        line-height: 1.4;
+
+        ion-icon {
+          font-size: 16px;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+      }
+    }
+  }
+}
+
+.modal-footer {
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  border-top: 0.5px solid #e5e5ea;
+  flex-shrink: 0;
+
+  button {
+    flex: 1;
+    height: 42px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &.btn-cancel {
+      background: #f2f2f7;
+      color: #007aff;
+
+      &:hover {
+        background: #e5e5ea;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+
+    &.btn-continue {
+      background: #007aff;
+      color: #ffffff;
+
+      &:hover {
+        background: #0051d5;
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+
+      &:disabled {
+        background: #c7c7cc;
+        color: #8e8e93;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+}
+

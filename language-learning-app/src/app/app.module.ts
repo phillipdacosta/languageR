@@ -15,6 +15,9 @@ import { environment } from '../environments/environment';
 import { TranslateModule } from '@ngx-translate/core';
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 
+// Image cropper
+import { ImageCropperComponent as NgxImageCropperModule } from 'ngx-image-cropper';
+
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { TutorSearchPageModule } from './tutor-search/tutor-search.module';
@@ -25,12 +28,13 @@ import { CustomUrlSerializerService } from './services/custom-url-serializer.ser
 import { GlobalLoadingComponent } from './components/global-loading/global-loading.component';
 import { ReminderNotificationComponent } from './components/reminder-notification/reminder-notification.component';
 import { EarlyExitModalComponent } from './components/early-exit-modal/early-exit-modal.component';
+import { ImageCropperComponent } from './components/image-cropper/image-cropper.component';
 import { CommonModule } from '@angular/common';
 import { IonicModule as IonicModuleImport } from '@ionic/angular';
 
 
 @NgModule({
-  declarations: [AppComponent, GlobalLoadingComponent],
+  declarations: [AppComponent, GlobalLoadingComponent, ImageCropperComponent],
   imports: [
     BrowserModule, 
     IonicModule.forRoot(), 
@@ -41,6 +45,7 @@ import { IonicModule as IonicModuleImport } from '@ionic/angular';
     TutorSearchPageModule,
     EarlyExitModalComponent,
     ReminderNotificationComponent, // Standalone component
+    NgxImageCropperModule, // Image cropper
     IonicStorageModule.forRoot(),
     AuthModule.forRoot({
       domain: environment.auth0.domain,

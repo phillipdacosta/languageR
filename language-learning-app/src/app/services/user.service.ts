@@ -130,6 +130,11 @@ export interface Tutor {
     officeHoursEnabled?: boolean;
   };
   isActivelyAvailable?: boolean; // True only if tutor is on pre-call page with recent heartbeat
+  coachingBadge?: {
+    active: boolean;
+    feedbackRate: number;
+    avgQuality: number;
+  };
   // UI state properties
   isOnline?: boolean;
   expanded?: boolean;
@@ -177,6 +182,7 @@ export class UserService {
     videoComplete: boolean;
     videoApproved: boolean;
     videoRejected: boolean;
+    hasApprovedVideo: boolean;  // NEW: indicates if they have at least one approved video
     stripeComplete: boolean;
     fullyApproved: boolean;
     needsApproval: boolean;
@@ -339,6 +345,7 @@ export class UserService {
                           user.tutorOnboarding?.videoRejected === true;
     const videoApproved = user.tutorOnboarding?.videoApproved === true;
     const videoRejected = user.tutorOnboarding?.videoRejected === true;
+    const hasApprovedVideo = !!user.onboardingData?.introductionVideo; // Has at least one approved video
     
     // Check for any payout method: Stripe, PayPal, or Manual
     const hasStripe = user.stripeConnectOnboarded === true;
@@ -366,6 +373,7 @@ export class UserService {
       videoComplete,
       videoApproved,
       videoRejected,
+      hasApprovedVideo,  // NEW: indicates if they have at least one approved video
       stripeComplete,
       fullyApproved,
       needsApproval

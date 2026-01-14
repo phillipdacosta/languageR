@@ -268,11 +268,13 @@ export class TutorOnboardingPage implements OnInit {
   }
 
   toggleLanguage(language: string) {
-    const index = this.selectedLanguages.indexOf(language);
-    if (index > -1) {
-      this.selectedLanguages.splice(index, 1);
+    // Only allow selecting one language at a time
+    if (this.selectedLanguages.includes(language)) {
+      // Deselect if clicking the same language
+      this.selectedLanguages = [];
     } else {
-      this.selectedLanguages.push(language);
+      // Replace with new selection
+      this.selectedLanguages = [language];
     }
   }
 
@@ -292,7 +294,8 @@ export class TutorOnboardingPage implements OnInit {
       component: CountrySelectModalComponent,
       componentProps: {
         countries: this.countryOptions,
-        selectedCountry: this.country
+        selectedCountry: this.country,
+        modalType: 'origin' // Specify this is for country of origin
       },
       cssClass: 'modern-modal',
       showBackdrop: true,
@@ -321,7 +324,8 @@ export class TutorOnboardingPage implements OnInit {
       component: CountrySelectModalComponent,
       componentProps: {
         countries: this.countryOptions,
-        selectedCountry: this.residenceCountry
+        selectedCountry: this.residenceCountry,
+        modalType: 'residence' // Specify this is for country of residence
       },
       cssClass: 'modern-modal',
       showBackdrop: true,

@@ -390,12 +390,13 @@ async function releasePayment(payment, lesson) {
     // Release wallet funds
     console.log(`💰 Releasing wallet funds`);
     const walletService = require('../services/walletService');
-    await walletService.releaseFunds({
+    await walletService.releaseReservedFunds({
       userId: lesson.studentId,
       lessonId: lesson._id,
-      amount: payment.amount
+      amount: payment.amount,
+      reason: 'no_show_both_parties'
     });
-    payment.status = 'refunded';
+    payment.status = 'cancelled';
     await payment.save();
     console.log(`✅ Wallet funds released`);
   } else {

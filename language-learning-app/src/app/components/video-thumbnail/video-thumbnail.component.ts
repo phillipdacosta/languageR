@@ -86,16 +86,46 @@ export class VideoThumbnailComponent implements OnInit, OnChanges {
     return 'upload';
   }
 
+  /**
+   * Gets the best available YouTube thumbnail with fallback to smaller sizes
+   */
+  private async getYouTubeThumbnail(videoId: string): Promise<string> {
+    const sizes = [
+      'maxresdefault',  // 1920x1080 - best quality
+      'sddefault',      // 640x480 - good fallback
+      'hqdefault',      // 480x360 - decent quality
+      'mqdefault'       // 320x180 - acceptable
+    ];
+
+    // Try each size in order until one works
+    for (const size of sizes) {
+      const url = `https://img.youtube.com/vi/${videoId}/${size}.jpg`;
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (response.ok) {
+          console.log(`✅ [VideoThumbnail] Found YouTube thumbnail: ${size}.jpg`);
+          return url;
+        }
+      } catch (error) {
+        console.log(`❌ [VideoThumbnail] ${size}.jpg not available, trying next size...`);
+      }
+    }
+
+    // Last resort: use default.jpg (always exists but low quality)
+    console.log('⚠️ [VideoThumbnail] Using lowest quality YouTube thumbnail (default.jpg)');
+    return `https://img.youtube.com/vi/${videoId}/default.jpg`;
+  }
+
   async fetchExternalVideoThumbnail() {
     if (!this.videoUrl || this.thumbnailUrl) {
       return;
     }
 
-    // YouTube thumbnail
+    // YouTube thumbnail with fallback
     if (this.videoType === 'youtube') {
       const videoId = this.extractYouTubeId(this.videoUrl);
       if (videoId) {
-        this.externalVideoThumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        this.externalVideoThumbnail = await this.getYouTubeThumbnail(videoId);
       }
       return;
     }

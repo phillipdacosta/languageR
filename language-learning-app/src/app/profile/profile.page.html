@@ -127,10 +127,10 @@
             <p>{{ getPayoutSetupText() }}</p>
           </div>
           <ion-button 
-            expand="block" 
             color="primary" 
             (click)="startStripeConnectOnboarding()"
-            [disabled]="isLoadingStripeConnect">
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
             <ion-spinner *ngIf="isLoadingStripeConnect" name="crescent" slot="start"></ion-spinner>
             {{ isLoadingStripeConnect ? 'Loading...' : 'Set Up Payouts' }}
           </ion-button>
@@ -149,21 +149,21 @@
           </div>
           <ion-button 
             *ngIf="payoutProvider === 'stripe'"
-            expand="block" 
             fill="outline"
             color="primary" 
             (click)="editStripeConnectAccount()"
-            [disabled]="isLoadingStripeConnect">
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
             <ion-icon name="create-outline" slot="start"></ion-icon>
             {{ isLoadingStripeConnect ? 'Loading...' : 'Edit Payout Settings' }}
           </ion-button>
           <ion-button 
             *ngIf="payoutProvider !== 'stripe'"
-            expand="block" 
             fill="outline"
             color="primary" 
             (click)="startStripeConnectOnboarding()"
-            [disabled]="isLoadingStripeConnect">
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
             <ion-icon name="create-outline" slot="start"></ion-icon>
             {{ isLoadingStripeConnect ? 'Loading...' : 'Change Payout Method' }}
           </ion-button>
@@ -243,6 +243,7 @@
               [videoType]="tutorVideoType"
               [enableModalPlayer]="true"
               [isVideoApproved]="isVideoApproved"
+              [hasPendingVideo]="hasPendingVideo"
               (thumbnailClick)="openVideoPlayerModal()"
               (videoUploaded)="onVideoUploaded($event)"
               (videoRemoved)="onVideoRemoved()">

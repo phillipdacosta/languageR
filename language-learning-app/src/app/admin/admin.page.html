@@ -1,0 +1,222 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/tabs/home">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Platform Revenue</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="exportToCSV()" [disabled]="!revenueData">
+        <ion-icon name="download-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading revenue data...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadRevenueData()" fill="outline">
+      <ion-icon name="refresh" slot="start"></ion-icon>
+      Retry
+    </ion-button>
+  </div>
+
+  <!-- Revenue Dashboard -->
+  <div *ngIf="!loading && !error && revenueData" class="revenue-dashboard">
+    
+    <!-- Date Range Selector -->
+    <div class="date-range-selector">
+      <ion-segment [(ngModel)]="dateRange" (ionChange)="changeDateRange(dateRange)">
+        <ion-segment-button value="week">
+          <ion-label>Week</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="month">
+          <ion-label>Month</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="quarter">
+          <ion-label>Quarter</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="year">
+          <ion-label>Year</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="all">
+          <ion-label>All Time</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+      <!-- Net Platform Revenue (Most Important) -->
+      <div class="summary-card primary">
+        <div class="card-icon">
+          <ion-icon name="cash"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Net Platform Revenue</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalNetPlatformRevenue) }}</div>
+          <div class="card-sublabel">Your actual profit</div>
+        </div>
+      </div>
+
+      <!-- Total Lessons -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="school"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Total Lessons</div>
+          <div class="card-value">{{ revenueData.summary.totalLessons }}</div>
+          <div class="card-sublabel">Completed</div>
+        </div>
+      </div>
+
+      <!-- Gross Revenue -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="trending-up"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Gross Revenue</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalGrossRevenue) }}</div>
+          <div class="card-sublabel">Total from all lessons</div>
+        </div>
+      </div>
+
+      <!-- Platform Fee -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="pie-chart"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Platform Fee (20%)</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalPlatformFee) }}</div>
+          <div class="card-sublabel">Before Stripe fees</div>
+        </div>
+      </div>
+
+      <!-- Stripe Fees -->
+      <div class="summary-card warning">
+        <div class="card-icon">
+          <ion-icon name="card"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Stripe Fees</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalStripeFees) }}</div>
+          <div class="card-sublabel">Processing costs</div>
+        </div>
+      </div>
+
+      <!-- Effective Fee -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="calculator"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Effective Fee</div>
+          <div class="card-value">{{ formatPercent(revenueData.summary.effectiveFeeAfterStripe) }}</div>
+          <div class="card-sublabel">After Stripe fees</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Averages Section -->
+    <div class="averages-section">
+      <h3>Averages</h3>
+      <div class="averages-grid">
+        <div class="average-item">
+          <div class="average-label">Avg Lesson Price</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgLessonPrice) }}</div>
+        </div>
+        <div class="average-item">
+          <div class="average-label">Avg Platform Fee</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgPlatformFeePerLesson) }}</div>
+        </div>
+        <div class="average-item">
+          <div class="average-label">Avg Net Revenue</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgNetRevenuePerLesson) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Revenue -->
+    <div class="pending-section" *ngIf="revenueData.pending.pendingLessons > 0">
+      <h3>Pending Revenue</h3>
+      <div class="pending-card">
+        <div class="pending-info">
+          <div class="pending-label">{{ revenueData.pending.pendingLessons }} lessons awaiting payment</div>
+          <div class="pending-amounts">
+            <span>Platform Fee: {{ formatCurrency(revenueData.pending.totalPendingRevenue) }}</span>
+            <span>Stripe Fees: {{ formatCurrency(revenueData.pending.totalPendingStripeFees) }}</span>
+            <span class="pending-net">Net: {{ formatCurrency(revenueData.pending.totalPendingNetRevenue) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- By Payment Method -->
+    <div class="payment-methods-section">
+      <h3>By Payment Method</h3>
+      <div class="payment-methods-list">
+        <div class="payment-method-item" *ngFor="let method of revenueData.byPaymentMethod | keyvalue">
+          <div class="method-info" *ngIf="method.value.count > 0">
+            <div class="method-name">{{ getPaymentMethodName(method.key) }}</div>
+            <div class="method-stats">
+              <span>{{ method.value.count }} lessons</span>
+              <span>{{ formatCurrency(method.value.total) }} total</span>
+              <span class="method-fee">{{ formatCurrency(method.value.platformFee) }} platform fee</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Payments -->
+    <div class="recent-payments-section">
+      <h3>Recent Payments (Last 20)</h3>
+      <div class="payments-table-wrapper">
+        <table class="payments-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Student</th>
+              <th>Tutor</th>
+              <th>Subject</th>
+              <th>Method</th>
+              <th>Gross</th>
+              <th>Platform Fee</th>
+              <th>Stripe Fee</th>
+              <th>Net Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let payment of revenueData.payments.slice(0, 20)">
+              <td>{{ payment.date | date:'MMM d' }}</td>
+              <td>{{ payment.studentName }}</td>
+              <td>{{ payment.tutorName }}</td>
+              <td>{{ payment.subject || 'N/A' }}</td>
+              <td>{{ getPaymentMethodName(payment.paymentMethod) }}</td>
+              <td>{{ formatCurrency(+payment.grossAmount) }}</td>
+              <td>{{ formatCurrency(+payment.platformFee) }}</td>
+              <td class="stripe-fee">{{ formatCurrency(+payment.stripeFee) }}</td>
+              <td class="net-revenue">{{ formatCurrency(+payment.netPlatformRevenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</ion-content>
+
+

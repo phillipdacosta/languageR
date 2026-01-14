@@ -90,36 +90,6 @@
           </ion-button>
         </div>
       </div>
-
-      <!-- Wallet Transactions -->
-      <div class="transactions-section-apple">
-        <h3 class="section-title">Recent Activity</h3>
-        
-        <div class="no-transactions-apple" *ngIf="transactions.length === 0">
-          <div class="empty-icon-circle">
-            <ion-icon name="receipt-outline"></ion-icon>
-          </div>
-          <p>No transactions yet</p>
-          <span class="empty-subtitle">Your transaction history will appear here</span>
-        </div>
-
-        <div class="transaction-list-apple" *ngIf="transactions.length > 0">
-          <div class="transaction-item-apple" *ngFor="let transaction of transactions">
-            <div class="transaction-icon-circle" [ngClass]="transaction.amount >= 0 ? 'positive' : 'negative'">
-              <ion-icon [name]="getTransactionIcon(transaction.type)"></ion-icon>
-            </div>
-            
-            <div class="transaction-info">
-              <div class="transaction-title">{{ transaction.description }}</div>
-              <div class="transaction-subtitle">{{ formatDate(transaction.createdAt) }}</div>
-            </div>
-            
-            <div class="transaction-amount-apple" [ngClass]="transaction.amount >= 0 ? 'positive' : 'negative'">
-              {{ transaction.amount >= 0 ? '+' : '' }}{{ formatAmount(transaction.amount) }}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Payments Tab Content -->
@@ -136,24 +106,53 @@
         </div>
         
         <div class="payment-list-apple" *ngIf="paymentHistory.length > 0">
-          <div class="payment-item-apple" *ngFor="let payment of paymentHistory">
-            <div class="payment-icon-circle">
-              <ion-icon [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
-            </div>
-            
-            <div class="payment-info">
-              <div class="payment-title">{{ getPaymentDescription(payment) }}</div>
-              <div class="payment-subtitle">
-                {{ getPaymentMethodName(payment.paymentMethod) }} • {{ formatDate(payment.createdAt) }}
+          <div class="payment-item-container" *ngFor="let payment of paymentHistory">
+            <div class="payment-item-apple" 
+                 (click)="openPaymentReceipt(payment)"
+                 [class.clickable]="payment.receiptUrl">
+              
+              <!-- Tutor Avatar (if lesson has tutor info) -->
+              <ion-avatar class="tutor-avatar" *ngIf="payment.lessonId?.tutorId?.picture">
+                <img [src]="payment.lessonId!.tutorId!.picture" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
+              </ion-avatar>
+              <div class="payment-icon-circle" *ngIf="!payment.lessonId?.tutorId?.picture">
+                <ion-icon [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
+              </div>
+              
+              <div class="payment-info">
+                <div class="payment-title">{{ getPaymentDescription(payment) }}</div>
+                <div class="payment-subtitle">
+                  {{ getPaymentMethodName(payment.paymentMethod) }} • {{ formatDate(payment.createdAt) }}
+                </div>
+                <!-- Lesson Details (if available) -->
+                <div class="lesson-details" *ngIf="payment.lessonId">
+                  <span *ngIf="payment.lessonId.startTime" class="lesson-date">
+                    {{ payment.lessonId.startTime | date:'MMM d, y' }}
+                  </span>
+                  <span *ngIf="payment.lessonId.subject" class="lesson-subject">{{ payment.lessonId.subject }}</span>
+                  <span *ngIf="payment.lessonId.startTime && payment.lessonId.endTime" class="lesson-time">
+                    {{ payment.lessonId.startTime | date:'shortTime' }} - {{ payment.lessonId.endTime | date:'shortTime' }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="payment-amount-wrapper">
+                <div class="amount-status-column">
+                  <div class="payment-amount-apple" 
+                       [class.positive]="isRefundOrCancelled(payment.status)"
+                       [class.negative]="!isRefundOrCancelled(payment.status)">
+                    {{ getPaymentAmountDisplay(payment) }}
+                  </div>
+                  <ion-badge [color]="getPaymentStatusColor(payment.status)" class="status-badge">
+                    <ion-icon *ngIf="isRefundOrCancelled(payment.status)" name="arrow-undo" class="badge-icon"></ion-icon>
+                    {{ getPaymentStatusText(payment) }}
+                  </ion-badge>
+                </div>
               </div>
             </div>
             
-            <div class="payment-amount-wrapper">
-              <div class="payment-amount-apple">-{{ formatAmount(payment.amount) }}</div>
-              <ion-badge [color]="getPaymentStatusColor(payment.status)" class="status-badge">
-                {{ payment.status }}
-              </ion-badge>
-            </div>
+            <!-- Arrow outside the card -->
+            <ion-icon *ngIf="payment.receiptUrl" name="chevron-forward" class="receipt-arrow-outside"></ion-icon>
           </div>
         </div>
       </div>

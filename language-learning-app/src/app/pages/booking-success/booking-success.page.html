@@ -17,80 +17,76 @@
     <h1 class="success-title">Lesson Booked!</h1>
     <p class="success-subtitle">Your lesson has been confirmed</p>
 
-    <!-- Tutor Card -->
-    <div class="tutor-card" @fadeInUp>
-      <ion-avatar class="tutor-avatar">
-        <img [src]="tutorAvatar" *ngIf="tutorAvatar" alt="{{ tutorName }}" />
-        <ion-icon name="person" *ngIf="!tutorAvatar"></ion-icon>
-      </ion-avatar>
-      <div class="tutor-info">
+    <!-- Two Column Layout: Tutor (Left) + Lesson Details (Right) -->
+    <div class="content-columns" @fadeInUp>
+      <!-- Left Column: Tutor Card -->
+      <div class="tutor-card">
+        <ion-avatar class="tutor-avatar">
+          <img [src]="tutorAvatar" *ngIf="tutorAvatar" alt="{{ tutorName }}" />
+          <ion-icon name="person" *ngIf="!tutorAvatar"></ion-icon>
+        </ion-avatar>
         <h2 class="tutor-name">{{ tutorName }}</h2>
         <p class="tutor-label">Your Tutor</p>
       </div>
-    </div>
 
-    <!-- Lesson Details Card (iOS List Style) -->
-    <div class="details-card" @fadeInUp *ngIf="lessonDetails">
-      <!-- Subject -->
-      <div class="detail-row">
-        <div class="detail-icon">
-          <span class="subject-emoji">{{ getSubjectEmoji(lessonDetails.subject) }}</span>
+      <!-- Right Column: Lesson Details Card -->
+      <div class="details-card" *ngIf="lessonDetails">
+        <!-- Subject Header -->
+        <div class="subject-header">
+          <div class="subject-icon">
+            <span class="subject-emoji">{{ getSubjectEmoji(lessonDetails.subject) }}</span>
+          </div>
+          <div class="subject-info">
+            <p class="subject-label">SUBJECT</p>
+            <h3 class="subject-name">{{ lessonDetails.subject }}</h3>
+          </div>
         </div>
-        <div class="detail-content">
-          <p class="detail-label">Subject</p>
-          <p class="detail-value">{{ lessonDetails.subject }}</p>
-        </div>
-      </div>
 
-      <div class="detail-divider"></div>
+        <!-- Details Grid (2x2) -->
+        <div class="details-grid">
+          <!-- Date -->
+          <div class="detail-item">
+            <div class="item-icon">
+              <ion-icon name="calendar-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <p class="item-label">DATE</p>
+              <p class="item-value">{{ formattedDate }}</p>
+            </div>
+          </div>
 
-      <!-- Date -->
-      <div class="detail-row">
-        <div class="detail-icon">
-          <ion-icon name="calendar-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Date</p>
-          <p class="detail-value">{{ formattedDate }}</p>
-        </div>
-      </div>
+          <!-- Time -->
+          <div class="detail-item">
+            <div class="item-icon">
+              <ion-icon name="time-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <p class="item-label">TIME</p>
+              <p class="item-value">{{ formattedTime }}</p>
+            </div>
+          </div>
 
-      <div class="detail-divider"></div>
+          <!-- Duration -->
+          <div class="detail-item">
+            <div class="item-icon">
+              <ion-icon name="hourglass-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <p class="item-label">DURATION</p>
+              <p class="item-value">{{ lessonDetails.duration }} min</p>
+            </div>
+          </div>
 
-      <!-- Time -->
-      <div class="detail-row">
-        <div class="detail-icon">
-          <ion-icon name="time-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Time</p>
-          <p class="detail-value">{{ formattedTime }}</p>
-        </div>
-      </div>
-
-      <div class="detail-divider"></div>
-
-      <!-- Duration -->
-      <div class="detail-row">
-        <div class="detail-icon">
-          <ion-icon name="hourglass-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Duration</p>
-          <p class="detail-value">{{ lessonDetails.duration }} minutes</p>
-        </div>
-      </div>
-
-      <div class="detail-divider"></div>
-
-      <!-- Price -->
-      <div class="detail-row">
-        <div class="detail-icon">
-          <ion-icon name="cash-outline"></ion-icon>
-        </div>
-        <div class="detail-content">
-          <p class="detail-label">Price</p>
-          <p class="detail-value">${{ lessonDetails.price }}</p>
+          <!-- Price -->
+          <div class="detail-item">
+            <div class="item-icon">
+              <ion-icon name="cash-outline"></ion-icon>
+            </div>
+            <div class="item-content">
+              <p class="item-label">TOTAL</p>
+              <p class="item-value price">${{ formatPrice(lessonDetails.price) }}</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

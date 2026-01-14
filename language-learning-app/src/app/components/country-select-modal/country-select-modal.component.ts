@@ -15,6 +15,7 @@ export interface Country {
 export class CountrySelectModalComponent implements OnInit {
   @Input() countries: Country[] = [];
   @Input() selectedCountry: string = '';
+  @Input() modalType: 'origin' | 'residence' = 'origin'; // New parameter to differentiate
 
   searchTerm = '';
   filteredCountries: Country[] = [];
@@ -28,10 +29,12 @@ export class CountrySelectModalComponent implements OnInit {
     // Get data from NavParams (Ionic modal's way of passing data)
     const countriesFromParams = this.navParams.get('countries');
     const selectedFromParams = this.navParams.get('selectedCountry');
+    const modalTypeFromParams = this.navParams.get('modalType');
     
     console.log('🌍 Country Modal - Raw NavParams:', {
       countries: countriesFromParams,
       selected: selectedFromParams,
+      modalType: modalTypeFromParams,
       inputCountries: this.countries
     });
     
@@ -40,6 +43,9 @@ export class CountrySelectModalComponent implements OnInit {
     }
     if (selectedFromParams) {
       this.selectedCountry = selectedFromParams;
+    }
+    if (modalTypeFromParams) {
+      this.modalType = modalTypeFromParams;
     }
     
     console.log('🌍 Country Modal - ngOnInit, countries:', this.countries?.length);

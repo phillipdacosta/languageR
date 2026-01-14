@@ -404,6 +404,10 @@ server.listen(PORT, '0.0.0.0', () => {
   initializeAudioCronJobs();
   console.log('✅ Audio backup system initialized');
   
+  // Initialize coaching badge evaluator
+  const { startCoachingBadgeEvaluator } = require('./jobs/evaluateCoachingBadges');
+  startCoachingBadgeEvaluator();
+  
   // Run auto-cancel immediately on startup for testing
   console.log('🚀 Running auto-cancel check immediately on startup...');
   autoCancelClasses(io, connectedUsers).catch(err => {

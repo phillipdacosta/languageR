@@ -122,6 +122,12 @@
   <!-- VIDEO PREVIEW (for both modes) -->
   <div class="video-preview" *ngIf="videoUrl">
     <div class="video-thumbnail-wrapper" (click)="playVideo()">
+      <!-- Pending Review Badge -->
+      <div class="pending-review-badge" *ngIf="hasPendingVideo">
+        <ion-icon name="time-outline"></ion-icon>
+        <span>Pending Admin Review</span>
+      </div>
+      
       <!-- Show thumbnail if available with loading=eager for better quality -->
       <img *ngIf="thumbnailUrl" 
            [src]="thumbnailUrl" 

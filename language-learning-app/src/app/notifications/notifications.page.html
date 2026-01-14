@@ -81,12 +81,22 @@
             [class.unread]="!notification.read"
             (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
+              <!-- Student/User Avatar (if available) -->
               <img 
                 *ngIf="notification.relatedUserPicture" 
                 [src]="notification.relatedUserPicture" 
                 alt="User avatar"
                 class="notification-avatar" />
-              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+              <!-- System notifications (video approved, etc) -->
+              <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
+                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+              </div>
+              <!-- Money notifications (earnings) -->
+              <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
+                <span class="money-emoji">💵</span>
+              </div>
+              <!-- Default icon for other notifications -->
+              <div *ngIf="!notification.relatedUserPicture && !isSystemNotification(notification.type) && !isMoneyNotification(notification.type)" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                 <ion-icon
                   [name]="getNotificationIcon(notification.type)"
                   class="notification-item-icon">
@@ -98,6 +108,14 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Contextual icon on the right -->
+              <ion-icon 
+                *ngIf="getContextualIcon(notification.type)" 
+                [name]="getContextualIcon(notification.type)" 
+                [class]="getContextualIconClass(notification.type)">
+              </ion-icon>
+              <!-- Celebrate emoji for system notifications -->
+              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>
@@ -113,12 +131,22 @@
             [class.unread]="!notification.read"
             (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
+              <!-- Student/User Avatar (if available) -->
               <img 
                 *ngIf="notification.relatedUserPicture" 
                 [src]="notification.relatedUserPicture" 
                 alt="User avatar"
                 class="notification-avatar" />
-              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+              <!-- System notifications (video approved, etc) -->
+              <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
+                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+              </div>
+              <!-- Money notifications (earnings) -->
+              <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
+                <span class="money-emoji">💵</span>
+              </div>
+              <!-- Default icon for other notifications -->
+              <div *ngIf="!notification.relatedUserPicture && !isSystemNotification(notification.type) && !isMoneyNotification(notification.type)" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                 <ion-icon
                   [name]="getNotificationIcon(notification.type)"
                   class="notification-item-icon">
@@ -130,6 +158,14 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Contextual icon on the right -->
+              <ion-icon 
+                *ngIf="getContextualIcon(notification.type)" 
+                [name]="getContextualIcon(notification.type)" 
+                [class]="getContextualIconClass(notification.type)">
+              </ion-icon>
+              <!-- Celebrate emoji for system notifications -->
+              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>
@@ -145,12 +181,22 @@
             [class.unread]="!notification.read"
             (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
+              <!-- Student/User Avatar (if available) -->
               <img 
                 *ngIf="notification.relatedUserPicture" 
                 [src]="notification.relatedUserPicture" 
                 alt="User avatar"
                 class="notification-avatar" />
-              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+              <!-- System notifications (video approved, etc) -->
+              <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
+                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+              </div>
+              <!-- Money notifications (earnings) -->
+              <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
+                <span class="money-emoji">💵</span>
+              </div>
+              <!-- Default icon for other notifications -->
+              <div *ngIf="!notification.relatedUserPicture && !isSystemNotification(notification.type) && !isMoneyNotification(notification.type)" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                 <ion-icon
                   [name]="getNotificationIcon(notification.type)"
                   class="notification-item-icon">
@@ -162,6 +208,14 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Contextual icon on the right -->
+              <ion-icon 
+                *ngIf="getContextualIcon(notification.type)" 
+                [name]="getContextualIcon(notification.type)" 
+                [class]="getContextualIconClass(notification.type)">
+              </ion-icon>
+              <!-- Celebrate emoji for system notifications -->
+              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
             </div>
           </div>
         </div>

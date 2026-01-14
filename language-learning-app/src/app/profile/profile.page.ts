@@ -13,6 +13,7 @@ import { LoadingController, AlertController, ModalController, ToastController, P
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
 import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
+import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -229,14 +230,20 @@ export class ProfilePage implements OnInit {
         this.isVideoApproved = (user as any).tutorOnboarding?.videoApproved === true;
         console.log('✅ Video approval status:', this.isVideoApproved);
         
-        // Check if there's a pending video under review
-        this.hasPendingVideo = !!((user as any).onboardingData?.pendingVideo);
-        console.log('⏳ Has pending video:', this.hasPendingVideo);
+        // Check if there's a pending video under review (video exists but not approved)
+        const onboardingData = user.onboardingData as any;
+        const hasPendingVideoFile = !!(onboardingData?.pendingVideo);
+        const hasIntroductionVideo = !!(onboardingData?.introductionVideo);
+        this.hasPendingVideo = !this.isVideoApproved && (hasPendingVideoFile || hasIntroductionVideo);
+        console.log('⏳ Has pending video:', this.hasPendingVideo, {
+          isVideoApproved: this.isVideoApproved,
+          hasPendingVideoFile,
+          hasIntroductionVideo
+        });
         
         // Prioritize pending video if it exists (for display to tutor themselves)
-        const onboardingData = user.onboardingData as any;
-        const hasPendingVideo = !!(onboardingData?.pendingVideo);
-        const hasApprovedVideo = !!(onboardingData?.introductionVideo);
+        const hasPendingVideo = hasPendingVideoFile;
+        const hasApprovedVideo = hasIntroductionVideo;
         
         if (hasPendingVideo) {
           // Show pending video if it exists
@@ -574,51 +581,27 @@ export class ProfilePage implements OnInit {
       return;
     }
 
-    // Create preview - read file as data URL
-    const reader = new FileReader();
-    reader.onload = async (e: any) => {
-      const imageDataUrl = e.target.result;
-      
-      // Show confirmation with inline preview
-      const alert = await this.alertController.create({
-        header: 'Upload Profile Picture?',
-        message: 'Do you want to upload this image as your profile picture?',
-        cssClass: 'profile-picture-confirm-alert',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              event.target.value = '';
-            }
-          },
-          {
-            text: 'Upload',
-            handler: async () => {
-              await this.uploadProfilePicture(file, event);
-            }
-          }
-        ]
-      });
-      
-      await alert.present();
-      
-      // After alert is presented, inject the image into the alert
-      setTimeout(() => {
-        const alertElement = document.querySelector('ion-alert.profile-picture-confirm-alert');
-        if (alertElement) {
-          const messageElement = alertElement.querySelector('.alert-message');
-          if (messageElement) {
-            const imgElement = document.createElement('img');
-            imgElement.src = imageDataUrl;
-            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 16px; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
-            messageElement.insertBefore(imgElement, messageElement.firstChild);
-          }
-        }
-      }, 100);
-    };
-    
-    reader.readAsDataURL(file);
+    // Open cropper modal
+    const modal = await this.modalController.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event
+      },
+      cssClass: 'image-cropper-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      // Convert blob to file
+      const croppedFile = new File([data], file.name, { type: 'image/png' });
+      await this.uploadProfilePicture(croppedFile, event);
+    } else {
+      // Reset file input if cancelled
+      event.target.value = '';
+    }
   }
 
   /**
@@ -978,9 +961,9 @@ export class ProfilePage implements OnInit {
     const { stripe, paypal, manual } = this.payoutOptions;
     
     if (stripe.available && stripe.recommended) {
-      return 'Set up payouts to receive earnings from your lessons via Stripe.';
+      return 'Set up payouts to receive earnings from your lessons.';
     } else if (paypal.available && paypal.recommended) {
-      return 'Set up payouts to receive earnings from your lessons via PayPal.';
+      return 'Set up payouts to receive earnings from your lessons.';
     } else if (manual.available) {
       return 'Set up manual payouts to receive earnings from your lessons.';
     } else {
@@ -997,7 +980,7 @@ export class ProfilePage implements OnInit {
     if (stripe.available && stripe.recommended) {
       return 'Connect Bank Account';
     } else if (paypal.available && paypal.recommended) {
-      return 'Connect PayPal Account';
+      return 'Connect Account';
     } else {
       return 'Set Up Payouts';
     }

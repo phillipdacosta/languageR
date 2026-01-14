@@ -30,11 +30,25 @@ export interface PaymentHistory {
   currency: string;
   paymentMethod: 'wallet' | 'card' | 'apple_pay' | 'google_pay';
   paymentType: 'lesson_booking' | 'office_hours' | 'wallet_top_up';
-  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'refunded' | 'partially_refunded' | 'cancelled';
-  lessonId?: any;
+  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'refunded' | 'partially_refunded' | 'cancelled' | 'authorized';
+  lessonId?: {
+    _id: string;
+    subject?: string;
+    startTime?: Date;
+    endTime?: Date;
+    cancelReason?: string; // Why the lesson was cancelled
+    tutorId?: {
+      _id: string;
+      name?: string;
+      firstName?: string;
+      lastName?: string;
+      picture?: string;
+    };
+  };
   createdAt: Date;
   chargedAt?: Date;
   metadata?: any;
+  receiptUrl?: string; // Stripe customer receipt URL
 }
 
 export interface TopUpResponse {

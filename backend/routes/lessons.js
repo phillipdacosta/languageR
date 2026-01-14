@@ -1784,6 +1784,37 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
         console.log(`⚠️ Recipient ${recipientAuth0Id} not connected to WebSocket`);
         console.log('⚠️ This means the student will only see the database notification later');
       }
+      
+      // RELEASE WALLET FUNDS IF PAID WITH WALLET
+      console.log('💰 Checking for wallet payments to refund...');
+      try {
+        const walletPayments = await Payment.find({ 
+          lessonId: lesson._id, 
+          paymentMethod: 'wallet',
+          status: 'authorized' 
+        });
+        
+        for (const walletPayment of walletPayments) {
+          await walletService.releaseReservedFunds({
+            userId: studentMongoId,
+            lessonId: lesson._id,
+            amount: walletPayment.amount,
+            reason: isTutor ? 'tutor_cancelled' : 'student_cancelled'
+          });
+          
+          // Update payment status to cancelled
+          walletPayment.status = 'cancelled';
+          await walletPayment.save();
+          
+          console.log(`✅ Released $${walletPayment.amount} reserved wallet funds for cancelled lesson ${lesson._id}`);
+        }
+        
+        if (walletPayments.length === 0) {
+          console.log('ℹ️ No wallet payments found to refund');
+        }
+      } catch (walletError) {
+        console.error('❌ Error releasing wallet funds:', walletError);
+      }
     }
 
     res.json({ 
@@ -3305,6 +3336,47 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       read: false
     });
     await notification.save();
+
+    // Track feedback quality for coaching badge system
+    try {
+      const FeedbackQualityService = require('../services/feedbackQualityService');
+      const feedbackService = new FeedbackQualityService();
+      const qualityScore = feedbackService.calculateQualityScore(tutorNote);
+      
+      console.log(`📊 Feedback quality score: ${qualityScore}/100 for tutor ${lesson.tutor.name}`);
+      
+      // Update tutor's feedback metrics
+      const tutor = lesson.tutor;
+      
+      if (!tutor.stats) tutor.stats = {};
+      if (!tutor.stats.feedbackMetrics) tutor.stats.feedbackMetrics = {};
+      if (!tutor.stats.feedbackMetrics.recentFeedback) {
+        tutor.stats.feedbackMetrics.recentFeedback = [];
+      }
+      
+      // Add to recent feedback (keep last 30)
+      tutor.stats.feedbackMetrics.recentFeedback.unshift({
+        lessonId: lessonId,
+        providedAt: new Date(),
+        qualityScore: qualityScore,
+        wordCount: tutorNote.text.split(/\s+/).filter(w => w.length > 0).length,
+        hasHomework: !!tutorNote.homework,
+        hasQuickImpression: !!tutorNote.quickImpression
+      });
+      
+      // Keep only last 30
+      if (tutor.stats.feedbackMetrics.recentFeedback.length > 30) {
+        tutor.stats.feedbackMetrics.recentFeedback = 
+          tutor.stats.feedbackMetrics.recentFeedback.slice(0, 30);
+      }
+      
+      await tutor.save();
+      console.log(`✅ Tutor feedback metrics updated`);
+      
+    } catch (qualityError) {
+      console.error('⚠️  Failed to track feedback quality:', qualityError.message);
+      // Don't fail the request if quality tracking fails
+    }
 
     // Send WebSocket notification to student
     if (req.io && req.connectedUsers) {

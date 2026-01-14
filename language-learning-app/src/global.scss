@@ -29,6 +29,32 @@
 @import "~quill/dist/quill.snow.css";
 @import "~quill/dist/quill.core.css";
 
+/* Image Cropper Modal */
+.image-cropper-modal {
+  --height: 90%;
+  --max-height: 800px;
+  --border-radius: 16px;
+
+  @media (max-width: 768px) {
+    --height: 100%;
+    --border-radius: 0;
+  }
+}
+
+/* Wallet Top-Up Modal */
+.wallet-topup-modal {
+  --width: 90%;
+  --max-width: 400px;
+  --height: auto;
+  --border-radius: 16px;
+  --backdrop-opacity: 0.4;
+
+  ion-backdrop {
+    backdrop-filter: blur(8px);
+  }
+}
+
+
 /**
  * Ionic Dark Mode
  * -----------------------------------------------------
@@ -907,7 +933,7 @@ ion-modal.video-player-modal {
 // Payout Selection Modal Styling  
 .payout-selection-modal {
   --width: 90%;
-  --max-width: 800px;
+  --max-width: 1000px; // Increased from 800px
   --height: 85%;
   --max-height: 90vh;
   --border-radius: 24px;

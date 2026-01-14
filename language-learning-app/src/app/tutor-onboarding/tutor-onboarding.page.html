@@ -60,7 +60,7 @@
             <span *ngIf="currentStep <= 3" class="step-number">3</span>
           </div>
           <div class="step-info">
-            <h3>Languages</h3>
+            <h3>Language</h3>
             <p>What you teach</p>
           </div>
         </div>
@@ -137,7 +137,8 @@
 
     <!-- Right Column: Current Step Content -->
     <div class="right-column">
-      <div class="step-content-card">
+      <div class="step-content-scrollable">
+        <div class="step-content-card">
         
         <!-- Step 1: Name & Country -->
         <div *ngIf="currentStep === 1">
@@ -226,8 +227,8 @@
           <div class="step-icon-circle">
             <ion-icon name="globe"></ion-icon>
           </div>
-          <h2 class="step-title">What languages do you teach?</h2>
-          <p class="step-description">Select all languages you're comfortable teaching</p>
+          <h2 class="step-title">What language do you teach?</h2>
+          <p class="step-description">Select the language you're most comfortable teaching</p>
 
           <div class="options-grid">
             <button 
@@ -319,31 +320,32 @@
             </div>
           </div>
         </div>
-
-        <!-- Action Button -->
-        <ion-button 
-          *ngIf="currentStep < totalSteps"
-          expand="block"
-          size="large"
-          class="primary-action"
-          [disabled]="!canProceed()"
-          (click)="nextStep()">
-          Continue
-          <ion-icon name="arrow-forward" slot="end"></ion-icon>
-        </ion-button>
-
-        <ion-button 
-          *ngIf="currentStep === totalSteps"
-          expand="block"
-          size="large"
-          color="success"
-          class="submit-action"
-          [disabled]="!canProceed()"
-          (click)="completeOnboarding()">
-          Complete Setup
-          <ion-icon name="checkmark" slot="end"></ion-icon>
-        </ion-button>
       </div>
+      </div>
+
+      <!-- Action Button - Outside scrollable container -->
+      <ion-button 
+        *ngIf="currentStep < totalSteps"
+        expand="block"
+        size="large"
+        class="primary-action"
+        [disabled]="!canProceed()"
+        (click)="nextStep()">
+        Continue
+        <ion-icon name="arrow-forward" slot="end"></ion-icon>
+      </ion-button>
+
+      <ion-button 
+        *ngIf="currentStep === totalSteps"
+        expand="block"
+        size="large"
+        color="success"
+        class="submit-action"
+        [disabled]="!canProceed()"
+        (click)="completeOnboarding()">
+        Complete Setup
+        <ion-icon name="checkmark" slot="end"></ion-icon>
+      </ion-button>
     </div>
 
   </div>

@@ -116,6 +116,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Student-specific insights
   totalLessonsCompleted = 0;
   
+  // Coaching badge metrics (for tutors)
+  coachingMetrics: any = null;
+  
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
   pendingFeedbackCount = 0;
@@ -2155,8 +2158,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         
         // Update display property
         this.updateWalletDisplay();
+        
+        // Load coaching metrics for tutors
+        if (user.userType === 'tutor') {
+          this.loadCoachingMetrics();
+        }
       }
     });
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/coaching-metrics`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
   }
   
   // Check tutor onboarding status and show banner if incomplete

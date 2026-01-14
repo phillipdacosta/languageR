@@ -97,18 +97,45 @@
         <div class="step-content">
           <!-- Photo Step -->
           <div *ngIf="currentStep.id === 'photo'" class="photo-step">
-            <div class="current-photo" *ngIf="currentUser?.picture">
+            <div class="current-photo-large" *ngIf="currentUser?.picture">
               <img [src]="currentUser.picture" alt="Profile photo">
               <ion-icon name="checkmark-circle" class="check-badge" color="success"></ion-icon>
             </div>
-            <div class="no-photo" *ngIf="!currentUser?.picture">
+            <div class="no-photo-large" *ngIf="!currentUser?.picture">
               <ion-icon name="person-circle-outline"></ion-icon>
               <p>No photo uploaded</p>
             </div>
+            
+            <!-- Info cards about photo requirements -->
+            <div class="info-cards">
+              <div class="info-card">
+                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                <div class="info-text">
+                  <h4>Professional appearance</h4>
+                  <p>Clear, well-lit photo of your face</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                <div class="info-text">
+                  <h4>Builds trust</h4>
+                  <p>Students are more likely to book</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                <div class="info-text">
+                  <h4>Required for approval</h4>
+                  <p>Must be a recent photo of you</p>
+                </div>
+              </div>
+            </div>
+            
             <ion-button 
               expand="block" 
               class="primary-action"
               (click)="goToProfileUploadPhoto()">
+              <ion-icon name="camera-outline" slot="start"></ion-icon>
               {{ currentUser?.picture ? 'Change Photo' : 'Upload Photo' }}
             </ion-button>
           </div>
@@ -146,13 +173,45 @@
 
           <!-- Stripe Step -->
           <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
-            <div *ngIf="approvalStatus?.stripeComplete" class="status-card success">
+            <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success">
               <ion-icon name="checkmark-circle"></ion-icon>
               <p>Bank account connected!</p>
             </div>
-            <div *ngIf="!approvalStatus?.stripeComplete" class="status-card empty">
+            <div *ngIf="!approvalStatus?.stripeComplete" class="status-card-large empty">
               <ion-icon name="card-outline"></ion-icon>
               <p>Not connected yet</p>
+            </div>
+            
+            <!-- Info cards about payout setup -->
+            <div class="info-cards">
+              <div class="info-card">
+                <ion-icon name="shield-checkmark-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Secure payments</h4>
+                  <p>Powered by Stripe Connect</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="calendar-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Weekly payouts</h4>
+                  <p>Get paid every week automatically</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="globe-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Multiple currencies</h4>
+                  <p>Support for 135+ countries</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="lock-closed-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Bank-level security</h4>
+                  <p>Your information is encrypted</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

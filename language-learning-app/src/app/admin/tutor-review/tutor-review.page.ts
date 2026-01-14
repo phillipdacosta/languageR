@@ -221,9 +221,27 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   // Enrich tutor data with computed properties to avoid function calls in template
   enrichTutorData() {
     const enrichTutor = (tutor: any) => {
-      // Video URLs
-      tutor._videoUrl = tutor.onboardingData?.pendingVideo || tutor.onboardingData?.introductionVideo || '';
-      tutor._thumbnailUrl = tutor.onboardingData?.pendingVideoThumbnail || tutor.onboardingData?.videoThumbnail || '';
+      // Video URLs - prioritize pending video over approved video
+      const hasPendingVideo = tutor.onboardingData?.pendingVideo && tutor.onboardingData.pendingVideo !== '';
+      const hasApprovedVideo = tutor.onboardingData?.introductionVideo && tutor.onboardingData.introductionVideo !== '';
+      
+      tutor._videoUrl = hasPendingVideo ? tutor.onboardingData.pendingVideo : 
+                        (hasApprovedVideo ? tutor.onboardingData.introductionVideo : '');
+      
+      // Thumbnail - ONLY use pending thumbnail if there's a pending video
+      // This prevents showing old thumbnail when new video has no thumbnail
+      const hasPendingThumbnail = tutor.onboardingData?.pendingVideoThumbnail && tutor.onboardingData.pendingVideoThumbnail !== '';
+      const hasApprovedThumbnail = tutor.onboardingData?.videoThumbnail && tutor.onboardingData.videoThumbnail !== '';
+      
+      if (hasPendingVideo) {
+        // If there's a pending video, use its thumbnail (or empty string if none)
+        // The video-thumbnail component will auto-fetch external thumbnails if empty
+        tutor._thumbnailUrl = hasPendingThumbnail ? tutor.onboardingData.pendingVideoThumbnail : '';
+      } else {
+        // If no pending video, use approved video thumbnail
+        tutor._thumbnailUrl = hasApprovedThumbnail ? tutor.onboardingData.videoThumbnail : '';
+      }
+      
       tutor._videoType = this.detectVideoType(tutor._videoUrl);
       
       // Time calculations

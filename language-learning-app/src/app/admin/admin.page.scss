@@ -1,0 +1,394 @@
+// Apple-Inspired Admin Dashboard Styles
+
+ion-content {
+  --background: #f5f5f7;
+}
+
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 16px;
+
+  ion-icon {
+    font-size: 48px;
+  }
+
+  p {
+    color: #666;
+    font-size: 16px;
+  }
+}
+
+.revenue-dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+// Date Range Selector
+.date-range-selector {
+  margin-bottom: 24px;
+  background: white;
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  ion-segment {
+    --background: transparent;
+
+    ion-segment-button {
+      font-size: 14px;
+      font-weight: 500;
+      text-transform: none;
+    }
+  }
+}
+
+// Summary Grid
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  &.primary {
+    background: linear-gradient(135deg, #0064ff 0%, #0549ff 100%);
+    color: white;
+
+    .card-icon {
+      background: rgba(255, 255, 255, 0.2);
+      ion-icon {
+        color: white;
+      }
+    }
+
+    .card-label,
+    .card-sublabel {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .card-value {
+      color: white;
+    }
+  }
+
+  &.warning {
+    .card-icon {
+      background: rgba(255, 149, 0, 0.1);
+      ion-icon {
+        color: #ff9500;
+      }
+    }
+  }
+}
+
+.card-icon {
+  background: rgba(0, 100, 255, 0.1);
+  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 24px;
+    color: #0064ff;
+  }
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 4px;
+}
+
+.card-sublabel {
+  font-size: 13px;
+  color: #999;
+}
+
+// Averages Section
+.averages-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #000;
+  }
+}
+
+.averages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.average-item {
+  text-align: center;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f5f5f7;
+}
+
+.average-label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.average-value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #0064ff;
+}
+
+// Pending Section
+.pending-section {
+  background: #fff3cd;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid #ffc107;
+
+  h3 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #000;
+  }
+}
+
+.pending-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pending-info {
+  flex: 1;
+}
+
+.pending-label {
+  font-size: 15px;
+  color: #333;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.pending-amounts {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  color: #666;
+  flex-wrap: wrap;
+
+  span {
+    padding: 4px 12px;
+    background: white;
+    border-radius: 8px;
+  }
+
+  .pending-net {
+    font-weight: 600;
+    color: #ff9500;
+  }
+}
+
+// Payment Methods Section
+.payment-methods-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #000;
+  }
+}
+
+.payment-methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-method-item {
+  padding: 16px;
+  background: #f5f5f7;
+  border-radius: 12px;
+}
+
+.method-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.method-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+}
+
+.method-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #666;
+
+  .method-fee {
+    font-weight: 600;
+    color: #0064ff;
+  }
+}
+
+// Recent Payments Section
+.recent-payments-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #000;
+  }
+}
+
+.payments-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  thead {
+    background: #f5f5f7;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    th {
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f0f0f0;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background: #f9f9f9;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    td {
+      padding: 12px;
+      color: #333;
+      white-space: nowrap;
+
+      &.stripe-fee {
+        color: #ff9500;
+        font-weight: 500;
+      }
+
+      &.net-revenue {
+        color: #0064ff;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// Mobile Responsiveness
+@media (max-width: 768px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .averages-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .method-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .payments-table {
+    font-size: 12px;
+
+    thead th,
+    tbody td {
+      padding: 8px;
+    }
+  }
+}
+
+

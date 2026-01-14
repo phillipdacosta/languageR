@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { Subject, interval, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-lessons',
@@ -36,6 +38,9 @@ export class LessonsPage implements OnInit, OnDestroy {
   selectedStudentFilter: string = 'all'; // 'all' or studentId (for tutors)
   uniqueTutors: Array<{ id: string; name: string; picture: string }> = [];
   uniqueStudents: Array<{ id: string; name: string; picture: string }> = [];
+  
+  // Coaching metrics
+  coachingMetrics: any = null;
 
   constructor(
     private lessonService: LessonService,
@@ -47,12 +52,29 @@ export class LessonsPage implements OnInit, OnDestroy {
     private location: Location,
     private loadingController: LoadingController,
     private toastController: ToastController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private http: HttpClient
   ) {}
 
   async ngOnInit() {
     await this.loadCurrentUser();
     await this.loadLessons();
+    
+    // Load coaching metrics for tutors
+    if (this.isTutor()) {
+      await this.loadCoachingMetrics();
+    }
+    
+    // Check for scrollToLesson query param
+    this.route.queryParams.subscribe(params => {
+      const lessonId = params['scrollToLesson'];
+      if (lessonId) {
+        // Wait a bit for the view to render
+        setTimeout(() => {
+          this.scrollToLesson(lessonId);
+        }, 800);
+      }
+    });
   }
   ngOnDestroy() {
     this.destroy$.next();
@@ -464,5 +486,51 @@ export class LessonsPage implements OnInit, OnDestroy {
     // Future: Check lesson.paymentStatus or call payment service
     // For now, completed lessons = settled
     return 'settled';
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    if (!this.isTutor()) return;
+    
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/coaching-metrics`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
+  }
+
+  scrollToLesson(lessonId: string) {
+    console.log('📍 Attempting to scroll to lesson:', lessonId);
+    
+    // Find the lesson element by lesson ID
+    const element = document.getElementById(`lesson-${lessonId}`);
+    
+    if (element) {
+      // Scroll into view with smooth animation
+      element.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Add highlight animation
+      element.classList.add('highlight-lesson');
+      setTimeout(() => {
+        element.classList.remove('highlight-lesson');
+      }, 2000);
+      
+      console.log('✅ Scrolled to lesson:', lessonId);
+    } else {
+      console.log('⚠️ Lesson element not found for lesson:', lessonId);
+    }
   }
 }

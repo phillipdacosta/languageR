@@ -196,6 +196,40 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/users/coaching-metrics - Get coaching badge metrics for current tutor
+router.get('/coaching-metrics', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ error: 'Only tutors can view coaching metrics' });
+    }
+    
+    const metrics = user.stats?.feedbackMetrics || {};
+    
+    res.json({
+      success: true,
+      data: {
+        feedbackRate: metrics.feedbackRate || 0,
+        avgQuality: metrics.averageFeedbackQuality || 0,
+        currentStreak: metrics.coachingBadge?.qualifyingStreak || 0,
+        totalLessons: metrics.totalLessonsCompleted || 0,
+        totalFeedback: metrics.totalFeedbackProvided || 0,
+        badgeActive: metrics.coachingBadge?.active || false,
+        badgeEarnedAt: metrics.coachingBadge?.earnedAt || null,
+        lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching coaching metrics:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/users - Create or update user
 router.post('/', verifyToken, async (req, res) => {
   try {
@@ -951,7 +985,13 @@ router.get('/tutors', verifyToken, async (req, res) => {
         totalHours: tutor.stats?.totalHours || 0,
         joinedDate: tutor.createdAt,
         profile: tutor.profile, // Include full profile object for officeHoursEnabled and other features
-        isActivelyAvailable // Only true if tutor has recent heartbeat
+        isActivelyAvailable, // Only true if tutor has recent heartbeat
+        // Coaching badge data
+        coachingBadge: {
+          active: tutor.stats?.feedbackMetrics?.coachingBadge?.active || false,
+          feedbackRate: tutor.stats?.feedbackMetrics?.feedbackRate || 0,
+          avgQuality: tutor.stats?.feedbackMetrics?.averageFeedbackQuality || 0
+        }
       };
     });
 
@@ -1000,8 +1040,10 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
     console.log('📹 Current onboardingData before update:', user.onboardingData);
     
     // Check if this tutor was previously approved (existing tutor vs new tutor)
-    const wasApproved = user.tutorOnboarding?.videoApproved === true;
-    console.log(`🔍 Was previously approved: ${wasApproved}`);
+    // A tutor is considered "previously approved" if they have an approved intro video OR tutorApproved is true
+    const hasApprovedVideo = user.onboardingData?.introductionVideo && user.onboardingData.introductionVideo !== '';
+    const wasApproved = (user.tutorOnboarding?.videoApproved === true) || (hasApprovedVideo) || (user.tutorApproved === true);
+    console.log(`🔍 Was previously approved: ${wasApproved} (hasApprovedVideo: ${hasApprovedVideo}, videoApproved: ${user.tutorOnboarding?.videoApproved}, tutorApproved: ${user.tutorApproved})`);
     
     // Store the new video as "pending" until admin approves
     // Keep the old video active for students to see

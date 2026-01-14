@@ -122,7 +122,8 @@
 
     <!-- Right Column: Current Step Content -->
     <div class="right-column">
-      <div class="step-content-card">
+      <div class="step-content-scrollable">
+        <div class="step-content-card">
         
         <!-- Step 1: Name -->
         <div *ngIf="currentStep === 1">
@@ -251,31 +252,32 @@
             </div>
           </div>
         </div>
-
-        <!-- Action Button -->
-        <ion-button 
-          *ngIf="currentStep < totalSteps"
-          expand="block"
-          size="large"
-          class="primary-action"
-          [disabled]="!canProceed()"
-          (click)="nextStep()">
-          Continue
-          <ion-icon name="arrow-forward" slot="end"></ion-icon>
-        </ion-button>
-
-        <ion-button 
-          *ngIf="currentStep === totalSteps"
-          expand="block"
-          size="large"
-          color="success"
-          class="submit-action"
-          [disabled]="!canProceed()"
-          (click)="nextStep()">
-          Complete Setup
-          <ion-icon name="checkmark" slot="end"></ion-icon>
-        </ion-button>
       </div>
+      </div>
+
+      <!-- Action Button - Outside scrollable container -->
+      <ion-button 
+        *ngIf="currentStep < totalSteps"
+        expand="block"
+        size="large"
+        class="primary-action"
+        [disabled]="!canProceed()"
+        (click)="nextStep()">
+        Continue
+        <ion-icon name="arrow-forward" slot="end"></ion-icon>
+      </ion-button>
+
+      <ion-button 
+        *ngIf="currentStep === totalSteps"
+        expand="block"
+        size="large"
+        color="success"
+        class="submit-action"
+        [disabled]="!canProceed()"
+        (click)="nextStep()">
+        Complete Setup
+        <ion-icon name="checkmark" slot="end"></ion-icon>
+      </ion-button>
     </div>
 
   </div>

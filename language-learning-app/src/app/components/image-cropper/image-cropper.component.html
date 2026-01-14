@@ -1,0 +1,72 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Crop Profile Picture</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="cropper-wrapper">
+    <image-cropper
+      [imageChangedEvent]="imageChangedEvent"
+      [maintainAspectRatio]="true"
+      [aspectRatio]="1"
+      [resizeToWidth]="400"
+      [cropperMinWidth]="128"
+      [onlyScaleDown]="true"
+      [roundCropper]="false"
+      [canvasRotation]="canvasRotation"
+      [transform]="transform"
+      [alignImage]="'center'"
+      [backgroundColor]="'#f8f9fa'"
+      format="png"
+      (imageCropped)="imageCropped($event)"
+      (imageLoaded)="imageLoaded($event)"
+      (cropperReady)="cropperReady()"
+      (loadImageFailed)="loadImageFailed()"
+    ></image-cropper>
+  </div>
+
+  <div class="controls" *ngIf="showCropper">
+    <div class="control-group">
+      <ion-button fill="clear" (click)="zoomOut()" [disabled]="scale <= 0.5">
+        <ion-icon name="remove-circle-outline"></ion-icon>
+      </ion-button>
+      <span class="control-label">Zoom</span>
+      <ion-button fill="clear" (click)="zoomIn()" [disabled]="scale >= 3">
+        <ion-icon name="add-circle-outline"></ion-icon>
+      </ion-button>
+    </div>
+
+    <div class="control-group">
+      <ion-button fill="clear" (click)="rotateLeft()">
+        <ion-icon name="arrow-undo-outline"></ion-icon>
+      </ion-button>
+      <span class="control-label">Rotate</span>
+      <ion-button fill="clear" (click)="rotateRight()">
+        <ion-icon name="arrow-redo-outline"></ion-icon>
+      </ion-button>
+    </div>
+
+    <ion-button expand="block" (click)="resetImage()" fill="outline" class="reset-btn">
+      <ion-icon name="refresh-outline" slot="start"></ion-icon>
+      Reset
+    </ion-button>
+  </div>
+
+  <div class="action-buttons">
+    <ion-button expand="block" (click)="cancel()" fill="outline">
+      Cancel
+    </ion-button>
+    <ion-button expand="block" (click)="crop()" [disabled]="!croppedImage">
+      Crop & Save
+    </ion-button>
+  </div>
+</ion-content>
+
+
+

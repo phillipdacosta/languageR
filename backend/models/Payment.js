@@ -64,6 +64,7 @@ const paymentSchema = new mongoose.Schema({
   },
   stripeChargeId: String,
   stripeRefundId: String,
+  receiptUrl: String, // Customer-facing receipt URL from Stripe
   stripeFee: {
     type: Number,
     default: 0

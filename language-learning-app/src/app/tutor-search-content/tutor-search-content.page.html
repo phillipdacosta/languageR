@@ -230,6 +230,13 @@
               <span>Available Now - Book Instantly</span>
             </div>
             
+            <!-- Coaching Badge -->
+            <div class="coaching-badge-container" *ngIf="tutor.coachingBadge?.active">
+              <ion-badge class="coaching-badge" color="success">
+                <ion-icon name="school-outline"></ion-icon>
+              </ion-badge>
+            </div>
+            
             <!-- Bio Section - Center Priority -->
             <div class="bio-section-inline" *ngIf="tutor.bio">
               <p class="bio-text" 

@@ -132,6 +132,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   // Expose Math for template
   Math = Math;
   
+  // Coaching metrics (tutors only)
+  coachingMetrics: any = null;
+  
   private radarChart: Chart | null = null;
   private lineChart: Chart | null = null;
 
@@ -145,6 +148,11 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     this.loadCurrentUser();
+    
+    // Load coaching metrics for tutors
+    if (this.isTutor()) {
+      this.loadCoachingMetrics();
+    }
   }
   
   ngAfterViewInit() {
@@ -185,8 +193,15 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   async loadCurrentUser() {
     this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      console.log('👤 [Tab3] Current user loaded:', user?.email, 'Type:', user?.userType);
+      
       if (user?.userType === 'student') {
+        console.log('📊 [Tab3] Loading analyses for student');
         this.loadAnalyses();
+      } else if (user?.userType === 'tutor') {
+        console.log('🎓 [Tab3] User is tutor - stopping loading and loading coaching metrics');
+        // For tutors, just stop loading and show coaching metrics
+        this.loading = false;
       }
     });
   }
@@ -1301,6 +1316,30 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   
   trackByAnalysisId(index: number, analysis: AnalysisSummary): string {
     return analysis._id;
+  }
+  
+  // Check if current user is a tutor
+  isTutor(): boolean {
+    return this.currentUser?.userType === 'tutor';
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    if (!this.isTutor()) return;
+    
+    try {
+      const response: any = await this.http.get(`${environment.apiUrl}/users/coaching-metrics`, {
+        headers: this.userService.getAuthHeadersSync()
+      }).toPromise();
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
   }
   
   trackByBadgeId(index: number, badge: Badge): string {

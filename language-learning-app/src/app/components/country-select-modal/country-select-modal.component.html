@@ -11,11 +11,13 @@
     </div>
     
     <!-- Heading -->
-    <h1 class="modal-heading">Select Your Country</h1>
+    <h1 class="modal-heading">
+      {{ modalType === 'origin' ? 'Select Your Country of Origin' : 'Where do you currently reside?' }}
+    </h1>
     
     <!-- Description -->
     <p class="modal-description">
-      Help us personalize your experience
+      {{ modalType === 'origin' ? 'Help us personalize your experience' : 'This determines your available payout methods' }}
     </p>
 
     <!-- Search Bar -->

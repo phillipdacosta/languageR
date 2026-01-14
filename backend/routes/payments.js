@@ -855,31 +855,44 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     const Lesson = require('../models/Lesson');
 
     console.log(`💰 Fetching earnings for tutor ${user._id}...`);
-
-    // Get ALL payments for this tutor (including in-progress and ended early)
-    // Exclude 'acknowledged' status (dismissed failed payouts that shouldn't count)
-    const payments = await Payment.find({ 
+    
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Build query
+    const query = { 
       tutorId: user._id,
       transferStatus: { $ne: 'acknowledged' } // Exclude dismissed payments
-    })
-      .populate('lessonId', 'startTime endTime duration status')
-      .populate('studentId', 'name firstName lastName')
+    };
+    
+    // Status filter
+    if (req.query.status && req.query.status !== 'all') {
+      // We'll filter by status after mapping, since it's computed
+    }
+
+    // Get payments with pagination
+    let payments = await Payment.find(query)
+      .populate('lessonId', 'startTime endTime duration status cancelReason')
+      .populate('studentId', 'name firstName lastName picture')
       .sort({ createdAt: -1 }) // Sort by booking date
-      .limit(20);
+      .skip(skip)
+      .limit(limit);
 
-    console.log(`💰 Found ${payments.length} payments for tutor ${user._id}`);
+    console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (page ${page})`);
 
-    // Calculate totals (only count completed lessons for totals)
+    // Calculate totals (always calculate from ALL payments, not just current page)
+    const allPayments = await Payment.find({
+      tutorId: user._id,
+      transferStatus: { $ne: 'acknowledged' }
+    }).populate('lessonId', 'status');
+    
     let totalEarnings = 0; // Earnings that have been successfully transferred
     let pendingEarnings = 0; // Earnings that are pending transfer
-
-    const recentPayments = payments.map(payment => {
+    
+    allPayments.forEach(payment => {
       const tutorPayout = payment.tutorPayout || 0;
-      const lessonStatus = payment.lessonId?.status || 'unknown';
-      
-      console.log(`💰 Payment ${payment._id}: payout=$${tutorPayout}, transferStatus=${payment.transferStatus}, revenueRecognized=${payment.revenueRecognized}, lessonStatus=${lessonStatus}`);
-      
-      // Only count completed lessons in the totals
       if (payment.revenueRecognized) {
         if (payment.transferStatus === 'succeeded') {
           totalEarnings += tutorPayout;
@@ -887,46 +900,94 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
           pendingEarnings += tutorPayout;
         }
       }
+    });
 
-      const studentName = payment.studentId 
-        ? `${payment.studentId.firstName || payment.studentId.name || 'Student'} ${(payment.studentId.lastName || '').charAt(0)}.`
-        : 'Student';
-
-      // Determine payment status based on lesson status
+    const recentPayments = payments.map(payment => {
+      const tutorPayout = payment.tutorPayout || 0;
+      const lessonStatus = payment.lessonId?.status || 'unknown';
+      
+      // Determine payment status
       let paymentStatus = 'pending';
-      if (lessonStatus === 'completed' && payment.transferStatus === 'succeeded') {
+      
+      if (lessonStatus === 'cancelled') {
+        paymentStatus = 'cancelled';
+      } else if (payment.transferStatus === 'succeeded') {
         paymentStatus = 'paid';
-      } else if (lessonStatus === 'completed' && payment.revenueRecognized) {
+      } else if (payment.revenueRecognized && lessonStatus === 'completed') {
         paymentStatus = 'pending';
       } else if (lessonStatus === 'in_progress') {
         paymentStatus = 'in_progress';
-      } else if (lessonStatus === 'ended_early') {
+      } else if (lessonStatus === 'ended_early' && payment.revenueRecognized) {
         paymentStatus = 'processing';
       } else if (lessonStatus === 'scheduled') {
         paymentStatus = 'scheduled';
       }
 
+      const studentName = payment.studentId 
+        ? `${payment.studentId.firstName || payment.studentId.name || 'Student'} ${(payment.studentId.lastName || '').charAt(0)}.`
+        : 'Student';
+      
+      const studentPicture = payment.studentId?.picture || null;
+      const lessonTime = payment.lessonId?.startTime || null;
+      const lessonEndTime = payment.lessonId?.endTime || null;
+
       return {
         id: payment._id,
         studentName,
+        studentPicture,
         date: payment.lessonId?.startTime || payment.createdAt,
+        lessonTime,
+        lessonEndTime,
         tutorPayout,
         platformFee: payment.platformFee || 0,
         status: paymentStatus,
         lessonStatus: lessonStatus,
-        lessonId: payment.lessonId?._id
+        cancelReason: payment.lessonId?.cancelReason || null,
+        lessonId: payment.lessonId?._id,
+        receiptUrl: payment.receiptUrl || null,
+        stripeChargeId: payment.stripeChargeId || null,
+        paypalTransactionId: payment.paypalTransactionId || null
       };
     });
+    
+    // Apply filters
+    let filteredPayments = recentPayments;
+    
+    // Status filter
+    if (req.query.status && req.query.status !== 'all') {
+      filteredPayments = filteredPayments.filter(p => p.status === req.query.status);
+    }
+    
+    // Date range filter
+    if (req.query.dateFrom) {
+      const dateFrom = new Date(req.query.dateFrom);
+      filteredPayments = filteredPayments.filter(p => new Date(p.date) >= dateFrom);
+    }
+    if (req.query.dateTo) {
+      const dateTo = new Date(req.query.dateTo);
+      dateTo.setHours(23, 59, 59, 999); // End of day
+      filteredPayments = filteredPayments.filter(p => new Date(p.date) <= dateTo);
+    }
+    
+    // Student search filter
+    if (req.query.studentSearch) {
+      const searchTerm = req.query.studentSearch.toString().toLowerCase();
+      filteredPayments = filteredPayments.filter(p => 
+        p.studentName.toLowerCase().includes(searchTerm)
+      );
+    }
 
-    console.log(`💰 Tutor earnings - Total: $${totalEarnings}, Pending: $${pendingEarnings}`);
+    console.log(`💰 Tutor earnings - Total: $${totalEarnings}, Pending: $${pendingEarnings}, Returned: ${filteredPayments.length} payments`);
 
     res.json({
       success: true,
       totalEarnings,
       pendingEarnings,
-      recentPayments,
-      payoutProvider: user.payoutProvider || 'unknown', // Add payout provider for frontend label
-      payoutDetails: user.payoutDetails // In case frontend needs it
+      recentPayments: filteredPayments,
+      page,
+      hasMore: payments.length === limit, // If we got full page, there might be more
+      payoutProvider: user.payoutProvider || 'unknown',
+      payoutDetails: user.payoutDetails
     });
   } catch (error) {
     console.error('❌ Error fetching tutor earnings:', error);
@@ -1206,6 +1267,7 @@ router.post('/save-payment-method', verifyToken, async (req, res) => {
         last4: paymentMethod.card.last4,
         expiryMonth: paymentMethod.card.exp_month,
         expiryYear: paymentMethod.card.exp_year,
+        country: paymentMethod.card.country, // Store card country for fee calculation
         isDefault: setAsDefault,
         createdAt: new Date()
       });
@@ -1252,9 +1314,25 @@ router.get('/payment-methods', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
+    // Map payment methods to include type and id fields
+    const paymentMethods = (user.savedPaymentMethods || []).map(pm => ({
+      id: pm._id.toString(),
+      type: 'card', // All saved payment methods are cards
+      stripePaymentMethodId: pm.stripePaymentMethodId,
+      brand: pm.brand,
+      last4: pm.last4,
+      expiryMonth: pm.expiryMonth,
+      expiryYear: pm.expiryYear,
+      country: pm.country, // Include card country for fee calculation
+      isDefault: pm.isDefault,
+      createdAt: pm.createdAt
+    }));
+    
+    console.log('📤 Returning payment methods:', paymentMethods.length, 'cards');
+    
     res.json({
       success: true,
-      paymentMethods: user.savedPaymentMethods || []
+      paymentMethods
     });
   } catch (error) {
     console.error('❌ Error getting payment methods:', error);

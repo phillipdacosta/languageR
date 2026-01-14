@@ -52,6 +52,11 @@ const routes: Routes = [
             loadChildren: () => import('./admin/payment-review/payment-review.module').then( m => m.PaymentReviewPageModule),
             canActivate: [AuthGuard]
           },
+          {
+            path: 'admin/revenue',
+            loadComponent: () => import('./admin/admin.page').then(m => m.AdminPage),
+            canActivate: [AuthGuard]
+          },
   {
     path: 'tabs',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule),

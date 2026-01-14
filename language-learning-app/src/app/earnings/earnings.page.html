@@ -6,6 +6,11 @@
       </ion-button>
     </ion-buttons>
     <ion-title>My Earnings</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="toggleFilters()">
+        <ion-icon [name]="showFilters ? 'funnel' : 'funnel-outline'"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -28,6 +33,66 @@
 
   <!-- Earnings Summary -->
   <div *ngIf="!loading && !error" class="earnings-content">
+    <!-- Filters Section -->
+    <div *ngIf="showFilters" class="filters-section">
+      <div class="filters-header">
+        <h4>Filter Lessons</h4>
+        <ion-button fill="clear" size="small" (click)="clearFilters()">
+          Clear All
+        </ion-button>
+      </div>
+      
+      <div class="filters-grid">
+        <!-- Status Filter -->
+        <div class="filter-item">
+          <label>Status</label>
+          <ion-select [(ngModel)]="filters.status" placeholder="All" interface="popover">
+            <ion-select-option value="all">All</ion-select-option>
+            <ion-select-option value="paid">Transferred</ion-select-option>
+            <ion-select-option value="pending">Pending</ion-select-option>
+            <ion-select-option value="cancelled">Cancelled</ion-select-option>
+            <ion-select-option value="in_progress">In Progress</ion-select-option>
+          </ion-select>
+        </div>
+        
+        <!-- Date From -->
+        <div class="filter-item">
+          <label>From Date</label>
+          <ion-datetime-button datetime="dateFrom"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime id="dateFrom" [(ngModel)]="filters.dateFrom" presentation="date"></ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </div>
+        
+        <!-- Date To -->
+        <div class="filter-item">
+          <label>To Date</label>
+          <ion-datetime-button datetime="dateTo"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime id="dateTo" [(ngModel)]="filters.dateTo" presentation="date"></ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </div>
+        
+        <!-- Student Search -->
+        <div class="filter-item full-width">
+          <label>Student Name</label>
+          <ion-searchbar 
+            [(ngModel)]="filters.studentSearch" 
+            placeholder="Search by student name..."
+            debounce="500"
+            animated="true">
+          </ion-searchbar>
+        </div>
+      </div>
+      
+      <ion-button expand="block" (click)="applyFilters()">
+        Apply Filters
+      </ion-button>
+    </div>
     <!-- Summary Cards -->
     <div class="summary-cards">
       <div class="summary-card total">
@@ -72,65 +137,95 @@
       <ion-list *ngIf="recentPayments.length > 0" class="payments-list">
         <ion-item 
           *ngFor="let payment of recentPayments" 
+          [id]="'payment-' + payment.lessonId"
           class="payment-item"
           [class.in-progress]="payment.status === 'in_progress'"
           [class.processing]="payment.status === 'processing'"
-          button
-          (click)="viewLesson(payment.lessonId)">
-          <div class="payment-info">
-            <div class="payment-header">
-              <div class="student-info">
-                <ion-icon name="person" class="student-icon"></ion-icon>
-                <span class="student-name">{{ payment.studentName }}</span>
-              </div>
-              <div class="payment-status" [attr.data-status]="payment.status">
-                <ion-icon [name]="getStatusIcon(payment.status)" [color]="getStatusColor(payment.status)"></ion-icon>
-                <span>{{ getStatusText(payment.status) }}</span>
-              </div>
-            </div>
-            
-            <!-- Status Note (for in_progress, ended_early, scheduled) -->
-            <div *ngIf="getStatusNote(payment)" class="status-note">
-              <ion-icon name="information-circle-outline"></ion-icon>
-              <span>{{ getStatusNote(payment) }}</span>
-            </div>
-            
-            <div class="payment-details">
-              <div class="payment-date">
-                <ion-icon name="calendar-outline"></ion-icon>
-                <span>{{ payment.date | date:'MMM d, y' }}</span>
+          [class.cancelled]="payment.status === 'cancelled'"
+          lines="none">
+          <div class="payment-content-wrapper">
+            <div class="payment-info">
+              <div class="payment-header">
+                <div class="student-info">
+                  <!-- Student Avatar -->
+                  <ion-avatar class="student-avatar" *ngIf="payment.studentPicture">
+                    <img [src]="payment.studentPicture" [alt]="payment.studentName" referrerpolicy="no-referrer">
+                  </ion-avatar>
+                  <div class="student-avatar student-avatar-fallback" *ngIf="!payment.studentPicture">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
+                  
+                  <div class="student-details">
+                    <span class="student-name">{{ payment.studentName }}</span>
+                    <!-- Lesson Time Range -->
+                    <span class="lesson-time" *ngIf="payment.lessonTime && payment.lessonEndTime">
+                      {{ payment.lessonTime | date:'shortTime' }} - {{ payment.lessonEndTime | date:'shortTime' }}
+                    </span>
+                    <span class="lesson-time" *ngIf="payment.lessonTime && !payment.lessonEndTime">
+                      {{ payment.lessonTime | date:'shortTime' }}
+                    </span>
+                  </div>
+                </div>
+                <div class="payment-status" [attr.data-status]="payment.status">
+                  <ion-icon [name]="getStatusIcon(payment.status)" [color]="getStatusColor(payment.status)"></ion-icon>
+                  <span>{{ getStatusText(payment.status) }}</span>
+                </div>
               </div>
               
-              <div class="payment-amounts">
-                <div class="amount-row tutor-payout">
-                  <span class="amount-label">Your Earnings</span>
-                  <span class="amount-value" [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
-                    ${{ payment.tutorPayout.toFixed(2) }}
-                    <span *ngIf="payment.status === 'processing'" class="tentative-label">(updating)</span>
-                  </span>
+              <!-- Status Note (for in_progress, ended_early, scheduled, cancelled) -->
+              <div *ngIf="getStatusNote(payment)" class="status-note" [class.cancelled-note]="payment.status === 'cancelled'">
+                <ion-icon name="information-circle-outline"></ion-icon>
+                <span>{{ getStatusNote(payment) }}</span>
+              </div>
+              
+              <div class="payment-details">
+                <div class="payment-date">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>{{ payment.date | date:'MMM d, y' }}</span>
                 </div>
-                <div class="amount-row platform-fee">
-                  <span class="amount-label">Platform Fee (20%)</span>
-                  <span class="amount-value">-${{ payment.platformFee.toFixed(2) }}</span>
-                </div>
-                <div class="amount-row total-divider"></div>
-                <div class="amount-row total">
-                  <span class="amount-label">Lesson Price</span>
-                  <span class="amount-value">${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                
+                <div class="payment-amounts">
+                  <div class="amount-row tutor-payout" [class.cancelled-amount]="payment.status === 'cancelled'">
+                    <span class="amount-label">Your Earnings</span>
+                    <span class="amount-value" [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
+                      <span *ngIf="payment.status === 'cancelled'" class="strikethrough">${{ payment.tutorPayout.toFixed(2) }}</span>
+                      <span *ngIf="payment.status === 'cancelled'" class="cancelled-label">$0.00</span>
+                      <span *ngIf="payment.status !== 'cancelled'">${{ payment.tutorPayout.toFixed(2) }}</span>
+                      <span *ngIf="payment.status === 'processing'" class="tentative-label">(updating)</span>
+                    </span>
+                  </div>
+                  <div class="amount-row platform-fee">
+                    <span class="amount-label">Platform Fee (20%)</span>
+                    <span class="amount-value">-${{ payment.platformFee.toFixed(2) }}</span>
+                  </div>
+                  <div class="amount-row total-divider"></div>
+                  <div class="amount-row total">
+                    <span class="amount-label">Lesson Price</span>
+                    <span class="amount-value">${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-          
-          <ion-icon name="chevron-forward" slot="end" class="nav-icon"></ion-icon>
         </ion-item>
       </ion-list>
+      
+      <!-- Infinite Scroll -->
+      <ion-infinite-scroll 
+        *ngIf="recentPayments.length > 0"
+        threshold="100px" 
+        (ionInfinite)="loadMore($event)">
+        <ion-infinite-scroll-content
+          loadingSpinner="bubbles"
+          loadingText="Loading more lessons...">
+        </ion-infinite-scroll-content>
+      </ion-infinite-scroll>
     </div>
 
     <!-- Help Text -->
     <div class="help-text">
       <ion-icon name="information-circle-outline"></ion-icon>
-      <p>Earnings are transferred to your bank account within 2-7 business days after lesson completion.</p>
+      <p>{{ payoutHelpText }}</p>
     </div>
   </div>
 </ion-content>

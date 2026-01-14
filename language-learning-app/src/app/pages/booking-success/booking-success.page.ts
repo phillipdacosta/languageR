@@ -131,5 +131,9 @@ export class BookingSuccessPage implements OnInit {
     };
     return emojiMap[subject] || '🌍';
   }
+
+  formatPrice(price: number): string {
+    return typeof price === 'number' ? price.toFixed(2) : '0.00';
+  }
 }
 

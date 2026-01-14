@@ -636,7 +636,56 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (['class_invitation', 'class_accepted'].includes(type)) {
       return 'class-invitation-icon';
     }
+    if (type === 'payment_received') {
+      return 'payment-icon';
+    }
     return '';
+  }
+
+  // NEW: Check if notification is from system (app)
+  isSystemNotification(type: string): boolean {
+    const systemTypes = [
+      'tutor_video_approved',
+      'tutor_video_rejected',
+      'lesson_analysis_ready'
+    ];
+    return systemTypes.includes(type);
+  }
+
+  // NEW: Check if notification is money-related
+  isMoneyNotification(type: string): boolean {
+    const moneyTypes = [
+      'payment_received'
+    ];
+    return moneyTypes.includes(type);
+  }
+
+  // NEW: Get contextual icon for right side
+  getContextualIcon(type: string): string {
+    const contextualIcons: { [key: string]: string } = {
+      'lesson_created': 'videocam',
+      'lesson_reminder': 'alarm',
+      'lesson_cancelled': 'close-circle',
+      'lesson_rescheduled': 'calendar',
+      'class_invitation': 'people',
+      'office_hours_booking': 'briefcase',
+      'office_hours_starting': 'play',
+      'payment_received': 'cash',
+      'message': 'chatbubble-ellipses'
+    };
+    return contextualIcons[type] || '';
+  }
+
+  // NEW: Get CSS class for contextual icon
+  getContextualIconClass(type: string): string {
+    if (type === 'payment_received') {
+      return 'contextual-icon money-icon';
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+      return 'contextual-icon lesson-icon';
+    } else if (type === 'message') {
+      return 'contextual-icon message-icon';
+    }
+    return 'contextual-icon';
   }
 
   loadUnreadNotificationCount() {
@@ -671,32 +720,57 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onNotificationClick(notification: Notification) {
-    // Mark as read if unread (but keep it visible)
+    // Mark as read if unread (but keep it visible and update in place)
     if (!notification.read) {
+      notification.read = true;
+      notification.readAt = new Date();
+      
       this.notificationService.markAsRead(notification._id).pipe(
         takeUntil(this.destroy$)
       ).subscribe({
         next: () => {
-          // Reload notifications to update the list (this will automatically update the observable)
-          this.loadNotifications();
+          // Don't reload - just update the unread count
+          this.notificationService.refreshUnreadCount();
         },
         error: (error) => {
           console.error('Error marking notification as read:', error);
+          // Revert on error
+          notification.read = false;
+          notification.readAt = null;
         }
       });
     }
 
     // Navigate based on notification type
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      const queryParams = this.isMobile() || this.isMobileViewport() ? { from: 'notifications' } : {};
-      this.router.navigate(['/tabs/tutor-calendar/event', notification.data.lessonId], {
-        queryParams
+      // Navigate to lessons page with lesson ID to scroll to
+      this.router.navigate(['/tabs/home/lessons'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
       });
-      // Don't close dropdown - let user see the notification was marked as read
+      this.closeNotificationDropdown(); // Close for lessons
     } else if (notification.type === 'message') {
       this.router.navigate(['/tabs/messages']);
-      // Don't close dropdown - let user see the notification was marked as read
+      this.closeNotificationDropdown(); // Close for messages
+    } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
+      // Navigate to earnings page with lesson ID to scroll to
+      this.router.navigate(['/tabs/earnings'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
+      });
+      this.closeNotificationDropdown(); // Close for earnings
+    } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
+      // Navigate to lesson analysis page
+      this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
+      this.closeNotificationDropdown(); // Close for analysis
+    } else if (notification.type === 'class_invitation' && notification.data?.classId) {
+      // Note: Class invitation modal would need to be opened here if needed
+      this.router.navigate(['/tabs/home']);
+      this.closeNotificationDropdown(); // Close for home
     }
+    // If no navigation happens, dropdown stays open (notification just gets marked as read)
   }
 
   closeNotificationDropdown() {

@@ -220,3 +220,5 @@ This clarifies that the streak counts consecutive days, not total lessons.
 
 
 
+
+

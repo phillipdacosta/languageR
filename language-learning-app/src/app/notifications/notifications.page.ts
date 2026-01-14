@@ -206,11 +206,12 @@ export class NotificationsPage implements OnDestroy {
     }
 
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      const shouldReturnToNotifications = this.platformService.isMobile() || this.platformService.isSmallScreen();
-      this.router.navigate(
-        ['/tabs/tutor-calendar/event', notification.data.lessonId],
-        shouldReturnToNotifications ? { queryParams: { from: 'notifications' } } : undefined
-      );
+      // Navigate to lessons page with lesson ID to scroll to
+      this.router.navigate(['/tabs/home/lessons'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
+      });
     } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
       // Navigate to lesson analysis page
       this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
@@ -219,6 +220,13 @@ export class NotificationsPage implements OnDestroy {
       this.openClassInvitation(notification.data.classId, notification);
     } else if (notification.type === 'message' && notification.data?.conversationId) {
       this.router.navigate(['/tabs/messages', notification.data.conversationId]);
+    } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
+      // Navigate to earnings page with lesson ID to scroll to
+      this.router.navigate(['/tabs/earnings'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
+      });
     }
   }
 
@@ -247,15 +255,18 @@ export class NotificationsPage implements OnDestroy {
 
   getNotificationIcon(type: string): string {
     const iconMap: { [key: string]: string } = {
-      'lesson_created': 'videocam',
+      'lesson_created': 'calendar',
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
       'message': 'chatbubbles',
-      'lesson_reminder': 'videocam',
+      'lesson_reminder': 'alarm',
       'lesson_cancelled': 'close-circle',
-      'lesson_rescheduled': 'videocam',
-      'office_hours_booking': 'videocam',
-      'office_hours_starting': 'videocam'
+      'lesson_rescheduled': 'swap-horizontal',
+      'office_hours_booking': 'time',
+      'office_hours_starting': 'play-circle',
+      'payment_received': 'cash',
+      'tutor_video_approved': 'checkmark-circle',
+      'tutor_video_rejected': 'close-circle'
     };
     return iconMap[type] || 'notifications';
   }
@@ -267,8 +278,59 @@ export class NotificationsPage implements OnDestroy {
       return 'class-invitation-icon';
     } else if (type === 'lesson_analysis_ready') {
       return 'analysis-icon';
+    } else if (type === 'payment_received') {
+      return 'payment-icon';
     }
     return '';
+  }
+
+  // NEW: Check if notification is from system (app)
+  isSystemNotification(type: string): boolean {
+    const systemTypes = [
+      'tutor_video_approved',
+      'tutor_video_rejected',
+      'lesson_analysis_ready'
+    ];
+    return systemTypes.includes(type);
+  }
+
+  // NEW: Check if notification is money-related
+  isMoneyNotification(type: string): boolean {
+    const moneyTypes = [
+      'payment_received'
+    ];
+    return moneyTypes.includes(type);
+  }
+
+  // NEW: Get contextual icon for right side
+  getContextualIcon(type: string): string {
+    const contextualIcons: { [key: string]: string } = {
+      'lesson_created': 'videocam',
+      'lesson_reminder': 'alarm',
+      'lesson_cancelled': 'close-circle',
+      'lesson_rescheduled': 'calendar',
+      'class_invitation': 'people',
+      'office_hours_booking': 'briefcase',
+      'office_hours_starting': 'play',
+      'payment_received': 'cash',
+      'lesson_analysis_ready': 'bar-chart',
+      'message': 'chatbubble-ellipses'
+    };
+    return contextualIcons[type] || '';
+  }
+
+  // NEW: Get CSS class for contextual icon
+  getContextualIconClass(type: string): string {
+    if (type === 'payment_received') {
+      return 'contextual-icon money-icon';
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+      return 'contextual-icon lesson-icon';
+    } else if (type === 'lesson_analysis_ready') {
+      return 'contextual-icon analysis-icon';
+    } else if (type === 'message') {
+      return 'contextual-icon message-icon';
+    }
+    return 'contextual-icon';
   }
 
   getFilteredNotifications(): Notification[] {

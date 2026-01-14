@@ -22,13 +22,94 @@
   </div>
 
   <!-- Empty State -->
-  <div class="empty-state" *ngIf="!loading && !error && analyses.length === 0">
+  <div class="empty-state" *ngIf="!loading && !error && analyses.length === 0 && !isTutor()">
     <ion-icon name="stats-chart-outline" color="medium"></ion-icon>
     <h3>Start Your Journey</h3>
     <p>Complete your first lesson to begin tracking your progress!</p>
   </div>
+  
+  <!-- Tutor View (Coaching Performance Only) -->
+  <div class="progress-container" *ngIf="!loading && !error && isTutor()">
+    <h1 class="page-title">Coaching Performance</h1>
+    
+    <!-- Coaching Performance Section (Tutors Only) -->
+    <div class="coaching-section" *ngIf="coachingMetrics">
+      <div class="coaching-stats-grid">
+        <div class="coaching-stat-card">
+          <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1)">
+            <ion-icon name="checkmark-done" style="color: #3b82f6"></ion-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" [class.highlight]="coachingMetrics.feedbackRate >= 80">
+              {{ coachingMetrics.feedbackRate }}%
+            </div>
+            <div class="stat-label">Feedback Rate</div>
+            <div class="stat-sublabel">{{ coachingMetrics.totalFeedbackProvided }}/{{ coachingMetrics.totalLessonsCompleted }} lessons</div>
+          </div>
+        </div>
+        
+        <div class="coaching-stat-card">
+          <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1)">
+            <ion-icon name="star" style="color: #8b5cf6"></ion-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" [class.highlight]="coachingMetrics.averageFeedbackQuality >= 60">
+              {{ coachingMetrics.averageFeedbackQuality }}/100
+            </div>
+            <div class="stat-label">Quality Score</div>
+            <div class="stat-sublabel">Average feedback quality</div>
+          </div>
+        </div>
+        
+        <div class="coaching-stat-card">
+          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1)">
+            <ion-icon name="flame" style="color: #f59e0b"></ion-icon>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" [class.highlight]="coachingMetrics.coachingBadge?.qualifyingStreak >= 5">
+              {{ coachingMetrics.coachingBadge?.qualifyingStreak || 0 }}
+            </div>
+            <div class="stat-label">Feedback Streak</div>
+            <div class="stat-sublabel">Consecutive lessons</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="coaching-badge-status">
+        <div *ngIf="coachingMetrics.coachingBadge?.active" class="badge-active">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          <span>Coaching Badge Active</span>
+          <div class="badge-icon">🎖️</div>
+        </div>
+        
+        <div *ngIf="!coachingMetrics.coachingBadge?.active" class="badge-requirements">
+          <p class="requirements-title">Earn the Coaching Badge:</p>
+          <div class="requirements-grid">
+            <div class="requirement-item" [class.met]="coachingMetrics.feedbackRate >= 80">
+              <ion-icon [name]="coachingMetrics.feedbackRate >= 80 ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+              <span>80%+ feedback rate</span>
+            </div>
+            <div class="requirement-item" [class.met]="coachingMetrics.averageFeedbackQuality >= 60">
+              <ion-icon [name]="coachingMetrics.averageFeedbackQuality >= 60 ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+              <span>60+ quality score</span>
+            </div>
+            <div class="requirement-item" [class.met]="coachingMetrics.coachingBadge?.qualifyingStreak >= 5">
+              <ion-icon [name]="coachingMetrics.coachingBadge?.qualifyingStreak >= 5 ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+              <span>5+ lesson streak</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="empty-state" *ngIf="!coachingMetrics">
+      <ion-icon name="school-outline" color="medium"></ion-icon>
+      <h3>No Coaching Data Yet</h3>
+      <p>Complete lessons and provide feedback to see your coaching performance!</p>
+    </div>
+  </div>
 
-  <!-- Main Progress View -->
+  <!-- Main Progress View (Students) -->
   <div class="progress-container" *ngIf="!loading && !error && analyses.length > 0">
     
     <h1 class="page-title" padding-bottom="0px !important" >

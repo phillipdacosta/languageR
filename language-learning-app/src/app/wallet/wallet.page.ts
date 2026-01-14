@@ -3,12 +3,14 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { WalletService, WalletBalance, WalletTransaction, PaymentHistory } from '../services/wallet.service';
 import { UserService } from '../services/user.service';
 import { environment } from '../../environments/environment';
-import { Subject } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { WalletTopupModalComponent } from '../components/wallet-topup-modal/wallet-topup-modal.component';
+import { HttpClient } from '@angular/common/http';
 
 // Import Stripe
 declare var Stripe: any;
@@ -50,7 +52,9 @@ export class WalletPage implements OnInit, OnDestroy {
     private location: Location,
     private alertController: AlertController,
     private loadingController: LoadingController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private modalController: ModalController,
+    private http: HttpClient
   ) {}
 
   async ngOnInit() {
@@ -153,57 +157,86 @@ export class WalletPage implements OnInit, OnDestroy {
   }
 
   async showTopUpDialog() {
-    const alert = await this.alertController.create({
-      header: 'Top Up Wallet',
-      message: 'How much would you like to add?',
-      inputs: [
-        {
-          name: 'amount',
-          type: 'number',
-          placeholder: 'Amount (USD)',
-          min: 1,
-          max: 500,
-          value: 50
-        }
-      ],
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
-        {
-          text: 'Continue',
-          handler: async (data) => {
-            const amount = parseFloat(data.amount);
-            if (!amount || amount < 1 || amount > 500) {
-              this.showToast('Please enter a valid amount ($1-$500)', 'warning');
-              return false;
-            }
-            await this.initiateTopUp(amount);
-            return true;
-          }
-        }
-      ]
+    const modal = await this.modalController.create({
+      component: WalletTopupModalComponent,
+      cssClass: 'wallet-topup-modal',
+      backdropDismiss: true
     });
 
-    await alert.present();
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    console.log('💰 Wallet Page - Modal dismissed with role:', role, 'data:', data);
+
+    // Handle saved card flow (modal dismissed with 'confirm')
+    if (role === 'confirm' && data?.selectedCard) {
+      console.log('💳 Using saved card flow');
+      await this.processTopUpWithSavedCard(data.amount, data.totalCharge, data.stripeFee, data.selectedCard.stripePaymentMethodId);
+    }
+    // Handle new card success (payment completed in modal)
+    else if (role === 'success' && data?.success) {
+      console.log('✅ New card payment completed successfully in modal');
+      this.showToast(`Successfully added $${data.amount.toFixed(2)} to your wallet!`, 'success');
+      await this.loadWalletData();
+    }
   }
 
-  async initiateTopUp(amount: number) {
+  async processTopUpWithSavedCard(walletCredit: number, totalCharge: number, stripeFee: number, paymentMethodId: string) {
+    const loading = await this.loadingController.create({
+      message: 'Processing payment...'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/wallet/top-up-with-saved-card`, {
+          walletCredit, // Amount to credit to wallet
+          totalCharge, // Amount to charge customer (including fee)
+          stripeFee, // Fee breakdown for records
+          paymentMethodId
+        }, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      await loading.dismiss();
+
+      if (response.success) {
+        this.showToast(`Successfully added $${walletCredit.toFixed(2)} to your wallet!`, 'success');
+        await this.loadWalletData();
+      } else {
+        this.showToast('Payment failed. Please try again.', 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('Error processing payment with saved card:', error);
+      this.showToast(error.error?.message || 'Payment failed. Please try again.', 'danger');
+    }
+  }
+
+  async initiateTopUp(walletCredit: number, totalCharge: number, stripeFee: number) {
     const loading = await this.loadingController.create({
       message: 'Setting up payment...'
     });
     await loading.present();
 
     try {
-      this.walletService.initiateTopUp(amount)
+      // Pass totalCharge to backend to create PaymentIntent for correct amount
+      this.http.post<any>(`${environment.apiUrl}/wallet/top-up`, {
+        walletCredit, // Amount to credit to wallet
+        totalCharge, // Amount to charge customer (including fee)
+        stripeFee // Fee breakdown for records
+      }, {
+        headers: this.userService.getAuthHeadersSync()
+      })
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: async (response) => {
             await loading.dismiss();
             
             if (response.success) {
-              this.topUpAmount = amount;
+              this.topUpAmount = walletCredit; // Store wallet credit amount
               this.currentPaymentIntentId = response.paymentIntentId;
               this.showTopUpForm = true;
 
@@ -406,8 +439,8 @@ export class WalletPage implements OnInit, OnDestroy {
     }
     if (payment.paymentType === 'lesson_booking' || payment.paymentType === 'office_hours') {
       const lessonType = payment.paymentType === 'office_hours' ? 'Office Hours' : 'Lesson';
-      const tutor = payment.lessonId?.tutorId?.firstName || 'Tutor';
-      return `${lessonType} with ${tutor}`;
+      const tutorName = this.getTutorName(payment);
+      return `${lessonType} with ${tutorName}`;
     }
     return 'Payment';
   }
@@ -424,6 +457,64 @@ export class WalletPage implements OnInit, OnDestroy {
       case 'processing': return 'medium';
       default: return 'medium';
     }
+  }
+
+  // NEW: Get text for payment status
+  getPaymentStatusText(payment: PaymentHistory): string {
+    // For cancelled payments, check if it's a no-show scenario
+    if (payment.status === 'cancelled' && payment.lessonId?.cancelReason) {
+      const cancelReason = payment.lessonId.cancelReason;
+      if (cancelReason.toLowerCase().includes('no-show')) {
+        return `Returned $${this.formatAmount(payment.amount).replace('$', '')} - ${cancelReason}`;
+      }
+      return `Cancelled - ${cancelReason}`;
+    }
+    
+    // Default status text
+    switch (payment.status) {
+      case 'succeeded': return 'Succeeded';
+      case 'failed': return 'Failed';
+      case 'cancelled': return 'Returned';
+      case 'refunded': return 'Returned';
+      case 'partially_refunded': return 'Partially Returned';
+      case 'pending': return 'Pending';
+      case 'processing': return 'Processing';
+      case 'authorized': return 'Authorized';
+      default: return payment.status;
+    }
+  }
+
+  // Check if payment is a refund or cancellation (credit back to wallet)
+  isRefundOrCancelled(status: string): boolean {
+    return status === 'refunded' || status === 'cancelled' || status === 'partially_refunded';
+  }
+
+  // Get payment amount display with correct sign
+  getPaymentAmountDisplay(payment: PaymentHistory): string {
+    const amount = this.formatAmount(payment.amount);
+    if (this.isRefundOrCancelled(payment.status)) {
+      return `+${amount}`; // Credit back to wallet
+    }
+    return `-${amount}`; // Debit from wallet
+  }
+
+  openPaymentReceipt(payment: PaymentHistory): void {
+    if (payment.receiptUrl) {
+      console.log('🧾 Opening Stripe receipt for student:', payment.receiptUrl);
+      window.open(payment.receiptUrl, '_blank');
+    } else {
+      console.log('ℹ️ No receipt available for this payment');
+    }
+  }
+
+  getTutorName(payment: PaymentHistory): string {
+    const tutor = payment.lessonId?.tutorId;
+    if (!tutor) return 'Tutor';
+    
+    if (tutor.firstName && tutor.lastName) {
+      return `${tutor.firstName} ${tutor.lastName.charAt(0)}.`;
+    }
+    return tutor.name || 'Tutor';
   }
 
   async showToast(message: string, color: string = 'primary') {

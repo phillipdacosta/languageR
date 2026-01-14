@@ -298,6 +298,7 @@ const userSchema = new mongoose.Schema({
     last4: String, // Last 4 digits
     expiryMonth: Number,
     expiryYear: Number,
+    country: String, // Card country code (e.g., 'US', 'CA', 'GB')
     isDefault: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
   }],
@@ -317,6 +318,30 @@ const userSchema = new mongoose.Schema({
     lastActive: {
       type: Date,
       default: Date.now
+    },
+    // Coaching badge metrics (for tutors)
+    feedbackMetrics: {
+      totalLessonsCompleted: { type: Number, default: 0 },
+      totalFeedbackProvided: { type: Number, default: 0 },
+      feedbackRate: { type: Number, default: 0 }, // Percentage (0-100)
+      averageFeedbackQuality: { type: Number, default: 0 }, // Score (0-100)
+      lastQualityUpdate: { type: Date, default: null },
+      // Rolling window tracking (last 30 lessons)
+      recentFeedback: [{
+        lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' },
+        providedAt: Date,
+        qualityScore: Number, // 0-100
+        wordCount: Number,
+        hasHomework: Boolean,
+        hasQuickImpression: Boolean
+      }],
+      // Badge status
+      coachingBadge: {
+        active: { type: Boolean, default: false },
+        earnedAt: { type: Date, default: null },
+        lastEvaluated: { type: Date, default: null },
+        qualifyingStreak: { type: Number, default: 0 }
+      }
     }
   },
   // Tutor availability calendar

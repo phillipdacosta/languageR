@@ -25,6 +25,61 @@
   padding-bottom: 20px;
 }
 
+.filters-section {
+  background: var(--ion-color-light);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  
+  .filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    
+    h4 {
+      margin: 0;
+      font-size: 1.1em;
+      font-weight: 600;
+    }
+  }
+  
+  .filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+    
+    .filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      
+      &.full-width {
+        grid-column: 1 / -1;
+      }
+      
+      label {
+        font-size: 0.9em;
+        font-weight: 500;
+        color: var(--ion-color-medium);
+      }
+      
+      ion-select,
+      ion-datetime-button {
+        --background: white;
+        --border-radius: 8px;
+      }
+      
+      ion-searchbar {
+        padding: 0;
+        --background: white;
+        --border-radius: 8px;
+      }
+    }
+  }
+}
+
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -47,7 +102,7 @@
 
     .card-icon {
       ion-icon {
-        font-size: 48px;
+        font-size: 36px; // Reduced from 48px
         opacity: 0.9;
       }
     }
@@ -56,7 +111,7 @@
       flex: 1;
 
       .card-label {
-        font-size: 0.9em;
+        font-size: 0.85em; // Slightly reduced
         opacity: 0.9;
         margin-bottom: 4px;
         text-transform: uppercase;
@@ -64,13 +119,13 @@
       }
 
       .card-value {
-        font-size: 2em;
+        font-size: 1.5em; // Reduced from 2em
         font-weight: 700;
         margin-bottom: 4px;
       }
 
       .card-sublabel {
-        font-size: 0.85em;
+        font-size: 0.75em; // Reduced from 0.85em
         opacity: 0.8;
       }
     }
@@ -85,15 +140,16 @@
   border-radius: 16px;
 
   h2 {
-    font-size: 1.1em;
+    font-size: 0.9em; // Reduced from 1.1em
     color: var(--ion-color-medium);
     margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 600;
   }
 
   .total-amount {
-    font-size: 3em;
+    font-size: 2.2em; // Reduced from 3em
     font-weight: 700;
     color: var(--ion-color-dark);
   }
@@ -101,7 +157,7 @@
 
 .payment-breakdown {
   h3 {
-    font-size: 1.3em;
+    font-size: 1.1em; // Reduced from 1.3em
     font-weight: 700;
     margin-bottom: 20px;
     color: var(--ion-color-dark);
@@ -136,8 +192,8 @@
   .payment-item {
     --background: var(--ion-background-color);
     --border-radius: 16px;
-    --padding-start: 20px;
-    --padding-end: 20px;
+    --padding-start: 0;
+    --padding-end: 0;
     --inner-padding-end: 0;
     margin-bottom: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -150,36 +206,83 @@
     &.processing {
       border-left: 4px solid var(--ion-color-warning);
     }
+    
+    &.cancelled {
+      border-left: 4px solid var(--ion-color-danger);
+      opacity: 0.8;
+    }
 
     &::part(native) {
       border-radius: 16px;
+      padding: 0;
+    }
+
+    .payment-content-wrapper {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      padding: 16px 20px;
     }
 
     .payment-info {
-      width: 100%;
-      padding: 16px 0;
+      flex: 1;
     }
 
     .payment-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 12px;
 
       .student-info {
         display: flex;
         align-items: center;
-        gap: 8px;
-
-        .student-icon {
-          font-size: 20px;
-          color: var(--ion-color-primary);
+        gap: 12px;
+        
+        // Student Avatar
+        .student-avatar {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          flex-shrink: 0;
+          border: 2px solid #e5e7eb;
+          
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+          }
+          
+          &.student-avatar-fallback {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            
+            ion-icon {
+              font-size: 22px;
+              color: white;
+            }
+          }
+        }
+        
+        .student-details {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         .student-name {
-          font-size: 1.1em;
+          font-size: 1.05em;
           font-weight: 600;
           color: var(--ion-color-dark);
+        }
+        
+        .lesson-time {
+          font-size: 0.85em;
+          color: var(--ion-color-medium);
+          font-weight: 500;
         }
       }
 
@@ -240,6 +343,14 @@
         color: var(--ion-color-primary);
         flex-shrink: 0;
       }
+      
+      &.cancelled-note {
+        background: rgba(var(--ion-color-danger-rgb), 0.05);
+        
+        ion-icon {
+          color: var(--ion-color-danger);
+        }
+      }
     }
 
     .payment-details {
@@ -295,6 +406,23 @@
               color: var(--ion-color-success);
               font-size: 1.1em;
             }
+            
+            &.cancelled-amount {
+              .amount-value {
+                color: var(--ion-color-danger);
+                
+                .strikethrough {
+                  text-decoration: line-through;
+                  opacity: 0.5;
+                  margin-right: 8px;
+                }
+                
+                .cancelled-label {
+                  font-weight: 700;
+                  color: var(--ion-color-danger);
+                }
+              }
+            }
           }
 
           &.platform-fee {
@@ -322,12 +450,6 @@
           }
         }
       }
-    }
-
-    .nav-icon {
-      font-size: 20px;
-      color: var(--ion-color-medium);
-      margin-left: 12px;
     }
   }
 }
@@ -362,7 +484,7 @@
   }
 
   .total-earnings .total-amount {
-    font-size: 2.5em;
+    font-size: 2em; // Reduced from 2.5em for mobile
   }
 
   .payment-item {
@@ -371,6 +493,22 @@
       align-items: flex-start;
       gap: 12px;
     }
+  }
+}
+
+// Highlight animation for scrolled-to payment
+.highlight-payment {
+  animation: highlightPulse 2s ease-in-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    background: var(--ion-background-color);
+    transform: scale(1);
+  }
+  50% {
+    background: rgba(var(--ion-color-primary-rgb), 0.1);
+    transform: scale(1.02);
   }
 }
 

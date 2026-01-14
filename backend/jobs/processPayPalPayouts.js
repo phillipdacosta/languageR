@@ -125,7 +125,7 @@ async function processPayPalPayouts() {
                 userId: tutor._id,
                 type: 'payment_received',
                 title: '💸 PayPal Payout Sent',
-                message: `Your payout of $${payment.stripePayoutAmount.toFixed(2)} for the lesson on ${lessonDate} has been sent to your PayPal account (${paypalEmail})`,
+                message: `Your payout of <strong>$${payment.stripePayoutAmount.toFixed(2)}</strong> for the lesson on <strong>${lessonDate}</strong> has been sent to your PayPal account (${paypalEmail})`,
                 data: {
                   lessonId: lessonId.toString(),
                   paymentId: payment._id.toString(),

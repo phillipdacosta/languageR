@@ -69,37 +69,49 @@ class WalletService {
    * @param {Object} params.metadata - Additional metadata
    * @returns {Promise<Object>} PaymentIntent client secret and details
    */
-  async initiateTopUp({ userId, amount, paymentMethodId = null, customerId = null, metadata = {} }) {
-    if (amount < 1) {
-      throw new Error('Minimum top-up amount is $1');
+  async initiateTopUp({ userId, walletCredit, totalCharge, stripeFee, paymentMethodId = null, customerId = null, saveCard = false, metadata = {} }) {
+    // Validate wallet credit (what they'll receive)
+    if (walletCredit < 1) {
+      throw new Error('Minimum wallet credit amount is $1');
     }
 
-    if (amount > 500) {
-      throw new Error('Maximum top-up amount is $500');
+    if (walletCredit > 500) {
+      throw new Error('Maximum wallet credit amount is $500');
+    }
+
+    // Validate total charge
+    if (totalCharge <= walletCredit) {
+      throw new Error('Total charge must be greater than wallet credit');
     }
 
     console.log(`💳 [WalletService] initiateTopUp called with:`, {
       userId,
-      amount,
+      walletCredit,
+      totalCharge,
+      stripeFee,
       paymentMethodId,
       customerId,
       hasBothForSavedCard: !!(paymentMethodId && customerId)
     });
 
     // Build PaymentIntent options
+    // Amount to charge is the TOTAL (including exact fee based on card country)
     const paymentIntentOptions = {
-      amount,
+      amount: totalCharge, // Charge the exact total including fee
       currency: 'usd',
       metadata: {
         userId: userId.toString(),
         type: 'wallet_top_up',
+        walletCredit: walletCredit.toString(),
+        expectedStripeFee: stripeFee.toString(),
+        saveCard: saveCard?.toString(), // Include saveCard flag in metadata
         ...metadata
       }
     };
 
     // If using saved payment method, include customer and payment method
     if (paymentMethodId && customerId) {
-      paymentIntentOptions.customer = customerId;
+      paymentIntentOptions.customerId = customerId; // Changed from 'customer' to 'customerId'
       paymentIntentOptions.payment_method = paymentMethodId;
       console.log(`💳 Creating PaymentIntent with saved card for customer ${customerId}`);
     } else if (paymentMethodId && !customerId) {
@@ -107,15 +119,15 @@ class WalletService {
       throw new Error('Cannot use saved payment method without customer ID');
     }
 
-    // Create Stripe PaymentIntent
+    // Create Stripe PaymentIntent for the exact total charge
     const paymentIntent = await stripeService.createPaymentIntent(paymentIntentOptions);
 
-    console.log(`💳 Wallet top-up initiated: $${this.formatAmount(amount)} for user ${userId}`);
+    console.log(`💳 Wallet top-up initiated: Charging $${this.formatAmount(totalCharge)} (Credit: $${this.formatAmount(walletCredit)}, Fee: $${this.formatAmount(stripeFee)}) for user ${userId}`);
 
     return {
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      amount
+      amount: totalCharge // Return total charge amount
     };
   }
 

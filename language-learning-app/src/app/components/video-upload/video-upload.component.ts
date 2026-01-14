@@ -23,6 +23,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Input() videoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
   @Input() enableModalPlayer: boolean = false; // New input to enable modal mode
   @Input() isVideoApproved: boolean = false; // New input to check if tutor's video is approved
+  @Input() hasPendingVideo: boolean = false; // New input to show pending review status
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
   @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
@@ -84,8 +85,18 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       }
     }
     
-    // Check if video is external (YouTube/Vimeo)
-    if (this.videoUrl) {
+    // If thumbnail exists, show it by default
+    if (this.thumbnailUrl) {
+      this.showThumbnailOverlay = true;
+      this.thumbnailPreview = this.thumbnailUrl; // Set preview to match thumbnailUrl (may have been upgraded)
+      this.externalVideoThumbnail = this.thumbnailUrl; // Also set external thumbnail
+      console.log('📹 ✅ Thumbnail provided from parent, using it directly');
+      console.log('📹 thumbnailPreview set to:', this.thumbnailPreview);
+      console.log('📹 externalVideoThumbnail set to:', this.externalVideoThumbnail);
+      console.log('📹 showThumbnailOverlay set to:', this.showThumbnailOverlay);
+    } else if (this.videoUrl) {
+      // Only fetch external thumbnail if no thumbnail was provided
+      console.log('📹 No thumbnail provided, checking if video is external');
       this.autoThumbnailGenerated = this.isExternalVideo(this.videoUrl);
       console.log('📹 Video is external:', this.autoThumbnailGenerated);
       
@@ -93,20 +104,10 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       this.fetchExternalVideoThumbnail();
       
       // If it's an uploaded video without thumbnail, load the first frame
-      if (this.videoType === 'upload' && !this.thumbnailUrl) {
+      if (this.videoType === 'upload') {
         console.log('📹 Will load first frame for uploaded video');
         setTimeout(() => this.loadVideoFirstFrame(), 500);
       }
-    }
-    
-    // If thumbnail exists, show it by default
-    if (this.thumbnailUrl) {
-      this.showThumbnailOverlay = true;
-      this.thumbnailPreview = this.thumbnailUrl; // Set preview to match thumbnailUrl (may have been upgraded)
-      console.log('📹 Thumbnail loaded, showing overlay');
-      console.log('📹 thumbnailPreview set to:', this.thumbnailPreview);
-    } else {
-      console.log('📹 No thumbnail found, will use external thumbnail if available');
     }
   }
 
@@ -304,13 +305,17 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
       return;
     }
 
-    // For YouTube, auto-generate thumbnail
+    // For YouTube, auto-generate thumbnail with fallback
     let thumbnailUrl = '';
     
     if (validation.platform === 'youtube' && validation.videoId) {
-      // Auto-generate YouTube thumbnail
-      thumbnailUrl = `https://img.youtube.com/vi/${validation.videoId}/maxresdefault.jpg`;
+      // Get best available YouTube thumbnail
+      thumbnailUrl = await this.getYouTubeThumbnail(validation.videoId);
       this.autoThumbnailGenerated = true;
+      // Set the thumbnail preview and external thumbnail so it displays
+      this.thumbnailPreview = thumbnailUrl;
+      this.externalVideoThumbnail = thumbnailUrl;
+      console.log('📹 YouTube thumbnail URL:', thumbnailUrl);
     } else if (validation.platform === 'vimeo') {
       // For Vimeo, require custom thumbnail or leave blank
       this.autoThumbnailGenerated = false;
@@ -337,6 +342,16 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.thumbnailUrl = thumbnailUrl;
     this.videoType = validation.platform as any;
     this.showThumbnailOverlay = !!thumbnailUrl; // Show overlay if thumbnail exists
+    
+    console.log('📹 Video link pasted:', {
+      videoUrl: this.videoUrl,
+      thumbnailUrl: this.thumbnailUrl,
+      thumbnailPreview: this.thumbnailPreview,
+      externalVideoThumbnail: this.externalVideoThumbnail,
+      videoType: this.videoType,
+      showThumbnailOverlay: this.showThumbnailOverlay
+    });
+    
     this.videoUploaded.emit({
       url: this.videoUrl,
       thumbnail: thumbnailUrl,
@@ -417,6 +432,43 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     }
     return 'upload';
   }
+
+  /**
+   * Gets the best available YouTube thumbnail with fallback to smaller sizes
+   * YouTube thumbnail sizes in order of quality:
+   * - maxresdefault.jpg (1920x1080) - not always available
+   * - sddefault.jpg (640x480) - standard definition
+   * - hqdefault.jpg (480x360) - high quality
+   * - mqdefault.jpg (320x180) - medium quality
+   * - default.jpg (120x90) - lowest quality
+   */
+  private async getYouTubeThumbnail(videoId: string): Promise<string> {
+    const sizes = [
+      'maxresdefault',  // 1920x1080 - best quality
+      'sddefault',      // 640x480 - good fallback
+      'hqdefault',      // 480x360 - decent quality
+      'mqdefault'       // 320x180 - acceptable
+    ];
+
+    // Try each size in order until one works
+    for (const size of sizes) {
+      const url = `https://img.youtube.com/vi/${videoId}/${size}.jpg`;
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (response.ok) {
+          console.log(`✅ Found YouTube thumbnail: ${size}.jpg`);
+          return url;
+        }
+      } catch (error) {
+        console.log(`❌ ${size}.jpg not available, trying next size...`);
+      }
+    }
+
+    // Last resort: use default.jpg (always exists but low quality)
+    console.log('⚠️ Using lowest quality YouTube thumbnail (default.jpg)');
+    return `https://img.youtube.com/vi/${videoId}/default.jpg`;
+  }
+
 
   // Fetch external video thumbnail (async for Vimeo, sync for YouTube)
   async fetchExternalVideoThumbnail() {
@@ -680,7 +732,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     if (this.isVideoApproved) {
       const alert = await this.alertController.create({
         header: '⚠️ Change Introduction Video',
-        message: 'Your new video will be sent for admin review. Your profile will remain visible to students while the review is in progress.\n\nAre you sure you want to change your video?',
+        message: 'Your new video will be sent for admin review. Your profile will remain visible to students with your previous video while the review is in progress.\n\nAre you sure you want to change your video?',
         buttons: [
           {
             text: 'Cancel',

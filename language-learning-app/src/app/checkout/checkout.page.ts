@@ -93,6 +93,25 @@ export class CheckoutPage implements OnInit {
       const userRes = await firstValueFrom(this.userService.getCurrentUser());
       this.currentUser = userRes;
       
+      // PREVENT TUTORS FROM BOOKING LESSONS
+      if (this.currentUser?.userType === 'tutor') {
+        const alert = await this.alertController.create({
+          header: 'Not Available',
+          message: 'Tutors cannot book lessons. Please switch to a student account to book lessons.',
+          buttons: [{
+            text: 'OK',
+            handler: () => {
+              this.router.navigate(['/tabs/home']);
+            }
+          }]
+        });
+        await alert.present();
+        return;
+      }
+      
+      // Load wallet balance
+      await this.loadWalletBalance();
+      
       // Load saved cards
       await this.loadSavedCards();
       
@@ -100,6 +119,24 @@ export class CheckoutPage implements OnInit {
       await this.checkIfTrialLesson();
     } catch (error) {
       console.error('Error loading checkout data:', error);
+    }
+  }
+
+  private async loadWalletBalance(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/wallet/balance`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.walletBalance = response.availableBalance || 0;
+        console.log('💰 Wallet balance loaded:', this.walletBalance);
+      }
+    } catch (error) {
+      console.error('Error loading wallet balance:', error);
+      this.walletBalance = 0;
     }
   }
 
@@ -368,9 +405,8 @@ export class CheckoutPage implements OnInit {
         if (!bookingPayload.stripePaymentMethodId) {
           throw new Error('No payment method selected. Please select a card.');
         }
-        if (!bookingPayload.stripeCustomerId) {
-          throw new Error('Stripe customer ID missing. Please try refreshing the page.');
-        }
+        // Note: stripeCustomerId will be created by backend if it doesn't exist
+        // We don't throw an error here anymore - let the backend handle it
       }
 
       // Create the lesson with payment authorization
@@ -569,7 +605,17 @@ export class CheckoutPage implements OnInit {
   // Computed properties for template
   get tutorDisplayName(): string {
     if (!this.tutor) return '';
-    return this.tutor.firstName || this.tutor.name?.split(' ')[0] || 'Tutor';
+    
+    // Try to get firstName and lastName
+    const firstName = this.tutor.firstName || this.tutor.name?.split(' ')[0] || 'Tutor';
+    const lastName = this.tutor.lastName || this.tutor.name?.split(' ')[1];
+    
+    // Return "FirstName L." format
+    if (lastName) {
+      return `${firstName} ${lastName.charAt(0)}.`;
+    }
+    
+    return firstName;
   }
 
   get isTrialLesson(): boolean {

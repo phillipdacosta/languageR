@@ -119,6 +119,7 @@
         <div *ngIf="!isLoading && completedLessons.length > 0" class="lessons-list">
           <ion-card
             *ngFor="let lesson of displayedLessons; trackBy: trackByLessonId"
+            [id]="'lesson-' + lesson._id"
             class="lesson-card"
           >
             <ion-card-header>

@@ -228,9 +228,22 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
     if (approved) {
       // If there's a pending video, move it to main video
       if (tutor.onboardingData?.pendingVideo) {
+        console.log('📹 Moving pending video to approved:', {
+          pendingVideo: tutor.onboardingData.pendingVideo,
+          pendingThumbnail: tutor.onboardingData.pendingVideoThumbnail,
+          pendingType: tutor.onboardingData.pendingVideoType
+        });
+        
         tutor.onboardingData.introductionVideo = tutor.onboardingData.pendingVideo;
-        tutor.onboardingData.videoThumbnail = tutor.onboardingData.pendingVideoThumbnail || tutor.onboardingData.videoThumbnail;
-        tutor.onboardingData.videoType = tutor.onboardingData.pendingVideoType || tutor.onboardingData.videoType;
+        // Always use pending thumbnail (even if empty), don't fall back to old thumbnail
+        tutor.onboardingData.videoThumbnail = tutor.onboardingData.pendingVideoThumbnail || '';
+        tutor.onboardingData.videoType = tutor.onboardingData.pendingVideoType || 'upload';
+        
+        console.log('📹 New approved video:', {
+          introductionVideo: tutor.onboardingData.introductionVideo,
+          videoThumbnail: tutor.onboardingData.videoThumbnail,
+          videoType: tutor.onboardingData.videoType
+        });
         
         // Clear pending video fields
         tutor.onboardingData.pendingVideo = null;
@@ -900,6 +913,211 @@ router.post('/sync-payment/:paymentId', verifyToken, requireAdmin, async (req, r
     res.status(500).json({
       success: false,
       message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/platform-revenue
+ * Get comprehensive platform revenue analytics
+ * Query params:
+ * - startDate: ISO date string (default: 30 days ago)
+ * - endDate: ISO date string (default: now)
+ * - groupBy: 'day' | 'week' | 'month' (default: 'day')
+ */
+router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, groupBy = 'day' } = req.query;
+    
+    // Date range (default: last 30 days)
+    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    console.log(`📊 Fetching platform revenue from ${start.toISOString()} to ${end.toISOString()}`);
+    
+    // Get all payments where revenue was recognized
+    const payments = await Payment.find({
+      revenueRecognized: true,
+      revenueRecognizedAt: {
+        $gte: start,
+        $lte: end
+      }
+    })
+    .populate('lessonId', 'subject startTime duration')
+    .populate('studentId', 'name email')
+    .populate('tutorId', 'name email')
+    .sort({ revenueRecognizedAt: 1 });
+    
+    console.log(`💰 Found ${payments.length} payments with recognized revenue`);
+    
+    // Calculate totals
+    let totalGrossRevenue = 0; // Total lesson price
+    let totalPlatformFee = 0; // Platform's 20% cut
+    let totalStripeFees = 0; // Stripe processing fees
+    let totalTutorPayouts = 0; // Amount paid to tutors
+    let totalNetPlatformRevenue = 0; // Platform fee - Stripe fees
+    let totalLessons = 0;
+    
+    const paymentsByMethod = {
+      wallet: { count: 0, total: 0, platformFee: 0 },
+      card: { count: 0, total: 0, platformFee: 0 },
+      apple_pay: { count: 0, total: 0, platformFee: 0 },
+      google_pay: { count: 0, total: 0, platformFee: 0 },
+      'saved-card': { count: 0, total: 0, platformFee: 0 }
+    };
+    
+    const revenueTimeline = [];
+    const paymentDetails = [];
+    
+    payments.forEach(payment => {
+      const grossAmount = payment.amount || 0;
+      const platformFee = payment.platformFee || 0;
+      const stripeFee = payment.stripeFee || 0;
+      const tutorPayout = payment.tutorPayout || 0;
+      const netRevenue = platformFee - stripeFee;
+      
+      totalGrossRevenue += grossAmount;
+      totalPlatformFee += platformFee;
+      totalStripeFees += stripeFee;
+      totalTutorPayouts += tutorPayout;
+      totalNetPlatformRevenue += netRevenue;
+      totalLessons++;
+      
+      // Track by payment method
+      if (paymentsByMethod[payment.paymentMethod]) {
+        paymentsByMethod[payment.paymentMethod].count++;
+        paymentsByMethod[payment.paymentMethod].total += grossAmount;
+        paymentsByMethod[payment.paymentMethod].platformFee += platformFee;
+      }
+      
+      // Timeline data
+      revenueTimeline.push({
+        date: payment.revenueRecognizedAt,
+        grossRevenue: grossAmount,
+        platformFee: platformFee,
+        stripeFee: stripeFee,
+        netRevenue: netRevenue,
+        lessonId: payment.lessonId?._id,
+        subject: payment.lessonId?.subject
+      });
+      
+      // Payment details for export
+      paymentDetails.push({
+        paymentId: payment._id,
+        date: payment.revenueRecognizedAt,
+        studentName: payment.studentId?.name || 'Unknown',
+        studentEmail: payment.studentId?.email,
+        tutorName: payment.tutorId?.name || 'Unknown',
+        tutorEmail: payment.tutorId?.email,
+        subject: payment.lessonId?.subject,
+        lessonDate: payment.lessonId?.startTime,
+        duration: payment.lessonId?.duration,
+        paymentMethod: payment.paymentMethod,
+        grossAmount: grossAmount.toFixed(2),
+        platformFee: platformFee.toFixed(2),
+        platformFeePercent: payment.platformFeePercentage || 20,
+        stripeFee: stripeFee.toFixed(2),
+        netPlatformRevenue: netRevenue.toFixed(2),
+        tutorPayout: tutorPayout.toFixed(2),
+        transferStatus: payment.transferStatus,
+        stripePaymentIntentId: payment.stripePaymentIntentId
+      });
+    });
+    
+    // Group timeline by period if requested
+    let groupedTimeline = revenueTimeline;
+    if (groupBy === 'week' || groupBy === 'month') {
+      const grouped = {};
+      revenueTimeline.forEach(item => {
+        let key;
+        const date = new Date(item.date);
+        
+        if (groupBy === 'week') {
+          // Get week start (Sunday)
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          key = weekStart.toISOString().split('T')[0];
+        } else if (groupBy === 'month') {
+          // Get month start
+          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+        
+        if (!grouped[key]) {
+          grouped[key] = {
+            period: key,
+            grossRevenue: 0,
+            platformFee: 0,
+            stripeFee: 0,
+            netRevenue: 0,
+            lessonCount: 0
+          };
+        }
+        
+        grouped[key].grossRevenue += item.grossRevenue;
+        grouped[key].platformFee += item.platformFee;
+        grouped[key].stripeFee += item.stripeFee;
+        grouped[key].netRevenue += item.netRevenue;
+        grouped[key].lessonCount++;
+      });
+      
+      groupedTimeline = Object.values(grouped);
+    }
+    
+    // Calculate averages
+    const avgLessonPrice = totalLessons > 0 ? totalGrossRevenue / totalLessons : 0;
+    const avgPlatformFeePerLesson = totalLessons > 0 ? totalPlatformFee / totalLessons : 0;
+    const avgNetRevenuePerLesson = totalLessons > 0 ? totalNetPlatformRevenue / totalLessons : 0;
+    
+    // Get pending revenue (lessons completed but payment not yet recognized)
+    // Exclude wallet top-ups and other non-lesson payments
+    const pendingRevenue = await Payment.find({
+      revenueRecognized: false,
+      status: { $in: ['authorized', 'succeeded'] },
+      paymentType: { $in: ['lesson_booking', 'class_booking'] } // Only lesson/class payments
+    });
+    
+    const totalPendingRevenue = pendingRevenue.reduce((sum, p) => sum + (p.platformFee || 0), 0);
+    const totalPendingStripeFees = pendingRevenue.reduce((sum, p) => sum + (p.stripeFee || 0), 0);
+    const totalPendingNetRevenue = totalPendingRevenue - totalPendingStripeFees;
+    
+    res.json({
+      success: true,
+      period: {
+        start: start.toISOString(),
+        end: end.toISOString(),
+        days: Math.ceil((end - start) / (1000 * 60 * 60 * 24))
+      },
+      summary: {
+        totalLessons,
+        totalGrossRevenue: parseFloat(totalGrossRevenue.toFixed(2)),
+        totalPlatformFee: parseFloat(totalPlatformFee.toFixed(2)),
+        totalStripeFees: parseFloat(totalStripeFees.toFixed(2)),
+        totalNetPlatformRevenue: parseFloat(totalNetPlatformRevenue.toFixed(2)),
+        totalTutorPayouts: parseFloat(totalTutorPayouts.toFixed(2)),
+        avgLessonPrice: parseFloat(avgLessonPrice.toFixed(2)),
+        avgPlatformFeePerLesson: parseFloat(avgPlatformFeePerLesson.toFixed(2)),
+        avgNetRevenuePerLesson: parseFloat(avgNetRevenuePerLesson.toFixed(2)),
+        platformFeePercentage: 20, // Current platform fee
+        effectiveFeeAfterStripe: totalGrossRevenue > 0 ? parseFloat(((totalNetPlatformRevenue / totalGrossRevenue) * 100).toFixed(2)) : 0
+      },
+      pending: {
+        pendingLessons: pendingRevenue.length,
+        totalPendingRevenue: parseFloat(totalPendingRevenue.toFixed(2)),
+        totalPendingStripeFees: parseFloat(totalPendingStripeFees.toFixed(2)),
+        totalPendingNetRevenue: parseFloat(totalPendingNetRevenue.toFixed(2))
+      },
+      byPaymentMethod: paymentsByMethod,
+      timeline: groupedTimeline,
+      payments: paymentDetails // Full details for export/analysis
+    });
+    
+  } catch (error) {
+    console.error('❌ Error fetching platform revenue:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch platform revenue',
+      error: error.message
     });
   }
 });
