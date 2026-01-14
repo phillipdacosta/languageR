@@ -2518,28 +2518,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const upcoming = this.lessons
       .filter(l => {
         const start = new Date(l.startTime);
-        // Include scheduled, in_progress, AND cancelled lessons in Up Next
-        return start > now && (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'cancelled');
-      })
-      .sort((a, b) => {
-        // Sort by time first
-        const timeDiff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-        if (timeDiff !== 0) return timeDiff;
+        const end = new Date(l.endTime);
         
-        // If same time, prioritize non-cancelled lessons
-        const statusPriority = (lesson: Lesson) => {
-          if (lesson.status === 'in_progress') return 0;
-          if (lesson.status === 'scheduled') return 1;
-          if (lesson.status === 'cancelled') return 2;
-          return 3;
-        };
-        return statusPriority(a) - statusPriority(b);
-      });
+        // For cancelled lessons: keep them visible until their END time passes
+        if (l.status === 'cancelled') {
+          return end > now;
+        }
+        
+        // For non-cancelled lessons: show if start time hasn't passed yet
+        return start > now && (l.status === 'scheduled' || l.status === 'in_progress');
+      })
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
-    // Return the first non-cancelled lesson if one exists,
-    // otherwise return the first cancelled lesson (so it stays in Up Next)
-    const firstNonCancelled = upcoming.find(l => l.status !== 'cancelled');
-    return firstNonCancelled || (upcoming.length > 0 ? upcoming[0] : null);
+    // Return the first lesson chronologically (whether cancelled or not)
+    // This ensures cancelled lessons stay in Up Next until:
+    // 1. Their end time passes, OR
+    // 2. Another lesson with an earlier start time displaces them
+    return upcoming.length > 0 ? upcoming[0] : null;
   }
 
   // Get formatted info about the next lesson for empty state display
@@ -3388,8 +3383,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     // Filter and sort all lessons for timeline
     return allLessonsForTimeline
       .filter(lesson => {
-        // Exclude if it's in the past
-        if (new Date(lesson.startTime) <= now) return false;
+        const startTime = new Date(lesson.startTime);
+        const endTime = new Date(lesson.endTime);
+        
+        // For cancelled lessons: keep them visible until their END time passes
+        if (lesson.status === 'cancelled') {
+          // Exclude if the lesson's END time has passed
+          if (endTime <= now) return false;
+          // Exclude if it's the next class being shown in the "Up Next" card
+          if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+          return true;
+        }
+        
+        // For non-cancelled lessons:
+        // Exclude if it's in the past (start time passed)
+        if (startTime <= now) return false;
         // Exclude if it's completed (ended early)
         if (lesson.status === 'completed') return false;
         // Exclude if it's the next class being shown in the "Up Next" card
