@@ -2999,8 +2999,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
   get nextLesson(): any | null {
     // Create a hash of the inputs to detect changes
+    // MUST include both lessons and cancelledLessons since getNextLesson() checks both
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `next:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const currentHash = `next:${lessonsHash}:${cancelledHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
