@@ -16,6 +16,7 @@ interface LessonInfo {
   duration: number;
   actualDurationMinutes?: number;
   price?: number; // Changed from lessonCost
+  isTrialLesson?: boolean; // Added for trial lesson detection
   tutor: {
     _id: string;
     name: string;
@@ -291,6 +292,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
     
     return this.tutor.name || 'Tutor';
+  }
+
+  getTutorFirstName(): string {
+    if (!this.tutor) return 'your tutor';
+    return this.tutor.firstName || this.tutor.name?.split(' ')[0] || 'your tutor';
+  }
+
+  isTrialLesson(): boolean {
+    return this.lesson?.isTrialLesson === true;
   }
 
   viewFullAnalysis() {
