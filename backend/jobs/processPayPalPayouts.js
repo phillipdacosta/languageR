@@ -77,6 +77,13 @@ async function processPayPalPayouts() {
             continue;
           }
 
+          // ✅ IDEMPOTENCY CHECK: Skip if PayPal payout already sent
+          if (payment.paypalBatchId && payment.transferStatus === 'succeeded') {
+            console.log(`ℹ️  Payment ${payment._id} already has PayPal payout (Batch: ${payment.paypalBatchId}), skipping`);
+            alreadyProcessed++;
+            continue;
+          }
+
           if (!paypalService.isAvailable()) {
             console.error(`❌ PayPal service not configured`);
             payment.transferStatus = 'failed';

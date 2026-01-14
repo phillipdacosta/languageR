@@ -145,6 +145,12 @@ async function handlePayoutPaid(payout) {
           continue;
         }
 
+        // ✅ IDEMPOTENCY CHECK: Skip if PayPal payout already sent
+        if (payment.paypalBatchId && payment.transferStatus === 'succeeded') {
+          console.log(`ℹ️  [WEBHOOK] Payment ${payment._id} already has PayPal payout (Batch: ${payment.paypalBatchId}), skipping`);
+          continue;
+        }
+
         if (!paypalService.isAvailable()) {
           console.error(`❌ PayPal service not configured`);
           payment.transferStatus = 'failed';

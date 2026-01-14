@@ -1096,9 +1096,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     attemptSetup();
   }
 
+  private remoteUserMonitorInterval: any = null;
+  private joinSoundEnabled: boolean = false; // Prevent sound during initial join
+
   private monitorRemoteUsers() {
+    // Prevent multiple intervals from being created
+    if (this.remoteUserMonitorInterval) {
+      console.log('⚠️ Remote user monitoring already active, skipping duplicate setup');
+      return;
+    }
+    
+    console.log('👀 Starting remote user monitoring...');
+    
+    // Enable join sound after 2 seconds (after initial connection stabilizes)
+    setTimeout(() => {
+      this.joinSoundEnabled = true;
+      console.log('🔔 Join sound notifications enabled');
+    }, 2000);
+    
     // Check for remote users periodically
-    setInterval(() => {
+    this.remoteUserMonitorInterval = setInterval(() => {
       const remoteUsers = this.agoraService.getRemoteUsers();
       const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
@@ -1157,6 +1174,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // When a new remote user joins (count increases), play their video
         if (this.remoteUserCount > previousCount) {
           console.log('🎬 Remote user count increased - new user joined, playing videos...');
+          
+          // Play join sound notification - but ONLY if:
+          // 1. There's actually a remote user (remoteUserCount > 0)
+          // 2. We're past the initial join phase (joinSoundEnabled = true)
+          if (this.remoteUserCount > 0 && this.joinSoundEnabled) {
+            console.log('🔔 [VIDEO-CALL] Playing join sound for new participant (count:', this.remoteUserCount, ')');
+            this.playJoinSound();
+          } else if (!this.joinSoundEnabled) {
+            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (still in initial connection phase)');
+          } else {
+            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (no remote users yet)');
+          }
           
           // For office hours: Start synchronized timer when second participant joins
           if (this.isOfficeHours && previousCount === 0 && this.remoteUserCount === 1) {
@@ -5110,6 +5139,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.timerInterval = null;
     }
     
+    // Stop remote user monitoring
+    if (this.remoteUserMonitorInterval) {
+      clearInterval(this.remoteUserMonitorInterval);
+      this.remoteUserMonitorInterval = null;
+    }
+    
     // Clean up drawing batch timeout
     if (this.batchInterval) {
       clearTimeout(this.batchInterval);
@@ -6410,6 +6445,32 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await toast.present();
     } catch (error) {
       console.error('❌ Error showing tutor note toast:', error);
+    }
+  }
+
+  /**
+   * Play a notification sound when a participant joins the call
+   */
+  private playJoinSound(): void {
+    console.log('🔔 [VIDEO-CALL] Attempting to play join notification sound...');
+    try {
+      const audio = new Audio('assets/participant-entry-tone.wav');
+      audio.volume = 0.6; // 60% volume
+      
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ [VIDEO-CALL] Successfully played join notification sound!');
+          })
+          .catch(err => {
+            console.error('❌ [VIDEO-CALL] Failed to play sound:', err);
+            console.error('❌ [VIDEO-CALL] Error details:', err.message);
+          });
+      }
+    } catch (error) {
+      console.error('❌ [VIDEO-CALL] Exception creating/playing audio:', error);
     }
   }
 }
