@@ -33,6 +33,9 @@ export class AgoraService {
   private processor: any = null;
   private virtualBackgroundEnabled = false;
   
+  // Track which users we've played join sound for (to prevent duplicates)
+  private joinSoundsPlayed = new Set<number>();
+  
   // Virtual background state preservation
   private virtualBackgroundState: {
     enabled: boolean;
@@ -559,8 +562,12 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
-          // Play join sound when someone's video appears
-          this.playJoinSound();
+          // Play join sound when someone's video appears (but only once per user)
+          if (!this.joinSoundsPlayed.has(user.uid)) {
+            this.playJoinSound();
+            this.joinSoundsPlayed.add(user.uid);
+            console.log('🔔 Join sound triggered for user:', user.uid);
+          }
           
           // Default to ON, will be quickly corrected via messaging if camera is OFF
           this.remoteUsers.set(user.uid, { 
@@ -577,6 +584,14 @@ export class AgoraService {
         }
         
         if (mediaType === "audio") {
+          // Play join sound when someone's audio appears (but only once per user)
+          // Audio usually publishes before video, so this catches early joins
+          if (!this.joinSoundsPlayed.has(user.uid)) {
+            this.playJoinSound();
+            this.joinSoundsPlayed.add(user.uid);
+            console.log('🔔 Join sound triggered for user:', user.uid);
+          }
+          
           // Default to unmuted, will be quickly corrected via messaging if mic is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
@@ -1124,6 +1139,10 @@ export class AgoraService {
     if (!this.client) return;
 
     try {
+      // Clear join sounds tracking
+      this.joinSoundsPlayed.clear();
+      console.log('🔕 Cleared join sounds tracking');
+      
       // Notify backend we left the lesson (for rejoin tracking)
       try {
         if (this.currentLessonId) {
@@ -1929,15 +1948,22 @@ export class AgoraService {
    * Play a notification sound when a participant joins the call
    */
   private playJoinSound(): void {
+    console.log('🔔 [JOIN-SOUND] Attempting to play join notification sound...');
     try {
       const audio = new Audio('assets/participant-entry-tone.wav');
       audio.volume = 0.5; // 50% volume so it's not too loud
-      audio.play().catch(err => {
-        console.log('⚠️ Could not play join sound (user interaction may be required):', err);
-      });
-      console.log('🔔 Playing participant join notification sound');
+      
+      audio.play()
+        .then(() => {
+          console.log('✅ [JOIN-SOUND] Successfully played join notification sound');
+        })
+        .catch(err => {
+          console.warn('⚠️ [JOIN-SOUND] Could not play sound (browser may require user interaction first):', err);
+          console.warn('⚠️ [JOIN-SOUND] Error name:', err.name);
+          console.warn('⚠️ [JOIN-SOUND] Error message:', err.message);
+        });
     } catch (error) {
-      console.error('❌ Error playing join sound:', error);
+      console.error('❌ [JOIN-SOUND] Error creating audio:', error);
     }
   }
 }
