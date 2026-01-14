@@ -2718,7 +2718,7 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     lesson.status = 'cancelled';
     lesson.cancelledAt = new Date();
     lesson.cancelReason = isTutor ? 'tutor_cancelled' : 'student_cancelled';
-    lesson.cancelledBy = user._id;
+    lesson.cancelledBy = isTutor ? 'tutor' : 'student';
     await lesson.save();
     
     // Release reserved funds if payment was made with wallet

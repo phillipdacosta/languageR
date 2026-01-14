@@ -2518,11 +2518,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const upcoming = this.lessons
       .filter(l => {
         const start = new Date(l.startTime);
-        return start > now && (l.status === 'scheduled' || l.status === 'in_progress');
+        // Include scheduled, in_progress, AND cancelled lessons in Up Next
+        return start > now && (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'cancelled');
       })
-      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+      .sort((a, b) => {
+        // Sort by time first
+        const timeDiff = new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+        if (timeDiff !== 0) return timeDiff;
+        
+        // If same time, prioritize non-cancelled lessons
+        const statusPriority = (lesson: Lesson) => {
+          if (lesson.status === 'in_progress') return 0;
+          if (lesson.status === 'scheduled') return 1;
+          if (lesson.status === 'cancelled') return 2;
+          return 3;
+        };
+        return statusPriority(a) - statusPriority(b);
+      });
     
-    return upcoming.length > 0 ? upcoming[0] : null;
+    // Return the first non-cancelled lesson if one exists,
+    // otherwise return the first cancelled lesson (so it stays in Up Next)
+    const firstNonCancelled = upcoming.find(l => l.status !== 'cancelled');
+    return firstNonCancelled || (upcoming.length > 0 ? upcoming[0] : null);
   }
 
   // Get formatted info about the next lesson for empty state display
