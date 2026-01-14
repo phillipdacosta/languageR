@@ -181,7 +181,8 @@
         <h2 class="availability-title">Book Your Next Lesson with {{ getTutorFirstName() }}</h2>
         <app-tutor-availability-viewer
           [tutorId]="tutor._id"
-          [showBookingButton]="true">
+          [tutorName]="getTutorDisplayName()"
+          [inline]="true">
         </app-tutor-availability-viewer>
       </div>
 
