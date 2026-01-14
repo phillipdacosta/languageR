@@ -2524,9 +2524,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const start = new Date(l.startTime);
         const end = new Date(l.endTime);
         
-        // For cancelled lessons: keep them visible until their END time passes
+        // For cancelled lessons: only show if START time hasn't passed yet
+        // Once a cancelled lesson's start time passes, it should disappear from Up Next
         if (l.status === 'cancelled') {
-          return end > now;
+          return start > now;
         }
         
         // For non-cancelled lessons: show if start time hasn't passed yet
@@ -2535,9 +2536,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
     // Return the first lesson chronologically (whether cancelled or not)
-    // This ensures cancelled lessons stay in Up Next until:
-    // 1. Their end time passes, OR
-    // 2. Another lesson with an earlier start time displaces them
     return upcoming.length > 0 ? upcoming[0] : null;
   }
 
@@ -3392,10 +3390,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const startTime = new Date(lesson.startTime);
         const endTime = new Date(lesson.endTime);
         
-        // For cancelled lessons: keep them visible until their END time passes
+        // For cancelled lessons: only show if START time hasn't passed yet
+        // Once start time passes, cancelled lessons should disappear completely
         if (lesson.status === 'cancelled') {
-          // Exclude if the lesson's END time has passed
-          if (endTime <= now) return false;
+          // Exclude if the lesson's START time has passed
+          if (startTime <= now) return false;
           // Exclude if it's the next class being shown in the "Up Next" card
           if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
           return true;

@@ -559,6 +559,9 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
+          // Play join sound when someone's video appears
+          this.playJoinSound();
+          
           // Default to ON, will be quickly corrected via messaging if camera is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
@@ -1920,5 +1923,21 @@ export class AgoraService {
     });
 
     console.log('📊 Adaptive quality monitoring enabled');
+  }
+
+  /**
+   * Play a notification sound when a participant joins the call
+   */
+  private playJoinSound(): void {
+    try {
+      const audio = new Audio('assets/participant-entry-tone.wav');
+      audio.volume = 0.5; // 50% volume so it's not too loud
+      audio.play().catch(err => {
+        console.log('⚠️ Could not play join sound (user interaction may be required):', err);
+      });
+      console.log('🔔 Playing participant join notification sound');
+    } catch (error) {
+      console.error('❌ Error playing join sound:', error);
+    }
   }
 }
