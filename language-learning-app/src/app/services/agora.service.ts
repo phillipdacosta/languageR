@@ -36,6 +36,9 @@ export class AgoraService {
   // Track which users we've played join sound for (to prevent duplicates)
   private joinSoundsPlayed = new Set<string | number>();
   
+  // Preload join sound audio
+  private joinSoundAudio: HTMLAudioElement | null = null;
+  
   // Virtual background state preservation
   private virtualBackgroundState: {
     enabled: boolean;
@@ -562,11 +565,15 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
+          console.log("📹 [VIDEO] User published video:", user.uid);
+          
           // Play join sound when someone's video appears (but only once per user)
           if (!this.joinSoundsPlayed.has(user.uid)) {
+            console.log('🔔 [VIDEO] First media from user', user.uid, '- triggering join sound');
             this.playJoinSound();
             this.joinSoundsPlayed.add(user.uid);
-            console.log('🔔 Join sound triggered for user:', user.uid);
+          } else {
+            console.log('ℹ️ [VIDEO] User', user.uid, 'already had join sound played (skipping)');
           }
           
           // Default to ON, will be quickly corrected via messaging if camera is OFF
@@ -584,12 +591,16 @@ export class AgoraService {
         }
         
         if (mediaType === "audio") {
+          console.log("🔊 [AUDIO] User published audio:", user.uid);
+          
           // Play join sound when someone's audio appears (but only once per user)
           // Audio usually publishes before video, so this catches early joins
           if (!this.joinSoundsPlayed.has(user.uid)) {
+            console.log('🔔 [AUDIO] First media from user', user.uid, '- triggering join sound');
             this.playJoinSound();
             this.joinSoundsPlayed.add(user.uid);
-            console.log('🔔 Join sound triggered for user:', user.uid);
+          } else {
+            console.log('ℹ️ [AUDIO] User', user.uid, 'already had join sound played (skipping)');
           }
           
           // Default to unmuted, will be quickly corrected via messaging if mic is OFF
@@ -746,6 +757,9 @@ export class AgoraService {
       // Join the RTC channel
       await this.client.join(this.APP_ID, channelName, token, uid || this.UID);
       console.log("Successfully joined RTC channel:", channelName);
+      
+      // Preload join sound audio after joining (ensures user has interacted)
+      this.preloadJoinSound();
       
       // Publish local tracks
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
@@ -1945,25 +1959,67 @@ export class AgoraService {
   }
 
   /**
+   * Preload join sound audio to ensure it plays without delay
+   */
+  private preloadJoinSound(): void {
+    console.log('🔊 [JOIN-SOUND] Preloading join notification sound...');
+    try {
+      this.joinSoundAudio = new Audio('assets/participant-entry-tone.wav');
+      this.joinSoundAudio.volume = 0.6; // 60% volume
+      this.joinSoundAudio.load(); // Preload the audio
+      
+      // Test play (muted) to unlock audio on iOS/Safari
+      const testPlay = this.joinSoundAudio.cloneNode() as HTMLAudioElement;
+      testPlay.volume = 0;
+      testPlay.play().then(() => {
+        console.log('✅ [JOIN-SOUND] Audio unlocked and preloaded successfully');
+      }).catch(err => {
+        console.warn('⚠️ [JOIN-SOUND] Could not unlock audio (may require user interaction):', err);
+      });
+    } catch (error) {
+      console.error('❌ [JOIN-SOUND] Error preloading audio:', error);
+    }
+  }
+
+  /**
    * Play a notification sound when a participant joins the call
    */
   private playJoinSound(): void {
     console.log('🔔 [JOIN-SOUND] Attempting to play join notification sound...');
+    console.log('🔔 [JOIN-SOUND] Audio preloaded?', !!this.joinSoundAudio);
+    
     try {
-      const audio = new Audio('assets/participant-entry-tone.wav');
-      audio.volume = 0.5; // 50% volume so it's not too loud
+      // Use preloaded audio if available, otherwise create new
+      const audio = this.joinSoundAudio ? this.joinSoundAudio.cloneNode() as HTMLAudioElement : new Audio('assets/participant-entry-tone.wav');
+      audio.volume = 0.6; // 60% volume
       
-      audio.play()
-        .then(() => {
-          console.log('✅ [JOIN-SOUND] Successfully played join notification sound');
-        })
-        .catch(err => {
-          console.warn('⚠️ [JOIN-SOUND] Could not play sound (browser may require user interaction first):', err);
-          console.warn('⚠️ [JOIN-SOUND] Error name:', err.name);
-          console.warn('⚠️ [JOIN-SOUND] Error message:', err.message);
-        });
+      console.log('🔔 [JOIN-SOUND] Audio object created, attempting to play...');
+      
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ [JOIN-SOUND] Successfully played join notification sound!');
+          })
+          .catch(err => {
+            console.error('❌ [JOIN-SOUND] Failed to play sound:', err);
+            console.error('❌ [JOIN-SOUND] Error name:', err.name);
+            console.error('❌ [JOIN-SOUND] Error message:', err.message);
+            
+            // Try alternative: create fresh audio and play
+            console.log('🔄 [JOIN-SOUND] Attempting alternative playback method...');
+            try {
+              const freshAudio = new Audio('assets/participant-entry-tone.wav');
+              freshAudio.volume = 0.6;
+              freshAudio.play().catch(e => console.error('❌ [JOIN-SOUND] Alternative method also failed:', e));
+            } catch (e) {
+              console.error('❌ [JOIN-SOUND] Alternative method exception:', e);
+            }
+          });
+      }
     } catch (error) {
-      console.error('❌ [JOIN-SOUND] Error creating audio:', error);
+      console.error('❌ [JOIN-SOUND] Exception creating/playing audio:', error);
     }
   }
 }
