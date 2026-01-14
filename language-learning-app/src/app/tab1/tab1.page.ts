@@ -2515,7 +2515,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Helper method to get the next upcoming lesson across all dates
   getNextLesson(): Lesson | null {
     const now = new Date();
-    const upcoming = this.lessons
+    
+    // Combine both lessons and cancelledLessons arrays
+    const allLessons = [...this.lessons, ...this.cancelledLessons];
+    
+    const upcoming = allLessons
       .filter(l => {
         const start = new Date(l.startTime);
         const end = new Date(l.endTime);
