@@ -34,7 +34,7 @@ export class AgoraService {
   private virtualBackgroundEnabled = false;
   
   // Track which users we've played join sound for (to prevent duplicates)
-  private joinSoundsPlayed = new Set<number>();
+  private joinSoundsPlayed = new Set<string | number>();
   
   // Virtual background state preservation
   private virtualBackgroundState: {
