@@ -927,15 +927,23 @@ router.post('/sync-payment/:paymentId', verifyToken, requireAdmin, async (req, r
  */
 router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const { startDate, endDate, groupBy = 'day' } = req.query;
+    const { 
+      startDate, 
+      endDate, 
+      groupBy = 'day',
+      page = 1,        // NEW: pagination
+      limit = 50       // NEW: default 50 payments per page
+    } = req.query;
     
     // Date range (default: last 30 days)
     const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate ? new Date(endDate) : new Date();
     
     console.log(`📊 Fetching platform revenue from ${start.toISOString()} to ${end.toISOString()}`);
+    console.log(`📄 Pagination: page ${page}, limit ${limit}`);
     
     // Get all payments where revenue was recognized
+    // UPDATED: Sort by most recent first (revenueRecognizedAt DESC)
     const payments = await Payment.find({
       revenueRecognized: true,
       revenueRecognizedAt: {
@@ -946,7 +954,7 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
     .populate('lessonId', 'subject startTime duration')
     .populate('studentId', 'name email')
     .populate('tutorId', 'name email')
-    .sort({ revenueRecognizedAt: 1 });
+    .sort({ revenueRecognizedAt: -1 });  // ✅ MOST RECENT FIRST
     
     console.log(`💰 Found ${payments.length} payments with recognized revenue`);
     
@@ -1023,6 +1031,17 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         stripePaymentIntentId: payment.stripePaymentIntentId
       });
     });
+    
+    // NEW: Paginate payment details
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const endIndex = pageNum * limitNum;
+    const paginatedPayments = paymentDetails.slice(startIndex, endIndex);
+    const totalPages = Math.ceil(paymentDetails.length / limitNum);
+    const hasMore = endIndex < paymentDetails.length;
+    
+    console.log(`📄 Returning ${paginatedPayments.length} payments (page ${pageNum}/${totalPages})`);
     
     // Group timeline by period if requested
     let groupedTimeline = revenueTimeline;
@@ -1109,7 +1128,14 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       },
       byPaymentMethod: paymentsByMethod,
       timeline: groupedTimeline,
-      payments: paymentDetails // Full details for export/analysis
+      payments: paginatedPayments, // ✅ PAGINATED PAYMENTS
+      pagination: {  // ✅ NEW: Pagination metadata
+        currentPage: pageNum,
+        totalPages,
+        totalPayments: paymentDetails.length,
+        paymentsPerPage: limitNum,
+        hasMore
+      }
     });
     
   } catch (error) {

@@ -47,6 +47,41 @@ ion-content {
   }
 }
 
+// NEW: Custom Date Picker
+.custom-date-picker {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.date-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  ion-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  ion-input {
+    --background: #f5f5f7;
+    --border-radius: 8px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    font-size: 14px;
+  }
+}
+
 // Summary Grid
 .summary-grid {
   display: grid;
@@ -303,6 +338,15 @@ ion-content {
     font-size: 18px;
     font-weight: 600;
     color: #000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .payment-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: #666;
+    }
   }
 }
 
@@ -366,6 +410,67 @@ ion-content {
   }
 }
 
+// NEW: Loading More Indicator
+.loading-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 12px;
+
+  ion-spinner {
+    --color: #0064ff;
+  }
+
+  p {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+  }
+}
+
+// NEW: Load More Section
+.load-more-section {
+  padding: 16px 0;
+
+  ion-button {
+    --border-radius: 12px;
+    --border-width: 1.5px;
+    --border-color: #0064ff;
+    --color: #0064ff;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    font-weight: 500;
+
+    .load-more-count {
+      margin-left: 4px;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+  }
+}
+
+// NEW: All Loaded Message
+.all-loaded {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: #34c759;
+  font-size: 14px;
+  font-weight: 500;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
 // Mobile Responsiveness
 @media (max-width: 768px) {
   .summary-grid {
@@ -390,5 +495,6 @@ ion-content {
     }
   }
 }
+
 
 

@@ -47,6 +47,13 @@ interface PlatformRevenue {
     netRevenue: number;
   }>;
   payments: Array<any>;
+  pagination?: {  // NEW: Pagination metadata
+    currentPage: number;
+    totalPages: number;
+    totalPayments: number;
+    paymentsPerPage: number;
+    hasMore: boolean;
+  };
 }
 
 @Component({
@@ -58,11 +65,14 @@ interface PlatformRevenue {
 })
 export class AdminPage implements OnInit {
   loading = true;
+  loadingMore = false;  // NEW: Loading state for pagination
   error: string | null = null;
   revenueData: PlatformRevenue | null = null;
+  allPayments: Array<any> = [];  // NEW: Accumulated payments for infinite scroll
+  currentPage = 1;  // NEW: Current page number
   
   // Date range filters
-  dateRange: 'week' | 'month' | 'quarter' | 'year' | 'all' = 'month';
+  dateRange: 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom' = 'month';  // Added 'custom'
   customStartDate: string = '';
   customEndDate: string = '';
   
@@ -75,14 +85,24 @@ export class AdminPage implements OnInit {
     await this.loadRevenueData();
   }
 
-  async loadRevenueData() {
-    this.loading = true;
+  async loadRevenueData(resetPage = true) {
+    if (resetPage) {
+      this.loading = true;
+      this.currentPage = 1;
+      this.allPayments = [];
+    } else {
+      this.loadingMore = true;
+    }
+    
     this.error = null;
 
     try {
       const { startDate, endDate } = this.getDateRange();
       
-      const params: any = {};
+      const params: any = {
+        page: this.currentPage.toString(),
+        limit: '50'
+      };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       
@@ -98,49 +118,101 @@ export class AdminPage implements OnInit {
       );
 
       if (response.success) {
-        this.revenueData = response;
-        console.log('✅ Revenue data loaded:', this.revenueData);
+        if (resetPage) {
+          // First page load - replace all data
+          this.revenueData = response;
+          this.allPayments = response.payments || [];
+        } else {
+          // Load more - append payments
+          this.allPayments = [...this.allPayments, ...(response.payments || [])];
+          if (this.revenueData) {
+            this.revenueData.payments = this.allPayments;
+            this.revenueData.pagination = response.pagination;
+          }
+        }
+        console.log(`✅ Revenue data loaded: ${this.allPayments.length} total payments`);
       }
     } catch (error: any) {
       console.error('❌ Error loading revenue data:', error);
       this.error = error.error?.message || 'Failed to load revenue data. Make sure you have admin access.';
     } finally {
       this.loading = false;
+      this.loadingMore = false;
     }
+  }
+
+  // NEW: Load more payments (infinite scroll)
+  async loadMore(event?: any) {
+    if (!this.revenueData?.pagination?.hasMore || this.loadingMore) {
+      event?.target?.complete();
+      return;
+    }
+
+    this.currentPage++;
+    await this.loadRevenueData(false);
+    event?.target?.complete();
   }
 
   getDateRange(): { startDate?: string; endDate?: string } {
     const now = new Date();
     let startDate: Date | undefined;
+    let endDate: Date = now;
     
-    switch (this.dateRange) {
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'month':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case 'quarter':
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case 'year':
-        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-        break;
-      case 'all':
-        return {};
-      default:
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // NEW: Handle custom date range
+    if (this.dateRange === 'custom') {
+      if (this.customStartDate && this.customEndDate) {
+        // Parse the date strings and set to start/end of day in local time
+        const start = new Date(this.customStartDate + 'T00:00:00');
+        const end = new Date(this.customEndDate + 'T23:59:59');
+        
+        return {
+          startDate: start.toISOString(),
+          endDate: end.toISOString()
+        };
+      }
+      // If custom is selected but dates not set, default to month
+      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    } else {
+      switch (this.dateRange) {
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'quarter':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case 'year':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        case 'all':
+          return {};
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
     }
     
     return {
       startDate: startDate?.toISOString(),
-      endDate: now.toISOString()
+      endDate: endDate.toISOString()
     };
   }
 
-  async changeDateRange(range: 'week' | 'month' | 'quarter' | 'year' | 'all') {
+  async changeDateRange(range: 'week' | 'month' | 'quarter' | 'year' | 'all' | 'custom') {
     this.dateRange = range;
-    await this.loadRevenueData();
+    if (range !== 'custom') {
+      // For non-custom ranges, reload immediately
+      await this.loadRevenueData();
+    }
+    // For custom, wait for user to set dates
+  }
+
+  // NEW: Apply custom date range
+  async applyCustomDateRange() {
+    if (this.customStartDate && this.customEndDate) {
+      await this.loadRevenueData();
+    }
   }
 
   formatCurrency(amount: number): string {
@@ -194,5 +266,6 @@ export class AdminPage implements OnInit {
     window.URL.revokeObjectURL(url);
   }
 }
+
 
 

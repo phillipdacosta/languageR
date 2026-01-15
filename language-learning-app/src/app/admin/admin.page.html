@@ -52,7 +52,34 @@
         <ion-segment-button value="all">
           <ion-label>All Time</ion-label>
         </ion-segment-button>
+        <ion-segment-button value="custom">
+          <ion-label>Custom</ion-label>
+        </ion-segment-button>
       </ion-segment>
+
+      <!-- Custom Date Range Picker -->
+      <div class="custom-date-picker" *ngIf="dateRange === 'custom'">
+        <div class="date-inputs">
+          <div class="date-input-group">
+            <ion-label>Start Date</ion-label>
+            <ion-input
+              type="date"
+              [(ngModel)]="customStartDate"
+              (ionChange)="applyCustomDateRange()"
+              fill="outline">
+            </ion-input>
+          </div>
+          <div class="date-input-group">
+            <ion-label>End Date</ion-label>
+            <ion-input
+              type="date"
+              [(ngModel)]="customEndDate"
+              (ionChange)="applyCustomDateRange()"
+              fill="outline">
+            </ion-input>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Summary Cards -->
@@ -183,7 +210,12 @@
 
     <!-- Recent Payments -->
     <div class="recent-payments-section">
-      <h3>Recent Payments (Last 20)</h3>
+      <h3>
+        Recent Payments
+        <span class="payment-count" *ngIf="revenueData?.pagination">
+          ({{ allPayments.length }} of {{ revenueData.pagination?.totalPayments }})
+        </span>
+      </h3>
       <div class="payments-table-wrapper">
         <table class="payments-table">
           <thead>
@@ -200,8 +232,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let payment of revenueData.payments.slice(0, 20)">
-              <td>{{ payment.date | date:'MMM d' }}</td>
+            <tr *ngFor="let payment of allPayments">
+              <td>{{ payment.date | date:'MMM d, h:mm a' }}</td>
               <td>{{ payment.studentName }}</td>
               <td>{{ payment.tutorName }}</td>
               <td>{{ payment.subject || 'N/A' }}</td>
@@ -213,10 +245,34 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Loading More Indicator -->
+        <div class="loading-more" *ngIf="loadingMore">
+          <ion-spinner name="dots"></ion-spinner>
+          <p>Loading more payments...</p>
+        </div>
+
+        <!-- Load More Button -->
+        <div class="load-more-section" *ngIf="revenueData?.pagination?.hasMore && !loadingMore">
+          <ion-button expand="block" fill="outline" (click)="loadMore()">
+            <ion-icon name="chevron-down" slot="start"></ion-icon>
+            Load More
+            <span class="load-more-count">
+              ({{ (revenueData.pagination?.totalPayments || 0) - allPayments.length }} remaining)
+            </span>
+          </ion-button>
+        </div>
+
+        <!-- No More Payments Message -->
+        <div class="all-loaded" *ngIf="!revenueData?.pagination?.hasMore && allPayments.length > 0">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          <p>All payments loaded</p>
+        </div>
       </div>
     </div>
 
   </div>
 </ion-content>
+
 
 
