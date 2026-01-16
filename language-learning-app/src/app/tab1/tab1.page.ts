@@ -2406,6 +2406,45 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ [Smart Island] Error details:', error.message, error.stack);
       // Don't show error to user - just silently fail
     }
+    
+    // Load additional card types (independent of analyses API)
+    this.loadAdditionalDynamicCards();
+  }
+  
+  // Load additional dynamic cards (tutors online, recommendations, tips, etc.)
+  private loadAdditionalDynamicCards() {
+    // TODO: Add tutors online card when WebSocket support is available
+    // For now, we can simulate or fetch from a separate endpoint
+    
+    // Add personalized tips based on user behavior
+    const tips = [
+      {
+        tip: 'Students who practice in the morning retain 30% more vocabulary',
+        ctaText: 'Browse Times',
+        ctaAction: '/tabs/tutor-search'
+      },
+      {
+        tip: 'Try 25-minute lessons for better focus and retention',
+        ctaText: 'Find Tutors',
+        ctaAction: '/tabs/tutor-search'
+      },
+      {
+        tip: 'Review your lesson notes within 24 hours to boost memory',
+        ctaText: 'View Progress',
+        ctaAction: '/tabs/progress'
+      }
+    ];
+    
+    // Randomly select a tip
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+    this.smartIslandService.addTipCard(randomTip.tip, randomTip.ctaText, randomTip.ctaAction);
+    
+    // Add new feature card (example - can be enabled when new features launch)
+    // this.smartIslandService.addNewFeatureCard(
+    //   'Pronunciation Coach',
+    //   'Get real-time feedback on your pronunciation',
+    //   '/tabs/progress'
+    // );
   }
   
   // Handle dynamic card click

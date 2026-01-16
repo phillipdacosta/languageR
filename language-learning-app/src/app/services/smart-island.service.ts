@@ -16,6 +16,8 @@ export interface DynamicCard {
   ctaText: string;
   ctaAction: string;
   data?: any;
+  avatars?: string[]; // For tutors online (stacked avatars)
+  avatarUrl?: string; // For single tutor/person
 }
 
 @Injectable({
@@ -268,6 +270,70 @@ export class SmartIslandService {
       ctaText: 'View Progress',
       ctaAction: '/tabs/progress',
       data: { achievementName, description }
+    });
+  }
+
+  /**
+   * Add a tutors online card (shows stacked avatars)
+   */
+  public addTutorsOnlineCard(tutorCount: number, tutorAvatars: string[]) {
+    if (tutorCount < 2) {
+      this.removeCard('tutors_online');
+      return;
+    }
+    
+    this.updateOrAddCard({
+      type: 'tutors_online',
+      priority: 'high',
+      icon: 'people',
+      iconColor: '#3b82f6',
+      title: 'Tutors Online Now',
+      subtitle: `${tutorCount} tutors are online now`,
+      ctaText: 'Find Tutors',
+      ctaAction: '/tabs/tutor-search',
+      avatars: tutorAvatars.slice(0, 5), // Max 5 avatars
+      data: { tutorCount }
+    });
+  }
+
+  /**
+   * Add a tutor recommendation card
+   */
+  public addTutorRecommendationCard(
+    tutorId: string, 
+    tutorName: string, 
+    tutorPicture: string, 
+    rating: number, 
+    subject: string
+  ) {
+    this.updateOrAddCard({
+      type: 'tutor_recommendation',
+      priority: 'medium',
+      icon: 'person',
+      iconColor: '#8b5cf6',
+      title: `Meet ${tutorName}`,
+      subtitle: `${subject} tutor • ${rating}% rating`,
+      ctaText: 'View Profile',
+      ctaAction: `/tutor-profile/${tutorId}`,
+      avatarUrl: tutorPicture,
+      data: { tutorId, tutorName, tutorPicture, rating, subject }
+    });
+  }
+
+  /**
+   * Add a new feature card
+   */
+  public addNewFeatureCard(featureName: string, description: string, ctaAction: string) {
+    this.updateOrAddCard({
+      type: 'new_feature',
+      priority: 'medium',
+      icon: 'sparkles',
+      iconColor: '#f59e0b',
+      title: `New: ${featureName}`,
+      subtitle: description,
+      ctaText: 'Try Now',
+      ctaAction,
+      data: { featureName, description }
     });
   }
 
