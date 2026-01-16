@@ -343,6 +343,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     this.smartIslandService.currentCard$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(card => {
+      console.log('🎴 [TAB1] Dynamic card updated:', card);
       this.dynamicCard = card;
       this.cdr.detectChanges();
     });
@@ -2216,11 +2217,47 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         })
       );
       
-      if (response.success && response.analyses) {
-        const analyses = response.analyses;
+      if (response.success) {
+        const analyses = response.analyses || [];
         const lessonCount = analyses.length;
         
-        // Calculate streak
+        console.log('🎮 [Smart Island] Loaded analyses:', lessonCount);
+        
+        // ALWAYS add the next badge card (even if 0 lessons)
+        const lessonMilestones = [
+          { count: 5, name: 'Getting Started', icon: 'rocket', color: '#3b82f6', desc: 'Complete 5 lessons' },
+          { count: 10, name: 'Committed Learner', icon: 'school', color: '#8b5cf6', desc: 'Complete 10 lessons' },
+          { count: 25, name: 'Dedicated Student', icon: 'book', color: '#06b6d4', desc: 'Complete 25 lessons' },
+          { count: 50, name: 'Rising Star', icon: 'star', color: '#f59e0b', desc: 'Complete 50 lessons' },
+          { count: 100, name: 'Language Master', icon: 'trophy', color: '#fbbf24', desc: 'Complete 100 lessons' }
+        ];
+        
+        for (const milestone of lessonMilestones) {
+          if (lessonCount < milestone.count) {
+            this.smartIslandService.addGamificationCard('next_badge', {
+              name: milestone.name,
+              description: milestone.desc,
+              icon: milestone.icon,
+              color: milestone.color,
+              current: lessonCount,
+              target: milestone.count
+            });
+            console.log('🎯 [Smart Island] Added next badge card:', milestone.name, `(${lessonCount}/${milestone.count})`);
+            break;
+          }
+        }
+        
+        // If brand new student (0 lessons), add a welcome tip
+        if (lessonCount === 0) {
+          this.smartIslandService.addTipCard(
+            'Start your journey! Book your first lesson to unlock detailed progress tracking and achievements.',
+            'Find Tutors',
+            '/tabs/tutor-search'
+          );
+          console.log('👋 [Smart Island] Added welcome tip for new student');
+        }
+        
+        // Calculate streak (only if lessons exist)
         let streak = 0;
         if (analyses.length > 0) {
           const sortedAnalyses = [...analyses].sort((a: any, b: any) => 
@@ -2260,32 +2297,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         
         if (streak >= 3) {
           this.smartIslandService.addStreakCard(streak, isStreakAtRisk);
+          console.log('🔥 [Smart Island] Added streak card:', streak, 'days, at risk:', isStreakAtRisk);
         }
         
-        // Calculate next badge milestone
-        const lessonMilestones = [
-          { count: 5, name: 'Getting Started', icon: 'rocket', color: '#3b82f6', desc: 'Complete 5 lessons' },
-          { count: 10, name: 'Committed Learner', icon: 'school', color: '#8b5cf6', desc: 'Complete 10 lessons' },
-          { count: 25, name: 'Dedicated Student', icon: 'book', color: '#06b6d4', desc: 'Complete 25 lessons' },
-          { count: 50, name: 'Rising Star', icon: 'star', color: '#f59e0b', desc: 'Complete 50 lessons' },
-          { count: 100, name: 'Language Master', icon: 'trophy', color: '#fbbf24', desc: 'Complete 100 lessons' }
-        ];
-        
-        for (const milestone of lessonMilestones) {
-          if (lessonCount < milestone.count) {
-            this.smartIslandService.addGamificationCard('next_badge', {
-              name: milestone.name,
-              description: milestone.desc,
-              icon: milestone.icon,
-              color: milestone.color,
-              current: lessonCount,
-              target: milestone.count
-            });
-            break;
-          }
-        }
-        
-        // Calculate highest level and next level
+        // Calculate highest level and next level (only if 5+ lessons)
         if (analyses.length >= 5) {
           const levelHierarchy: { [key: string]: number } = {
             'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6
