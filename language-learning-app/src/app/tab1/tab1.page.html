@@ -214,13 +214,15 @@
     
     <!-- Up Next Section (Two Cards Side-by-Side for Students) -->
     <div class="up-next-section" *ngIf="isStudentUser">
-      <div class="section-header-new">
-        <h2>Up Next</h2>
-      </div>
-      
       <div class="up-next-grid">
         <!-- Left Card: Upcoming Lesson -->
         <ion-card class="up-next-card" [class.has-lesson]="nextLesson" (click)="onUpNextCardClick()">
+          <!-- Up Next Badge -->
+          <div class="up-next-badge">
+            <ion-icon name="calendar"></ion-icon>
+            <span>Up Next</span>
+          </div>
+          
           <ion-card-content>
             <div class="up-next-content">
               <!-- Icon/Avatar -->
