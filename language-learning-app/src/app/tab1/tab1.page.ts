@@ -2265,7 +2265,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       
       // Fetch student progress data
       const response = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/lessons/my-analyses?limit=100`, {
+        this.http.get<any>(`${environment.apiUrl}/transcription/my-analyses?limit=100`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
