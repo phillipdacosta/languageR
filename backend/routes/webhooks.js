@@ -183,6 +183,19 @@ async function handlePayoutPaid(payout) {
 
         console.log(`✅ [WEBHOOK] PayPal payout sent to ${paypalEmail} for $${payment.stripePayoutAmount}`);
 
+        // Emit WebSocket event for real-time update
+        if (global.io) {
+          const tutorSocketRoom = `user:${tutor._id}`;
+          global.io.to(tutorSocketRoom).emit('payment_status_changed', {
+            paymentId: payment._id.toString(),
+            lessonId: lesson._id.toString(),
+            status: 'paid', // Frontend uses 'paid' status for transferred payments
+            transferStatus: 'succeeded',
+            updatedAt: new Date()
+          });
+          console.log(`📡 [WEBHOOK] Emitted payment_status_changed to ${tutorSocketRoom}`);
+        }
+
         // Send notification to tutor
         try {
           const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {

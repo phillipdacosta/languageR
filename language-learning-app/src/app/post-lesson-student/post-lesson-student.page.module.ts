@@ -19,7 +19,7 @@ const routes: Routes = [
     FormsModule,
     IonicModule,
     RouterModule.forChild(routes),
-    TutorAvailabilityViewerComponent // Import standalone component
+    TutorAvailabilityViewerComponent
   ],
   declarations: [PostLessonStudentPage]
 })

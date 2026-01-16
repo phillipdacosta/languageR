@@ -235,3 +235,4 @@ Class displayed → Auto-cancel → Calendar refreshes → Class stays visible w
 
 
 
+

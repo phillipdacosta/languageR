@@ -120,6 +120,19 @@ async function processPayPalPayouts() {
             console.log(`✅ PayPal payout sent to ${paypalEmail} for $${payment.stripePayoutAmount}`);
             paypalSent++;
 
+            // Emit WebSocket event for real-time update
+            if (global.io) {
+              const tutorSocketRoom = `user:${tutor._id}`;
+              global.io.to(tutorSocketRoom).emit('payment_status_changed', {
+                paymentId: payment._id.toString(),
+                lessonId: lessonId.toString(),
+                status: 'paid', // Frontend uses 'paid' status for transferred payments
+                transferStatus: 'succeeded',
+                updatedAt: new Date()
+              });
+              console.log(`📡 Emitted payment_status_changed to ${tutorSocketRoom}`);
+            }
+
             // Send notification to tutor
             try {
               const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {

@@ -732,6 +732,19 @@ router.post('/tutor/retry-pending-transfers', verifyToken, async (req, res) => {
         payment.transferStatus = 'succeeded';
         await payment.save();
 
+        // Emit WebSocket event for real-time update
+        if (global.io) {
+          const tutorSocketRoom = `user:${user._id}`;
+          global.io.to(tutorSocketRoom).emit('payment_status_changed', {
+            paymentId: payment._id.toString(),
+            lessonId: payment.lessonId?._id?.toString() || null,
+            status: 'paid', // Frontend uses 'paid' status for transferred payments
+            transferStatus: 'succeeded',
+            updatedAt: new Date()
+          });
+          console.log(`📡 Emitted payment_status_changed to ${tutorSocketRoom}`);
+        }
+
         successCount++;
         console.log(`✅ Transferred $${payment.tutorPayout} to tutor (payment ${payment._id})`);
       } catch (error) {
@@ -1152,6 +1165,19 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
               payment.transferredAt = new Date();
               payment.transferStatus = 'succeeded';
               await payment.save();
+
+              // Emit WebSocket event for real-time update
+              if (global.io) {
+                const tutorSocketRoom = `user:${user._id}`;
+                global.io.to(tutorSocketRoom).emit('payment_status_changed', {
+                  paymentId: payment._id.toString(),
+                  lessonId: payment.lessonId?.toString() || null,
+                  status: 'paid', // Frontend uses 'paid' status for transferred payments
+                  transferStatus: 'succeeded',
+                  updatedAt: new Date()
+                });
+                console.log(`📡 Emitted payment_status_changed to ${tutorSocketRoom}`);
+              }
 
               console.log(`✅ Auto-transferred $${payment.tutorPayout} (${transfer.id})`);
             } catch (transferError) {

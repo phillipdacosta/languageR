@@ -859,36 +859,37 @@
       <ion-card-content>
         <div class="empty-state">
           <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
-          <h3>No upcoming lessons</h3>
-          <p>Find a tutor to start learning</p>
+          <h3>Your Next Lesson Awaits!</h3>
+          <p>Book a session to continue your progress</p>
           
           <!-- Past Tutors Section (Student only, only if past tutors exist) -->
           <div *ngIf="pastTutors && pastTutors.length > 0" class="past-tutors-section">
-            <div class="past-tutors-row">
-              <p class="continue-working-text">Continue working with</p>
-              <div class="stacked-avatars">
-                <div 
-                  class="stacked-avatar" 
-                  *ngFor="let tutor of pastTutors.slice(0, 5); trackBy: trackByTutorId">
-                  <img 
-                    *ngIf="tutor && tutor.picture"
-                    [src]="tutor.picture" 
-                    [alt]="tutor.name"
-                    referrerpolicy="no-referrer">
-                  <ion-icon *ngIf="!tutor || !tutor.picture" name="person" style="font-size: 24px; color: #94a3b8;"></ion-icon>
-                </div>
+            <p class="section-label">Continue working with</p>
+            <div class="past-tutors-grid">
+              <div 
+                class="tutor-card" 
+                *ngFor="let tutor of pastTutors.slice(0, 3); trackBy: trackByTutorId"
+                routerLink="/tabs/tutor-search">
+                <img 
+                  *ngIf="tutor && tutor.picture"
+                  [src]="tutor.picture" 
+                  [alt]="tutor.name"
+                  referrerpolicy="no-referrer"
+                  class="tutor-avatar">
+                <ion-icon *ngIf="!tutor || !tutor.picture" name="person" class="placeholder-avatar"></ion-icon>
+                <span class="tutor-name">{{ tutor.name }}</span>
               </div>
             </div>
-            <p class="past-tutors-label">Or</p>
+            <p class="divider-label">Or</p>
           </div>
           
-          <!-- Find Tutors Button (using better button style) -->
+          <!-- Find Tutors Button -->
           <ion-button 
-            fill="solid"
+            fill="outline"
             size="medium" 
             class="find-tutor-btn"
             routerLink="/tabs/tutor-search">
-            Find Tutors
+            Find More Tutors
             <ion-icon name="search-outline" slot="end"></ion-icon>
           </ion-button>
         </div>

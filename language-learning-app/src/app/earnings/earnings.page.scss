@@ -320,6 +320,11 @@
           color: var(--ion-color-medium-shade);
         }
 
+        &[data-status='cancelled'] {
+          background: rgba(var(--ion-color-danger-rgb), 0.1);
+          color: var(--ion-color-danger-shade);
+        }
+
         ion-icon {
           font-size: 16px;
         }
@@ -410,17 +415,7 @@
             &.cancelled-amount {
               .amount-value {
                 color: var(--ion-color-danger);
-                
-                .strikethrough {
-                  text-decoration: line-through;
-                  opacity: 0.5;
-                  margin-right: 8px;
-                }
-                
-                .cancelled-label {
-                  font-weight: 700;
-                  color: var(--ion-color-danger);
-                }
+                font-weight: 700;
               }
             }
           }
@@ -446,6 +441,32 @@
             .amount-value {
               font-weight: 700;
               font-size: 1.1em;
+              
+              // Cancelled price styling
+              .cancelled-price-wrapper {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 4px;
+                
+                .strikethrough {
+                  text-decoration: line-through;
+                  opacity: 0.5;
+                  font-size: 0.9em;
+                  color: var(--ion-color-medium);
+                }
+                
+                .refunded-badge {
+                  background: rgba(var(--ion-color-danger-rgb), 0.15);
+                  color: var(--ion-color-danger-shade);
+                  padding: 4px 12px;
+                  border-radius: 12px;
+                  font-size: 0.85em;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: 0.5px;
+                }
+              }
             }
           }
         }

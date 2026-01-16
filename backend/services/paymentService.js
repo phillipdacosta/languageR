@@ -381,15 +381,35 @@ class PaymentService {
 
     const amount = lesson.price;
 
+    // 🔍 Check for hybrid payment - find any related card payment for this lesson
+    const hybridCardPayment = await Payment.findOne({
+      lessonId,
+      status: 'authorized',
+      paymentMethod: { $in: ['saved-card', 'card', 'apple_pay', 'google_pay'] },
+      'metadata.isHybridPayment': true
+    });
+
+    if (hybridCardPayment) {
+      console.log(`🔀 [HYBRID] Found hybrid card payment: ${hybridCardPayment._id}`);
+    }
+
     // Handle wallet payments
     if (payment.paymentMethod === 'wallet') {
       await walletService.deductFunds({
         userId: lesson.studentId._id,
         lessonId,
-        amount,
+        amount: payment.amount, // Use actual payment amount, not lesson price
         paymentId: payment._id
       });
-      console.log(`💸 Deducted $${amount} from wallet at lesson start (lesson ${lessonId})`);
+      console.log(`💸 Deducted $${payment.amount} from wallet at lesson start (lesson ${lessonId})`);
+      
+      // Mark wallet payment as succeeded
+      payment.status = 'succeeded';
+      payment.chargedAt = new Date();
+      payment.stripeFee = 0; // Wallet payments have no Stripe fees
+      payment.stripeNetAmount = payment.amount; // Full amount since no fees
+      await payment.save();
+      console.log(`✅ [WALLET] Wallet payment captured: $${payment.amount} (no Stripe fees)`);
     } 
     // Handle Stripe card payments - CAPTURE the authorized payment
     else if (payment.stripePaymentIntentId) {
@@ -399,9 +419,13 @@ class PaymentService {
         console.log(`💳 [CAPTURE] Attempting to capture PaymentIntent ${payment.stripePaymentIntentId}...`);
         
         // Capture the previously authorized payment
-        const capturedIntent = await stripe.paymentIntents.capture(payment.stripePaymentIntentId);
+        // CRITICAL: Expand charges.data.balance_transaction to get full fee info
+        const capturedIntent = await stripe.paymentIntents.capture(payment.stripePaymentIntentId, {
+          expand: ['charges.data.balance_transaction']
+        });
         
         console.log(`💳 [CAPTURE] Stripe response status: ${capturedIntent.status}`);
+        console.log(`💳 [CAPTURE] Charges in response: ${capturedIntent.charges?.data?.length || 0}`);
         
         if (capturedIntent.status !== 'succeeded') {
           throw new Error(`Payment capture failed: Stripe returned status '${capturedIntent.status}' instead of 'succeeded'`);
@@ -423,15 +447,30 @@ class PaymentService {
               ? await stripe.balanceTransactions.retrieve(charge.balance_transaction)
               : charge.balance_transaction;
             
+            console.log(`💰 [CAPTURE] Balance transaction retrieved:`, {
+              id: balanceTx.id,
+              fee: balanceTx.fee,
+              net: balanceTx.net,
+              available_on: balanceTx.available_on
+            });
+            
             // Stripe processing fee (2.9% + $0.30)
             payment.stripeFee = (balanceTx.fee || 0) / 100;
             console.log(`💰 [CAPTURE] Stripe processing fee: $${payment.stripeFee.toFixed(2)}`);
+            
+            if (payment.stripeFee === 0) {
+              console.error(`❌ [CAPTURE] WARNING: Stripe fee is $0.00 - this is unexpected for card payments!`);
+              console.error(`❌ [CAPTURE] Balance transaction details:`, JSON.stringify(balanceTx, null, 2));
+            }
           } else {
-            console.warn(`⚠️ [CAPTURE] No balance_transaction found for charge ${charge.id}`);
+            console.error(`❌ [CAPTURE] CRITICAL: No balance_transaction found for charge ${charge.id}`);
+            console.error(`❌ [CAPTURE] Charge object:`, JSON.stringify(charge, null, 2));
             payment.stripeFee = 0;
           }
           
           payment.stripeNetAmount = capturedIntent.amount_received / 100;
+        } else {
+          console.error(`❌ [CAPTURE] CRITICAL: No charges found in captured PaymentIntent ${payment.stripePaymentIntentId}`);
         }
 
         // ✅ ONLY UPDATE DATABASE AFTER STRIPE CONFIRMS SUCCESS
@@ -450,14 +489,50 @@ class PaymentService {
       }
     }
 
-    // Update payment record (for non-Stripe payments only)
-    if (payment.paymentMethod === 'wallet') {
-      payment.status = 'succeeded';
-      payment.chargedAt = new Date();
-      payment.stripeFee = 0; // Wallet payments have no Stripe fees
-      payment.stripeNetAmount = amount; // Full amount since no fees
-      await payment.save();
-      console.log(`✅ [WALLET] Wallet payment captured: $${amount} (no Stripe fees)`);
+    // 🔀 HYBRID PAYMENT: Also capture the card portion if exists
+    if (hybridCardPayment && hybridCardPayment.stripePaymentIntentId) {
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      
+      try {
+        console.log(`💳 [HYBRID] Capturing hybrid card payment: ${hybridCardPayment.stripePaymentIntentId}...`);
+        
+        const capturedIntent = await stripe.paymentIntents.capture(hybridCardPayment.stripePaymentIntentId);
+        
+        if (capturedIntent.status !== 'succeeded') {
+          throw new Error(`Hybrid card capture failed: ${capturedIntent.status}`);
+        }
+
+        // Extract Stripe fees for hybrid card payment
+        const charges = capturedIntent.charges?.data || [];
+        if (charges.length > 0) {
+          const charge = charges[0];
+          hybridCardPayment.stripeChargeId = charge.id;
+          hybridCardPayment.receiptUrl = charge.receipt_url || null;
+          
+          if (charge.balance_transaction) {
+            const balanceTx = typeof charge.balance_transaction === 'string' 
+              ? await stripe.balanceTransactions.retrieve(charge.balance_transaction)
+              : charge.balance_transaction;
+            
+            hybridCardPayment.stripeFee = (balanceTx.fee || 0) / 100;
+            console.log(`💰 [HYBRID] Stripe fee for card portion: $${hybridCardPayment.stripeFee.toFixed(2)}`);
+          }
+          
+          hybridCardPayment.stripeNetAmount = capturedIntent.amount_received / 100;
+        }
+
+        hybridCardPayment.status = 'succeeded';
+        hybridCardPayment.chargedAt = new Date();
+        await hybridCardPayment.save();
+        
+        console.log(`✅ [HYBRID] Hybrid card payment captured: $${hybridCardPayment.amount}`);
+      } catch (hybridError) {
+        console.error(`❌ [HYBRID] Failed to capture hybrid card payment:`, hybridError.message);
+        // Don't throw - let main payment succeed even if hybrid portion fails
+        hybridCardPayment.status = 'failed';
+        hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+        await hybridCardPayment.save();
+      }
     }
 
     // Update lesson billing status
@@ -793,6 +868,26 @@ class PaymentService {
     payment.revenueRecognized = true; // NEW: Mark revenue as recognized
     payment.revenueRecognizedAt = new Date(); // NEW: Timestamp when revenue recognized
     await payment.save();
+
+    // 🔀 HYBRID PAYMENT: Also mark hybrid card payment revenue as recognized
+    const hybridCardPayment = await Payment.findOne({
+      lessonId,
+      paymentMethod: { $in: ['saved-card', 'card', 'apple_pay', 'google_pay'] },
+      'metadata.isHybridPayment': true
+    });
+
+    if (hybridCardPayment && !hybridCardPayment.revenueRecognized) {
+      const hybridPlatformFee = hybridCardPayment.amount * (this.PLATFORM_FEE_PERCENTAGE / 100);
+      const hybridTutorPayout = hybridCardPayment.amount - hybridPlatformFee;
+      
+      hybridCardPayment.platformFee = hybridPlatformFee;
+      hybridCardPayment.tutorPayout = hybridTutorPayout;
+      hybridCardPayment.revenueRecognized = true;
+      hybridCardPayment.revenueRecognizedAt = new Date();
+      await hybridCardPayment.save();
+      
+      console.log(`✅ [HYBRID] Hybrid card payment revenue recognized: $${hybridPlatformFee} platform fee, Stripe fee: $${hybridCardPayment.stripeFee}`);
+    }
 
     // Step 4: Mark lesson billing complete and recognize revenue
     lesson.billingStatus = 'charged';

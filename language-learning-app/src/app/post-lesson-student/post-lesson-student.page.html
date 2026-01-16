@@ -3,10 +3,10 @@
     <!-- Celebrate Header -->
     <div class="celebrate-header" *ngIf="lesson">
       <div class="celebrate-emoji">🎉</div>
-      <h1 class="celebrate-title" *ngIf="!isTrialLesson()">Great lesson!</h1>
-      <h1 class="celebrate-title" *ngIf="isTrialLesson()">We hope you liked {{ getTutorFirstName() }}!</h1>
-      <p class="celebrate-subtitle" *ngIf="!isTrialLesson()">Keep up the amazing work! Every lesson brings you closer to fluency.</p>
-      <p class="celebrate-subtitle" *ngIf="isTrialLesson()">See {{ getTutorFirstName() }}'s schedule below to add more lessons!</p>
+      <h1 class="celebrate-title" *ngIf="!isTrialLesson">Great lesson!</h1>
+      <h1 class="celebrate-title" *ngIf="isTrialLesson">We hope you liked {{ tutorFirstName }}!</h1>
+      <p class="celebrate-subtitle" *ngIf="!isTrialLesson">Keep up the amazing work! Every lesson brings you closer to fluency.</p>
+      <p class="celebrate-subtitle" *ngIf="isTrialLesson">See {{ tutorFirstName }}'s schedule below to add more lessons!</p>
     </div>
 
     <div class="split-layout">
@@ -28,7 +28,7 @@
         </div>
         
         <!-- Tutor Name -->
-        <h2 class="tutor-name">{{ getTutorDisplayName() }}</h2>
+        <h2 class="tutor-name">{{ tutorDisplayName }}</h2>
         
         <!-- Lesson Info -->
         <div class="lesson-info-section">
@@ -55,9 +55,9 @@
             color="success"
             class="tip-button"
             (click)="toggleTipSection()"
-            *ngIf="!tipSubmitted && !isTrialLesson()">
+            *ngIf="!tipSubmitted && !isTrialLesson">
             <ion-icon name="gift" slot="start"></ion-icon>
-            Tip {{ tutor.name.split(' ')[0] }}
+            Tip {{ tutorFirstName }}
           </ion-button>
           
           <div class="tip-success" *ngIf="tipSubmitted">
@@ -71,7 +71,7 @@
             fill="outline" 
             color="primary" 
             (click)="leaveReview()"
-            *ngIf="!isTrialLesson()">
+            *ngIf="!isTrialLesson">
             <ion-icon name="star" slot="start"></ion-icon>
             Leave a Review
           </ion-button>
@@ -177,17 +177,17 @@
     <!-- RIGHT PANEL: Analysis or Availability -->
     <div class="right-panel">
       <!-- FOR TRIAL LESSONS: Show Tutor Availability -->
-      <div class="trial-availability-section" *ngIf="isTrialLesson() && tutor">
-        <h2 class="availability-title">Book Your Next Lesson with {{ getTutorFirstName() }}</h2>
+      <div class="trial-availability-section" *ngIf="isTrialLesson && tutor">
+        <h2 class="availability-title">Book Your Next Lesson with {{ tutorFirstName }}</h2>
         <app-tutor-availability-viewer
           [tutorId]="tutor._id"
-          [tutorName]="getTutorDisplayName()"
+          [tutorName]="tutorDisplayName"
           [inline]="true">
         </app-tutor-availability-viewer>
       </div>
 
       <!-- FOR REGULAR LESSONS: Show Analysis -->
-      <ng-container *ngIf="!isTrialLesson()">
+      <ng-container *ngIf="!isTrialLesson">
         <!-- Loading State with Animation -->
         <div class="analysis-loading" *ngIf="!analysisReady">
           <div class="ai-animation">

@@ -16,7 +16,6 @@ interface LessonInfo {
   duration: number;
   actualDurationMinutes?: number;
   price?: number; // Changed from lessonCost
-  isTrialLesson?: boolean; // Added for trial lesson detection
   tutor: {
     _id: string;
     name: string;
@@ -42,6 +41,11 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   tutor: any = null;
   analysis: LessonAnalysis | null = null;
   analysisReady = false;
+  
+  // Trial lesson properties
+  isTrialLesson = false;
+  tutorFirstName = '';
+  tutorDisplayName = 'Tutor';
   
   // Tip functionality
   showTipSection = false;
@@ -113,11 +117,34 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.tutor = response.lesson.tutorId || response.lesson.tutor;
         console.log('✅ POST-LESSON-STUDENT: Lesson info loaded:', this.lesson);
         console.log('✅ POST-LESSON-STUDENT: Tutor info:', this.tutor);
+        
+        // Set trial lesson flag and tutor name properties
+        this.isTrialLesson = response.lesson.isTrial || response.lesson.isTrialLesson || false;
+        this.updateTutorProperties();
       } else {
         console.warn('⚠️ POST-LESSON-STUDENT: Response missing lesson data');
       }
     } catch (error) {
       console.error('❌ POST-LESSON-STUDENT: Error loading lesson info:', error);
+    }
+  }
+
+  private updateTutorProperties() {
+    if (!this.tutor) {
+      this.tutorFirstName = '';
+      this.tutorDisplayName = 'Tutor';
+      return;
+    }
+    
+    this.tutorFirstName = this.tutor.firstName || this.tutor.name?.split(' ')[0] || '';
+    
+    const firstName = this.tutor.firstName || this.tutor.name?.split(' ')[0];
+    const lastName = this.tutor.lastName || this.tutor.name?.split(' ')[1];
+    
+    if (firstName && lastName) {
+      this.tutorDisplayName = `${firstName} ${lastName.charAt(0)}.`;
+    } else {
+      this.tutorDisplayName = this.tutor.name || 'Tutor';
     }
   }
 
@@ -279,28 +306,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       minute: '2-digit',
       hour12: true
     });
-  }
-
-  getTutorDisplayName(): string {
-    if (!this.tutor) return 'Tutor';
-    
-    const firstName = this.tutor.firstName || this.tutor.name?.split(' ')[0];
-    const lastName = this.tutor.lastName || this.tutor.name?.split(' ')[1];
-    
-    if (firstName && lastName) {
-      return `${firstName} ${lastName.charAt(0)}.`;
-    }
-    
-    return this.tutor.name || 'Tutor';
-  }
-
-  getTutorFirstName(): string {
-    if (!this.tutor) return 'your tutor';
-    return this.tutor.firstName || this.tutor.name?.split(' ')[0] || 'your tutor';
-  }
-
-  isTrialLesson(): boolean {
-    return this.lesson?.isTrialLesson === true;
   }
 
   viewFullAnalysis() {
