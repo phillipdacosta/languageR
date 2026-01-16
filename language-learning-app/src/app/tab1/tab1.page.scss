@@ -5146,7 +5146,40 @@ ion-content {
       height: 52px;
       border-radius: 50%;
       object-fit: cover;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
+    
+    .placeholder-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #9ca3af;
+    }
+    
+    .tutor-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1f2937;
+      text-align: center;
+      line-height: 1.2;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  
+  .divider-label {
+    font-size: 14px;
+    color: #9ca3af;
+    font-weight: 500;
+    margin: 8px 0 0 0;
   }
 }
 
@@ -5240,43 +5273,6 @@ ion-content {
         margin-left: 4px;
       }
     }
-  }
-}
-
-      border: 2px solid #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    .placeholder-avatar {
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      background: #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      color: #9ca3af;
-    }
-    
-    .tutor-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: #1f2937;
-      text-align: center;
-      line-height: 1.2;
-      max-width: 80px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-  
-  .divider-label {
-    font-size: 14px;
-    color: #9ca3af;
-    font-weight: 500;
-    margin: 8px 0 0 0;
   }
 }
 
