@@ -263,9 +263,18 @@
         </ion-card>
         
         <!-- Right Card: Dynamic Gamification Card -->
-        <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
+        <ion-card class="dynamic-card" [class.loading]="!dynamicCard" (click)="dynamicCard && onDynamicCardClick(dynamicCard)">
           <ion-card-content>
-            <div class="dynamic-card-content">
+            <!-- Loading Skeleton -->
+            <div class="dynamic-card-skeleton" *ngIf="!dynamicCard">
+              <ion-skeleton-text animated style="width: 64px; height: 64px; border-radius: 16px; margin: 0 auto 16px;"></ion-skeleton-text>
+              <ion-skeleton-text animated style="width: 70%; height: 20px; margin: 0 auto 8px; border-radius: 8px;"></ion-skeleton-text>
+              <ion-skeleton-text animated style="width: 90%; height: 16px; margin: 0 auto 16px; border-radius: 8px;"></ion-skeleton-text>
+              <ion-skeleton-text animated style="width: 50%; height: 40px; margin: 16px auto 0; border-radius: 12px;"></ion-skeleton-text>
+            </div>
+            
+            <!-- Actual Card Content with Fade Animation -->
+            <div class="dynamic-card-content" *ngIf="dynamicCard" [@fadeIn]>
               <!-- Stacked Avatars (for tutors online) -->
               <div class="stacked-avatars" *ngIf="dynamicCard.avatars && dynamicCard.avatars.length > 0">
                 <ion-avatar *ngFor="let avatar of dynamicCard.avatars; let i = index" 

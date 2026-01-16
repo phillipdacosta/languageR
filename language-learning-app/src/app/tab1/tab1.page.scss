@@ -5370,7 +5370,16 @@ ion-content {
   transition: all 0.3s ease;
   margin: 0;
   width: 100%;
-  min-height: 300px; // Ensure minimum height to match smart island
+  min-height: 300px; // Ensure minimum height to prevent layout shift
+  
+  &.loading {
+    cursor: default;
+    
+    &:hover {
+      transform: none;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+  }
   
   &:hover {
     transform: translateY(-4px);
@@ -5379,9 +5388,20 @@ ion-content {
   
   ion-card-content {
     padding: 24px;
+    min-height: 252px; // Reserve space for content to prevent shift
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  // Skeleton Loading State
+  .dynamic-card-skeleton {
+    width: 100%;
+    text-align: center;
   }
   
   .dynamic-card-content {
+    width: 100%;
     text-align: center;
     
     // Stacked Avatars (for tutors online)

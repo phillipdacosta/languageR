@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
+import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
@@ -37,6 +38,17 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
   standalone: false,
+  animations: [
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))
+      ]),
+      transition(':leave', [
+        animate('200ms ease-in', style({ opacity: 0, transform: 'translateY(-10px)' }))
+      ])
+    ])
+  ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Smart Island reference
@@ -347,11 +359,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     
     // Subscribe to Smart Island dynamic card updates
     this.smartIslandService.currentCard$.pipe(
-      takeUntil(this.destroy$)
+      takeUntil(this.destroy$),
+      observeOn(asyncScheduler) // Smooth transition timing
     ).subscribe(card => {
       console.log('🎴 [TAB1] Dynamic card updated:', card);
-      this.dynamicCard = card;
-      this.cdr.detectChanges();
+      // Run in Angular zone to ensure proper change detection and animations
+      this.ngZone.run(() => {
+        this.dynamicCard = card;
+        this.cdr.detectChanges();
+      });
     });
   }
 
