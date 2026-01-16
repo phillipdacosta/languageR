@@ -54,13 +54,19 @@ export class SmartIslandService {
    * Start auto-rotating through available cards
    */
   private startRotation() {
+    console.log('🔄 [SmartIsland] startRotation called');
+    
     if (this.rotationInterval) {
+      console.log('🔄 [SmartIsland] Clearing existing interval');
       clearInterval(this.rotationInterval);
     }
 
     this.rotationInterval = setInterval(() => {
+      console.log('⏰ [SmartIsland] Rotation timer fired');
       this.rotateToNextCard();
     }, this.ROTATION_INTERVAL);
+    
+    console.log('🔄 [SmartIsland] Interval set for', this.ROTATION_INTERVAL, 'ms');
 
     // Show first card immediately
     this.rotateToNextCard();
@@ -375,6 +381,14 @@ export class SmartIslandService {
    */
   public rotateManually() {
     this.rotateToNextCard();
+  }
+  
+  /**
+   * Restart rotation (useful after adding multiple cards)
+   */
+  public restartRotation() {
+    console.log('🔄 [SmartIsland] Restarting rotation');
+    this.startRotation();
   }
 }
 

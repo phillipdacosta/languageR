@@ -2422,6 +2422,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         }
         
         console.log('🎮 Loaded gamification cards for Smart Island');
+        
+        // Restart rotation to ensure it's running after all cards are loaded
+        this.smartIslandService.restartRotation();
       } else {
         console.warn('⚠️ [Smart Island] Response not successful or no analyses:', response);
         console.warn('⚠️ [Smart Island] response.success:', response?.success);
