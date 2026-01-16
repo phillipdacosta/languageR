@@ -5210,9 +5210,15 @@ ion-content {
   }
 }
 
+// Up Next Card Wrapper (contains badge and card)
+.up-next-card-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: visible;
+}
+
 // Up Next Card (Left - Upcoming Lesson)
 .up-next-card {
-  flex: 1;
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
@@ -5221,15 +5227,7 @@ ion-content {
   margin: 0;
   min-height: 300px;
   position: relative;
-  overflow: visible !important; // Force override Ionic defaults
-  
-  // Ensure ion-card doesn't clip content
-  &::before {
-    content: '';
-    display: block;
-    height: 32px; // Reserve space for badge
-    margin-top: -32px;
-  }
+  width: 100%;
   
   &.has-lesson {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -5253,19 +5251,19 @@ ion-content {
   ion-card-content {
     padding: 24px;
     height: 100%;
-    overflow: visible !important; // Force override
   }
 }
 
 // Up Next Badge (sticks out from card - two-part design)
+// Now positioned relative to wrapper, not card
 .up-next-badge {
   position: absolute;
-  top: -24px; // Increased negative value to ensure it sticks out more
+  top: -8px; // Hangs off the wrapper
   left: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 100; // Higher z-index to ensure it's on top
+  z-index: 100;
   
   // Purple circular icon
   .badge-icon {
