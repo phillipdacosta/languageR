@@ -5327,9 +5327,17 @@ ion-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between; // Changed from center to space-between
   text-align: center;
   height: 100%;
+  padding: 16px 0; // Add padding for spacing
+}
+
+// Group top content together
+.up-next-top-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 16px;
 }
 
@@ -5374,7 +5382,10 @@ ion-content {
 }
 
 .up-next-text {
-  flex: 1;
+  flex: 0; // Remove flex-grow, allow content to be compact at top
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .up-next-title {
@@ -5397,6 +5408,7 @@ ion-content {
   height: 44px;
   font-weight: 600;
   min-width: 140px;
+  margin-top: auto; // Push button to the bottom
 }
 
 // Dynamic Smart Island Card (Right Column in Grid)
@@ -5429,8 +5441,8 @@ ion-content {
     padding: 24px;
     min-height: 252px; // Reserve space for content to prevent shift
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: space-between; // Distribute content vertically
   }
   
   // Skeleton Loading State
@@ -5442,6 +5454,18 @@ ion-content {
   .dynamic-card-content {
     width: 100%;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    justify-content: space-between; // Distribute content with button at bottom
+    
+    // Group top content together
+    .card-top-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
     
     // Stacked Avatars (for tutors online)
     .stacked-avatars {
@@ -5562,7 +5586,8 @@ ion-content {
       font-weight: 600;
       font-size: 14px;
       text-transform: none;
-      margin-top: 8px;
+      margin-top: auto; // Push button to bottom
+      align-self: center; // Center button horizontally
       
       ion-icon {
         font-size: 16px;
