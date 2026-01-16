@@ -2242,23 +2242,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     
-    // Add a default welcome card IMMEDIATELY (before API call)
-    this.smartIslandService.addGamificationCard('next_badge', {
-      name: 'Getting Started',
-      description: 'Complete 5 lessons',
-      icon: 'rocket',
-      color: '#3b82f6',
-      current: 0,
-      target: 5
-    });
-    
-    this.smartIslandService.addTipCard(
-      'Start your journey! Book your first lesson to unlock detailed progress tracking and achievements.',
-      'Find Tutors',
-      '/tabs/tutor-search'
-    );
-    
-    console.log('🎮 [Smart Island] Added default cards');
+    // Clear any existing cards first
+    this.smartIslandService.clearAllCards();
+    console.log('🎮 [Smart Island] Cleared existing cards, will show skeleton until data loads');
     
     try {
       console.log('🎮 [Smart Island] Fetching analyses...');
@@ -2279,13 +2265,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const lessonCount = analyses.length;
         
         console.log('🎮 [Smart Island] ✅ SUCCESS - Loaded analyses:', lessonCount);
-        console.log('🎮 [Smart Island] First analysis:', analyses[0]);
+        if (analyses.length > 0) {
+          console.log('🎮 [Smart Island] First analysis:', analyses[0]);
+        }
         
-        // ALWAYS clear default cards and add actual data
-        this.smartIslandService.clearAllCards();
-        console.log('🎮 [Smart Island] Cleared all default cards');
-        
-        // Update the badge card with actual data
+        // Add badge card with actual data
         for (const milestone of [
           { count: 5, name: 'Getting Started', icon: 'rocket', color: '#3b82f6', desc: 'Complete 5 lessons' },
           { count: 10, name: 'Committed Learner', icon: 'school', color: '#8b5cf6', desc: 'Complete 10 lessons' },
@@ -2302,14 +2286,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
               current: lessonCount,
               target: milestone.count
             });
-            console.log('🎯 [Smart Island] Updated badge card:', milestone.name, `(${lessonCount}/${milestone.count})`);
+            console.log('🎯 [Smart Island] Added badge card:', milestone.name, `(${lessonCount}/${milestone.count})`);
             break;
           }
         }
         
-        // If student has lessons, remove the welcome tip
-        if (lessonCount > 0) {
-          // Welcome tip will be replaced by rotation
+        // Add welcome tip ONLY if no lessons yet
+        if (lessonCount === 0) {
+          this.smartIslandService.addTipCard(
+            'Start your journey! Book your first lesson to unlock detailed progress tracking and achievements.',
+            'Find Tutors',
+            '/tabs/tutor-search'
+          );
+          console.log('🎮 [Smart Island] Added welcome tip for new student');
         }
         
         // Calculate streak (only if lessons exist)
