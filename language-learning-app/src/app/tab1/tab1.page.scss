@@ -5230,15 +5230,6 @@ ion-content {
     .up-next-icon ion-icon {
       color: white;
     }
-    
-    .up-next-badge {
-      background: rgba(255, 255, 255, 0.95);
-      color: #667eea;
-      
-      ion-icon {
-        color: #667eea;
-      }
-    }
   }
   
   &:hover {
@@ -5252,37 +5243,68 @@ ion-content {
   }
 }
 
-// Up Next Badge (sticks out from card)
+// Up Next Badge (sticks out from card - two-part design)
 .up-next-badge {
   position: absolute;
-  top: -12px;
-  left: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
+  top: -16px;
+  left: 16px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  gap: 8px;
   z-index: 10;
   
-  ion-icon {
-    font-size: 16px;
-    color: white;
+  // Purple circular icon
+  .badge-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    
+    ion-icon {
+      font-size: 24px;
+      color: white;
+    }
+  }
+  
+  // White pill label
+  .badge-label {
+    background: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    span {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a5568;
+      letter-spacing: 0.2px;
+    }
   }
   
   @media (max-width: 600px) {
-    top: -10px;
-    left: 16px;
-    padding: 6px 14px;
-    font-size: 12px;
+    top: -14px;
+    left: 12px;
+    gap: 6px;
     
-    ion-icon {
-      font-size: 14px;
+    .badge-icon {
+      width: 40px;
+      height: 40px;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+    
+    .badge-label {
+      padding: 6px 12px;
+      
+      span {
+        font-size: 12px;
+      }
     }
   }
 }
