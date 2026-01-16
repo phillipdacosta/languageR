@@ -2207,15 +2207,25 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Load gamification data and populate Smart Island cards (for students)
   async loadGamificationCards() {
-    if (!this.isStudent()) return;
+    console.log('🎮 [Smart Island] loadGamificationCards() called');
+    console.log('🎮 [Smart Island] isStudent():', this.isStudent());
+    
+    if (!this.isStudent()) {
+      console.log('🎮 [Smart Island] Not a student, skipping');
+      return;
+    }
     
     try {
+      console.log('🎮 [Smart Island] Fetching analyses...');
+      
       // Fetch student progress data
       const response = await firstValueFrom(
         this.http.get<any>(`${environment.apiUrl}/lessons/my-analyses?limit=100`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
+      
+      console.log('🎮 [Smart Island] Response received:', response);
       
       if (response.success) {
         const analyses = response.analyses || [];
@@ -2369,7 +2379,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         console.log('🎮 Loaded gamification cards for Smart Island');
       }
     } catch (error: any) {
-      console.error('❌ Error loading gamification data:', error);
+      console.error('❌ [Smart Island] Error loading gamification data:', error);
+      console.error('❌ [Smart Island] Error details:', error.message, error.stack);
       // Don't show error to user - just silently fail
     }
   }
