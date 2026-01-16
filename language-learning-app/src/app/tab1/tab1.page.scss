@@ -5188,6 +5188,11 @@ ion-content {
   margin: 24px 16px;
   overflow: visible; // Allow badge to stick out
   
+  // Force Ionic cards to not clip content
+  ion-card {
+    overflow: visible !important;
+  }
+  
   @media (max-width: 600px) {
     margin: 20px 12px;
   }
@@ -5198,7 +5203,7 @@ ion-content {
   gap: 16px;
   align-items: stretch;
   overflow: visible; // Allow badge to stick out
-  margin-top: 16px; // Add space for badge to stick out at top
+  margin-top: 32px; // Increased space for badge to stick out at top
   
   @media (max-width: 968px) {
     flex-direction: column;
@@ -5216,7 +5221,15 @@ ion-content {
   margin: 0;
   min-height: 300px;
   position: relative;
-  overflow: visible; // Allow badge to stick out
+  overflow: visible !important; // Force override Ionic defaults
+  
+  // Ensure ion-card doesn't clip content
+  &::before {
+    content: '';
+    display: block;
+    height: 32px; // Reserve space for badge
+    margin-top: -32px;
+  }
   
   &.has-lesson {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -5240,18 +5253,19 @@ ion-content {
   ion-card-content {
     padding: 24px;
     height: 100%;
+    overflow: visible !important; // Force override
   }
 }
 
 // Up Next Badge (sticks out from card - two-part design)
 .up-next-badge {
   position: absolute;
-  top: -16px;
+  top: -24px; // Increased negative value to ensure it sticks out more
   left: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 10;
+  z-index: 100; // Higher z-index to ensure it's on top
   
   // Purple circular icon
   .badge-icon {
