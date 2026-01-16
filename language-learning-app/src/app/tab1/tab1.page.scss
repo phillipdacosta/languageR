@@ -5186,6 +5186,7 @@ ion-content {
 // Up Next Section (Two Cards Side-by-Side)
 .up-next-section {
   margin: 24px 16px;
+  overflow: visible; // Allow badge to stick out
   
   @media (max-width: 600px) {
     margin: 20px 12px;
@@ -5196,6 +5197,8 @@ ion-content {
   display: flex;
   gap: 16px;
   align-items: stretch;
+  overflow: visible; // Allow badge to stick out
+  margin-top: 16px; // Add space for badge to stick out at top
   
   @media (max-width: 968px) {
     flex-direction: column;

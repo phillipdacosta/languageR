@@ -274,7 +274,9 @@
             </div>
             
             <!-- Actual Card Content with Fade Animation -->
-            <div class="dynamic-card-content" *ngIf="dynamicCard" [@fadeIn]>
+            <div class="dynamic-card-content" 
+                 *ngIf="dynamicCard" 
+                 [@fadeIn]="dynamicCardAnimationState">
               <!-- Stacked Avatars (for tutors online) -->
               <div class="stacked-avatars" *ngIf="dynamicCard.avatars && dynamicCard.avatars.length > 0">
                 <ion-avatar *ngFor="let avatar of dynamicCard.avatars; let i = index" 
