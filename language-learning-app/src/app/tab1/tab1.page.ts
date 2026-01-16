@@ -41,8 +41,8 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
   animations: [
     trigger('fadeIn', [
       transition('* => *', [ // Trigger on ANY state change
-        style({ opacity: 0, transform: 'scale(0.95)' }),
-        animate('400ms cubic-bezier(0.4, 0.0, 0.2, 1)', style({ opacity: 1, transform: 'scale(1)' }))
+        style({ opacity: 0, transform: 'scale(0.98)' }), // Softer scale (0.98 instead of 0.95)
+        animate('600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' })) // Softer easing and longer duration
       ])
     ])
   ]
