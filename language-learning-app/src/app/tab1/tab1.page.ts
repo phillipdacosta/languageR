@@ -2278,11 +2278,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         const analyses = response.analyses || [];
         const lessonCount = analyses.length;
         
-        console.log('🎮 [Smart Island] Loaded analyses:', lessonCount);
+        console.log('🎮 [Smart Island] ✅ SUCCESS - Loaded analyses:', lessonCount);
         console.log('🎮 [Smart Island] First analysis:', analyses[0]);
         
         // ALWAYS clear default cards and add actual data
         this.smartIslandService.clearAllCards();
+        console.log('🎮 [Smart Island] Cleared all default cards');
         
         // Update the badge card with actual data
         for (const milestone of [
@@ -2421,10 +2422,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         }
         
         console.log('🎮 Loaded gamification cards for Smart Island');
+      } else {
+        console.warn('⚠️ [Smart Island] Response not successful or no analyses:', response);
+        console.warn('⚠️ [Smart Island] response.success:', response?.success);
+        console.warn('⚠️ [Smart Island] response.analyses:', response?.analyses);
       }
     } catch (error: any) {
       console.error('❌ [Smart Island] Error loading gamification data:', error);
       console.error('❌ [Smart Island] Error details:', error.message, error.stack);
+      console.error('❌ [Smart Island] Full error object:', error);
       // Don't show error to user - just silently fail
     }
     
