@@ -5186,7 +5186,9 @@ ion-content {
 // Up Next Section (Two Cards Side-by-Side)
 .up-next-section {
   margin: 24px 16px;
-  overflow: visible; // Allow badge to stick out
+  overflow: visible;
+  position: relative;
+  top: 25px;
   
   // Force Ionic cards to not clip content
   ion-card {
@@ -5258,8 +5260,8 @@ ion-content {
 // Now positioned relative to wrapper, not card
 .up-next-badge {
   position: absolute;
-  top: -8px; // Hangs off the wrapper
-  left: 16px;
+  top: -30px;
+  left: -12px;
   display: flex;
   align-items: center;
   gap: 8px;

@@ -970,7 +970,7 @@
       </ion-card>
     </div>
     
-    <!-- No Lessons State (for students only - tutors have their own empty state above) -->
+    <!-- COMMENTED OUT: Old duplicate "No Lessons State" - replaced by Up Next section above
     <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser && !nextLesson">
       <ion-card-content>
         <div class="empty-state">
@@ -978,7 +978,6 @@
           <h3>Your Next Lesson Awaits!</h3>
           <p>Book a session to continue your progress</p>
           
-          <!-- Past Tutors Section (Student only, only if past tutors exist) -->
           <div *ngIf="pastTutors && pastTutors.length > 0" class="past-tutors-section">
             <p class="section-label">Continue working with</p>
             <div class="past-tutors-grid">
@@ -999,7 +998,6 @@
             <p class="divider-label">Or</p>
           </div>
           
-          <!-- Find Tutors Button -->
           <ion-button 
             fill="outline"
             size="medium" 
@@ -1011,6 +1009,7 @@
         </div>
       </ion-card-content>
     </ion-card>
+    -->
     
      <!-- Category Tabs (moved below lessons for mobile student view) -->
      <div class="category-tabs" *ngIf="isStudentUser && !isLoadingLessons">
