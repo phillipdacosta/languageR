@@ -212,43 +212,36 @@
       </div>
     </div>
     
-    <!-- Smart Island Section with Dynamic Card (Two-Column Layout for Students) -->
-    <div class="smart-island-wrapper" *ngIf="isStudentUser">
-      <div class="smart-island-grid">
-        <!-- Left: Existing Smart Island (Up Next) -->
-        <div class="smart-island-left">
-          <app-smart-island #smartIsland></app-smart-island>
-        </div>
-        
-        <!-- Right: Dynamic Gamification Card -->
-        <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
-          <ion-card-content>
-            <div class="dynamic-card-content">
-              <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
-                <ion-icon [name]="dynamicCard.icon"></ion-icon>
-              </div>
-              <h3 class="card-title">{{ dynamicCard.title }}</h3>
-              <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
-              
-              <!-- Progress bar for badge/goal cards -->
-              <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
-                <div class="progress-bar-container">
-                  <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
-                </div>
-                <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
-              </div>
-              
-              <ion-button 
-                fill="clear" 
-                size="small" 
-                class="card-cta">
-                {{ dynamicCard.ctaText }}
-                <ion-icon name="arrow-forward" slot="end"></ion-icon>
-              </ion-button>
+    <!-- Up Next Section with Dynamic Card (Students Only) -->
+    <div class="up-next-container" *ngIf="isStudentUser">
+      <!-- Left: Smart Island -->
+      <app-smart-island #smartIsland></app-smart-island>
+      
+      <!-- Right: Dynamic Card -->
+      <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
+        <ion-card-content>
+          <div class="dynamic-card-content">
+            <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
+              <ion-icon [name]="dynamicCard.icon"></ion-icon>
             </div>
-          </ion-card-content>
-        </ion-card>
-      </div>
+            <h3 class="card-title">{{ dynamicCard.title }}</h3>
+            <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
+            
+            <!-- Progress bar for badge/goal cards -->
+            <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
+              </div>
+              <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
+            </div>
+            
+            <ion-button fill="clear" size="small" class="card-cta">
+              {{ dynamicCard.ctaText }}
+              <ion-icon name="arrow-forward" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
     </div>
     
     <!-- 

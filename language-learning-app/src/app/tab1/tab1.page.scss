@@ -5918,42 +5918,23 @@ ion-content {
 // Explore Public Classes Section
 // Smart Island Section (overlay, doesn't push content)
 // Smart Island Wrapper with Two-Column Grid
-.smart-island-wrapper {
-  margin: 16px 0;
-  width: 100%;
-  
-  @media (max-width: 600px) {
-    margin: 12px 0;
-  }
-}
-
-.smart-island-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+// Up Next Container - Simple Two Column Layout (Students)
+.up-next-container {
+  display: flex;
   gap: 16px;
   padding: 0 16px;
-  align-items: start; // Align cards to top
+  margin: 16px 0;
+  
+  app-smart-island {
+    flex: 1;
+  }
+  
+  .dynamic-card {
+    flex: 1;
+  }
   
   @media (max-width: 968px) {
-    grid-template-columns: 1fr; // Stack on smaller screens
-    gap: 12px;
-    
-    .dynamic-card {
-      order: 2; // Show below smart island on mobile
-    }
-  }
-}
-
-.smart-island-left {
-  width: 100%;
-  
-  // Override any absolute positioning from the smart island component
-  app-smart-island {
-    position: relative !important;
-    top: auto !important;
-    left: auto !important;
-    right: auto !important;
-    width: 100% !important;
+    flex-direction: column;
   }
 }
 
