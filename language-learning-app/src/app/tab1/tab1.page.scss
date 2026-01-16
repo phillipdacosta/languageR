@@ -5183,8 +5183,140 @@ ion-content {
   }
 }
 
+// Up Next Section (Two Cards Side-by-Side)
+.up-next-section {
+  margin: 24px 16px;
+  
+  @media (max-width: 600px) {
+    margin: 20px 12px;
+  }
+}
+
+.up-next-grid {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+  }
+}
+
+// Up Next Card (Left - Upcoming Lesson)
+.up-next-card {
+  flex: 1;
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 0;
+  min-height: 300px;
+  
+  &.has-lesson {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    
+    .up-next-title,
+    .up-next-subtitle {
+      color: white;
+    }
+    
+    .up-next-icon ion-icon {
+      color: white;
+    }
+  }
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  
+  ion-card-content {
+    padding: 24px;
+    height: 100%;
+  }
+}
+
+.up-next-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  gap: 16px;
+}
+
+.up-next-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(var(--ion-color-primary-rgb), 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  ion-icon {
+    font-size: 32px;
+    color: var(--ion-color-primary);
+  }
+}
+
+.up-next-avatar {
+  width: 72px;
+  height: 72px;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-size: 28px;
+    font-weight: 700;
+  }
+}
+
+.up-next-text {
+  flex: 1;
+}
+
+.up-next-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.02em;
+}
+
+.up-next-subtitle {
+  font-size: 15px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.up-next-cta {
+  --border-radius: 12px;
+  height: 44px;
+  font-weight: 600;
+  min-width: 140px;
+}
+
 // Dynamic Smart Island Card (Right Column in Grid)
 .dynamic-card {
+  flex: 1;
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);

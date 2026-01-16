@@ -212,37 +212,84 @@
       </div>
     </div>
     
-    <!-- Up Next Section with Dynamic Card (Students Only) -->
-    <div class="up-next-container" *ngIf="isStudentUser">
-      <!-- Left: Smart Island -->
-      <app-smart-island #smartIsland></app-smart-island>
+    <!-- Up Next Section (Two Cards Side-by-Side for Students) -->
+    <div class="up-next-section" *ngIf="isStudentUser">
+      <div class="section-header-new">
+        <h2>Up Next</h2>
+      </div>
       
-      <!-- Right: Dynamic Card -->
-      <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
-        <ion-card-content>
-          <div class="dynamic-card-content">
-            <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
-              <ion-icon [name]="dynamicCard.icon"></ion-icon>
-            </div>
-            <h3 class="card-title">{{ dynamicCard.title }}</h3>
-            <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
-            
-            <!-- Progress bar for badge/goal cards -->
-            <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
-              <div class="progress-bar-container">
-                <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
+      <div class="up-next-grid">
+        <!-- Left Card: Upcoming Lesson -->
+        <ion-card class="up-next-card" [class.has-lesson]="nextLesson" (click)="onUpNextCardClick()">
+          <ion-card-content>
+            <div class="up-next-content">
+              <!-- Icon/Avatar -->
+              <div class="up-next-icon" *ngIf="!nextLesson">
+                <ion-icon name="calendar-outline"></ion-icon>
               </div>
-              <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
+              <ion-avatar class="up-next-avatar" *ngIf="nextLesson && nextLessonTutor">
+                <img [src]="nextLessonTutor.picture" [alt]="nextLessonTutor.name" *ngIf="nextLessonTutor.picture">
+                <div class="avatar-placeholder" *ngIf="!nextLessonTutor.picture">
+                  {{ nextLessonTutor.name?.charAt(0) || 'T' }}
+                </div>
+              </ion-avatar>
+              
+              <!-- Content -->
+              <div class="up-next-text">
+                <h3 class="up-next-title" *ngIf="nextLesson">
+                  {{ getNextLessonTimeLabel() || 'Upcoming Lesson' }}
+                </h3>
+                <h3 class="up-next-title" *ngIf="!nextLesson">Your Next Lesson Awaits!</h3>
+                
+                <p class="up-next-subtitle" *ngIf="nextLesson && nextLessonTutor">
+                  with {{ nextLessonTutor.name }}
+                </p>
+                <p class="up-next-subtitle" *ngIf="!nextLesson">
+                  Book a session to continue your progress
+                </p>
+              </div>
+              
+              <!-- CTA Button -->
+              <ion-button fill="solid" size="small" class="up-next-cta" *ngIf="nextLesson" (click)="joinLessonById(nextLesson); $event.stopPropagation()">
+                Join
+              </ion-button>
+              <ion-button fill="outline" size="small" class="up-next-cta" *ngIf="!nextLesson" (click)="openSearchTutors(); $event.stopPropagation()">
+                Find Tutors
+              </ion-button>
             </div>
-            
-            <ion-button fill="clear" size="small" class="card-cta">
-              {{ dynamicCard.ctaText }}
-              <ion-icon name="arrow-forward" slot="end"></ion-icon>
-            </ion-button>
-          </div>
-        </ion-card-content>
-      </ion-card>
+          </ion-card-content>
+        </ion-card>
+        
+        <!-- Right Card: Dynamic Gamification Card -->
+        <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
+          <ion-card-content>
+            <div class="dynamic-card-content">
+              <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
+                <ion-icon [name]="dynamicCard.icon"></ion-icon>
+              </div>
+              <h3 class="card-title">{{ dynamicCard.title }}</h3>
+              <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
+              
+              <!-- Progress bar for badge/goal cards -->
+              <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
+                </div>
+                <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
+              </div>
+              
+              <ion-button fill="clear" size="small" class="card-cta" (click)="$event.stopPropagation()">
+                {{ dynamicCard.ctaText }}
+                <ion-icon name="arrow-forward" slot="end"></ion-icon>
+              </ion-button>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
     </div>
+    
+    <!-- Smart Island (hidden, for non-lesson notifications) -->
+    <app-smart-island #smartIsland style="display: none;"></app-smart-island>
     
     <!-- 
     TEMPORARILY DISABLED: Tutor Feedback System

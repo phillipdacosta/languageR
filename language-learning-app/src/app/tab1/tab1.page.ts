@@ -93,6 +93,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Dynamic Smart Island card
   dynamicCard: DynamicCard | null = null;
   
+  // Up Next card properties
+  get nextLessonTutor(): any {
+    if (!this.nextLesson) return null;
+    return this.nextLesson.tutorId || this.nextLesson.studentId;
+  }
+  
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
   selectedDate: Date | null = null;
@@ -2409,6 +2415,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     // Navigate to the action route
     if (card.ctaAction.startsWith('/')) {
       this.router.navigate([card.ctaAction]);
+    }
+  }
+  
+  // Handle Up Next card click
+  onUpNextCardClick() {
+    if (this.nextLesson) {
+      // If there's a lesson, join it
+      this.joinLessonById(this.nextLesson);
+    } else {
+      // If no lesson, go to tutor search
+      this.openSearchTutors();
     }
   }
   
