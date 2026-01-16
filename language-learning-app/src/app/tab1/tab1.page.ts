@@ -2431,9 +2431,35 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
   
   // Load additional dynamic cards (tutors online, recommendations, tips, etc.)
-  private loadAdditionalDynamicCards() {
-    // TODO: Add tutors online card when WebSocket support is available
-    // For now, we can simulate or fetch from a separate endpoint
+  private async loadAdditionalDynamicCards() {
+    console.log('➕ [Smart Island] Loading additional dynamic cards...');
+    
+    // Check for tutors with new availability
+    try {
+      const availabilityResponse = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/tutors-with-new-availability`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (availabilityResponse.success && availabilityResponse.tutors.length > 0) {
+        const tutors = availabilityResponse.tutors;
+        const tutorNames = tutors.map((t: any) => t.firstName || t.name);
+        const tutorAvatars = tutors.map((t: any) => t.picture || 'assets/avatar-placeholder.png');
+        
+        this.smartIslandService.addTutorAvailabilityCard(
+          tutors.length,
+          tutorNames,
+          tutorAvatars,
+          '/tabs/tutor-search'
+        );
+        console.log('📅 [Smart Island] Added tutor availability card:', tutors.length, 'tutors');
+      } else {
+        console.log('📅 [Smart Island] No tutors with new availability found.');
+      }
+    } catch (error) {
+      console.error('❌ [Smart Island] Error fetching tutor availability:', error);
+    }
     
     // Add personalized tips based on user behavior
     const tips = [

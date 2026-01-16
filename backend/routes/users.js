@@ -1683,4 +1683,67 @@ router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/users/tutors-with-new-availability - Get tutors student has worked with who added availability recently
+router.get('/tutors-with-new-availability', verifyToken, async (req, res) => {
+  try {
+    const student = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Only students can see this
+    if (student.userType !== 'student') {
+      return res.status(400).json({ success: false, message: 'Only students can access this' });
+    }
+    
+    // Get past lessons to find tutors the student has worked with
+    const pastLessons = await Lesson.find({
+      studentId: student._id,
+      status: { $in: ['completed', 'finalized'] }
+    }).populate('tutorId', '_id firstName lastName picture availability lastAvailabilityUpdate');
+    
+    // Extract unique tutor IDs
+    const tutorIds = [...new Set(pastLessons.map(lesson => lesson.tutorId?._id?.toString()).filter(Boolean))];
+    
+    if (tutorIds.length === 0) {
+      return res.json({
+        success: true,
+        tutors: []
+      });
+    }
+    
+    // Find tutors who updated availability in the last 4 hours
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    
+    const tutorsWithNewAvailability = await User.find({
+      _id: { $in: tutorIds },
+      userType: 'tutor',
+      lastAvailabilityUpdate: { $gte: fourHoursAgo },
+      // Make sure they have actual availability blocks
+      'availability.0': { $exists: true }
+    }).select('_id firstName lastName picture lastAvailabilityUpdate');
+    
+    const tutorData = tutorsWithNewAvailability.map(tutor => ({
+      id: tutor._id.toString(),
+      name: tutor.firstName && tutor.lastName 
+        ? `${tutor.firstName} ${tutor.lastName}` 
+        : tutor.firstName || 'Tutor',
+      firstName: tutor.firstName,
+      picture: tutor.picture,
+      lastAvailabilityUpdate: tutor.lastAvailabilityUpdate
+    }));
+    
+    console.log(`📅 Found ${tutorData.length} tutors with new availability for student ${student._id}`);
+    
+    res.json({
+      success: true,
+      tutors: tutorData
+    });
+  } catch (error) {
+    console.error('❌ Error getting tutors with new availability:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

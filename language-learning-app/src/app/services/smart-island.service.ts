@@ -7,7 +7,7 @@ import { WebSocketService } from './websocket.service';
 
 export interface DynamicCard {
   type: 'tutors_online' | 'achievement' | 'streak' | 'pending_rating' | 'weekly_summary' | 
-        'tip' | 'goal_reminder' | 'new_feature' | 'tutor_recommendation' | 'next_badge' | 'level_progress';
+        'tip' | 'goal_reminder' | 'new_feature' | 'tutor_recommendation' | 'next_badge' | 'level_progress' | 'tutor_availability';
   priority: 'urgent' | 'high' | 'medium' | 'low';
   icon: string;
   iconColor?: string;
@@ -355,6 +355,33 @@ export class SmartIslandService {
       ctaText: 'Try Now',
       ctaAction,
       data: { featureName, description }
+    });
+  }
+
+  /**
+   * Add a tutor availability card (when tutors student has worked with add new slots)
+   */
+  public addTutorAvailabilityCard(
+    tutorCount: number,
+    tutorNames: string[],
+    tutorAvatars: string[],
+    ctaAction: string = '/tabs/tutor-search'
+  ) {
+    const isSingleTutor = tutorCount === 1;
+    const tutorName = isSingleTutor ? tutorNames[0] : '';
+    
+    this.updateOrAddCard({
+      type: 'tutor_availability',
+      priority: 'high', // High priority to encourage booking
+      icon: 'calendar',
+      iconColor: '#10b981', // Green for new availability
+      title: isSingleTutor ? `${tutorName} Added New Times!` : `${tutorCount} Tutors Added New Times!`,
+      subtitle: isSingleTutor ? 'Book a lesson now' : 'Your tutors added new availability',
+      ctaText: 'Book Now',
+      ctaAction,
+      avatars: isSingleTutor ? undefined : tutorAvatars.slice(0, 5), // Stacked avatars for multiple tutors
+      avatarUrl: isSingleTutor ? tutorAvatars[0] : undefined, // Single avatar for one tutor
+      data: { tutorCount, tutorNames, tutorAvatars }
     });
   }
 
