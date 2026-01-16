@@ -70,7 +70,10 @@ export class SmartIslandService {
    * Rotate to the next highest priority card
    */
   private rotateToNextCard() {
+    console.log('🔄 [SmartIsland] rotateToNextCard called, availableCards:', this.availableCards.length);
+    
     if (this.availableCards.length === 0) {
+      console.log('⚠️ [SmartIsland] No cards available');
       this.currentCardSubject.next(null);
       return;
     }
@@ -80,15 +83,21 @@ export class SmartIslandService {
     const sortedCards = [...this.availableCards].sort((a, b) => 
       priorityOrder[a.priority] - priorityOrder[b.priority]
     );
+    
+    console.log('🔄 [SmartIsland] Sorted cards:', sortedCards.map(c => ({ type: c.type, priority: c.priority })));
 
     // Get current card index
     const currentCard = this.currentCardSubject.value;
     const currentIndex = currentCard 
       ? sortedCards.findIndex(c => c.type === currentCard.type)
       : -1;
+    
+    console.log('🔄 [SmartIsland] Current card type:', currentCard?.type, 'index:', currentIndex);
 
     // Rotate to next card in priority order
     const nextIndex = (currentIndex + 1) % sortedCards.length;
+    console.log('🔄 [SmartIsland] Next index:', nextIndex, 'Next card type:', sortedCards[nextIndex].type);
+    
     this.currentCardSubject.next(sortedCards[nextIndex]);
   }
 
@@ -99,13 +108,19 @@ export class SmartIslandService {
     const existingIndex = this.availableCards.findIndex(c => c.type === card.type);
     
     if (existingIndex >= 0) {
+      console.log('📝 [SmartIsland] Updating existing card:', card.type);
       this.availableCards[existingIndex] = card;
     } else {
+      console.log('➕ [SmartIsland] Adding new card:', card.type, 'priority:', card.priority);
       this.availableCards.push(card);
     }
+    
+    console.log('📊 [SmartIsland] Total cards now:', this.availableCards.length, 
+      'Types:', this.availableCards.map(c => c.type));
 
     // If this is an urgent card, show it immediately
     if (card.priority === 'urgent') {
+      console.log('🚨 [SmartIsland] Urgent card, showing immediately:', card.type);
       this.currentCardSubject.next(card);
     }
   }
