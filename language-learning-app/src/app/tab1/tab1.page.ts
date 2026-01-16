@@ -2271,12 +2271,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       );
       
       console.log('🎮 [Smart Island] Response received:', response);
+      console.log('🎮 [Smart Island] Analyses array:', response?.analyses);
+      console.log('🎮 [Smart Island] Analyses count:', response?.analyses?.length || 0);
       
-      if (response.success) {
+      if (response.success && response.analyses) {
         const analyses = response.analyses || [];
         const lessonCount = analyses.length;
         
         console.log('🎮 [Smart Island] Loaded analyses:', lessonCount);
+        console.log('🎮 [Smart Island] First analysis:', analyses[0]);
+        
+        // ALWAYS clear default cards and add actual data
+        this.smartIslandService.clearAllCards();
         
         // Update the badge card with actual data
         for (const milestone of [
