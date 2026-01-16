@@ -5227,7 +5227,7 @@ ion-content {
   cursor: pointer;
   transition: all 0.3s ease;
   margin: 0;
-  min-height: 300px;
+  height: 300px; // FIXED height to match dynamic card
   position: relative;
   width: 100%;
   
@@ -5252,7 +5252,7 @@ ion-content {
   
   ion-card-content {
     padding: 24px;
-    height: 100%;
+    height: 252px; // FIXED height (300px - 48px padding)
   }
 }
 
@@ -5339,6 +5339,8 @@ ion-content {
   flex-direction: column;
   align-items: center;
   gap: 16px;
+  min-height: 160px; // Fixed height to match dynamic card
+  justify-content: center; // Center content within the fixed space
 }
 
 .up-next-icon {
@@ -5349,6 +5351,7 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0; // Prevent shrinking
   
   ion-icon {
     font-size: 32px;
@@ -5357,10 +5360,11 @@ ion-content {
 }
 
 .up-next-avatar {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border: 3px solid white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0; // Prevent shrinking
   
   img {
     width: 100%;
@@ -5386,21 +5390,35 @@ ion-content {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-width: 100%;
 }
 
 .up-next-title {
   font-size: 20px;
   font-weight: 700;
   color: #1f2937;
-  margin: 0 0 8px 0;
+  margin: 0;
   letter-spacing: -0.02em;
+  line-height: 1.3;
+  max-height: 52px; // Limit to 2 lines
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .up-next-subtitle {
   font-size: 15px;
   color: #6b7280;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
+  max-height: 42px; // Limit to 2 lines
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .up-next-cta {
@@ -5421,7 +5439,7 @@ ion-content {
   transition: all 0.3s ease;
   margin: 0;
   width: 100%;
-  min-height: 300px; // Ensure minimum height to prevent layout shift
+  height: 300px; // FIXED height instead of min-height
   
   &.loading {
     cursor: default;
@@ -5439,7 +5457,7 @@ ion-content {
   
   ion-card-content {
     padding: 24px;
-    min-height: 252px; // Reserve space for content to prevent shift
+    height: 252px; // FIXED height to match card (300px - 48px padding)
     display: flex;
     flex-direction: column;
     justify-content: space-between; // Distribute content vertically
@@ -5465,6 +5483,8 @@ ion-content {
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      min-height: 160px; // Fixed height for consistent card sizes
+      justify-content: center; // Center content within the fixed space
     }
     
     // Stacked Avatars (for tutors online)
@@ -5472,7 +5492,7 @@ ion-content {
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 16px;
+      height: 64px; // Fixed height to match icon/avatar size
       
       .stacked-avatar {
         width: 48px;
@@ -5491,11 +5511,11 @@ ion-content {
     
     // Single Avatar (for tutor recommendations, pending ratings)
     .single-avatar {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 16px;
+      width: 64px;
+      height: 64px;
       border: 3px solid white;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      flex-shrink: 0; // Prevent shrinking
       
       img {
         width: 100%;
@@ -5508,11 +5528,11 @@ ion-content {
       width: 64px;
       height: 64px;
       border-radius: 16px;
-      margin: 0 auto 16px;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      flex-shrink: 0; // Prevent shrinking
       
       ion-icon {
         font-size: 32px;
@@ -5524,19 +5544,36 @@ ion-content {
       font-size: 18px;
       font-weight: 700;
       color: #1f2937;
-      margin: 0 0 8px 0;
+      margin: 0;
       letter-spacing: -0.02em;
+      line-height: 1.3;
+      max-height: 48px; // Limit title height (2 lines max)
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
     
     .card-subtitle {
       font-size: 14px;
       color: #6b7280;
-      margin: 0 0 16px 0;
-      line-height: 1.5;
+      margin: 0;
+      line-height: 1.4;
+      max-height: 40px; // Limit subtitle height (2 lines max)
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
     
     .card-progress {
-      margin: 16px 0;
+      width: 100%;
+      height: 40px; // Fixed height for progress section
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
       
       .progress-bar-container {
         width: 100%;
@@ -5544,7 +5581,7 @@ ion-content {
         background: #e5e7eb;
         border-radius: 999px;
         overflow: hidden;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         
         .progress-bar-fill {
           height: 100%;
@@ -5561,13 +5598,13 @@ ion-content {
       }
     }
     
-    // Star Rating (for pending ratings)
+    // Star Rating (for pending ratings) - fixed height to match progress
     .star-rating {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      margin: 16px 0;
+      height: 40px; // Fixed height to match progress section
       
       ion-icon {
         font-size: 28px;
