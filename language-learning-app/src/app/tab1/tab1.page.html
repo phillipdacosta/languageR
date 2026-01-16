@@ -855,78 +855,75 @@
     </div>
     
     <!-- No Lessons State (for students only - tutors have their own empty state above) -->
-    <div class="empty-state-container" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser && !nextLesson">
-      <!-- Left Column: Empty State -->
-      <ion-card class="empty-state-card">
-        <ion-card-content>
-          <div class="empty-state">
-            <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
-            <h3>Your Next Lesson Awaits!</h3>
-            <p>Book a session to continue your progress</p>
-            
-            <!-- Past Tutors Section (Student only, only if past tutors exist) -->
-            <div *ngIf="pastTutors && pastTutors.length > 0" class="past-tutors-section">
-              <p class="section-label">Continue working with</p>
-              <div class="past-tutors-grid">
-                <div 
-                  class="tutor-card" 
-                  *ngFor="let tutor of pastTutors.slice(0, 3); trackBy: trackByTutorId"
-                  routerLink="/tabs/tutor-search">
-                  <img 
-                    *ngIf="tutor && tutor.picture"
-                    [src]="tutor.picture" 
-                    [alt]="tutor.name"
-                    referrerpolicy="no-referrer"
-                    class="tutor-avatar">
-                  <ion-icon *ngIf="!tutor || !tutor.picture" name="person" class="placeholder-avatar"></ion-icon>
-                  <span class="tutor-name">{{ tutor.name }}</span>
-                </div>
+    <ion-card class="empty-state-card" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser && !nextLesson">
+      <ion-card-content>
+        <div class="empty-state">
+          <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
+          <h3>Your Next Lesson Awaits!</h3>
+          <p>Book a session to continue your progress</p>
+          
+          <!-- Past Tutors Section (Student only, only if past tutors exist) -->
+          <div *ngIf="pastTutors && pastTutors.length > 0" class="past-tutors-section">
+            <p class="section-label">Continue working with</p>
+            <div class="past-tutors-grid">
+              <div 
+                class="tutor-card" 
+                *ngFor="let tutor of pastTutors.slice(0, 3); trackBy: trackByTutorId"
+                routerLink="/tabs/tutor-search">
+                <img 
+                  *ngIf="tutor && tutor.picture"
+                  [src]="tutor.picture" 
+                  [alt]="tutor.name"
+                  referrerpolicy="no-referrer"
+                  class="tutor-avatar">
+                <ion-icon *ngIf="!tutor || !tutor.picture" name="person" class="placeholder-avatar"></ion-icon>
+                <span class="tutor-name">{{ tutor.name }}</span>
               </div>
-              <p class="divider-label">Or</p>
             </div>
-            
-            <!-- Find Tutors Button -->
-            <ion-button 
-              fill="outline"
-              size="medium" 
-              class="find-tutor-btn"
-              routerLink="/tabs/tutor-search">
-              Find More Tutors
-              <ion-icon name="search-outline" slot="end"></ion-icon>
-            </ion-button>
+            <p class="divider-label">Or</p>
           </div>
-        </ion-card-content>
-      </ion-card>
-      
-      <!-- Right Column: Dynamic Smart Island Card -->
-      <ion-card class="dynamic-card" *ngIf="dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
-        <ion-card-content>
-          <div class="dynamic-card-content">
-            <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
-              <ion-icon [name]="dynamicCard.icon"></ion-icon>
-            </div>
-            <h3 class="card-title">{{ dynamicCard.title }}</h3>
-            <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
-            
-            <!-- Progress bar for badge/goal cards -->
-            <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
-              <div class="progress-bar-container">
-                <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
-              </div>
-              <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
-            </div>
-            
-            <ion-button 
-              fill="clear" 
-              size="small" 
-              class="card-cta">
-              {{ dynamicCard.ctaText }}
-              <ion-icon name="arrow-forward" slot="end"></ion-icon>
-            </ion-button>
+          
+          <!-- Find Tutors Button -->
+          <ion-button 
+            fill="outline"
+            size="medium" 
+            class="find-tutor-btn"
+            routerLink="/tabs/tutor-search">
+            Find More Tutors
+            <ion-icon name="search-outline" slot="end"></ion-icon>
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
+    
+    <!-- Dynamic Smart Island Card (below empty state) -->
+    <ion-card class="dynamic-card" *ngIf="!isLoadingLessons && timelineEvents.length === 0 && isStudentUser && !nextLesson && dynamicCard" (click)="onDynamicCardClick(dynamicCard)">
+      <ion-card-content>
+        <div class="dynamic-card-content">
+          <div class="card-icon" [style.background]="'linear-gradient(135deg, ' + dynamicCard.iconColor + ' 0%, ' + dynamicCard.iconColor + '99 100%)'">
+            <ion-icon [name]="dynamicCard.icon"></ion-icon>
           </div>
-        </ion-card-content>
-      </ion-card>
-    </div>
+          <h3 class="card-title">{{ dynamicCard.title }}</h3>
+          <p class="card-subtitle">{{ dynamicCard.subtitle }}</p>
+          
+          <!-- Progress bar for badge/goal cards -->
+          <div class="card-progress" *ngIf="dynamicCard.data?.current !== undefined && dynamicCard.data?.target">
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" [style.width.%]="(dynamicCard.data.current / dynamicCard.data.target) * 100"></div>
+            </div>
+            <div class="progress-text">{{ dynamicCard.data.current }} / {{ dynamicCard.data.target }}</div>
+          </div>
+          
+          <ion-button 
+            fill="clear" 
+            size="small" 
+            class="card-cta">
+            {{ dynamicCard.ctaText }}
+            <ion-icon name="arrow-forward" slot="end"></ion-icon>
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
 
      <!-- Category Tabs (moved below lessons for mobile student view) -->
      <div class="category-tabs" *ngIf="isStudentUser && !isLoadingLessons">
