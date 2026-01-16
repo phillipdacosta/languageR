@@ -437,7 +437,8 @@
       <div class="skeleton-line skeleton-button-small"></div>
     </div>
     
-    <div class="section-header-new" *ngIf="!isLoadingLessons">
+    <!-- Only show this header for tutors, students have the Up Next badge on the card -->
+    <div class="section-header-new" *ngIf="!isLoadingLessons && isTutorUser">
       <h2>{{'HOME.UPCOMING_LESSONS' | translate}}</h2>
     </div>
 
