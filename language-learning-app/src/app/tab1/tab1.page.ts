@@ -30,6 +30,7 @@ import { FlagService } from '../services/flag.service';
 import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 
 @Component({
   selector: 'app-tab1',
@@ -88,6 +89,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Cached avatar cache for student/tutor avatars
   private _avatarCache = new Map<string, string | null>();
+  
+  // Dynamic Smart Island card
+  dynamicCard: DynamicCard | null = null;
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -279,7 +283,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     private ngZone: NgZone,
     public flagService: FlagService,
     private tutorFeedbackService: TutorFeedbackService,
-    private http: HttpClient
+    private http: HttpClient,
+    private smartIslandService: SmartIslandService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -332,6 +337,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe(count => {
       this.unreadMessages = count;
+    });
+    
+    // Subscribe to Smart Island dynamic card updates
+    this.smartIslandService.currentCard$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(card => {
+      this.dynamicCard = card;
+      this.cdr.detectChanges();
     });
   }
 
@@ -2163,6 +2176,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         if (user.userType === 'tutor') {
           this.loadCoachingMetrics();
         }
+        
+        // Load gamification cards for students
+        if (user.userType === 'student') {
+          this.loadGamificationCards();
+        }
       }
     });
   }
@@ -2183,6 +2201,171 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     } catch (error: any) {
       console.error('❌ Error loading coaching metrics:', error);
       // Don't show error to user - just silently fail
+    }
+  }
+  
+  // Load gamification data and populate Smart Island cards (for students)
+  async loadGamificationCards() {
+    if (!this.isStudent()) return;
+    
+    try {
+      // Fetch student progress data
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/lessons/my-analyses?limit=100`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success && response.analyses) {
+        const analyses = response.analyses;
+        const lessonCount = analyses.length;
+        
+        // Calculate streak
+        let streak = 0;
+        if (analyses.length > 0) {
+          const sortedAnalyses = [...analyses].sort((a: any, b: any) => 
+            new Date(b.lessonDate).getTime() - new Date(a.lessonDate).getTime()
+          );
+          
+          let currentStreak = 0;
+          let lastDate: Date | null = null;
+          
+          for (const analysis of sortedAnalyses) {
+            const lessonDate = new Date(analysis.lessonDate);
+            const dayStart = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), lessonDate.getDate());
+            
+            if (!lastDate) {
+              currentStreak = 1;
+              lastDate = dayStart;
+            } else {
+              const dayDiff = Math.floor((lastDate.getTime() - dayStart.getTime()) / (1000 * 60 * 60 * 24));
+              if (dayDiff === 1) {
+                currentStreak++;
+                lastDate = dayStart;
+              } else if (dayDiff > 1) {
+                break;
+              }
+            }
+          }
+          streak = currentStreak;
+        }
+        
+        // Add streak card if applicable
+        const today = new Date();
+        const lastLessonDate = analyses.length > 0 ? new Date(analyses[0].lessonDate) : null;
+        const daysSinceLastLesson = lastLessonDate 
+          ? Math.floor((today.getTime() - lastLessonDate.getTime()) / (1000 * 60 * 60 * 24))
+          : 999;
+        const isStreakAtRisk = streak >= 3 && daysSinceLastLesson >= 1;
+        
+        if (streak >= 3) {
+          this.smartIslandService.addStreakCard(streak, isStreakAtRisk);
+        }
+        
+        // Calculate next badge milestone
+        const lessonMilestones = [
+          { count: 5, name: 'Getting Started', icon: 'rocket', color: '#3b82f6', desc: 'Complete 5 lessons' },
+          { count: 10, name: 'Committed Learner', icon: 'school', color: '#8b5cf6', desc: 'Complete 10 lessons' },
+          { count: 25, name: 'Dedicated Student', icon: 'book', color: '#06b6d4', desc: 'Complete 25 lessons' },
+          { count: 50, name: 'Rising Star', icon: 'star', color: '#f59e0b', desc: 'Complete 50 lessons' },
+          { count: 100, name: 'Language Master', icon: 'trophy', color: '#fbbf24', desc: 'Complete 100 lessons' }
+        ];
+        
+        for (const milestone of lessonMilestones) {
+          if (lessonCount < milestone.count) {
+            this.smartIslandService.addGamificationCard('next_badge', {
+              name: milestone.name,
+              description: milestone.desc,
+              icon: milestone.icon,
+              color: milestone.color,
+              current: lessonCount,
+              target: milestone.count
+            });
+            break;
+          }
+        }
+        
+        // Calculate highest level and next level
+        if (analyses.length >= 5) {
+          const levelHierarchy: { [key: string]: number } = {
+            'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6
+          };
+          
+          let highestLevel = 'A1';
+          let highestValue = 0;
+          
+          for (const analysis of analyses) {
+            if (analysis.level) {
+              const value = levelHierarchy[analysis.level] || 0;
+              if (value > highestValue) {
+                highestValue = value;
+                highestLevel = analysis.level;
+              }
+            }
+          }
+          
+          // Determine next level
+          const nextLevelMap: { [key: string]: string } = {
+            'A1': 'A2', 'A2': 'B1', 'B1': 'B2', 'B2': 'C1', 'C1': 'C2'
+          };
+          
+          const nextLevel = nextLevelMap[highestLevel];
+          if (nextLevel) {
+            this.smartIslandService.addGamificationCard('level_progress', {
+              currentLevel: highestLevel,
+              nextLevel: nextLevel
+            });
+          }
+        }
+        
+        // Check for pending ratings
+        const lessonsPendingRating = analyses.filter((a: any) => !a.studentRating);
+        if (lessonsPendingRating.length > 0) {
+          const lesson = lessonsPendingRating[0];
+          this.smartIslandService.addPendingRatingCard(
+            lesson.lessonId || lesson._id,
+            lesson.tutorName || 'your tutor',
+            lesson.tutorPicture
+          );
+        }
+        
+        // Weekly summary (if there are lessons this week)
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const thisWeekAnalyses = analyses.filter((a: any) => 
+          new Date(a.lessonDate) >= oneWeekAgo
+        );
+        
+        if (thisWeekAnalyses.length > 0) {
+          const speakingMinutes = thisWeekAnalyses.reduce((sum: number, a: any) => 
+            sum + (a.speakingTime || 0), 0
+          );
+          const wordsLearned = thisWeekAnalyses.reduce((sum: number, a: any) => 
+            sum + (a.newWords?.length || 0), 0
+          );
+          
+          this.smartIslandService.addWeeklySummaryCard(
+            thisWeekAnalyses.length,
+            Math.round(speakingMinutes / 60),
+            wordsLearned
+          );
+        }
+        
+        console.log('🎮 Loaded gamification cards for Smart Island');
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading gamification data:', error);
+      // Don't show error to user - just silently fail
+    }
+  }
+  
+  // Handle dynamic card click
+  onDynamicCardClick(card: DynamicCard) {
+    if (!card) return;
+    
+    // Navigate to the action route
+    if (card.ctaAction.startsWith('/')) {
+      this.router.navigate([card.ctaAction]);
     }
   }
   
