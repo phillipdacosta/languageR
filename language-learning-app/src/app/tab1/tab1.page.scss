@@ -5190,8 +5190,9 @@ ion-content {
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
-  margin: 0; // No margin in grid
-  pointer-events: auto;
+  margin: 0;
+  width: 100%;
+  min-height: 300px; // Ensure minimum height to match smart island
   
   &:hover {
     transform: translateY(-4px);
@@ -5918,16 +5919,11 @@ ion-content {
 // Smart Island Section (overlay, doesn't push content)
 // Smart Island Wrapper with Two-Column Grid
 .smart-island-wrapper {
-  position: absolute;
-  top: 200px; // Position after welcome section
-  left: 0;
-  right: 0;
-  margin: 0;
-  pointer-events: none; // Allow clicks to pass through container
-  z-index: 10;
+  margin: 16px 0;
+  width: 100%;
   
   @media (max-width: 600px) {
-    top: 180px;
+    margin: 12px 0;
   }
 }
 
@@ -5936,10 +5932,11 @@ ion-content {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   padding: 0 16px;
-  pointer-events: auto; // Grid content is interactive
+  align-items: start; // Align cards to top
   
   @media (max-width: 968px) {
     grid-template-columns: 1fr; // Stack on smaller screens
+    gap: 12px;
     
     .dynamic-card {
       order: 2; // Show below smart island on mobile
@@ -5948,7 +5945,16 @@ ion-content {
 }
 
 .smart-island-left {
-  pointer-events: auto; // Island itself is clickable
+  width: 100%;
+  
+  // Override any absolute positioning from the smart island component
+  app-smart-island {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+  }
 }
 
 // Explore Tab Section (styled like category tabs)
