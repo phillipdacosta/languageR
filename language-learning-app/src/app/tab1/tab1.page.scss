@@ -5183,14 +5183,15 @@ ion-content {
   }
 }
 
-// Dynamic Smart Island Card (Separate Card)
+// Dynamic Smart Island Card (Right Column in Grid)
 .dynamic-card {
   border-radius: 24px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-bottom: 20px;
+  margin: 0; // No margin in grid
+  pointer-events: auto;
   
   &:hover {
     transform: translateY(-4px);
@@ -5915,27 +5916,39 @@ ion-content {
 
 // Explore Public Classes Section
 // Smart Island Section (overlay, doesn't push content)
-.smart-island-section {
+// Smart Island Wrapper with Two-Column Grid
+.smart-island-wrapper {
   position: absolute;
   top: 200px; // Position after welcome section
   left: 0;
   right: 0;
   margin: 0;
-  height: 0; // Takes no vertical space
-  overflow: visible;
   pointer-events: none; // Allow clicks to pass through container
   z-index: 10;
-  
-  // Let the component handle its own positioning
-  // When expanded: component positions itself relative to this container
-  // When collapsed: component uses position: fixed to move to top-right
-  app-smart-island {
-    pointer-events: auto; // Island itself is clickable
-  }
   
   @media (max-width: 600px) {
     top: 180px;
   }
+}
+
+.smart-island-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 0 16px;
+  pointer-events: auto; // Grid content is interactive
+  
+  @media (max-width: 968px) {
+    grid-template-columns: 1fr; // Stack on smaller screens
+    
+    .dynamic-card {
+      order: 2; // Show below smart island on mobile
+    }
+  }
+}
+
+.smart-island-left {
+  pointer-events: auto; // Island itself is clickable
 }
 
 // Explore Tab Section (styled like category tabs)
