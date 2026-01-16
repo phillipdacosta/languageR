@@ -2162,8 +2162,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadUserStats() {
+    console.log('💰 [TAB1] loadUserStats() called');
+    
     // Force refresh from server to get latest settings
     this.userService.getCurrentUser(true).subscribe(user => {
+      console.log('💰 [TAB1] getCurrentUser callback, user type:', user?.userType);
+      
       if (user) {
         console.log('💰 User profile data:', user.profile);
         // Load show wallet balance setting from database
@@ -2175,11 +2179,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         
         // Load coaching metrics for tutors
         if (user.userType === 'tutor') {
+          console.log('👨‍🏫 [TAB1] Loading coaching metrics for tutor');
           this.loadCoachingMetrics();
         }
         
         // Load gamification cards for students
         if (user.userType === 'student') {
+          console.log('👨‍🎓 [TAB1] Loading gamification cards for student');
           this.loadGamificationCards();
         }
       }
