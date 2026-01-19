@@ -20,10 +20,279 @@
 }
 
 .earnings-content {
-  max-width: 800px;
+  max-width: 1200px; // Increased from 800px for wider table
   margin: 0 auto;
   padding-bottom: 20px;
 }
+
+// ============================================================
+// NEW: WITHDRAWAL SYSTEM STYLES
+// ============================================================
+
+.balance-section {
+  margin-bottom: 40px;
+  
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    
+    h2 {
+      margin: 0;
+      font-size: 1.3em;
+      font-weight: 700;
+      color: var(--ion-color-dark);
+    }
+    
+    .withdraw-button {
+      --background: linear-gradient(135deg, #10b981, #059669);
+      --background-hover: linear-gradient(135deg, #059669, #047857);
+      --border-radius: 12px;
+      --padding-start: 20px;
+      --padding-end: 20px;
+      height: 40px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+      
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+  }
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+
+  .balance-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    &.available {
+      border-color: #10b981;
+      
+      .card-icon {
+        background: linear-gradient(135deg, #10b981, #059669);
+        
+        ion-icon {
+          color: white;
+        }
+      }
+      
+      .card-value {
+        color: #10b981;
+      }
+    }
+
+    &.pending {
+      border-color: #f59e0b;
+      
+      .card-icon {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        
+        ion-icon {
+          color: white;
+        }
+      }
+      
+      .card-value {
+        color: #f59e0b;
+      }
+    }
+
+    &.lifetime {
+      border-color: #8b5cf6;
+      
+      .card-icon {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        
+        ion-icon {
+          color: white;
+        }
+      }
+      
+      .card-value {
+        color: #8b5cf6;
+      }
+    }
+
+    .card-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      ion-icon {
+        font-size: 28px;
+      }
+    }
+
+    .card-content {
+      flex: 1;
+
+      .card-label {
+        font-size: 0.85em;
+        color: var(--ion-color-medium);
+        margin-bottom: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .card-value {
+        font-size: 1.6em;
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .card-sublabel {
+        font-size: 0.75em;
+        color: var(--ion-color-medium);
+      }
+    }
+  }
+}
+
+.withdrawal-history {
+  margin-bottom: 40px;
+  
+  h3 {
+    font-size: 1.1em;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--ion-color-dark);
+  }
+  
+  .withdrawals-list {
+    background: transparent;
+    
+    .withdrawal-item {
+      --background: var(--ion-background-color);
+      --border-radius: 16px;
+      --padding-start: 0;
+      --padding-end: 0;
+      --inner-padding-end: 0;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      
+      &::part(native) {
+        border-radius: 16px;
+        padding: 20px;
+      }
+      
+      .withdrawal-info {
+        width: 100%;
+      }
+      
+      .withdrawal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        
+        .withdrawal-method {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          color: var(--ion-color-dark);
+          
+          ion-icon {
+            font-size: 20px;
+            color: var(--ion-color-primary);
+          }
+        }
+        
+        .withdrawal-status {
+          ion-badge {
+            font-size: 0.85em;
+            padding: 6px 12px;
+            border-radius: 12px;
+          }
+        }
+      }
+      
+      .withdrawal-details {
+        .withdrawal-date {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--ion-color-medium);
+          font-size: 0.9em;
+          margin-bottom: 12px;
+          
+          ion-icon {
+            font-size: 16px;
+          }
+        }
+        
+        .withdrawal-amounts {
+          background: var(--ion-color-light);
+          border-radius: 12px;
+          padding: 12px;
+          
+          .amount-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            
+            .amount-label {
+              font-size: 0.9em;
+              color: var(--ion-color-medium);
+            }
+            
+            .amount-value {
+              font-weight: 600;
+              color: var(--ion-color-dark);
+            }
+            
+            &.total {
+              border-top: 1px solid var(--ion-color-medium-tint);
+              margin-top: 8px;
+              padding-top: 8px;
+              
+              .amount-label {
+                font-weight: 600;
+                color: var(--ion-color-dark);
+              }
+              
+              .amount-value {
+                font-weight: 700;
+                font-size: 1.1em;
+                color: var(--ion-color-success);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ============================================================
+// END NEW STYLES
+// ============================================================
+
 
 .filters-section {
   background: var(--ion-color-light);
@@ -157,7 +426,7 @@
 
 .payment-breakdown {
   h3 {
-    font-size: 1.1em; // Reduced from 1.3em
+    font-size: 1.3em;
     font-weight: 700;
     margin-bottom: 20px;
     color: var(--ion-color-dark);
@@ -186,290 +455,239 @@
   }
 }
 
-.payments-list {
-  background: transparent;
+// ============================================================
+// NEW: TABLE DESIGN (Admin-style)
+// ============================================================
 
-  .payment-item {
-    --background: var(--ion-background-color);
-    --border-radius: 16px;
-    --padding-start: 0;
-    --padding-end: 0;
-    --inner-padding-end: 0;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+.payments-table-container {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
 
-    // Highlight active lessons
-    &.in-progress {
-      border-left: 4px solid var(--ion-color-primary);
-    }
-
-    &.processing {
-      border-left: 4px solid var(--ion-color-warning);
-    }
+.payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em; // Reduced from 0.95em
+  
+  thead {
+    background: var(--ion-color-light);
     
-    &.cancelled {
-      border-left: 4px solid var(--ion-color-danger);
-      opacity: 0.8;
-    }
-
-    &::part(native) {
-      border-radius: 16px;
-      padding: 0;
-    }
-
-    .payment-content-wrapper {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      padding: 16px 20px;
-    }
-
-    .payment-info {
-      flex: 1;
-    }
-
-    .payment-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 12px;
-
-      .student-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+    tr {
+      th {
+        padding: 14px 16px; // Reduced from 16px 20px
+        text-align: left;
+        font-size: 0.8em; // Reduced from 0.85em
+        font-weight: 700;
+        color: var(--ion-color-medium);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
         
-        // Student Avatar
-        .student-avatar {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          flex-shrink: 0;
-          border: 2px solid #e5e7eb;
-          
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 10px;
-          }
-          
-          &.student-avatar-fallback {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            
-            ion-icon {
-              font-size: 22px;
-              color: white;
-            }
-          }
+        &:first-child {
+          padding-left: 20px; // Reduced from 24px
         }
         
-        .student-details {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .student-name {
-          font-size: 1.05em;
-          font-weight: 600;
-          color: var(--ion-color-dark);
-        }
-        
-        .lesson-time {
-          font-size: 0.85em;
-          color: var(--ion-color-medium);
-          font-weight: 500;
-        }
-      }
-
-      .payment-status {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.85em;
-        font-weight: 500;
-
-        &[data-status='paid'] {
-          background: rgba(var(--ion-color-success-rgb), 0.1);
-          color: var(--ion-color-success-shade);
-        }
-
-        &[data-status='pending'] {
-          background: rgba(var(--ion-color-warning-rgb), 0.1);
-          color: var(--ion-color-warning-shade);
-        }
-
-        &[data-status='in_progress'] {
-          background: rgba(var(--ion-color-primary-rgb), 0.1);
-          color: var(--ion-color-primary-shade);
-        }
-
-        &[data-status='processing'] {
-          background: rgba(var(--ion-color-warning-rgb), 0.1);
-          color: var(--ion-color-warning-shade);
-        }
-
-        &[data-status='scheduled'] {
-          background: rgba(var(--ion-color-medium-rgb), 0.1);
-          color: var(--ion-color-medium-shade);
-        }
-
-        &[data-status='cancelled'] {
-          background: rgba(var(--ion-color-danger-rgb), 0.1);
-          color: var(--ion-color-danger-shade);
-        }
-
-        ion-icon {
-          font-size: 16px;
+        &:last-child {
+          padding-right: 20px; // Reduced from 24px
         }
       }
     }
-
-    // Status note styling
-    .status-note {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      margin-bottom: 12px;
-      background: rgba(var(--ion-color-primary-rgb), 0.05);
-      border-radius: 8px;
-      font-size: 0.85em;
-      color: var(--ion-color-medium);
-
-      ion-icon {
-        font-size: 18px;
-        color: var(--ion-color-primary);
-        flex-shrink: 0;
+  }
+  
+  tbody {
+    tr.payment-row {
+      border-bottom: 1px solid #f3f4f6;
+      transition: background-color 0.2s ease;
+      
+      &.clickable {
+        cursor: pointer;
+        
+        &:hover {
+          background-color: #f9fafb;
+        }
       }
       
-      &.cancelled-note {
-        background: rgba(var(--ion-color-danger-rgb), 0.05);
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      td {
+        padding: 16px; // Reduced from 20px
+        vertical-align: middle;
+        color: var(--ion-color-dark);
         
-        ion-icon {
-          color: var(--ion-color-danger);
+        &:first-child {
+          padding-left: 20px; // Reduced from 24px
+        }
+        
+        &:last-child {
+          padding-right: 20px; // Reduced from 24px
         }
       }
     }
-
-    .payment-details {
-      .payment-date {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        color: var(--ion-color-medium);
+  }
+  
+  // Column-specific styles
+  .datetime-col {
+    width: 160px; // Fixed width for date & time
+    
+    .datetime-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      
+      .date {
         font-size: 0.9em;
-        margin-bottom: 12px;
-
-        ion-icon {
-          font-size: 16px;
+        color: var(--ion-color-dark);
+        font-weight: 500;
+      }
+      
+      .time {
+        font-size: 0.8em;
+        color: var(--ion-color-medium);
+      }
+    }
+  }
+  
+  .student-col {
+    min-width: 200px; // Ensure enough space for avatar + name
+    
+    .student-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      
+      .student-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid #e5e7eb;
+        
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        
+        &.fallback {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          
+          ion-icon {
+            font-size: 20px;
+            color: white;
+          }
         }
       }
+      
+      span {
+        font-weight: 500;
+        color: var(--ion-color-dark);
+        font-size: 0.95em;
+      }
+    }
+  }
+  
+  .status-col {
+    min-width: 140px; // Reduced from auto
+    
+    .status-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 4px; // Reduced from 6px
+      
+      ion-badge {
+        width: fit-content;
+        padding: 5px 10px; // Reduced from 6px 12px
+        border-radius: 10px; // Reduced from 12px
+        font-size: 0.8em; // Reduced from 0.85em
+        font-weight: 600;
+      }
+      
+      .status-reason {
+        font-size: 0.75em; // Reduced from 0.8em
+        color: var(--ion-color-medium);
+        font-style: italic;
+        line-height: 1.3;
+      }
+    }
+  }
+  
+  .amount-col {
+    text-align: right;
+    font-weight: 600;
+    font-size: 0.9em; // Reduced from 0.95em
+    white-space: nowrap;
+    width: 100px; // Fixed width for amount columns
+    
+    &.fee-col {
+      color: var(--ion-color-medium);
+    }
+    
+    &.earnings-col {
+      color: #3b82f6; // Blue like in screenshot
+      font-weight: 700;
+      font-size: 1em; // Reduced from 1.05em
+      width: 120px; // Slightly wider for emphasis
+      
+      .cancelled-earnings {
+        color: #f97316; // Orange like in screenshot
+      }
+      
+      .tentative {
+        opacity: 0.6;
+        font-style: italic;
+      }
+    }
+    
+    .cancelled-amount {
+      color: #f97316; // Orange
+      
+      &.strikethrough {
+        text-decoration: line-through;
+        opacity: 0.5;
+      }
+    }
+  }
+}
 
-      .payment-amounts {
-        background: var(--ion-color-light);
-        border-radius: 12px;
-        padding: 12px;
-
-        .amount-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 6px 0;
-
-          .amount-label {
-            font-size: 0.9em;
-            color: var(--ion-color-medium);
-          }
-
-          .amount-value {
-            font-weight: 600;
-            color: var(--ion-color-dark);
-
-            // Tentative amounts (for processing/scheduled)
-            &.tentative {
-              opacity: 0.6;
-              font-style: italic;
-            }
-
-            .tentative-label {
-              font-size: 0.8em;
-              font-weight: 400;
-              color: var(--ion-color-warning);
-              margin-left: 4px;
-            }
-          }
-
-          &.tutor-payout {
-            .amount-value {
-              color: var(--ion-color-success);
-              font-size: 1.1em;
-            }
-            
-            &.cancelled-amount {
-              .amount-value {
-                color: var(--ion-color-danger);
-                font-weight: 700;
-              }
-            }
-          }
-
-          &.platform-fee {
-            .amount-value {
-              color: var(--ion-color-medium);
-              font-size: 0.9em;
-            }
-          }
-
-          &.total-divider {
-            border-top: 1px solid var(--ion-color-medium-tint);
-            margin: 8px 0;
-            padding: 0;
-          }
-
-          &.total {
-            .amount-label {
-              font-weight: 600;
-              color: var(--ion-color-dark);
-            }
-            .amount-value {
-              font-weight: 700;
-              font-size: 1.1em;
-              
-              // Cancelled price styling
-              .cancelled-price-wrapper {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 4px;
-                
-                .strikethrough {
-                  text-decoration: line-through;
-                  opacity: 0.5;
-                  font-size: 0.9em;
-                  color: var(--ion-color-medium);
-                }
-                
-                .refunded-badge {
-                  background: rgba(var(--ion-color-danger-rgb), 0.15);
-                  color: var(--ion-color-danger-shade);
-                  padding: 4px 12px;
-                  border-radius: 12px;
-                  font-size: 0.85em;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  letter-spacing: 0.5px;
-                }
-              }
-            }
-          }
-        }
+// Mobile responsiveness for table
+@media (max-width: 1024px) {
+  .earnings-content {
+    max-width: 100%; // Full width on tablets/mobile
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  .payments-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .payments-table {
+    min-width: 900px; // Force horizontal scroll on smaller screens
+    font-size: 0.85em;
+    
+    thead tr th {
+      padding: 12px 14px;
+      font-size: 0.75em;
+      
+      &:first-child {
+        padding-left: 16px;
+      }
+    }
+    
+    tbody tr.payment-row td {
+      padding: 14px;
+      
+      &:first-child {
+        padding-left: 16px;
       }
     }
   }
@@ -488,13 +706,27 @@
     font-size: 24px;
     color: var(--ion-color-primary);
     flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  div {
+    flex: 1;
   }
 
   p {
     color: var(--ion-color-medium);
     font-size: 0.9em;
-    line-height: 1.5;
-    margin: 0;
+    line-height: 1.6;
+    margin: 0 0 10px 0;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    strong {
+      color: var(--ion-color-dark);
+      font-weight: 600;
+    }
   }
 }
 
@@ -533,4 +765,596 @@
   }
 }
 
+// ============================================================
+// WITHDRAWAL MODAL STYLES
+// ============================================================
 
+.withdrawal-modal {
+  ion-content {
+    --background: #f5f5f7;
+  }
+  
+  .modal-content {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 40px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+}
+
+.floating-close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  --color: #8e8e93;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  
+  ion-icon {
+    font-size: 24px;
+  }
+  
+  &:hover {
+    --color: #1d1d1f;
+  }
+}
+
+// Header
+.modal-header {
+  text-align: center;
+  margin-bottom: 20px;
+  
+  .icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    box-shadow: 0 6px 20px rgba(52, 199, 89, 0.3);
+    
+    ion-icon {
+      font-size: 28px;
+      color: white;
+    }
+  }
+  
+  .modal-heading {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
+  }
+  
+  .modal-description {
+    font-size: 14px;
+    color: #86868b;
+    margin: 0;
+  }
+}
+
+// Balance Card
+.balance-card {
+  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);
+  
+  .balance-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .balance-amount {
+    font-size: 36px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 6px;
+    letter-spacing: -1px;
+  }
+  
+  .balance-note {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+// Fee Breakdown Card
+.fee-breakdown-card {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #e5e5ea;
+  
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    
+    .breakdown-label {
+      font-size: 13px;
+      color: #86868b;
+      flex: 1;
+    }
+    
+    .breakdown-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+      text-align: right;
+    }
+    
+    &.fee-row .breakdown-value {
+      color: #ff3b30;
+    }
+    
+    &.total-row {
+      padding-top: 12px;
+      
+      .breakdown-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1d1d1f;
+      }
+      
+      .breakdown-value.total {
+        font-size: 18px;
+        font-weight: 700;
+        color: #34c759;
+      }
+    }
+  }
+  
+  .breakdown-divider {
+    height: 1px;
+    background: #e5e5ea;
+    margin: 8px 0;
+  }
+  
+  // Stripe-specific styles
+  &.stripe-card {
+    border: 2px solid #34c759;
+    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+    
+    .no-fee-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #34c759;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      width: fit-content;
+      
+      ion-icon {
+        font-size: 18px;
+        color: white;
+      }
+      
+      span {
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    }
+    
+    .stripe-benefit-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: rgba(52, 199, 89, 0.1);
+      border-radius: 8px;
+      margin-top: 12px;
+      
+      ion-icon {
+        font-size: 16px;
+        color: #34c759;
+        flex-shrink: 0;
+      }
+      
+      span {
+        font-size: 12px;
+        color: #1d1d1f;
+      }
+    }
+  }
+}
+
+// Amount Section
+.amount-section {
+  margin-bottom: 20px;
+  
+  .section-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 8px;
+  }
+  
+  .amount-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 10px;
+    border: 2px solid #e5e5ea;
+    overflow: hidden;
+    transition: all 0.2s ease;
+    
+    &:focus-within {
+      border-color: #34c759;
+      box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.1);
+    }
+    
+    .currency-symbol {
+      padding-left: 14px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    
+    .amount-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 12px 10px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #1d1d1f;
+      background: transparent;
+      
+      &::placeholder {
+        color: #c7c7cc;
+      }
+      
+      /* Remove spinner */
+      &::-webkit-inner-spin-button,
+      &::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      -moz-appearance: textfield;
+    }
+    
+    .max-button {
+      background: #34c759;
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      margin-right: 6px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: #30d158;
+        transform: scale(1.05);
+      }
+      
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+  
+  .amount-error {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #ff3b30;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+// Method Section
+.method-section {
+  margin-bottom: 20px;
+  
+  .section-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 8px;
+  }
+  
+  .method-card {
+    background: white;
+    border-radius: 10px;
+    border: 2px solid #e5e5ea;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      border-color: #34c759;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    &.selected {
+      border-color: #34c759;
+      background: #f0fdf4;
+      box-shadow: 0 2px 8px rgba(52, 199, 89, 0.15);
+    }
+    
+    .method-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      
+      .method-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        
+        &.stripe {
+          background: #635bff;
+          
+          ion-icon {
+            font-size: 22px;
+            color: white;
+          }
+        }
+        
+        &.paypal {
+          // background: #0070ba;
+          
+          ion-icon {
+            font-size: 24px;
+            color: white;
+          }
+        }
+      }
+      
+      .method-info {
+        flex: 1;
+        
+        .method-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1d1d1f;
+          margin-bottom: 3px;
+        }
+        
+        .method-detail {
+          font-size: 13px;
+          color: #86868b;
+          margin-bottom: 3px;
+        }
+        
+        .method-timing {
+          font-size: 12px;
+          color: #34c759;
+          font-weight: 500;
+        }
+      }
+      
+      .method-radio {
+        .custom-radio {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 2px solid #c7c7cc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          
+          .radio-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #34c759;
+            transform: scale(0);
+            transition: transform 0.2s ease;
+          }
+          
+          &.checked {
+            border-color: #34c759;
+            
+            .radio-dot {
+              transform: scale(1);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .no-method-message {
+    background: #fff3cd;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    ion-icon {
+      font-size: 24px;
+      color: #856404;
+      flex-shrink: 0;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 14px;
+      color: #856404;
+    }
+  }
+}
+
+// Button Container
+.button-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+  
+  ion-button {
+    --border-radius: 10px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: -0.2px;
+    margin: 0;
+    
+    &[fill="outline"] {
+      --border-width: 2px;
+      --border-color: #e5e5ea;
+      --color: #1d1d1f;
+      
+      &:hover {
+        --border-color: #c7c7cc;
+      }
+    }
+    
+    &:not([fill="outline"]) {
+      --background: #34c759;
+      --background-hover: #30d158;
+      --background-activated: #28cd50;
+      
+      &:disabled {
+        opacity: 0.4;
+      }
+    }
+  }
+}
+
+// Info Note
+.info-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px;
+  background: #f5f5f7;
+  border-radius: 8px;
+  
+  ion-icon {
+    font-size: 16px;
+    color: #86868b;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  
+  span {
+    font-size: 12px;
+    color: #86868b;
+    line-height: 1.4;
+  }
+}
+
+// Mobile responsiveness
+@media (max-width: 768px) {
+  .modal-content {
+    padding: 40px 16px 16px;
+  }
+  
+  .modal-header {
+    .modal-heading {
+      font-size: 24px;
+    }
+  }
+  
+  .balance-card {
+    .balance-amount {
+      font-size: 36px;
+    }
+  }
+  
+  .button-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+// Refunded payment row styling
+.payment-row.refunded-row {
+  background: rgba(239, 68, 68, 0.03);
+  border-left: 3px solid #ef4444;
+  
+  &:hover {
+    background: rgba(239, 68, 68, 0.05);
+    cursor: default;
+  }
+}
+
+.cancelled-amount,
+.cancelled-earnings {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.strikethrough {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.amount-with-original {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  
+  .original-strikethrough {
+    font-size: 11px;
+    text-decoration: line-through;
+    color: #9ca3af;
+  }
+}
+
+.amount-with-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .reduced-amount {
+    color: #f59e0b;
+    font-weight: 600;
+  }
+  
+  .refund-badge-small {
+    font-size: 10px;
+    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    
+    ion-icon {
+      font-size: 12px;
+    }
+  }
+}
+
+.status-reason {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 4px;
+  line-height: 1.3;
+}

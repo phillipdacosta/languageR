@@ -236,6 +236,25 @@
                       <span>Analysis not available</span>
                     </div>
                   </div>
+                  
+                  <!-- Report Issue Button (for Students within 24h) -->
+                  <ion-button
+                    *ngIf="getUserRole(lesson) === 'student' && canReportIssue(lesson)"
+                    fill="clear"
+                    color="medium"
+                    size="small"
+                    (click)="reportIssue(lesson)"
+                    class="report-issue-btn"
+                  >
+                    <ion-icon name="flag-outline" slot="start"></ion-icon>
+                    Report Issue
+                  </ion-button>
+                  
+                  <!-- Issue Reported Indicator -->
+                  <div *ngIf="lesson.issueReported" class="issue-reported-indicator">
+                    <ion-icon name="flag" color="warning"></ion-icon>
+                    <span>Issue reported - under review</span>
+                  </div>
                 </div>
               </div>
             </ion-card-content>

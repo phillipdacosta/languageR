@@ -16,6 +16,11 @@ ion-header {
 
 ion-content {
   --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  
+  // Embedded mode: white background instead of gradient
+  &.embedded-checkout {
+    --background: #ffffff;
+  }
 }
 
 .checkout-layout {
@@ -28,6 +33,16 @@ ion-content {
   min-height: calc(100vh - 60px); // Fit within viewport
   max-height: calc(100vh - 60px);
   align-items: stretch; // Changed from 'start' to 'stretch' for equal heights
+  
+  // Embedded mode: single column, no gradient cards
+  &.embedded-layout {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    padding: 0;
+    min-height: auto;
+    max-height: none;
+    gap: 0;
+  }
 }
 
 // Shared card styles - matching tutor-onboarding
@@ -45,6 +60,18 @@ ion-content {
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.35);
+  }
+  
+  // Embedded mode: no shadow, no hover effect, less padding
+  .embedded-layout & {
+    box-shadow: none;
+    border-radius: 0;
+    padding: 16px;
+    
+    &:hover {
+      transform: none;
+      box-shadow: none;
+    }
   }
 }
 
@@ -78,6 +105,8 @@ h2 {
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  position: relative;
+  bottom: 30px;
 }
 
 .avatar img { 

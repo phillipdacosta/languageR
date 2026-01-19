@@ -258,6 +258,7 @@ ion-content {
   font-size: 14px;
   color: #666;
   flex-wrap: wrap;
+  margin-bottom: 12px;
 
   span {
     padding: 4px 12px;
@@ -268,6 +269,24 @@ ion-content {
   .pending-net {
     font-weight: 600;
     color: #ff9500;
+  }
+}
+
+.next-processing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #007aff;
+  font-weight: 500;
+  padding: 8px 12px;
+  background: rgba(0, 122, 255, 0.08);
+  border-radius: 8px;
+  margin-top: 8px;
+  width: fit-content;
+
+  ion-icon {
+    font-size: 18px;
   }
 }
 
@@ -397,6 +416,62 @@ ion-content {
       color: #333;
       white-space: nowrap;
 
+      &.lesson-id-cell {
+        font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
+        font-size: 11px;
+        
+        .lesson-id-badge {
+          display: inline-block;
+          padding: 4px 8px;
+          background: #f0f0f0;
+          border-radius: 6px;
+          color: #666;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          word-break: break-all;
+          
+          &:hover {
+            background: #007aff;
+            color: white;
+          }
+        }
+        
+        .na-text {
+          color: #999;
+          font-style: italic;
+        }
+      }
+
+      &.release-date-cell {
+        font-size: 11px;
+        color: #333;
+        
+        .past-release {
+          color: #34c759;
+          font-weight: 600;
+        }
+        
+        .processing-time {
+          font-size: 10px;
+          color: #ff9500;
+          margin-top: 2px;
+          font-weight: 500;
+        }
+        
+        .already-available {
+          font-size: 10px;
+          color: #34c759;
+          margin-top: 2px;
+          font-weight: 600;
+        }
+        
+        .na-text {
+          color: #999;
+          font-style: italic;
+        }
+      }
+
       &.stripe-fee {
         color: #ff9500;
         font-weight: 500;
@@ -407,6 +482,15 @@ ion-content {
         font-weight: 600;
       }
     }
+  }
+  
+  // Status badges in table
+  ion-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+    text-transform: capitalize;
   }
 }
 

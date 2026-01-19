@@ -7,12 +7,23 @@
  * 3. Don't have a transcript (or transcript was never started)
  * 4. Automatically finalizes the lesson (billing, status)
  * 
+ * SCALABILITY FEATURES:
+ * - Processes in batches of 100
+ * - Max 1000 per run (prevents overload)
+ * - Continues on individual failures
+ * - Logs errors for manual review
+ * 
  * Use case: User closes browser without clicking "End Call" and no transcript was recorded
  */
 
 const Lesson = require('../models/Lesson');
 const LessonTranscript = require('../models/LessonTranscript');
 const User = require('../models/User');
+const alertService = require('../services/alertService');
+
+// Configuration
+const BATCH_SIZE = 100; // Process 100 lessons at a time
+const MAX_PER_RUN = 1000; // Maximum lessons to process in a single run
 
 // Helper function to emit WebSocket events for lesson/payment status changes
 function emitStatusChange(lessonId, status, tutorId, studentId) {
@@ -50,121 +61,191 @@ function emitStatusChange(lessonId, status, tutorId, studentId) {
  * Main function to auto-finalize eligible lessons
  */
 async function autoFinalizeLessons() {
+  console.log('\n========================================');
+  console.log('🔄 [CRON] Auto-Finalize Lessons Job Started');
+  console.log(`   Time: ${new Date().toISOString()}`);
+  console.log(`   Batch Size: ${BATCH_SIZE}, Max Per Run: ${MAX_PER_RUN}`);
+  console.log('========================================\n');
+  
   try {
     const now = new Date();
     const Payment = require('../models/Payment');
     
-    // Find lessons that should be completed but aren't
-    // - Scheduled end time has passed
-    // - Still in 'scheduled', 'in_progress', or 'ended_early' status
-    const eligibleLessons = await Lesson.find({
-      status: { $in: ['scheduled', 'in_progress', 'ended_early'] },
-      endTime: { $lt: now } // End time is in the past
-    }).limit(100); // Process max 100 at a time
-    
-    // 🆕 SAFETY NET: Also find 'completed' lessons with uncaptured payments
-    // This catches race conditions where status changed to 'completed' without payment capture
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const completedWithUncapturedPayment = await Lesson.find({
-      status: 'completed',
-      endTime: { $lt: now, $gt: oneHourAgo }, // Completed within last hour
-      paymentId: { $exists: true, $ne: null }
-    }).populate('paymentId').limit(50);
-    
-    // Filter to only those with uncaptured payments
-    const needsPaymentCapture = completedWithUncapturedPayment.filter(lesson => {
-      const payment = lesson.paymentId;
-      return payment && 
-             payment.status === 'authorized' && 
-             !payment.chargedAt && 
-             lesson.actualCallStartTime; // Only if lesson actually happened
-    });
-    
-    // Combine both lists
-    const allLessonsToProcess = [...eligibleLessons, ...needsPaymentCapture];
-    
-    if (allLessonsToProcess.length === 0) {
-      // No lessons to finalize - this is normal most of the time
-      return;
-    }
-    
-    if (needsPaymentCapture.length > 0) {
-      console.log(`⚠️ [AutoFinalize] Found ${needsPaymentCapture.length} completed lessons with uncaptured payments (race condition recovery)`);
-    }
-    
-    console.log(`🔍 [AutoFinalize] Found ${allLessonsToProcess.length} lessons to process (${eligibleLessons.length} pending + ${needsPaymentCapture.length} uncaptured)`);
-    
+    let totalProcessed = 0;
     let finalizedCount = 0;
     let skippedCount = 0;
     let paymentsCaptured = 0;
+    let failedCount = 0;
     
-    for (const lesson of allLessonsToProcess) {
-      try {
-        // Check if lesson has an active transcript
-        const transcript = await LessonTranscript.findOne({ 
-          lessonId: lesson._id 
-        });
-        
-        // If transcript exists and is still being processed, skip
-        // (autoCompleteTranscripts job will handle it)
-        if (transcript && ['recording', 'processing'].includes(transcript.status)) {
-          skippedCount++;
-          continue;
-        }
-        
-        // If transcript is already completed, skip
-        // (lesson should have been finalized by autoCompleteTranscripts)
-        if (transcript && transcript.status === 'completed') {
-          // Transcript is done but lesson wasn't finalized - do it now
-          console.log(`⚠️ [AutoFinalize] Lesson ${lesson._id} has completed transcript but wasn't finalized`);
-        }
-        
-        // Special handling for already-completed lessons (race condition recovery)
-        if (lesson.status === 'completed') {
-          console.log(`🔧 [AutoFinalize] Processing completed lesson ${lesson._id} with uncaptured payment (race condition recovery)`);
+    // Process in batches
+    while (totalProcessed < MAX_PER_RUN) {
+      // Find lessons that should be completed but aren't
+      // - Scheduled end time has passed
+      // - Still in 'scheduled', 'in_progress', or 'ended_early' status
+      const eligibleLessons = await Lesson.find({
+        status: { $in: ['scheduled', 'in_progress', 'ended_early'] },
+        endTime: { $lt: now } // End time is in the past
+      }).limit(BATCH_SIZE);
+      
+      // 🆕 SAFETY NET: Also find 'completed' lessons with uncaptured payments
+      // This catches race conditions where status changed to 'completed' without payment capture
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const completedWithUncapturedPayment = await Lesson.find({
+        status: 'completed',
+        endTime: { $lt: now, $gt: oneHourAgo }, // Completed within last hour
+        paymentId: { $exists: true, $ne: null }
+      }).populate('paymentId').limit(Math.min(50, BATCH_SIZE - eligibleLessons.length));
+      
+      // Filter to only those with uncaptured payments
+      const needsPaymentCapture = completedWithUncapturedPayment.filter(lesson => {
+        const payment = lesson.paymentId;
+        return payment && 
+               payment.status === 'authorized' && 
+               !payment.chargedAt && 
+               lesson.actualCallStartTime; // Only if lesson actually happened
+      });
+      
+      // Combine both lists
+      const allLessonsToProcess = [...eligibleLessons, ...needsPaymentCapture];
+      
+      if (allLessonsToProcess.length === 0) {
+        console.log('✅ No lessons to finalize at this time');
+        break;
+      }
+      
+      if (needsPaymentCapture.length > 0) {
+        console.log(`⚠️ [AutoFinalize] Found ${needsPaymentCapture.length} completed lessons with uncaptured payments (race condition recovery)`);
+      }
+      
+      console.log(`📦 Processing batch of ${allLessonsToProcess.length} lessons (${eligibleLessons.length} pending + ${needsPaymentCapture.length} uncaptured)`);
+      
+      for (const lesson of allLessonsToProcess) {
+        try {
+          // Check if lesson has an active transcript
+          const transcript = await LessonTranscript.findOne({ 
+            lessonId: lesson._id 
+          });
           
-          // Just capture the payment, don't change status
-          if (lesson.paymentId) {
-            const payment = await Payment.findById(lesson.paymentId);
-            if (payment && payment.status === 'authorized') {
-              console.log(`💳 [AutoFinalize] Capturing payment for race-condition lesson ${lesson._id}`);
-              const paymentService = require('../services/paymentService');
-              
-              try {
-                await paymentService.deductLessonFunds(lesson._id);
-                await paymentService.completeLessonPayment(lesson._id);
-                paymentsCaptured++;
-                console.log(`✅ [AutoFinalize] Payment captured and completed for lesson ${lesson._id}`);
-              } catch (paymentError) {
-                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, paymentError.message);
+          // If transcript exists and is still being processed, skip
+          // (autoCompleteTranscripts job will handle it)
+          if (transcript && ['recording', 'processing'].includes(transcript.status)) {
+            skippedCount++;
+            continue;
+          }
+          
+          // If transcript is already completed, skip
+          // (lesson should have been finalized by autoCompleteTranscripts)
+          if (transcript && transcript.status === 'completed') {
+            // Transcript is done but lesson wasn't finalized - do it now
+            console.log(`⚠️ [AutoFinalize] Lesson ${lesson._id} has completed transcript but wasn't finalized`);
+          }
+          
+          // Special handling for already-completed lessons (race condition recovery)
+          if (lesson.status === 'completed') {
+            console.log(`🔧 [AutoFinalize] Processing completed lesson ${lesson._id} with uncaptured payment (race condition recovery)`);
+            
+            // Just capture the payment, don't change status
+            if (lesson.paymentId) {
+              const payment = await Payment.findById(lesson.paymentId);
+              if (payment && payment.status === 'authorized') {
+                console.log(`💳 [AutoFinalize] Capturing payment for race-condition lesson ${lesson._id}`);
+                const paymentService = require('../services/paymentService');
+                
+                try {
+                  await paymentService.deductLessonFunds(lesson._id);
+                  await paymentService.completeLessonPayment(lesson._id);
+                  paymentsCaptured++;
+                  console.log(`✅ [AutoFinalize] Payment captured and completed for lesson ${lesson._id}`);
+                } catch (paymentError) {
+                  console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, paymentError.message);
+                  failedCount++;
+                }
               }
             }
+            totalProcessed++;
+            continue;
           }
-          continue;
+          
+          console.log(`✅ [AutoFinalize] Finalizing lesson ${lesson._id} without transcript`);
+          console.log(`   Scheduled end: ${lesson.endTime}`);
+          console.log(`   Current time: ${now.toISOString()}`);
+          console.log(`   Has transcript: ${!!transcript}`);
+          
+          // Finalize the lesson
+          await finalizeLesson(lesson, now);
+          
+          finalizedCount++;
+          totalProcessed++;
+          
+        } catch (error) {
+          console.error(`❌ [AutoFinalize] Error processing lesson ${lesson._id}:`, error.message);
+          skippedCount++;
+          failedCount++;
+          
+          // Alert if there are many failures
+          if (failedCount >= 10) {
+            await alertService.createAlert({
+              type: 'LESSON_FINALIZATION_ERRORS',
+              severity: 'MEDIUM',
+              title: `Multiple Lesson Finalization Failures`,
+              description: `${failedCount} lessons failed to finalize in this run. Check logs for details.`,
+              data: {
+                failedCount,
+                jobName: 'autoFinalizeLessons',
+                timestamp: new Date().toISOString()
+              }
+            });
+          }
         }
-        
-        console.log(`✅ [AutoFinalize] Finalizing lesson ${lesson._id} without transcript`);
-        console.log(`   Scheduled end: ${lesson.endTime}`);
-        console.log(`   Current time: ${now.toISOString()}`);
-        console.log(`   Has transcript: ${!!transcript}`);
-        
-        // Finalize the lesson
-        await finalizeLesson(lesson, now);
-        
-        finalizedCount++;
-        
-      } catch (error) {
-        console.error(`❌ [AutoFinalize] Error processing lesson ${lesson._id}:`, error.message);
-        skippedCount++;
+      }
+      
+      // If we got less than BATCH_SIZE, we've processed everything
+      if (allLessonsToProcess.length < BATCH_SIZE) {
+        console.log(`\n✅ Processed all available lessons (batch was not full)`);
+        break;
+      }
+      
+      // Safety check: if we've processed MAX_PER_RUN, stop
+      if (totalProcessed >= MAX_PER_RUN) {
+        console.log(`\n⚠️  Reached max per run limit (${MAX_PER_RUN}), stopping`);
+        break;
       }
     }
     
-    if (finalizedCount > 0 || skippedCount > 0 || paymentsCaptured > 0) {
-      console.log(`📊 [AutoFinalize] Summary: ${finalizedCount} finalized, ${paymentsCaptured} payments captured (race condition), ${skippedCount} skipped`);
-    }
+    console.log('\n========================================');
+    console.log(`✅ [CRON] Auto-Finalize Lessons Job Completed`);
+    console.log(`   ✅ Finalized: ${finalizedCount} lessons`);
+    console.log(`   💳 Payments Captured: ${paymentsCaptured} (race condition)`);
+    console.log(`   ⏭️  Skipped: ${skippedCount} lessons`);
+    console.log(`   ❌ Failed: ${failedCount} lessons`);
+    console.log(`   Time: ${new Date().toISOString()}`);
+    console.log('========================================\n');
+    
+    return {
+      success: true,
+      finalizedCount,
+      paymentsCaptured,
+      skippedCount,
+      failedCount
+    };
     
   } catch (error) {
-    console.error('❌ [AutoFinalize] Error in autoFinalizeLessons job:', error);
+    console.error('❌ [CRON] Auto-Finalize Lessons Job Failed:', error);
+    
+    // Create critical alert for job-level failure
+    await alertService.createAlert({
+      type: 'CRON_JOB_FAILED',
+      severity: 'CRITICAL',
+      title: 'Auto-Finalize Lessons Job Failed',
+      description: `The auto-finalize lessons cron job failed completely. Error: ${error.message}`,
+      data: {
+        jobName: 'autoFinalizeLessons',
+        error: error.message,
+        stack: error.stack
+      }
+    });
+    
+    throw error;
   }
 }
 

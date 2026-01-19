@@ -534,3 +534,4 @@ GET /api/admin/platform-revenue?startDate=2025-10-01&endDate=2025-12-31&page=1&l
 
 The admin can now efficiently browse through thousands of payments while maintaining fast page load times and seeing the most recent revenue first.
 
+

@@ -34,6 +34,7 @@ export class PayoutSelectionModalComponent implements OnInit {
   selectedProvider: 'stripe' | 'paypal' | 'manual' | null = null;
   paypalEmail = '';
   paypalEmailError = '';
+  currentProvider: string = 'none';
 
   constructor(
     private modalController: ModalController,
@@ -59,13 +60,25 @@ export class PayoutSelectionModalComponent implements OnInit {
       if (response.success) {
         this.residenceCountry = response.residenceCountry;
         this.options = response.options;
+        this.currentProvider = response.currentProvider || 'none';
         
-        // Auto-select recommended option
-        if (this.options) {
-          if (this.options.stripe && this.options.stripe.recommended) {
-            this.selectedProvider = 'stripe';
-          } else if (this.options.paypal && this.options.paypal.recommended) {
-            this.selectedProvider = 'paypal';
+        // If user already has a payout provider set, select it
+        if (this.currentProvider !== 'none') {
+          this.selectedProvider = this.currentProvider as 'stripe' | 'paypal' | 'manual';
+          
+          // If PayPal is the current provider, load the existing email
+          if (this.currentProvider === 'paypal' && response.currentPaypalEmail) {
+            this.paypalEmail = response.currentPaypalEmail;
+            console.log('💳 [PAYOUT-MODAL] Loaded existing PayPal email:', this.paypalEmail);
+          }
+        } else {
+          // Auto-select recommended option if no provider is set
+          if (this.options) {
+            if (this.options.stripe && this.options.stripe.recommended) {
+              this.selectedProvider = 'stripe';
+            } else if (this.options.paypal && this.options.paypal.recommended) {
+              this.selectedProvider = 'paypal';
+            }
           }
         }
       }

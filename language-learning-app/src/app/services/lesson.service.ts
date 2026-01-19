@@ -68,6 +68,14 @@ export interface Lesson {
   classData?: any; // Full class data from backend
   cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
   
+  // Issue Reporting & Investigation
+  issueReported?: boolean;
+  issueType?: 'tutor_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
+  issueDetails?: string;
+  issueReportedAt?: string;
+  underInvestigation?: boolean;
+  payoutPaused?: boolean;
+  
   // Per-minute billing tracking (for office hours)
   actualCallStartTime?: string;
   actualCallEndTime?: string;

@@ -145,6 +145,49 @@ export class SmartIslandService {
   }
 
   /**
+   * Remove a specific tutor from the availability card
+   * If no tutors remain, remove the card entirely
+   */
+  public removeTutorFromAvailabilityCard(bookedTutorId: string) {
+    const card = this.availableCards.find(c => c.type === 'tutor_availability');
+    
+    if (!card || !card.data?.tutors) {
+      console.log('🔍 [SmartIsland] No tutor availability card found');
+      return;
+    }
+    
+    // Filter out the booked tutor
+    const remainingTutors = card.data.tutors.filter((t: any) => {
+      const tutorId = t.id || t._id;
+      return tutorId !== bookedTutorId;
+    });
+    
+    console.log('🔍 [SmartIsland] Remaining tutors after booking:', {
+      original: card.data.tutors.length,
+      remaining: remainingTutors.length,
+      bookedTutorId
+    });
+    
+    if (remainingTutors.length === 0) {
+      // No more tutors - remove the card
+      console.log('🗑️ [SmartIsland] All tutors booked, removing card');
+      this.removeCard('tutor_availability');
+    } else {
+      // Update card with remaining tutors
+      console.log('🔄 [SmartIsland] Updating card with remaining tutors');
+      this.addTutorAvailabilityCard(remainingTutors);
+    }
+  }
+
+  /**
+   * Remove tutor availability card completely
+   */
+  public removeTutorAvailabilityCard() {
+    this.removeCard('tutor_availability');
+    console.log('🗑️ [SmartIsland] Removed tutor availability card');
+  }
+
+  /**
    * Add a gamification card (next badge or level progress)
    */
   public addGamificationCard(type: 'next_badge' | 'level_progress', data: any) {
@@ -362,12 +405,13 @@ export class SmartIslandService {
    * Add a tutor availability card (when tutors student has worked with add new slots)
    */
   public addTutorAvailabilityCard(
-    tutorCount: number,
-    tutorNames: string[],
-    tutorAvatars: string[],
+    tutors: any[], // Array of full tutor objects with id, firstName, lastName, picture
     ctaAction: string = '/tabs/tutor-search'
   ) {
+    const tutorCount = tutors.length;
     const isSingleTutor = tutorCount === 1;
+    const tutorNames = tutors.map((t: any) => t.firstName || t.name);
+    const tutorAvatars = tutors.map((t: any) => t.picture || 'assets/avatar-placeholder.png');
     const tutorName = isSingleTutor ? tutorNames[0] : '';
     
     this.updateOrAddCard({
@@ -381,7 +425,7 @@ export class SmartIslandService {
       ctaAction,
       avatars: isSingleTutor ? undefined : tutorAvatars.slice(0, 5), // Stacked avatars for multiple tutors
       avatarUrl: isSingleTutor ? tutorAvatars[0] : undefined, // Single avatar for one tutor
-      data: { tutorCount, tutorNames, tutorAvatars }
+      data: { tutorCount, tutorNames, tutorAvatars, tutors } // Include full tutor objects
     });
   }
 

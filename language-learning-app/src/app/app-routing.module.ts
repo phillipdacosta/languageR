@@ -43,19 +43,48 @@ const routes: Routes = [
             canActivate: [AuthGuard]
           },
           {
+            path: 'admin',
+            loadComponent: () => import('./admin/admin-dashboard.page').then(m => m.AdminDashboardPage),
+            canActivate: [AuthGuard],
+            children: [
+              {
+                path: '',
+                redirectTo: 'revenue',
+                pathMatch: 'full'
+              },
+              {
+                path: 'revenue',
+                loadComponent: () => import('./admin/admin.page').then(m => m.AdminPage)
+              },
+              {
+                path: 'reported-lessons',
+                loadComponent: () => import('./admin/reported-lessons.page').then(m => m.ReportedLessonsPage)
+              },
+              {
+                path: 'tutor-review',
+                loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage)
+              },
+              {
+                path: 'payment-review',
+                loadChildren: () => import('./admin/payment-review/payment-review.module').then(m => m.PaymentReviewPageModule)
+              }
+            ]
+          },
+          // Legacy admin routes (redirect to new structure)
+          {
             path: 'admin/tutor-review',
-            loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage),
-            canActivate: [AuthGuard]
+            redirectTo: 'admin/tutor-review',
+            pathMatch: 'full'
           },
           {
             path: 'admin/payment-review',
-            loadChildren: () => import('./admin/payment-review/payment-review.module').then( m => m.PaymentReviewPageModule),
-            canActivate: [AuthGuard]
+            redirectTo: 'admin/payment-review',
+            pathMatch: 'full'
           },
           {
             path: 'admin/revenue',
-            loadComponent: () => import('./admin/admin.page').then(m => m.AdminPage),
-            canActivate: [AuthGuard]
+            redirectTo: 'admin/revenue',
+            pathMatch: 'full'
           },
   {
     path: 'tabs',

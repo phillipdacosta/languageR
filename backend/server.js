@@ -17,7 +17,9 @@ const { autoCancelClasses } = require('./jobs/autoCancelClasses');
 const autoReleaseClassPayments = require('./jobs/autoReleaseClassPayments');
 const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
 const { processPayPalPayouts } = require('./jobs/processPayPalPayouts');
+const { processWithdrawals } = require('./jobs/processWithdrawals');
 const { reconcilePayments } = require('./jobs/reconcilePayments');
+const { releaseEarnings } = require('./jobs/releaseEarnings'); // NEW: Release tutor earnings
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 
 const app = express();
@@ -86,6 +88,7 @@ const whiteboardRoutes = require('./routes/whiteboard');
 const walletRoutes = require('./routes/wallet');
 const paymentRoutes = require('./routes/payments');
 const webhookRoutes = require('./routes/webhooks');
+const withdrawalRoutes = require('./routes/withdrawals'); // NEW: Withdrawal system
 
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
@@ -113,6 +116,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/withdrawals', withdrawalRoutes); // NEW: Withdrawal system
 app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));
@@ -390,6 +394,24 @@ server.listen(PORT, '0.0.0.0', () => {
     });
   });
   console.log('⏰ Cron job started: Process PayPal payouts (every hour)');
+  
+  // Process withdrawal requests (Stripe Connect / PayPal)
+  // Runs every 5 minutes
+  cron.schedule('*/5 * * * *', () => {
+    processWithdrawals().catch(err => {
+      console.error('❌ [Cron] Error in processWithdrawals:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Process withdrawals (every 5 minutes)');
+  
+  // NEW: Release Tutor Earnings (20 minutes past the hour)
+  // Moves earnings from pending to available after 24hr hold period
+  cron.schedule('20 * * * *', () => {
+    releaseEarnings(io).catch(err => {
+      console.error('❌ [Cron] Error in releaseEarnings:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Release tutor earnings (every hour)');
   
   // Start background job to reconcile payments (check DB vs Stripe sync)
   // Runs nightly at 2:00 AM

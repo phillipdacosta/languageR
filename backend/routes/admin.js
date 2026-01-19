@@ -8,6 +8,15 @@ const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const alertService = require('../services/alertService');
+const walletService = require('../services/walletService');
+
+// Helper function to format name as "First L."
+function formatNameWithInitial(user) {
+  if (!user) return 'User';
+  const firstName = user.firstName || user.name || 'User';
+  const lastInitial = user.lastName ? `${user.lastName.charAt(0)}.` : '';
+  return lastInitial ? `${firstName} ${lastInitial}` : firstName;
+}
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -1017,17 +1026,20 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         studentEmail: payment.studentId?.email,
         tutorName: payment.tutorId?.name || 'Unknown',
         tutorEmail: payment.tutorId?.email,
+        lessonId: payment.lessonId?._id,
         subject: payment.lessonId?.subject,
         lessonDate: payment.lessonId?.startTime,
         duration: payment.lessonId?.duration,
         paymentMethod: payment.paymentMethod,
+        paymentStatus: payment.status, // Source of truth
+        transferStatus: payment.transferStatus, // Source of truth
+        earningsReleaseDate: payment.earningsReleaseDate, // When earnings become available
         grossAmount: grossAmount.toFixed(2),
         platformFee: platformFee.toFixed(2),
         platformFeePercent: payment.platformFeePercentage || 20,
         stripeFee: stripeFee.toFixed(2),
         netPlatformRevenue: netRevenue.toFixed(2),
         tutorPayout: tutorPayout.toFixed(2),
-        transferStatus: payment.transferStatus,
         stripePaymentIntentId: payment.stripePaymentIntentId
       });
     });
@@ -1094,11 +1106,24 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       revenueRecognized: false,
       status: { $in: ['authorized', 'succeeded'] },
       paymentType: { $in: ['lesson_booking', 'class_booking'] } // Only lesson/class payments
-    });
+    }).populate('lessonId', 'endTime');
     
     const totalPendingRevenue = pendingRevenue.reduce((sum, p) => sum + (p.platformFee || 0), 0);
     const totalPendingStripeFees = pendingRevenue.reduce((sum, p) => sum + (p.stripeFee || 0), 0);
     const totalPendingNetRevenue = totalPendingRevenue - totalPendingStripeFees;
+    
+    // Calculate next processing time (earliest lesson + 24 hours)
+    let nextProcessingTime = null;
+    if (pendingRevenue.length > 0) {
+      const sortedByEndTime = pendingRevenue
+        .filter(p => p.lessonId?.endTime)
+        .sort((a, b) => new Date(a.lessonId.endTime).getTime() - new Date(b.lessonId.endTime).getTime());
+      
+      if (sortedByEndTime.length > 0) {
+        const earliestLessonEnd = new Date(sortedByEndTime[0].lessonId.endTime);
+        nextProcessingTime = new Date(earliestLessonEnd.getTime() + 24 * 60 * 60 * 1000); // +24 hours
+      }
+    }
     
     res.json({
       success: true,
@@ -1124,7 +1149,8 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         pendingLessons: pendingRevenue.length,
         totalPendingRevenue: parseFloat(totalPendingRevenue.toFixed(2)),
         totalPendingStripeFees: parseFloat(totalPendingStripeFees.toFixed(2)),
-        totalPendingNetRevenue: parseFloat(totalPendingNetRevenue.toFixed(2))
+        totalPendingNetRevenue: parseFloat(totalPendingNetRevenue.toFixed(2)),
+        nextProcessingTime: nextProcessingTime ? nextProcessingTime.toISOString() : null
       },
       byPaymentMethod: paymentsByMethod,
       timeline: groupedTimeline,
@@ -1144,6 +1170,326 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       success: false,
       message: 'Failed to fetch platform revenue',
       error: error.message
+    });
+  }
+});
+
+// GET /api/admin/reported-lessons - Get lessons with reported issues
+router.get('/reported-lessons', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const {
+      status = 'pending', // 'pending', 'investigating', 'resolved', 'all'
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    console.log(`🔍 Admin fetching reported lessons: status=${status}`);
+
+    // Build query
+    const query = { issueReported: true };
+    
+    if (status === 'pending') {
+      query.underInvestigation = false;
+    } else if (status === 'investigating') {
+      query.underInvestigation = true;
+      query.investigationResolvedAt = null;
+    } else if (status === 'resolved') {
+      query.investigationResolvedAt = { $ne: null };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const lessons = await Lesson.find(query)
+      .populate('studentId', 'name email picture')
+      .populate('tutorId', 'name email picture')
+      .populate('issueReportedBy', 'name email')
+      .populate('payoutPausedBy', 'name email')
+      .sort({ issueReportedAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const total = await Lesson.countDocuments(query);
+
+    console.log(`✅ Found ${lessons.length} reported lessons (total: ${total})`);
+
+    res.json({
+      success: true,
+      lessons,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching reported lessons:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch reported lessons'
+    });
+  }
+});
+
+// POST /api/admin/lesson/:id/pause-payout - Pause tutor payout for investigation
+router.post('/lesson/:id/pause-payout', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const lessonId = req.params.id;
+    const { notes } = req.body;
+    const adminEmail = req.user.email;
+
+    console.log(`⏸️  Admin pausing payout for lesson ${lessonId}`);
+
+    const lesson = await Lesson.findById(lessonId)
+      .populate('studentId tutorId');
+
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    const admin = await User.findOne({ email: adminEmail });
+
+    lesson.payoutPaused = true;
+    lesson.payoutPausedAt = new Date();
+    lesson.payoutPausedBy = admin._id;
+    lesson.underInvestigation = true;
+    
+    if (notes) {
+      lesson.investigationNotes = notes;
+    }
+
+    await lesson.save();
+
+    console.log(`✅ Payout paused for lesson ${lessonId}`);
+
+    res.json({
+      success: true,
+      message: 'Payout paused successfully',
+      lesson: {
+        _id: lesson._id,
+        payoutPaused: lesson.payoutPaused,
+        underInvestigation: lesson.underInvestigation
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error pausing payout:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to pause payout'
+    });
+  }
+});
+
+// POST /api/admin/lesson/:id/resume-payout - Resume tutor payout after investigation
+router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const lessonId = req.params.id;
+    const { resolution, notes } = req.body;
+
+    console.log(`▶️  Admin resuming payout for lesson ${lessonId}: resolution=${resolution}`);
+
+    const lesson = await Lesson.findById(lessonId)
+      .populate('studentId tutorId');
+
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    // Find the payment for this lesson
+    const payment = await Payment.findOne({ lessonId: lesson._id });
+
+    if (!payment) {
+      console.warn(`⚠️  No payment found for lesson ${lessonId}`);
+    }
+
+    // Handle different resolutions
+    if (resolution === 'refunded' && payment) {
+      console.log(`💸 Processing full refund for lesson ${lessonId}`);
+      
+      try {
+        // Refund to student's wallet
+        await walletService.refund({
+          userId: lesson.studentId._id,
+          lessonId: lesson._id,
+          amount: lesson.price,
+          reason: `Admin investigation - ${notes || 'Issue validated'}`,
+          paymentId: payment._id
+        });
+
+        // Cancel tutor payout - keep transferStatus but set payout to 0
+        payment.tutorPayout = 0;
+        payment.status = 'refunded';
+        payment.refundAmount = lesson.price;
+        payment.refundedAt = new Date();
+        payment.refundReason = `Admin investigation: ${notes || 'Issue validated'}`;
+        payment.refundMethod = 'wallet';
+        // Keep transferStatus as is (likely 'on_hold') - don't change to 'refunded'
+        await payment.save();
+
+        console.log(`✅ Refunded $${lesson.price} to student ${lesson.studentId.name}`);
+        
+        const tutorDisplayName = formatNameWithInitial(lesson.tutorId);
+        const studentDisplayName = formatNameWithInitial(lesson.studentId);
+        
+        // Send notification to student
+        await Notification.create({
+          userId: lesson.studentId._id,
+          type: 'lesson_refunded',
+          title: 'Lesson Refunded',
+          message: `Your lesson with ${tutorDisplayName} has been refunded to your wallet.`,
+          link: `/wallet`,
+          data: {
+            lessonId: lesson._id,
+            amount: lesson.price,
+            reason: notes
+          }
+        });
+
+        // Send notification to tutor
+        await Notification.create({
+          userId: lesson.tutorId._id,
+          type: 'payment_cancelled',
+          title: 'Payment Cancelled',
+          message: `Payment for your lesson with ${studentDisplayName} has been cancelled due to investigation findings.`,
+          link: `/tabs/earnings`,
+          data: {
+            lessonId: lesson._id,
+            amount: lesson.price,
+            reason: notes,
+            resolution: 'refunded'
+          }
+        });
+
+      } catch (refundError) {
+        console.error(`❌ Refund failed for lesson ${lessonId}:`, refundError);
+        return res.status(500).json({
+          success: false,
+          error: `Failed to process refund: ${refundError.message}`
+        });
+      }
+
+    } else if (resolution === 'partial_refund' && payment) {
+      console.log(`💸 Processing partial refund for lesson ${lessonId}`);
+      
+      // Default to 50% refund if not specified
+      const refundAmount = lesson.price * 0.5;
+      const tutorAmount = lesson.price * 0.5;
+      
+      try {
+        // Refund half to student's wallet
+        await walletService.refund({
+          userId: lesson.studentId._id,
+          lessonId: lesson._id,
+          amount: refundAmount,
+          reason: `Admin investigation - Partial refund: ${notes || 'Partial resolution'}`,
+          paymentId: payment._id
+        });
+
+        // Update payment to reflect partial refund
+        payment.tutorPayout = tutorAmount;
+        payment.status = 'partially_refunded';
+        payment.refundAmount = refundAmount;
+        payment.refundedAt = new Date();
+        payment.refundReason = `Admin investigation: ${notes || 'Partial resolution'}`;
+        payment.refundMethod = 'wallet';
+        await payment.save();
+
+        console.log(`✅ Partial refund: $${refundAmount} to student, $${tutorAmount} to tutor`);
+        
+        const tutorDisplayName = formatNameWithInitial(lesson.tutorId);
+        const studentDisplayName = formatNameWithInitial(lesson.studentId);
+        
+        // Send notification to student
+        await Notification.create({
+          userId: lesson.studentId._id,
+          type: 'lesson_partial_refund',
+          title: 'Partial Refund Issued',
+          message: `A partial refund of $${refundAmount.toFixed(2)} has been issued for your lesson with ${tutorDisplayName}.`,
+          link: `/wallet`,
+          data: {
+            lessonId: lesson._id,
+            amount: refundAmount,
+            reason: notes
+          }
+        });
+
+        // Send notification to tutor
+        await Notification.create({
+          userId: lesson.tutorId._id,
+          type: 'payment_reduced',
+          title: 'Payment Adjusted',
+          message: `Payment for your lesson with ${studentDisplayName} has been adjusted to $${tutorAmount.toFixed(2)} due to investigation findings.`,
+          link: `/tabs/earnings`,
+          data: {
+            lessonId: lesson._id,
+            originalAmount: lesson.price,
+            adjustedAmount: tutorAmount,
+            refundedToStudent: refundAmount,
+            reason: notes,
+            resolution: 'partial_refund'
+          }
+        });
+
+      } catch (refundError) {
+        console.error(`❌ Partial refund failed for lesson ${lessonId}:`, refundError);
+        return res.status(500).json({
+          success: false,
+          error: `Failed to process partial refund: ${refundError.message}`
+        });
+      }
+
+    } else if (resolution === 'approved') {
+      console.log(`✅ Issue not valid - tutor will be paid normally`);
+      // Just unpause - tutor gets paid on next cron run
+      
+      const studentDisplayName = formatNameWithInitial(lesson.studentId);
+      
+      // Send notification to tutor
+      if (lesson.tutorId) {
+        await Notification.create({
+          userId: lesson.tutorId._id,
+          type: 'investigation_resolved',
+          title: 'Investigation Resolved',
+          message: `The reported issue for your lesson with ${studentDisplayName} has been resolved in your favor. Payment will be released.`,
+          link: `/tabs/earnings`,
+          data: {
+            lessonId: lesson._id,
+            resolution: 'approved'
+          }
+        });
+      }
+    }
+
+    // Update lesson investigation status
+    lesson.payoutPaused = false;
+    lesson.investigationResolvedAt = new Date();
+    lesson.investigationResolution = resolution || 'approved';
+    
+    if (notes) {
+      lesson.investigationNotes = (lesson.investigationNotes || '') + '\n\nResolution: ' + notes;
+    }
+
+    await lesson.save();
+
+    console.log(`✅ Investigation resolved for lesson ${lessonId}: ${resolution}`);
+
+    res.json({
+      success: true,
+      message: 'Investigation resolved successfully',
+      lesson: {
+        _id: lesson._id,
+        payoutPaused: lesson.payoutPaused,
+        investigationResolution: lesson.investigationResolution
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error resuming payout:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to resume payout'
     });
   }
 });

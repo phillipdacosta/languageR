@@ -3268,6 +3268,127 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/lessons/:id/report-issue - Student reports an issue with a lesson
+router.post('/:id/report-issue', verifyToken, async (req, res) => {
+  try {
+    const { issueType, details } = req.body;
+    const lessonId = req.params.id;
+    const studentAuth0Id = req.user.sub;
+
+    console.log('🚨 Student reporting issue:', { lessonId, issueType, studentAuth0Id });
+
+    // Validate input
+    if (!issueType || !details) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Issue type and details are required' 
+      });
+    }
+
+    const validIssueTypes = ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other'];
+    if (!validIssueTypes.includes(issueType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid issue type' 
+      });
+    }
+
+    // Get lesson and student
+    const lesson = await Lesson.findById(lessonId).populate('studentId tutorId');
+    if (!lesson) {
+      return res.status(404).json({ success: false, error: 'Lesson not found' });
+    }
+
+    const student = await User.findOne({ auth0Id: studentAuth0Id });
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+
+    // Verify requester is the student
+    if (lesson.studentId._id.toString() !== student._id.toString()) {
+      return res.status(403).json({ success: false, error: 'Only the student can report issues' });
+    }
+
+    // Check if already reported
+    if (lesson.issueReported) {
+      return res.status(400).json({ success: false, error: 'Issue already reported for this lesson' });
+    }
+
+    // Check if lesson is completed
+    if (lesson.status !== 'completed') {
+      return res.status(400).json({ success: false, error: 'Can only report issues for completed lessons' });
+    }
+
+    // Check if within 24-hour window
+    if (!lesson.endTime) {
+      return res.status(400).json({ success: false, error: 'Lesson end time not found' });
+    }
+
+    const lessonEndTime = new Date(lesson.endTime);
+    const now = new Date();
+    const hoursSinceEnd = (now - lessonEndTime) / (1000 * 60 * 60);
+
+    if (hoursSinceEnd > 24) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Issues can only be reported within 24 hours of lesson completion' 
+      });
+    }
+
+    // Update lesson with issue report
+    lesson.issueReported = true;
+    lesson.issueType = issueType;
+    lesson.issueDetails = details;
+    lesson.issueReportedAt = new Date();
+    lesson.issueReportedBy = student._id;
+    lesson.underInvestigation = true; // Automatically mark for investigation
+
+    // For serious issues (no-show, inappropriate), pause payout immediately
+    if (issueType === 'tutor_no_show' || issueType === 'inappropriate') {
+      lesson.payoutPaused = true;
+      lesson.payoutPausedAt = new Date();
+      console.log('⚠️ Serious issue detected - pausing payout immediately');
+    }
+
+    await lesson.save();
+
+    // Create notification for admin (future: can be sent via email/Slack)
+    console.log(`🔔 ADMIN ALERT: Issue reported for lesson ${lessonId}`);
+    console.log(`   Type: ${issueType}`);
+    console.log(`   Student: ${student.name} (${student.email})`);
+    console.log(`   Tutor: ${lesson.tutorId.name} (${lesson.tutorId.email})`);
+    console.log(`   Details: ${details}`);
+    console.log(`   Payout paused: ${lesson.payoutPaused}`);
+
+    // TODO: Send notification to admin (implement notification system)
+    // await sendAdminNotification({
+    //   type: 'lesson_issue_reported',
+    //   lessonId,
+    //   issueType,
+    //   studentId: student._id,
+    //   tutorId: lesson.tutorId._id
+    // });
+
+    res.json({ 
+      success: true,
+      message: 'Issue reported successfully. Our team will review it shortly.',
+      lesson: {
+        _id: lesson._id,
+        issueReported: lesson.issueReported,
+        underInvestigation: lesson.underInvestigation,
+        payoutPaused: lesson.payoutPaused
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error reporting issue:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to report issue' 
+    });
+  }
+});
+
 // POST /api/lessons/:id/tutor-note - Tutor adds a note to the lesson
 router.post('/:id/tutor-note', verifyToken, async (req, res) => {
   try {

@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
@@ -8,17 +8,48 @@ import { WebSocketService } from '../services/websocket.service';
 import { environment } from '../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { Subscription } from 'rxjs';
+import { FormsModule } from '@angular/forms';
 
 interface PaymentBreakdown {
   id: string;
   studentName: string;
+  studentPicture?: string;
   date: Date;
+  startTime: Date;
+  endTime: Date;
+  amount?: number;
   tutorPayout: number;
   platformFee: number;
-  status: 'paid' | 'pending' | 'in_progress' | 'processing' | 'scheduled' | 'cancelled';
+  refundAmount?: number;
+  refundReason?: string;
+  status: 'paid' | 'pending' | 'in_progress' | 'processing' | 'scheduled' | 'cancelled' | 'refunded' | 'partially_refunded';
   lessonStatus: string;
   lessonId: string;
   cancelReason?: string;
+}
+
+interface TutorBalance {
+  available: number;
+  pending: number;
+  lifetime: number;
+  withdrawn: number;
+  lastWithdrawal: Date | null;
+}
+
+interface WithdrawalHistory {
+  id: string;
+  amount: number;
+  netAmount: number;
+  method: string;
+  status: string;
+  fees: {
+    paypal: number;
+    stripe: number;
+    platform: number;
+    total: number;
+  };
+  requestedAt: Date;
+  completedAt?: Date;
 }
 
 @Component({
@@ -26,15 +57,39 @@ interface PaymentBreakdown {
   templateUrl: './earnings.page.html',
   styleUrls: ['./earnings.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule]
 })
 export class EarningsPage implements OnInit, OnDestroy {
   loading: boolean = true;
+  
+  // NEW: Withdrawal system balance
+  balance: TutorBalance = {
+    available: 0,
+    pending: 0,
+    lifetime: 0,
+    withdrawn: 0,
+    lastWithdrawal: null
+  };
+  
+  // OLD: Legacy earnings (will be deprecated)
   totalEarnings: number = 0;
   pendingEarnings: number = 0;
+  
   recentPayments: PaymentBreakdown[] = [];
+  withdrawalHistory: WithdrawalHistory[] = [];
+  
   error: string | null = null;
-  payoutProvider: string = 'unknown';
+  payoutProvider: string = 'none';
+  payoutMethodConfigured: boolean = false;
+  paypalEmail: string = '';
+  stripeConnectAccountId: string = '';
+  
+  // Withdrawal modal state
+  isWithdrawalModalOpen: boolean = false;
+  withdrawalAmount: number = 0;
+  selectedWithdrawalMethod: 'stripe_connect' | 'paypal' | null = null;
+  withdrawing: boolean = false;
+  
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -42,11 +97,18 @@ export class EarningsPage implements OnInit, OnDestroy {
     private userService: UserService,
     private router: Router,
     private location: Location,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private alertController: AlertController,
+    private toastController: ToastController,
+    private modalController: ModalController
   ) {}
 
   async ngOnInit() {
-    await this.loadEarnings();
+    await Promise.all([
+      this.loadBalance(),
+      this.loadEarnings(),
+      this.loadWithdrawalHistory()
+    ]);
     this.setupWebSocketListeners();
   }
 
@@ -87,7 +149,9 @@ export class EarningsPage implements OnInit, OnDestroy {
         this.totalEarnings = response.totalEarnings || 0;
         this.pendingEarnings = response.pendingEarnings || 0;
         this.recentPayments = response.recentPayments || [];
-        this.payoutProvider = response.payoutProvider || 'unknown';
+        this.payoutProvider = response.payoutProvider || 'none';
+        this.paypalEmail = response.paypalEmail || '';
+        this.stripeConnectAccountId = response.stripeConnectAccountId || '';
         console.log(`💰 Loaded ${this.recentPayments.length} payments`);
       }
     } catch (error: any) {
@@ -130,7 +194,10 @@ export class EarningsPage implements OnInit, OnDestroy {
       case 'scheduled':
         return 'medium';
       case 'cancelled':
+      case 'refunded':
         return 'danger';
+      case 'partially_refunded':
+        return 'warning';
       default:
         return 'warning';
     }
@@ -147,7 +214,10 @@ export class EarningsPage implements OnInit, OnDestroy {
       case 'scheduled':
         return 'calendar';
       case 'cancelled':
+      case 'refunded':
         return 'close-circle';
+      case 'partially_refunded':
+        return 'alert-circle';
       default:
         return 'time';
     }
@@ -165,12 +235,22 @@ export class EarningsPage implements OnInit, OnDestroy {
         return 'Scheduled';
       case 'cancelled':
         return 'Cancelled';
+      case 'refunded':
+        return 'Payment Cancelled';
+      case 'partially_refunded':
+        return 'Payment Reduced';
       default:
         return 'Pending Transfer';
     }
   }
 
   getStatusNote(payment: PaymentBreakdown): string | null {
+    if (payment.status === 'refunded') {
+      return payment.refundReason || 'Payment cancelled after investigation';
+    }
+    if (payment.status === 'partially_refunded') {
+      return payment.refundReason || `Payment reduced after investigation. $${(payment.refundAmount || 0).toFixed(2)} refunded to student.`;
+    }
     if (payment.status === 'cancelled') {
       return payment.cancelReason || 'Lesson was cancelled';
     }
@@ -184,6 +264,282 @@ export class EarningsPage implements OnInit, OnDestroy {
       return 'Payment will be authorized at lesson start';
     }
     return null;
+  }
+
+  // ============================================================
+  // NEW: WITHDRAWAL SYSTEM METHODS
+  // ============================================================
+
+  async loadBalance() {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/withdrawals/balance`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.balance = response.balance;
+        this.payoutMethodConfigured = 
+          response.payoutMethods?.stripeConnect?.configured || 
+          response.payoutMethods?.paypal?.configured || 
+          false;
+        
+        // Set payout provider
+        if (response.payoutMethods?.stripeConnect?.configured) {
+          this.payoutProvider = 'stripe';
+          this.stripeConnectAccountId = response.payoutMethods.stripeConnect.accountId || '';
+        } else if (response.payoutMethods?.paypal?.configured) {
+          this.payoutProvider = 'paypal';
+          this.paypalEmail = response.payoutMethods.paypal.email || '';
+        } else {
+          this.payoutProvider = 'none';
+        }
+        
+        console.log('💰 Balance loaded:', this.balance);
+        console.log('💳 Payout provider:', this.payoutProvider);
+        console.log('✅ Payout configured:', this.payoutMethodConfigured);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading balance:', error);
+    }
+  }
+
+  async loadWithdrawalHistory() {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/withdrawals/history?limit=10`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.withdrawalHistory = response.withdrawals || [];
+        console.log(`📜 Loaded ${this.withdrawalHistory.length} withdrawals`);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading withdrawal history:', error);
+    }
+  }
+
+  async requestWithdrawal() {
+    console.log('🔵 requestWithdrawal called');
+    console.log('Balance available:', this.balance.available);
+    console.log('Payout method configured:', this.payoutMethodConfigured);
+    
+    if (!this.payoutMethodConfigured) {
+      const alert = await this.alertController.create({
+        header: 'Payout Method Required',
+        message: 'Please set up your payout method (Stripe or PayPal) in settings before requesting a withdrawal.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    if (this.balance.available <= 0) {
+      const alert = await this.alertController.create({
+        header: 'No Available Balance',
+        message: 'You have no funds available for withdrawal at this time.',
+        buttons: ['OK']
+      });
+      await alert.present();
+      return;
+    }
+
+    // Set default values and open modal
+    this.withdrawalAmount = this.balance.available;
+    
+    // Auto-select the configured payout method
+    if (this.payoutProvider === 'stripe') {
+      this.selectedWithdrawalMethod = 'stripe_connect';
+    } else if (this.payoutProvider === 'paypal') {
+      this.selectedWithdrawalMethod = 'paypal';
+    }
+    
+    console.log('🟢 Opening modal, isWithdrawalModalOpen =', true);
+    this.isWithdrawalModalOpen = true;
+    console.log('Modal state after set:', this.isWithdrawalModalOpen);
+  }
+
+  closeWithdrawalModal() {
+    this.isWithdrawalModalOpen = false;
+  }
+
+  selectWithdrawalMethod(method: 'stripe_connect' | 'paypal') {
+    this.selectedWithdrawalMethod = method;
+  }
+
+  setMaxWithdrawalAmount() {
+    this.withdrawalAmount = this.balance.available;
+  }
+
+  canWithdraw(): boolean {
+    return this.selectedWithdrawalMethod !== null && 
+           this.withdrawalAmount >= 10 && 
+           this.withdrawalAmount <= this.balance.available;
+  }
+
+  calculatePayPalFee(amount: number): number {
+    if (this.selectedWithdrawalMethod !== 'paypal') {
+      return 0;
+    }
+    // PayPal charges $0.25 or 2% (whichever is higher), max $20
+    let fee = Math.max(0.25, amount * 0.02);
+    fee = Math.min(fee, 20);
+    return Math.round(fee * 100) / 100;
+  }
+
+  calculateStripeFee(amount: number): number {
+    // Stripe Connect transfers are FREE - no withdrawal fee
+    return 0;
+  }
+
+  getWithdrawalFee(): number {
+    if (this.selectedWithdrawalMethod === 'paypal') {
+      return this.calculatePayPalFee(this.withdrawalAmount);
+    } else if (this.selectedWithdrawalMethod === 'stripe_connect') {
+      return this.calculateStripeFee(this.withdrawalAmount);
+    }
+    return 0;
+  }
+
+  getNetAmount(): number {
+    const fee = this.getWithdrawalFee();
+    return this.withdrawalAmount - fee;
+  }
+
+  async confirmWithdrawal() {
+    if (!this.canWithdraw()) {
+      return;
+    }
+
+    // Show confirmation alert
+    const alert = await this.alertController.create({
+      header: 'Confirm Withdrawal',
+      message: `Are you sure you want to withdraw $${this.withdrawalAmount.toFixed(2)}? This will be sent to your ${this.selectedWithdrawalMethod === 'stripe_connect' ? 'Stripe Connect' : 'PayPal'} account.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Confirm',
+          handler: async () => {
+            this.isWithdrawalModalOpen = false;
+            await this.processWithdrawal(this.withdrawalAmount, this.selectedWithdrawalMethod!);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async processWithdrawal(amount: number, method: string) {
+    if (amount < 10) {
+      const toast = await this.toastController.create({
+        message: 'Minimum withdrawal amount is $10',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+      return;
+    }
+
+    if (amount > this.balance.available) {
+      const toast = await this.toastController.create({
+        message: 'Insufficient balance',
+        duration: 3000,
+        color: 'danger'
+      });
+      await toast.present();
+      return;
+    }
+
+    this.withdrawing = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/withdrawals/request`, {
+          amount,
+          method
+        }, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        const toast = await this.toastController.create({
+          message: `Withdrawal of $${amount.toFixed(2)} requested successfully! Processing within 1-2 business days.`,
+          duration: 4000,
+          color: 'success'
+        });
+        await toast.present();
+
+        // Reload data
+        await Promise.all([
+          this.loadBalance(),
+          this.loadWithdrawalHistory()
+        ]);
+      }
+    } catch (error: any) {
+      console.error('❌ Error requesting withdrawal:', error);
+      
+      const toast = await this.toastController.create({
+        message: error.error?.message || 'Failed to request withdrawal. Please try again.',
+        duration: 4000,
+        color: 'danger'
+      });
+      await toast.present();
+    } finally {
+      this.withdrawing = false;
+    }
+  }
+
+  getWithdrawalStatusColor(status: string): string {
+    switch(status) {
+      case 'completed':
+        return 'success';
+      case 'processing':
+        return 'primary';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+      case 'cancelled':
+        return 'danger';
+      default:
+        return 'medium';
+    }
+  }
+
+  getWithdrawalStatusText(status: string): string {
+    switch(status) {
+      case 'completed':
+        return 'Completed';
+      case 'processing':
+        return 'Processing';
+      case 'pending':
+        return 'Pending';
+      case 'failed':
+        return 'Failed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  }
+
+  getWithdrawalMethodLabel(method: string): string {
+    switch(method) {
+      case 'stripe_connect':
+        return 'Stripe';
+      case 'paypal':
+        return 'PayPal';
+      default:
+        return method;
+    }
   }
 }
 

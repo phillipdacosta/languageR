@@ -922,8 +922,21 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       // Determine payment status
       let paymentStatus = 'pending';
       
+      // Check lesson cancellation FIRST (no-show, student/tutor cancelled)
       if (lessonStatus === 'cancelled') {
-        paymentStatus = 'cancelled';
+        // Then check if it's an admin refund vs automatic cancellation
+        if (payment.status === 'refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
+          paymentStatus = 'refunded';
+        } else if (payment.status === 'partially_refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
+          paymentStatus = 'partially_refunded';
+        } else {
+          // Regular cancellation (no-show, etc.)
+          paymentStatus = 'cancelled';
+        }
+      } else if (payment.status === 'refunded') {
+        paymentStatus = 'refunded';
+      } else if (payment.status === 'partially_refunded') {
+        paymentStatus = 'partially_refunded';
       } else if (payment.transferStatus === 'succeeded') {
         paymentStatus = 'paid';
       } else if (payment.revenueRecognized && lessonStatus === 'completed') {
@@ -941,18 +954,19 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         : 'Student';
       
       const studentPicture = payment.studentId?.picture || null;
-      const lessonTime = payment.lessonId?.startTime || null;
-      const lessonEndTime = payment.lessonId?.endTime || null;
 
       return {
         id: payment._id,
         studentName,
         studentPicture,
         date: payment.lessonId?.startTime || payment.createdAt,
-        lessonTime,
-        lessonEndTime,
+        startTime: payment.lessonId?.startTime || null,
+        endTime: payment.lessonId?.endTime || null,
+        amount: payment.amount || 0,
         tutorPayout,
         platformFee: payment.platformFee || 0,
+        refundAmount: payment.refundAmount || 0,
+        refundReason: payment.refundReason || null,
         status: paymentStatus,
         lessonStatus: lessonStatus,
         cancelReason: payment.lessonId?.cancelReason || null,
@@ -1076,7 +1090,8 @@ router.get('/payout-options', verifyToken, async (req, res) => {
           description: 'Request withdrawals via bank transfer (slower)'
         }
       },
-      currentProvider: user.payoutProvider || 'none'
+      currentProvider: user.payoutProvider || 'none',
+      currentPaypalEmail: user.payoutDetails?.paypalEmail || null
     });
   } catch (error) {
     console.error('❌ Error checking payout options:', error);

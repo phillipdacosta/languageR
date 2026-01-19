@@ -40,9 +40,12 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
   standalone: false,
   animations: [
     trigger('fadeIn', [
-      transition('* => *', [ // Trigger on ANY state change
-        style({ opacity: 0, transform: 'scale(0.98)' }), // Softer scale (0.98 instead of 0.95)
-        animate('600ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' })) // Softer easing and longer duration
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.98)' }),
+        animate('400ms 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' }))
+      ]),
+      transition(':leave', [
+        animate('200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 0, transform: 'scale(0.98)' }))
       ])
     ])
   ]
@@ -87,6 +90,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   private _hasInitiallyLoaded = false; // Track if we've loaded data at least once
   private _lastDataFetch = 0; // Timestamp of last data fetch
   private _cacheValidityMs = 30000; // Cache valid for 30 seconds
+  private _lastDynamicCardRefresh = 0; // Track last dynamic card refresh
+  private readonly DYNAMIC_CARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
   availabilityBlocks: any[] = [];
   availabilityHeadline = '';
   availabilityDetail = '';
@@ -102,6 +107,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Dynamic Smart Island card
   dynamicCard: DynamicCard | null = null;
   dynamicCardAnimationState = 0; // Used to trigger animations on card change
+  dynamicCardReady = false; // Track if card system is initialized
+  dynamicCardsLoaded = false; // Track if cards have been loaded to prevent re-initialization
   
   // Up Next card properties
   get nextLessonTutor(): any {
@@ -363,9 +370,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       console.log('🎴 [TAB1] Dynamic card updated:', card);
       // Run in Angular zone to ensure proper change detection and animations
       this.ngZone.run(() => {
-        this.dynamicCard = card;
-        this.dynamicCardAnimationState++; // Increment to trigger animation
-        this.cdr.detectChanges();
+        // Small delay on first card to ensure smooth animation
+        if (!this.dynamicCardReady && card) {
+          this.dynamicCardReady = true;
+          setTimeout(() => {
+            this.dynamicCard = card;
+            this.dynamicCardAnimationState++;
+            this.cdr.detectChanges();
+          }, 100); // 100ms delay for initial card
+        } else {
+          this.dynamicCard = card;
+          this.dynamicCardAnimationState++; // Increment to trigger animation
+          this.cdr.detectChanges();
+        }
       });
     });
   }
@@ -1060,6 +1077,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     if (forceReload) {
       console.log('🔄 [TAB1] Force reload requested, invalidating cache');
       this._lastDataFetch = 0; // Invalidate cache
+      this._lastDynamicCardRefresh = 0; // Force dynamic card refresh
       // Clear the state to prevent repeated reloads
       if (history.state?.forceReload) {
         history.replaceState({ ...history.state, forceReload: false }, '');
@@ -1113,6 +1131,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const now = Date.now();
     const cacheAge = now - this._lastDataFetch;
     const isCacheStale = cacheAge > this._cacheValidityMs;
+    
+    // Refresh dynamic cards if enough time has passed (students only)
+    if (this.currentUser?.userType === 'student') {
+      const timeSinceLastRefresh = now - this._lastDynamicCardRefresh;
+      const shouldRefreshCards = timeSinceLastRefresh > this.DYNAMIC_CARD_REFRESH_INTERVAL;
+      
+      console.log('🎴 [TAB1] Dynamic card refresh check:');
+      console.log('  Time since last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds');
+      console.log('  Refresh interval:', this.DYNAMIC_CARD_REFRESH_INTERVAL / 1000, 'seconds');
+      console.log('  Should refresh?', shouldRefreshCards || !this._hasInitiallyLoaded);
+      console.log('  Has initially loaded?', this._hasInitiallyLoaded);
+      
+      if (shouldRefreshCards || !this._hasInitiallyLoaded) {
+        console.log('🎴 [TAB1] ✅ Refreshing dynamic cards now...');
+        this.loadAdditionalDynamicCards();
+        this._lastDynamicCardRefresh = now;
+      } else {
+        console.log('🎴 [TAB1] ⏭️  Skipping dynamic card refresh (too soon)');
+      }
+    } else {
+      console.log('🎴 [TAB1] ⏭️  User is not a student, skipping dynamic cards');
+    }
     
     console.log('🔄 [TAB1] Cache age:', Math.round(cacheAge / 1000), 'seconds, stale:', isCacheStale);
     
@@ -1359,7 +1399,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
     }
+    
+    // Reset dynamic card ready flag so it animates in next time
+    this.dynamicCardReady = false;
+    
     this.destroy$.next();
+
     this.destroy$.complete();
   }
 
@@ -2236,13 +2281,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   async loadGamificationCards() {
     console.log('🎮 [Smart Island] loadGamificationCards() called');
     console.log('🎮 [Smart Island] isStudent():', this.isStudent());
+    console.log('🎮 [Smart Island] dynamicCardsLoaded:', this.dynamicCardsLoaded);
     
     if (!this.isStudent()) {
       console.log('🎮 [Smart Island] Not a student, skipping');
       return;
     }
     
-    // Clear any existing cards first
+    // Skip if cards are already loaded (prevents resetting rotation on navigation)
+    if (this.dynamicCardsLoaded) {
+      console.log('🎮 [Smart Island] Cards already loaded, skipping re-initialization');
+      return;
+    }
+    
+    // Mark as loaded immediately to prevent race conditions
+    this.dynamicCardsLoaded = true;
+    
+    // Clear any existing cards first (only on first load)
     this.smartIslandService.clearAllCards();
     console.log('🎮 [Smart Island] Cleared existing cards, will show skeleton until data loads');
     
@@ -2433,29 +2488,34 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Load additional dynamic cards (tutors online, recommendations, tips, etc.)
   private async loadAdditionalDynamicCards() {
     console.log('➕ [Smart Island] Loading additional dynamic cards...');
+    console.log('➕ [Smart Island] Current user:', this.currentUser?.email, 'Type:', this.currentUser?.userType);
     
     // Check for tutors with new availability
     try {
+      console.log('📅 [Smart Island] Fetching tutors-with-new-availability...');
       const availabilityResponse = await firstValueFrom(
         this.http.get<any>(`${environment.apiUrl}/users/tutors-with-new-availability`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
       
+      console.log('📅 [Smart Island] API Response:', availabilityResponse);
+      console.log('📅 [Smart Island] Success:', availabilityResponse.success);
+      console.log('📅 [Smart Island] Tutors count:', availabilityResponse.tutors?.length);
+      
       if (availabilityResponse.success && availabilityResponse.tutors.length > 0) {
         const tutors = availabilityResponse.tutors;
-        const tutorNames = tutors.map((t: any) => t.firstName || t.name);
-        const tutorAvatars = tutors.map((t: any) => t.picture || 'assets/avatar-placeholder.png');
+        
+        console.log('📅 [Smart Island] Tutors with new availability:', tutors);
         
         this.smartIslandService.addTutorAvailabilityCard(
-          tutors.length,
-          tutorNames,
-          tutorAvatars,
+          tutors, // Pass full tutor objects
           '/tabs/tutor-search'
         );
-        console.log('📅 [Smart Island] Added tutor availability card:', tutors.length, 'tutors');
+        console.log('📅 [Smart Island] ✅ Added tutor availability card:', tutors.length, 'tutors');
       } else {
-        console.log('📅 [Smart Island] No tutors with new availability found.');
+        console.log('📅 [Smart Island] ❌ No tutors with new availability found.');
+        console.log('📅 [Smart Island] Response details:', JSON.stringify(availabilityResponse, null, 2));
       }
     } catch (error) {
       console.error('❌ [Smart Island] Error fetching tutor availability:', error);
@@ -2493,13 +2553,98 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
   
   // Handle dynamic card click
-  onDynamicCardClick(card: DynamicCard) {
+  async onDynamicCardClick(card: DynamicCard) {
     if (!card) return;
+    
+    // Special handling for tutor availability card
+    if (card.type === 'tutor_availability' && card.data?.tutors) {
+      await this.openTutorAvailabilityModal(card.data.tutors);
+      return;
+    }
     
     // Navigate to the action route
     if (card.ctaAction.startsWith('/')) {
       this.router.navigate([card.ctaAction]);
     }
+  }
+  
+  // Open tutor availability selection modal
+  async openTutorAvailabilityModal(tutors: any[]) {
+    const { TutorAvailabilitySelectionModalComponent } = await import('../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component');
+    
+    const modal = await this.modalCtrl.create({
+      component: TutorAvailabilitySelectionModalComponent,
+      componentProps: {
+        tutors: tutors,
+        title: 'Book a Lesson'
+      },
+      cssClass: 'tutor-availability-selection-modal' // Proper modal styling
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onWillDismiss();
+    
+    console.log('🔍 [TAB1] Modal dismissed with data:', data);
+    
+    if (data?.success && data?.booked && data?.tutorId) {
+      // Booking was completed successfully within the modal
+      console.log('✅ [TAB1] Booking completed successfully, refreshing lessons...');
+      console.log('✅ [TAB1] Booked lesson details:', {
+        tutorId: data.tutorId,
+        tutorName: data.tutorName,
+        date: data.selectedDate,
+        time: data.selectedTime
+      });
+      
+      // Remove the booked tutor from availability card
+      // If no tutors remain, the card will be removed automatically
+      this.smartIslandService.removeTutorFromAvailabilityCard(data.tutorId);
+      
+      // Add a longer delay to ensure database transaction is fully committed and replicated
+      console.log('⏳ [TAB1] Waiting 2000ms for DB to commit and replicate...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh lessons to show the new booking
+      await this.loadLessons(false);
+      
+      console.log('✅ [TAB1] Lessons refreshed after booking');
+      console.log('📊 [TAB1] Total lessons loaded:', this.lessons.length);
+      console.log('📊 [TAB1] Upcoming lesson:', this.upcomingLesson);
+      console.log('📊 [TAB1] Looking for lesson with tutor:', data.tutorId, 'on date:', data.selectedDate, 'at time:', data.selectedTime);
+      
+      // Check if the new lesson is in the list
+      const newLesson = this.lessons.find(l => {
+        const lessonDate = new Date(l.startTime).toISOString().split('T')[0];
+        const lessonTime = new Date(l.startTime).toISOString().split('T')[1].substring(0, 5);
+        const tutorId = (l.tutorId as any)?._id || (l.tutorId as any)?.id || l.tutorId;
+        return lessonDate === data.selectedDate && tutorId === data.tutorId;
+      });
+      
+      if (newLesson) {
+        console.log('✅ [TAB1] Found newly booked lesson:', newLesson._id);
+      } else {
+        console.error('❌ [TAB1] NEWLY BOOKED LESSON NOT FOUND IN API RESPONSE!');
+        console.error('❌ [TAB1] This indicates a backend issue - lesson created but not returned by getMyLessons()');
+      }
+      
+      console.log('📊 [TAB1] All lessons:', this.lessons.map(l => ({
+        id: l._id,
+        tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
+        startTime: l.startTime,
+        status: l.status
+      })));
+      
+      // Force change detection
+      this.cdr.detectChanges();
+    } else {
+      console.log('ℹ️ [TAB1] Modal dismissed without booking');
+    }
+  }
+  
+  // TrackBy function for dynamic card to force re-render on type change
+  trackByCardType(index: number, card: DynamicCard | null): string {
+    return card?.type || 'none';
   }
   
   // Handle Up Next card click
@@ -2973,6 +3118,46 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     
     return `${startTime} — ${endTime}`;
+  }
+
+  /**
+   * Get the lesson number for a specific lesson (excluding trial lessons)
+   * For students: counts completed + scheduled lessons with this tutor
+   * Returns null if this is a trial lesson or if count is 0
+   */
+  getLessonNumber(lesson: any): number | null {
+    if (!lesson) return null;
+    
+    // Don't show lesson number for trial lessons
+    if (lesson.isTrialLesson) return null;
+    
+    const tutorId = (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || lesson.tutorId;
+    const studentId = (lesson.studentId as any)?._id || (lesson.studentId as any)?.id || lesson.studentId;
+    
+    if (!tutorId || !studentId) return null;
+    
+    // Count all completed and scheduled lessons between this tutor and student
+    // (excluding trials and the current lesson if it's not completed yet)
+    const completedLessons = this.lessons.filter(l => {
+      const lessonTutorId = (l.tutorId as any)?._id || (l.tutorId as any)?.id || l.tutorId;
+      const lessonStudentId = (l.studentId as any)?._id || (l.studentId as any)?.id || l.studentId;
+      
+      // Match tutor and student
+      const matchesParticipants = lessonTutorId === tutorId && lessonStudentId === studentId;
+      
+      // Exclude trial lessons
+      const isNotTrial = !l.isTrialLesson;
+      
+      // Include completed lessons, or this specific scheduled lesson
+      const isCountable = l.status === 'completed' || l._id === lesson._id;
+      
+      return matchesParticipants && isNotTrial && isCountable;
+    });
+    
+    const lessonCount = completedLessons.length;
+    
+    // Return null if count is 0 (shouldn't happen but safety check)
+    return lessonCount > 0 ? lessonCount : null;
   }
 
   // New method: Get students for selected date (tutor view)
@@ -4097,6 +4282,16 @@ navigateToLessons() {
     try {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
+        console.log('📥 [TAB1] Raw lessons from API:', resp.lessons.length, 'lessons');
+        console.log('📥 [TAB1] First 3 lessons:', resp.lessons.slice(0, 3).map(l => ({
+          id: l._id,
+          tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
+          student: (l.studentId as any)?.name || (l.studentId as any)?.firstName,
+          startTime: l.startTime,
+          endTime: l.endTime,
+          status: l.status
+        })));
+        
         const now = Date.now();
         let allLessons = [...resp.lessons];
 
@@ -4178,6 +4373,11 @@ navigateToLessons() {
         const today = this.startOfDay(new Date());
         const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         
+        console.log('📅 [TAB1] Filter reference times:');
+        console.log('  - now:', new Date(now).toISOString());
+        console.log('  - today start:', today.toISOString());
+        console.log('  - sevenDaysAgo:', sevenDaysAgo.toISOString());
+        
         // Separate cancelled lessons (show recent and future cancellations)
         this.cancelledLessons = allLessons
           .filter(l => {
@@ -4188,21 +4388,38 @@ navigateToLessons() {
           })
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
         
+        console.log('🔍 [TAB1] Filtering lessons...');
+        
         // Filter for active (non-cancelled) lessons
         this.lessons = allLessons
           .filter(l => {
-            // Exclude cancelled lessons (they go to cancelledLessons array)
-            if (l.status === 'cancelled') {
-              return false;
-            }
-            
             const endTime = new Date(l.endTime).getTime();
             const lessonDate = new Date(l.startTime);
             const lessonDay = this.startOfDay(lessonDate);
+            const startTime = new Date(l.startTime).getTime();
+            
+            // Exclude cancelled lessons (they go to cancelledLessons array)
+            if (l.status === 'cancelled') {
+              console.log('  ❌ Filtered out (cancelled):', l._id, new Date(l.startTime).toISOString());
+              return false;
+            }
             
             // Keep if: upcoming OR happened today
             const isUpcoming = endTime >= now;
             const isToday = lessonDay.getTime() === today.getTime();
+            
+            console.log(`  🔎 Lesson ${l._id}:`, {
+              startTime: new Date(l.startTime).toISOString(),
+              endTime: new Date(l.endTime).toISOString(),
+              status: l.status,
+              endTime_ms: endTime,
+              now_ms: now,
+              isUpcoming,
+              isToday,
+              lessonDay_ms: lessonDay.getTime(),
+              today_ms: today.getTime(),
+              KEEP: isUpcoming || isToday
+            });
             
             return isUpcoming || isToday;
           })
@@ -5141,16 +5358,18 @@ navigateToLessons() {
     }
 
     try {
+      // Use the NEW withdrawal system endpoint instead of legacy earnings
       const response = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings`, {
+        this.http.get<any>(`${environment.apiUrl}/withdrawals/balance`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
 
       if (response.success) {
-        this.tutorTotalEarnings = response.totalEarnings || 0;
-        this.tutorPendingEarnings = response.pendingEarnings || 0;
-        this.walletBalance = this.tutorTotalEarnings + this.tutorPendingEarnings; // Sum for display
+        // Show AVAILABLE balance only (ready to withdraw)
+        this.tutorTotalEarnings = response.balance.available || 0;
+        this.tutorPendingEarnings = response.balance.pending || 0;
+        this.walletBalance = this.tutorTotalEarnings; // Show only available amount
         this.updateWalletDisplay(); // Update the hidden/revealed display
         this.cdr.detectChanges();
       }

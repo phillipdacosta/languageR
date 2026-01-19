@@ -1,0 +1,299 @@
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+.filter-section {
+  margin-bottom: 24px;
+
+  ion-segment {
+    --background: #f3f4f6;
+    border-radius: 12px;
+    padding: 4px;
+  }
+
+  ion-segment-button {
+    --indicator-color: white;
+    --indicator-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --color-checked: #111827;
+    min-height: 40px;
+    font-weight: 500;
+  }
+}
+
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+
+  ion-icon {
+    font-size: 80px;
+    color: #d1d5db;
+    margin-bottom: 16px;
+  }
+
+  ion-spinner {
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 8px;
+  }
+
+  p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+.results-header {
+  margin-bottom: 16px;
+
+  .results-count {
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+  }
+}
+
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lesson-card {
+  margin: 0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  ion-card-content {
+    padding: 20px;
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.issue-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &.danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+
+  &.warning {
+    background: rgba(251, 191, 36, 0.1);
+    color: #d97706;
+  }
+
+  &.medium {
+    background: rgba(107, 114, 128, 0.1);
+    color: #4b5563;
+  }
+
+  &.tertiary {
+    background: rgba(99, 102, 241, 0.1);
+    color: #4f46e5;
+  }
+}
+
+.payout-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #059669;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  span.paused {
+    color: #d97706;
+  }
+}
+
+.lesson-info {
+  margin-bottom: 16px;
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0 0 4px;
+  }
+
+  .lesson-meta {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+.participants {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  margin-bottom: 16px;
+
+  .participant {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+
+    ion-avatar {
+      width: 40px;
+      height: 40px;
+    }
+
+    .participant-info {
+      display: flex;
+      flex-direction: column;
+
+      .role {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 600;
+        color: #6b7280;
+        letter-spacing: 0.5px;
+      }
+
+      .name {
+        font-size: 14px;
+        font-weight: 500;
+        color: #111827;
+      }
+    }
+  }
+
+  .arrow {
+    font-size: 20px;
+    color: #d1d5db;
+    flex-shrink: 0;
+  }
+}
+
+.issue-details {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 8px;
+
+  .details-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .details-text {
+    font-size: 14px;
+    color: #78350f;
+    margin: 0;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+}
+
+.reported-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 16px;
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+
+  ion-button {
+    margin: 0;
+    font-weight: 500;
+  }
+}
+
+@media (max-width: 576px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .participants {
+    flex-direction: column;
+    align-items: stretch;
+
+    .arrow {
+      transform: rotate(90deg);
+      align-self: center;
+    }
+  }
+
+  .card-actions {
+    flex-direction: column;
+
+    ion-button {
+      width: 100%;
+    }
+  }
+}
+

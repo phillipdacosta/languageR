@@ -47,6 +47,7 @@
     
     ion-icon {
       font-size: 28px;
+      color: #1f2937; // Dark gray for visibility
     }
     
     .notification-dot {
@@ -237,6 +238,10 @@
       
       &.notification-btn {
         position: relative;
+        
+        ion-icon {
+          color: #1f2937; // Dark gray for visibility
+        }
         
         .notification-dot {
           position: absolute;

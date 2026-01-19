@@ -439,7 +439,8 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         const PLATFORM_FEE_PERCENTAGE = 20;
         const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
         
-        // Create PaymentIntent with manual capture (authorization only)
+        // NEW ARCHITECTURE: Create PaymentIntent with manual capture (authorization only)
+        // Collect full amount to platform - tutor payout handled separately via withdrawal system
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(cls.price * 100), // Convert to cents
           currency: 'usd',
@@ -448,16 +449,16 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           capture_method: 'manual', // HOLD funds, don't capture yet
           confirm: true,
           off_session: true,
-          application_fee_amount: Math.round(platformFee * 100),
-          transfer_data: {
-            destination: tutor.stripeConnectAccountId
-          },
+          // REMOVED: application_fee_amount and transfer_data
+          // All funds go to platform, tutor gets paid via withdrawal system
           metadata: {
             classId: cls._id.toString(),
             studentId: student._id.toString(),
             tutorId: tutor._id.toString(),
             paymentType: 'class_booking',
-            className: cls.name
+            className: cls.name,
+            platformFee: platformFee.toFixed(2),
+            tutorPayout: (cls.price - platformFee).toFixed(2)
           }
         });
         

@@ -55,6 +55,14 @@ export class CheckoutPage implements OnInit {
   ) {}
 
   ngOnInit() {
+    console.log('🔍 [CHECKOUT] ngOnInit - Inputs:', {
+      tutorId: this.tutorId,
+      dateIso: this.dateIso,
+      time: this.time,
+      lessonMinutes: this.lessonMinutes,
+      embedded: this.embedded
+    });
+    
     // If inputs weren't provided, read from query params (for standalone page mode)
     if (!this.tutorId) {
       const qp = this.route.snapshot.queryParamMap;
@@ -62,6 +70,13 @@ export class CheckoutPage implements OnInit {
       this.dateIso = qp.get('date') || '';
       this.time = qp.get('time') || '';
       this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+      
+      console.log('🔍 [CHECKOUT] Loaded from query params:', {
+        tutorId: this.tutorId,
+        dateIso: this.dateIso,
+        time: this.time,
+        lessonMinutes: this.lessonMinutes
+      });
       
       // Read trial lesson status from query params (passed from tutor availability page)
       const isTrialParam = qp.get('isTrialLesson');
@@ -356,8 +371,10 @@ export class CheckoutPage implements OnInit {
 
       console.log('📊 Current user data:', {
         id: this.currentUser.id,
+        _id: (this.currentUser as any)._id,
         email: this.currentUser.email,
-        name: this.currentUser.name
+        name: this.currentUser.name,
+        auth0Id: (this.currentUser as any).auth0Id
       });
 
       // Create lesson booking request
@@ -377,6 +394,12 @@ export class CheckoutPage implements OnInit {
       };
 
       console.log('📅 Creating lesson booking:', lessonData);
+      console.log('📅 CRITICAL - IDs being sent:', {
+        tutorId: lessonData.tutorId,
+        studentId: lessonData.studentId,
+        tutorIdType: typeof lessonData.tutorId,
+        studentIdType: typeof lessonData.studentId
+      });
 
       // Book the lesson with payment (use the correct endpoint!)
       const bookingPayload = {
@@ -409,6 +432,18 @@ export class CheckoutPage implements OnInit {
         // We don't throw an error here anymore - let the backend handle it
       }
 
+      console.log('🚀 [CHECKOUT] About to send booking request...');
+      console.log('🚀 [CHECKOUT] Endpoint:', `${environment.apiUrl}/payments/book-lesson-with-payment`);
+      console.log('🚀 [CHECKOUT] Full payload:', JSON.stringify(bookingPayload, null, 2));
+      console.log('🚀 [CHECKOUT] Lesson details:', {
+        tutorId: bookingPayload.lessonData.tutorId,
+        studentId: bookingPayload.lessonData.studentId,
+        startTime: bookingPayload.lessonData.startTime,
+        endTime: bookingPayload.lessonData.endTime,
+        duration: bookingPayload.lessonData.duration,
+        price: bookingPayload.lessonData.price
+      });
+
       // Create the lesson with payment authorization
       const response = await firstValueFrom(
         this.http.post<any>(`${environment.apiUrl}/payments/book-lesson-with-payment`, bookingPayload, {
@@ -416,13 +451,28 @@ export class CheckoutPage implements OnInit {
         })
       );
       
+      console.log('📨 [CHECKOUT] Backend response received:', JSON.stringify(response, null, 2));
+      
       if (response.success) {
         // DISMISS LOADING BEFORE SHOWING SUCCESS PAGE
         if (bookingLoading) await bookingLoading.dismiss();
         
+        console.log('✅ [CHECKOUT] Booking successful! Full response:', response);
+        console.log('✅ [CHECKOUT] Lesson created:', {
+          lessonId: response.lesson?._id || response.lesson?.id,
+          tutorId: response.lesson?.tutorId,
+          studentId: response.lesson?.studentId,
+          startTime: response.lesson?.startTime,
+          endTime: response.lesson?.endTime,
+          status: response.lesson?.status
+        });
+        console.log('✅ [CHECKOUT] Embedded mode:', this.embedded);
+        
         // If embedded, emit event instead of navigating
         if (this.embedded) {
+          console.log('✅ [CHECKOUT] Emitting bookingComplete event...');
           this.bookingComplete.emit();
+          console.log('✅ [CHECKOUT] bookingComplete event emitted');
         } else {
           // Prepare tutor name (First Name + Last Initial)
           const tutorFirstName = this.tutor?.firstName || this.tutor?.name?.split(' ')[0] || '';
@@ -554,17 +604,50 @@ export class CheckoutPage implements OnInit {
 
   get dateMonthShort(): string {
     if (!this.dateIso) return '';
-    return new Date(this.dateIso).toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+    } catch (e) {
+      console.error('Error parsing dateMonthShort:', e, this.dateIso);
+      return '';
+    }
   }
 
   get dateDayNumber(): string {
     if (!this.dateIso) return '';
-    return String(new Date(this.dateIso).getDate());
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return String(date.getDate());
+    } catch (e) {
+      console.error('Error parsing dateDayNumber:', e, this.dateIso);
+      return '';
+    }
   }
 
   get dateWeekday(): string {
     if (!this.dateIso) return '';
-    return new Date(this.dateIso).toLocaleDateString(undefined, { weekday: 'long' });
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString(undefined, { weekday: 'long' });
+    } catch (e) {
+      console.error('Error parsing dateWeekday:', e, this.dateIso);
+      return '';
+    }
   }
 
   get pricePerLesson(): number {
@@ -584,11 +667,55 @@ export class CheckoutPage implements OnInit {
   }
 
   private parseStartDate(): Date | null {
-    if (!this.dateIso || !this.time) return null;
-    const [h, m] = this.time.split(':').map(Number);
-    const d = new Date(this.dateIso);
-    d.setHours(h, m, 0, 0);
-    return d;
+    if (!this.dateIso || !this.time) {
+      console.warn('🕐 [CHECKOUT] parseStartDate: missing dateIso or time', {
+        dateIso: this.dateIso,
+        time: this.time
+      });
+      return null;
+    }
+    
+    try {
+      // Parse date components from ISO string (YYYY-MM-DD)
+      const dateParts = this.dateIso.split('-');
+      if (dateParts.length !== 3) {
+        console.error('🕐 [CHECKOUT] Invalid dateIso format:', this.dateIso);
+        return null;
+      }
+      const [year, month, day] = dateParts.map(Number);
+      
+      // Parse time components (HH:MM in 24-hour format)
+      const timeParts = this.time.split(':');
+      if (timeParts.length < 2) {
+        console.error('🕐 [CHECKOUT] Invalid time format:', this.time);
+        return null;
+      }
+      const [hours, minutes] = timeParts.map(Number);
+      
+      // Validate parsed values
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+        console.error('🕐 [CHECKOUT] Invalid date/time values:', {
+          year, month, day, hours, minutes
+        });
+        return null;
+      }
+      
+      // Create date in LOCAL timezone (not UTC)
+      // This ensures the lesson is scheduled for the correct local time
+      const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+      
+      console.log('🕐 [CHECKOUT] parseStartDate:', {
+        input: { dateIso: this.dateIso, time: this.time },
+        parsed: { year, month, day, hours, minutes },
+        localDate: localDate.toISOString(),
+        localDateString: localDate.toString()
+      });
+      
+      return localDate;
+    } catch (e) {
+      console.error('🕐 [CHECKOUT] Error parsing start date:', e);
+      return null;
+    }
   }
 
   private format12h(d: Date): string {

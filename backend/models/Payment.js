@@ -109,12 +109,41 @@ const paymentSchema = new mongoose.Schema({
     default: null
   },
   
-  // Transfer/Payout tracking (applies to all payout methods)
+  // Transfer/Payout tracking (NEW SYSTEM - internal balance tracking)
   transferredAt: Date,
   transferStatus: {
     type: String,
-    enum: ['pending', 'awaiting_funds', 'succeeded', 'failed', 'acknowledged', null],
-    default: null
+    enum: [
+      'pending',           // Awaiting lesson completion
+      'on_hold',           // Lesson complete, 24hr hold period (NEW)
+      'available',         // Available for withdrawal (NEW)
+      'pending_withdrawal',// Included in withdrawal request (NEW)
+      'withdrawn',         // Successfully withdrawn (NEW)
+      'awaiting_funds',    // Legacy status
+      'succeeded',         // Legacy status
+      'failed',            // Failed transfer
+      'acknowledged',      // Legacy status
+      null
+    ],
+    default: null,
+    index: true
+  },
+  
+  // When earnings become available for withdrawal (lesson end + 24hrs)
+  earningsReleaseDate: {
+    type: Date,
+    default: null,
+    index: true,
+    comment: 'When tutor earnings become available for withdrawal (24hr hold after lesson end for dispute protection)'
+  },
+  
+  // Link to withdrawal request
+  withdrawalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Withdrawal',
+    default: null,
+    index: true,
+    comment: 'Reference to withdrawal that included this payment'
   },
   
   // When funds were actually charged (deducted from wallet or charged to card)
@@ -128,6 +157,15 @@ const paymentSchema = new mongoose.Schema({
     index: true
   },
   revenueRecognizedAt: Date,
+  
+  // Platform profit auto-payout tracking
+  platformProfitPayoutId: String, // Stripe payout ID
+  platformProfitPaidOut: {
+    type: Boolean,
+    default: false
+  },
+  platformProfitPayoutAt: Date,
+  platformProfitPayoutError: String, // Error message if payout failed
   
   // Refund tracking
   refundAmount: {
@@ -155,7 +193,25 @@ const paymentSchema = new mongoose.Schema({
   
   // Error tracking
   errorMessage: String,
-  errorCode: String
+  errorCode: String,
+  
+  // Cron job retry tracking (for scalability)
+  processingAttempts: {
+    type: Number,
+    default: 0,
+    comment: 'Number of times this payment has been attempted for processing (cron jobs)'
+  },
+  lastProcessingError: {
+    type: String,
+    default: null,
+    comment: 'Last error message if processing failed'
+  },
+  nextRetryAt: {
+    type: Date,
+    default: null,
+    index: true,
+    comment: 'When to retry processing this payment (exponential backoff)'
+  }
 }, {
   timestamps: true
 });
@@ -165,6 +221,7 @@ paymentSchema.index({ userId: 1, status: 1 });
 paymentSchema.index({ lessonId: 1, status: 1 });
 paymentSchema.index({ status: 1, createdAt: -1 });
 paymentSchema.index({ transferStatus: 1, transferredAt: 1 });
+paymentSchema.index({ transferStatus: 1, earningsReleaseDate: 1, processingAttempts: 1 }); // For retry logic
 
 // Virtual: Net platform revenue (fee - Stripe costs)
 paymentSchema.virtual('netPlatformRevenue').get(function() {

@@ -187,6 +187,10 @@
             <span>Stripe Fees: {{ formatCurrency(revenueData.pending.totalPendingStripeFees) }}</span>
             <span class="pending-net">Net: {{ formatCurrency(revenueData.pending.totalPendingNetRevenue) }}</span>
           </div>
+          <div class="next-processing" *ngIf="revenueData.pending.nextProcessingTime">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>Next processing: {{ formatProcessingTime(revenueData.pending.nextProcessingTime) }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -223,7 +227,10 @@
               <th>Date</th>
               <th>Student</th>
               <th>Tutor</th>
-              <th>Subject</th>
+              <th>Lesson ID</th>
+              <th>Payment Status</th>
+              <th>Transfer Status</th>
+              <th>Release Date</th>
               <th>Method</th>
               <th>Gross</th>
               <th>Platform Fee</th>
@@ -236,7 +243,39 @@
               <td>{{ payment.date | date:'MMM d, h:mm a' }}</td>
               <td>{{ payment.studentName }}</td>
               <td>{{ payment.tutorName }}</td>
-              <td>{{ payment.subject || 'N/A' }}</td>
+              <td class="lesson-id-cell">
+                <span class="lesson-id-badge" *ngIf="payment.lessonId">
+                  {{ payment.lessonId }}
+                </span>
+                <span *ngIf="!payment.lessonId" class="na-text">N/A</span>
+              </td>
+              <td>
+                <ion-badge [color]="getPaymentStatusColor(payment.paymentStatus)">
+                  {{ getPaymentStatusText(payment.paymentStatus) }}
+                </ion-badge>
+              </td>
+              <td>
+                <ion-badge [color]="getTransferStatusColor(payment.transferStatus)">
+                  {{ getTransferStatusText(payment.transferStatus) }}
+                </ion-badge>
+              </td>
+              <td class="release-date-cell">
+                <div *ngIf="payment.earningsReleaseDate">
+                  <div [class.past-release]="isPastReleaseDate(payment.earningsReleaseDate)">
+                    {{ payment.earningsReleaseDate | date:'MMM d, h:mm a' }}
+                  </div>
+                  <div class="processing-time" *ngIf="!isPastReleaseDate(payment.earningsReleaseDate)">
+                    Processes: {{ getProcessingTime(payment.earningsReleaseDate) }}
+                  </div>
+                  <div class="already-available" *ngIf="isPastReleaseDate(payment.earningsReleaseDate) && payment.transferStatus === 'on_hold'">
+                    Processing soon...
+                  </div>
+                  <div class="already-available" *ngIf="isPastReleaseDate(payment.earningsReleaseDate) && payment.transferStatus === 'available'">
+                    ✓ Available
+                  </div>
+                </div>
+                <span *ngIf="!payment.earningsReleaseDate" class="na-text">N/A</span>
+              </td>
               <td>{{ getPaymentMethodName(payment.paymentMethod) }}</td>
               <td>{{ formatCurrency(+payment.grossAmount) }}</td>
               <td>{{ formatCurrency(+payment.platformFee) }}</td>

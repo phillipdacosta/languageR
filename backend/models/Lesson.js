@@ -152,6 +152,66 @@ const LessonSchema = new mongoose.Schema({
     default: 0,
     comment: 'Amount paid to tutor (lesson price - platform fee)'
   },
+  // Issue Reporting & Investigation
+  issueReported: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether student reported an issue with this lesson'
+  },
+  issueType: {
+    type: String,
+    enum: ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
+    default: null
+  },
+  issueDetails: {
+    type: String,
+    default: null
+  },
+  issueReportedAt: {
+    type: Date,
+    default: null
+  },
+  issueReportedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  underInvestigation: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether admin is investigating this lesson'
+  },
+  investigationNotes: {
+    type: String,
+    default: null
+  },
+  payoutPaused: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether tutor payout is paused pending investigation'
+  },
+  payoutPausedAt: {
+    type: Date,
+    default: null
+  },
+  payoutPausedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    comment: 'Admin who paused the payout'
+  },
+  investigationResolvedAt: {
+    type: Date,
+    default: null
+  },
+  investigationResolution: {
+    type: String,
+    enum: ['approved', 'refunded', 'partial_refund', 'no_action', null],
+    default: null
+  },
   // Tip tracking
   tip: {
     amount: {

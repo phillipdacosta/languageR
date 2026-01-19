@@ -54,6 +54,24 @@
   }
 }
 
+/* Withdrawal Modal */
+.withdrawal-modal {
+  --width: 90%;
+  --max-width: 500px;
+  --height: 90vh;
+  --max-height: 90vh;
+  --border-radius: 16px;
+  --backdrop-opacity: 0.4;
+  
+  &::part(content) {
+    border-radius: 16px;
+  }
+
+  ion-backdrop {
+    backdrop-filter: blur(8px);
+  }
+}
+
 
 /**
  * Ionic Dark Mode
@@ -346,7 +364,7 @@ ion-label {
     // Calendar grid - compact with horizontal scroll
     .calendar-grid {
       gap: 4px !important;
-      height: 800px;
+      // height: 800px;
       margin-bottom: 0 !important;
       overflow-x: auto !important;
       display: grid !important;
@@ -479,6 +497,8 @@ ion-label {
           .avatar {
             width: 50px !important;
             height: 50px !important;
+            position: relative;
+            bottom: 30px;
             
             img {
               width: 50px !important;
@@ -716,6 +736,70 @@ ion-modal.invite-student-modal {
   }
   
   app-invite-student-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      height: 100%;
+      --background: #ffffff;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
+      height: auto;
+    }
+  }
+}
+
+// Tutor Availability Selection Modal (bigger than reschedule modal)
+ion-modal.tutor-availability-selection-modal {
+  --width: 95%;
+  --max-width: 900px;  // Bigger: increased from 700px
+  --height: 90vh;      // Bigger: increased from 85vh
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 98%;
+    --max-width: 98%;
+    --height: 95vh;
+    --border-radius: 16px;
+  }
+  
+  app-tutor-availability-selection-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      height: 100%;
+      --background: #ffffff;
+    }
+    
+    ion-footer {
+      flex-shrink: 0;
+      height: auto;
+    }
+  }
+}
+
+// Reschedule Lesson Modal (same dimensions)
+ion-modal.reschedule-modal {
+  --width: 90%;
+  --max-width: 700px;
+  --height: 85vh;
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: 95%;
+    --height: 90vh;
+    --border-radius: 16px;
+  }
+  
+  app-reschedule-lesson-modal {
     display: flex;
     flex-direction: column;
     height: 100%;

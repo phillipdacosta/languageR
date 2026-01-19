@@ -344,6 +344,62 @@ const userSchema = new mongoose.Schema({
       }
     }
   },
+  // Tutor earnings tracking (internal balance system)
+  tutorEarnings: {
+    // Available for withdrawal
+    availableBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Earnings available for immediate withdrawal'
+    },
+    // Lesson completed but funds on hold (24hr dispute protection)
+    pendingBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Earnings from recently completed lessons (24hr hold period)'
+    },
+    // Total earned lifetime
+    lifetimeEarnings: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Total amount earned across all time'
+    },
+    // Last withdrawal date
+    lastWithdrawal: {
+      type: Date,
+      default: null,
+      comment: 'Date of last withdrawal request'
+    },
+    // Total withdrawn
+    totalWithdrawn: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Total amount withdrawn to external accounts'
+    }
+  },
+  // Withdrawal settings
+  withdrawalSettings: {
+    minimumAmount: {
+      type: Number,
+      default: 10,
+      min: 5,
+      comment: 'Minimum withdrawal amount (default $10)'
+    },
+    autoWithdraw: {
+      type: Boolean,
+      default: false,
+      comment: 'Automatically withdraw when balance reaches threshold'
+    },
+    autoWithdrawThreshold: {
+      type: Number,
+      default: 100,
+      comment: 'Balance threshold for auto-withdrawal (default $100)'
+    }
+  },
   // Tutor availability calendar
   availability: [{
     id: {
@@ -387,6 +443,10 @@ const userSchema = new mongoose.Schema({
       default: '#4A90E2'
     }
   }],
+  lastAvailabilityUpdate: {
+    type: Date,
+    required: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

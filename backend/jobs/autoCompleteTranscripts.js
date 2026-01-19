@@ -139,7 +139,20 @@ async function autoCompleteTranscripts() {
         const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lesson._id });
         
         if (existingAnalysis) {
-          console.log(`ℹ️  [AutoComplete] Analysis already exists for lesson ${lesson._id} (status: ${existingAnalysis.status}), skipping analysis generation`);
+          // If analysis exists but is pending with no transcript, update it and trigger AI analysis
+          if (existingAnalysis.status === 'pending' && !existingAnalysis.transcriptId) {
+            console.log(`🔄 [AutoComplete] Analysis exists but pending without transcript - updating and triggering AI analysis`);
+            existingAnalysis.transcriptId = transcript._id;
+            await existingAnalysis.save();
+            
+            // Trigger AI analysis
+            console.log(`🤖 [AutoComplete] Triggering AI analysis for lesson ${lesson._id}...`);
+            analyzeLesson(transcript._id).catch(err => {
+              console.error(`❌ [AutoComplete] Error analyzing transcript ${transcript._id}:`, err.message);
+            });
+          } else {
+            console.log(`ℹ️  [AutoComplete] Analysis already exists for lesson ${lesson._id} (status: ${existingAnalysis.status}), skipping analysis generation`);
+          }
         } else {
           // 3. Trigger analysis in background (don't await - let it run async)
           console.log(`🤖 [AutoComplete] Triggering AI analysis for lesson ${lesson._id}...`);

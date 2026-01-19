@@ -31,6 +31,7 @@ interface PlatformRevenue {
     totalPendingRevenue: number;
     totalPendingStripeFees: number;
     totalPendingNetRevenue: number;
+    nextProcessingTime?: string | null;
   };
   byPaymentMethod: {
     [key: string]: {
@@ -223,6 +224,36 @@ export class AdminPage implements OnInit {
     return `${percent.toFixed(2)}%`;
   }
 
+  formatProcessingTime(isoTime: string): string {
+    const processingDate = new Date(isoTime);
+    const now = new Date();
+    const diffMs = processingDate.getTime() - now.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // Format the date in local time
+    const localTime = processingDate.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    
+    // Add relative time if it's within the next 24 hours
+    if (diffMs > 0 && diffHours < 24) {
+      if (diffHours > 0) {
+        return `${localTime} (in ${diffHours}h ${diffMinutes}m)`;
+      } else if (diffMinutes > 0) {
+        return `${localTime} (in ${diffMinutes} minutes)`;
+      } else {
+        return `${localTime} (soon)`;
+      }
+    }
+    
+    return localTime;
+  }
+
   getPaymentMethodName(method: string): string {
     const names: { [key: string]: string } = {
       'wallet': 'Wallet',
@@ -232,6 +263,107 @@ export class AdminPage implements OnInit {
       'google_pay': 'Google Pay'
     };
     return names[method] || method;
+  }
+
+  getPaymentStatusText(status: string): string {
+    const statuses: { [key: string]: string } = {
+      'pending': 'Pending',
+      'processing': 'Processing',
+      'authorized': 'Authorized',
+      'succeeded': 'Succeeded',
+      'failed': 'Failed',
+      'refunded': 'Refunded',
+      'partially_refunded': 'Partial Refund',
+      'cancelled': 'Cancelled'
+    };
+    return statuses[status] || status;
+  }
+
+  getPaymentStatusColor(status: string): string {
+    const colors: { [key: string]: string } = {
+      'pending': 'warning',
+      'processing': 'warning',
+      'authorized': 'warning',
+      'succeeded': 'success',
+      'failed': 'danger',
+      'refunded': 'danger',
+      'partially_refunded': 'warning',
+      'cancelled': 'medium'
+    };
+    return colors[status] || 'medium';
+  }
+
+  getTransferStatusText(status: string): string {
+    const statuses: { [key: string]: string } = {
+      'pending': 'Pending',
+      'on_hold': 'On Hold (24h)',
+      'available': 'Available',
+      'pending_withdrawal': 'Withdrawing',
+      'withdrawn': 'Withdrawn',
+      'awaiting_funds': 'Awaiting',
+      'succeeded': 'Succeeded',
+      'failed': 'Failed',
+      'acknowledged': 'Acknowledged',
+      'payout_paused': 'Paused'
+    };
+    return statuses[status] || status || 'N/A';
+  }
+
+  getTransferStatusColor(status: string): string {
+    const colors: { [key: string]: string } = {
+      'pending': 'warning',
+      'on_hold': 'warning',
+      'available': 'success',
+      'pending_withdrawal': 'primary',
+      'withdrawn': 'success',
+      'awaiting_funds': 'warning',
+      'succeeded': 'success',
+      'failed': 'danger',
+      'acknowledged': 'success',
+      'payout_paused': 'danger'
+    };
+    return colors[status] || 'medium';
+  }
+
+  isPastReleaseDate(releaseDate: string): boolean {
+    if (!releaseDate) return false;
+    return new Date(releaseDate) <= new Date();
+  }
+
+  getProcessingTime(releaseDate: string): string {
+    if (!releaseDate) return 'Unknown';
+    
+    const releaseDateObj = new Date(releaseDate);
+    const now = new Date();
+    
+    // If release date hasn't passed, show when it will be released + processed
+    if (releaseDateObj > now) {
+      const diffMs = releaseDateObj.getTime() - now.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      // The releaseEarnings cron runs every 15 minutes
+      // So add up to 15 minutes after the release date
+      const maxProcessingTime = new Date(releaseDateObj.getTime() + 15 * 60 * 1000);
+      
+      if (diffHours > 0) {
+        return `in ${diffHours}h ${diffMinutes}m`;
+      } else if (diffMinutes > 0) {
+        return `in ${diffMinutes}m`;
+      } else {
+        return 'within 15 min';
+      }
+    }
+    
+    // If release date has passed, calculate next cron run (every 15 min)
+    const minutesSinceRelease = Math.floor((now.getTime() - releaseDateObj.getTime()) / (1000 * 60));
+    const minutesUntilNextRun = 15 - (minutesSinceRelease % 15);
+    
+    if (minutesUntilNextRun < 15) {
+      return `~${minutesUntilNextRun} min`;
+    }
+    
+    return 'soon';
   }
 
   exportToCSV() {
