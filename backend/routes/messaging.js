@@ -5,37 +5,10 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { initializeGCS } = require('../config/gcs');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
-// Helper function to format names as "FirstName LastInitial."
-const formatDisplayName = (user) => {
-  if (!user) return 'Unknown User';
-  
-  const firstName = user.firstName || user.onboardingData?.firstName;
-  const lastName = user.lastName || user.onboardingData?.lastName;
-  const fullName = user.name;
-  
-  if (firstName && lastName) {
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    return `${firstName} ${lastInitial}.`;
-  }
-  
-  if (fullName) {
-    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
-    if (parts.length >= 2) {
-      const first = parts[0];
-      const last = parts[parts.length - 1];
-      const lastInitial = last.charAt(0).toUpperCase();
-      return `${first} ${lastInitial}.`;
-    }
-    return fullName;
-  }
-  
-  if (user.email) {
-    return user.email.split('@')[0];
-  }
-  
-  return 'Unknown User';
-};
+// Use shared name formatter
+const formatDisplayName = formatNameWithInitial;
 
 // Configure multer for memory storage
 const upload = multer({

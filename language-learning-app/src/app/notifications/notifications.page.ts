@@ -7,6 +7,7 @@ import { NotificationService, Notification } from '../services/notification.serv
 import { WebSocketService } from '../services/websocket.service';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 
 // 🚀 PERFORMANCE FIX: Type for cached, formatted notifications
 interface FormattedNotification extends Notification {
@@ -222,7 +223,7 @@ export class NotificationsPage implements OnDestroy {
       this.router.navigate(['/tabs/messages', notification.data.conversationId]);
     } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
       // Navigate to earnings page with lesson ID to scroll to
-      this.router.navigate(['/tabs/earnings'], { 
+      this.router.navigate(['/tabs/home/earnings'], { 
         queryParams: { 
           scrollToLesson: notification.data.lessonId 
         } 
@@ -541,6 +542,30 @@ export class NotificationsPage implements OnDestroy {
       .catch(error => {
         console.error('Error marking all notifications as read:', error);
       });
+  }
+
+  async openDisputeModal(notification: Notification, event: Event) {
+    // Prevent the notification click from triggering
+    event.stopPropagation();
+    
+    console.log('🔔 Opening dispute modal for notification:', notification);
+    
+    const modal = await this.modalController.create({
+      component: PaymentDisputeModalComponent,
+      componentProps: {
+        notification: notification
+      },
+      cssClass: 'payment-dispute-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.disputed) {
+      // Reload notifications to reflect any changes
+      console.log('✅ Dispute submitted, reloading notifications');
+      this.loadNotifications();
+    }
   }
 }
 

@@ -44,14 +44,23 @@ async function releaseEarnings(io = null) {
       // 1. On hold and past release date
       // 2. Haven't failed too many times
       // 3. Are past their retry time (if they failed before)
+      // 4. NOT refunded or partially refunded (NEW)
       const paymentsToRelease = await Payment.find({
         transferStatus: 'on_hold',
         earningsReleaseDate: { $lte: now },
-        processingAttempts: { $lt: MAX_ATTEMPTS },
+        status: { $nin: ['refunded', 'partially_refunded', 'cancelled'] }, // Skip refunded/cancelled payments
         $or: [
-          { nextRetryAt: { $exists: false } }, // Never tried
-          { nextRetryAt: null }, // Never tried
-          { nextRetryAt: { $lte: now } } // Retry time has passed
+          { processingAttempts: { $exists: false } }, // Field doesn't exist yet (NEW)
+          { processingAttempts: { $lt: MAX_ATTEMPTS } } // Less than max attempts
+        ],
+        $and: [ // nextRetryAt conditions
+          {
+            $or: [
+              { nextRetryAt: { $exists: false } }, // Never tried
+              { nextRetryAt: null }, // Never tried
+              { nextRetryAt: { $lte: now } } // Retry time has passed
+            ]
+          }
         ]
       })
       .populate('tutorId', 'name email auth0Id tutorEarnings withdrawalSettings')
@@ -194,7 +203,7 @@ async function releaseEarnings(io = null) {
             type: 'payment_received',
             title: '💵 Earnings Now Available',
             message: `<strong>$${totalReleased.toFixed(2)}</strong> from ${paymentCount} ${paymentText} is now available for withdrawal.`,
-            link: '/tabs/earnings',
+            link: '/tabs/home/earnings',
             data: {
               amount: totalReleased,
               paymentCount,

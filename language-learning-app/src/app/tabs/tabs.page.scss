@@ -303,6 +303,21 @@
   visibility: hidden;
   pointer-events: none;
   
+  // Force dispute button to be red
+  .dispute-button {
+    --color: #ff3b30 !important;
+    color: #ff3b30 !important;
+    
+    &::part(native) {
+      color: #ff3b30 !important;
+    }
+    
+    ion-icon {
+      color: #ff3b30 !important;
+      --color: #ff3b30 !important;
+    }
+  }
+  
   &.show {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -406,40 +421,48 @@
       
             .notification-item {
               display: flex;
-              align-items: flex-start;
-              padding: 12px 20px;
+              align-items: center;
+              gap: 14px;
+              background: #ffffff;
+              padding: 14px 16px;
+              border-radius: 14px;
               cursor: pointer;
-              transition: background-color 0.2s ease;
+              transition: background-color 0.2s ease, box-shadow 0.2s ease;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
               
               &.unread {
-                background-color: #f0f9ff;
-                border-left: 3px solid #007bff;
+                background: #f0f9ff;
+                // border-left: 3px solid #007bff;
               }
               
               &:hover {
-                background-color: #f9fafb;
+                background: rgba(0, 0, 0, 0.018);
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
               }
               
               &.unread:hover {
-                background-color: #e0f2fe;
+                background: #e0f2fe !important;
               }
         
         .notification-item-left {
-          margin-right: 12px;
+          margin-right: 0;
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
           
             .notification-avatar {
-              width: 40px;
-              height: 40px;
-              border-radius: 16px;
+              width: 32px;
+              height: 32px;
+              border-radius: 12px;
               object-fit: cover;
               border: 2px solid #e5e7eb;
             }
 
         .notification-icon-wrapper {
-          width: 40px;
-          height: 40px;
-          border-radius: 12px;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -465,30 +488,42 @@
             // box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
           }
           
+          &.payment-cancelled-icon {
+            background: #007aff;
+            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+          }
+          
           // System notification styling (app icon)
           &.system-notification {
             // background: linear-gradient(135deg, #5e5ce6 0%, #007aff 100%);
             box-shadow: 0 2px 8px rgba(94, 92, 230, 0.3);
-            padding: 6px;
+            padding: 4px;
           }
           
           .notification-item-icon {
-            font-size: 20px;
+            font-size: 16px;
             color: #ffffff;
+          }
+          
+          // For icons without background, use a visible color
+          &:not(.lesson-icon):not(.analysis-icon):not(.class-invitation-icon):not(.payment-icon):not(.payment-cancelled-icon):not(.system-notification) {
+            .notification-item-icon {
+              color: #8e8e93;
+            }
           }
         }
         
         // App logo image for system notifications
         .app-logo-img {
-          width: 28px;
-          height: 28px;
-          border-radius: 6px;
+          width: 22px;
+          height: 22px;
+          border-radius: 5px;
           // object-fit: cover;
         }
         
         // Money emoji for payment notifications
         .money-emoji {
-          font-size: 24px;
+          font-size: 18px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -498,16 +533,27 @@
         .notification-item-content {
           flex: 1;
           min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          justify-content: center;
           
           .notification-text {
-            margin: 0 0 4px 0;
-            font-size: 14px;
-            color: #1f2937;
+            margin: 0;
+            font-size: 15px;
+            color: #1d1d1f;
+            font-weight: 400;
             line-height: 1.4;
+            letter-spacing: -0.01em;
             
             strong {
-              font-weight: 600;
-              color: #000000;
+              font-weight: 500 !important;
+              color: #1d1d1f !important;
+            }
+            
+            ::ng-deep strong {
+              font-weight: 500 !important;
+              color: #1d1d1f !important;
             }
             
             .notification-emoji {
@@ -517,8 +563,162 @@
           
           .notification-time {
             margin: 0;
+            font-size: 13px;
+            color: #8e8e93;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-weight: 400;
+            letter-spacing: -0.008em;
+            line-height: 1.33333;
+          }
+          
+          .notification-time-inline {
+            font-size: 13px;
+            color: #8e8e93;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-weight: 400;
+            letter-spacing: -0.008em;
+            line-height: 1.33333;
+          }
+          
+          // Dispute Button
+          .dispute-button {
+            --color: #ff3b30 !important;
+            --background: transparent;
+            --background-hover: rgba(255, 59, 48, 0.1);
+            --background-activated: rgba(255, 59, 48, 0.15);
+            --border-radius: 8px;
+            --padding-start: 8px;
+            --padding-end: 8px;
+            
+            height: 28px;
+            margin: 0;
+            min-width: auto;
             font-size: 12px;
-            color: #6b7280;
+            font-weight: 500;
+            text-transform: none !important;
+            color: #ff3b30 !important;
+            
+            &::part(native) {
+              transition: all 0.2s ease;
+              color: #ff3b30 !important;
+              text-transform: none !important;
+            }
+            
+            ion-icon {
+              font-size: 16px;
+              margin-right: 4px;
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
+            
+            // Ensure icon is red
+            ion-icon[slot="start"],
+            ion-icon[name="alert-circle-outline"] {
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
+            
+            @media (min-width: 768px) {
+              height: 30px;
+              font-size: 13px;
+              --padding-start: 10px;
+              --padding-end: 10px;
+              
+              ion-icon {
+                font-size: 17px;
+                color: #ff3b30 !important;
+                --color: #ff3b30 !important;
+              }
+              
+              ion-icon[slot="start"],
+              ion-icon[name="alert-circle-outline"] {
+                color: #ff3b30 !important;
+                --color: #ff3b30 !important;
+              }
+              
+              &:hover {
+                --background: rgba(255, 59, 48, 0.12);
+              }
+            }
+          }
+          
+          // Deep override for text-transform
+          ::ng-deep .dispute-button {
+            text-transform: none !important;
+            
+            .button-native,
+            .button-inner,
+            button {
+              text-transform: none !important;
+            }
+            
+            span,
+            .button-text {
+              text-transform: none !important;
+            }
+          }
+          
+          // Additional override for dispute button in notification dropdown
+          .notification-item-right .dispute-button,
+          .dispute-button[fill="clear"],
+          .dispute-button[color="danger"] {
+            --color: #ff3b30 !important;
+            --ion-color-danger: #ff3b30 !important;
+            --ion-color-danger-rgb: 255, 59, 48 !important;
+            color: #ff3b30 !important;
+            text-transform: none !important;
+            
+            ion-icon {
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
+            
+            // Ensure icon is red
+            ion-icon[slot="start"],
+            ion-icon[name="alert-circle-outline"] {
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
+            
+            &::part(native) {
+              color: #ff3b30 !important;
+              text-transform: none !important;
+            }
+          }
+          
+          // Use ng-deep to override Ionic's internal button styles
+          ::ng-deep .dispute-button,
+          ::ng-deep .notification-item-right .dispute-button,
+          ::ng-deep .dispute-button[color="danger"] {
+            --color: #ff3b30 !important;
+            --ion-color-danger: #ff3b30 !important;
+            --ion-color-danger-rgb: 255, 59, 48 !important;
+            --ion-color-danger-shade: #e03528 !important;
+            --ion-color-danger-tint: #ff4f44 !important;
+            text-transform: none !important;
+            
+            .button-native,
+            .button-inner,
+            button,
+            span,
+            .button-text {
+              color: #ff3b30 !important;
+              text-transform: none !important;
+            }
+            
+            ion-icon {
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
+            
+            // Target the icon more specifically
+            ion-icon[slot="start"],
+            ion-icon[name="alert-circle-outline"] {
+              color: #ff3b30 !important;
+              --color: #ff3b30 !important;
+            }
           }
         }
         
@@ -527,11 +727,12 @@
           flex-shrink: 0;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
           
           // Contextual icons on the right
           .contextual-icon {
-            font-size: 18px;
+            font-size: 20px;
+            margin-left: 8px;
             
             &.money-icon {
               color: #34c759;
@@ -539,6 +740,10 @@
             
             &.lesson-icon {
               color: #f5576c;
+            }
+            
+            &.analysis-icon {
+              color: #ff9500;
             }
             
             &.message-icon {

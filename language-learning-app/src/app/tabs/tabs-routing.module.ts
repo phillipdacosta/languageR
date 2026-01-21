@@ -48,7 +48,7 @@ const routes: Routes = [
         loadChildren: () => import('../wallet/wallet.module').then(m => m.WalletPageModule)
       },
       {
-        path: 'earnings',
+        path: 'home/earnings',
         loadComponent: () => import('../earnings/earnings.page').then(m => m.EarningsPage)
       },
       {

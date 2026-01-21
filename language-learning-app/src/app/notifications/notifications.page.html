@@ -108,6 +108,16 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Dispute Button for payment_cancelled notifications -->
+              <ion-button 
+                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                class="dispute-button"
+                fill="clear"
+                size="small"
+                (click)="openDisputeModal(notification, $event)">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                Dispute
+              </ion-button>
               <!-- Contextual icon on the right -->
               <ion-icon 
                 *ngIf="getContextualIcon(notification.type)" 
@@ -158,6 +168,16 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Dispute Button for payment_cancelled notifications -->
+              <ion-button 
+                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                class="dispute-button"
+                fill="clear"
+                size="small"
+                (click)="openDisputeModal(notification, $event)">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                Dispute
+              </ion-button>
               <!-- Contextual icon on the right -->
               <ion-icon 
                 *ngIf="getContextualIcon(notification.type)" 
@@ -208,6 +228,16 @@
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
+              <!-- Dispute Button for payment_cancelled notifications -->
+              <ion-button 
+                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                class="dispute-button"
+                fill="clear"
+                size="small"
+                (click)="openDisputeModal(notification, $event)">
+                <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
+                Dispute
+              </ion-button>
               <!-- Contextual icon on the right -->
               <ion-icon 
                 *ngIf="getContextualIcon(notification.type)" 

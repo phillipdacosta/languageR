@@ -44,25 +44,37 @@
       </div>
 
       <div class="balance-cards">
-        <div class="balance-card available">
-          <div class="card-icon">
-            <ion-icon name="wallet-outline"></ion-icon>
-          </div>
-          <div class="card-content">
-            <div class="card-label">Available</div>
-            <div class="card-value">${{ balance.available.toFixed(2) }}</div>
-            <div class="card-sublabel">Ready to withdraw</div>
-          </div>
-        </div>
-
         <div class="balance-card pending">
           <div class="card-icon">
             <ion-icon name="hourglass-outline"></ion-icon>
           </div>
           <div class="card-content">
             <div class="card-label">Pending</div>
-            <div class="card-value">${{ balance.pending.toFixed(2) }}</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'pending')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+            </div>
             <div class="card-sublabel">24hr hold period</div>
+          </div>
+        </div>
+
+        <div class="balance-card available">
+          <div class="card-icon">
+            <ion-icon name="wallet-outline"></ion-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">Available</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'available')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+            </div>
+            <div class="card-sublabel">Ready to withdraw</div>
           </div>
         </div>
 
@@ -72,7 +84,13 @@
           </div>
           <div class="card-content">
             <div class="card-label">Lifetime Earnings</div>
-            <div class="card-value">${{ balance.lifetime.toFixed(2) }}</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'lifetime')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+            </div>
             <div class="card-sublabel">Total earned</div>
           </div>
         </div>
@@ -127,7 +145,12 @@
               <td class="student-col">
                 <div class="student-info">
                   <div class="student-avatar" *ngIf="payment.studentPicture">
-                    <img [src]="payment.studentPicture" [alt]="payment.studentName">
+                    <img 
+                      [src]="payment.studentPicture" 
+                      [alt]="payment.studentName"
+                      referrerpolicy="no-referrer"
+                      loading="lazy"
+                      (error)="onImageError($event)">
                   </div>
                   <div class="student-avatar fallback" *ngIf="!payment.studentPicture">
                     <ion-icon name="person"></ion-icon>
@@ -233,130 +256,177 @@
         </div>
 
         <!-- Available Balance Card -->
-        <div class="balance-card">
-          <div class="balance-label">Available Balance</div>
-          <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
-          <div class="balance-note">Minimum withdrawal: $10.00</div>
-        </div>
-
-        <!-- Fee Breakdown Card (PayPal) -->
-        <div class="fee-breakdown-card" *ngIf="withdrawalAmount >= 10 && selectedWithdrawalMethod === 'paypal'">
-          <div class="breakdown-row">
-            <span class="breakdown-label">Withdrawal amount:</span>
-            <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
-          </div>
-          <div class="breakdown-row fee-row">
-            <span class="breakdown-label">PayPal fee (2%, min $0.25):</span>
-            <span class="breakdown-value">-${{ calculatePayPalFee(withdrawalAmount).toFixed(2) }}</span>
-          </div>
-          <div class="breakdown-divider"></div>
-          <div class="breakdown-row total-row">
-            <span class="breakdown-label">You will receive:</span>
-            <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
-          </div>
-        </div>
-
-        <!-- Fee Breakdown Card (Stripe) -->
-        <div class="fee-breakdown-card stripe-card" *ngIf="withdrawalAmount >= 10 && selectedWithdrawalMethod === 'stripe_connect'">
-          <div class="no-fee-badge">
-            <ion-icon name="checkmark-circle"></ion-icon>
-            <span>No withdrawal fees</span>
-          </div>
-          <div class="breakdown-row">
-            <span class="breakdown-label">Withdrawal amount:</span>
-            <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
-          </div>
-          <div class="breakdown-divider"></div>
-          <div class="breakdown-row total-row">
-            <span class="breakdown-label">You will receive:</span>
-            <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
-          </div>
-          <div class="stripe-benefit-note">
-            <ion-icon name="information-circle-outline"></ion-icon>
-            <span>Funds arrive in 2-7 business days</span>
-          </div>
-        </div>
-
-        <!-- Amount Input -->
-        <div class="amount-section">
-          <label class="section-label">Withdrawal Amount</label>
-          <div class="amount-input-wrapper">
-            <div class="currency-symbol">$</div>
-            <input 
-              type="number" 
-              class="amount-input"
-              [(ngModel)]="withdrawalAmount"
-              [min]="10"
-              [max]="balance.available"
-              step="0.01"
-              placeholder="0.00">
-            <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
-          </div>
-          <div class="amount-error" *ngIf="withdrawalAmount < 10 && withdrawalAmount > 0">
-            Minimum amount is $10.00
-          </div>
-          <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
-            Amount exceeds available balance
-          </div>
-        </div>
-
-        <!-- Payout Method Selection -->
-        <div class="method-section">
-          <label class="section-label">Payout Method</label>
+        <!-- Two-Column Container -->
+        <div class="withdrawal-container">
           
-          <!-- Stripe Option -->
-          <div 
-            *ngIf="payoutProvider === 'stripe'"
-            class="method-card"
-            [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
-            (click)="selectWithdrawalMethod('stripe_connect')">
-            <div class="method-content">
-              <div class="method-icon stripe">
-                <ion-icon name="card-outline"></ion-icon>
-              </div>
-              <div class="method-info">
-                <div class="method-name">Stripe Connect</div>
-                <div class="method-detail">Direct to bank account</div>
-                <div class="method-timing">2-7 business days</div>
-              </div>
-              <div class="method-radio">
-                <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'stripe_connect'">
-                  <div class="radio-dot"></div>
+          <!-- LEFT COLUMN: Balance & Fee Breakdown -->
+          <div class="left-column">
+            
+            <!-- Available Balance -->
+            <div class="balance-card">
+              <div class="balance-label">Available Balance</div>
+              <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
+              <div class="balance-note">Minimum withdrawal: $10.00</div>
+            </div>
+
+            <!-- Fee Breakdown Card (PayPal) -->
+            <div class="fee-breakdown-card" *ngIf="selectedWithdrawalMethod === 'paypal'">
+              <!-- Show breakdown when amount is valid -->
+              <div *ngIf="withdrawalAmount >= 10; else paypalPlaceholder">
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Withdrawal amount:</span>
+                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+                </div>
+                <div class="breakdown-row fee-row">
+                  <span class="breakdown-label">
+                    PayPal fee (2%, min $0.25):
+                    <ion-icon 
+                      name="information-circle-outline" 
+                      class="fee-info-icon"
+                      (click)="showPayPalFeeInfo()">
+                    </ion-icon>
+                  </span>
+                  <span class="breakdown-value fee-value">-${{ calculatePayPalFee(withdrawalAmount).toFixed(2) }}</span>
+                </div>
+                <div class="fee-note">
+                  <ion-icon name="alert-circle-outline"></ion-icon>
+                  <span>PayPal charges this fee, not us</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row total-row">
+                  <span class="breakdown-label">You will receive:</span>
+                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
                 </div>
               </div>
+              <!-- Placeholder when amount is invalid -->
+              <ng-template #paypalPlaceholder>
+                <div class="breakdown-placeholder">
+                  <ion-icon name="calculator-outline"></ion-icon>
+                  <p>Enter withdrawal amount above to see fee breakdown</p>
+                </div>
+              </ng-template>
             </div>
-          </div>
 
-          <!-- PayPal Option -->
-          <div 
-            *ngIf="payoutProvider === 'paypal'"
-            class="method-card"
-            [class.selected]="selectedWithdrawalMethod === 'paypal'"
-            (click)="selectWithdrawalMethod('paypal')">
-            <div class="method-content">
-              <div class="method-icon paypal">
-                <img src="assets/icon/paypal-icon.png" alt="PayPal" name="logo-paypal">
-              </div>
-              <div class="method-info">
-                <div class="method-name">PayPal</div>
-                <div class="method-detail">{{ paypalEmail }}</div>
-                <div class="method-timing">Instant to PayPal account</div>
-              </div>
-              <div class="method-radio">
-                <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'paypal'">
-                  <div class="radio-dot"></div>
+            <!-- Fee Breakdown Card (Stripe) -->
+            <div class="fee-breakdown-card stripe-card" *ngIf="selectedWithdrawalMethod === 'stripe_connect'">
+              <!-- Show breakdown when amount is valid -->
+              <div *ngIf="withdrawalAmount >= 10; else stripePlaceholder">
+                <div class="no-fee-badge">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>No withdrawal fees</span>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Withdrawal amount:</span>
+                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row total-row">
+                  <span class="breakdown-label">You will receive:</span>
+                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
+                </div>
+                <div class="stripe-benefit-note">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <span>Funds arrive in 2-7 business days</span>
                 </div>
               </div>
+              <!-- Placeholder when amount is invalid -->
+              <ng-template #stripePlaceholder>
+                <div class="breakdown-placeholder">
+                  <ion-icon name="calculator-outline"></ion-icon>
+                  <p>Enter withdrawal amount above to see breakdown</p>
+                </div>
+              </ng-template>
             </div>
+
           </div>
 
-          <div *ngIf="payoutProvider === 'none'" class="no-method-message">
-            <ion-icon name="alert-circle-outline"></ion-icon>
-            <p>Please set up your payout method in Profile settings first.</p>
+          <!-- RIGHT COLUMN: Amount Input & Method Selection -->
+          <div class="right-column">
+            
+            <!-- Amount Input -->
+            <div class="amount-section">
+              <label class="section-label">Withdrawal Amount</label>
+              <div class="amount-input-wrapper">
+                <div class="currency-symbol">$</div>
+                <input 
+                  type="number" 
+                  class="amount-input"
+                  [(ngModel)]="withdrawalAmount"
+                  [min]="10"
+                  [max]="balance.available"
+                  step="0.01"
+                  placeholder="0.00">
+                <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
+              </div>
+              <div class="amount-error" *ngIf="withdrawalAmount < 10 && withdrawalAmount > 0">
+                Minimum amount is $10.00
+              </div>
+              <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
+                Amount exceeds available balance
+              </div>
+            </div>
+
+            <!-- Payout Method Selection -->
+            <div class="method-section">
+              <label class="section-label">Payout Method</label>
+              
+              <!-- Stripe Option -->
+              <div 
+                *ngIf="payoutProvider === 'stripe'"
+                class="method-card"
+                [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
+                (click)="selectWithdrawalMethod('stripe_connect')">
+                <div class="method-content">
+                  <div class="method-icon stripe">
+                    <ion-icon name="card-outline"></ion-icon>
+                  </div>
+                  <div class="method-info">
+                    <div class="method-name">Stripe Connect</div>
+                    <div class="method-detail">Direct to bank account</div>
+                    <div class="method-timing">2-7 business days</div>
+                  </div>
+                  <div class="method-radio">
+                    <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'stripe_connect'">
+                      <div class="radio-dot"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PayPal Option -->
+              <div 
+                *ngIf="payoutProvider === 'paypal'"
+                class="method-card"
+                [class.selected]="selectedWithdrawalMethod === 'paypal'"
+                (click)="selectWithdrawalMethod('paypal')">
+                <div class="method-content">
+                  <div class="method-icon paypal">
+                    <img src="assets/icon/paypal-icon.png" alt="PayPal" name="logo-paypal">
+                  </div>
+                  <div class="method-info">
+                    <div class="method-name">PayPal</div>
+                    <div class="method-detail">{{ paypalEmail }}</div>
+                    <div class="method-timing">Instant to PayPal account</div>
+                  </div>
+                  <div class="method-radio">
+                    <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'paypal'">
+                      <div class="radio-dot"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div *ngIf="payoutProvider === 'none'" class="no-method-message">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                <p>Please set up your payout method in Profile settings first.</p>
+              </div>
+            </div>
+
           </div>
+
         </div>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons (Full Width Below Columns) -->
         <div class="button-container">
           <ion-button 
             expand="block" 
@@ -372,11 +442,7 @@
           </ion-button>
         </div>
 
-        <!-- Processing Info -->
-        <div class="info-note">
-          <ion-icon name="information-circle-outline"></ion-icon>
-          <span>Withdrawals are typically processed within 1-2 business days</span>
-        </div>
+
       </div>
     </ion-content>
   </ng-template>

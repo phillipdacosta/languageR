@@ -319,9 +319,9 @@
                         <span class="detail-label">{{ nextLesson?.subject }}</span>
                       </div>
                       
-                      <div class="detail-group" *ngIf="getLessonNumber(nextLesson?.lesson) as lessonNum">
+                      <div class="detail-group" *ngIf="nextLesson?.lesson?.lessonNumber">
                         <ion-icon name="book-outline"></ion-icon>
-                        <span class="detail-label">Lesson {{ lessonNum }}</span>
+                        <span class="detail-label">Lesson {{ nextLesson.lesson.lessonNumber }}</span>
                       </div>
                       
                       <div class="detail-group">
@@ -710,9 +710,9 @@
                     />
                     {{ nextClass.subject }}
                   </span>
-                  <span class="date-time-text" *ngIf="!nextClass.lesson?.isClass && getLessonNumber(nextClass.lesson) as lessonNum">
+                  <span class="date-time-text" *ngIf="!nextClass.lesson?.isClass && nextClass.lesson?.lessonNumber">
                     <ion-icon name="book-outline"></ion-icon>
-                    Lesson {{ lessonNum }}
+                    Lesson {{ nextClass.lesson.lessonNumber }}
                   </span>
                   <span class="date-time-text" [class.is-today]="nextClass.isToday">
                     <ion-icon name="calendar-outline"></ion-icon>

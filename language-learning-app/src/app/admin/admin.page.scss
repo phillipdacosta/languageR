@@ -90,6 +90,208 @@ ion-content {
   margin-bottom: 32px;
 }
 
+// NEW: Withdrawal Section
+.withdrawal-section {
+  margin-bottom: 32px;
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+      font-size: 24px;
+      color: #007aff;
+    }
+  }
+}
+
+.withdrawal-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+
+  &.primary-highlight {
+    border: 2px solid #007aff;
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.15);
+  }
+}
+
+.withdrawal-main {
+  text-align: center;
+  padding: 20px 0;
+  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 20px;
+
+  .withdrawal-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+
+  .withdrawal-amount {
+    font-size: 48px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin-bottom: 8px;
+    
+    &.success {
+      color: #34c759;
+    }
+  }
+
+  .withdrawal-sublabel {
+    font-size: 14px;
+    color: #999;
+  }
+}
+
+.withdrawal-breakdown {
+  margin-bottom: 20px;
+
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    font-size: 15px;
+
+    &.pending {
+      color: #ff9500;
+    }
+
+    &.total {
+      padding-top: 16px;
+      font-size: 17px;
+    }
+
+    .breakdown-label {
+      color: #666;
+    }
+
+    .breakdown-value {
+      font-weight: 600;
+      color: #1d1d1f;
+
+      &.negative {
+        color: #ff3b30;
+      }
+
+      &.success {
+        color: #34c759;
+      }
+    }
+  }
+
+  .breakdown-sub-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0 8px 24px;
+    font-size: 14px;
+
+    .breakdown-sublabel {
+      color: #999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+
+    .breakdown-subvalue {
+      color: #666;
+      font-weight: 500;
+    }
+  }
+
+  .breakdown-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 8px 0;
+  }
+}
+
+.withdrawal-warning {
+  background: #fff3cd;
+  border-left: 4px solid #ff9500;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  ion-icon {
+    font-size: 20px;
+    color: #ff9500;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  span {
+    font-size: 14px;
+    color: #856404;
+    line-height: 1.5;
+  }
+}
+
+.withdrawal-info {
+  background: #e8f4fd;
+  border-left: 4px solid #007aff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  ion-icon {
+    font-size: 20px;
+    color: #007aff;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  span {
+    font-size: 13px;
+    color: #004085;
+    line-height: 1.5;
+  }
+}
+
+.withdrawal-help {
+  background: #f8f9fa;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  ion-icon {
+    font-size: 18px;
+    color: #999;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  span {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.5;
+  }
+}
+
 .summary-card {
   background: white;
   border-radius: 16px;
@@ -465,10 +667,32 @@ ion-content {
           margin-top: 2px;
           font-weight: 600;
         }
+
+        .refunded-status {
+          .refund-note {
+            font-size: 10px;
+            color: #ff3b30;
+            margin-top: 2px;
+            font-style: italic;
+          }
+        }
         
         .na-text {
           color: #999;
           font-style: italic;
+        }
+      }
+
+      .refund-info {
+        font-size: 10px;
+        color: #ff3b30;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        ion-icon {
+          font-size: 12px;
         }
       }
 

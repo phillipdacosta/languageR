@@ -117,6 +117,7 @@ app.use('/api/whiteboard', whiteboardRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/withdrawals', withdrawalRoutes); // NEW: Withdrawal system
+app.use('/api/disputes', require('./routes/disputes')); // Dispute system
 app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));

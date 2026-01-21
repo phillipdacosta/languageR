@@ -22,28 +22,10 @@ const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
 const Message = require('../models/Message');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
-// Helper function to format names as "FirstName LastInitial."
-const formatDisplayName = (user) => {
-  if (!user) return 'Unknown User';
-  
-  const firstName = user.firstName || user.onboardingData?.firstName || user.name?.split(' ')[0] || '';
-  const lastName = user.lastName || user.onboardingData?.lastName || '';
-  
-  if (firstName && lastName) {
-    return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
-  }
-  
-  if (firstName) {
-    return firstName;
-  }
-  
-  if (user.email) {
-    return user.email.split('@')[0];
-  }
-  
-  return 'Unknown User';
-};
+// Use shared name formatter
+const formatDisplayName = formatNameWithInitial;
 
 /**
  * POST /api/payments/create-payment-intent
@@ -906,10 +888,29 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     
     allPayments.forEach(payment => {
       const tutorPayout = payment.tutorPayout || 0;
-      if (payment.revenueRecognized) {
-        if (payment.transferStatus === 'succeeded') {
+      const lessonStatus = payment.lessonId?.status;
+      
+      // Include in calculations if:
+      // 1. Revenue is recognized (completed/ended lessons), OR
+      // 2. Lesson is scheduled (future lesson that student paid for)
+      const shouldCount = payment.revenueRecognized || 
+                          lessonStatus === 'scheduled' || 
+                          lessonStatus === 'in_progress';
+      
+      if (shouldCount) {
+        if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
           totalEarnings += tutorPayout;
-        } else {
+        } else if (payment.transferStatus === 'available') {
+          // Available for withdrawal - counts as pending (not yet withdrawn)
+          pendingEarnings += tutorPayout;
+        } else if (payment.transferStatus === 'on_hold') {
+          // On hold during 24hr period - counts as pending
+          pendingEarnings += tutorPayout;
+        } else if (lessonStatus === 'scheduled' || lessonStatus === 'in_progress') {
+          // Scheduled/in-progress lessons - counts as pending (not yet available)
+          pendingEarnings += tutorPayout;
+        } else if (payment.revenueRecognized) {
+          // Completed but not yet available - counts as pending
           pendingEarnings += tutorPayout;
         }
       }
@@ -937,8 +938,14 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         paymentStatus = 'refunded';
       } else if (payment.status === 'partially_refunded') {
         paymentStatus = 'partially_refunded';
-      } else if (payment.transferStatus === 'succeeded') {
+      } else if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
         paymentStatus = 'paid';
+      } else if (payment.transferStatus === 'available') {
+        // NEW: Available for withdrawal (released from 24hr hold)
+        paymentStatus = 'succeeded'; // Frontend will show as "Available"
+      } else if (payment.transferStatus === 'on_hold') {
+        // NEW: On hold during 24hr period
+        paymentStatus = 'pending';
       } else if (payment.revenueRecognized && lessonStatus === 'completed') {
         paymentStatus = 'pending';
       } else if (lessonStatus === 'in_progress') {

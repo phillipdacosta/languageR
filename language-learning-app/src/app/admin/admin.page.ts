@@ -48,12 +48,26 @@ interface PlatformRevenue {
     netRevenue: number;
   }>;
   payments: Array<any>;
-  pagination?: {  // NEW: Pagination metadata
+  pagination?: {
     currentPage: number;
     totalPages: number;
     totalPayments: number;
     paymentsPerPage: number;
     hasMore: boolean;
+  };
+  withdrawalInfo?: {
+    currentStripeBalance: number;
+    stripePendingBalance: number;
+    totalOwedToTutors: number;
+    breakdown: {
+      tutorsPending: number;
+      tutorsAvailable: number;
+      tutorsCount: number;
+    };
+    safeToWithdraw: number;
+    recognizedRevenue: number;
+    discrepancy: number;
+    warning: string | null;
   };
 }
 

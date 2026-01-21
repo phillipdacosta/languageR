@@ -12,6 +12,7 @@ const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
 // Helper function to get socket ID by auth0Id
 async function getUserSocketId(auth0Id) {
@@ -75,36 +76,8 @@ router.get('/check-trial/:tutorId', verifyToken, async (req, res) => {
 // Configure multer for beacon endpoint (parses FormData)
 const beaconUpload = multer();
 
-// Helper function to format names as "FirstName LastInitial."
-const formatDisplayName = (user) => {
-  if (!user) return 'Unknown User';
-  
-  const firstName = user.firstName || user.onboardingData?.firstName;
-  const lastName = user.lastName || user.onboardingData?.lastName;
-  const fullName = user.name;
-  
-  if (firstName && lastName) {
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    return `${firstName} ${lastInitial}.`;
-  }
-  
-  if (fullName) {
-    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
-    if (parts.length >= 2) {
-      const first = parts[0];
-      const last = parts[parts.length - 1];
-      const lastInitial = last.charAt(0).toUpperCase();
-      return `${first} ${lastInitial}.`;
-    }
-    return fullName;
-  }
-  
-  if (user.email) {
-    return user.email.split('@')[0];
-  }
-  
-  return 'Unknown User';
-};
+// Use shared name formatter
+const formatDisplayName = formatNameWithInitial;
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
@@ -783,7 +756,7 @@ router.post('/office-hours', verifyToken, async (req, res) => {
     await lesson.populate('tutorId studentId');
 
     // Create notification for tutor
-    const tutorDisplayName = formatDisplayName(student);
+    const studentDisplayName = formatDisplayName(student);
     const formattedTime = lessonStartTime.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit', 
@@ -801,11 +774,11 @@ router.post('/office-hours', verifyToken, async (req, res) => {
       type: instant ? 'office_hours_booking' : 'lesson_created',
       title: instant ? '⚡ New Office Hours Session!' : 'Office Hours Scheduled',
       message: instant 
-        ? `${tutorDisplayName} just booked a ${duration}-minute session starting ${timeUntilStart < 5 ? 'NOW' : `in ${timeUntilStart} minutes`}!`
-        : `${tutorDisplayName} scheduled a ${duration}-minute office hours session for ${formattedDate} at ${formattedTime}`,
+        ? `<strong>${studentDisplayName}</strong> just booked a ${duration}-minute session starting ${timeUntilStart < 5 ? 'NOW' : `in ${timeUntilStart} minutes`}!`
+        : `<strong>${studentDisplayName}</strong> scheduled a ${duration}-minute office hours session for ${formattedDate} at ${formattedTime}`,
       data: {
         lessonId: lesson._id,
-        studentName: tutorDisplayName,
+        studentName: studentDisplayName,
         startTime: lessonStartTime,
         duration: duration,
         urgent: instant || timeUntilStart < 10
@@ -828,7 +801,7 @@ router.post('/office-hours', verifyToken, async (req, res) => {
           lessonId: lesson._id.toString(),
           data: {
             lessonId: lesson._id.toString(),
-            studentName: student.firstName || student.name || 'Student',
+            studentName: formatDisplayName(student),
             duration: duration
           },
           urgent: instant || timeUntilStart < 10,
@@ -1650,7 +1623,7 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 
       const studentAuth0Id = lesson.studentId?.auth0Id;
       const studentMongoId = lesson.studentId?._id;
-      const tutorName = lesson.tutorId?.name || lesson.tutorId?.firstName || 'Tutor';
+      const tutorName = formatDisplayName(lesson.tutorId);
       const tutorPicture = lesson.tutorId?.picture || null;
       const studentSocketId = req.connectedUsers?.get(studentAuth0Id);
       
@@ -1746,10 +1719,10 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 
       // Create persistent database notification
       try {
-        const cancellerName = user.name || 'Participant';
+        const cancellerName = formatDisplayName(user);
         const notificationMessage = isTutor 
           ? `Your session scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been cancelled. You have not been charged.`
-          : `The student cancelled the session scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`;
+          : `<strong>${cancellerName}</strong> cancelled the session scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`;
 
         await Notification.create({
           userId: recipientMongoId,
@@ -1776,7 +1749,7 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
         req.io.to(recipientSocketId).emit('lesson_cancelled', {
           lessonId: lesson._id.toString(),
           cancelledBy: isTutor ? 'tutor' : 'student',
-          cancellerName: user.name || 'Participant',
+          cancellerName: formatDisplayName(user),
           reason: 'The lesson has been cancelled'
         });
         console.log('✅ lesson_cancelled event emitted successfully');

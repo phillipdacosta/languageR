@@ -135,7 +135,7 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
         userId: student._id,
         type: 'feedback_received',
         title: 'Feedback Available! 📝',
-        message: `Your tutor has provided feedback on your recent lesson. Check it out!`,
+        message: `Your tutor has provided <strong>feedback</strong> on your recent lesson. <strong>Check it out</strong>!`,
         data: {
           lessonId: feedback.lessonId,
           tutorAuth0Id: user.auth0Id

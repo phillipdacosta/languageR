@@ -763,7 +763,7 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
       throw new Error('Audio buffer is empty');
     }
     
-    console.log(`🎙️ Calling Whisper API with language: "${targetLanguage}"...`);
+    console.log(`🎙️ Calling Whisper API WITHOUT language hint (to avoid bias)...`);
     
     // Detect actual file type from buffer
     const isMP3 = audioBuffer[0] === 0xFF && (audioBuffer[1] & 0xE0) === 0xE0; // MP3 magic bytes
@@ -796,42 +796,66 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
       size: fileForUpload.size
     });
     
+    // CRITICAL FIX: Do NOT provide language hint to avoid bias
+    // Let Whisper auto-detect the language, then we'll validate it
     const transcription = await getOpenAIClient().audio.transcriptions.create({
       file: fileForUpload,
       model: 'whisper-1',
-      language: targetLanguage, // Target language hint for Whisper
-      response_format: 'verbose_json', // Get timestamps and segments
+      // NOTE: No 'language' parameter - let Whisper auto-detect to avoid translation/hallucination
+      response_format: 'verbose_json', // Get timestamps, segments, and detected language
       timestamp_granularities: ['segment']
     });
     
     console.log(`✅ Raw transcription completed: ${transcription.segments?.length || 0} segments`);
     
-    // Filter segments - only keep those in the target language
-    const filteredSegments = transcription.segments?.filter(segment => {
-      // Whisper detects language per segment
-      const segmentLanguage = segment.language || targetLanguage;
-      const isTargetLanguage = segmentLanguage === targetLanguage;
-      
-      if (!isTargetLanguage) {
-        console.log(`⏭️  Skipping segment in ${segmentLanguage}: "${segment.text}"`);
-      }
-      
-      return isTargetLanguage;
-    }) || [];
+    // CRITICAL: Check the TOP-LEVEL detected language
+    // Whisper's verbose_json returns a single 'language' field for the entire audio
+    const detectedLanguage = transcription.language;
     
-    // Reconstruct text from filtered segments
-    const filteredText = filteredSegments.map(s => s.text).join(' ').trim();
+    console.log(`\n🔍 ===== LANGUAGE VALIDATION =====`);
+    console.log(`Target language: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
+    console.log(`Detected language: ${detectedLanguage || 'unknown'} (${getLanguageName(detectedLanguage || 'unknown')})`);
+    console.log(`Speaker: ${speaker}`);
+    console.log(`Segments: ${transcription.segments?.length || 0}`);
     
-    console.log(`✅ Filtered transcription: ${filteredSegments.length} segments in ${targetLanguage}`);
-    console.log(`📝 Final text: "${filteredText}"`);
+    // If the detected language doesn't match the target language, reject the entire chunk
+    if (detectedLanguage !== targetLanguage) {
+      console.log(`🚫 REJECTED - Wrong language detected!`);
+      console.log(`   Expected: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
+      console.log(`   Detected: ${detectedLanguage} (${getLanguageName(detectedLanguage)})`);
+      console.log(`   Transcribed text: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
+      console.log(`   This audio chunk will NOT be analyzed.`);
+      console.log(`=======================================\n`);
+      
+      // Return empty result - this chunk is completely ignored
+      return {
+        text: '',
+        segments: [],
+        language: targetLanguage,
+        duration: transcription.duration,
+        originalSegmentCount: transcription.segments?.length || 0,
+        filteredSegmentCount: 0,
+        rejectedSegmentCount: transcription.segments?.length || 0,
+        detectedLanguage: detectedLanguage,
+        wasRejected: true
+      };
+    }
+    
+    // Language matches! Accept all segments
+    console.log(`✅ Language matches target! All segments accepted.`);
+    console.log(`📝 Transcribed text preview: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
+    console.log(`=======================================\n`);
     
     return {
-      text: filteredText,
-      segments: filteredSegments,
+      text: transcription.text || '',
+      segments: transcription.segments || [],
       language: targetLanguage,
       duration: transcription.duration,
       originalSegmentCount: transcription.segments?.length || 0,
-      filteredSegmentCount: filteredSegments.length
+      filteredSegmentCount: transcription.segments?.length || 0,
+      rejectedSegmentCount: 0,
+      detectedLanguage: detectedLanguage,
+      wasRejected: false
     };
     
   } catch (error) {

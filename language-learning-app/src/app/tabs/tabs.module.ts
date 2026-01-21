@@ -20,6 +20,8 @@ import { TabsPage } from './tabs.page';
     SharedModule,
     NotificationFilterPipe  // Import standalone pipe
   ],
-  declarations: [TabsPage]
+  declarations: [
+    TabsPage
+  ]
 })
 export class TabsPageModule {}

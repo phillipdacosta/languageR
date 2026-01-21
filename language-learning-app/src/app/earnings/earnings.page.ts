@@ -1,13 +1,13 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule, AlertController, ToastController, ModalController } from '@ionic/angular';
+import { IonicModule, AlertController, ToastController, ModalController, ViewWillEnter } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
 import { WebSocketService } from '../services/websocket.service';
 import { environment } from '../../environments/environment';
-import { firstValueFrom } from 'rxjs';
-import { Subscription } from 'rxjs';
+import { firstValueFrom, filter, takeUntil } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 
 interface PaymentBreakdown {
@@ -59,7 +59,7 @@ interface WithdrawalHistory {
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, FormsModule]
 })
-export class EarningsPage implements OnInit, OnDestroy {
+export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   loading: boolean = true;
   
   // NEW: Withdrawal system balance
@@ -90,7 +90,12 @@ export class EarningsPage implements OnInit, OnDestroy {
   selectedWithdrawalMethod: 'stripe_connect' | 'paypal' | null = null;
   withdrawing: boolean = false;
   
+  // Wallet visibility (tied to profile setting)
+  showWalletBalance = false; // Hide by default
+  walletTemporarilyVisible = false; // For mobile tap-to-reveal
+  
   private subscriptions: Subscription[] = [];
+  private destroy$ = new Subject<void>();
 
   constructor(
     private http: HttpClient,
@@ -101,9 +106,25 @@ export class EarningsPage implements OnInit, OnDestroy {
     private alertController: AlertController,
     private toastController: ToastController,
     private modalController: ModalController
-  ) {}
+  ) {
+    // Subscribe to currentUser$ observable to get updates automatically when profile changes
+    this.userService.currentUser$
+      .pipe(
+        filter(user => user !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(user => {
+        if (user?.profile) {
+          this.showWalletBalance = user.profile.showWalletBalance || false;
+          console.log('💰 [EARNINGS] Wallet balance setting updated:', this.showWalletBalance);
+        }
+      });
+  }
 
   async ngOnInit() {
+    // Load wallet visibility setting from user profile
+    await this.loadWalletVisibilitySetting();
+    
     await Promise.all([
       this.loadBalance(),
       this.loadEarnings(),
@@ -112,8 +133,67 @@ export class EarningsPage implements OnInit, OnDestroy {
     this.setupWebSocketListeners();
   }
 
+  /**
+   * Ionic lifecycle hook - called every time the page is about to enter
+   * This ensures data is refreshed when navigating back to the page
+   */
+  async ionViewWillEnter() {
+    console.log('💰 [EARNINGS] Page entering - refreshing data...');
+    await Promise.all([
+      this.loadBalance(),
+      this.loadEarnings(),
+      this.loadWithdrawalHistory()
+    ]);
+  }
+  
+  // Load wallet visibility setting from user profile
+  async loadWalletVisibilitySetting() {
+    try {
+      const user = await firstValueFrom(this.userService.getCurrentUser(true));
+      if (user?.profile) {
+        this.showWalletBalance = user.profile.showWalletBalance || false;
+        console.log('💰 Loaded wallet balance setting:', this.showWalletBalance);
+      }
+    } catch (error) {
+      console.error('❌ Error loading wallet visibility setting:', error);
+      // Default to hidden if error
+      this.showWalletBalance = false;
+    }
+  }
+  
+  // Toggle wallet visibility temporarily (for mobile tap-to-reveal)
+  toggleWalletVisibility(event: Event, type: 'available' | 'pending' | 'lifetime'): void {
+    // Only allow toggle on mobile/touch devices (non-hover devices)
+    const isTouchDevice = !window.matchMedia('(hover: hover)').matches;
+    if (!isTouchDevice) {
+      return; // Exit early on desktop - let hover handle it
+    }
+    
+    event.stopPropagation(); // Prevent navigation if parent is clickable
+    
+    if (!this.showWalletBalance) {
+      this.walletTemporarilyVisible = !this.walletTemporarilyVisible;
+      
+      // Auto-hide after 3 seconds
+      if (this.walletTemporarilyVisible) {
+        setTimeout(() => {
+          this.walletTemporarilyVisible = false;
+        }, 3000);
+      }
+    }
+  }
+
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  onImageError(event: any) {
+    console.error('❌ Student avatar failed to load:', event.target?.src);
+    // Hide the broken image by setting display to none
+    event.target.style.display = 'none';
+    // The *ngIf will show the fallback icon automatically
   }
 
   setupWebSocketListeners() {
@@ -187,10 +267,13 @@ export class EarningsPage implements OnInit, OnDestroy {
     switch(status) {
       case 'paid':
         return 'success';
+      case 'succeeded': // Available for withdrawal
+        return 'success';
       case 'in_progress':
         return 'primary';
       case 'processing':
         return 'warning';
+      case 'pending':
       case 'scheduled':
         return 'medium';
       case 'cancelled':
@@ -239,6 +322,8 @@ export class EarningsPage implements OnInit, OnDestroy {
         return 'Payment Cancelled';
       case 'partially_refunded':
         return 'Payment Reduced';
+      case 'succeeded':
+        return 'Available'; // Changed from default "Pending Transfer"
       default:
         return 'Pending Transfer';
     }
@@ -261,7 +346,7 @@ export class EarningsPage implements OnInit, OnDestroy {
       return 'Lesson currently in progress';
     }
     if (payment.status === 'scheduled') {
-      return 'Payment will be authorized at lesson start';
+      return '';
     }
     return null;
   }
@@ -407,6 +492,15 @@ export class EarningsPage implements OnInit, OnDestroy {
   getNetAmount(): number {
     const fee = this.getWithdrawalFee();
     return this.withdrawalAmount - fee;
+  }
+
+  async showPayPalFeeInfo() {
+    const alert = await this.alertController.create({
+      header: 'PayPal Fee Information',
+      message: 'PayPal charges a 2% fee (minimum $0.25, maximum $20) for instant payouts to your PayPal account. <strong>This fee is charged by PayPal, not by us.</strong> We do not receive any portion of this fee.',
+      buttons: ['Got it']
+    });
+    await alert.present();
   }
 
   async confirmWithdrawal() {

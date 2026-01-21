@@ -9,14 +9,8 @@ const Notification = require('../models/Notification');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const alertService = require('../services/alertService');
 const walletService = require('../services/walletService');
-
-// Helper function to format name as "First L."
-function formatNameWithInitial(user) {
-  if (!user) return 'User';
-  const firstName = user.firstName || user.name || 'User';
-  const lastInitial = user.lastName ? `${user.lastName.charAt(0)}.` : '';
-  return lastInitial ? `${firstName} ${lastInitial}` : firstName;
-}
+const { formatNameWithInitial } = require('../utils/nameFormatter');
+const { triggerManualRelease } = require('../jobs/releaseEarnings'); // Added manual trigger
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -285,7 +279,7 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         userId: tutor._id,
         type: 'tutor_video_approved',
         title: '🎉 Video Approved!',
-        message: 'Your introduction video has been approved. You can now start tutoring!',
+        message: 'Your introduction video has been <strong>approved</strong>. You can now <strong>start tutoring</strong>!',
         data: {
           tutorApproved: tutor.tutorApproved,
           approvedAt: new Date()
@@ -535,7 +529,7 @@ router.post('/reject-tutor/:userId', verifyToken, requireAdmin, async (req, res)
         userId: tutor._id,
         type: 'tutor_video_rejected',
         title: '❌ Video Rejected',
-        message: `Your introduction video was rejected. Reason: ${reason || 'Video did not meet requirements'}`,
+        message: `Your introduction video was <strong>rejected</strong>. Reason: <strong>${reason || 'Video did not meet requirements'}</strong>`,
         data: {
           reason: reason,
           rejectedAt: new Date()
@@ -1034,6 +1028,8 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         paymentStatus: payment.status, // Source of truth
         transferStatus: payment.transferStatus, // Source of truth
         earningsReleaseDate: payment.earningsReleaseDate, // When earnings become available
+        refundMethod: payment.refundMethod || null, // NEW: 'wallet' or 'card' (where refund was sent)
+        refundAmount: payment.refundAmount || 0, // NEW: How much was refunded
         grossAmount: grossAmount.toFixed(2),
         platformFee: platformFee.toFixed(2),
         platformFeePercent: payment.platformFeePercentage || 20,
@@ -1125,6 +1121,90 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       }
     }
     
+    // ============================================================
+    // NEW: CALCULATE SAFE WITHDRAWAL AMOUNT
+    // Shows how much platform owner can safely withdraw to bank
+    // ============================================================
+    console.log('\n💰 Calculating safe withdrawal amount...');
+    
+    // 1. Get current Stripe available balance
+    let currentStripeBalance = 0;
+    let stripePendingBalance = 0;
+    try {
+      const stripeBalance = await stripe.balance.retrieve();
+      // Available balance (can withdraw now)
+      if (stripeBalance.available && stripeBalance.available.length > 0) {
+        currentStripeBalance = stripeBalance.available[0].amount / 100; // Convert cents to dollars
+      }
+      // Pending balance (funds being held by Stripe, not available yet)
+      if (stripeBalance.pending && stripeBalance.pending.length > 0) {
+        stripePendingBalance = stripeBalance.pending[0].amount / 100;
+      }
+      console.log(`   Stripe Available: $${currentStripeBalance.toFixed(2)}`);
+      console.log(`   Stripe Pending: $${stripePendingBalance.toFixed(2)}`);
+    } catch (stripeError) {
+      console.error('⚠️  Error fetching Stripe balance:', stripeError.message);
+      // Continue with 0 balance if Stripe API fails
+    }
+    
+    // 2. Calculate total owed to ALL tutors (pending + available)
+    const allTutors = await User.find({ 
+      userType: 'tutor',
+      $or: [
+        { 'tutorEarnings.pendingBalance': { $gt: 0 } },
+        { 'tutorEarnings.availableBalance': { $gt: 0 } }
+      ]
+    }).select('tutorEarnings name email');
+    
+    let totalTutorsPending = 0;
+    let totalTutorsAvailable = 0;
+    let tutorsWithBalances = 0;
+    
+    for (const tutor of allTutors) {
+      const pending = tutor.tutorEarnings?.pendingBalance || 0;
+      const available = tutor.tutorEarnings?.availableBalance || 0;
+      
+      if (pending > 0 || available > 0) {
+        tutorsWithBalances++;
+        totalTutorsPending += pending;
+        totalTutorsAvailable += available;
+        
+        console.log(`   Tutor: ${tutor.name || tutor.email}`);
+        console.log(`     Pending: $${pending.toFixed(2)}, Available: $${available.toFixed(2)}`);
+      }
+    }
+    
+    const totalOwedToTutors = totalTutorsPending + totalTutorsAvailable;
+    console.log(`\n   Total Tutors with Balances: ${tutorsWithBalances}`);
+    console.log(`   Total Owed (Pending): $${totalTutorsPending.toFixed(2)}`);
+    console.log(`   Total Owed (Available): $${totalTutorsAvailable.toFixed(2)}`);
+    console.log(`   Total Owed to Tutors: $${totalOwedToTutors.toFixed(2)}`);
+    
+    // 3. Calculate safe withdrawal amount
+    // Safe = Current Stripe Balance - Total Owed to Tutors
+    const safeToWithdraw = Math.max(0, currentStripeBalance - totalOwedToTutors);
+    
+    console.log(`\n   ═══════════════════════════════════════`);
+    console.log(`   Stripe Balance:       $${currentStripeBalance.toFixed(2)}`);
+    console.log(`   Owed to Tutors:      -$${totalOwedToTutors.toFixed(2)}`);
+    console.log(`   ═══════════════════════════════════════`);
+    console.log(`   SAFE TO WITHDRAW:     $${safeToWithdraw.toFixed(2)} ✅`);
+    console.log(`   ═══════════════════════════════════════\n`);
+    
+    // 4. Compare with recognized revenue (sanity check)
+    const discrepancy = Math.abs(safeToWithdraw - totalNetPlatformRevenue);
+    let warningMessage = null;
+    
+    if (discrepancy > 1) { // Allow $1 rounding difference
+      if (safeToWithdraw < totalNetPlatformRevenue) {
+        warningMessage = `Some revenue ($${(totalNetPlatformRevenue - safeToWithdraw).toFixed(2)}) is recognized but not yet in Stripe. This may be from pending captures or recent refunds.`;
+        console.warn(`⚠️  ${warningMessage}`);
+      } else {
+        warningMessage = `Stripe balance is higher than recognized revenue by $${(safeToWithdraw - totalNetPlatformRevenue).toFixed(2)}. This may include pending payments or wallet top-ups.`;
+        console.warn(`⚠️  ${warningMessage}`);
+      }
+    }
+    
     res.json({
       success: true,
       period: {
@@ -1161,6 +1241,21 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
         totalPayments: paymentDetails.length,
         paymentsPerPage: limitNum,
         hasMore
+      },
+      // ✅ NEW: Safe withdrawal information
+      withdrawalInfo: {
+        currentStripeBalance: parseFloat(currentStripeBalance.toFixed(2)),
+        stripePendingBalance: parseFloat(stripePendingBalance.toFixed(2)),
+        totalOwedToTutors: parseFloat(totalOwedToTutors.toFixed(2)),
+        breakdown: {
+          tutorsPending: parseFloat(totalTutorsPending.toFixed(2)),
+          tutorsAvailable: parseFloat(totalTutorsAvailable.toFixed(2)),
+          tutorsCount: tutorsWithBalances
+        },
+        safeToWithdraw: parseFloat(safeToWithdraw.toFixed(2)),
+        recognizedRevenue: parseFloat(totalNetPlatformRevenue.toFixed(2)),
+        discrepancy: parseFloat(discrepancy.toFixed(2)),
+        warning: warningMessage
       }
     });
     
@@ -1338,7 +1433,7 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
           userId: lesson.studentId._id,
           type: 'lesson_refunded',
           title: 'Lesson Refunded',
-          message: `Your lesson with ${tutorDisplayName} has been refunded to your wallet.`,
+          message: `Your lesson with <strong>${tutorDisplayName}</strong> has been refunded to your wallet.`,
           link: `/wallet`,
           data: {
             lessonId: lesson._id,
@@ -1352,13 +1447,19 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
           userId: lesson.tutorId._id,
           type: 'payment_cancelled',
           title: 'Payment Cancelled',
-          message: `Payment for your lesson with ${studentDisplayName} has been cancelled due to investigation findings.`,
-          link: `/tabs/earnings`,
+          message: `Payment for your lesson with <strong>${studentDisplayName}</strong> has been <strong>cancelled</strong> due to investigation findings.`,
+          link: `/tabs/home/earnings`,
           data: {
             lessonId: lesson._id,
+            studentId: lesson.studentId._id,
+            studentName: studentDisplayName,
+            tutorId: lesson.tutorId._id,
+            tutorName: tutorDisplayName,
+            scheduledAt: lesson.scheduledAt,
             amount: lesson.price,
             reason: notes,
-            resolution: 'refunded'
+            resolution: 'refunded',
+            canDispute: true
           }
         });
 
@@ -1406,7 +1507,7 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
           userId: lesson.studentId._id,
           type: 'lesson_partial_refund',
           title: 'Partial Refund Issued',
-          message: `A partial refund of $${refundAmount.toFixed(2)} has been issued for your lesson with ${tutorDisplayName}.`,
+          message: `A partial refund of <strong>$${refundAmount.toFixed(2)}</strong> has been issued for your lesson with <strong>${tutorDisplayName}</strong>.`,
           link: `/wallet`,
           data: {
             lessonId: lesson._id,
@@ -1420,15 +1521,21 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
           userId: lesson.tutorId._id,
           type: 'payment_reduced',
           title: 'Payment Adjusted',
-          message: `Payment for your lesson with ${studentDisplayName} has been adjusted to $${tutorAmount.toFixed(2)} due to investigation findings.`,
-          link: `/tabs/earnings`,
+          message: `Payment for your lesson with <strong>${studentDisplayName}</strong> has been adjusted to <strong>$${tutorAmount.toFixed(2)}</strong> due to investigation findings.`,
+          link: `/tabs/home/earnings`,
           data: {
             lessonId: lesson._id,
+            studentId: lesson.studentId._id,
+            studentName: studentDisplayName,
+            tutorId: lesson.tutorId._id,
+            tutorName: tutorDisplayName,
+            scheduledAt: lesson.scheduledAt,
             originalAmount: lesson.price,
             adjustedAmount: tutorAmount,
             refundedToStudent: refundAmount,
             reason: notes,
-            resolution: 'partial_refund'
+            resolution: 'partial_refund',
+            canDispute: true
           }
         });
 
@@ -1452,8 +1559,8 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
           userId: lesson.tutorId._id,
           type: 'investigation_resolved',
           title: 'Investigation Resolved',
-          message: `The reported issue for your lesson with ${studentDisplayName} has been resolved in your favor. Payment will be released.`,
-          link: `/tabs/earnings`,
+          message: `The reported issue for your lesson with <strong>${studentDisplayName}</strong> has been <strong>resolved in your favor</strong>. Payment will be released.`,
+          link: `/tabs/home/earnings`,
           data: {
             lessonId: lesson._id,
             resolution: 'approved'
@@ -1490,6 +1597,30 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to resume payout'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/manual-release-earnings
+ * Manually trigger the release earnings cron job (admin only)
+ */
+router.post('/manual-release-earnings', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔧 [ADMIN] Manual release earnings triggered');
+    
+    const result = await triggerManualRelease();
+    
+    res.json({
+      success: true,
+      message: 'Release earnings job completed',
+      result
+    });
+  } catch (error) {
+    console.error('❌ [ADMIN] Error in manual release earnings:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to release earnings'
     });
   }
 });

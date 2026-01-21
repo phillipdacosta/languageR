@@ -6,6 +6,7 @@ const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
 const { verifyToken, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERT = process.env.AGORA_APP_CERT;
@@ -32,31 +33,8 @@ function nextOccurrence(start, i, type) {
   return d;
 }
 
-// Format user name as "FirstName L." (e.g., "Phillip D.")
-function formatDisplayName(user) {
-  if (!user) return 'User';
-  
-  const firstName = user.firstName;
-  const lastName = user.lastName;
-  const fullName = user.name;
-  
-  if (firstName && lastName) {
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    return `${firstName} ${lastInitial}.`;
-  }
-  
-  if (fullName) {
-    const parts = fullName.trim().split(' ').filter(p => p.length > 0);
-    if (parts.length >= 2) {
-      const first = parts[0];
-      const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
-      return `${first} ${lastInitial}.`;
-    }
-    return fullName;
-  }
-  
-  return 'User';
-}
+// Use shared name formatter
+const formatDisplayName = formatNameWithInitial;
 
 // POST /api/classes - create class (supports simple recurrence by count)
 router.post('/', verifyToken, async (req, res) => {

@@ -1,0 +1,332 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+ion-content {
+  flex: 1;
+  overflow-y: auto;
+  --background: #ffffff;
+  display: block;
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// Floating close button (matches reschedule modal exactly)
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+// Button group for footer (matches reschedule modal)
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+
+  ion-button {
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    font-size: 16px;
+  }
+}
+
+// Modal content optimization (matches reschedule modal)
+.dispute-modal-content {
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.view-container {
+  width: 100%;
+  min-height: 100%;
+  padding: 70px 24px 24px 24px; // Top padding to account for close button
+  will-change: transform, opacity;
+}
+
+// Participant section (matches reschedule modal exactly)
+.participant-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid #f5f5f7;
+  margin-bottom: 20px;
+
+  .participant-avatar {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+
+    img {
+      object-fit: cover;
+    }
+
+    .avatar-placeholder {
+      font-size: 28px;
+      color: #86868b;
+    }
+  }
+
+  .participant-info {
+    flex: 1;
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.4px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #86868b;
+      margin: 0;
+      letter-spacing: -0.1px;
+    }
+  }
+}
+
+// Lesson Details Card
+.lesson-details-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #f5f5f7;
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f5f5f7;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .detail-label {
+      font-size: 13px;
+      color: #86868b;
+      letter-spacing: -0.1px;
+    }
+
+    .detail-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1d1d1f;
+      letter-spacing: -0.2px;
+    }
+  }
+}
+
+// Section Titles (matches reschedule modal)
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.3px;
+}
+
+.section-description {
+  font-size: 13px;
+  color: #86868b;
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+  letter-spacing: -0.1px;
+}
+
+// Admin Notes Section
+.admin-notes-section {
+  margin-bottom: 20px;
+}
+
+.admin-notes-card {
+  background: linear-gradient(135deg, #fff5e6 0%, #ffe8cc 100%);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #ffd699;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.1);
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  
+  ion-icon {
+    font-size: 20px;
+    color: #ff9800;
+  }
+  
+  span {
+    font-size: 13px;
+    font-weight: 600;
+    color: #b36200;
+    letter-spacing: -0.1px;
+  }
+}
+
+.notes-content {
+  p {
+    font-size: 13px;
+    color: #1d1d1f;
+    line-height: 1.5;
+    margin: 0;
+    letter-spacing: -0.1px;
+  }
+}
+
+// Dispute Form Section
+.dispute-form-section {
+  margin-bottom: 20px;
+}
+
+.dispute-textarea {
+  --background: #ffffff;
+  --border-radius: 12px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  
+  font-size: 15px;
+  line-height: 1.5;
+  border: 1px solid #d1d1d6;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+  
+  &::part(native) {
+    background: #ffffff;
+  }
+  
+  &:focus-within {
+    border-color: #007aff;
+  }
+}
+
+.character-count {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: #86868b;
+  margin-top: 4px;
+  letter-spacing: -0.1px;
+  
+  &.warning {
+    color: #ff3b30;
+    font-weight: 600;
+  }
+}
+
+// Info Note (matches reschedule modal style)
+.info-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #f5f5f7;
+  border-radius: 12px;
+  margin-bottom: 20px;
+
+  ion-icon {
+    font-size: 20px;
+    color: #007AFF;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    font-size: 13px;
+    color: #1d1d1f;
+    margin: 0;
+    line-height: 1.5;
+    letter-spacing: -0.1px;
+  }
+}
+
+// Loading State (matches reschedule modal)
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  min-height: 100%;
+  width: 100%;
+  
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: #007AFF;
+  }
+  
+  p {
+    font-size: 15px;
+    color: #86868b;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+}
+
+// Desktop adjustments (matches reschedule modal)
+@media (min-width: 768px) {
+  .view-container {
+    padding: 70px 32px 24px 32px;
+  }
+
+  .participant-section {
+    padding: 24px 0;
+    margin-bottom: 24px;
+  }
+
+  .lesson-details-card {
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .admin-notes-card {
+    padding: 20px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
+
+  .button-group {
+    padding: 20px 24px;
+  }
+}

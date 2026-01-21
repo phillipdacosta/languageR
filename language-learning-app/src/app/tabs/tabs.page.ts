@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, HostListener, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
+import { ModalController } from '@ionic/angular';
 import { PlatformService } from '../services/platform.service';
 import { AuthService, User } from '../services/auth.service';
 import { Observable, Subject, BehaviorSubject, takeUntil, interval, switchMap, filter, take, combineLatest, of, observeOn, asyncScheduler, map } from 'rxjs';
@@ -8,6 +9,7 @@ import { MessagingService, Conversation } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
 import { WebSocketService } from '../services/websocket.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 
 // 🚀 PERFORMANCE FIX: Type for formatted notifications with cached values
 interface FormattedNotification extends Notification {
@@ -100,7 +102,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private notificationService: NotificationService,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private modalController: ModalController
   ) {
     // FIXED: Only assign observables in constructor, NO subscriptions
     this.user$ = this.authService.user$;
@@ -434,6 +437,47 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  onNotificationImageError(event: any, notification: any) {
+    const img = event.target as HTMLImageElement;
+    const originalSrc = img?.src;
+    
+    console.error('❌ Notification avatar image failed to load:', {
+      src: originalSrc,
+      notificationId: notification?._id,
+      notificationType: notification?.type,
+      relatedUserPicture: notification?.relatedUserPicture,
+      errorType: event.type
+    });
+    
+    // Hide the broken image
+    if (img) {
+      img.style.display = 'none';
+      img.onerror = null; // Prevent infinite error loop
+      
+      // Find the parent container and show fallback
+      const container = img.closest('.notification-item-left');
+      if (container) {
+        // Create or show fallback icon wrapper
+        let fallback = container.querySelector('.notification-icon-wrapper.fallback') as HTMLElement;
+        if (!fallback) {
+          fallback = document.createElement('div');
+          fallback.className = 'notification-icon-wrapper fallback';
+          const icon = document.createElement('ion-icon');
+          icon.name = 'person';
+          icon.className = 'notification-item-icon';
+          fallback.appendChild(icon);
+          container.insertBefore(fallback, img);
+        }
+        fallback.style.display = 'flex';
+      }
+    }
+    
+    // Clear the relatedUserPicture to prevent retry attempts
+    if (notification) {
+      notification.relatedUserPicture = null;
+    }
+  }
+
   ngAfterViewInit() {
     // ViewChild is available after view init
   }
@@ -639,6 +683,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (type === 'payment_received') {
       return 'payment-icon';
     }
+    if (['payment_cancelled', 'payment_reduced'].includes(type)) {
+      return 'payment-cancelled-icon';
+    }
     return '';
   }
 
@@ -755,7 +802,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.closeNotificationDropdown(); // Close for messages
     } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
       // Navigate to earnings page with lesson ID to scroll to
-      this.router.navigate(['/tabs/earnings'], { 
+      this.router.navigate(['/tabs/home/earnings'], { 
         queryParams: { 
           scrollToLesson: notification.data.lessonId 
         } 
@@ -779,6 +826,31 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     if (this.notificationHoverTimer) {
       clearTimeout(this.notificationHoverTimer);
       this.notificationHoverTimer = null;
+    }
+  }
+
+  async openDisputeModal(notification: Notification, event: Event) {
+    // Prevent the notification click from triggering
+    event.stopPropagation();
+    
+    console.log('🔔 Opening dispute modal for notification:', notification);
+    
+    const modal = await this.modalController.create({
+      component: PaymentDisputeModalComponent,
+      componentProps: {
+        notification: notification
+      },
+      cssClass: 'payment-dispute-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.disputed) {
+      // Reload notifications to reflect any changes
+      console.log('✅ Dispute submitted, reloading notifications');
+      this.loadNotifications();
+      this.loadUnreadNotificationCount();
     }
   }
 

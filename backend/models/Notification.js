@@ -35,7 +35,8 @@ const NotificationSchema = new mongoose.Schema({
       'lesson_partial_refund',
       'payment_cancelled',
       'payment_reduced',
-      'investigation_resolved'
+      'investigation_resolved',
+      'dispute_submitted'
     ],
     required: true
   },

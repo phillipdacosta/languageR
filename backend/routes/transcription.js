@@ -491,8 +491,17 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
       
       console.log('✅ Whisper transcription result:', {
         text: result.text,
-        segmentsCount: result.segments?.length || 0
+        segmentsCount: result.segments?.length || 0,
+        originalSegments: result.originalSegmentCount || 0,
+        filteredSegments: result.filteredSegmentCount || 0,
+        rejectedSegments: result.rejectedSegmentCount || 0
       });
+      
+      // Log language filtering effectiveness
+      if (result.rejectedSegmentCount > 0) {
+        console.log(`🔍 Language Filter: Rejected ${result.rejectedSegmentCount} non-${normalizedLanguage} segments`);
+        console.log(`   This prevents ${speaker}'s non-target language speech from being analyzed`);
+      }
     } catch (transcriptionError) {
       // Check if error is format-related
       const isFormatError = transcriptionError.message && (
@@ -515,8 +524,17 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
           
           console.log('✅ Whisper transcription result (after MP3 conversion):', {
             text: result.text,
-            segmentsCount: result.segments?.length || 0
+            segmentsCount: result.segments?.length || 0,
+            originalSegments: result.originalSegmentCount || 0,
+            filteredSegments: result.filteredSegmentCount || 0,
+            rejectedSegments: result.rejectedSegmentCount || 0
           });
+          
+          // Log language filtering effectiveness
+          if (result.rejectedSegmentCount > 0) {
+            console.log(`🔍 Language Filter: Rejected ${result.rejectedSegmentCount} non-${normalizedLanguage} segments`);
+            console.log(`   This prevents ${speaker}'s non-target language speech from being analyzed`);
+          }
         } catch (conversionError) {
           console.error('❌ MP3 conversion failed:', conversionError.message);
           console.error('❌ Original Whisper error:', transcriptionError.message);
@@ -770,6 +788,9 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
         // Get dynamic message
         const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
         
+        // Import name formatter
+        const { formatNameWithInitial } = require('../utils/nameFormatter');
+        
         // Create notification for tutor
         if (tutor) {
           await Notification.create({
@@ -779,7 +800,7 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
             message: feedbackMsg.message,
             data: {
               lessonId: transcript.lessonId,
-              studentName: studentData?.name || 'Student',
+              studentName: studentData ? formatNameWithInitial(studentData) : 'Student',
               studentAuth0Id: transcript.studentId
             }
           });

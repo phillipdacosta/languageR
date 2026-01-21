@@ -104,6 +104,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Cached avatar cache for student/tutor avatars
   private _avatarCache = new Map<string, string | null>();
   
+  // Cached lesson counts per tutor-student pair (key: "tutorId_studentId")
+  private _lessonCountCache = new Map<string, number>();
+  
   // Dynamic Smart Island card
   dynamicCard: DynamicCard | null = null;
   dynamicCardAnimationState = 0; // Used to trigger animations on card change
@@ -3122,42 +3125,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Get the lesson number for a specific lesson (excluding trial lessons)
-   * For students: counts completed + scheduled lessons with this tutor
-   * Returns null if this is a trial lesson or if count is 0
+   * DEPRECATED: Lesson numbers are now stored as properties on lesson objects.
+   * This function is kept for backwards compatibility but should not be called from templates.
+   * @deprecated Use lesson.lessonNumber property instead
    */
   getLessonNumber(lesson: any): number | null {
-    if (!lesson) return null;
+    // Return the property if it exists (preferred method)
+    if (lesson && (lesson as any).lessonNumber !== undefined) {
+      return (lesson as any).lessonNumber;
+    }
     
-    // Don't show lesson number for trial lessons
+    // Fallback calculation (for backwards compatibility)
+    if (!lesson) return null;
     if (lesson.isTrialLesson) return null;
     
-    const tutorId = (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || lesson.tutorId;
-    const studentId = (lesson.studentId as any)?._id || (lesson.studentId as any)?.id || lesson.studentId;
+    const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+    const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
     
     if (!tutorId || !studentId) return null;
     
-    // Count all completed and scheduled lessons between this tutor and student
-    // (excluding trials and the current lesson if it's not completed yet)
-    const completedLessons = this.lessons.filter(l => {
-      const lessonTutorId = (l.tutorId as any)?._id || (l.tutorId as any)?.id || l.tutorId;
-      const lessonStudentId = (l.studentId as any)?._id || (l.studentId as any)?.id || l.studentId;
-      
-      // Match tutor and student
-      const matchesParticipants = lessonTutorId === tutorId && lessonStudentId === studentId;
-      
-      // Exclude trial lessons
-      const isNotTrial = !l.isTrialLesson;
-      
-      // Include completed lessons, or this specific scheduled lesson
-      const isCountable = l.status === 'completed' || l._id === lesson._id;
-      
-      return matchesParticipants && isNotTrial && isCountable;
-    });
-    
-    const lessonCount = completedLessons.length;
-    
-    // Return null if count is 0 (shouldn't happen but safety check)
-    return lessonCount > 0 ? lessonCount : null;
+    const cacheKey = `${tutorId}_${studentId}`;
+    const completedCount = this._lessonCountCache.get(cacheKey) || 0;
+    return completedCount + 1;
   }
 
   // New method: Get students for selected date (tutor view)
@@ -4459,6 +4448,99 @@ navigateToLessons() {
         // Clear avatar cache when lessons reload to get fresh images
         this._avatarCache.clear();
         
+        // Populate lesson count cache for all tutor-student pairs
+        // Use ALL lessons from API (not filtered) to get accurate counts
+        this._lessonCountCache.clear();
+        const allLessonsFromAPI = resp.lessons || [];
+        
+        // Group lessons by tutor-student pair and count completed (non-trial) lessons
+        const lessonCountMap = new Map<string, number>();
+        const debugLog: any[] = [];
+        
+        allLessonsFromAPI.forEach(lesson => {
+          const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+          const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
+          
+          if (!tutorId || !studentId) {
+            debugLog.push({ lessonId: lesson._id, reason: 'Missing tutorId or studentId' });
+            return;
+          }
+          
+          // Skip trial lessons
+          if (lesson.isTrialLesson) {
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              reason: 'Trial lesson - excluded' 
+            });
+            return;
+          }
+          
+          const cacheKey = `${tutorId}_${studentId}`;
+          
+          // Only count completed lessons
+          if (lesson.status === 'completed') {
+            const currentCount = lessonCountMap.get(cacheKey) || 0;
+            lessonCountMap.set(cacheKey, currentCount + 1);
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              cacheKey,
+              count: currentCount + 1,
+              reason: 'Completed - counted' 
+            });
+          } else {
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              cacheKey,
+              reason: `Status "${lesson.status}" - not counted (only completed lessons count)` 
+            });
+          }
+        });
+        
+        // Store in cache
+        lessonCountMap.forEach((count, key) => {
+          this._lessonCountCache.set(key, count);
+        });
+        
+        console.log('📊 [TAB1] Lesson count cache populated:');
+        console.log('   Cache entries:', Array.from(this._lessonCountCache.entries()).map(([key, count]) => ({ pair: key, completedCount: count })));
+        console.log('   Total lessons processed:', allLessonsFromAPI.length);
+        // Only log debug details if there are issues (more than 0 excluded lessons)
+        const excludedCount = debugLog.filter(d => d.reason !== 'Completed - counted').length;
+        if (excludedCount > 0) {
+          console.log('   Excluded lessons:', excludedCount, '(trials, non-completed, etc.)');
+          console.log('   Sample exclusions:', debugLog.filter(d => d.reason !== 'Completed - counted').slice(0, 5));
+        }
+        
+        // Add lesson number as a property to each lesson (for template use - no function calls in HTML)
+        allLessons.forEach(lesson => {
+          // Skip trial lessons and classes
+          if (lesson.isTrialLesson || (lesson as any).isClass) {
+            (lesson as any).lessonNumber = null;
+            return;
+          }
+          
+          const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+          const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
+          
+          if (!tutorId || !studentId) {
+            (lesson as any).lessonNumber = null;
+            return;
+          }
+          
+          const cacheKey = `${tutorId}_${studentId}`;
+          const completedCount = this._lessonCountCache.get(cacheKey) || 0;
+          (lesson as any).lessonNumber = completedCount + 1;
+        });
+        
         // Clear computed caches to force recalculation with new data
         this._cachedFirstLessonHash = '';
         this._cachedFirstLesson = undefined;
@@ -5290,7 +5372,7 @@ navigateToLessons() {
   }
 
   navigateToEarnings() {
-    this.router.navigate(['/tabs/earnings']);
+    this.router.navigate(['/tabs/home/earnings']);
   }
 
   // Check Stripe Connect status for tutors

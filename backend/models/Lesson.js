@@ -212,6 +212,34 @@ const LessonSchema = new mongoose.Schema({
     enum: ['approved', 'refunded', 'partial_refund', 'no_action', null],
     default: null
   },
+  // Dispute tracking (when tutor disputes admin decision)
+  disputeSubmitted: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether tutor has disputed the payment cancellation'
+  },
+  disputeSubmittedAt: {
+    type: Date,
+    default: null
+  },
+  disputeMessage: {
+    type: String,
+    default: null
+  },
+  disputeStatus: {
+    type: String,
+    enum: ['pending', 'reviewing', 'accepted', 'rejected', null],
+    default: null
+  },
+  disputeResolvedAt: {
+    type: Date,
+    default: null
+  },
+  disputeResolution: {
+    type: String,
+    default: null
+  },
   // Tip tracking
   tip: {
     amount: {

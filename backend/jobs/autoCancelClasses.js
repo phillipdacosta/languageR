@@ -206,9 +206,9 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
     minute: '2-digit' 
   });
   
-  const tutorName = tutor.firstName && tutor.lastName 
-    ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-    : tutor.name;
+  // Import name formatter
+  const { formatNameWithInitial } = require('../utils/nameFormatter');
+  const tutorName = formatNameWithInitial(tutor);
   
   // Notify tutor
   try {
@@ -261,7 +261,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         userId: student._id,
         type: 'class_auto_cancelled',
         title: 'Class Cancelled',
-        message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
+        message: `The class <strong>"${classItem.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
         relatedItemId: classItem._id,
         relatedItemType: 'Class',
         metadata: {
@@ -280,7 +280,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
           io.to(studentSocketId).emit('new_notification', {
             type: 'class_auto_cancelled',
             title: 'Class Cancelled',
-            message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
+            message: `The class <strong>"${classItem.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
             data: {
               classId: classItem._id.toString(),
               className: classItem.name,

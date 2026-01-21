@@ -157,6 +157,90 @@
       </div>
     </div>
 
+    <!-- Safe Withdrawal Info (NEW) -->
+    <div class="withdrawal-section" *ngIf="revenueData.withdrawalInfo">
+      <h3>
+        <ion-icon name="wallet-outline"></ion-icon>
+        Withdrawal Status
+      </h3>
+      
+      <div class="withdrawal-card primary-highlight">
+        <!-- Safe to Withdraw Amount (Most Important) -->
+        <div class="withdrawal-main">
+          <div class="withdrawal-label">Safe to Withdraw Now</div>
+          <div class="withdrawal-amount success">
+            {{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}
+          </div>
+          <div class="withdrawal-sublabel">You can safely transfer this to your bank account</div>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="withdrawal-breakdown">
+          <div class="breakdown-row">
+            <span class="breakdown-label">Current Stripe Balance:</span>
+            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.currentStripeBalance) }}</span>
+          </div>
+          <div class="breakdown-row pending" *ngIf="revenueData.withdrawalInfo.stripePendingBalance > 0">
+            <span class="breakdown-label">Stripe Pending (processing):</span>
+            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.stripePendingBalance) }}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">Owed to Tutors:</span>
+            <span class="breakdown-value negative">-{{ formatCurrency(revenueData.withdrawalInfo.totalOwedToTutors) }}</span>
+          </div>
+          <div class="breakdown-sub-row">
+            <span class="breakdown-sublabel">
+              <ion-icon name="time-outline"></ion-icon>
+              Pending (24hr hold):
+            </span>
+            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsPending) }}</span>
+          </div>
+          <div class="breakdown-sub-row">
+            <span class="breakdown-sublabel">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              Available (can withdraw):
+            </span>
+            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsAvailable) }}</span>
+          </div>
+          <div class="breakdown-sub-row" *ngIf="revenueData.withdrawalInfo.breakdown.tutorsCount > 0">
+            <span class="breakdown-sublabel">
+              <ion-icon name="people-outline"></ion-icon>
+              Tutors with balance:
+            </span>
+            <span class="breakdown-subvalue">{{ revenueData.withdrawalInfo.breakdown.tutorsCount }}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+          <div class="breakdown-row total">
+            <span class="breakdown-label"><strong>Your Net Revenue:</strong></span>
+            <span class="breakdown-value success"><strong>{{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}</strong></span>
+          </div>
+        </div>
+
+        <!-- Warning Message -->
+        <div class="withdrawal-warning" *ngIf="revenueData.withdrawalInfo.warning">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <span>{{ revenueData.withdrawalInfo.warning }}</span>
+        </div>
+
+        <!-- Discrepancy Info (only show if significant) -->
+        <div class="withdrawal-info" *ngIf="revenueData.withdrawalInfo.discrepancy > 1">
+          <ion-icon name="analytics-outline"></ion-icon>
+          <span>
+            Discrepancy: {{ formatCurrency(revenueData.withdrawalInfo.discrepancy) }} 
+            between safe withdrawal ({{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }})
+            and recognized revenue ({{ formatCurrency(revenueData.withdrawalInfo.recognizedRevenue) }})
+          </span>
+        </div>
+
+        <!-- Help Text -->
+        <div class="withdrawal-help">
+          <ion-icon name="help-circle-outline"></ion-icon>
+          <span>This calculation accounts for all tutor funds (pending + available), ensuring you never over-withdraw.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Averages Section -->
     <div class="averages-section">
       <h3>Averages</h3>
@@ -253,6 +337,10 @@
                 <ion-badge [color]="getPaymentStatusColor(payment.paymentStatus)">
                   {{ getPaymentStatusText(payment.paymentStatus) }}
                 </ion-badge>
+                <div class="refund-info" *ngIf="payment.refundMethod">
+                  <ion-icon [name]="payment.refundMethod === 'wallet' ? 'wallet-outline' : 'card-outline'"></ion-icon>
+                  Refunded to {{ payment.refundMethod }}
+                </div>
               </td>
               <td>
                 <ion-badge [color]="getTransferStatusColor(payment.transferStatus)">
@@ -260,7 +348,7 @@
                 </ion-badge>
               </td>
               <td class="release-date-cell">
-                <div *ngIf="payment.earningsReleaseDate">
+                <div *ngIf="payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'">
                   <div [class.past-release]="isPastReleaseDate(payment.earningsReleaseDate)">
                     {{ payment.earningsReleaseDate | date:'MMM d, h:mm a' }}
                   </div>
@@ -274,7 +362,11 @@
                     ✓ Available
                   </div>
                 </div>
-                <span *ngIf="!payment.earningsReleaseDate" class="na-text">N/A</span>
+                <div *ngIf="payment.paymentStatus === 'refunded' || payment.paymentStatus === 'cancelled'" class="refunded-status">
+                  <span class="na-text">Not applicable</span>
+                  <div class="refund-note">Payment was refunded</div>
+                </div>
+                <span *ngIf="!payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'" class="na-text">N/A</span>
               </td>
               <td>{{ getPaymentMethodName(payment.paymentMethod) }}</td>
               <td>{{ formatCurrency(+payment.grossAmount) }}</td>

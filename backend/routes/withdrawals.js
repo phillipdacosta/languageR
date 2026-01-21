@@ -11,7 +11,17 @@ const Payment = require('../models/Payment');
  */
 router.get('/balance', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    // Find user by auth0Id, fallback to email for dev tokens
+    let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user && req.user.email) {
+      user = await User.findOne({ email: req.user.email });
+      if (user) {
+        console.log('🔍 [withdrawals/balance] Found user by email, updating auth0Id');
+        user.auth0Id = req.user.sub;
+        await user.save();
+      }
+    }
     
     if (!user) {
       return res.status(404).json({ 
@@ -216,7 +226,18 @@ router.post('/request', verifyToken, async (req, res) => {
 router.get('/history', verifyToken, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    // Find user by auth0Id, fallback to email for dev tokens
+    let user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user && req.user.email) {
+      user = await User.findOne({ email: req.user.email });
+      if (user) {
+        console.log('🔍 [withdrawals/history] Found user by email, updating auth0Id');
+        user.auth0Id = req.user.sub;
+        await user.save();
+      }
+    }
     
     if (!user) {
       return res.status(404).json({ 

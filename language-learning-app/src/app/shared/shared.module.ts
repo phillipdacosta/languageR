@@ -7,6 +7,7 @@ import { VideoUploadComponent } from '../components/video-upload/video-upload.co
 import { VideoThumbnailComponent } from '../components/video-thumbnail/video-thumbnail.component';
 import { FlagIconComponent } from '../components/flag-icon/flag-icon.component';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
+import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 import { SafeUrlPipe } from './pipes/safe-url.pipe';
 import { DisplayNamePipe } from './pipes/display-name.pipe';
 
@@ -16,6 +17,7 @@ import { DisplayNamePipe } from './pipes/display-name.pipe';
     VideoThumbnailComponent,
     FlagIconComponent,
     CountrySelectModalComponent,
+    PaymentDisputeModalComponent,
     SafeUrlPipe,
     DisplayNamePipe
   ],
@@ -30,6 +32,7 @@ import { DisplayNamePipe } from './pipes/display-name.pipe';
     VideoThumbnailComponent,
     FlagIconComponent,
     CountrySelectModalComponent,
+    PaymentDisputeModalComponent,
     SafeUrlPipe,
     DisplayNamePipe,
     TranslateModule

@@ -16,7 +16,7 @@
     
     ion-title {
       font-size: 17px;
-      font-weight: 600;
+      font-weight: 500;
     }
   }
 }
@@ -34,7 +34,7 @@ ion-header {
     
     ion-title {
       font-size: 17px;
-      font-weight: 600;
+      font-weight: 500;
       letter-spacing: -0.01em;
       color: #1d1d1f;
     }
@@ -147,7 +147,7 @@ ion-header {
   background: linear-gradient(135deg, #007aff 0%, #0051d5 100%);
   color: #ffffff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
   animation: fadeInScale 0.3s ease forwards;
@@ -343,7 +343,7 @@ ion-header {
 
 .notification-section-title {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   color: #6e6e73;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -542,8 +542,52 @@ ion-header {
 .notification-item-content {
   flex: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   min-width: 0;
+}
+
+// Dispute Button
+.dispute-button {
+  --color: #ff3b30;
+  --background: transparent;
+  --background-hover: rgba(255, 59, 48, 0.1);
+  --background-activated: rgba(255, 59, 48, 0.15);
+  --border-radius: 8px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  
+  height: 28px;
+  margin: 0;
+  min-width: auto;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  
+  ion-icon {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+  
+  &::part(native) {
+    transition: all 0.2s ease;
+  }
+  
+  @media (min-width: 768px) {
+    height: 30px;
+    font-size: 13px;
+    --padding-start: 10px;
+    --padding-end: 10px;
+    
+    ion-icon {
+      font-size: 17px;
+    }
+    
+    &:hover {
+      --background: rgba(255, 59, 48, 0.12);
+    }
+  }
 }
 
 .notification-text {
@@ -562,13 +606,13 @@ ion-header {
   }
   
   strong {
-    font-weight: 600 !important;
-    color: #000000 !important;
+    font-weight: 500 !important;
+    color: #1d1d1f !important;
   }
   
   ::ng-deep strong {
-    font-weight: 600 !important;
-    color: #000000 !important;
+    font-weight: 500 !important;
+    color: #1d1d1f !important;
   }
 }
 

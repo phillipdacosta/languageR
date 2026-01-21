@@ -8,7 +8,7 @@ import { environment } from '../../environments/environment';
 export interface Notification {
   _id: string;
   userId: string;
-  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted' | 'office_hours_booking' | 'office_hours_starting' | 'lesson_analysis_ready' | 'tutor_video_approved' | 'tutor_video_rejected' | 'payment_received';
+  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted' | 'office_hours_booking' | 'office_hours_starting' | 'lesson_analysis_ready' | 'tutor_video_approved' | 'tutor_video_rejected' | 'payment_received' | 'lesson_refunded' | 'lesson_partial_refund' | 'payment_cancelled' | 'payment_reduced' | 'investigation_resolved' | 'dispute_submitted';
   title: string;
   message: string;
   data: any;
