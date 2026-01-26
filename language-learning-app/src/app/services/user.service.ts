@@ -13,12 +13,35 @@ export interface User {
   firstName?: string;
   lastName?: string;
   country?: string;
+  residenceCountry?: string;
   picture?: string;
   emailVerified: boolean;
   userType: 'student' | 'tutor';
+  isAdmin?: boolean; // Admin flag for backend access
   onboardingCompleted: boolean;
   nativeLanguage?: string;
   interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
+  // Tutor-specific onboarding tracking
+  tutorOnboarding?: {
+    photoUploaded: boolean;
+    videoUploaded: boolean;
+    videoApproved: boolean;
+    videoRejected: boolean;
+    videoRejectionReason?: string;
+    stripeConnected: boolean;
+    completedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+  };
+  tutorApproved?: boolean;
+  stripeConnectOnboarded?: boolean;
+  stripeConnectAccountId?: string;
+  // Payout settings
+  payoutProvider?: 'stripe' | 'paypal' | 'manual' | 'none';
+  payoutDetails?: {
+    paypalEmail?: string;
+    bankInfo?: any;
+  };
   onboardingData?: {
     languages: string[];
     goals: string[];
@@ -30,6 +53,12 @@ export interface User {
     bio?: string;
     hourlyRate?: number;
     introductionVideo?: string;
+    videoThumbnail?: string;
+    videoType?: 'upload' | 'youtube' | 'vimeo';
+    // Pending video fields (for admin review)
+    pendingVideo?: string;
+    pendingVideoThumbnail?: string;
+    pendingVideoType?: 'upload' | 'youtube' | 'vimeo';
     completedAt: string;
   };
   profile?: {
@@ -101,6 +130,11 @@ export interface Tutor {
     officeHoursEnabled?: boolean;
   };
   isActivelyAvailable?: boolean; // True only if tutor is on pre-call page with recent heartbeat
+  coachingBadge?: {
+    active: boolean;
+    feedbackRate: number;
+    avgQuality: number;
+  };
   // UI state properties
   isOnline?: boolean;
   expanded?: boolean;
@@ -141,6 +175,31 @@ export class UserService {
   private apiUrl = `${environment.backendUrl}/api`;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
+
+  // Tutor approval status tracking
+  private tutorApprovalStatusSubject = new BehaviorSubject<{
+    photoComplete: boolean;
+    videoComplete: boolean;
+    videoApproved: boolean;
+    videoRejected: boolean;
+    hasApprovedVideo: boolean;  // NEW: indicates if they have at least one approved video
+    stripeComplete: boolean;
+    fullyApproved: boolean;
+    needsApproval: boolean;
+  } | null>(null);
+  public tutorApprovalStatus$ = this.tutorApprovalStatusSubject.asObservable();
+
+  // Payout status for tutors (loaded once on app init)
+  private payoutStatusSubject = new BehaviorSubject<{
+    provider: 'stripe' | 'paypal' | 'manual' | 'none';
+    hasPayoutSetup: boolean;
+    options: any;
+  }>({
+    provider: 'none',
+    hasPayoutSetup: false,
+    options: null
+  });
+  public payoutStatus$ = this.payoutStatusSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -266,8 +325,126 @@ export class UserService {
       tap(user => {
         this.currentUserSubject.next(user);
         this.initialLoadComplete = true;
+        
+        // Update tutor approval status if user is a tutor
+        if (user.userType === 'tutor') {
+          this.updateTutorApprovalStatus(user);
+        }
       })
     );
+  }
+
+  /**
+   * Calculate and update tutor approval status based on user data
+   */
+  private updateTutorApprovalStatus(user: User): void {
+    const photoComplete = !!user.picture;
+    // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
+    const videoComplete = !!user.onboardingData?.pendingVideo || 
+                          !!user.onboardingData?.introductionVideo || 
+                          user.tutorOnboarding?.videoRejected === true;
+    const videoApproved = user.tutorOnboarding?.videoApproved === true;
+    const videoRejected = user.tutorOnboarding?.videoRejected === true;
+    const hasApprovedVideo = !!user.onboardingData?.introductionVideo; // Has at least one approved video
+    
+    // Check for any payout method: Stripe, PayPal, or Manual
+    const hasStripe = user.stripeConnectOnboarded === true;
+    const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+    const hasManual = user.payoutProvider === 'manual';
+    const stripeComplete = hasStripe || hasPayPal || hasManual;
+    
+    console.log('💰 [UserService] Payout check details:', {
+      stripeConnectOnboarded: user.stripeConnectOnboarded,
+      payoutProvider: user.payoutProvider,
+      paypalEmail: user.payoutDetails?.paypalEmail,
+      hasStripe,
+      hasPayPal,
+      hasManual,
+      stripeComplete
+    });
+    
+    const fullyApproved = user.tutorApproved === true;
+    
+    // Needs approval if onboarding is complete but not fully approved
+    const needsApproval = user.onboardingCompleted && !fullyApproved;
+    
+    const status = {
+      photoComplete,
+      videoComplete,
+      videoApproved,
+      videoRejected,
+      hasApprovedVideo,  // NEW: indicates if they have at least one approved video
+      stripeComplete,
+      fullyApproved,
+      needsApproval
+    };
+    
+    console.log('📊 [UserService] Tutor approval status:', status);
+    this.tutorApprovalStatusSubject.next(status);
+  }
+
+  /**
+   * Force refresh tutor approval status (call after video upload, Stripe connect, etc.)
+   */
+  public refreshTutorApprovalStatus(): void {
+    const user = this.currentUserSubject.value;
+    if (user && user.userType === 'tutor') {
+      this.updateTutorApprovalStatus(user);
+    }
+  }
+
+  /**
+   * Load and cache payout status for tutors
+   * This should be called once on app init to avoid flashing in the profile page
+   */
+  public async loadPayoutStatus(): Promise<void> {
+    try {
+      const headers = await this.getAuthHeadersAsync();
+      
+      // Fetch payout options (includes migration logic)
+      const optionsResponse = await this.http.get<any>(`${this.apiUrl}/payments/payout-options`, {
+        headers
+      }).toPromise();
+
+      if (optionsResponse?.success) {
+        // Fetch current user to get updated payout provider
+        const user = await this.getCurrentUser(true).toPromise();
+        const payoutProvider = user?.payoutProvider || 'none';
+        
+        // Determine if payout is set up
+        let hasPayoutSetup = false;
+        if (payoutProvider === 'stripe') {
+          hasPayoutSetup = user?.stripeConnectOnboarded === true;
+        } else if (payoutProvider === 'paypal') {
+          hasPayoutSetup = !!user?.payoutDetails?.paypalEmail;
+        } else if (payoutProvider === 'manual') {
+          hasPayoutSetup = true;
+        }
+        
+        console.log('💰 [UserService] Payout status loaded:', {
+          provider: payoutProvider,
+          hasPayoutSetup,
+          stripeConnectOnboarded: user?.stripeConnectOnboarded,
+          paypalEmail: user?.payoutDetails?.paypalEmail
+        });
+        
+        // Update the subject
+        this.payoutStatusSubject.next({
+          provider: payoutProvider as any,
+          hasPayoutSetup,
+          options: optionsResponse.options
+        });
+      }
+    } catch (error) {
+      console.error('❌ [UserService] Error loading payout status:', error);
+    }
+  }
+
+  /**
+   * Get current payout status (synchronous)
+   */
+  public getPayoutStatus() {
+    return this.payoutStatusSubject.value;
   }
 
   /**
@@ -320,6 +497,26 @@ export class UserService {
       }),
       map(response => response.user),
       tap(user => this.currentUserSubject.next(user))
+    );
+  }
+
+  /**
+   * Submit tutor profile for review
+   */
+  submitTutorForReview(): Observable<{ success: boolean, message: string, tutorOnboarding: any }> {
+    return from(this.getAuthHeadersAsync()).pipe(
+      switchMap(headers => {
+        return this.http.post<{ success: boolean, message: string, tutorOnboarding: any }>(
+          `${this.apiUrl}/users/tutor/submit-for-review`, 
+          {}, 
+          { headers }
+        );
+      }),
+      tap(response => {
+        console.log('✅ Submit for review response:', response);
+        // Refresh current user to get updated tutorOnboarding status
+        this.getCurrentUser(true).subscribe();
+      })
     );
   }
 

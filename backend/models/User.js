@@ -32,7 +32,14 @@ const userSchema = new mongoose.Schema({
   country: {
     type: String,
     trim: true,
-    default: ''
+    default: '',
+    comment: 'Country of origin (nationality) - "Where are you from?"'
+  },
+  residenceCountry: {
+    type: String,
+    trim: true,
+    default: '',
+    comment: 'Country of residence (where they live/have bank account) - used for payout method selection'
   },
   picture: {
     type: String,
@@ -52,9 +59,60 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: 'student'
   },
+  isAdmin: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   onboardingCompleted: {
     type: Boolean,
     default: false
+  },
+  // Tutor-specific onboarding tracking
+  tutorOnboarding: {
+    photoUploaded: {
+      type: Boolean,
+      default: false
+    },
+    videoUploaded: {
+      type: Boolean,
+      default: false
+    },
+    videoApproved: {
+      type: Boolean,
+      default: false
+    },
+    videoRejected: {
+      type: Boolean,
+      default: false
+    },
+    videoRejectionReason: {
+      type: String,
+      default: null
+    },
+    stripeConnected: {
+      type: Boolean,
+      default: false
+    },
+    completedAt: {
+      type: Date,
+      default: null
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
+    approvedAt: {
+      type: Date,
+      default: null
+    }
+  },
+  // Whether tutor is approved and can show up in searches
+  tutorApproved: {
+    type: Boolean,
+    default: false,
+    index: true
   },
   onboardingData: {
     languages: [{
@@ -103,6 +161,22 @@ const userSchema = new mongoose.Schema({
       default: ''
     },
     videoType: {
+      type: String,
+      enum: ['upload', 'youtube', 'vimeo'],
+      default: 'upload'
+    },
+    // Pending video fields (for videos under review)
+    pendingVideo: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    pendingVideoThumbnail: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    pendingVideoType: {
       type: String,
       enum: ['upload', 'youtube', 'vimeo'],
       default: 'upload'
@@ -165,6 +239,69 @@ const userSchema = new mongoose.Schema({
     trim: true,
     comment: 'Preferred language for app interface (UI text)'
   },
+  // Payment & Stripe Integration
+  stripeCustomerId: {
+    type: String,
+    default: null,
+    index: true,
+    comment: 'Stripe Customer ID for students making payments'
+  },
+  stripeConnectAccountId: {
+    type: String,
+    default: undefined, // Use undefined instead of null for sparse index
+    unique: true,
+    sparse: true,
+    comment: 'Stripe Connect Account ID for tutors receiving payouts'
+  },
+  stripeConnectOnboarded: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether tutor has completed Stripe Connect onboarding'
+  },
+  stripeConnectOnboardedAt: {
+    type: Date,
+    default: null
+  },
+  stripePayoutsEnabled: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether tutors Connect account has payouts enabled'
+  },
+  // Payout method configuration
+  payoutProvider: {
+    type: String,
+    enum: ['stripe', 'paypal', 'manual', 'none'],
+    default: 'none',
+    comment: 'Selected payout method: stripe (Connect), paypal (PayPal Payouts), manual (bank transfer), none (not set up)'
+  },
+  payoutDetails: {
+    paypalEmail: {
+      type: String,
+      default: null,
+      comment: 'PayPal email for PayPal payouts'
+    },
+    manualBankInfo: {
+      type: String,
+      default: null,
+      comment: 'Bank account details for manual transfers (encrypted/secure storage recommended)'
+    }
+  },
+  defaultPaymentMethod: {
+    type: String,
+    enum: ['wallet', 'card', null],
+    default: null,
+    comment: 'Student\'s preferred payment method'
+  },
+  savedPaymentMethods: [{
+    stripePaymentMethodId: String,
+    brand: String, // e.g., 'visa', 'mastercard'
+    last4: String, // Last 4 digits
+    expiryMonth: Number,
+    expiryYear: Number,
+    country: String, // Card country code (e.g., 'US', 'CA', 'GB')
+    isDefault: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now }
+  }],
   stats: {
     totalLessons: {
       type: Number,
@@ -181,6 +318,86 @@ const userSchema = new mongoose.Schema({
     lastActive: {
       type: Date,
       default: Date.now
+    },
+    // Coaching badge metrics (for tutors)
+    feedbackMetrics: {
+      totalLessonsCompleted: { type: Number, default: 0 },
+      totalFeedbackProvided: { type: Number, default: 0 },
+      feedbackRate: { type: Number, default: 0 }, // Percentage (0-100)
+      averageFeedbackQuality: { type: Number, default: 0 }, // Score (0-100)
+      lastQualityUpdate: { type: Date, default: null },
+      // Rolling window tracking (last 30 lessons)
+      recentFeedback: [{
+        lessonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' },
+        providedAt: Date,
+        qualityScore: Number, // 0-100
+        wordCount: Number,
+        hasHomework: Boolean,
+        hasQuickImpression: Boolean
+      }],
+      // Badge status
+      coachingBadge: {
+        active: { type: Boolean, default: false },
+        earnedAt: { type: Date, default: null },
+        lastEvaluated: { type: Date, default: null },
+        qualifyingStreak: { type: Number, default: 0 }
+      }
+    }
+  },
+  // Tutor earnings tracking (internal balance system)
+  tutorEarnings: {
+    // Available for withdrawal
+    availableBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Earnings available for immediate withdrawal'
+    },
+    // Lesson completed but funds on hold (24hr dispute protection)
+    pendingBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Earnings from recently completed lessons (24hr hold period)'
+    },
+    // Total earned lifetime
+    lifetimeEarnings: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Total amount earned across all time'
+    },
+    // Last withdrawal date
+    lastWithdrawal: {
+      type: Date,
+      default: null,
+      comment: 'Date of last withdrawal request'
+    },
+    // Total withdrawn
+    totalWithdrawn: {
+      type: Number,
+      default: 0,
+      min: 0,
+      comment: 'Total amount withdrawn to external accounts'
+    }
+  },
+  // Withdrawal settings
+  withdrawalSettings: {
+    minimumAmount: {
+      type: Number,
+      default: 10,
+      min: 5,
+      comment: 'Minimum withdrawal amount (default $10)'
+    },
+    autoWithdraw: {
+      type: Boolean,
+      default: false,
+      comment: 'Automatically withdraw when balance reaches threshold'
+    },
+    autoWithdrawThreshold: {
+      type: Number,
+      default: 100,
+      comment: 'Balance threshold for auto-withdrawal (default $100)'
     }
   },
   // Tutor availability calendar
@@ -226,6 +443,10 @@ const userSchema = new mongoose.Schema({
       default: '#4A90E2'
     }
   }],
+  lastAvailabilityUpdate: {
+    type: Date,
+    required: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

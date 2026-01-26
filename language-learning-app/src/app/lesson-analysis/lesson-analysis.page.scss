@@ -1629,3 +1629,121 @@ $apple-gray: #f5f5f7;
     grid-template-columns: 1fr;
   }
 }
+
+/* =============================================
+   TUTOR NOTE CARD (at bottom of analysis)
+   ============================================= */
+
+.tutor-note-card {
+  margin-top: 24px;
+  border: 1px solid $apple-border;
+  box-shadow: 0 2px 8px $apple-shadow;
+  
+  ion-card-header {
+    padding: 16px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-bottom: 1px solid $apple-border;
+  }
+  
+  .tutor-note-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    .tutor-note-avatar {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+    }
+    
+    .tutor-note-info {
+      flex: 1;
+      
+      h3 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: $apple-text;
+      }
+      
+      .timestamp {
+        font-size: 12px;
+        color: $apple-text-tertiary;
+      }
+    }
+    
+    .impression-chip {
+      height: 28px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+  }
+  
+  ion-card-content {
+    padding: 20px;
+    
+    .note-content {
+      font-size: 15px !important;
+      line-height: 1.6;
+      color: $apple-text-secondary;
+      margin-bottom: 16px;
+      
+      // Quill editor styles
+      p {
+        margin: 0 0 12px 0;
+        font-size: 15px !important;
+      }
+      
+      strong {
+        font-weight: 600;
+        color: $apple-text;
+      }
+      
+      em {
+        font-style: italic;
+      }
+      
+      ul {
+        margin: 8px 0;
+        padding-left: 24px;
+        
+        li {
+          margin-bottom: 4px;
+        }
+      }
+    }
+    
+    .homework-box {
+      background: linear-gradient(135deg, #fff9e6 0%, #fffbf0 100%);
+      border-left: 4px solid #fbbf24;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      
+      .homework-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        
+        ion-icon {
+          font-size: 20px;
+          color: #f59e0b;
+        }
+        
+        strong {
+          font-size: 14px;
+          font-weight: 600;
+          color: $apple-text;
+        }
+      }
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.6;
+        color: $apple-text-secondary;
+      }
+    }
+  }
+}

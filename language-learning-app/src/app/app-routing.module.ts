@@ -37,6 +37,55 @@ const routes: Routes = [
             loadChildren: () => import('./tutor-onboarding/tutor-onboarding.module').then(m => m.TutorOnboardingPageModule),
             canActivate: [AuthGuard]
           },
+          {
+            path: 'tutor-approval',
+            loadComponent: () => import('./components/tutor-onboarding/tutor-onboarding.component').then(m => m.TutorOnboardingComponent),
+            canActivate: [AuthGuard]
+          },
+          {
+            path: 'admin',
+            loadComponent: () => import('./admin/admin-dashboard.page').then(m => m.AdminDashboardPage),
+            canActivate: [AuthGuard],
+            children: [
+              {
+                path: '',
+                redirectTo: 'revenue',
+                pathMatch: 'full'
+              },
+              {
+                path: 'revenue',
+                loadComponent: () => import('./admin/admin.page').then(m => m.AdminPage)
+              },
+              {
+                path: 'reported-lessons',
+                loadComponent: () => import('./admin/reported-lessons.page').then(m => m.ReportedLessonsPage)
+              },
+              {
+                path: 'tutor-review',
+                loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage)
+              },
+              {
+                path: 'payment-review',
+                loadChildren: () => import('./admin/payment-review/payment-review.module').then(m => m.PaymentReviewPageModule)
+              }
+            ]
+          },
+          // Legacy admin routes (redirect to new structure)
+          {
+            path: 'admin/tutor-review',
+            redirectTo: 'admin/tutor-review',
+            pathMatch: 'full'
+          },
+          {
+            path: 'admin/payment-review',
+            redirectTo: 'admin/payment-review',
+            pathMatch: 'full'
+          },
+          {
+            path: 'admin/revenue',
+            redirectTo: 'admin/revenue',
+            pathMatch: 'full'
+          },
   {
     path: 'tabs',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule),
@@ -93,9 +142,23 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'post-lesson-student/:id',
+    loadChildren: () => import('./post-lesson-student/post-lesson-student.page.module').then(m => m.PostLessonStudentPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'post-lesson-tutor/:id',
+    loadChildren: () => import('./post-lesson-tutor/post-lesson-tutor.page.module').then(m => m.PostLessonTutorPageModule),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'tutor-feedback/:feedbackId',
     loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'wallet',
+    loadChildren: () => import('./wallet/wallet.module').then( m => m.WalletPageModule)
   }
 ];
 @NgModule({

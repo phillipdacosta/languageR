@@ -1,0 +1,34 @@
+<div class="video-thumbnail-container" [class]="cssClass">
+  <!-- Custom thumbnail (highest priority) -->
+  <img *ngIf="thumbnailUrl" 
+       [src]="thumbnailUrl" 
+       alt="Video preview" 
+       class="video-thumbnail-image">
+  
+  <!-- Uploaded video without custom thumbnail - show first frame -->
+  <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
+         [src]="videoUrl" 
+         class="video-thumbnail-image"
+         preload="metadata"
+         crossorigin="anonymous"></video>
+  
+  <!-- YouTube/Vimeo thumbnail -->
+  <img *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && externalVideoThumbnail" 
+       [src]="externalVideoThumbnail" 
+       alt="Video preview" 
+       class="video-thumbnail-image">
+  
+  <!-- Fallback placeholder for external videos without thumbnail -->
+  <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo') && !externalVideoThumbnail" 
+       class="external-video-placeholder">
+    <ion-icon [name]="videoType === 'youtube' ? 'logo-youtube' : 'logo-vimeo'"></ion-icon>
+    <p>{{ videoType === 'youtube' ? 'YouTube' : 'Vimeo' }} Video</p>
+  </div>
+  
+  <!-- Play button overlay -->
+  <div class="video-play-overlay" *ngIf="showPlayButton">
+    <ion-icon name="play"></ion-icon>
+  </div>
+</div>
+
+

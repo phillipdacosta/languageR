@@ -777,10 +777,10 @@
       align-items: center;
       justify-content: center;
       background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-primary-shade));
-      color: white;
-      font-weight: 600;
-      font-size: 11px;
-      border-radius: 50%;
+          color: white;
+          font-weight: 600;
+          font-size: 11px;
+          border-radius: 16px;
       
       @media (max-width: 768px) {
         font-size: 10px;

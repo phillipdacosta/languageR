@@ -93,6 +93,84 @@
           </ion-card-content>
         </ion-card>
 
+    <!-- Stripe Connect Setup Card (Tutors Only) -->
+    
+    <!-- Warning Banner for Non-Onboarded Tutors -->
+    <!-- Only show after loading is complete (hasPayoutSetup !== undefined) -->
+    <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && isTutor() && hasPayoutSetup === false" color="warning">
+      <ion-card-content>
+        <div class="warning-content">
+          <ion-icon name="warning" color="warning"></ion-icon>
+          <div class="warning-text">
+            <h3>⚠️ Payment Setup Required</h3>
+            <p><strong>Your profile is hidden from students</strong> until you connect your bank account. Complete the setup below to start accepting bookings.</p>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+    
+    <ion-card class="stripe-connect-card" *ngIf="!isViewingOtherUser && isTutor()">
+      <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
+        <!-- Loading State -->
+        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">
+          <ion-spinner></ion-spinner>
+          <p style="margin-top: 12px; color: #666;">Loading payment status...</p>
+        </div>
+        
+        <!-- Not Connected State -->
+        <div class="stripe-connect-content" *ngIf="hasPayoutSetup === false">
+          <div class="stripe-icon">
+            <ion-icon name="wallet-outline"></ion-icon>
+          </div>
+          <div class="stripe-text">
+            <h3>💰 {{ getPayoutSetupTitle() }}</h3>
+            <p>{{ getPayoutSetupText() }}</p>
+          </div>
+          <ion-button 
+            color="primary" 
+            (click)="startStripeConnectOnboarding()"
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
+            <ion-spinner *ngIf="isLoadingStripeConnect" name="crescent" slot="start"></ion-spinner>
+            {{ isLoadingStripeConnect ? 'Loading...' : 'Set Up Payouts' }}
+          </ion-button>
+        </div>
+        
+        <!-- Connected State -->
+        <div class="stripe-connect-success" *ngIf="hasPayoutSetup === true">
+          <div class="success-header">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+            <div class="stripe-success-text">
+              <h4>✓ Payouts Enabled ({{ getPayoutProviderName() }})</h4>
+              <p *ngIf="payoutProvider === 'stripe'">Earnings will be automatically transferred to your bank account</p>
+              <p *ngIf="payoutProvider === 'paypal'">Earnings will be automatically transferred to your PayPal account</p>
+              <p *ngIf="payoutProvider === 'manual'">Earnings will be processed manually by our team</p>
+            </div>
+          </div>
+          <ion-button 
+            *ngIf="payoutProvider === 'stripe'"
+            fill="outline"
+            color="primary" 
+            (click)="editStripeConnectAccount()"
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
+            <ion-icon name="create-outline" slot="start"></ion-icon>
+            {{ isLoadingStripeConnect ? 'Loading...' : 'Edit Payout Settings' }}
+          </ion-button>
+          <ion-button 
+            *ngIf="payoutProvider !== 'stripe'"
+            fill="outline"
+            color="primary" 
+            (click)="startStripeConnectOnboarding()"
+            [disabled]="isLoadingStripeConnect"
+            class="compact-button">
+            <ion-icon name="create-outline" slot="start"></ion-icon>
+            {{ isLoadingStripeConnect ? 'Loading...' : 'Change Payout Method' }}
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
     <!-- User Stats - Only show for own profile -->
     <ion-card class="stats-card" *ngIf="!isViewingOtherUser">
       <ion-card-header>
@@ -134,6 +212,19 @@
 
     <!-- Tutor-specific sections (only for tutors) -->
     <ng-container *ngIf="isTutor()">
+      <!-- Pending Video Approval Banner -->
+      <ion-card class="warning-banner" *ngIf="!isViewingOtherUser && hasPendingVideo" color="warning">
+        <ion-card-content>
+          <div class="warning-content">
+            <ion-icon name="hourglass" color="warning"></ion-icon>
+            <div class="warning-text">
+              <h3>⏳ Video Pending Approval</h3>
+              <p>Your new introduction video is under review by our team. Your current video will remain visible to students until the new video is approved. This typically takes 24-48 hours.</p>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+      
       <!-- Tutor Video Section - Only show for own profile -->
       <ion-card class="tutor-video-card" *ngIf="!isViewingOtherUser">
         <ion-card-header>
@@ -151,6 +242,8 @@
               [thumbnailUrl]="tutorVideoThumbnail"
               [videoType]="tutorVideoType"
               [enableModalPlayer]="true"
+              [isVideoApproved]="isVideoApproved"
+              [hasPendingVideo]="hasPendingVideo"
               (thumbnailClick)="openVideoPlayerModal()"
               (videoUploaded)="onVideoUploaded($event)"
               (videoRemoved)="onVideoRemoved()">
@@ -270,7 +363,7 @@
             <ion-label>Lesson Reminders</ion-label>
             <ion-toggle slot="end" [checked]="remindersEnabled" (ionChange)="toggleReminders($event)"></ion-toggle>
           </ion-item>
-          <ion-item button>
+          <ion-item button *ngIf="isTutor()">
             <ion-icon name="wallet" slot="start"></ion-icon>
             <ion-label>Show Wallet Balance</ion-label>
             <ion-toggle slot="end" [checked]="showWalletBalance" (ionChange)="toggleShowWalletBalance($event)"></ion-toggle>

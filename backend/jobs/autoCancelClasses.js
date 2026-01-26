@@ -48,6 +48,47 @@ async function autoCancelClasses(io = null, connectedUsers = null) {
         classItem.status = 'cancelled';
         classItem.cancelledAt = new Date();
         classItem.cancelReason = 'minimum_not_met';
+        
+        // 💳 RELEASE ALL AUTHORIZED PAYMENTS: Cancel all payment holds
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const Payment = require('../models/Payment');
+        let releasedCount = 0;
+        
+        for (const studentPayment of classItem.studentPayments || []) {
+          if (studentPayment.paymentStatus === 'authorized') {
+            try {
+              // Cancel the authorization (release the hold)
+              const cancelledIntent = await stripe.paymentIntents.cancel(
+                studentPayment.stripePaymentIntentId
+              );
+              
+              if (cancelledIntent.status === 'canceled') {
+                studentPayment.paymentStatus = 'cancelled';
+                studentPayment.cancelledAt = new Date();
+                
+                // Update Payment model
+                const payment = await Payment.findById(studentPayment.paymentId);
+                if (payment) {
+                  payment.status = 'cancelled';
+                  payment.metadata = payment.metadata || {};
+                  payment.metadata.cancelReason = 'class_cancelled_minimum_not_met';
+                  payment.metadata.cancelledAt = new Date();
+                  await payment.save();
+                }
+                
+                releasedCount++;
+              }
+            } catch (stripeError) {
+              console.error(`❌ Failed to cancel payment authorization:`, stripeError.message);
+              // Continue with cancellation even if payment release fails
+            }
+          }
+        }
+        
+        if (releasedCount > 0) {
+          console.log(`💳 Released ${releasedCount} payment authorization(s) for auto-cancelled class "${classItem.name}"`);
+        }
+        
         await classItem.save();
         
         cancelledCount++;
@@ -165,9 +206,9 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
     minute: '2-digit' 
   });
   
-  const tutorName = tutor.firstName && tutor.lastName 
-    ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-    : tutor.name;
+  // Import name formatter
+  const { formatNameWithInitial } = require('../utils/nameFormatter');
+  const tutorName = formatNameWithInitial(tutor);
   
   // Notify tutor
   try {
@@ -220,7 +261,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
         userId: student._id,
         type: 'class_auto_cancelled',
         title: 'Class Cancelled',
-        message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
+        message: `The class <strong>"${classItem.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
         relatedItemId: classItem._id,
         relatedItemType: 'Class',
         metadata: {
@@ -239,7 +280,7 @@ async function createCancellationNotifications(classItem, io, connectedUsers) {
           io.to(studentSocketId).emit('new_notification', {
             type: 'class_auto_cancelled',
             title: 'Class Cancelled',
-            message: `The class <strong>"${classItem.name}"</strong> with ${tutorName} scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
+            message: `The class <strong>"${classItem.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been <strong>cancelled</strong> due to insufficient enrollment. You have not been charged.`,
             data: {
               classId: classItem._id.toString(),
               className: classItem.name,

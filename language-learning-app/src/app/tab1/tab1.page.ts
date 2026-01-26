@@ -1,10 +1,12 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
+import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
+import { WalletService } from '../services/wallet.service';
 import { Observable, takeUntil, take, filter, firstValueFrom, observeOn, asyncScheduler } from 'rxjs';
 import { Subject } from 'rxjs';
 import { LessonService, Lesson } from '../services/lesson.service';
@@ -23,15 +25,30 @@ import { RescheduleProposalModalComponent } from '../components/reschedule-propo
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
 import { SmartIslandComponent, IslandPriority } from '../components/smart-island/smart-island.component';
 import { FlagService } from '../services/flag.service';
 import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-feedback.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
+import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
 
 @Component({
   selector: 'app-tab1',
   templateUrl: 'tab1.page.html',
   styleUrls: ['tab1.page.scss'],
   standalone: false,
+  animations: [
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.98)' }),
+        animate('400ms 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' }))
+      ]),
+      transition(':leave', [
+        animate('200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 0, transform: 'scale(0.98)' }))
+      ])
+    ])
+  ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Smart Island reference
@@ -52,6 +69,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
   isLoadingInvitations = false;
+  
+  // Wallet balance
+  currentWalletBalance = 0;
+
+  // Stripe Connect status (for tutors)
+  stripeConnectOnboarded = false;
+  isLoadingStripeConnect = false;
+
+  // Tutor earnings
+  tutorTotalEarnings = 0;
+  tutorPendingEarnings = 0;
 
   // Getter for active (non-cancelled) invitations
   get activeInvitationsCount(): number {
@@ -62,6 +90,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   private _hasInitiallyLoaded = false; // Track if we've loaded data at least once
   private _lastDataFetch = 0; // Timestamp of last data fetch
   private _cacheValidityMs = 30000; // Cache valid for 30 seconds
+  private _lastDynamicCardRefresh = 0; // Track last dynamic card refresh
+  private readonly DYNAMIC_CARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
   availabilityBlocks: any[] = [];
   availabilityHeadline = '';
   availabilityDetail = '';
@@ -73,6 +103,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Cached avatar cache for student/tutor avatars
   private _avatarCache = new Map<string, string | null>();
+  
+  // Cached lesson counts per tutor-student pair (key: "tutorId_studentId")
+  private _lessonCountCache = new Map<string, number>();
+  
+  // Dynamic Smart Island card
+  dynamicCard: DynamicCard | null = null;
+  dynamicCardAnimationState = 0; // Used to trigger animations on card change
+  dynamicCardReady = false; // Track if card system is initialized
+  dynamicCardsLoaded = false; // Track if cards have been loaded to prevent re-initialization
+  
+  // Up Next card properties
+  get nextLessonTutor(): any {
+    if (!this.nextLesson) return null;
+    return this.nextLesson.tutorId || this.nextLesson.studentId;
+  }
   
   // Tutor date strip and upcoming lesson
   dateStrip: { label: string; dayNum: number; date: Date; isToday: boolean }[] = [];
@@ -91,13 +136,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   lessonsThisWeek = 0;
   tutorRating = '0.0';
   unreadMessages = 0;
+  totalConversations = 0;
   walletBalance = 0; // TODO: Load from actual wallet service
   showWalletBalance = false; // Hide by default
   walletDisplay = '$•••••'; // Computed display value
+  insightsLoading = true; // Loading state for insights panel
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
   
   // Student-specific insights
   totalLessonsCompleted = 0;
+  
+  // Coaching badge metrics (for tutors)
+  coachingMetrics: any = null;
   
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
@@ -110,6 +160,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Tutor booking modal state
   isTutorBookingModalOpen = false;
   selectedTutorForBooking: any = null;
+  
+  // Tutor onboarding state
+  showOnboardingBanner = false;
+  tutorOnboardingStatus: any = null;
+  isTutorUser = false; // Use property instead of function call in template
+  isStudentUser = false; // Use property instead of function call in template
   
   // Cache of current students array for efficient label updates
   private currentStudents: any[] = [];
@@ -153,6 +209,15 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     originalDate: string;
     originalTime: string;
     otherParticipant: any; // Store for counter-propose action
+  } | null = null;
+  
+  // Inline modal state for tutor note modal
+  isTutorNoteModalOpen = false;
+  tutorNoteModalData: {
+    lessonId: string;
+    studentName: string;
+    lessonSubject: string;
+    duration: number;
   } | null = null;
   
   // Inline modal state for confirm action modal (reschedule)
@@ -227,6 +292,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     public platformService: PlatformService,
     private authService: AuthService,
     private userService: UserService,
+    private walletService: WalletService,
     private lessonService: LessonService,
     private classService: ClassService,
     private agoraService: AgoraService,
@@ -242,7 +308,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     public flagService: FlagService,
-    private tutorFeedbackService: TutorFeedbackService
+    private tutorFeedbackService: TutorFeedbackService,
+    private http: HttpClient,
+    private smartIslandService: SmartIslandService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -254,12 +322,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe(user => {
         this.currentUser = user;
+        this.isTutorUser = this.isTutor(); // Set property once
+        this.isStudentUser = this.isStudent(); // Set property once
         
         // Load notification count when user is available
         if (user) {
           setTimeout(() => {
             this.loadUnreadNotificationCount();
           }, 500);
+        }
+        
+        // Check tutor onboarding status when user loads
+        if (this.isTutorUser) {
+          this.checkTutorOnboardingStatus();
         }
         
         // Only load lessons on initial user setup, not on every navigation
@@ -272,9 +347,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         if (this.isTutor()) {
           this.loadTutorInsights();
           this.loadAvailability();
+          this.loadTutorEarnings(); // Load earnings for tutors
         } else {
           // Load student-specific data
           this.loadStudentInsights();
+          // Load wallet balance for students
+          this.loadWalletBalance();
           // Load pending class invitations for students
           this.loadPendingInvitations();
         }
@@ -286,11 +364,40 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     ).subscribe(count => {
       this.unreadMessages = count;
     });
+    
+    // Subscribe to Smart Island dynamic card updates
+    this.smartIslandService.currentCard$.pipe(
+      takeUntil(this.destroy$),
+      observeOn(asyncScheduler) // Smooth transition timing
+    ).subscribe(card => {
+      console.log('🎴 [TAB1] Dynamic card updated:', card);
+      // Run in Angular zone to ensure proper change detection and animations
+      this.ngZone.run(() => {
+        // Small delay on first card to ensure smooth animation
+        if (!this.dynamicCardReady && card) {
+          this.dynamicCardReady = true;
+          setTimeout(() => {
+            this.dynamicCard = card;
+            this.dynamicCardAnimationState++;
+            this.cdr.detectChanges();
+          }, 100); // 100ms delay for initial card
+        } else {
+          this.dynamicCard = card;
+          this.dynamicCardAnimationState++; // Increment to trigger animation
+          this.cdr.detectChanges();
+        }
+      });
+    });
   }
 
   ngOnInit() {
     // Load user data and stats
     this.loadUserStats();
+    
+    // Subscribe to wallet balance updates for students
+    if (this.isStudent()) {
+      this.subscribeToWalletBalance();
+    }
 
     const today = this.startOfDay(new Date());
     this.selectedDate = today;
@@ -901,6 +1008,38 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       });
     }
     
+    // Listen for tutor note modal trigger from video-call page
+    window.addEventListener('openTutorNoteModal', async () => {
+      const modalDataStr = localStorage.getItem('openTutorNoteModal');
+      if (modalDataStr) {
+        try {
+          const modalData = JSON.parse(modalDataStr);
+          const lessonId = modalData.lessonId;
+          
+          // Clear the flag
+          localStorage.removeItem('openTutorNoteModal');
+          
+          // Fetch lesson details and open modal
+          const lessonResponse = await firstValueFrom(
+            this.lessonService.getLesson(lessonId)
+          );
+          const lesson = lessonResponse.lesson;
+          const student = lesson.studentId;
+          
+          this.tutorNoteModalData = {
+            lessonId,
+            studentName: this.formatTutorDisplayName(student),
+            lessonSubject: lesson.subject || 'Language',
+            duration: lesson.actualDurationMinutes || lesson.duration
+          };
+          
+          this.isTutorNoteModalOpen = true;
+        } catch (error) {
+          console.error('❌ Error opening tutor note modal:', error);
+        }
+      }
+    });
+    
     console.log('🌟 [TAB1] ngOnInit completed');
   }
   
@@ -920,8 +1059,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       exists: !!this.currentUser,
       email: this.currentUser?.email,
       userType: this.currentUser?.userType,
-      isTutor: this.isTutor()
+      isTutor: this.isTutorUser,
+      isStudent: this.isStudentUser
     });
+    
+    // Refresh wallet balance or earnings when returning to this page
+    if (this.currentUser) {
+      if (this.currentUser.userType === 'student') {
+        this.loadWalletBalance();
+      } else if (this.currentUser.userType === 'tutor') {
+        this.loadTutorEarnings();
+      }
+    }
     
     // Check if we need to force reload (e.g., after booking a lesson)
     const navigation = this.router.getCurrentNavigation();
@@ -931,6 +1080,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     if (forceReload) {
       console.log('🔄 [TAB1] Force reload requested, invalidating cache');
       this._lastDataFetch = 0; // Invalidate cache
+      this._lastDynamicCardRefresh = 0; // Force dynamic card refresh
       // Clear the state to prevent repeated reloads
       if (history.state?.forceReload) {
         history.replaceState({ ...history.state, forceReload: false }, '');
@@ -984,6 +1134,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const now = Date.now();
     const cacheAge = now - this._lastDataFetch;
     const isCacheStale = cacheAge > this._cacheValidityMs;
+    
+    // Refresh dynamic cards if enough time has passed (students only)
+    if (this.currentUser?.userType === 'student') {
+      const timeSinceLastRefresh = now - this._lastDynamicCardRefresh;
+      const shouldRefreshCards = timeSinceLastRefresh > this.DYNAMIC_CARD_REFRESH_INTERVAL;
+      
+      console.log('🎴 [TAB1] Dynamic card refresh check:');
+      console.log('  Time since last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds');
+      console.log('  Refresh interval:', this.DYNAMIC_CARD_REFRESH_INTERVAL / 1000, 'seconds');
+      console.log('  Should refresh?', shouldRefreshCards || !this._hasInitiallyLoaded);
+      console.log('  Has initially loaded?', this._hasInitiallyLoaded);
+      
+      if (shouldRefreshCards || !this._hasInitiallyLoaded) {
+        console.log('🎴 [TAB1] ✅ Refreshing dynamic cards now...');
+        this.loadAdditionalDynamicCards();
+        this._lastDynamicCardRefresh = now;
+      } else {
+        console.log('🎴 [TAB1] ⏭️  Skipping dynamic card refresh (too soon)');
+      }
+    } else {
+      console.log('🎴 [TAB1] ⏭️  User is not a student, skipping dynamic cards');
+    }
     
     console.log('🔄 [TAB1] Cache age:', Math.round(cacheAge / 1000), 'seconds, stale:', isCacheStale);
     
@@ -1230,7 +1402,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
     }
+    
+    // Reset dynamic card ready flag so it animates in next time
+    this.dynamicCardReady = false;
+    
     this.destroy$.next();
+
     this.destroy$.complete();
   }
 
@@ -1582,6 +1759,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Navigate to completed lessons page
   navigateToCompletedLessons() {
     this.router.navigate(['/tabs/home/lessons']);
+  }
+  
+  // Navigate to explore public classes page
+  navigateToExplore() {
+    this.router.navigate(['/tabs/home/explore']);
   }
   
   // Open modal showing all tutors
@@ -2049,8 +2231,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadUserStats() {
+    console.log('💰 [TAB1] loadUserStats() called');
+    
     // Force refresh from server to get latest settings
     this.userService.getCurrentUser(true).subscribe(user => {
+      console.log('💰 [TAB1] getCurrentUser callback, user type:', user?.userType);
+      
       if (user) {
         console.log('💰 User profile data:', user.profile);
         // Load show wallet balance setting from database
@@ -2059,8 +2245,464 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         
         // Update display property
         this.updateWalletDisplay();
+        
+        // Load coaching metrics for tutors
+        if (user.userType === 'tutor') {
+          console.log('👨‍🏫 [TAB1] Loading coaching metrics for tutor');
+          this.loadCoachingMetrics();
+        }
+        
+        // Load gamification cards for students
+        if (user.userType === 'student') {
+          console.log('👨‍🎓 [TAB1] Loading gamification cards for student');
+          this.loadGamificationCards();
+        }
       }
     });
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/coaching-metrics`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
+  }
+  
+  // Load gamification data and populate Smart Island cards (for students)
+  async loadGamificationCards() {
+    console.log('🎮 [Smart Island] loadGamificationCards() called');
+    console.log('🎮 [Smart Island] isStudent():', this.isStudent());
+    console.log('🎮 [Smart Island] dynamicCardsLoaded:', this.dynamicCardsLoaded);
+    
+    if (!this.isStudent()) {
+      console.log('🎮 [Smart Island] Not a student, skipping');
+      return;
+    }
+    
+    // Skip if cards are already loaded (prevents resetting rotation on navigation)
+    if (this.dynamicCardsLoaded) {
+      console.log('🎮 [Smart Island] Cards already loaded, skipping re-initialization');
+      return;
+    }
+    
+    // Mark as loaded immediately to prevent race conditions
+    this.dynamicCardsLoaded = true;
+    
+    // Clear any existing cards first (only on first load)
+    this.smartIslandService.clearAllCards();
+    console.log('🎮 [Smart Island] Cleared existing cards, will show skeleton until data loads');
+    
+    try {
+      console.log('🎮 [Smart Island] Fetching analyses...');
+      
+      // Fetch student progress data
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/transcription/my-analyses?limit=100`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      console.log('🎮 [Smart Island] Response received:', response);
+      console.log('🎮 [Smart Island] Analyses array:', response?.analyses);
+      console.log('🎮 [Smart Island] Analyses count:', response?.analyses?.length || 0);
+      
+      if (response.success && response.analyses) {
+        const analyses = response.analyses || [];
+        const lessonCount = analyses.length;
+        
+        console.log('🎮 [Smart Island] ✅ SUCCESS - Loaded analyses:', lessonCount);
+        if (analyses.length > 0) {
+          console.log('🎮 [Smart Island] First analysis:', analyses[0]);
+        }
+        
+        // Add badge card with actual data
+        for (const milestone of [
+          { count: 5, name: 'Getting Started', icon: 'rocket', color: '#3b82f6', desc: 'Complete 5 lessons' },
+          { count: 10, name: 'Committed Learner', icon: 'school', color: '#8b5cf6', desc: 'Complete 10 lessons' },
+          { count: 25, name: 'Dedicated Student', icon: 'book', color: '#06b6d4', desc: 'Complete 25 lessons' },
+          { count: 50, name: 'Rising Star', icon: 'star', color: '#f59e0b', desc: 'Complete 50 lessons' },
+          { count: 100, name: 'Language Master', icon: 'trophy', color: '#fbbf24', desc: 'Complete 100 lessons' }
+        ]) {
+          if (lessonCount < milestone.count) {
+            this.smartIslandService.addGamificationCard('next_badge', {
+              name: milestone.name,
+              description: milestone.desc,
+              icon: milestone.icon,
+              color: milestone.color,
+              current: lessonCount,
+              target: milestone.count
+            });
+            console.log('🎯 [Smart Island] Added badge card:', milestone.name, `(${lessonCount}/${milestone.count})`);
+            break;
+          }
+        }
+        
+        // Add welcome tip ONLY if no lessons yet
+        if (lessonCount === 0) {
+          this.smartIslandService.addTipCard(
+            'Start your journey! Book your first lesson to unlock detailed progress tracking and achievements.',
+            'Find Tutors',
+            '/tabs/tutor-search'
+          );
+          console.log('🎮 [Smart Island] Added welcome tip for new student');
+        }
+        
+        // Calculate streak (only if lessons exist)
+        let streak = 0;
+        if (analyses.length > 0) {
+          const sortedAnalyses = [...analyses].sort((a: any, b: any) => 
+            new Date(b.lessonDate).getTime() - new Date(a.lessonDate).getTime()
+          );
+          
+          let currentStreak = 0;
+          let lastDate: Date | null = null;
+          
+          for (const analysis of sortedAnalyses) {
+            const lessonDate = new Date(analysis.lessonDate);
+            const dayStart = new Date(lessonDate.getFullYear(), lessonDate.getMonth(), lessonDate.getDate());
+            
+            if (!lastDate) {
+              currentStreak = 1;
+              lastDate = dayStart;
+            } else {
+              const dayDiff = Math.floor((lastDate.getTime() - dayStart.getTime()) / (1000 * 60 * 60 * 24));
+              if (dayDiff === 1) {
+                currentStreak++;
+                lastDate = dayStart;
+              } else if (dayDiff > 1) {
+                break;
+              }
+            }
+          }
+          streak = currentStreak;
+        }
+        
+        // Add streak card if applicable
+        const today = new Date();
+        const lastLessonDate = analyses.length > 0 ? new Date(analyses[0].lessonDate) : null;
+        const daysSinceLastLesson = lastLessonDate 
+          ? Math.floor((today.getTime() - lastLessonDate.getTime()) / (1000 * 60 * 60 * 24))
+          : 999;
+        const isStreakAtRisk = streak >= 3 && daysSinceLastLesson >= 1;
+        
+        if (streak >= 3) {
+          this.smartIslandService.addStreakCard(streak, isStreakAtRisk);
+          console.log('🔥 [Smart Island] Added streak card:', streak, 'days, at risk:', isStreakAtRisk);
+        }
+        
+        // Calculate highest level and next level (only if 5+ lessons)
+        if (analyses.length >= 5) {
+          const levelHierarchy: { [key: string]: number } = {
+            'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6
+          };
+          
+          let highestLevel = 'A1';
+          let highestValue = 0;
+          
+          for (const analysis of analyses) {
+            if (analysis.level) {
+              const value = levelHierarchy[analysis.level] || 0;
+              if (value > highestValue) {
+                highestValue = value;
+                highestLevel = analysis.level;
+              }
+            }
+          }
+          
+          // Determine next level
+          const nextLevelMap: { [key: string]: string } = {
+            'A1': 'A2', 'A2': 'B1', 'B1': 'B2', 'B2': 'C1', 'C1': 'C2'
+          };
+          
+          const nextLevel = nextLevelMap[highestLevel];
+          if (nextLevel) {
+            this.smartIslandService.addGamificationCard('level_progress', {
+              currentLevel: highestLevel,
+              nextLevel: nextLevel
+            });
+          }
+        }
+        
+        // Check for pending ratings
+        const lessonsPendingRating = analyses.filter((a: any) => !a.studentRating);
+        if (lessonsPendingRating.length > 0) {
+          const lesson = lessonsPendingRating[0];
+          this.smartIslandService.addPendingRatingCard(
+            lesson.lessonId || lesson._id,
+            lesson.tutorName || 'your tutor',
+            lesson.tutorPicture
+          );
+        }
+        
+        // Weekly summary (if there are lessons this week)
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const thisWeekAnalyses = analyses.filter((a: any) => 
+          new Date(a.lessonDate) >= oneWeekAgo
+        );
+        
+        if (thisWeekAnalyses.length > 0) {
+          const speakingMinutes = thisWeekAnalyses.reduce((sum: number, a: any) => 
+            sum + (a.speakingTime || 0), 0
+          );
+          const wordsLearned = thisWeekAnalyses.reduce((sum: number, a: any) => 
+            sum + (a.newWords?.length || 0), 0
+          );
+          
+          this.smartIslandService.addWeeklySummaryCard(
+            thisWeekAnalyses.length,
+            Math.round(speakingMinutes / 60),
+            wordsLearned
+          );
+        }
+        
+        console.log('🎮 Loaded gamification cards for Smart Island');
+        
+        // Restart rotation to ensure it's running after all cards are loaded
+        this.smartIslandService.restartRotation();
+      } else {
+        console.warn('⚠️ [Smart Island] Response not successful or no analyses:', response);
+        console.warn('⚠️ [Smart Island] response.success:', response?.success);
+        console.warn('⚠️ [Smart Island] response.analyses:', response?.analyses);
+      }
+    } catch (error: any) {
+      console.error('❌ [Smart Island] Error loading gamification data:', error);
+      console.error('❌ [Smart Island] Error details:', error.message, error.stack);
+      console.error('❌ [Smart Island] Full error object:', error);
+      // Don't show error to user - just silently fail
+    }
+    
+    // Load additional card types (independent of analyses API)
+    this.loadAdditionalDynamicCards();
+  }
+  
+  // Load additional dynamic cards (tutors online, recommendations, tips, etc.)
+  private async loadAdditionalDynamicCards() {
+    console.log('➕ [Smart Island] Loading additional dynamic cards...');
+    console.log('➕ [Smart Island] Current user:', this.currentUser?.email, 'Type:', this.currentUser?.userType);
+    
+    // Check for tutors with new availability
+    try {
+      console.log('📅 [Smart Island] Fetching tutors-with-new-availability...');
+      const availabilityResponse = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/tutors-with-new-availability`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      console.log('📅 [Smart Island] API Response:', availabilityResponse);
+      console.log('📅 [Smart Island] Success:', availabilityResponse.success);
+      console.log('📅 [Smart Island] Tutors count:', availabilityResponse.tutors?.length);
+      
+      if (availabilityResponse.success && availabilityResponse.tutors.length > 0) {
+        const tutors = availabilityResponse.tutors;
+        
+        console.log('📅 [Smart Island] Tutors with new availability:', tutors);
+        
+        this.smartIslandService.addTutorAvailabilityCard(
+          tutors, // Pass full tutor objects
+          '/tabs/tutor-search'
+        );
+        console.log('📅 [Smart Island] ✅ Added tutor availability card:', tutors.length, 'tutors');
+      } else {
+        console.log('📅 [Smart Island] ❌ No tutors with new availability found.');
+        console.log('📅 [Smart Island] Response details:', JSON.stringify(availabilityResponse, null, 2));
+      }
+    } catch (error) {
+      console.error('❌ [Smart Island] Error fetching tutor availability:', error);
+    }
+    
+    // Add personalized tips based on user behavior
+    const tips = [
+      {
+        tip: 'Students who practice in the morning retain 30% more vocabulary',
+        ctaText: 'Browse Times',
+        ctaAction: '/tabs/tutor-search'
+      },
+      {
+        tip: 'Try 25-minute lessons for better focus and retention',
+        ctaText: 'Find Tutors',
+        ctaAction: '/tabs/tutor-search'
+      },
+      {
+        tip: 'Review your lesson notes within 24 hours to boost memory',
+        ctaText: 'View Progress',
+        ctaAction: '/tabs/progress'
+      }
+    ];
+    
+    // Randomly select a tip
+    const randomTip = tips[Math.floor(Math.random() * tips.length)];
+    this.smartIslandService.addTipCard(randomTip.tip, randomTip.ctaText, randomTip.ctaAction);
+    
+    // Add new feature card (example - can be enabled when new features launch)
+    // this.smartIslandService.addNewFeatureCard(
+    //   'Pronunciation Coach',
+    //   'Get real-time feedback on your pronunciation',
+    //   '/tabs/progress'
+    // );
+  }
+  
+  // Handle dynamic card click
+  async onDynamicCardClick(card: DynamicCard) {
+    if (!card) return;
+    
+    // Special handling for tutor availability card
+    if (card.type === 'tutor_availability' && card.data?.tutors) {
+      await this.openTutorAvailabilityModal(card.data.tutors);
+      return;
+    }
+    
+    // Navigate to the action route
+    if (card.ctaAction.startsWith('/')) {
+      this.router.navigate([card.ctaAction]);
+    }
+  }
+  
+  // Open tutor availability selection modal
+  async openTutorAvailabilityModal(tutors: any[]) {
+    const { TutorAvailabilitySelectionModalComponent } = await import('../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component');
+    
+    const modal = await this.modalCtrl.create({
+      component: TutorAvailabilitySelectionModalComponent,
+      componentProps: {
+        tutors: tutors,
+        title: 'Book a Lesson'
+      },
+      cssClass: 'tutor-availability-selection-modal' // Proper modal styling
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onWillDismiss();
+    
+    console.log('🔍 [TAB1] Modal dismissed with data:', data);
+    
+    if (data?.success && data?.booked && data?.tutorId) {
+      // Booking was completed successfully within the modal
+      console.log('✅ [TAB1] Booking completed successfully, refreshing lessons...');
+      console.log('✅ [TAB1] Booked lesson details:', {
+        tutorId: data.tutorId,
+        tutorName: data.tutorName,
+        date: data.selectedDate,
+        time: data.selectedTime
+      });
+      
+      // Remove the booked tutor from availability card
+      // If no tutors remain, the card will be removed automatically
+      this.smartIslandService.removeTutorFromAvailabilityCard(data.tutorId);
+      
+      // Add a longer delay to ensure database transaction is fully committed and replicated
+      console.log('⏳ [TAB1] Waiting 2000ms for DB to commit and replicate...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh lessons to show the new booking
+      await this.loadLessons(false);
+      
+      console.log('✅ [TAB1] Lessons refreshed after booking');
+      console.log('📊 [TAB1] Total lessons loaded:', this.lessons.length);
+      console.log('📊 [TAB1] Upcoming lesson:', this.upcomingLesson);
+      console.log('📊 [TAB1] Looking for lesson with tutor:', data.tutorId, 'on date:', data.selectedDate, 'at time:', data.selectedTime);
+      
+      // Check if the new lesson is in the list
+      const newLesson = this.lessons.find(l => {
+        const lessonDate = new Date(l.startTime).toISOString().split('T')[0];
+        const lessonTime = new Date(l.startTime).toISOString().split('T')[1].substring(0, 5);
+        const tutorId = (l.tutorId as any)?._id || (l.tutorId as any)?.id || l.tutorId;
+        return lessonDate === data.selectedDate && tutorId === data.tutorId;
+      });
+      
+      if (newLesson) {
+        console.log('✅ [TAB1] Found newly booked lesson:', newLesson._id);
+      } else {
+        console.error('❌ [TAB1] NEWLY BOOKED LESSON NOT FOUND IN API RESPONSE!');
+        console.error('❌ [TAB1] This indicates a backend issue - lesson created but not returned by getMyLessons()');
+      }
+      
+      console.log('📊 [TAB1] All lessons:', this.lessons.map(l => ({
+        id: l._id,
+        tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
+        startTime: l.startTime,
+        status: l.status
+      })));
+      
+      // Force change detection
+      this.cdr.detectChanges();
+    } else {
+      console.log('ℹ️ [TAB1] Modal dismissed without booking');
+    }
+  }
+  
+  // TrackBy function for dynamic card to force re-render on type change
+  trackByCardType(index: number, card: DynamicCard | null): string {
+    return card?.type || 'none';
+  }
+  
+  // Handle Up Next card click
+  onUpNextCardClick() {
+    if (this.nextLesson) {
+      // If there's a lesson, join it
+      this.joinLessonById(this.nextLesson);
+    } else {
+      // If no lesson, go to tutor search
+      this.openSearchTutors();
+    }
+  }
+  
+  // Check tutor onboarding status and show banner if incomplete
+  checkTutorOnboardingStatus() {
+    if (!this.isTutorUser) return;
+    if (!this.currentUser) return; // Only check if we have current user
+    
+    console.log('🔄 [TAB1] Checking tutor onboarding status from current user...');
+    
+    const user = this.currentUser;
+    
+    console.log('📊 [TAB1] User data:', {
+      email: user.email,
+      tutorApproved: user.tutorApproved,
+      onboardingCompleted: user.onboardingCompleted,
+      picture: !!user.picture,
+      stripeConnectOnboarded: user.stripeConnectOnboarded,
+      tutorOnboarding: user.tutorOnboarding
+    });
+    
+    // Only show approval banner if basic onboarding is complete
+    if (!user.onboardingCompleted) {
+      this.showOnboardingBanner = false;
+      console.log('ℹ️ [TAB1] Basic onboarding not complete, hiding banner');
+      return;
+    }
+    
+    this.tutorOnboardingStatus = user.tutorOnboarding || {};
+    
+    // Show banner only if user is NOT fully approved
+    // tutorApproved is set to true on the backend only when ALL steps are complete
+    this.showOnboardingBanner = !user.tutorApproved;
+    
+    console.log('🎯 [TAB1] Tutor approval banner decision:', {
+      tutorApproved: user.tutorApproved,
+      showBanner: this.showOnboardingBanner
+    });
+    
+    this.cdr.detectChanges();
+  }
+  
+  // Open tutor onboarding modal/page
+  openTutorOnboarding() {
+    this.router.navigate(['/tutor-approval']);
   }
   
   // Update wallet display property
@@ -2124,6 +2766,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const userAny = this.currentUser as any;
     this.tutorRating = userAny?.rating ? userAny.rating.toFixed(1) : '0.0';
     
+    // Get total conversations (unique students the tutor has messaged)
+    this.totalConversations = uniqueStudents.size;
+    
+    // Insights loaded
+    this.insightsLoading = false;
+    
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
   }
@@ -2158,6 +2806,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     // Count unique tutors (from lessons)
     const uniqueTutorIds = new Set(this.lessons.map((l: any) => l.tutorId?._id || l.tutorId).filter(Boolean));
     this.totalTutors = uniqueTutorIds.size;
+    
+    // Insights loaded
+    this.insightsLoading = false;
     
     // Check for upcoming lessons and show Smart Island moments
     this.checkUpcomingLessonsForIsland();
@@ -2339,13 +2990,27 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Helper method to get the next upcoming lesson across all dates
   getNextLesson(): Lesson | null {
     const now = new Date();
-    const upcoming = this.lessons
+    
+    // Combine both lessons and cancelledLessons arrays
+    const allLessons = [...this.lessons, ...this.cancelledLessons];
+    
+    const upcoming = allLessons
       .filter(l => {
         const start = new Date(l.startTime);
+        const end = new Date(l.endTime);
+        
+        // For cancelled lessons: only show if START time hasn't passed yet
+        // Once a cancelled lesson's start time passes, it should disappear from Up Next
+        if (l.status === 'cancelled') {
+          return start > now;
+        }
+        
+        // For non-cancelled lessons: show if start time hasn't passed yet
         return start > now && (l.status === 'scheduled' || l.status === 'in_progress');
       })
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
+    // Return the first lesson chronologically (whether cancelled or not)
     return upcoming.length > 0 ? upcoming[0] : null;
   }
 
@@ -2456,6 +3121,32 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     
     return `${startTime} — ${endTime}`;
+  }
+
+  /**
+   * Get the lesson number for a specific lesson (excluding trial lessons)
+   * DEPRECATED: Lesson numbers are now stored as properties on lesson objects.
+   * This function is kept for backwards compatibility but should not be called from templates.
+   * @deprecated Use lesson.lessonNumber property instead
+   */
+  getLessonNumber(lesson: any): number | null {
+    // Return the property if it exists (preferred method)
+    if (lesson && (lesson as any).lessonNumber !== undefined) {
+      return (lesson as any).lessonNumber;
+    }
+    
+    // Fallback calculation (for backwards compatibility)
+    if (!lesson) return null;
+    if (lesson.isTrialLesson) return null;
+    
+    const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+    const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
+    
+    if (!tutorId || !studentId) return null;
+    
+    const cacheKey = `${tutorId}_${studentId}`;
+    const completedCount = this._lessonCountCache.get(cacheKey) || 0;
+    return completedCount + 1;
   }
 
   // New method: Get students for selected date (tutor view)
@@ -2807,8 +3498,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
   get nextLesson(): any | null {
     // Create a hash of the inputs to detect changes
+    // MUST include both lessons and cancelledLessons since getNextLesson() checks both
     const lessonsHash = this.lessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
-    const currentHash = `next:${lessonsHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
+    const cancelledHash = this.cancelledLessons.map(l => `${l._id}:${l.startTime}:${l.status}`).join(',');
+    const currentHash = `next:${lessonsHash}:${cancelledHash}:${Date.now() - (Date.now() % 60000)}`; // Update every minute
     
     // Return cached value if inputs haven't changed
     if (this._cachedFirstLessonHash === currentHash && this._cachedFirstLesson !== undefined) {
@@ -2912,9 +3605,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const dateTag = this.getDateTag(lessonDate);
     const isInProgress = this.isLessonInProgress(nextLesson);
     
-    // Precompute reschedule flags to avoid function calls in template
+    // Precompute flags to avoid function calls in template
     const isRescheduleProposer = this.isRescheduleProposer(nextLesson);
     const rescheduleAccepted = (nextLesson as any).rescheduleProposal?.status === 'accepted';
+    const isTrialLesson = nextLesson.isTrialLesson || false;
     
     return {
       ...student,
@@ -2929,7 +3623,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       startTime: nextLesson.startTime,
       joinLabel: this.calculateJoinLabel(nextLesson),
       isRescheduleProposer: isRescheduleProposer,
-      rescheduleAccepted: rescheduleAccepted
+      rescheduleAccepted: rescheduleAccepted,
+      isTrialLesson: isTrialLesson
     };
   }
   
@@ -3193,8 +3888,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     // Filter and sort all lessons for timeline
     return allLessonsForTimeline
       .filter(lesson => {
-        // Exclude if it's in the past
-        if (new Date(lesson.startTime) <= now) return false;
+        const startTime = new Date(lesson.startTime);
+        const endTime = new Date(lesson.endTime);
+        
+        // For cancelled lessons: only show if START time hasn't passed yet
+        // Once start time passes, cancelled lessons should disappear completely
+        if (lesson.status === 'cancelled') {
+          // Exclude if the lesson's START time has passed
+          if (startTime <= now) return false;
+          // Exclude if it's the next class being shown in the "Up Next" card
+          if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+          return true;
+        }
+        
+        // For non-cancelled lessons:
+        // Exclude if it's in the past (start time passed)
+        if (startTime <= now) return false;
+        // Exclude if it's completed (ended early)
+        if (lesson.status === 'completed') return false;
         // Exclude if it's the next class being shown in the "Up Next" card
         if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
         return true;
@@ -3560,6 +4271,16 @@ navigateToLessons() {
     try {
       const resp = await this.lessonService.getMyLessons().toPromise();
       if (resp?.success) {
+        console.log('📥 [TAB1] Raw lessons from API:', resp.lessons.length, 'lessons');
+        console.log('📥 [TAB1] First 3 lessons:', resp.lessons.slice(0, 3).map(l => ({
+          id: l._id,
+          tutor: (l.tutorId as any)?.name || (l.tutorId as any)?.firstName,
+          student: (l.studentId as any)?.name || (l.studentId as any)?.firstName,
+          startTime: l.startTime,
+          endTime: l.endTime,
+          status: l.status
+        })));
+        
         const now = Date.now();
         let allLessons = [...resp.lessons];
 
@@ -3641,6 +4362,11 @@ navigateToLessons() {
         const today = this.startOfDay(new Date());
         const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
         
+        console.log('📅 [TAB1] Filter reference times:');
+        console.log('  - now:', new Date(now).toISOString());
+        console.log('  - today start:', today.toISOString());
+        console.log('  - sevenDaysAgo:', sevenDaysAgo.toISOString());
+        
         // Separate cancelled lessons (show recent and future cancellations)
         this.cancelledLessons = allLessons
           .filter(l => {
@@ -3651,21 +4377,38 @@ navigateToLessons() {
           })
           .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
         
+        console.log('🔍 [TAB1] Filtering lessons...');
+        
         // Filter for active (non-cancelled) lessons
         this.lessons = allLessons
           .filter(l => {
-            // Exclude cancelled lessons (they go to cancelledLessons array)
-            if (l.status === 'cancelled') {
-              return false;
-            }
-            
             const endTime = new Date(l.endTime).getTime();
             const lessonDate = new Date(l.startTime);
             const lessonDay = this.startOfDay(lessonDate);
+            const startTime = new Date(l.startTime).getTime();
+            
+            // Exclude cancelled lessons (they go to cancelledLessons array)
+            if (l.status === 'cancelled') {
+              console.log('  ❌ Filtered out (cancelled):', l._id, new Date(l.startTime).toISOString());
+              return false;
+            }
             
             // Keep if: upcoming OR happened today
             const isUpcoming = endTime >= now;
             const isToday = lessonDay.getTime() === today.getTime();
+            
+            console.log(`  🔎 Lesson ${l._id}:`, {
+              startTime: new Date(l.startTime).toISOString(),
+              endTime: new Date(l.endTime).toISOString(),
+              status: l.status,
+              endTime_ms: endTime,
+              now_ms: now,
+              isUpcoming,
+              isToday,
+              lessonDay_ms: lessonDay.getTime(),
+              today_ms: today.getTime(),
+              KEEP: isUpcoming || isToday
+            });
             
             return isUpcoming || isToday;
           })
@@ -3704,6 +4447,99 @@ navigateToLessons() {
 
         // Clear avatar cache when lessons reload to get fresh images
         this._avatarCache.clear();
+        
+        // Populate lesson count cache for all tutor-student pairs
+        // Use ALL lessons from API (not filtered) to get accurate counts
+        this._lessonCountCache.clear();
+        const allLessonsFromAPI = resp.lessons || [];
+        
+        // Group lessons by tutor-student pair and count completed (non-trial) lessons
+        const lessonCountMap = new Map<string, number>();
+        const debugLog: any[] = [];
+        
+        allLessonsFromAPI.forEach(lesson => {
+          const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+          const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
+          
+          if (!tutorId || !studentId) {
+            debugLog.push({ lessonId: lesson._id, reason: 'Missing tutorId or studentId' });
+            return;
+          }
+          
+          // Skip trial lessons
+          if (lesson.isTrialLesson) {
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              reason: 'Trial lesson - excluded' 
+            });
+            return;
+          }
+          
+          const cacheKey = `${tutorId}_${studentId}`;
+          
+          // Only count completed lessons
+          if (lesson.status === 'completed') {
+            const currentCount = lessonCountMap.get(cacheKey) || 0;
+            lessonCountMap.set(cacheKey, currentCount + 1);
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              cacheKey,
+              count: currentCount + 1,
+              reason: 'Completed - counted' 
+            });
+          } else {
+            debugLog.push({ 
+              lessonId: lesson._id, 
+              tutorId, 
+              studentId, 
+              status: lesson.status, 
+              cacheKey,
+              reason: `Status "${lesson.status}" - not counted (only completed lessons count)` 
+            });
+          }
+        });
+        
+        // Store in cache
+        lessonCountMap.forEach((count, key) => {
+          this._lessonCountCache.set(key, count);
+        });
+        
+        console.log('📊 [TAB1] Lesson count cache populated:');
+        console.log('   Cache entries:', Array.from(this._lessonCountCache.entries()).map(([key, count]) => ({ pair: key, completedCount: count })));
+        console.log('   Total lessons processed:', allLessonsFromAPI.length);
+        // Only log debug details if there are issues (more than 0 excluded lessons)
+        const excludedCount = debugLog.filter(d => d.reason !== 'Completed - counted').length;
+        if (excludedCount > 0) {
+          console.log('   Excluded lessons:', excludedCount, '(trials, non-completed, etc.)');
+          console.log('   Sample exclusions:', debugLog.filter(d => d.reason !== 'Completed - counted').slice(0, 5));
+        }
+        
+        // Add lesson number as a property to each lesson (for template use - no function calls in HTML)
+        allLessons.forEach(lesson => {
+          // Skip trial lessons and classes
+          if (lesson.isTrialLesson || (lesson as any).isClass) {
+            (lesson as any).lessonNumber = null;
+            return;
+          }
+          
+          const tutorId = (lesson.tutorId as any)?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || lesson.tutorId?.toString();
+          const studentId = (lesson.studentId as any)?._id?.toString() || (lesson.studentId as any)?.id?.toString() || lesson.studentId?.toString();
+          
+          if (!tutorId || !studentId) {
+            (lesson as any).lessonNumber = null;
+            return;
+          }
+          
+          const cacheKey = `${tutorId}_${studentId}`;
+          const completedCount = this._lessonCountCache.get(cacheKey) || 0;
+          (lesson as any).lessonNumber = completedCount + 1;
+        });
         
         // Clear computed caches to force recalculation with new data
         this._cachedFirstLessonHash = '';
@@ -4492,6 +5328,136 @@ navigateToLessons() {
   // Simple helper methods for user type checking
   isStudent(): boolean {
     return this.currentUser?.['userType'] === 'student';
+  }
+
+  // Subscribe to wallet balance updates (real-time)
+  subscribeToWalletBalance() {
+    // Subscribe to the balance observable for automatic updates
+    this.walletService.balance$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (balance) => {
+          if (balance) {
+            this.currentWalletBalance = balance.availableBalance;
+            this.cdr.detectChanges();
+          }
+        }
+      });
+
+    // Initial load
+    this.loadWalletBalance();
+  }
+
+  // Load wallet balance
+  loadWalletBalance() {
+    this.walletService.getBalance()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.currentWalletBalance = response.availableBalance;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (error) => {
+          console.error('Error loading wallet balance:', error);
+          this.currentWalletBalance = 0;
+        }
+      });
+  }
+
+  // Navigate to wallet page
+  navigateToWallet() {
+    this.router.navigate(['/tabs/home/wallet']);
+  }
+
+  navigateToEarnings() {
+    this.router.navigate(['/tabs/home/earnings']);
+  }
+
+  // Check Stripe Connect status for tutors
+  async checkStripeConnectStatus() {
+    if (!this.isTutor()) return;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.stripeConnectOnboarded = response.onboarded;
+        console.log(`💰 Stripe Connect status: ${this.stripeConnectOnboarded ? 'Onboarded' : 'Not onboarded'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error checking Stripe Connect status:', error);
+    }
+  }
+
+  // Start Stripe Connect onboarding
+  async startStripeConnectOnboarding() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.onboardingUrl) {
+        // Open Stripe onboarding in new window
+        window.open(response.onboardingUrl, '_blank');
+        
+        const toast = await this.toastController.create({
+          message: 'Complete the setup in the new window. Refresh this page when done.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error starting Stripe Connect onboarding:', error);
+      
+      const toast = await this.toastController.create({
+        message: error.error?.message || 'Failed to start payout setup. Please try again.',
+        duration: 4000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  // Load tutor earnings summary
+  async loadTutorEarnings() {
+    if (!this.isTutorUser) {
+      return;
+    }
+
+    try {
+      // Use the NEW withdrawal system endpoint instead of legacy earnings
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/withdrawals/balance`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        // Show AVAILABLE balance only (ready to withdraw)
+        this.tutorTotalEarnings = response.balance.available || 0;
+        this.tutorPendingEarnings = response.balance.pending || 0;
+        this.walletBalance = this.tutorTotalEarnings; // Show only available amount
+        this.updateWalletDisplay(); // Update the hidden/revealed display
+        this.cdr.detectChanges();
+      }
+    } catch (error) {
+      console.error('❌ [TAB1] Error loading tutor earnings:', error);
+    }
   }
 
   isTutor(): boolean {
@@ -5445,4 +6411,68 @@ navigateToLessons() {
     this.router.navigate(['/tutor-feedback', 'test']);
   }
 
+  /**
+   * TEST: Open tutor note modal with mock data for testing UI
+   */
+  async openTestTutorNoteModal() {
+    // Use a REAL lesson ID (69527f6d6d02ed29ab721d32 from logs)
+    this.tutorNoteModalData = {
+      lessonId: '69527f6d6d02ed29ab721d32',
+      studentName: 'Phillip D.',
+      lessonSubject: 'Spanish Lesson',
+      duration: 25
+    };
+    this.isTutorNoteModalOpen = true;
+  }
+
+  /**
+   * Handle tutor note modal dismissal
+   */
+  onTutorNoteModalDismiss() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Close tutor note modal
+   */
+  closeTutorNoteModal() {
+    this.isTutorNoteModalOpen = false;
+    this.tutorNoteModalData = null;
+  }
+
+  /**
+   * Handle tutor note saved event
+   */
+  async onTutorNoteSaved(noteData: { quickImpression: string; text: string; homework: string }) {
+    if (!this.tutorNoteModalData) return;
+    
+    try {
+      await firstValueFrom(
+        this.lessonService.saveTutorNote(this.tutorNoteModalData.lessonId, noteData)
+      );
+      
+      const successToast = await this.toastController.create({
+        message: '✅ Note saved!',
+        duration: 2000,
+        color: 'success',
+        position: 'bottom'
+      });
+      await successToast.present();
+      
+      // Close the modal
+      this.closeTutorNoteModal();
+    } catch (error) {
+      console.error('❌ Error saving tutor note:', error);
+      const errorToast = await this.toastController.create({
+        message: '❌ Failed to save note. Please try again.',
+        duration: 3000,
+        color: 'danger',
+        position: 'bottom'
+      });
+      await errorToast.present();
+    }
+  }
+
 }
+

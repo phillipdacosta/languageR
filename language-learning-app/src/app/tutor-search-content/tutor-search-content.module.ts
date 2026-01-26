@@ -8,6 +8,7 @@ import { TutorSearchContentPageRoutingModule } from './tutor-search-content-rout
 
 import { TutorSearchContentPage } from './tutor-search-content.page';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
+import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { SharedModule } from '../shared/shared.module';
 
 @NgModule({
@@ -18,7 +19,7 @@ import { SharedModule } from '../shared/shared.module';
     TutorSearchContentPageRoutingModule,
     SharedModule
   ],
-  declarations: [TutorSearchContentPage, VideoPlayerModalComponent],
+  declarations: [TutorSearchContentPage, VideoPlayerModalComponent, CountryFilterPopoverComponent],
   exports: [TutorSearchContentPage, VideoPlayerModalComponent]
 })
 export class TutorSearchContentPageModule {}

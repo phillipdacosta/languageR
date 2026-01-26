@@ -1,0 +1,210 @@
+<div class="modal-wrapper">
+  <div class="modal-header">
+    <ion-button 
+      *ngIf="currentStep !== 'selection'" 
+      fill="clear" 
+      (click)="goBack()"
+      class="back-button">
+      <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+    </ion-button>
+    <h2>
+      <span *ngIf="currentStep === 'selection'">Top Up Wallet</span>
+      <span *ngIf="currentStep === 'card-entry'">Enter Card Details</span>
+      <span *ngIf="currentStep === 'confirmation'">Confirm Payment</span>
+    </h2>
+  </div>
+
+  <div class="modal-content">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+
+    <!-- Step 1: Selection -->
+    <ng-container *ngIf="!loading && currentStep === 'selection'">
+      <p class="input-label">How much would you like to add?</p>
+      
+      <div class="amount-input-wrapper">
+        <span class="currency-label">USD</span>
+        <span class="currency-symbol">$</span>
+        <input 
+          type="number" 
+          [(ngModel)]="amount" 
+          min="1" 
+          max="500"
+          placeholder="50"
+          class="amount-input"
+        >
+      </div>
+
+      <!-- Fee Breakdown -->
+      <div class="fee-breakdown" *ngIf="amount && amount >= 1">
+        <div class="fee-row">
+          <span class="fee-label">Wallet credit</span>
+          <span class="fee-value">${{ amount.toFixed(2) }}</span>
+        </div>
+        <div class="fee-row" *ngIf="!showNewCardForm">
+          <span class="fee-label">Processing fee (est.)</span>
+          <span class="fee-value">${{ stripeFee.toFixed(2) }}</span>
+        </div>
+        <div class="fee-row" *ngIf="showNewCardForm">
+          <span class="fee-label">Processing fee</span>
+          <span class="fee-value fee-tbd">TBD</span>
+        </div>
+        <div class="fee-row total" *ngIf="!showNewCardForm">
+          <span class="fee-label">Total charge</span>
+          <span class="fee-value">${{ totalCharge.toFixed(2) }}</span>
+        </div>
+        <div class="fee-row total" *ngIf="showNewCardForm">
+          <span class="fee-label">Total charge</span>
+          <span class="fee-value fee-tbd">TBD</span>
+        </div>
+        <p class="fee-note">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          {{ feeDescription }}
+        </p>
+      </div>
+
+      <!-- Payment Method Selection -->
+      <p class="input-label" style="margin-top: 16px; margin-bottom: 8px;">Select payment method</p>
+      
+      <!-- Saved Cards List -->
+      <div class="payment-methods-list" *ngIf="savedCards.length > 0">
+        <div 
+          *ngFor="let card of savedCards" 
+          class="payment-method-item"
+          [class.selected]="selectedCardId === card.id"
+          (click)="selectCard(card.id)">
+          <div class="card-radio">
+            <div class="radio-outer">
+              <div class="radio-inner" *ngIf="selectedCardId === card.id"></div>
+            </div>
+          </div>
+          <ion-icon name="card" class="card-icon"></ion-icon>
+          <div class="card-info">
+            <div class="card-brand-last4">{{ card.brand | titlecase }} •••• {{ card.last4 }}</div>
+            <div class="card-expiry">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</div>
+          </div>
+          <ion-badge *ngIf="card.isDefault" color="primary" class="default-badge-small">Default</ion-badge>
+          <ion-button 
+            fill="clear" 
+            size="small"
+            class="delete-card-btn"
+            (click)="deleteCard(card, $event)">
+            <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Add New Card Option -->
+      <div 
+        class="payment-method-item new-card"
+        [class.selected]="showNewCardForm"
+        (click)="selectNewCard()">
+        <div class="card-radio">
+          <div class="radio-outer">
+            <div class="radio-inner" *ngIf="showNewCardForm"></div>
+          </div>
+        </div>
+        <ion-icon name="add-circle" class="add-icon"></ion-icon>
+        <div class="card-info">
+          <div class="card-brand-last4">Add new card</div>
+        </div>
+      </div>
+
+      <!-- New Card Form (if selected) -->
+      <div class="new-card-notice" *ngIf="showNewCardForm">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <span>You'll enter card details on the next step</span>
+      </div>
+    </ng-container>
+
+    <!-- Step 2: Card Entry -->
+    <ng-container *ngIf="!loading && currentStep === 'card-entry'">
+      <div class="card-entry-step">
+        <p class="step-instruction">
+          Enter your card details below. We'll calculate the exact processing fee based on your card type.
+        </p>
+
+        <p class="card-label">Card Information</p>
+        <div id="card-element-wallet" class="card-element-container"></div>
+        
+        <div class="save-card-option">
+          <ion-checkbox [(ngModel)]="saveCardForFuture" labelPlacement="end">
+            Save this card for future payments
+          </ion-checkbox>
+        </div>
+        
+        <p class="card-helper-text">
+          <ion-icon name="lock-closed"></ion-icon>
+          Your payment information is secure and encrypted
+        </p>
+      </div>
+    </ng-container>
+
+    <!-- Step 3: Confirmation -->
+    <ng-container *ngIf="!loading && currentStep === 'confirmation'">
+      <div class="confirmation-step">
+        <div class="card-detected">
+          <ion-icon name="checkmark-circle" color="success"></ion-icon>
+          <div class="card-details">
+            <p class="card-brand">{{ newCardBrand | titlecase }} •••• {{ newCardLast4 }}</p>
+            <p class="card-country">{{ newCardCountry === 'US' ? 'Domestic' : 'International' }} card ({{ newCardCountry }})</p>
+          </div>
+        </div>
+
+        <div class="final-breakdown">
+          <h3>Payment Summary</h3>
+          <div class="breakdown-row">
+            <span>Wallet credit</span>
+            <span>${{ amount.toFixed(2) }}</span>
+          </div>
+          <div class="breakdown-row fee-row">
+            <span>Processing fee (est.)</span>
+            <span>${{ stripeFee.toFixed(2) }}</span>
+          </div>
+          <div class="breakdown-row total-row">
+            <span>Total to be charged</span>
+            <span>${{ totalCharge.toFixed(2) }}</span>
+          </div>
+          <p class="final-fee-note">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            {{ feeDescription }}
+          </p>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="modal-footer">
+    <button class="btn-cancel" (click)="goBack()">
+      {{ currentStep === 'selection' ? 'Cancel' : 'Back' }}
+    </button>
+    <button 
+      *ngIf="currentStep === 'selection'"
+      class="btn-continue" 
+      (click)="continue()"
+      [disabled]="!amount || amount < 1 || amount > 500 || (!selectedCardId && !showNewCardForm)">
+      Continue
+    </button>
+    <button 
+      *ngIf="currentStep === 'card-entry'"
+      class="btn-continue" 
+      (click)="proceedToConfirmation()"
+      [disabled]="processingPayment">
+      <ion-spinner *ngIf="processingPayment" name="crescent"></ion-spinner>
+      <span *ngIf="!processingPayment">Validate Card</span>
+      <span *ngIf="processingPayment">Validating...</span>
+    </button>
+    <button 
+      *ngIf="currentStep === 'confirmation'"
+      class="btn-continue btn-pay" 
+      (click)="confirmAndPay()"
+      [disabled]="processingPayment">
+      <ion-spinner *ngIf="processingPayment" name="crescent"></ion-spinner>
+      <span *ngIf="!processingPayment">Pay ${{ totalCharge.toFixed(2) }}</span>
+      <span *ngIf="processingPayment">Processing...</span>
+    </button>
+  </div>
+</div>
+

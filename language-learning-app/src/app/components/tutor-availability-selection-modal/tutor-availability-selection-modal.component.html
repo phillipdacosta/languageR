@@ -1,0 +1,106 @@
+<ion-content class="ion-padding availability-selection-modal-content">
+  <!-- Floating close button (always visible) -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <!-- Back button (when viewing individual tutor availability OR checkout) -->
+  <ion-button *ngIf="(!showTutorList || showCheckout) && (tutors.length > 1 || showCheckout)" class="floating-back-button" fill="clear" (click)="showCheckout ? goBackToAvailability() : goBackToList()">
+    <ion-icon name="arrow-back" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <!-- Tutor List View -->
+  <div class="view-container tutor-list-view" *ngIf="showTutorList" [@slideInOut]="animationDirection">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-icon">
+        <ion-icon name="calendar-outline"></ion-icon>
+      </div>
+      <h1 class="modal-title">{{ title }}</h1>
+      <p class="modal-subtitle">Select a tutor to view their available times</p>
+    </div>
+
+    <!-- Tutor List -->
+    <div class="tutor-list">
+      <div 
+        class="tutor-card" 
+        *ngFor="let tutor of tutors"
+        (click)="selectTutor(tutor)">
+        <div class="tutor-info">
+          <ion-avatar class="tutor-avatar">
+            <img *ngIf="tutor.picture" [src]="tutor.picture" [alt]="formatTutorName(tutor)" referrerpolicy="no-referrer">
+            <ion-icon *ngIf="!tutor.picture" name="person" class="avatar-placeholder"></ion-icon>
+          </ion-avatar>
+          <div class="tutor-details">
+            <h3 class="tutor-name">{{ formatTutorName(tutor) }}</h3>
+            <p class="tutor-availability">New times available</p>
+          </div>
+        </div>
+        <ion-button fill="solid" size="small" class="view-button">
+          View Times
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Availability View (Single Tutor) -->
+  <div class="view-container availability-view" *ngIf="!showTutorList && !showCheckout && selectedTutor" [@slideInOut]="animationDirection">
+    <!-- Tutor Info Section -->
+    <div class="tutor-section">
+      <ion-avatar class="tutor-avatar-large">
+        <img *ngIf="selectedTutor.picture" [src]="selectedTutor.picture" [alt]="formatTutorName(selectedTutor)" referrerpolicy="no-referrer">
+        <ion-icon *ngIf="!selectedTutor.picture" name="person" class="avatar-placeholder"></ion-icon>
+      </ion-avatar>
+      <div class="tutor-info-text">
+        <h3>{{ formatTutorName(selectedTutor) }}</h3>
+        <p>Select lesson duration and time slot</p>
+      </div>
+    </div>
+
+    <!-- Lesson Duration Selector -->
+    <div class="duration-selector-section">
+      <div class="duration-label">Lesson Duration</div>
+      <div class="duration-options">
+        <div 
+          class="duration-option" 
+          [class.selected]="lessonDuration === 25"
+          (click)="lessonDuration = 25">
+          <div class="duration-time">25 min</div>
+          <div class="duration-price">${{ getTutorHourlyRate(selectedTutor) * 25 / 50 | number:'1.2-2' }}</div>
+        </div>
+        <div 
+          class="duration-option" 
+          [class.selected]="lessonDuration === 50"
+          (click)="lessonDuration = 50">
+          <div class="duration-time">50 min</div>
+          <div class="duration-price">${{ getTutorHourlyRate(selectedTutor) | number:'1.2-2' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Availability Calendar (Inline) -->
+    <div class="calendar-section">
+      <app-tutor-availability-viewer
+        [tutorId]="selectedTutor.id"
+        [tutorName]="formatTutorName(selectedTutor)"
+        [inline]="true"
+        [selectionMode]="true"
+        (slotSelected)="onTimeSlotSelected($event)">
+      </app-tutor-availability-viewer>
+    </div>
+  </div>
+  
+  <!-- Checkout View (Embedded Checkout Component) -->
+  <div class="checkout-view" *ngIf="showCheckout && selectedTutor && selectedDate && selectedTime && getTutorId(selectedTutor)" [@slideInOut]="animationDirection">
+    <app-checkout
+      [tutorId]="getTutorId(selectedTutor)"
+      [dateIso]="selectedDate"
+      [time]="selectedTime"
+      [lessonMinutes]="lessonDuration"
+      [embedded]="true"
+      (bookingComplete)="onBookingComplete()"
+      (cancelled)="onCheckoutCancelled()">
+    </app-checkout>
+  </div>
+</ion-content>

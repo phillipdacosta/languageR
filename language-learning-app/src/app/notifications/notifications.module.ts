@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 
 import { NotificationsPageRoutingModule } from './notifications-routing.module';
+import { SharedModule } from '../shared/shared.module';
 import { NotificationsPage } from './notifications.page';
 
 @NgModule({
@@ -11,9 +12,12 @@ import { NotificationsPage } from './notifications.page';
     CommonModule,
     FormsModule,
     IonicModule,
-    NotificationsPageRoutingModule
+    NotificationsPageRoutingModule,
+    SharedModule
   ],
-  declarations: [NotificationsPage]
+  declarations: [
+    NotificationsPage
+  ]
 })
 export class NotificationsPageModule {}
 

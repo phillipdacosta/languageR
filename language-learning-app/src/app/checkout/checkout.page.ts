@@ -1,13 +1,15 @@
 import { Component, Input, OnInit, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController, ModalController } from '@ionic/angular';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../services/user.service';
 import { LessonService, LessonCreateRequest } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { AuthService } from '@auth0/auth0-angular';
 import { firstValueFrom } from 'rxjs';
-import { HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-checkout',
@@ -29,6 +31,14 @@ export class CheckoutPage implements OnInit {
   currentUser: any = null;
   isBooking = false;
   returnTo: string | null = null; // Track where to return after booking
+  previousLessonsWithTutor: number = 0; // Track lesson count with this tutor
+  
+  // Payment-related properties
+  selectedPaymentMethod: string = 'saved-card';
+  defaultCard: any = null;
+  walletBalance: number = 0;
+  isApplePayAvailable: boolean = false;
+  isGooglePayAvailable: boolean = false;
 
   constructor(
     private route: ActivatedRoute, 
@@ -39,10 +49,20 @@ export class CheckoutPage implements OnInit {
     private auth: AuthService,
     private loadingController: LoadingController,
     private toastController: ToastController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private modalController: ModalController,
+    private http: HttpClient
   ) {}
 
   ngOnInit() {
+    console.log('🔍 [CHECKOUT] ngOnInit - Inputs:', {
+      tutorId: this.tutorId,
+      dateIso: this.dateIso,
+      time: this.time,
+      lessonMinutes: this.lessonMinutes,
+      embedded: this.embedded
+    });
+    
     // If inputs weren't provided, read from query params (for standalone page mode)
     if (!this.tutorId) {
       const qp = this.route.snapshot.queryParamMap;
@@ -50,6 +70,22 @@ export class CheckoutPage implements OnInit {
       this.dateIso = qp.get('date') || '';
       this.time = qp.get('time') || '';
       this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+      
+      console.log('🔍 [CHECKOUT] Loaded from query params:', {
+        tutorId: this.tutorId,
+        dateIso: this.dateIso,
+        time: this.time,
+        lessonMinutes: this.lessonMinutes
+      });
+      
+      // Read trial lesson status from query params (passed from tutor availability page)
+      const isTrialParam = qp.get('isTrialLesson');
+      if (isTrialParam === 'true') {
+        this.previousLessonsWithTutor = 0; // Force trial lesson
+      } else if (isTrialParam === 'false') {
+        this.previousLessonsWithTutor = 1; // Force non-trial
+      }
+      // If not provided, will be checked later in loadData
     }
     
     // Read returnTo parameter to know where to navigate after booking
@@ -71,8 +107,87 @@ export class CheckoutPage implements OnInit {
       // Load current user data
       const userRes = await firstValueFrom(this.userService.getCurrentUser());
       this.currentUser = userRes;
+      
+      // PREVENT TUTORS FROM BOOKING LESSONS
+      if (this.currentUser?.userType === 'tutor') {
+        const alert = await this.alertController.create({
+          header: 'Not Available',
+          message: 'Tutors cannot book lessons. Please switch to a student account to book lessons.',
+          buttons: [{
+            text: 'OK',
+            handler: () => {
+              this.router.navigate(['/tabs/home']);
+            }
+          }]
+        });
+        await alert.present();
+        return;
+      }
+      
+      // Load wallet balance
+      await this.loadWalletBalance();
+      
+      // Load saved cards
+      await this.loadSavedCards();
+      
+      // Check if this is a trial lesson (first lesson with this tutor)
+      await this.checkIfTrialLesson();
     } catch (error) {
       console.error('Error loading checkout data:', error);
+    }
+  }
+
+  private async loadWalletBalance(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/wallet/balance`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.walletBalance = response.availableBalance || 0;
+        console.log('💰 Wallet balance loaded:', this.walletBalance);
+      }
+    } catch (error) {
+      console.error('Error loading wallet balance:', error);
+      this.walletBalance = 0;
+    }
+  }
+
+  private async checkIfTrialLesson(): Promise<void> {
+    // If trial lesson status was passed via query params, skip the check
+    const qp = this.route.snapshot.queryParamMap;
+    const isTrialParam = qp.get('isTrialLesson');
+    if (isTrialParam === 'true' || isTrialParam === 'false') {
+      console.log('📊 Trial lesson status from query params:', isTrialParam);
+      return; // Already set in ngOnInit
+    }
+    
+    // Otherwise, check via API (fallback for direct navigation)
+    if (!this.tutorId || !this.currentUser) {
+      this.previousLessonsWithTutor = 0;
+      return;
+    }
+
+    try {
+      // Fetch the student's lessons to count previous lessons with this tutor
+      const response = await firstValueFrom(
+        this.lessonService.getMyLessons()
+      );
+
+      if (response.success && response.lessons) {
+        // Count completed or in-progress lessons with this tutor
+        this.previousLessonsWithTutor = response.lessons.filter((lesson: any) => 
+          lesson.tutorId?._id === this.tutorId && 
+          (lesson.status === 'completed' || lesson.status === 'scheduled' || lesson.status === 'in-progress')
+        ).length;
+        
+        console.log(`📊 Previous lessons with tutor: ${this.previousLessonsWithTutor}`);
+      }
+    } catch (error) {
+      console.error('Error checking trial lesson status:', error);
+      this.previousLessonsWithTutor = 0;
     }
   }
 
@@ -186,6 +301,19 @@ export class CheckoutPage implements OnInit {
   async confirmBooking() {
     if (this.isBooking || !this.tutor || !this.currentUser) return;
 
+    // Double-check currentUser has an ID
+    if (!this.currentUser.id) {
+      console.error('❌ Current user missing ID:', this.currentUser);
+      const toast = await this.toastController.create({
+        message: 'User data not loaded. Please refresh the page and try again.',
+        duration: 5000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+      return;
+    }
+
     this.isBooking = true;
     let loading: HTMLIonLoadingElement | null = null;
     let bookingLoading: HTMLIonLoadingElement | null = null;
@@ -236,6 +364,19 @@ export class CheckoutPage implements OnInit {
       const primaryLanguage = tutorLanguages.length > 0 ? tutorLanguages[0] : 'Language';
       const subject = `${primaryLanguage} Lesson`;
 
+      // Validate we have required data
+      if (!this.currentUser || !this.currentUser.id) {
+        throw new Error('User data not loaded. Please refresh the page and try again.');
+      }
+
+      console.log('📊 Current user data:', {
+        id: this.currentUser.id,
+        _id: (this.currentUser as any)._id,
+        email: this.currentUser.email,
+        name: this.currentUser.name,
+        auth0Id: (this.currentUser as any).auth0Id
+      });
+
       // Create lesson booking request
       const lessonData: LessonCreateRequest = {
         tutorId: this.tutorId,
@@ -253,17 +394,85 @@ export class CheckoutPage implements OnInit {
       };
 
       console.log('📅 Creating lesson booking:', lessonData);
+      console.log('📅 CRITICAL - IDs being sent:', {
+        tutorId: lessonData.tutorId,
+        studentId: lessonData.studentId,
+        tutorIdType: typeof lessonData.tutorId,
+        studentIdType: typeof lessonData.studentId
+      });
 
-      // Create the lesson
-      const response = await firstValueFrom(this.lessonService.createLesson(lessonData));
+      // Book the lesson with payment (use the correct endpoint!)
+      const bookingPayload = {
+        lessonData: lessonData,
+        paymentMethod: this.selectedPaymentMethod,
+        stripePaymentMethodId: this.defaultCard?.stripePaymentMethodId,
+        stripeCustomerId: this.currentUser.stripeCustomerId
+      };
+
+      console.log('💳 Booking with payment:', {
+        paymentMethod: bookingPayload.paymentMethod,
+        hasPaymentMethodId: !!bookingPayload.stripePaymentMethodId,
+        paymentMethodId: bookingPayload.stripePaymentMethodId,
+        hasCustomerId: !!bookingPayload.stripeCustomerId,
+        customerId: bookingPayload.stripeCustomerId,
+        currentUserData: {
+          id: this.currentUser.id,
+          email: this.currentUser.email,
+          stripeCustomerId: this.currentUser.stripeCustomerId
+        },
+        defaultCardData: this.defaultCard
+      });
+
+      // Validate required fields for saved-card payment
+      if (this.selectedPaymentMethod === 'saved-card') {
+        if (!bookingPayload.stripePaymentMethodId) {
+          throw new Error('No payment method selected. Please select a card.');
+        }
+        // Note: stripeCustomerId will be created by backend if it doesn't exist
+        // We don't throw an error here anymore - let the backend handle it
+      }
+
+      console.log('🚀 [CHECKOUT] About to send booking request...');
+      console.log('🚀 [CHECKOUT] Endpoint:', `${environment.apiUrl}/payments/book-lesson-with-payment`);
+      console.log('🚀 [CHECKOUT] Full payload:', JSON.stringify(bookingPayload, null, 2));
+      console.log('🚀 [CHECKOUT] Lesson details:', {
+        tutorId: bookingPayload.lessonData.tutorId,
+        studentId: bookingPayload.lessonData.studentId,
+        startTime: bookingPayload.lessonData.startTime,
+        endTime: bookingPayload.lessonData.endTime,
+        duration: bookingPayload.lessonData.duration,
+        price: bookingPayload.lessonData.price
+      });
+
+      // Create the lesson with payment authorization
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/book-lesson-with-payment`, bookingPayload, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      console.log('📨 [CHECKOUT] Backend response received:', JSON.stringify(response, null, 2));
       
       if (response.success) {
         // DISMISS LOADING BEFORE SHOWING SUCCESS PAGE
         if (bookingLoading) await bookingLoading.dismiss();
         
+        console.log('✅ [CHECKOUT] Booking successful! Full response:', response);
+        console.log('✅ [CHECKOUT] Lesson created:', {
+          lessonId: response.lesson?._id || response.lesson?.id,
+          tutorId: response.lesson?.tutorId,
+          studentId: response.lesson?.studentId,
+          startTime: response.lesson?.startTime,
+          endTime: response.lesson?.endTime,
+          status: response.lesson?.status
+        });
+        console.log('✅ [CHECKOUT] Embedded mode:', this.embedded);
+        
         // If embedded, emit event instead of navigating
         if (this.embedded) {
+          console.log('✅ [CHECKOUT] Emitting bookingComplete event...');
           this.bookingComplete.emit();
+          console.log('✅ [CHECKOUT] bookingComplete event emitted');
         } else {
           // Prepare tutor name (First Name + Last Initial)
           const tutorFirstName = this.tutor?.firstName || this.tutor?.name?.split(' ')[0] || '';
@@ -395,36 +604,118 @@ export class CheckoutPage implements OnInit {
 
   get dateMonthShort(): string {
     if (!this.dateIso) return '';
-    return new Date(this.dateIso).toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+    } catch (e) {
+      console.error('Error parsing dateMonthShort:', e, this.dateIso);
+      return '';
+    }
   }
 
   get dateDayNumber(): string {
     if (!this.dateIso) return '';
-    return String(new Date(this.dateIso).getDate());
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return String(date.getDate());
+    } catch (e) {
+      console.error('Error parsing dateDayNumber:', e, this.dateIso);
+      return '';
+    }
   }
 
   get dateWeekday(): string {
     if (!this.dateIso) return '';
-    return new Date(this.dateIso).toLocaleDateString(undefined, { weekday: 'long' });
+    try {
+      // Parse date explicitly to avoid timezone issues
+      const parts = this.dateIso.split('-');
+      if (parts.length !== 3) return '';
+      const [year, month, day] = parts.map(Number);
+      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString(undefined, { weekday: 'long' });
+    } catch (e) {
+      console.error('Error parsing dateWeekday:', e, this.dateIso);
+      return '';
+    }
   }
 
   get pricePerLesson(): number {
     const rate = this.tutor?.hourlyRate ?? this.tutor?.onboardingData?.hourlyRate ?? 20;
     // Rate is for standard 50-minute lesson, not hourly (60 min)
     const STANDARD_LESSON_DURATION = 50;
-    return Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
+    const basePrice = Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
+    
+    // Trial lessons have no discount, just shorter duration (25 min by default)
+    return basePrice;
   }
 
   get processingFee(): number { return 0; }
   get discount(): number { return 0; }
-  get total(): number { return Math.max(this.pricePerLesson + this.processingFee - this.discount, 0); }
+  get total(): number { 
+    return Math.max(this.pricePerLesson + this.processingFee - this.discount, 0); 
+  }
 
   private parseStartDate(): Date | null {
-    if (!this.dateIso || !this.time) return null;
-    const [h, m] = this.time.split(':').map(Number);
-    const d = new Date(this.dateIso);
-    d.setHours(h, m, 0, 0);
-    return d;
+    if (!this.dateIso || !this.time) {
+      console.warn('🕐 [CHECKOUT] parseStartDate: missing dateIso or time', {
+        dateIso: this.dateIso,
+        time: this.time
+      });
+      return null;
+    }
+    
+    try {
+      // Parse date components from ISO string (YYYY-MM-DD)
+      const dateParts = this.dateIso.split('-');
+      if (dateParts.length !== 3) {
+        console.error('🕐 [CHECKOUT] Invalid dateIso format:', this.dateIso);
+        return null;
+      }
+      const [year, month, day] = dateParts.map(Number);
+      
+      // Parse time components (HH:MM in 24-hour format)
+      const timeParts = this.time.split(':');
+      if (timeParts.length < 2) {
+        console.error('🕐 [CHECKOUT] Invalid time format:', this.time);
+        return null;
+      }
+      const [hours, minutes] = timeParts.map(Number);
+      
+      // Validate parsed values
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+        console.error('🕐 [CHECKOUT] Invalid date/time values:', {
+          year, month, day, hours, minutes
+        });
+        return null;
+      }
+      
+      // Create date in LOCAL timezone (not UTC)
+      // This ensures the lesson is scheduled for the correct local time
+      const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
+      
+      console.log('🕐 [CHECKOUT] parseStartDate:', {
+        input: { dateIso: this.dateIso, time: this.time },
+        parsed: { year, month, day, hours, minutes },
+        localDate: localDate.toISOString(),
+        localDateString: localDate.toString()
+      });
+      
+      return localDate;
+    } catch (e) {
+      console.error('🕐 [CHECKOUT] Error parsing start date:', e);
+      return null;
+    }
   }
 
   private format12h(d: Date): string {
@@ -436,5 +727,114 @@ export class CheckoutPage implements OnInit {
     if (!start) return '';
     const end = new Date(start.getTime() + this.lessonMinutes * 60000);
     return `${this.format12h(start)} – ${this.format12h(end)}`;
+  }
+
+  // Computed properties for template
+  get tutorDisplayName(): string {
+    if (!this.tutor) return '';
+    
+    // Try to get firstName and lastName
+    const firstName = this.tutor.firstName || this.tutor.name?.split(' ')[0] || 'Tutor';
+    const lastName = this.tutor.lastName || this.tutor.name?.split(' ')[1];
+    
+    // Return "FirstName L." format
+    if (lastName) {
+      return `${firstName} ${lastName.charAt(0)}.`;
+    }
+    
+    return firstName;
+  }
+
+  get isTrialLesson(): boolean {
+    // First lesson with this tutor = trial lesson
+    return this.previousLessonsWithTutor === 0;
+  }
+
+  get isHybridPayment(): boolean {
+    return this.walletBalance > 0 && this.walletAmountToUse > 0 && this.remainingAmountToPay > 0;
+  }
+
+  get walletAmountToUse(): number {
+    if (!this.walletBalance || this.selectedPaymentMethod !== 'wallet') return 0;
+    return Math.min(this.walletBalance, this.total);
+  }
+
+  get remainingAmountToPay(): number {
+    return Math.max(this.total - this.walletAmountToUse, 0);
+  }
+
+  get canUseWallet(): boolean {
+    return this.walletBalance >= this.total;
+  }
+
+  get formattedAvailableBalance(): string {
+    return this.walletBalance.toFixed(2);
+  }
+
+  get hasValidPaymentMethod(): boolean {
+    if (this.selectedPaymentMethod === 'wallet') {
+      return this.canUseWallet;
+    }
+    if (this.selectedPaymentMethod === 'saved-card') {
+      return !!this.defaultCard;
+    }
+    if (this.selectedPaymentMethod === 'apple') {
+      return this.isApplePayAvailable;
+    }
+    if (this.selectedPaymentMethod === 'google') {
+      return this.isGooglePayAvailable;
+    }
+    return false;
+  }
+
+  // Payment methods
+  selectPaymentMethod(method: string, paymentMethodId?: string): void {
+    this.selectedPaymentMethod = method;
+    console.log('Selected payment method:', method, paymentMethodId);
+  }
+
+  async openCardManagementModal(): Promise<void> {
+    const modal = await this.modalController.create({
+      component: CardManagementModalComponent,
+      cssClass: 'card-management-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onDidDismiss();
+    
+    if (role === 'card-selected' && data?.selectedCard) {
+      // User selected a card
+      this.defaultCard = data.selectedCard;
+      this.selectPaymentMethod('saved-card', data.selectedCard.stripePaymentMethodId);
+    } else if (data?.cardsUpdated) {
+      // Cards were added/removed, reload the card list
+      await this.loadSavedCards();
+    }
+  }
+
+  private async loadSavedCards(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/payment-methods`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success && response.paymentMethods) {
+        // Find the default card (or use the first one)
+        const cards = response.paymentMethods.filter((pm: any) => pm.type === 'card');
+        this.defaultCard = cards.find((card: any) => card.isDefault) || cards[0] || null;
+        
+        if (this.defaultCard) {
+          console.log('✅ Loaded default card:', this.defaultCard);
+          // Automatically select the default card as the payment method
+          this.selectedPaymentMethod = 'saved-card';
+          console.log('✅ Auto-selected saved-card as payment method');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading saved cards:', error);
+    }
   }
 }

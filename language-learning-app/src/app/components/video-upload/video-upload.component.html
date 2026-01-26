@@ -121,43 +121,46 @@
   
   <!-- VIDEO PREVIEW (for both modes) -->
   <div class="video-preview" *ngIf="videoUrl">
-    <div class="video-container">
-      <!-- External video (YouTube/Vimeo) with Thumbnail -->
-      <div class="external-video-preview" *ngIf="isExternalVideo(videoUrl)">
-        <div class="thumbnail-overlay" *ngIf="thumbnailUrl && showThumbnailOverlay" (click)="playVideo()">
-          <img [src]="thumbnailUrl" alt="Video thumbnail" class="video-thumbnail">
-          <div class="play-overlay">
-            <ion-icon name="play-circle" class="play-icon"></ion-icon>
-          </div>
-        </div>
-        <iframe 
-          #iframeElement
-          *ngIf="!thumbnailUrl || !showThumbnailOverlay"
-          [src]="videoUrl | safeUrl"
-          frameborder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen
-          class="preview-iframe">
-        </iframe>
+    <div class="video-thumbnail-wrapper" (click)="playVideo()">
+      <!-- Pending Review Badge -->
+      <div class="pending-review-badge" *ngIf="hasPendingVideo">
+        <ion-icon name="time-outline"></ion-icon>
+        <span>Pending Admin Review</span>
       </div>
       
-      <!-- Uploaded video (GCP) with optional Thumbnail -->
-      <div class="uploaded-video-preview" *ngIf="!isExternalVideo(videoUrl)">
-        <div class="thumbnail-overlay" *ngIf="thumbnailUrl && showThumbnailOverlay" (click)="playVideo()">
-          <img [src]="thumbnailUrl" alt="Video thumbnail" class="video-thumbnail">
-          <div class="play-overlay">
-            <ion-icon name="play-circle" class="play-icon"></ion-icon>
-          </div>
+      <!-- Show thumbnail if available with loading=eager for better quality -->
+      <img *ngIf="thumbnailUrl" 
+           [src]="thumbnailUrl" 
+           alt="Video preview" 
+           class="video-thumbnail-image"
+           loading="eager"
+           decoding="sync">
+      
+      <!-- For uploaded videos without thumbnail, show video element for preview -->
+      <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
+             [src]="videoUrl" 
+             class="video-thumbnail-image"
+             preload="metadata"
+             crossorigin="anonymous"
+             #videoPreview></video>
+      
+      <!-- For YouTube/Vimeo without custom thumbnail, show platform thumbnail or placeholder -->
+      <div *ngIf="!thumbnailUrl && videoUrl && (videoType === 'youtube' || videoType === 'vimeo')" 
+           class="external-video-placeholder">
+        <img *ngIf="externalVideoThumbnail" 
+             [src]="externalVideoThumbnail" 
+             alt="Video preview" 
+             class="video-thumbnail-image"
+             loading="eager"
+             decoding="sync">
+        <div *ngIf="!externalVideoThumbnail" class="placeholder-content">
+          <ion-icon [name]="videoType === 'youtube' ? 'logo-youtube' : 'logo-vimeo'"></ion-icon>
+          <p>{{ videoType === 'youtube' ? 'YouTube' : 'Vimeo' }} Video</p>
         </div>
-        <video 
-          #videoElement
-          *ngIf="!thumbnailUrl || !showThumbnailOverlay"
-          src="{{videoUrl}}#t=0.001" 
-          controls 
-          preload="metadata" 
-          class="preview-video">
-          Your browser does not support the video tag.
-        </video>
+      </div>
+      
+      <div class="video-play-overlay">
+        <ion-icon name="play"></ion-icon>
       </div>
     </div>
     

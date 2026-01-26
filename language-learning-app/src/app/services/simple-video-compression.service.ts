@@ -15,9 +15,9 @@ export class SimpleVideoCompressionService {
   } = {}): Promise<File> {
     const {
       maxSizeMB = 50,
-      maxWidth = 1280,
-      maxHeight = 720,
-      quality = 0.7
+      maxWidth = 1920,  // Increased from 1280 to Full HD
+      maxHeight = 1080, // Increased from 720 to Full HD
+      quality = 0.95    // Increased from 0.7 to 95% for much sharper thumbnails
     } = options;
 
     return new Promise((resolve, reject) => {

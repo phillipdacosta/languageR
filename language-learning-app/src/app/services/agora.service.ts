@@ -559,6 +559,8 @@ export class AgoraService {
         console.log("✅ Successfully subscribed to user:", user.uid, mediaType);
         
         if (mediaType === "video") {
+          console.log("📹 [VIDEO] User published video:", user.uid);
+          
           // Default to ON, will be quickly corrected via messaging if camera is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 
@@ -574,6 +576,8 @@ export class AgoraService {
         }
         
         if (mediaType === "audio") {
+          console.log("🔊 [AUDIO] User published audio:", user.uid);
+          
           // Default to unmuted, will be quickly corrected via messaging if mic is OFF
           this.remoteUsers.set(user.uid, { 
             ...this.remoteUsers.get(user.uid), 

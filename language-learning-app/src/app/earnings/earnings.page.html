@@ -1,0 +1,451 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="goBack()">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>My Earnings</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading earnings...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadEarnings()" fill="outline">
+      <ion-icon name="refresh" slot="start"></ion-icon>
+      Retry
+    </ion-button>
+  </div>
+
+  <!-- Earnings Summary -->
+  <div *ngIf="!loading && !error" class="earnings-content">
+    
+    <!-- NEW: Withdrawal System Balance Cards -->
+    <div class="balance-section">
+      <div class="section-header">
+        <h2>Your Balance</h2>
+        <ion-button 
+          (click)="requestWithdrawal()" 
+          [disabled]="withdrawing || balance.available <= 0"
+          size="small"
+          class="withdraw-button">
+          <ion-icon name="cash-outline" slot="start"></ion-icon>
+          Withdraw Funds
+        </ion-button>
+      </div>
+
+      <div class="balance-cards">
+        <div class="balance-card pending">
+          <div class="card-icon">
+            <ion-icon name="hourglass-outline"></ion-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">Pending</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'pending')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+            </div>
+            <div class="card-sublabel">24hr hold period</div>
+          </div>
+        </div>
+
+        <div class="balance-card available">
+          <div class="card-icon">
+            <ion-icon name="wallet-outline"></ion-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">Available</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'available')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+            </div>
+            <div class="card-sublabel">Ready to withdraw</div>
+          </div>
+        </div>
+
+        <div class="balance-card lifetime">
+          <div class="card-icon">
+            <ion-icon name="trophy-outline"></ion-icon>
+          </div>
+          <div class="card-content">
+            <div class="card-label">Lifetime Earnings</div>
+            <div class="card-value wallet-value" 
+                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+                 (click)="toggleWalletVisibility($event, 'lifetime')">
+              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
+              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+            </div>
+            <div class="card-sublabel">Total earned</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Withdrawal History -->
+    <div class="payment-breakdown">
+      <h3>Recent Lessons</h3>
+      
+      <div *ngIf="recentPayments.length === 0" class="no-payments">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <p>No lessons yet</p>
+        <p class="sublabel">Earnings from lessons will appear here</p>
+      </div>
+
+      <!-- Table View -->
+      <div *ngIf="recentPayments.length > 0" class="payments-table-container">
+        <table class="payments-table">
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Student</th>
+              <th>Status</th>
+              <th>Gross</th>
+              <th>Platform Fee</th>
+              <th>Your Earnings</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              *ngFor="let payment of recentPayments" 
+              class="payment-row"
+              [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded'"
+              [class.refunded-row]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
+              (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded') && viewLesson(payment.lessonId)">
+              
+              <!-- Date & Time -->
+              <td class="datetime-col">
+                <div class="datetime-info">
+                  <div class="date">{{ payment.date | date:'MMM d, y' }}</div>
+                  <div class="time" *ngIf="payment.startTime && payment.endTime">
+                    {{ payment.startTime | date:'h:mm a' }} - {{ payment.endTime | date:'h:mm a' }}
+                  </div>
+                  <div class="time" *ngIf="!payment.startTime || !payment.endTime">
+                    Time not set
+                  </div>
+                </div>
+              </td>
+              
+              <!-- Student -->
+              <td class="student-col">
+                <div class="student-info">
+                  <div class="student-avatar" *ngIf="payment.studentPicture">
+                    <img 
+                      [src]="payment.studentPicture" 
+                      [alt]="payment.studentName"
+                      referrerpolicy="no-referrer"
+                      loading="lazy"
+                      (error)="onImageError($event)">
+                  </div>
+                  <div class="student-avatar fallback" *ngIf="!payment.studentPicture">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
+                  <span>{{ payment.studentName }}</span>
+                </div>
+              </td>
+              
+              <!-- Status -->
+              <td class="status-col">
+                <div class="status-wrapper">
+                  <ion-badge [color]="getStatusColor(payment.status)">
+                    {{ getStatusText(payment.status) }}
+                  </ion-badge>
+                  <div class="status-reason" *ngIf="getStatusNote(payment)">
+                    {{ getStatusNote(payment) }}
+                  </div>
+                </div>
+              </td>
+              
+              <!-- Gross -->
+              <td class="amount-col">
+                <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
+                  <span class="cancelled-amount strikethrough">${{ (payment.amount || payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                </ng-container>
+                <ng-container *ngIf="payment.status === 'partially_refunded'">
+                  <div class="amount-with-original">
+                    <span class="original-strikethrough">${{ (payment.amount || 0).toFixed(2) }}</span>
+                    <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
+                  ${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}
+                </ng-container>
+              </td>
+              
+              <!-- Platform Fee -->
+              <td class="amount-col fee-col">
+                <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">$0.00</ng-container>
+                <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded'">
+                  ${{ payment.platformFee.toFixed(2) }}
+                </ng-container>
+              </td>
+              
+              <!-- Your Earnings -->
+              <td class="amount-col earnings-col">
+                <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
+                  <span class="cancelled-earnings">$0.00</span>
+                </ng-container>
+                <ng-container *ngIf="payment.status === 'partially_refunded'">
+                  <div class="amount-with-badge">
+                    <span class="reduced-amount">${{ payment.tutorPayout.toFixed(2) }}</span>
+                    <ion-badge color="warning" class="refund-badge-small">
+                      <ion-icon name="alert-circle"></ion-icon>
+                      Reduced
+                    </ion-badge>
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
+                  <span [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
+                    ${{ payment.tutorPayout.toFixed(2) }}
+                  </span>
+                </ng-container>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Help Text -->
+    <div class="help-text">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <div>
+        <p><strong>New Withdrawal System:</strong> Earnings are held for 24 hours after lesson completion for dispute protection, then become available for withdrawal.</p>
+        <p>You can withdraw your available balance at any time. Withdrawals are processed within 1-2 business days.</p>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<!-- Inline Withdrawal Modal -->
+<ion-modal 
+  [isOpen]="isWithdrawalModalOpen" 
+  (didDismiss)="closeWithdrawalModal()"
+  class="withdrawal-modal">
+  
+  <ng-template>
+    <ion-content>
+      <!-- Floating close button -->
+      <ion-button class="floating-close-button" fill="clear" (click)="closeWithdrawalModal()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+
+      <div class="modal-content">
+        <!-- Header -->
+        <div class="modal-header">
+          <div class="icon-wrapper">
+            <ion-icon name="wallet"></ion-icon>
+          </div>
+          <h2 class="modal-heading">Request Withdrawal</h2>
+          <p class="modal-description">Withdraw your available earnings</p>
+        </div>
+
+        <!-- Available Balance Card -->
+        <!-- Two-Column Container -->
+        <div class="withdrawal-container">
+          
+          <!-- LEFT COLUMN: Balance & Fee Breakdown -->
+          <div class="left-column">
+            
+            <!-- Available Balance -->
+            <div class="balance-card">
+              <div class="balance-label">Available Balance</div>
+              <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
+              <div class="balance-note">Minimum withdrawal: $10.00</div>
+            </div>
+
+            <!-- Fee Breakdown Card (PayPal) -->
+            <div class="fee-breakdown-card" *ngIf="selectedWithdrawalMethod === 'paypal'">
+              <!-- Show breakdown when amount is valid -->
+              <div *ngIf="withdrawalAmount >= 10; else paypalPlaceholder">
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Withdrawal amount:</span>
+                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+                </div>
+                <div class="breakdown-row fee-row">
+                  <span class="breakdown-label">
+                    PayPal fee (2%, min $0.25):
+                    <ion-icon 
+                      name="information-circle-outline" 
+                      class="fee-info-icon"
+                      (click)="showPayPalFeeInfo()">
+                    </ion-icon>
+                  </span>
+                  <span class="breakdown-value fee-value">-${{ calculatePayPalFee(withdrawalAmount).toFixed(2) }}</span>
+                </div>
+                <div class="fee-note">
+                  <ion-icon name="alert-circle-outline"></ion-icon>
+                  <span>PayPal charges this fee, not us</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row total-row">
+                  <span class="breakdown-label">You will receive:</span>
+                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
+                </div>
+              </div>
+              <!-- Placeholder when amount is invalid -->
+              <ng-template #paypalPlaceholder>
+                <div class="breakdown-placeholder">
+                  <ion-icon name="calculator-outline"></ion-icon>
+                  <p>Enter withdrawal amount above to see fee breakdown</p>
+                </div>
+              </ng-template>
+            </div>
+
+            <!-- Fee Breakdown Card (Stripe) -->
+            <div class="fee-breakdown-card stripe-card" *ngIf="selectedWithdrawalMethod === 'stripe_connect'">
+              <!-- Show breakdown when amount is valid -->
+              <div *ngIf="withdrawalAmount >= 10; else stripePlaceholder">
+                <div class="no-fee-badge">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>No withdrawal fees</span>
+                </div>
+                <div class="breakdown-row">
+                  <span class="breakdown-label">Withdrawal amount:</span>
+                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row total-row">
+                  <span class="breakdown-label">You will receive:</span>
+                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
+                </div>
+                <div class="stripe-benefit-note">
+                  <ion-icon name="information-circle-outline"></ion-icon>
+                  <span>Funds arrive in 2-7 business days</span>
+                </div>
+              </div>
+              <!-- Placeholder when amount is invalid -->
+              <ng-template #stripePlaceholder>
+                <div class="breakdown-placeholder">
+                  <ion-icon name="calculator-outline"></ion-icon>
+                  <p>Enter withdrawal amount above to see breakdown</p>
+                </div>
+              </ng-template>
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN: Amount Input & Method Selection -->
+          <div class="right-column">
+            
+            <!-- Amount Input -->
+            <div class="amount-section">
+              <label class="section-label">Withdrawal Amount</label>
+              <div class="amount-input-wrapper">
+                <div class="currency-symbol">$</div>
+                <input 
+                  type="number" 
+                  class="amount-input"
+                  [(ngModel)]="withdrawalAmount"
+                  [min]="10"
+                  [max]="balance.available"
+                  step="0.01"
+                  placeholder="0.00">
+                <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
+              </div>
+              <div class="amount-error" *ngIf="withdrawalAmount < 10 && withdrawalAmount > 0">
+                Minimum amount is $10.00
+              </div>
+              <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
+                Amount exceeds available balance
+              </div>
+            </div>
+
+            <!-- Payout Method Selection -->
+            <div class="method-section">
+              <label class="section-label">Payout Method</label>
+              
+              <!-- Stripe Option -->
+              <div 
+                *ngIf="payoutProvider === 'stripe'"
+                class="method-card"
+                [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
+                (click)="selectWithdrawalMethod('stripe_connect')">
+                <div class="method-content">
+                  <div class="method-icon stripe">
+                    <ion-icon name="card-outline"></ion-icon>
+                  </div>
+                  <div class="method-info">
+                    <div class="method-name">Stripe Connect</div>
+                    <div class="method-detail">Direct to bank account</div>
+                    <div class="method-timing">2-7 business days</div>
+                  </div>
+                  <div class="method-radio">
+                    <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'stripe_connect'">
+                      <div class="radio-dot"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PayPal Option -->
+              <div 
+                *ngIf="payoutProvider === 'paypal'"
+                class="method-card"
+                [class.selected]="selectedWithdrawalMethod === 'paypal'"
+                (click)="selectWithdrawalMethod('paypal')">
+                <div class="method-content">
+                  <div class="method-icon paypal">
+                    <img src="assets/icon/paypal-icon.png" alt="PayPal" name="logo-paypal">
+                  </div>
+                  <div class="method-info">
+                    <div class="method-name">PayPal</div>
+                    <div class="method-detail">{{ paypalEmail }}</div>
+                    <div class="method-timing">Instant to PayPal account</div>
+                  </div>
+                  <div class="method-radio">
+                    <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'paypal'">
+                      <div class="radio-dot"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div *ngIf="payoutProvider === 'none'" class="no-method-message">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                <p>Please set up your payout method in Profile settings first.</p>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Action Buttons (Full Width Below Columns) -->
+        <div class="button-container">
+          <ion-button 
+            expand="block" 
+            fill="outline"
+            (click)="closeWithdrawalModal()">
+            Cancel
+          </ion-button>
+          <ion-button 
+            expand="block"
+            [disabled]="!canWithdraw()"
+            (click)="confirmWithdrawal()">
+            Request Withdrawal
+          </ion-button>
+        </div>
+
+
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+

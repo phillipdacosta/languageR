@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { Subject, interval, firstValueFrom } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-lessons',
@@ -36,6 +38,9 @@ export class LessonsPage implements OnInit, OnDestroy {
   selectedStudentFilter: string = 'all'; // 'all' or studentId (for tutors)
   uniqueTutors: Array<{ id: string; name: string; picture: string }> = [];
   uniqueStudents: Array<{ id: string; name: string; picture: string }> = [];
+  
+  // Coaching metrics
+  coachingMetrics: any = null;
 
   constructor(
     private lessonService: LessonService,
@@ -47,12 +52,29 @@ export class LessonsPage implements OnInit, OnDestroy {
     private location: Location,
     private loadingController: LoadingController,
     private toastController: ToastController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private http: HttpClient
   ) {}
 
   async ngOnInit() {
     await this.loadCurrentUser();
     await this.loadLessons();
+    
+    // Load coaching metrics for tutors
+    if (this.isTutor()) {
+      await this.loadCoachingMetrics();
+    }
+    
+    // Check for scrollToLesson query param
+    this.route.queryParams.subscribe(params => {
+      const lessonId = params['scrollToLesson'];
+      if (lessonId) {
+        // Wait a bit for the view to render
+        setTimeout(() => {
+          this.scrollToLesson(lessonId);
+        }, 800);
+      }
+    });
   }
   ngOnDestroy() {
     this.destroy$.next();
@@ -464,5 +486,225 @@ export class LessonsPage implements OnInit, OnDestroy {
     // Future: Check lesson.paymentStatus or call payment service
     // For now, completed lessons = settled
     return 'settled';
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    if (!this.isTutor()) return;
+    
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/users/coaching-metrics`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
+  }
+
+  scrollToLesson(lessonId: string) {
+    console.log('📍 Attempting to scroll to lesson:', lessonId);
+    
+    // Find the lesson element by lesson ID
+    const element = document.getElementById(`lesson-${lessonId}`);
+    
+    if (element) {
+      // Scroll into view with smooth animation
+      element.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Add highlight animation
+      element.classList.add('highlight-lesson');
+      setTimeout(() => {
+        element.classList.remove('highlight-lesson');
+      }, 2000);
+      
+      console.log('✅ Scrolled to lesson:', lessonId);
+    } else {
+      console.log('⚠️ Lesson element not found for lesson:', lessonId);
+    }
+  }
+  
+  /**
+   * Check if student can report an issue for this lesson
+   * Only allowed within 24 hours of lesson completion
+   */
+  canReportIssue(lesson: Lesson): boolean {
+    if (!lesson.endTime || lesson.issueReported) {
+      return false;
+    }
+    
+    const lessonEndTime = new Date(lesson.endTime).getTime();
+    const now = new Date().getTime();
+    const hoursSinceEnd = (now - lessonEndTime) / (1000 * 60 * 60);
+    
+    // Can report within 24 hours
+    return hoursSinceEnd <= 24;
+  }
+  
+  /**
+   * Report an issue with a lesson
+   */
+  async reportIssue(lesson: Lesson) {
+    const alert = await this.alertController.create({
+      header: 'Report Issue',
+      message: 'Please select the issue you experienced with this lesson:',
+      inputs: [
+        {
+          type: 'radio',
+          label: 'Tutor didn\'t show up',
+          value: 'tutor_no_show'
+        },
+        {
+          type: 'radio',
+          label: 'Lesson ended early without notice',
+          value: 'ended_early'
+        },
+        {
+          type: 'radio',
+          label: 'Poor lesson quality',
+          value: 'poor_quality'
+        },
+        {
+          type: 'radio',
+          label: 'Inappropriate behavior',
+          value: 'inappropriate'
+        },
+        {
+          type: 'radio',
+          label: 'Technical issues prevented lesson',
+          value: 'technical'
+        },
+        {
+          type: 'radio',
+          label: 'Other',
+          value: 'other'
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Next',
+          handler: (issueType) => {
+            if (!issueType) {
+              this.showToast('Please select an issue type', 'warning');
+              return false;
+            }
+            // Show details input
+            this.showIssueDetailsInput(lesson, issueType);
+            return true;
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  /**
+   * Show input for issue details
+   */
+  private async showIssueDetailsInput(lesson: Lesson, issueType: string) {
+    const alert = await this.alertController.create({
+      header: 'Issue Details',
+      message: 'Please provide additional details about the issue:',
+      inputs: [
+        {
+          name: 'details',
+          type: 'textarea',
+          placeholder: 'Describe what happened...',
+          attributes: {
+            minlength: 10,
+            maxlength: 500
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Submit Report',
+          handler: async (data) => {
+            if (!data.details || data.details.length < 10) {
+              this.showToast('Please provide at least 10 characters of details', 'warning');
+              return false;
+            }
+            
+            await this.submitIssueReport(lesson, issueType, data.details);
+            return true;
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
+  }
+  
+  /**
+   * Submit issue report to backend
+   */
+  private async submitIssueReport(lesson: Lesson, issueType: string, details: string) {
+    const loading = await this.loadingController.create({
+      message: 'Submitting report...'
+    });
+    await loading.present();
+    
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/lessons/${lesson._id}/report-issue`,
+          {
+            issueType,
+            details
+          },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+      
+      if (response.success) {
+        // Update local lesson state
+        lesson.issueReported = true;
+        
+        await this.showToast('Issue reported successfully. Our team will review it shortly.', 'success');
+        
+        // Reload lessons to get updated state
+        await this.loadLessons();
+      }
+    } catch (error: any) {
+      console.error('Error reporting issue:', error);
+      await this.showToast(
+        error?.error?.message || 'Failed to report issue. Please try again.',
+        'danger'
+      );
+    } finally {
+      await loading.dismiss();
+    }
+  }
+  
+  /**
+   * Show toast message
+   */
+  private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      color,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 }

@@ -1,0 +1,409 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button routerLink="/tabs/home">
+        <ion-icon name="arrow-back"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Platform Revenue</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="exportToCSV()" [disabled]="!revenueData">
+        <ion-icon name="download-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading revenue data...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadRevenueData()" fill="outline">
+      <ion-icon name="refresh" slot="start"></ion-icon>
+      Retry
+    </ion-button>
+  </div>
+
+  <!-- Revenue Dashboard -->
+  <div *ngIf="!loading && !error && revenueData" class="revenue-dashboard">
+    
+    <!-- Date Range Selector -->
+    <div class="date-range-selector">
+      <ion-segment [(ngModel)]="dateRange" (ionChange)="changeDateRange(dateRange)">
+        <ion-segment-button value="week">
+          <ion-label>Week</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="month">
+          <ion-label>Month</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="quarter">
+          <ion-label>Quarter</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="year">
+          <ion-label>Year</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="all">
+          <ion-label>All Time</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="custom">
+          <ion-label>Custom</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <!-- Custom Date Range Picker -->
+      <div class="custom-date-picker" *ngIf="dateRange === 'custom'">
+        <div class="date-inputs">
+          <div class="date-input-group">
+            <ion-label>Start Date</ion-label>
+            <ion-input
+              type="date"
+              [(ngModel)]="customStartDate"
+              (ionChange)="applyCustomDateRange()"
+              fill="outline">
+            </ion-input>
+          </div>
+          <div class="date-input-group">
+            <ion-label>End Date</ion-label>
+            <ion-input
+              type="date"
+              [(ngModel)]="customEndDate"
+              (ionChange)="applyCustomDateRange()"
+              fill="outline">
+            </ion-input>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+      <!-- Net Platform Revenue (Most Important) -->
+      <div class="summary-card primary">
+        <div class="card-icon">
+          <ion-icon name="cash"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Net Platform Revenue</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalNetPlatformRevenue) }}</div>
+          <div class="card-sublabel">Your actual profit</div>
+        </div>
+      </div>
+
+      <!-- Total Lessons -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="school"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Total Lessons</div>
+          <div class="card-value">{{ revenueData.summary.totalLessons }}</div>
+          <div class="card-sublabel">Completed</div>
+        </div>
+      </div>
+
+      <!-- Gross Revenue -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="trending-up"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Gross Revenue</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalGrossRevenue) }}</div>
+          <div class="card-sublabel">Total from all lessons</div>
+        </div>
+      </div>
+
+      <!-- Platform Fee -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="pie-chart"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Platform Fee (20%)</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalPlatformFee) }}</div>
+          <div class="card-sublabel">Before Stripe fees</div>
+        </div>
+      </div>
+
+      <!-- Stripe Fees -->
+      <div class="summary-card warning">
+        <div class="card-icon">
+          <ion-icon name="card"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Stripe Fees</div>
+          <div class="card-value">{{ formatCurrency(revenueData.summary.totalStripeFees) }}</div>
+          <div class="card-sublabel">Processing costs</div>
+        </div>
+      </div>
+
+      <!-- Effective Fee -->
+      <div class="summary-card">
+        <div class="card-icon">
+          <ion-icon name="calculator"></ion-icon>
+        </div>
+        <div class="card-content">
+          <div class="card-label">Effective Fee</div>
+          <div class="card-value">{{ formatPercent(revenueData.summary.effectiveFeeAfterStripe) }}</div>
+          <div class="card-sublabel">After Stripe fees</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Safe Withdrawal Info (NEW) -->
+    <div class="withdrawal-section" *ngIf="revenueData.withdrawalInfo">
+      <h3>
+        <ion-icon name="wallet-outline"></ion-icon>
+        Withdrawal Status
+      </h3>
+      
+      <div class="withdrawal-card primary-highlight">
+        <!-- Safe to Withdraw Amount (Most Important) -->
+        <div class="withdrawal-main">
+          <div class="withdrawal-label">Safe to Withdraw Now</div>
+          <div class="withdrawal-amount success">
+            {{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}
+          </div>
+          <div class="withdrawal-sublabel">You can safely transfer this to your bank account</div>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="withdrawal-breakdown">
+          <div class="breakdown-row">
+            <span class="breakdown-label">Current Stripe Balance:</span>
+            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.currentStripeBalance) }}</span>
+          </div>
+          <div class="breakdown-row pending" *ngIf="revenueData.withdrawalInfo.stripePendingBalance > 0">
+            <span class="breakdown-label">Stripe Pending (processing):</span>
+            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.stripePendingBalance) }}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">Owed to Tutors:</span>
+            <span class="breakdown-value negative">-{{ formatCurrency(revenueData.withdrawalInfo.totalOwedToTutors) }}</span>
+          </div>
+          <div class="breakdown-sub-row">
+            <span class="breakdown-sublabel">
+              <ion-icon name="time-outline"></ion-icon>
+              Pending (24hr hold):
+            </span>
+            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsPending) }}</span>
+          </div>
+          <div class="breakdown-sub-row">
+            <span class="breakdown-sublabel">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              Available (can withdraw):
+            </span>
+            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsAvailable) }}</span>
+          </div>
+          <div class="breakdown-sub-row" *ngIf="revenueData.withdrawalInfo.breakdown.tutorsCount > 0">
+            <span class="breakdown-sublabel">
+              <ion-icon name="people-outline"></ion-icon>
+              Tutors with balance:
+            </span>
+            <span class="breakdown-subvalue">{{ revenueData.withdrawalInfo.breakdown.tutorsCount }}</span>
+          </div>
+          <div class="breakdown-divider"></div>
+          <div class="breakdown-row total">
+            <span class="breakdown-label"><strong>Your Net Revenue:</strong></span>
+            <span class="breakdown-value success"><strong>{{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}</strong></span>
+          </div>
+        </div>
+
+        <!-- Warning Message -->
+        <div class="withdrawal-warning" *ngIf="revenueData.withdrawalInfo.warning">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <span>{{ revenueData.withdrawalInfo.warning }}</span>
+        </div>
+
+        <!-- Discrepancy Info (only show if significant) -->
+        <div class="withdrawal-info" *ngIf="revenueData.withdrawalInfo.discrepancy > 1">
+          <ion-icon name="analytics-outline"></ion-icon>
+          <span>
+            Discrepancy: {{ formatCurrency(revenueData.withdrawalInfo.discrepancy) }} 
+            between safe withdrawal ({{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }})
+            and recognized revenue ({{ formatCurrency(revenueData.withdrawalInfo.recognizedRevenue) }})
+          </span>
+        </div>
+
+        <!-- Help Text -->
+        <div class="withdrawal-help">
+          <ion-icon name="help-circle-outline"></ion-icon>
+          <span>This calculation accounts for all tutor funds (pending + available), ensuring you never over-withdraw.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Averages Section -->
+    <div class="averages-section">
+      <h3>Averages</h3>
+      <div class="averages-grid">
+        <div class="average-item">
+          <div class="average-label">Avg Lesson Price</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgLessonPrice) }}</div>
+        </div>
+        <div class="average-item">
+          <div class="average-label">Avg Platform Fee</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgPlatformFeePerLesson) }}</div>
+        </div>
+        <div class="average-item">
+          <div class="average-label">Avg Net Revenue</div>
+          <div class="average-value">{{ formatCurrency(revenueData.summary.avgNetRevenuePerLesson) }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Revenue -->
+    <div class="pending-section" *ngIf="revenueData.pending.pendingLessons > 0">
+      <h3>Pending Revenue</h3>
+      <div class="pending-card">
+        <div class="pending-info">
+          <div class="pending-label">{{ revenueData.pending.pendingLessons }} lessons awaiting payment</div>
+          <div class="pending-amounts">
+            <span>Platform Fee: {{ formatCurrency(revenueData.pending.totalPendingRevenue) }}</span>
+            <span>Stripe Fees: {{ formatCurrency(revenueData.pending.totalPendingStripeFees) }}</span>
+            <span class="pending-net">Net: {{ formatCurrency(revenueData.pending.totalPendingNetRevenue) }}</span>
+          </div>
+          <div class="next-processing" *ngIf="revenueData.pending.nextProcessingTime">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>Next processing: {{ formatProcessingTime(revenueData.pending.nextProcessingTime) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- By Payment Method -->
+    <div class="payment-methods-section">
+      <h3>By Payment Method</h3>
+      <div class="payment-methods-list">
+        <div class="payment-method-item" *ngFor="let method of revenueData.byPaymentMethod | keyvalue">
+          <div class="method-info" *ngIf="method.value.count > 0">
+            <div class="method-name">{{ getPaymentMethodName(method.key) }}</div>
+            <div class="method-stats">
+              <span>{{ method.value.count }} lessons</span>
+              <span>{{ formatCurrency(method.value.total) }} total</span>
+              <span class="method-fee">{{ formatCurrency(method.value.platformFee) }} platform fee</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Payments -->
+    <div class="recent-payments-section">
+      <h3>
+        Recent Payments
+        <span class="payment-count" *ngIf="revenueData?.pagination">
+          ({{ allPayments.length }} of {{ revenueData.pagination?.totalPayments }})
+        </span>
+      </h3>
+      <div class="payments-table-wrapper">
+        <table class="payments-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Student</th>
+              <th>Tutor</th>
+              <th>Lesson ID</th>
+              <th>Payment Status</th>
+              <th>Transfer Status</th>
+              <th>Release Date</th>
+              <th>Method</th>
+              <th>Gross</th>
+              <th>Platform Fee</th>
+              <th>Stripe Fee</th>
+              <th>Net Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let payment of allPayments">
+              <td>{{ payment.date | date:'MMM d, h:mm a' }}</td>
+              <td>{{ payment.studentName }}</td>
+              <td>{{ payment.tutorName }}</td>
+              <td class="lesson-id-cell">
+                <span class="lesson-id-badge" *ngIf="payment.lessonId">
+                  {{ payment.lessonId }}
+                </span>
+                <span *ngIf="!payment.lessonId" class="na-text">N/A</span>
+              </td>
+              <td>
+                <ion-badge [color]="getPaymentStatusColor(payment.paymentStatus)">
+                  {{ getPaymentStatusText(payment.paymentStatus) }}
+                </ion-badge>
+                <div class="refund-info" *ngIf="payment.refundMethod">
+                  <ion-icon [name]="payment.refundMethod === 'wallet' ? 'wallet-outline' : 'card-outline'"></ion-icon>
+                  Refunded to {{ payment.refundMethod }}
+                </div>
+              </td>
+              <td>
+                <ion-badge [color]="getTransferStatusColor(payment.transferStatus)">
+                  {{ getTransferStatusText(payment.transferStatus) }}
+                </ion-badge>
+              </td>
+              <td class="release-date-cell">
+                <div *ngIf="payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'">
+                  <div [class.past-release]="isPastReleaseDate(payment.earningsReleaseDate)">
+                    {{ payment.earningsReleaseDate | date:'MMM d, h:mm a' }}
+                  </div>
+                  <div class="processing-time" *ngIf="!isPastReleaseDate(payment.earningsReleaseDate)">
+                    Processes: {{ getProcessingTime(payment.earningsReleaseDate) }}
+                  </div>
+                  <div class="already-available" *ngIf="isPastReleaseDate(payment.earningsReleaseDate) && payment.transferStatus === 'on_hold'">
+                    Processing soon...
+                  </div>
+                  <div class="already-available" *ngIf="isPastReleaseDate(payment.earningsReleaseDate) && payment.transferStatus === 'available'">
+                    ✓ Available
+                  </div>
+                </div>
+                <div *ngIf="payment.paymentStatus === 'refunded' || payment.paymentStatus === 'cancelled'" class="refunded-status">
+                  <span class="na-text">Not applicable</span>
+                  <div class="refund-note">Payment was refunded</div>
+                </div>
+                <span *ngIf="!payment.earningsReleaseDate && payment.paymentStatus !== 'refunded' && payment.paymentStatus !== 'cancelled'" class="na-text">N/A</span>
+              </td>
+              <td>{{ getPaymentMethodName(payment.paymentMethod) }}</td>
+              <td>{{ formatCurrency(+payment.grossAmount) }}</td>
+              <td>{{ formatCurrency(+payment.platformFee) }}</td>
+              <td class="stripe-fee">{{ formatCurrency(+payment.stripeFee) }}</td>
+              <td class="net-revenue">{{ formatCurrency(+payment.netPlatformRevenue) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Loading More Indicator -->
+        <div class="loading-more" *ngIf="loadingMore">
+          <ion-spinner name="dots"></ion-spinner>
+          <p>Loading more payments...</p>
+        </div>
+
+        <!-- Load More Button -->
+        <div class="load-more-section" *ngIf="revenueData?.pagination?.hasMore && !loadingMore">
+          <ion-button expand="block" fill="outline" (click)="loadMore()">
+            <ion-icon name="chevron-down" slot="start"></ion-icon>
+            Load More
+            <span class="load-more-count">
+              ({{ (revenueData.pagination?.totalPayments || 0) - allPayments.length }} remaining)
+            </span>
+          </ion-button>
+        </div>
+
+        <!-- No More Payments Message -->
+        <div class="all-loaded" *ngIf="!revenueData?.pagination?.hasMore && allPayments.length > 0">
+          <ion-icon name="checkmark-circle"></ion-icon>
+          <p>All payments loaded</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</ion-content>
+
+
+

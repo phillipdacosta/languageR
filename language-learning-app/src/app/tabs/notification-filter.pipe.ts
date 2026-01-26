@@ -7,7 +7,8 @@ import { Notification } from '../services/notification.service';
   pure: true
 })
 export class NotificationFilterPipe implements PipeTransform {
-  transform(notifications: Notification[] | null, filterType: 'read' | 'unread'): Notification[] {
+  // 🚀 PERFORMANCE FIX: Made generic to preserve extended notification types
+  transform<T extends Notification>(notifications: T[] | null, filterType: 'read' | 'unread'): T[] {
     if (!notifications) return [];
     
     if (filterType === 'unread') {

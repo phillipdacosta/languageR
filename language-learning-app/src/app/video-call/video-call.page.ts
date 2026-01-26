@@ -1096,9 +1096,26 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     attemptSetup();
   }
 
+  private remoteUserMonitorInterval: any = null;
+  private joinSoundEnabled: boolean = false; // Prevent sound during initial join
+
   private monitorRemoteUsers() {
+    // Prevent multiple intervals from being created
+    if (this.remoteUserMonitorInterval) {
+      console.log('⚠️ Remote user monitoring already active, skipping duplicate setup');
+      return;
+    }
+    
+    console.log('👀 Starting remote user monitoring...');
+    
+    // Enable join sound after 2 seconds (after initial connection stabilizes)
+    setTimeout(() => {
+      this.joinSoundEnabled = true;
+      console.log('🔔 Join sound notifications enabled');
+    }, 2000);
+    
     // Check for remote users periodically
-    setInterval(() => {
+    this.remoteUserMonitorInterval = setInterval(() => {
       const remoteUsers = this.agoraService.getRemoteUsers();
       const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
@@ -1157,6 +1174,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // When a new remote user joins (count increases), play their video
         if (this.remoteUserCount > previousCount) {
           console.log('🎬 Remote user count increased - new user joined, playing videos...');
+          
+          // Play join sound notification - but ONLY if:
+          // 1. There's actually a remote user (remoteUserCount > 0)
+          // 2. We're past the initial join phase (joinSoundEnabled = true)
+          if (this.remoteUserCount > 0 && this.joinSoundEnabled) {
+            console.log('🔔 [VIDEO-CALL] Playing join sound for new participant (count:', this.remoteUserCount, ')');
+            this.playJoinSound();
+          } else if (!this.joinSoundEnabled) {
+            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (still in initial connection phase)');
+          } else {
+            console.log('ℹ️ [VIDEO-CALL] Skipping join sound (no remote users yet)');
+          }
           
           // For office hours: Start synchronized timer when second participant joins
           if (this.isOfficeHours && previousCount === 0 && this.remoteUserCount === 1) {
@@ -4811,16 +4840,43 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             await firstValueFrom(this.lessonService.endCall(this.lessonId!));
             console.log('✅ Lesson finalized');
             
-            // Navigate to analysis page (generating state)
-            await this.router.navigate(['/lesson-analysis', this.lessonId]);
+            // Navigate based on role to NEW post-lesson pages
+            if (this.userRole === 'student') {
+              console.log('📊 Navigating student to post-lesson page');
+              await this.router.navigate(['/post-lesson-student', this.lessonId]);
+            } else {
+              console.log('🎉 Navigating tutor to post-lesson page');
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
+            }
           } catch (err) {
             console.error('❌ Error finalizing lesson:', err);
           }
         }, 300);
       } else if (otherParticipantEnded) {
-        // Other participant ended - just go home (lesson already finalized by them)
-        console.log('🚪 VideoCall: Other participant ended lesson - returning to home');
-        // User is already on /tabs from navigation above
+        // Other participant ended - navigate based on role (lesson already finalized by them)
+        console.log('🚪 VideoCall: Other participant ended lesson');
+        setTimeout(async () => {
+          try {
+            if (this.userRole === 'student') {
+              // Students see the post-lesson page
+              console.log('📊 Navigating student to post-lesson page');
+              await this.router.navigate(['/post-lesson-student', this.lessonId]);
+            } else {
+              // Tutors see post-lesson page
+              console.log('🎉 Navigating tutor to post-lesson page');
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
+            }
+          } catch (err) {
+            console.error('❌ Error navigating after other participant ended:', err);
+          }
+        }, 300);
+      }
+      
+      // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
+      if (this.userRole === 'tutor') {
+        setTimeout(() => {
+          this.promptTutorNote();
+        }, 2000); // Give tutor a moment to breathe after lesson
       }
     } catch (error) {
       console.error('Error ending call:', error);
@@ -5081,6 +5137,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    
+    // Stop remote user monitoring
+    if (this.remoteUserMonitorInterval) {
+      clearInterval(this.remoteUserMonitorInterval);
+      this.remoteUserMonitorInterval = null;
     }
     
     // Clean up drawing batch timeout
@@ -5570,19 +5632,24 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // Check if student has AI analysis enabled
-      // Default to TRUE if we can't determine (backwards compatibility)
-      console.log('🤖 Checking AI analysis setting for student...');
-      const student = lesson.studentId as any; // Should be populated by backend
+      // FEATURE TEMPORARILY DISABLED: AI analysis toggle
+      // Always enable transcription for now
+      // 
+      // // Check if student has AI analysis enabled
+      // // Default to TRUE if we can't determine (backwards compatibility)
+      // console.log('🤖 Checking AI analysis setting for student...');
+      // const student = lesson.studentId as any; // Should be populated by backend
+      // 
+      // // Only skip if explicitly disabled
+      // if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+      //   console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
+      //   console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
+      //   return;
+      // }
+      // 
+      // console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
       
-      // Only skip if explicitly disabled
-      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
-        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
-        console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
-        return;
-      }
-      
-      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
+      console.log('✅ Proceeding with transcription (AI analysis always enabled)');
 
       // Determine language being learned and convert to ISO code
       const languageMap: { [key: string]: string } = {
@@ -6339,6 +6406,71 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
     } catch (error) {
       console.error('❌ Error in completeLessonWithSummary:', error);
+    }
+  }
+
+  /**
+   * Prompt tutor to add a quick note after lesson
+   */
+  async promptTutorNote() {
+    try {
+      const toast = await this.toastController.create({
+        header: '📝 Quick Note?',
+        message: 'Add a note for your student? (optional)',
+        duration: 8000,
+        position: 'bottom',
+        cssClass: 'tutor-note-toast',
+        buttons: [
+          {
+            text: 'Skip',
+            role: 'cancel'
+          },
+          {
+            text: 'Add Note',
+            handler: () => {
+              // Navigate to home tab and trigger modal opening via localStorage
+              this.router.navigate(['/tabs/home']).then(() => {
+                // Signal to home page to open tutor note modal
+                localStorage.setItem('openTutorNoteModal', JSON.stringify({
+                  lessonId: this.lessonId,
+                  timestamp: Date.now()
+                }));
+                // Dispatch custom event to trigger modal
+                window.dispatchEvent(new CustomEvent('openTutorNoteModal'));
+              });
+            }
+          }
+        ]
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('❌ Error showing tutor note toast:', error);
+    }
+  }
+
+  /**
+   * Play a notification sound when a participant joins the call
+   */
+  private playJoinSound(): void {
+    console.log('🔔 [VIDEO-CALL] Attempting to play join notification sound...');
+    try {
+      const audio = new Audio('assets/participant-entry-tone.wav');
+      audio.volume = 0.6; // 60% volume
+      
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ [VIDEO-CALL] Successfully played join notification sound!');
+          })
+          .catch(err => {
+            console.error('❌ [VIDEO-CALL] Failed to play sound:', err);
+            console.error('❌ [VIDEO-CALL] Error details:', err.message);
+          });
+      }
+    } catch (error) {
+      console.error('❌ [VIDEO-CALL] Exception creating/playing audio:', error);
     }
   }
 }

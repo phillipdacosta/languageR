@@ -26,8 +26,27 @@ const LessonSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'pending_reschedule'], 
+    enum: ['scheduled', 'confirmed', 'in_progress', 'ended_early', 'completed', 'cancelled', 'pending_reschedule'], 
     default: 'scheduled' 
+  },
+  // Cancellation tracking
+  cancelledBy: {
+    type: String,
+    enum: ['tutor', 'student', 'system', 'admin', null],
+    default: null
+  },
+  cancelReason: {
+    type: String,
+    default: null
+  },
+  cancelledAt: {
+    type: Date,
+    default: null
+  },
+  cancellationFeeCharged: {
+    type: Number,
+    default: 0,
+    comment: 'Amount charged as cancellation fee (if applicable)'
   },
   subject: {
     type: String,
@@ -64,10 +83,22 @@ const LessonSchema = new mongoose.Schema({
     enum: ['scheduled', 'instant', 'office_hours'],
     default: 'scheduled'
   },
+  // Attendance tracking (who showed up)
+  tutorJoinedAt: {
+    type: Date,
+    default: null,
+    comment: 'When tutor first joined the call'
+  },
+  studentJoinedAt: {
+    type: Date,
+    default: null,
+    comment: 'When student first joined the call'
+  },
   // Per-minute billing tracking (for office hours)
   actualCallStartTime: {
     type: Date,
-    default: null
+    default: null,
+    comment: 'When BOTH tutor and student were present (lesson actually started)'
   },
   actualCallEndTime: {
     type: Date,
@@ -83,8 +114,154 @@ const LessonSchema = new mongoose.Schema({
   },
   billingStatus: {
     type: String,
-    enum: ['pending', 'authorized', 'charged', 'refunded', null],
+    enum: ['pending', 'authorized', 'charged', 'refunded', 'partially_refunded', 'no_show', null],
+    default: null,
+    index: true
+  },
+  // Payment Integration
+  paymentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+    index: true,
+    comment: 'Link to Payment record for this lesson'
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['wallet', 'card', 'saved-card', 'apple_pay', 'google_pay', null],
+    default: null,
+    comment: 'How the student paid for this lesson'
+  },
+  // Platform Revenue Recognition (deferred until lesson completion)
+  revenueRecognized: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether platform fee has been recognized as revenue'
+  },
+  revenueRecognizedAt: {
+    type: Date,
     default: null
+  },
+  platformFee: {
+    type: Number,
+    default: 0,
+    comment: 'Platform fee amount (15% of lesson price)'
+  },
+  tutorPayout: {
+    type: Number,
+    default: 0,
+    comment: 'Amount paid to tutor (lesson price - platform fee)'
+  },
+  // Issue Reporting & Investigation
+  issueReported: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether student reported an issue with this lesson'
+  },
+  issueType: {
+    type: String,
+    enum: ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
+    default: null
+  },
+  issueDetails: {
+    type: String,
+    default: null
+  },
+  issueReportedAt: {
+    type: Date,
+    default: null
+  },
+  issueReportedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  underInvestigation: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether admin is investigating this lesson'
+  },
+  investigationNotes: {
+    type: String,
+    default: null
+  },
+  payoutPaused: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether tutor payout is paused pending investigation'
+  },
+  payoutPausedAt: {
+    type: Date,
+    default: null
+  },
+  payoutPausedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    comment: 'Admin who paused the payout'
+  },
+  investigationResolvedAt: {
+    type: Date,
+    default: null
+  },
+  investigationResolution: {
+    type: String,
+    enum: ['approved', 'refunded', 'partial_refund', 'no_action', null],
+    default: null
+  },
+  // Dispute tracking (when tutor disputes admin decision)
+  disputeSubmitted: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Whether tutor has disputed the payment cancellation'
+  },
+  disputeSubmittedAt: {
+    type: Date,
+    default: null
+  },
+  disputeMessage: {
+    type: String,
+    default: null
+  },
+  disputeStatus: {
+    type: String,
+    enum: ['pending', 'reviewing', 'accepted', 'rejected', null],
+    default: null
+  },
+  disputeResolvedAt: {
+    type: Date,
+    default: null
+  },
+  disputeResolution: {
+    type: String,
+    default: null
+  },
+  // Tip tracking
+  tip: {
+    amount: {
+      type: Number,
+      default: null
+    },
+    stripeFee: {
+      type: Number,
+      default: null
+    },
+    tutorReceived: {
+      type: Number,
+      default: null
+    },
+    paymentIntentId: {
+      type: String,
+      default: null
+    },
+    paidAt: {
+      type: Date,
+      default: null
+    }
   },
   // Track participant join/leave history for rejoin logic
   participants: {

@@ -75,10 +75,10 @@
             </div>
           </div>
 
-          <div class="filter-item" (click)="openCountryFilter()">
+          <div class="filter-item" (click)="openCountryFilter($event)">
             <label>Country of birth</label>
             <div class="filter-value-wrapper">
-              <span class="filter-value">Any country</span>
+              <span class="filter-value">{{ getCountryDisplayName() }}</span>
               <ion-icon name="chevron-down-outline"></ion-icon>
             </div>
           </div>
@@ -211,8 +211,8 @@
                     <app-flag-icon *ngIf="tutor.languages && tutor.languages[0]" [language]="tutor.languages[0]" [size]="14"></app-flag-icon>
                     <span>{{ tutor.languages && tutor.languages[0] }}</span>
                   </div>
-                  <div class="tutor-country-inline" *ngIf="tutor.country">
-                    <ion-icon name="location-outline"></ion-icon>
+                  <div class="tutor-country-inline" *ngIf="tutor.country && tutor.country !== 'Unknown'">
+                    <app-flag-icon [country]="tutor.country" [size]="14"></app-flag-icon>
                     <span>{{ tutor.country }}</span>
                   </div>
                 </div>
@@ -228,6 +228,13 @@
             <div class="office-hours-badge-modern" *ngIf="tutor.isActivelyAvailable">
               <ion-icon name="flash"></ion-icon>
               <span>Available Now - Book Instantly</span>
+            </div>
+            
+            <!-- Coaching Badge -->
+            <div class="coaching-badge-container" *ngIf="tutor.coachingBadge?.active">
+              <ion-badge class="coaching-badge" color="success">
+                <ion-icon name="school-outline"></ion-icon>
+              </ion-badge>
             </div>
             
             <!-- Bio Section - Center Priority -->
@@ -264,15 +271,12 @@
           <!-- Right: Video Thumbnail (only show in list view) -->
           <div class="right-section" *ngIf="(tutor.videoThumbnail || tutor.introductionVideo) && viewMode === 'list'">
             <div class="video-thumbnail-wrapper" (click)="onVideoThumbnailClick(tutor, $event)">
-              <!-- Show thumbnail if available, otherwise show video element -->
-              <img *ngIf="tutor.videoThumbnail" [src]="tutor.videoThumbnail" alt="Video preview" class="video-thumbnail-image">
-              <video *ngIf="!tutor.videoThumbnail && tutor.introductionVideo" 
-                     src="{{tutor.introductionVideo}}#t=0.001" 
-                     class="video-thumbnail-image"
-                     preload="metadata"></video>
-              <div class="video-play-overlay">
-                <ion-icon name="play"></ion-icon>
-              </div>
+              <app-video-thumbnail
+                [videoUrl]="tutor.introductionVideo || ''"
+                [thumbnailUrl]="tutor.videoThumbnail || ''"
+                [videoType]="tutor.videoType || 'upload'"
+                cssClass="video-thumbnail-image">
+              </app-video-thumbnail>
             </div>
           </div>
         </div>

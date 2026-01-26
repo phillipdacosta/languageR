@@ -126,8 +126,11 @@ router.get('/my-analyses', verifyToken, async (req, res) => {
       });
     }
 
-    // Find all analyses for this student
-    const analyses = await LessonAnalysis.find({ studentId: user._id })
+    // Find all COMPLETED analyses for this student
+    const analyses = await LessonAnalysis.find({ 
+      studentId: user._id,
+      status: 'completed'  // Only show completed analyses
+    })
       .populate({
         path: 'lessonId',
         select: 'subject startTime isTrialLesson isOfficeHours officeHoursType bookingType'
@@ -488,8 +491,17 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
       
       console.log('✅ Whisper transcription result:', {
         text: result.text,
-        segmentsCount: result.segments?.length || 0
+        segmentsCount: result.segments?.length || 0,
+        originalSegments: result.originalSegmentCount || 0,
+        filteredSegments: result.filteredSegmentCount || 0,
+        rejectedSegments: result.rejectedSegmentCount || 0
       });
+      
+      // Log language filtering effectiveness
+      if (result.rejectedSegmentCount > 0) {
+        console.log(`🔍 Language Filter: Rejected ${result.rejectedSegmentCount} non-${normalizedLanguage} segments`);
+        console.log(`   This prevents ${speaker}'s non-target language speech from being analyzed`);
+      }
     } catch (transcriptionError) {
       // Check if error is format-related
       const isFormatError = transcriptionError.message && (
@@ -512,8 +524,17 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
           
           console.log('✅ Whisper transcription result (after MP3 conversion):', {
             text: result.text,
-            segmentsCount: result.segments?.length || 0
+            segmentsCount: result.segments?.length || 0,
+            originalSegments: result.originalSegmentCount || 0,
+            filteredSegments: result.filteredSegmentCount || 0,
+            rejectedSegments: result.rejectedSegmentCount || 0
           });
+          
+          // Log language filtering effectiveness
+          if (result.rejectedSegmentCount > 0) {
+            console.log(`🔍 Language Filter: Rejected ${result.rejectedSegmentCount} non-${normalizedLanguage} segments`);
+            console.log(`   This prevents ${speaker}'s non-target language speech from being analyzed`);
+          }
         } catch (conversionError) {
           console.error('❌ MP3 conversion failed:', conversionError.message);
           console.error('❌ Original Whisper error:', transcriptionError.message);
@@ -767,6 +788,9 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
         // Get dynamic message
         const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
         
+        // Import name formatter
+        const { formatNameWithInitial } = require('../utils/nameFormatter');
+        
         // Create notification for tutor
         if (tutor) {
           await Notification.create({
@@ -776,7 +800,7 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
             message: feedbackMsg.message,
             data: {
               lessonId: transcript.lessonId,
-              studentName: studentData?.name || 'Student',
+              studentName: studentData ? formatNameWithInitial(studentData) : 'Student',
               studentAuth0Id: transcript.studentId
             }
           });
@@ -1198,29 +1222,40 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
 router.get('/student/:studentId/latest', verifyToken, async (req, res) => {
   try {
     const { studentId } = req.params;
-    const { tutorId } = req.query;
+    const { tutorId, currentLessonId } = req.query;
     
-    const query = { studentId };
+    const query = { 
+      studentId,
+      status: 'completed' // Only show completed analyses
+    };
     if (tutorId) {
       query.tutorId = tutorId;
     }
     
-    // Get all analyses sorted by date
+    // Exclude the current lesson if provided
+    if (currentLessonId) {
+      query.lessonId = { $ne: currentLessonId };
+    }
+    
+    // Get all analyses sorted by date (most recent first)
     const analyses = await LessonAnalysis.find(query)
       .sort({ lessonDate: -1 })
       .populate('lessonId')
-      .limit(5); // Get up to 5 to find first non-trial
+      .limit(10); // Get up to 10 to find the most recent non-trial
     
-    // Find the first analysis that's NOT from a trial lesson
-    const nonTrialAnalysis = analyses.find(analysis => {
-      return analysis.lessonId && !analysis.lessonId.isTrialLesson;
+    // Find the first COMPLETED analysis that's NOT from a trial lesson
+    // and NOT from the current lesson
+    const previousAnalysis = analyses.find(analysis => {
+      return analysis.lessonId && 
+             !analysis.lessonId.isTrialLesson && 
+             analysis.status === 'completed';
     });
     
-    if (!nonTrialAnalysis) {
+    if (!previousAnalysis) {
       return res.status(404).json({ message: 'No previous analysis found' });
     }
     
-    res.json(nonTrialAnalysis);
+    res.json(previousAnalysis);
     
   } catch (error) {
     console.error('❌ Error getting latest analysis:', error);

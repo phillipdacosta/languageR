@@ -1,0 +1,354 @@
+.post-lesson-tutor-content {
+  --background: transparent;
+  
+  ion-content {
+    --background: transparent;
+  }
+}
+
+.content-wrapper {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.congratulations-container {
+  max-width: 700px;
+  width: 100%;
+  background: white;
+  border-radius: 24px;
+  padding: 48px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+
+  @media (max-width: 768px) {
+    padding: 32px 24px;
+    margin: 0;
+  }
+}
+
+// HEADER
+.congrats-header {
+  text-align: center;
+  margin-bottom: 40px;
+
+  .congrats-icon {
+    font-size: 80px;
+    margin-bottom: 16px;
+    animation: bounce 1s ease-in-out;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0 0 12px 0;
+  }
+
+  p {
+    font-size: 18px;
+    color: #8e8e93;
+    margin: 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+// SUMMARY CARD
+.summary-card {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: none;
+  border: 1px solid #e5e5ea;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e5ea;
+  margin-bottom: 20px;
+
+  .student-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .student-details {
+    flex: 1;
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1c1c1e;
+      margin: 0 0 4px 0;
+    }
+
+    p {
+      font-size: 14px;
+      color: #8e8e93;
+      margin: 2px 0;
+    }
+  }
+}
+
+.earnings-section {
+  text-align: center;
+
+  .earnings-label {
+    font-size: 14px;
+    color: #8e8e93;
+    margin-bottom: 8px;
+  }
+
+  .earnings-amount {
+    font-size: 36px;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 4px;
+  }
+
+  .earnings-note {
+    font-size: 13px;
+    color: #8e8e93;
+  }
+}
+
+// ANALYSIS PREVIEW
+.analysis-preview {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin: 0 0 16px 0;
+  }
+}
+
+.analysis-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metric {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+
+  .metric-label {
+    display: block;
+    font-size: 13px;
+    color: #8e8e93;
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    display: block;
+    font-size: 24px;
+    font-weight: 600;
+    color: #667eea;
+  }
+}
+
+// NOTE FORM
+.note-form-card {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: none;
+  border: 1px solid #e5e5ea;
+
+  @media (max-width: 768px) {
+    padding: 24px;
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin: 0 0 8px 0;
+  }
+
+  .note-subtitle {
+    font-size: 15px;
+    color: #8e8e93;
+    margin: 0 0 24px 0;
+  }
+}
+
+.impression-selector {
+  margin-bottom: 24px;
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3c3c43;
+    margin-bottom: 12px;
+  }
+}
+
+.impression-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.impression-btn {
+  padding: 14px 16px;
+  background: white;
+  border: 2px solid #e5e5ea;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #3c3c43;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+
+  &:hover {
+    border-color: #667eea;
+    background: #f0f2ff;
+  }
+
+  &.selected {
+    border-color: #667eea;
+    background: #667eea;
+    color: white;
+  }
+
+  &[data-color="success"].selected {
+    border-color: #10b981;
+    background: #10b981;
+  }
+
+  &[data-color="warning"].selected {
+    border-color: #f59e0b;
+    background: #f59e0b;
+  }
+}
+
+.form-field {
+  margin-bottom: 24px;
+
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #3c3c43;
+    margin-bottom: 8px;
+
+    .required {
+      color: #ef4444;
+    }
+  }
+
+  ion-textarea {
+    --background: #f8f9fa;
+    --border-radius: 10px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    border: 2px solid #e5e5ea;
+    border-radius: 10px;
+    font-size: 15px;
+
+    &:focus-within {
+      border-color: #667eea;
+    }
+  }
+
+  .char-count {
+    text-align: right;
+    font-size: 12px;
+    color: #c7c7cc;
+    margin-top: 4px;
+  }
+}
+
+.form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+
+  ion-button {
+    margin: 0;
+  }
+}
+
+// SUCCESS MESSAGE
+.success-message {
+  text-align: center;
+  padding: 48px 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+  ion-icon {
+    font-size: 80px;
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1c1c1e;
+    margin: 0 0 12px 0;
+  }
+
+  p {
+    font-size: 16px;
+    color: #8e8e93;
+    margin: 0 0 24px 0;
+  }
+}
+
+// BOTTOM ACTIONS
+.bottom-actions {
+  text-align: center;
+  margin-top: 24px;
+
+  ion-button {
+    --color: #8e8e93;
+  }
+}
+

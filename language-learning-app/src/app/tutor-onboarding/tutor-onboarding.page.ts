@@ -5,7 +5,7 @@ import { UserService, TutorOnboardingData } from '../services/user.service';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController } from '@ionic/angular';
+import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
 import { CountrySelectModalComponent } from '../components/country-select-modal/country-select-modal.component';
 
 @Component({
@@ -22,7 +22,8 @@ export class TutorOnboardingPage implements OnInit {
   // Tutor onboarding data
   firstName = '';
   lastName = '';
-  country = '';
+  country = ''; // Nationality / Where are you from?
+  residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   selectedExperience = '';
@@ -30,6 +31,8 @@ export class TutorOnboardingPage implements OnInit {
   profileBio = '';
   hourlyRate = 25;
   introductionVideo = ''; // Introduction video URL
+  thumbnailUrl = ''; // Custom thumbnail URL for the video
+  videoType: 'upload' | 'youtube' | 'vimeo' = 'upload'; // Video type
 
   // Available options
   availableLanguages = [
@@ -206,6 +209,7 @@ export class TutorOnboardingPage implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
+    private toastController: ToastController,
     private onboardingGuard: OnboardingGuard
   ) {
     this.user$ = this.authService.user$;
@@ -264,11 +268,13 @@ export class TutorOnboardingPage implements OnInit {
   }
 
   toggleLanguage(language: string) {
-    const index = this.selectedLanguages.indexOf(language);
-    if (index > -1) {
-      this.selectedLanguages.splice(index, 1);
+    // Only allow selecting one language at a time
+    if (this.selectedLanguages.includes(language)) {
+      // Deselect if clicking the same language
+      this.selectedLanguages = [];
     } else {
-      this.selectedLanguages.push(language);
+      // Replace with new selection
+      this.selectedLanguages = [language];
     }
   }
 
@@ -280,15 +286,48 @@ export class TutorOnboardingPage implements OnInit {
     this.selectedSchedule = schedule;
   }
 
-  // Open country selection modal
+  // Open country selection modal (for nationality)
   async openCountryModal() {
+    console.log('🔵 Opening country modal (nationality), countryOptions:', this.countryOptions?.length);
+    
     const modal = await this.modalController.create({
       component: CountrySelectModalComponent,
       componentProps: {
         countries: this.countryOptions,
-        selectedCountry: this.country
+        selectedCountry: this.country,
+        modalType: 'origin' // Specify this is for country of origin
       },
-      cssClass: 'country-select-modal',
+      cssClass: 'modern-modal',
+      showBackdrop: true,
+      backdropDismiss: true
+    });
+
+    console.log('🔵 Modal created, presenting...');
+    await modal.present();
+    console.log('🔵 Modal presented');
+
+    const { data } = await modal.onWillDismiss();
+    if (data && data.selectedCountry) {
+      this.country = data.selectedCountry;
+      // Default residence to same as nationality if not yet set
+      if (!this.residenceCountry) {
+        this.residenceCountry = data.selectedCountry;
+      }
+    }
+  }
+
+  // Open country selection modal (for residence)
+  async openResidenceCountryModal() {
+    console.log('🔵 Opening residence country modal, countryOptions:', this.countryOptions?.length);
+    
+    const modal = await this.modalController.create({
+      component: CountrySelectModalComponent,
+      componentProps: {
+        countries: this.countryOptions,
+        selectedCountry: this.residenceCountry,
+        modalType: 'residence' // Specify this is for country of residence
+      },
+      cssClass: 'modern-modal',
       showBackdrop: true,
       backdropDismiss: true
     });
@@ -297,18 +336,27 @@ export class TutorOnboardingPage implements OnInit {
 
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
-      this.country = data.selectedCountry;
+      this.residenceCountry = data.selectedCountry;
     }
   }
 
   onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {
+    console.log('✅ Video uploaded in tutor-onboarding:', data);
+    console.log('🖼️ Thumbnail to save:', data.thumbnail);
+    
+    // Store locally - will be saved when user completes onboarding
     this.introductionVideo = data.url;
-    console.log('✅ Video uploaded:', data.url);
+    this.thumbnailUrl = data.thumbnail;
+    this.videoType = data.type;
   }
 
   onVideoRemoved() {
+    console.log('🗑️ Video removed in tutor-onboarding');
+    
+    // Clear local properties
     this.introductionVideo = '';
-    console.log('🗑️ Video removed');
+    this.thumbnailUrl = '';
+    this.videoType = 'upload';
   }
 
   async completeOnboarding() {
@@ -337,17 +385,20 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔍 Tutor userType:', user?.userType);
 
       // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData & { nativeLanguage?: string } = {
+      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string } = {
         firstName: this.firstName,
         lastName: this.lastName,
         country: this.country,
+        residenceCountry: this.residenceCountry, // NEW: For payout method selection
         nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
         bio: this.profileBio,
         hourlyRate: this.hourlyRate,
-        introductionVideo: this.introductionVideo // Include introduction video
+        introductionVideo: this.introductionVideo, // Include introduction video
+        videoThumbnail: this.thumbnailUrl, // Include custom thumbnail
+        videoType: this.videoType // Include video type
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);
@@ -356,6 +407,16 @@ export class TutorOnboardingPage implements OnInit {
       const updatedUser = await this.userService.completeTutorOnboarding(onboardingData).toPromise();
       
       console.log('Tutor onboarding completed successfully:', updatedUser);
+
+      // Submit tutor for review (this sets tutorOnboarding.videoUploaded flag)
+      console.log('📝 Submitting tutor for review...');
+      try {
+        await this.userService.submitTutorForReview().toPromise();
+        console.log('✅ Tutor submitted for review successfully');
+      } catch (reviewError) {
+        console.error('⚠️ Error submitting for review:', reviewError);
+        // Don't fail the whole onboarding if this fails
+      }
 
       // Store in localStorage as backup
       localStorage.setItem('onboarding_completed', 'true');
@@ -405,7 +466,7 @@ export class TutorOnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '' && this.residenceCountry !== '';
       case 2:
         return this.nativeLanguage !== ''; // Native language step
       case 3:
@@ -415,9 +476,19 @@ export class TutorOnboardingPage implements OnInit {
       case 5:
         return this.selectedSchedule !== '';
       case 6:
-        return true; // Bio and rate are optional
+        return this.profileBio.length > 0 && this.hourlyRate > 0; // Bio and rate are not optional
       default:
         return false;
     }
+  }
+
+  private async showToast(message: string, color: string = 'success') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 2000,
+      position: 'top',
+      color
+    });
+    await toast.present();
   }
 }

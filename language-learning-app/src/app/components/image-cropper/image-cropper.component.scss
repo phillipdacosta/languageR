@@ -1,0 +1,67 @@
+.cropper-wrapper {
+  width: 100%;
+  max-width: 500px;
+  height: 400px;
+  margin: 0 auto 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f8f9fa;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    height: 300px;
+  }
+}
+
+.controls {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 12px;
+
+    .control-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #6b7280;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    ion-button {
+      --padding-start: 8px;
+      --padding-end: 8px;
+      
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+  }
+
+  .reset-btn {
+    margin-top: 8px;
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+
+  ion-button {
+    flex: 1;
+  }
+}
+
+
+
+
+

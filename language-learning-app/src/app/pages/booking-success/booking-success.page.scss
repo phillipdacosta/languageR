@@ -1,3 +1,6 @@
+// Apple-Inspired Booking Success Design
+// Clean, minimal, premium feel
+
 .success-container {
   position: fixed;
   top: 0;
@@ -15,10 +18,10 @@
 
 .close-button {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 40px;
-  height: 40px;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
@@ -31,300 +34,572 @@
   z-index: 10;
 
   ion-icon {
-    font-size: 24px;
+    font-size: 20px;
     color: white;
   }
 
   &:hover {
     background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
   }
 
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.9);
   }
 }
 
 .success-content {
-  max-width: 480px;
+  max-width: 800px;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 26px;
   padding: 10px 0 20px;
+  position: relative;
+  bottom: 100px;
 }
 
-/* Success Icon */
+// Success Icon - Modern Animated Style
 .success-icon {
   margin-bottom: 4px;
   
   .checkmark-circle {
-    width: 70px;
-    height: 70px;
+    width: 88px;
+    height: 88px;
     background: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    position: relative;
+    animation: scaleInBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+
+    // Outer glow ring
+    &::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      right: -8px;
+      bottom: -8px;
+      background: radial-gradient(circle, rgba(52, 199, 89, 0.2) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes scaleInBounce {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      50% {
+        transform: scale(1.1);
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+    }
 
     .checkmark {
-      font-size: 40px;
-      color: #22c55e;
+      font-size: 48px;
+      color: #34c759;
       font-weight: bold;
+      z-index: 1;
+      animation: checkmarkDraw 0.4s ease-out 0.3s backwards;
+    }
+
+    @keyframes checkmarkDraw {
+      from {
+        transform: scale(0) rotate(-45deg);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+      }
     }
   }
 }
 
-/* Headings */
+// Headings - Apple Typography
 .success-title {
-  font-size: 26px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   color: white;
   margin: 0;
   text-align: center;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.6px;
 }
 
 .success-subtitle {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.95);
   margin: -8px 0 0 0;
   text-align: center;
+  font-weight: 400;
 }
 
-/* Tutor Card */
-.tutor-card {
+// Two Column Layout Container
+.content-columns {
   width: 100%;
-  background: white;
-  border-radius: 14px;
-  padding: 16px;
+  max-width: 800px;
+  display: grid;
+  grid-template-columns: 1fr 1fr; // Equal width columns
+  gap: 20px;
+  align-items: stretch; // Make both columns equal height
+  animation: fadeInUp 0.5s ease-out;
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+// Tutor Card - Simple Centered Design (Left Column)
+.tutor-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 40px 28px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  justify-content: center; // Center content vertically
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  height: 100%; // Take full height of parent
 
   .tutor-avatar {
-    width: 50px;
-    height: 50px;
+    width: 140px;
+    height: 140px;
     flex-shrink: 0;
-    border: 2px solid #667eea;
+    border: 4px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
 
     ion-icon {
-      font-size: 26px;
+      font-size: 70px;
       color: #9ca3af;
     }
   }
 
-  .tutor-info {
-    flex: 1;
-
-    .tutor-name {
-      font-size: 17px;
-      font-weight: 600;
-      color: #1d1d1f;
-      margin: 0 0 2px 0;
-      letter-spacing: -0.01em;
-    }
-
-    .tutor-label {
-      font-size: 13px;
-      color: #6e6e73;
-      margin: 0;
-    }
-  }
-}
-
-/* Details Card */
-.details-card {
-  width: 100%;
-  background: white;
-  border-radius: 14px;
-  padding: 14px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-
-  .detail-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 0;
-
-    &:first-child {
-      padding-top: 0;
-    }
-
-    &:last-child {
-      padding-bottom: 0;
-    }
+  .tutor-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 8px 0 0 0;
+    letter-spacing: -0.5px;
+    text-align: center;
   }
 
-  .detail-icon {
-    width: 34px;
-    height: 34px;
-    background: #f3f4f6;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    ion-icon {
-      font-size: 17px;
-      color: #667eea;
-    }
-
-    .subject-emoji {
-      font-size: 20px;
-    }
-  }
-
-  .detail-content {
-    flex: 1;
-
-    .detail-label {
-      font-size: 11px;
-      color: #6e6e73;
-      margin: 0 0 2px 0;
-      font-weight: 500;
-    }
-
-    .detail-value {
-      font-size: 14px;
-      color: #1d1d1f;
-      margin: 0;
-      font-weight: 500;
-    }
-  }
-
-  .detail-divider {
-    height: 1px;
-    background: #e5e7eb;
+  .tutor-label {
+    font-size: 15px;
+    color: rgba(28, 28, 30, 0.6);
     margin: 0;
+    font-weight: 500;
+    text-align: center;
   }
 }
 
-/* Next Steps */
+// Details Card - Clean Compact Design (Right Column)
+.details-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 32px 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  height: 100%; // Take full height of parent
+  display: flex;
+  flex-direction: column;
+
+  // Subject Header (Compact)
+  .subject-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+
+    .subject-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+
+      .subject-emoji {
+        font-size: 28px;
+      }
+    }
+
+    .subject-info {
+      flex: 1;
+
+      .subject-label {
+        font-size: 11px;
+        color: rgba(28, 28, 30, 0.5);
+        margin: 0 0 4px 0;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+
+      .subject-name {
+        font-size: 20px;
+        color: #1c1c1e;
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: -0.4px;
+      }
+    }
+  }
+
+  // Details Grid (2x2)
+  .details-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    flex: 1; // Take remaining space
+
+    .detail-item {
+      background: rgba(248, 249, 250, 0.6);
+      border-radius: 14px;
+      padding: 18px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: rgba(248, 249, 250, 0.9);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      }
+
+      .item-icon {
+        width: 38px;
+        height: 38px;
+        background: white;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+
+        ion-icon {
+          font-size: 19px;
+          color: #667eea;
+        }
+      }
+
+      .item-content {
+        flex: 1;
+        min-width: 0;
+
+        .item-label {
+          font-size: 10px;
+          color: rgba(28, 28, 30, 0.5);
+          margin: 0 0 6px 0;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+        }
+
+        .item-value {
+          font-size: 15px;
+          color: #1c1c1e;
+          margin: 0;
+          font-weight: 700;
+          letter-spacing: -0.3px;
+          line-height: 1.3;
+          white-space: nowrap; // Prevent wrapping
+
+          &.price {
+            font-size: 20px;
+            color: #667eea;
+            font-weight: 800;
+            letter-spacing: -0.4px;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Next Steps - Frosted Glass Style
 .next-steps {
   width: 100%;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 10px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(20px);
+  border-radius: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  animation: fadeInUp 0.7s ease-out;
 
   .next-steps-text {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    font-size: 12px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 13px;
     color: white;
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.5;
+    font-weight: 500;
 
     ion-icon {
-      font-size: 18px;
+      font-size: 20px;
       flex-shrink: 0;
-      margin-top: 1px;
+      opacity: 0.9;
     }
   }
 }
 
-/* Mobile Responsive */
-@media (max-width: 600px) {
+// Mobile Responsive - Match Apple's mobile guidelines
+@media (max-width: 768px) {
   .success-container {
     padding: 60px 16px 16px;
   }
 
   .success-content {
-    gap: 12px;
+    gap: 16px;
   }
 
   .close-button {
     top: 12px;
     right: 12px;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
 
     ion-icon {
-      font-size: 20px;
+      font-size: 18px;
     }
   }
 
   .success-icon .checkmark-circle {
-    width: 60px;
-    height: 60px;
+    width: 76px;
+    height: 76px;
 
     .checkmark {
-      font-size: 34px;
+      font-size: 42px;
     }
   }
 
   .success-title {
-    font-size: 22px;
+    font-size: 24px;
+    letter-spacing: -0.5px;
   }
 
   .success-subtitle {
-    font-size: 13px;
+    font-size: 14px;
+  }
+
+  // Stack columns on mobile
+  .content-columns {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .tutor-card {
-    padding: 12px;
+    padding: 24px 20px;
 
     .tutor-avatar {
-      width: 44px;
-      height: 44px;
+      width: 90px;
+      height: 90px;
+      border: 3px solid rgba(255, 255, 255, 0.8);
+
+      ion-icon {
+        font-size: 46px;
+      }
     }
 
-    .tutor-info .tutor-name {
-      font-size: 15px;
+    .tutor-name {
+      font-size: 20px;
     }
 
-    .tutor-info .tutor-label {
-      font-size: 12px;
+    .tutor-label {
+      font-size: 13px;
     }
   }
 
   .details-card {
-    padding: 12px;
+    padding: 22px 18px;
 
-    .detail-row {
-      padding: 6px 0;
-      gap: 10px;
+    .subject-header {
+      margin-bottom: 20px;
+      gap: 12px;
+
+      .subject-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+
+        .subject-emoji {
+          font-size: 24px;
+        }
+      }
+
+      .subject-info {
+        .subject-label {
+          font-size: 10px;
+        }
+
+        .subject-name {
+          font-size: 18px;
+        }
+      }
     }
 
-    .detail-icon {
-      width: 30px;
-      height: 30px;
+    .details-grid {
+      gap: 12px;
 
-      ion-icon {
-        font-size: 15px;
-      }
+      .detail-item {
+        padding: 14px;
+        border-radius: 12px;
+        gap: 10px;
 
-      .subject-emoji {
-        font-size: 18px;
-      }
-    }
+        .item-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
 
-    .detail-content {
-      .detail-label {
-        font-size: 10px;
-      }
+          ion-icon {
+            font-size: 17px;
+          }
+        }
 
-      .detail-value {
-        font-size: 13px;
+        .item-content {
+          .item-label {
+            font-size: 10px;
+            margin-bottom: 5px;
+          }
+
+          .item-value {
+            font-size: 14px;
+
+            &.price {
+              font-size: 18px;
+            }
+          }
+        }
       }
     }
   }
 
   .next-steps {
-    padding: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
 
     .next-steps-text {
-      font-size: 11px;
+      font-size: 12px;
 
       ion-icon {
-        font-size: 16px;
+        font-size: 18px;
+      }
+    }
+  }
+}
+
+// Very small screens
+@media (max-width: 375px) {
+  .success-title {
+    font-size: 22px;
+  }
+
+  .tutor-card {
+    padding: 20px 16px;
+
+    .tutor-avatar {
+      width: 80px;
+      height: 80px;
+
+      ion-icon {
+        font-size: 40px;
+      }
+    }
+
+    .tutor-name {
+      font-size: 18px;
+    }
+  }
+
+  .details-card {
+    padding: 18px 14px;
+
+    .subject-header {
+      gap: 10px;
+
+      .subject-icon {
+        width: 44px;
+        height: 44px;
+
+        .subject-emoji {
+          font-size: 22px;
+        }
+      }
+
+      .subject-info {
+        .subject-name {
+          font-size: 17px;
+        }
+      }
+    }
+
+    .details-grid {
+      gap: 10px;
+
+      .detail-item {
+        padding: 12px;
+
+        .item-icon {
+          width: 32px;
+          height: 32px;
+
+          ion-icon {
+            font-size: 16px;
+          }
+        }
+
+        .item-content {
+          .item-value {
+            font-size: 13px;
+
+            &.price {
+              font-size: 17px;
+            }
+          }
+        }
       }
     }
   }

@@ -1,18 +1,23 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../services/auth.service';
 import { UserService, User } from '../services/user.service';
 import { ThemeService } from '../services/theme.service';
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { WebSocketService } from '../services/websocket.service';
 import { FileUploadService } from '../services/file-upload.service';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
-import { LoadingController, AlertController, ModalController, ToastController } from '@ionic/angular';
+import { Observable, firstValueFrom, Subject } from 'rxjs';
+import { take, takeUntil } from 'rxjs/operators';
+import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
+import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
+import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-profile',
@@ -31,6 +36,8 @@ export class ProfilePage implements OnInit {
   tutorIntroductionVideo = '';
   tutorVideoThumbnail = '';
   tutorVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
+  isVideoApproved = false; // Track if tutor's video is approved
+  hasPendingVideo = false; // Track if tutor has a pending video under review
   isDarkMode$: Observable<boolean>;
   remindersEnabled: boolean = true; // Default to enabled
   showWalletBalance: boolean = false; // Default to hidden
@@ -48,6 +55,23 @@ export class ProfilePage implements OnInit {
   availableLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
 
+  // Stripe Connect (for tutors)
+  stripeConnectOnboarded = false;
+  isLoadingStripeConnect = false;
+  private approvalStatusSubscription?: any;
+  private destroy$ = new Subject<void>();
+
+  // Payout options (for tutors)
+  payoutOptions: any = null;
+  hasPayoutSetup: boolean | undefined = undefined; // undefined = loading, false = not setup, true = setup
+  payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
+
+  // Earnings (for tutors)
+  totalEarnings = 0;
+  pendingEarnings = 0;
+  recentPayments: any[] = [];
+  loadingEarnings = false;
+
   constructor(
     private authService: AuthService,
     private userService: UserService,
@@ -60,7 +84,10 @@ export class ProfilePage implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private modalController: ModalController,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private http: HttpClient,
+    private platform: Platform,
+    private websocketService: WebSocketService
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -69,9 +96,80 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    // For tutors, immediately get cached payout status (prevents flashing)
+    if (this.isTutor()) {
+      const cachedStatus = this.userService.getPayoutStatus();
+      // Only use cached data if it's actually been loaded (has options)
+      if (cachedStatus.options) {
+        this.payoutProvider = cachedStatus.provider;
+        this.hasPayoutSetup = cachedStatus.hasPayoutSetup;
+        this.payoutOptions = cachedStatus.options;
+        console.log('💰 [PROFILE] Using cached payout status from ngOnInit:', {
+          provider: this.payoutProvider,
+          hasPayoutSetup: this.hasPayoutSetup
+        });
+      }
+    }
+    
+    // Subscribe to approval status from UserService
+    this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
+      if (status) {
+        // Note: stripeComplete now includes PayPal and Manual methods too (confusingly named)
+        // But we should NOT overwrite hasPayoutSetup here - let checkPayoutStatus() handle it
+        // to avoid confusion between payout providers
+        this.stripeConnectOnboarded = status.stripeComplete;
+        console.log(`💰 [PROFILE] Payment status from service: ${this.stripeConnectOnboarded}`);
+      }
+    });
+    
+    // Subscribe to payout status updates from UserService
+    this.userService.payoutStatus$.subscribe(payoutStatus => {
+      if (this.isTutor()) {
+        this.payoutProvider = payoutStatus.provider;
+        this.hasPayoutSetup = payoutStatus.hasPayoutSetup;
+        this.payoutOptions = payoutStatus.options;
+        
+        if (this.payoutProvider === 'stripe') {
+          this.stripeConnectOnboarded = this.hasPayoutSetup;
+        }
+        
+        console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
+      }
+    });
+    
+    // Subscribe to video approval WebSocket notifications
+    this.websocketService.tutorVideoApproved$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(async (data: any) => {
+      console.log('🎉 [PROFILE] Video approved notification received:', data);
+      
+      // Reload user data to get updated video
+      await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
+      
+      // Clear pending video flag
+      this.hasPendingVideo = false;
+      
+      // Show success toast
+      const toast = await this.toastController.create({
+        message: '✅ Your new video has been approved!',
+        duration: 4000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    });
+    
     // Check if viewing another user's profile
     this.route.queryParams.subscribe(params => {
       const userId = params['userId'];
+      
+      // Check if returning from Stripe Connect
+      if (params['stripe_success'] === 'true') {
+        this.handleStripeConnectReturn(true);
+      } else if (params['stripe_refresh'] === 'true') {
+        this.handleStripeConnectReturn(false);
+      }
+      
       if (userId) {
         // Viewing another user's profile
         this.isViewingOtherUser = true;
@@ -99,6 +197,12 @@ export class ProfilePage implements OnInit {
       // Set current interface language
       this.selectedInterfaceLanguage = user?.interfaceLanguage || this.languageService.getCurrentLanguage();
       
+      // Load Stripe Connect status for tutors
+      if (this.isTutor()) {
+        this.checkPayoutStatus();
+        this.loadEarnings();
+      }
+      
       // Load settings from user profile (database)
       this.remindersEnabled = user?.profile?.remindersEnabled !== false; // Default true
       this.showWalletBalance = user?.profile?.showWalletBalance || false; // Default false
@@ -122,11 +226,43 @@ export class ProfilePage implements OnInit {
       if (user?.userType === 'tutor') {
         console.log('📹 Full onboardingData from DB:', user.onboardingData);
         
-        if ((user.onboardingData as any)?.introductionVideo) {
-          this.tutorIntroductionVideo = (user.onboardingData as any).introductionVideo;
-          this.tutorVideoThumbnail = (user.onboardingData as any)?.videoThumbnail || '';
-          this.tutorVideoType = (user.onboardingData as any)?.videoType || 'upload';
-          console.log('📹 Loaded video data from DB:', {
+        // Check if video is approved
+        this.isVideoApproved = (user as any).tutorOnboarding?.videoApproved === true;
+        console.log('✅ Video approval status:', this.isVideoApproved);
+        
+        // Check if there's a pending video under review (video exists but not approved)
+        const onboardingData = user.onboardingData as any;
+        const hasPendingVideoFile = !!(onboardingData?.pendingVideo);
+        const hasIntroductionVideo = !!(onboardingData?.introductionVideo);
+        this.hasPendingVideo = !this.isVideoApproved && (hasPendingVideoFile || hasIntroductionVideo);
+        console.log('⏳ Has pending video:', this.hasPendingVideo, {
+          isVideoApproved: this.isVideoApproved,
+          hasPendingVideoFile,
+          hasIntroductionVideo
+        });
+        
+        // Prioritize pending video if it exists (for display to tutor themselves)
+        const hasPendingVideo = hasPendingVideoFile;
+        const hasApprovedVideo = hasIntroductionVideo;
+        
+        if (hasPendingVideo) {
+          // Show pending video if it exists
+          this.tutorIntroductionVideo = onboardingData.pendingVideo;
+          this.tutorVideoThumbnail = onboardingData.pendingVideoThumbnail || '';
+          this.tutorVideoType = onboardingData.pendingVideoType || 'upload';
+          console.log('📹 Loaded PENDING video data from DB:', {
+            video: this.tutorIntroductionVideo,
+            thumbnail: this.tutorVideoThumbnail,
+            type: this.tutorVideoType,
+            hasVideo: !!this.tutorIntroductionVideo,
+            hasThumbnail: !!this.tutorVideoThumbnail
+          });
+        } else if (hasApprovedVideo) {
+          // Show approved video if no pending video
+          this.tutorIntroductionVideo = onboardingData.introductionVideo;
+          this.tutorVideoThumbnail = onboardingData.videoThumbnail || '';
+          this.tutorVideoType = onboardingData.videoType || 'upload';
+          console.log('📹 Loaded APPROVED video data from DB:', {
             video: this.tutorIntroductionVideo,
             thumbnail: this.tutorVideoThumbnail,
             type: this.tutorVideoType,
@@ -222,6 +358,9 @@ export class ProfilePage implements OnInit {
     this.tutorVideoThumbnail = data.thumbnail;
     this.tutorVideoType = data.type;
     this.updateTutorVideo(data.url, data.thumbnail, data.type);
+    
+    // Immediately show pending banner (since new video is now pending approval)
+    this.hasPendingVideo = true;
   }
 
   onVideoRemoved() {
@@ -275,12 +414,25 @@ export class ProfilePage implements OnInit {
       
       console.log('📹 Backend response after update:', result);
       
+      await loading.dismiss();
+      
+      // If video was previously approved, inform that new video is under review
+      const message = this.isVideoApproved 
+        ? 'Video updated! The new video has been sent for admin review. Your profile will remain active during the review process.'
+        : 'Introduction video updated successfully!';
+      
       const alert = await this.alertController.create({
         header: 'Success',
-        message: 'Introduction video updated successfully!',
+        message: message,
         buttons: ['OK']
       });
       await alert.present();
+      
+      // Update local approval status
+      this.isVideoApproved = false;
+      
+      // Refresh user data to get updated tutorOnboarding status
+      this.userService.getCurrentUser(true).subscribe();
       
     } catch (error) {
       console.error('Error updating tutor video:', error);
@@ -429,51 +581,27 @@ export class ProfilePage implements OnInit {
       return;
     }
 
-    // Create preview - read file as data URL
-    const reader = new FileReader();
-    reader.onload = async (e: any) => {
-      const imageDataUrl = e.target.result;
-      
-      // Show confirmation with inline preview
-      const alert = await this.alertController.create({
-        header: 'Upload Profile Picture?',
-        message: 'Do you want to upload this image as your profile picture?',
-        cssClass: 'profile-picture-confirm-alert',
-        buttons: [
-          {
-            text: 'Cancel',
-            role: 'cancel',
-            handler: () => {
-              event.target.value = '';
-            }
-          },
-          {
-            text: 'Upload',
-            handler: async () => {
-              await this.uploadProfilePicture(file, event);
-            }
-          }
-        ]
-      });
-      
-      await alert.present();
-      
-      // After alert is presented, inject the image into the alert
-      setTimeout(() => {
-        const alertElement = document.querySelector('ion-alert.profile-picture-confirm-alert');
-        if (alertElement) {
-          const messageElement = alertElement.querySelector('.alert-message');
-          if (messageElement) {
-            const imgElement = document.createElement('img');
-            imgElement.src = imageDataUrl;
-            imgElement.style.cssText = 'width: 150px; height: 150px; border-radius: 50%; object-fit: cover; display: block; margin: 16px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
-            messageElement.insertBefore(imgElement, messageElement.firstChild);
-          }
-        }
-      }, 100);
-    };
-    
-    reader.readAsDataURL(file);
+    // Open cropper modal
+    const modal = await this.modalController.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event
+      },
+      cssClass: 'image-cropper-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      // Convert blob to file
+      const croppedFile = new File([data], file.name, { type: 'image/png' });
+      await this.uploadProfilePicture(croppedFile, event);
+    } else {
+      // Reset file input if cancelled
+      event.target.value = '';
+    }
   }
 
   /**
@@ -699,6 +827,503 @@ export class ProfilePage implements OnInit {
       return 'Auto-detected';
     }
     return getTimezoneLabel(timezone);
+  }
+
+  // Handle return from Stripe Connect onboarding
+  async handleStripeConnectReturn(success: boolean) {
+    if (success) {
+      // Show success message
+      const toast = await this.toastController.create({
+        message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+        duration: 5000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    }
+    
+    // Refresh payout status in UserService (will update profile via subscription)
+    setTimeout(() => {
+      this.userService.loadPayoutStatus();
+      this.loadEarnings(); // Also refresh earnings
+    }, 1000);
+    
+    // Clean up URL
+    this.router.navigate(['/tabs/profile'], { replaceUrl: true });
+  }
+
+  // Load earnings summary and recent payments
+  async loadEarnings() {
+    if (!this.isTutor()) return;
+
+    this.loadingEarnings = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.totalEarnings = response.totalEarnings || 0;
+        this.pendingEarnings = response.pendingEarnings || 0;
+        this.recentPayments = response.recentPayments || [];
+        console.log(`💰 Loaded earnings: Total $${this.totalEarnings}, Pending $${this.pendingEarnings}`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading earnings:', error);
+    } finally {
+      this.loadingEarnings = false;
+    }
+  }
+
+  // Check Stripe Connect status for tutors
+  async checkStripeConnectStatus() {
+    if (!this.isTutor()) return;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success) {
+        this.stripeConnectOnboarded = response.onboarded;
+        console.log(`💰 Stripe Connect status: ${this.stripeConnectOnboarded ? 'Onboarded' : 'Not onboarded'}`);
+      }
+    } catch (error) {
+      console.error('❌ Error checking Stripe Connect status:', error);
+    }
+  }
+
+  // Check overall payout status (Stripe, PayPal, or Manual)
+  // Uses cached data from UserService, or loads it if not yet cached
+  async checkPayoutStatus() {
+    if (!this.isTutor()) return;
+
+    try {
+      // Get cached payout status from UserService
+      let payoutStatus = this.userService.getPayoutStatus();
+      
+      console.log('💰 [PROFILE] Initial cached payout status:', JSON.stringify(payoutStatus, null, 2));
+      
+      // If payout status hasn't been loaded yet (provider is 'none' and no options), load it now
+      if (payoutStatus.provider === 'none' && !payoutStatus.options) {
+        console.log('💰 [PROFILE] Payout status not cached yet, loading now...');
+        await this.userService.loadPayoutStatus();
+        payoutStatus = this.userService.getPayoutStatus();
+        console.log('💰 [PROFILE] Loaded payout status:', JSON.stringify(payoutStatus, null, 2));
+      }
+      
+      console.log('💰 [PROFILE] Setting local properties:', {
+        payoutProvider: payoutStatus.provider,
+        hasPayoutSetup: payoutStatus.hasPayoutSetup,
+        hasOptions: !!payoutStatus.options
+      });
+      
+      this.payoutProvider = payoutStatus.provider;
+      this.hasPayoutSetup = payoutStatus.hasPayoutSetup;
+      this.payoutOptions = payoutStatus.options;
+      
+      console.log('💰 [PROFILE] Local properties set:', {
+        'this.payoutProvider': this.payoutProvider,
+        'this.hasPayoutSetup': this.hasPayoutSetup,
+        'this.payoutOptions': !!this.payoutOptions
+      });
+      
+      // Set stripeConnectOnboarded for legacy compatibility
+      if (this.payoutProvider === 'stripe') {
+        this.stripeConnectOnboarded = this.hasPayoutSetup;
+      }
+
+      console.log(`💰 [PROFILE] Final payout status: provider=${this.payoutProvider}, setup=${this.hasPayoutSetup}`);
+    } catch (error) {
+      console.error('❌ Error checking payout status:', error);
+    }
+  }
+
+  // Get payout provider display name
+  getPayoutProviderName(): string {
+    switch (this.payoutProvider) {
+      case 'stripe': return 'Stripe';
+      case 'paypal': return 'PayPal';
+      case 'manual': return 'Manual Transfer';
+      default: return '';
+    }
+  }
+
+  // Get payout setup instructions based on what's available
+  getPayoutSetupText(): string {
+    if (!this.payoutOptions) return 'Set up payouts to receive earnings from your lessons.';
+    
+    const { stripe, paypal, manual } = this.payoutOptions;
+    
+    if (stripe.available && stripe.recommended) {
+      return 'Set up payouts to receive earnings from your lessons.';
+    } else if (paypal.available && paypal.recommended) {
+      return 'Set up payouts to receive earnings from your lessons.';
+    } else if (manual.available) {
+      return 'Set up manual payouts to receive earnings from your lessons.';
+    } else {
+      return 'Set up payouts to receive earnings from your lessons.';
+    }
+  }
+
+  // Get payout setup title
+  getPayoutSetupTitle(): string {
+    if (!this.payoutOptions) return 'Connect Bank Account';
+    
+    const { stripe, paypal } = this.payoutOptions;
+    
+    if (stripe.available && stripe.recommended) {
+      return 'Connect Bank Account';
+    } else if (paypal.available && paypal.recommended) {
+      return 'Connect Account';
+    } else {
+      return 'Set Up Payouts';
+    }
+  }
+
+  // Start Stripe Connect onboarding OR open payout selection modal
+  async startStripeConnectOnboarding() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      // First, check what payout options are available
+      if (!this.payoutOptions) {
+        const optionsResponse = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/payments/payout-options`, {
+            headers: this.userService.getAuthHeadersSync()
+          })
+        );
+
+        if (optionsResponse.success) {
+          this.payoutOptions = optionsResponse.options;
+        }
+      }
+
+      // If Stripe is available, go directly to Stripe
+      if (this.payoutOptions?.stripe?.available) {
+        await this.setupStripeConnect();
+      } else {
+        // Otherwise, open the payout selection modal
+        this.isLoadingStripeConnect = false;
+        await this.openPayoutSelectionModal();
+      }
+    } catch (error: any) {
+      console.error('❌ Error starting payout setup:', error);
+      this.isLoadingStripeConnect = false;
+      
+      const errorMessage = error.error?.message || error.message || 'Failed to start payout setup';
+      
+      const alert = await this.alertController.create({
+        header: 'Setup Error',
+        message: errorMessage,
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
+  }
+
+  // Open payout selection modal (PayPal, Manual, etc.)
+  async openPayoutSelectionModal() {
+    const modal = await this.modalController.create({
+      component: PayoutSelectionModalComponent,
+      cssClass: 'payout-selection-modal'
+    });
+
+    await modal.present();
+    const { data } = await modal.onWillDismiss();
+
+    if (!data) {
+      console.log('🏦 [PROFILE] User cancelled payout selection');
+      return;
+    }
+
+    console.log('🏦 [PROFILE] User selected:', data.provider);
+
+    // Handle based on selected provider
+    switch (data.provider) {
+      case 'stripe':
+        await this.setupStripeConnect();
+        break;
+      case 'paypal':
+        await this.setupPayPal(data.paypalEmail);
+        break;
+      case 'manual':
+        await this.setupManualPayout();
+        break;
+    }
+  }
+
+  // Setup Stripe Connect
+  private async setupStripeConnect() {
+    const loading = await this.loadingController.create({
+      message: 'Setting up Stripe...'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/payments/stripe-connect/onboard`,
+          {},
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      await loading.dismiss();
+
+      if (response.success && (response.url || response.onboardingUrl)) {
+        const redirectUrl = response.url || response.onboardingUrl;
+        // On mobile, open in same window (_self) to keep it within the app
+        // On desktop, open in new tab (_blank)
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(redirectUrl, target);
+        
+        const toast = await this.toastController.create({
+          message: 'Complete the setup in the new window. Refresh this page when done.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      } else {
+        this.showToast('Failed to start Stripe onboarding', 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Error starting Stripe Connect:', error);
+      
+      const errorMessage = error.error?.message || error.message || 'Failed to start Stripe onboarding';
+      this.showToast(errorMessage, 'danger');
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  // Setup PayPal
+  private async setupPayPal(email: string) {
+    console.log('💳 [PROFILE] Setting up PayPal with email:', email);
+    
+    const loading = await this.loadingController.create({
+      message: 'Connecting PayPal...'
+    });
+    await loading.present();
+
+    try {
+      console.log('💳 [PROFILE] Sending POST to /payments/setup-paypal...');
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/payments/setup-paypal`,
+          { paypalEmail: email },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      console.log('💳 [PROFILE] Response from backend:', response);
+      await loading.dismiss();
+
+      if (response.success) {
+        this.showToast('✅ PayPal connected successfully!', 'success');
+        
+        console.log('💳 [PROFILE] Forcing user data refresh...');
+        // Force refresh user data from backend
+        const freshUser = await firstValueFrom(this.userService.getCurrentUser(true));
+        console.log('💳 [PROFILE] Fresh user data:', {
+          payoutProvider: (freshUser as any)?.payoutProvider,
+          paypalEmail: (freshUser as any)?.payoutDetails?.paypalEmail
+        });
+        
+        console.log('💳 [PROFILE] Reloading payout status in UserService...');
+        // Reload payout status in UserService (will update profile via subscription)
+        await this.userService.loadPayoutStatus();
+        
+        console.log('💳 [PROFILE] Final state:', {
+          payoutProvider: this.payoutProvider,
+          hasPayoutSetup: this.hasPayoutSetup
+        });
+      } else {
+        console.error('💳 [PROFILE] Backend returned error:', response.message);
+        this.showToast(response.message || 'Failed to connect PayPal', 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ [PROFILE] Error setting up PayPal:', error);
+      console.error('❌ [PROFILE] Error details:', error.error);
+      this.showToast(error.error?.message || 'Failed to connect PayPal', 'danger');
+    }
+  }
+
+  // Setup Manual Payout
+  private async setupManualPayout() {
+    const alert = await this.alertController.create({
+      header: 'Manual Payout',
+      message: 'Your earnings will be processed manually by our team. We\'ll contact you via email for payout details.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Confirm',
+          handler: async () => {
+            const loading = await this.loadingController.create({
+              message: 'Setting up manual payout...'
+            });
+            await loading.present();
+
+            try {
+              const response = await firstValueFrom(
+                this.http.post<any>(
+                  `${environment.apiUrl}/payments/setup-manual`,
+                  {},
+                  { headers: this.userService.getAuthHeadersSync() }
+                )
+              );
+
+              await loading.dismiss();
+
+              if (response.success) {
+                this.showToast('✅ Manual payout setup complete!', 'success');
+                
+                // Force refresh user data from backend
+                await firstValueFrom(this.userService.getCurrentUser(true));
+                
+                // Reload payout status in UserService (will update profile via subscription)
+                await this.userService.loadPayoutStatus();
+              } else {
+                this.showToast(response.message || 'Failed to setup manual payout', 'danger');
+              }
+            } catch (error: any) {
+              await loading.dismiss();
+              console.error('❌ Error setting up manual payout:', error);
+              this.showToast(error.error?.message || 'Failed to setup manual payout', 'danger');
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  // Helper to show toast
+  private async showToast(message: string, color: string = 'dark') {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      color,
+      position: 'top'
+    });
+    await toast.present();
+  }
+
+  // Original Stripe-only onboarding (kept for backward compatibility, now calls new method)
+  async startOriginalStripeOnboarding() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/onboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.onboardingUrl) {
+        // On mobile, open in same window (_self) to keep it within the app
+        // On desktop, open in new tab (_blank)
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(response.onboardingUrl, target);
+        
+        const toast = await this.toastController.create({
+          message: 'Complete the setup in the new window. Refresh this page when done.',
+          duration: 5000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error starting Stripe Connect onboarding:', error);
+      
+      // Show helpful error message
+      const errorMessage = error.error?.message || error.message || 'Failed to start payout setup';
+      
+      const alert = await this.alertController.create({
+        header: 'Setup Not Available',
+        message: errorMessage.includes('signed up for Connect') 
+          ? 'Stripe Connect needs to be enabled in the platform settings. Please contact support.'
+          : errorMessage,
+        buttons: ['OK']
+      });
+      await alert.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  // NEW: Edit existing Stripe Connect account
+  async editStripeConnectAccount() {
+    this.isLoadingStripeConnect = true;
+
+    try {
+      // Generate a Stripe dashboard login link
+      const response = await firstValueFrom(
+        this.http.post<any>(`${environment.apiUrl}/payments/stripe-connect/dashboard`, {}, {
+          headers: this.userService.getAuthHeadersSync()
+        })
+      );
+
+      if (response.success && response.dashboardUrl) {
+        // On mobile, open in same window (_self) to keep it within the app
+        // On desktop, open in new tab (_blank)
+        const target = this.platform.is('mobile') || this.platform.is('mobileweb') ? '_self' : '_blank';
+        window.open(response.dashboardUrl, target);
+        
+        const toast = await this.toastController.create({
+          message: 'Opening Stripe Express Dashboard...',
+          duration: 3000,
+          color: 'primary',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error: any) {
+      console.error('❌ Error opening Stripe dashboard:', error);
+      
+      // Fallback: restart onboarding
+      const alert = await this.alertController.create({
+        header: 'Update Payout Settings',
+        message: 'Would you like to update your payout information?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel'
+          },
+          {
+            text: 'Update',
+            handler: () => {
+              this.startStripeConnectOnboarding();
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } finally {
+      this.isLoadingStripeConnect = false;
+    }
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    
+    if (this.approvalStatusSubscription) {
+      this.approvalStatusSubscription.unsubscribe();
+    }
   }
 
 }

@@ -27,7 +27,16 @@ const NotificationSchema = new mongoose.Schema({
       'office_hours_starting',
       'lesson_analysis_ready',
       'class_auto_cancelled',
-      'class_invitation_cancelled'
+      'class_invitation_cancelled',
+      'tutor_video_approved',
+      'tutor_video_rejected',
+      'payment_received',
+      'lesson_refunded',
+      'lesson_partial_refund',
+      'payment_cancelled',
+      'payment_reduced',
+      'investigation_resolved',
+      'dispute_submitted'
     ],
     required: true
   },

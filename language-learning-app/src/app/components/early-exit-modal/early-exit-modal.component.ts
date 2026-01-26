@@ -109,8 +109,14 @@ export class EarlyExitModalComponent {
       // Dismiss modal with action
       this.modalDismissed.emit({ action: 'end_lesson_confirmed' });
 
-      // Navigate to analysis page with generating state
-      await this.router.navigate(['/lesson-analysis', this.lessonId]);
+      // Navigate based on role: students see post-lesson page, tutors see post-lesson page
+      if (this.userRole === 'student') {
+        // Students see the post-lesson page with tipping
+        await this.router.navigate(['/post-lesson-student', this.lessonId]);
+      } else {
+        // Tutors see the post-lesson page with note form
+        await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
+      }
 
     } catch (error) {
       console.error('❌ Error finalizing lesson:', error);

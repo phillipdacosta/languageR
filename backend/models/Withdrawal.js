@@ -1,0 +1,177 @@
+const mongoose = require('mongoose');
+
+/**
+ * Withdrawal Model
+ * Tracks tutor withdrawal requests from their internal balance
+ * to external payment methods (Stripe Connect or PayPal)
+ */
+const withdrawalSchema = new mongoose.Schema({
+  tutorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    index: true
+  },
+  
+  amount: {
+    type: Number,
+    required: true,
+    min: 0,
+    comment: 'Withdrawal amount requested'
+  },
+  
+  status: {
+    type: String,
+    enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'],
+    default: 'pending',
+    index: true,
+    comment: 'pending: awaiting processing, processing: transfer initiated, completed: funds sent, failed: transfer error, cancelled: manually cancelled'
+  },
+  
+  method: {
+    type: String,
+    enum: ['stripe_connect', 'paypal'],
+    required: true,
+    comment: 'Payment method for withdrawal'
+  },
+  
+  // Stripe-specific fields
+  stripeTransferId: {
+    type: String,
+    default: null,
+    comment: 'Stripe Transfer ID (tr_xxx)'
+  },
+  
+  stripePayoutId: {
+    type: String,
+    default: null,
+    comment: 'Stripe Payout ID if payout was created (po_xxx)'
+  },
+  
+  // PayPal-specific fields
+  paypalBatchId: {
+    type: String,
+    default: null,
+    comment: 'PayPal Batch ID for payout'
+  },
+  
+  paypalPayoutItemId: {
+    type: String,
+    default: null,
+    comment: 'PayPal Payout Item ID'
+  },
+  
+  // Payment IDs included in this withdrawal
+  paymentIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+    comment: 'Individual lesson payments included in this withdrawal'
+  }],
+  
+  // Fee breakdown
+  platformFee: {
+    type: Number,
+    default: 0,
+    comment: 'Any additional platform withdrawal fee (currently $0)'
+  },
+  
+  stripeFee: {
+    type: Number,
+    default: 0,
+    comment: 'Stripe transfer fee if applicable (typically $0 for Standard Connect)'
+  },
+  
+  paypalFee: {
+    type: Number,
+    default: 0,
+    comment: 'PayPal payout fee ($0.25 or 2%, whichever is higher, max $20)'
+  },
+  
+  netAmount: {
+    type: Number,
+    required: true,
+    comment: 'Amount tutor actually receives after all fees'
+  },
+  
+  // Timing
+  requestedAt: {
+    type: Date,
+    default: Date.now,
+    index: true,
+    comment: 'When withdrawal was requested'
+  },
+  
+  processedAt: {
+    type: Date,
+    default: null,
+    comment: 'When withdrawal processing started'
+  },
+  
+  completedAt: {
+    type: Date,
+    default: null,
+    comment: 'When withdrawal successfully completed'
+  },
+  
+  failedAt: {
+    type: Date,
+    default: null,
+    comment: 'When withdrawal failed'
+  },
+  
+  // Error handling
+  errorMessage: {
+    type: String,
+    default: null,
+    comment: 'Error message if withdrawal failed'
+  },
+  
+  retryCount: {
+    type: Number,
+    default: 0,
+    comment: 'Number of retry attempts'
+  },
+  
+  nextRetryAt: {
+    type: Date,
+    default: null,
+    index: true,
+    comment: 'When to retry processing (exponential backoff)'
+  },
+  
+  // Administrative
+  notes: {
+    type: String,
+    default: null,
+    comment: 'Admin notes about this withdrawal'
+  },
+  
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+    comment: 'Additional metadata for tracking/debugging'
+  }
+  
+}, { 
+  timestamps: true,
+  comment: 'Automatic createdAt and updatedAt timestamps'
+});
+
+// Compound indexes for common queries
+withdrawalSchema.index({ tutorId: 1, createdAt: -1 });
+withdrawalSchema.index({ status: 1, createdAt: -1 });
+withdrawalSchema.index({ method: 1, status: 1 });
+
+// Virtual field: feePercentage
+withdrawalSchema.virtual('feePercentage').get(function() {
+  if (this.amount === 0) return 0;
+  const totalFees = this.platformFee + this.stripeFee + this.paypalFee;
+  return ((totalFees / this.amount) * 100).toFixed(2);
+});
+
+// Ensure virtuals are included in JSON output
+withdrawalSchema.set('toJSON', { virtuals: true });
+withdrawalSchema.set('toObject', { virtuals: true });
+
+module.exports = mongoose.model('Withdrawal', withdrawalSchema);
+

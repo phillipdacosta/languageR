@@ -1,10 +1,15 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { UserService } from '../services/user.service';
 import { ProgressService, Struggle, StruggleResponse } from '../services/progress.service';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+
+// 🚀 PERFORMANCE FIX: Extend Struggle with cached expansion state
+interface ExpandableStruggle extends Struggle {
+  isExpanded: boolean;
+}
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -29,6 +34,11 @@ interface AnalysisSummary {
   isTrialLesson?: boolean;
   isOfficeHours?: boolean;
   officeHoursType?: string | null;
+  // Cached computed values (added for performance)
+  formattedDate?: string;
+  levelClass?: string;
+  tutorInitial?: string;
+  formattedTutorName?: string;
 }
 
 interface ProgressStats {
@@ -43,6 +53,9 @@ interface ProgressStats {
   avgVocabulary: number;
   avgPronunciation: number;
   avgListening: number;
+  // Cached computed values (added for performance)
+  totalStudyTimeFormatted?: string;
+  currentLevelClass?: string;
 }
 
 interface Badge {
@@ -65,6 +78,7 @@ interface NextGoal {
   target: number;
   icon: string;
   color: string;
+  progressPercentage?: number; // Cached value to avoid function calls in template
 }
 
 @Component({
@@ -72,6 +86,7 @@ interface NextGoal {
   templateUrl: 'tab3.page.html',
   styleUrls: ['tab3.page.scss'],
   standalone: false,
+  changeDetection: ChangeDetectionStrategy.Default // Keep Default for now, OnPush would require more refactoring
 })
 export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('radarCanvas') radarCanvas!: ElementRef<HTMLCanvasElement>;
@@ -105,7 +120,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   highestLevelReached: string = '';
   
   // Struggles data
-  struggles: Struggle[] = [];
+  struggles: ExpandableStruggle[] = [];
   strugglesLoading = false;
   strugglesError = '';
   currentLanguage: string = '';
@@ -117,6 +132,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   // Expose Math for template
   Math = Math;
   
+  // Coaching metrics (tutors only)
+  coachingMetrics: any = null;
+  
   private radarChart: Chart | null = null;
   private lineChart: Chart | null = null;
 
@@ -124,11 +142,17 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     private router: Router,
     private http: HttpClient,
     private userService: UserService,
-    private progressService: ProgressService
+    private progressService: ProgressService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
     this.loadCurrentUser();
+    
+    // Load coaching metrics for tutors
+    if (this.isTutor()) {
+      this.loadCoachingMetrics();
+    }
   }
   
   ngAfterViewInit() {
@@ -169,8 +193,15 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   async loadCurrentUser() {
     this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      console.log('👤 [Tab3] Current user loaded:', user?.email, 'Type:', user?.userType);
+      
       if (user?.userType === 'student') {
+        console.log('📊 [Tab3] Loading analyses for student');
         this.loadAnalyses();
+      } else if (user?.userType === 'tutor') {
+        console.log('🎓 [Tab3] User is tutor - stopping loading and loading coaching metrics');
+        // For tutors, just stop loading and show coaching metrics
+        this.loading = false;
       }
     });
   }
@@ -223,30 +254,60 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         console.log('✅ [Progress] Loaded', this.analyses.length, 'analyses (excluding trial & quick office hours)');
         console.log('   All progress features (badges, stats, charts) will use this filtered data');
 
-
+        // 🚀 PERFORMANCE FIX: Break up heavy computations to prevent UI freeze
+        // Let the UI render first, then compute stats/badges in separate microtasks
         
-        // Calculate stats
-        this.calculateStats();
-        
-        // Initialize badges and gamification
-        this.initializeBadges();
-        
-        // Calculate milestone snapshots
-        this.calculateMilestoneSnapshots();
-        
-        // Sort analyses for timeline (newest to oldest - newest first from left)
-        this.sortedAnalyses = [...this.analyses].sort((a, b) => 
-          new Date(b.lessonDate).getTime() - new Date(a.lessonDate).getTime()
-        );
-        
-        // Create charts (only after view is ready)
+        // Step 1: Calculate stats (needs to happen first for other calculations)
         setTimeout(() => {
-          this.createRadarChart();
-          this.createLineChart();
-        }, 100);
-        
-        // Load struggles for the student's language
-        this.loadStruggles();
+          console.log('📊 [Progress] Step 1: Calculating stats...');
+          this.calculateStats();
+          this.cdr.detectChanges();
+          
+          // Step 2: Pre-compute timeline data (depends on stats)
+          setTimeout(() => {
+            console.log('📊 [Progress] Step 2: Pre-computing timeline data...');
+            this.sortedAnalyses = [...this.analyses]
+              .sort((a, b) => 
+                new Date(b.lessonDate).getTime() - new Date(a.lessonDate).getTime()
+              )
+              .map(analysis => ({
+                ...analysis,
+                // Pre-compute formatted values
+                formattedDate: this.formatDate(analysis.lessonDate),
+                levelClass: this.getLevelClass(analysis.proficiencyLevel),
+                tutorInitial: this.getTutorInitial(analysis.tutorName),
+                formattedTutorName: this.formatTutorName(analysis.tutorName)
+              }));
+            this.cdr.detectChanges();
+            
+            // Step 3: Initialize badges (depends on stats)
+            setTimeout(() => {
+              console.log('📊 [Progress] Step 3: Initializing badges...');
+              this.initializeBadges();
+              this.cdr.detectChanges();
+              
+              // Step 4: Calculate milestone snapshots
+              setTimeout(() => {
+                console.log('📊 [Progress] Step 4: Calculating milestone snapshots...');
+                this.calculateMilestoneSnapshots();
+                this.cdr.detectChanges();
+                
+                // Step 5: Create charts (after all data is ready)
+                setTimeout(() => {
+                  console.log('📊 [Progress] Step 5: Creating charts...');
+                  this.createRadarChart();
+                  this.createLineChart();
+                  this.cdr.detectChanges();
+                  console.log('✅ [Progress] All computations complete!');
+                }, 50);
+                
+                // Step 6: Load struggles (can happen in parallel)
+                console.log('📊 [Progress] Step 6: Loading struggles...');
+                this.loadStruggles();
+              }, 0);
+            }, 0);
+          }, 0);
+        }, 0);
         
         // Mark as initially loaded
         this.hasInitiallyLoaded = true;
@@ -285,7 +346,11 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         next: (response: StruggleResponse) => {
           console.log('✅ [Progress] Struggles loaded:', response);
           if (response.success && response.hasEnoughData) {
-            this.struggles = response.struggles || [];
+            // 🚀 PERFORMANCE FIX: Add isExpanded property to avoid function calls in template
+            this.struggles = (response.struggles || []).map(s => ({
+              ...s,
+              isExpanded: false
+            }));
           } else {
             this.struggles = [];
           }
@@ -322,15 +387,15 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   }
   
   toggleStruggle(index: number) {
-    if (this.expandedStruggles.has(index)) {
-      this.expandedStruggles.delete(index);
-    } else {
-      this.expandedStruggles.add(index);
+    // 🚀 PERFORMANCE FIX: Toggle property directly instead of using Set
+    if (this.struggles[index]) {
+      this.struggles[index].isExpanded = !this.struggles[index].isExpanded;
     }
   }
   
   isStruggleExpanded(index: number): boolean {
-    return this.expandedStruggles.has(index);
+    // Keep for backwards compatibility, but should use struggle.isExpanded directly in template
+    return this.struggles[index]?.isExpanded || false;
   }
   
   calculateStats() {
@@ -436,12 +501,18 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     const vocabScores = this.analyses.map(a => this.vocabularyToScore(a.vocabularyRange || 'moderate'));
     this.stats.avgVocabulary = this.calculateAverage(vocabScores);
     
-    // Pronunciation (use 100 - errorRate as proxy)
-    const pronunciationScores = this.analyses.map(a => Math.max(0, 100 - (a.errorRate || 0) * 100));
-    this.stats.avgPronunciation = this.calculateAverage(pronunciationScores);
+    // Pronunciation - DISABLED: Not yet implemented in AI analysis
+    // const pronunciationScores = this.analyses.map(a => Math.max(0, 100 - (a.errorRate || 0) * 100));
+    // this.stats.avgPronunciation = this.calculateAverage(pronunciationScores);
+    this.stats.avgPronunciation = 0; // Not yet available
     
-    // Listening (use fluency as proxy for now)
-    this.stats.avgListening = this.stats.avgFluency * 0.95; // Slightly lower than fluency
+    // Listening - DISABLED: Not yet implemented in AI analysis
+    // this.stats.avgListening = this.stats.avgFluency * 0.95; // Slightly lower than fluency
+    this.stats.avgListening = 0; // Not yet available
+    
+    // Cache computed values to avoid function calls in template
+    this.stats.totalStudyTimeFormatted = this.getTotalStudyTimeFormatted();
+    this.stats.currentLevelClass = this.getLevelClass(this.stats.currentLevel);
   }
   
   calculateStreak(sortedAnalyses: AnalysisSummary[]): number {
@@ -1181,7 +1252,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         current: lessonCount,
         target: nextLessonMilestone,
         icon: badge?.icon || 'flag',
-        color: badge?.color || '#3b82f6'
+        color: badge?.color || '#3b82f6',
+        progressPercentage: Math.min(100, Math.round((lessonCount / nextLessonMilestone) * 100))
       };
     } else if (nextStreakMilestone) {
       const badge = this.badges.find(b => b.type === 'streak' && b.requirement === nextStreakMilestone);
@@ -1192,7 +1264,8 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         current: streak,
         target: nextStreakMilestone,
         icon: badge?.icon || 'flame',
-        color: badge?.color || '#f97316'  // Default to warm orange instead of red
+        color: badge?.color || '#f97316',  // Default to warm orange instead of red
+        progressPercentage: Math.min(100, Math.round((streak / nextStreakMilestone) * 100))
       };
     } else {
       // All milestones achieved!
@@ -1235,5 +1308,57 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     if (analysis) {
       this.viewAnalysis(analysis._id, analysis.lessonId);
     }
+  }
+  
+  // =============================================
+  // TRACKBY FUNCTIONS (Performance Optimization)
+  // =============================================
+  
+  trackByAnalysisId(index: number, analysis: AnalysisSummary): string {
+    return analysis._id;
+  }
+  
+  // Check if current user is a tutor
+  isTutor(): boolean {
+    return this.currentUser?.userType === 'tutor';
+  }
+  
+  // Load coaching badge metrics (for tutors)
+  async loadCoachingMetrics() {
+    if (!this.isTutor()) return;
+    
+    try {
+      const response: any = await this.http.get(`${environment.apiUrl}/users/coaching-metrics`, {
+        headers: this.userService.getAuthHeadersSync()
+      }).toPromise();
+      
+      if (response.success) {
+        this.coachingMetrics = response.data;
+        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading coaching metrics:', error);
+      // Don't show error to user - just silently fail
+    }
+  }
+  
+  trackByBadgeId(index: number, badge: Badge): string {
+    return badge.id;
+  }
+  
+  trackByStruggleIssue(index: number, struggle: Struggle): string {
+    return struggle.issue;
+  }
+  
+  trackByMilestoneNumber(index: number, snapshot: any): number {
+    return snapshot.milestoneNumber;
+  }
+  
+  trackByChecklistItem(index: number, item: number): number {
+    return item;
+  }
+  
+  trackByExampleOriginal(index: number, example: any): string {
+    return example.original + example.corrected;
   }
 }

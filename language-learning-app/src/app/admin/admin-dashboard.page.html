@@ -1,0 +1,59 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/home"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Admin Dashboard</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="admin-layout">
+    <!-- Sidebar Navigation -->
+    <div class="admin-sidebar">
+      <div class="sidebar-header">
+        <span class="menu-label">MENU</span>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a 
+          routerLink="/admin/revenue" 
+          routerLinkActive="active"
+          class="nav-item">
+          <ion-icon name="cash-outline"></ion-icon>
+          <span>Revenue</span>
+        </a>
+        
+        <a 
+          routerLink="/admin/reported-lessons" 
+          routerLinkActive="active"
+          class="nav-item">
+          <ion-icon name="flag-outline"></ion-icon>
+          <span>Reported Issues</span>
+        </a>
+        
+        <a 
+          routerLink="/admin/tutor-review" 
+          routerLinkActive="active"
+          class="nav-item">
+          <ion-icon name="people-outline"></ion-icon>
+          <span>Tutor Review</span>
+        </a>
+        
+        <a 
+          routerLink="/admin/payment-review" 
+          routerLinkActive="active"
+          class="nav-item">
+          <ion-icon name="card-outline"></ion-icon>
+          <span>Payment Review</span>
+        </a>
+      </nav>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="admin-content">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</ion-content>
+

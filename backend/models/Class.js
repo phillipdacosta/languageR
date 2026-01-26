@@ -16,7 +16,7 @@ const ClassSchema = new mongoose.Schema({
   suggestedPrice: { type: Number, default: 0 }, // Platform-calculated suggested price per student
   startTime: { type: Date, required: true },
   endTime: { type: Date, required: true },
-  status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' }, // Class status
+  status: { type: String, enum: ['scheduled', 'in_progress', 'completed', 'cancelled'], default: 'scheduled' }, // Class status
   cancelledAt: { type: Date }, // When the class was cancelled
   cancelReason: { type: String }, // Reason for cancellation (e.g., "minimum_not_met", "tutor_cancelled")
   recurrence: {
@@ -30,6 +30,40 @@ const ClassSchema = new mongoose.Schema({
     respondedAt: { type: Date }
   }],
   confirmedStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Students who accepted
+  // Payment tracking for each student
+  studentPayments: [{
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+    amount: { type: Number, required: true },
+    paymentStatus: { 
+      type: String, 
+      enum: ['pending', 'authorized', 'captured', 'cancelled', 'refunded'], 
+      default: 'pending' 
+    },
+    stripePaymentIntentId: { type: String },
+    authorizedAt: { type: Date },
+    capturedAt: { type: Date },
+    cancelledAt: { type: Date },
+    attendanceStatus: {
+      type: String,
+      enum: ['not_joined', 'joined', 'no_show'],
+      default: 'not_joined'
+    },
+    joinedAt: { type: Date }
+  }],
+  // Call tracking
+  actualCallStartTime: { type: Date },
+  actualCallEndTime: { type: Date },
+  // Participant tracking (who's currently in the call)
+  participants: {
+    type: Map,
+    of: {
+      joinedAt: Date,
+      leftAt: Date,
+      joinCount: Number
+    },
+    default: new Map()
+  },
   whiteboardRoomUUID: {
     type: String,
     default: null

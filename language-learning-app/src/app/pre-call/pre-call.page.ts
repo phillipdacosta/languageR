@@ -867,11 +867,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       }
 
       console.log(`📋 Loading previous lesson notes for student ${studentId} with tutor ${tutorId}...`);
+      console.log(`📋 Excluding current lesson: ${this.lessonId}`);
       
       // Only show loading state after we've confirmed we'll make the API call
       this.loadingPreviousNotes = true;
 
-      this.transcriptionService.getLatestAnalysis(studentId, tutorId).subscribe({
+      this.transcriptionService.getLatestAnalysis(studentId, tutorId, this.lessonId).subscribe({
         next: (analysis) => {
           console.log('✅ Previous lesson notes loaded:', {
             lessonDate: analysis.lessonDate,

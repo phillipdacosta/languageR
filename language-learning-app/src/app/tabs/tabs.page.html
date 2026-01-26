@@ -122,12 +122,12 @@
         <p>Loading notifications...</p>
       </div>
 
-      <ng-container *ngIf="notifications$ | async as notifications">
+      <ng-container *ngIf="formattedNotifications$ | async as notifications">
         <!-- Important Section (Unread Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
           <h4 class="notification-section-title">Important</h4>
           <div class="notification-item" 
-               *ngFor="let notification of (notifications | notificationFilter:'unread')"
+               *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"
                (click)="onNotificationClick(notification)">
             <div class="notification-item-left">
@@ -135,8 +135,19 @@
                 *ngIf="notification.relatedUserPicture" 
                 [src]="notification.relatedUserPicture" 
                 alt="User avatar"
-                class="notification-avatar" />
-              <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
+                class="notification-avatar"
+                referrerpolicy="no-referrer"
+                loading="lazy"
+                (error)="onNotificationImageError($event, notification)" />
+              <!-- System notifications (video approved, etc) -->
+              <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
+                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+              </div>
+              <!-- Money notifications (earnings) -->
+              <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
+                <span class="money-emoji">💵</span>
+              </div>
+              <div *ngIf="!notification.relatedUserPicture && !isSystemNotification(notification.type) && !isMoneyNotification(notification.type)" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                 <ion-icon 
                   [name]="getNotificationIcon(notification.type)" 
                   class="notification-item-icon">
@@ -144,10 +155,30 @@
               </div>
             </div>
             <div class="notification-item-content">
-              <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
-              <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+              <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
             <div class="notification-item-right">
+              <!-- Dispute Button for payment_cancelled notifications -->
+              <ion-button 
+                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                class="dispute-button"
+                fill="clear"
+                size="small"
+                [style.text-transform]="'none'"
+                [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
+                (click)="openDisputeModal(notification, $event)">
+                <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
+                Dispute
+              </ion-button>
+              <!-- Contextual icon on the right -->
+              <ion-icon 
+                *ngIf="getContextualIcon(notification.type)" 
+                [name]="getContextualIcon(notification.type)" 
+                [class]="getContextualIconClass(notification.type)">
+              </ion-icon>
+              <!-- Celebrate emoji for system notifications -->
+              <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
               <button class="notification-options-btn" (click)="$event.stopPropagation()">
                 <ion-icon name="ellipsis-vertical"></ion-icon>
               </button>
@@ -160,14 +191,17 @@
           <h4 class="notification-section-title">More notifications</h4>
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
-                 *ngFor="let notification of (notifications | notificationFilter:'read')"
+                 *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"
                  (click)="onNotificationClick(notification)">
               <div class="notification-item-left">
                 <img 
                   *ngIf="notification.relatedUserPicture" 
                   [src]="notification.relatedUserPicture" 
                   alt="User avatar"
-                  class="notification-avatar" />
+                  class="notification-avatar"
+                  referrerpolicy="no-referrer"
+                  loading="lazy"
+                  (error)="onNotificationImageError($event, notification)" />
                 <div *ngIf="!notification.relatedUserPicture" class="notification-icon-wrapper" [ngClass]="getNotificationIconClass(notification.type)">
                   <ion-icon 
                     [name]="getNotificationIcon(notification.type)"
@@ -176,10 +210,30 @@
                 </div>
               </div>
               <div class="notification-item-content">
-                <p class="notification-text" [innerHTML]="sanitizeNotificationMessage(notification.message)"></p>
-                <p class="notification-time">{{ formatNotificationTime(notification.createdAt) }}</p>
+                <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+                <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>
               <div class="notification-item-right">
+                <!-- Dispute Button for payment_cancelled notifications -->
+                <ion-button 
+                  *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                  class="dispute-button"
+                  fill="clear"
+                  size="small"
+                  [style.text-transform]="'none'"
+                  [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
+                  (click)="openDisputeModal(notification, $event)">
+                  <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
+                  Dispute
+                </ion-button>
+                <!-- Contextual icon on the right -->
+                <ion-icon 
+                  *ngIf="getContextualIcon(notification.type)" 
+                  [name]="getContextualIcon(notification.type)" 
+                  [class]="getContextualIconClass(notification.type)">
+                </ion-icon>
+                <!-- Celebrate emoji for system notifications -->
+                <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
                 <button class="notification-options-btn" (click)="$event.stopPropagation()">
                   <ion-icon name="ellipsis-vertical"></ion-icon>
                 </button>

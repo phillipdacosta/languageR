@@ -1,0 +1,135 @@
+<ion-content class="post-lesson-tutor-content">
+  <div class="content-wrapper">
+    <div class="congratulations-container">
+    <!-- Header -->
+    <div class="congrats-header">
+      <div class="congrats-icon">🎉</div>
+      <h1>Great Lesson!</h1>
+      <p *ngIf="student">You just completed a lesson with {{ student.firstName || student.name }}.</p>
+    </div>
+
+    <!-- Lesson Summary Card -->
+    <div class="summary-card" *ngIf="lesson && student">
+      <div class="student-info">
+        <div class="student-avatar">
+          <img [src]="student.picture || 'assets/default-avatar.png'" [alt]="student.name" />
+        </div>
+        <div class="student-details">
+          <h3>{{ student.name }}</h3>
+          <p>{{ formatDate(lesson.startTime) }}</p>
+          <p>{{ formatTime(lesson.startTime) }} - {{ formatTime(lesson.endTime) }}</p>
+        </div>
+      </div>
+
+      <div class="earnings-section">
+        <div class="earnings-label">Your Earnings</div>
+        <div class="earnings-amount">${{ getEarningsAmount() }}</div>
+        <div class="earnings-note">{{ lesson.actualDurationMinutes || lesson.duration }} minutes</div>
+      </div>
+    </div>
+
+    <!-- AI Analysis Preview (if available) -->
+    <div class="analysis-preview" *ngIf="analysisLoaded && analysis">
+      <h3>📊 Student's Performance</h3>
+      <div class="analysis-metrics">
+        <div class="metric">
+          <span class="metric-label">Level</span>
+          <span class="metric-value">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Vocabulary</span>
+          <span class="metric-value">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }}</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Grammar</span>
+          <span class="metric-value">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Note Form (Prominent) -->
+    <div class="note-form-card" *ngIf="!noteSubmitted">
+      <h2>Leave a Note for {{ student?.firstName || student?.name }}</h2>
+      <p class="note-subtitle">Help them know what went well and what to work on</p>
+
+      <!-- Quick Impression -->
+      <div class="impression-selector">
+        <label>Quick Impression</label>
+        <div class="impression-buttons">
+          <button
+            *ngFor="let option of impressionOptions"
+            class="impression-btn"
+            [class.selected]="quickImpression === option.value"
+            [attr.data-color]="option.color"
+            (click)="selectImpression(option.value)">
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Note Text -->
+      <div class="form-field">
+        <label>Your Note <span class="required">*</span></label>
+        <ion-textarea
+          [(ngModel)]="noteText"
+          placeholder="Share your thoughts on the lesson. What did they do well? What should they focus on?"
+          rows="6"
+          maxlength="1000">
+        </ion-textarea>
+        <div class="char-count">{{ noteText.length }}/1000</div>
+      </div>
+
+      <!-- Homework (Optional) -->
+      <div class="form-field">
+        <label>Homework (Optional)</label>
+        <ion-textarea
+          [(ngModel)]="homework"
+          placeholder="Suggest specific exercises or practice for next time"
+          rows="3"
+          maxlength="500">
+        </ion-textarea>
+      </div>
+
+      <!-- Submit Buttons -->
+      <div class="form-actions">
+        <ion-button
+          expand="block"
+          color="primary"
+          size="large"
+          [disabled]="!noteText.trim() || submittingNote"
+          (click)="submitNote()">
+          <ion-spinner *ngIf="submittingNote" name="crescent"></ion-spinner>
+          <span *ngIf="!submittingNote">Send Note to Student</span>
+        </ion-button>
+
+        <ion-button
+          expand="block"
+          fill="clear"
+          size="small"
+          (click)="skipNote()">
+          Skip for Now
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Success Message -->
+    <div class="success-message" *ngIf="noteSubmitted">
+      <ion-icon name="checkmark-circle" color="success"></ion-icon>
+      <h2>Note Sent!</h2>
+      <p>{{ student?.name }} will see your feedback in their lesson analysis.</p>
+      <ion-button expand="block" color="primary" (click)="goHome()">
+        Go to Home
+      </ion-button>
+    </div>
+
+    <!-- Navigation -->
+    <div class="bottom-actions" *ngIf="!noteSubmitted">
+      <ion-button fill="clear" (click)="goHome()">
+        <ion-icon name="home" slot="start"></ion-icon>
+        Go to Home
+      </ion-button>
+    </div>
+  </div>
+  </div>
+</ion-content>
+

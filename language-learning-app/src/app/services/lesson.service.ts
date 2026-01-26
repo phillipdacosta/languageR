@@ -68,6 +68,14 @@ export interface Lesson {
   classData?: any; // Full class data from backend
   cancelReason?: string; // Reason for cancellation (e.g., 'minimum_not_met')
   
+  // Issue Reporting & Investigation
+  issueReported?: boolean;
+  issueType?: 'tutor_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
+  issueDetails?: string;
+  issueReportedAt?: string;
+  underInvestigation?: boolean;
+  payoutPaused?: boolean;
+  
   // Per-minute billing tracking (for office hours)
   actualCallStartTime?: string;
   actualCallEndTime?: string;
@@ -212,6 +220,19 @@ export class LessonService {
     actualPrice: number;
   }> {
     return this.recordCallEnd(lessonId);
+  }
+
+  // Save tutor's supplementary note
+  saveTutorNote(
+    lessonId: string,
+    note: { text: string; quickImpression: string; homework: string }
+  ): Observable<{ success: boolean; message: string }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.baseUrl}/${lessonId}/tutor-note`,
+      note,
+      { headers }
+    );
   }
 
   // Get billing summary for a lesson
@@ -427,5 +448,14 @@ export class LessonService {
       params: { gcsPath },
       headers
     });
+  }
+
+  // Check if booking with a tutor would be a trial lesson
+  checkTrialLesson(tutorId: string): Observable<{ success: boolean; isTrialLesson: boolean; previousLessons: number }> {
+    const headers = this.userService.getAuthHeadersSync();
+    return this.http.get<{ success: boolean; isTrialLesson: boolean; previousLessons: number }>(
+      `${this.baseUrl}/check-trial/${tutorId}`,
+      { headers }
+    );
   }
 }

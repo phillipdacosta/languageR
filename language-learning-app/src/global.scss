@@ -29,6 +29,74 @@
 @import "~quill/dist/quill.snow.css";
 @import "~quill/dist/quill.core.css";
 
+/* Image Cropper Modal */
+.image-cropper-modal {
+  --height: 90%;
+  --max-height: 800px;
+  --border-radius: 16px;
+
+  @media (max-width: 768px) {
+    --height: 100%;
+    --border-radius: 0;
+  }
+}
+
+/* Wallet Top-Up Modal */
+.wallet-topup-modal {
+  --width: 90%;
+  --max-width: 400px;
+  --height: auto;
+  --border-radius: 16px;
+  --backdrop-opacity: 0.4;
+
+  ion-backdrop {
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Withdrawal Modal */
+.withdrawal-modal {
+  --width: 96% !important;
+  --max-width: 900px !important;
+  --height: 94% !important;
+  --max-height: 900px !important;
+  --border-radius: 24px !important;
+  --backdrop-opacity: 0.4;
+  
+  @media (min-width: 768px) {
+    --width: 900px !important;
+    --max-width: 1000px !important;
+    --height: 90% !important;
+    --max-height: 960px !important;
+  }
+
+  @media (min-width: 576px) and (max-width: 767px) {
+    --width: 92% !important;
+    --max-width: 700px !important;
+    --height: 90% !important;
+  }
+
+  @media (max-width: 575px) {
+    --width: 95% !important;
+    --max-width: 95% !important;
+    --height: 90vh !important;
+    --border-radius: 20px !important;
+  }
+  
+  &::part(content) {
+    border-radius: 24px;
+    
+    @media (max-width: 575px) {
+      border-radius: 20px;
+    }
+  }
+
+  ion-backdrop {
+    backdrop-filter: blur(8px);
+  }
+}
+
+
 /**
  * Ionic Dark Mode
  * -----------------------------------------------------
@@ -320,7 +388,7 @@ ion-label {
     // Calendar grid - compact with horizontal scroll
     .calendar-grid {
       gap: 4px !important;
-      height: 800px;
+      // height: 800px;
       margin-bottom: 0 !important;
       overflow-x: auto !important;
       display: grid !important;
@@ -453,6 +521,8 @@ ion-label {
           .avatar {
             width: 50px !important;
             height: 50px !important;
+            position: relative;
+            bottom: 30px;
             
             img {
               width: 50px !important;
@@ -616,6 +686,45 @@ ion-modal.reschedule-proposal-modal {
   }
 }
 
+// Payment Dispute Modal (matches reschedule modal design)
+ion-modal.payment-dispute-modal {
+  --width: 96% !important;
+  --max-width: 900px !important;
+  --height: 94% !important;
+  --max-height: 900px !important;
+  --border-radius: 24px !important;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+  
+  app-payment-dispute-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      --background: #ffffff;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
+      margin-top: auto;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    --width: 900px !important;
+    --max-width: 1000px !important;
+    --height: 90% !important;
+    --max-height: 960px !important;
+  }
+  
+  @media (min-width: 576px) and (max-width: 767px) {
+    --width: 92% !important;
+    --max-width: 700px !important;
+    --height: 90% !important;
+  }
+}
+
 // Class Invitation Modal - Ensure content is visible
 ion-modal.class-invitation-modal {
   --width: 90%;
@@ -707,6 +816,70 @@ ion-modal.invite-student-modal {
   }
 }
 
+// Tutor Availability Selection Modal (bigger than reschedule modal)
+ion-modal.tutor-availability-selection-modal {
+  --width: 95%;
+  --max-width: 900px;  // Bigger: increased from 700px
+  --height: 90vh;      // Bigger: increased from 85vh
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 98%;
+    --max-width: 98%;
+    --height: 95vh;
+    --border-radius: 16px;
+  }
+  
+  app-tutor-availability-selection-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      height: 100%;
+      --background: #ffffff;
+    }
+    
+    ion-footer {
+      flex-shrink: 0;
+      height: auto;
+    }
+  }
+}
+
+// Reschedule Lesson Modal (same dimensions)
+ion-modal.reschedule-modal {
+  --width: 90%;
+  --max-width: 700px;
+  --height: 85vh;
+  --border-radius: 20px;
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: 95%;
+    --height: 90vh;
+    --border-radius: 16px;
+  }
+  
+  app-reschedule-lesson-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+
+    ion-content {
+      flex: 1;
+      height: 100%;
+      --background: #ffffff;
+    }
+
+    ion-footer {
+      flex-shrink: 0;
+      height: auto;
+    }
+  }
+}
+
 // Early Exit Modal Styling
 ion-modal.early-exit-modal {
   --width: 90%;
@@ -719,5 +892,260 @@ ion-modal.early-exit-modal {
   @media (max-width: 768px) {
     --width: 95%;
     --max-width: none;
+  }
+}
+
+// Global Avatar Style Override - Square with Rounded Edges (16px)
+// Applied to all avatars across the app for consistent modern design
+ion-avatar,
+ion-avatar img,
+.avatar,
+.user-avatar,
+.tutor-avatar,
+.student-avatar,
+.profile-avatar,
+.conversation-avatar,
+.notification-avatar,
+.stack-avatar,
+.stacked-avatar,
+img[class*="avatar"],
+div[class*="avatar"] {
+  border-radius: 13px !important;
+}
+
+// Override inline styles that use circular borders
+[style*="border-radius: 50%"][class*="avatar"],
+[style*="border-radius:50%"][class*="avatar"] {
+  border-radius: 16px !important;
+}
+
+// Modern Modal Styling (Apple-inspired)
+ion-modal.modern-modal {
+  --width: 95%;
+  --max-width: 800px;
+  --height: 90vh;
+  --max-height: 900px;
+  --border-radius: 24px;
+  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  
+  @media (max-width: 768px) {
+    --width: 98%;
+    --max-width: none;
+    --border-radius: 20px;
+    --height: 85vh;
+  }
+  
+  ion-content {
+    --background: #ffffff;
+  }
+  
+  // Ensure proper layout for inline modals
+  &::part(content) {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+// Video Player Modal Styling
+ion-modal.video-player-modal {
+  --width: 90%;
+  --max-width: 1200px;
+  --height: 85vh;
+  --max-height: 90vh;
+  --border-radius: 16px;
+  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --height: 90vh;
+    --border-radius: 12px;
+  }
+  
+  ion-header {
+    ion-toolbar {
+      --background: #1d1d1f;
+      --color: #ffffff;
+      
+      ion-title {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      
+      ion-button {
+        --color: #ffffff;
+      }
+    }
+  }
+  
+  .video-player-content {
+    --background: #000000;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --padding-start: 0;
+    --padding-end: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .video-player-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000000;
+    position: relative;
+    
+    .modal-thumbnail-overlay {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      .modal-thumbnail-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      
+      .modal-play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        
+        ion-icon {
+          width: 50px;
+          height: 50px;
+          padding: 12px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.95);
+          color: #667eea;
+          font-size: 56px;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+          transition: all 0.2s ease;
+        }
+      }
+      
+      &:hover .modal-play-overlay {
+        ion-icon {
+          transform: scale(1.1);
+          box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+        }
+      }
+    }
+    
+    .video-player-wrapper-inline {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .video-iframe,
+    .video-player {
+      width: 100%;
+      height: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    
+    .video-iframe {
+      border: none;
+      aspect-ratio: 16/9;
+    }
+  }
+}
+
+
+
+// Card Management Modal Styling
+.card-management-modal {
+  --border-radius: 24px 24px 0 0;
+  --box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
+  
+  ion-backdrop {
+    --backdrop-opacity: 0.5;
+  }
+}
+
+// Payout Selection Modal Styling  
+.payout-selection-modal {
+  --width: 90%;
+  --max-width: 1000px; // Increased from 800px
+  --height: 85%;
+  --max-height: 90vh;
+  --border-radius: 24px;
+  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  
+  ion-backdrop {
+    --backdrop-opacity: 0.6;
+  }
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --height: 90%;
+  }
+}
+
+// Global override for dispute button text-transform and color
+.dispute-button,
+.dispute-button *,
+.dispute-button .button-native,
+.dispute-button .button-inner,
+.dispute-button button,
+.dispute-button span {
+  text-transform: none !important;
+}
+
+// Global override for dispute button color
+.dispute-button {
+  --color: #ff3b30 !important;
+  color: #ff3b30 !important;
+  
+  &::part(native) {
+    color: #ff3b30 !important;
+  }
+  
+  ion-icon {
+    color: #ff3b30 !important;
+    --color: #ff3b30 !important;
+  }
+  
+  .button-native,
+  .button-inner,
+  button,
+  span {
+    color: #ff3b30 !important;
+  }
+}
+
+// Specific override for notification dropdown dispute button
+.notification-dropdown .dispute-button {
+  --color: #ff3b30 !important;
+  color: #ff3b30 !important;
+  
+  &::part(native) {
+    color: #ff3b30 !important;
+  }
+  
+  ion-icon {
+    color: #ff3b30 !important;
+    --color: #ff3b30 !important;
+  }
+  
+  .button-native,
+  .button-inner,
+  button,
+  span {
+    color: #ff3b30 !important;
   }
 }

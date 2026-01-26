@@ -155,7 +155,8 @@ router.get('/me', verifyToken, async (req, res) => {
     
     console.log('🌐 Returning user with languages:', {
       interfaceLanguage: user.interfaceLanguage,
-      nativeLanguage: user.nativeLanguage
+      nativeLanguage: user.nativeLanguage,
+      stripeCustomerId: user.stripeCustomerId // Add logging for debugging
     });
     
     res.json({
@@ -168,11 +169,19 @@ router.get('/me', verifyToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         country: user.country,
+        residenceCountry: user.residenceCountry, // ADD THIS
         picture: user.picture,
         emailVerified: user.emailVerified,
         userType: user.userType,
+        isAdmin: user.isAdmin, // ADD THIS - Required for admin access
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
+        tutorOnboarding: user.tutorOnboarding,
+        tutorApproved: user.tutorApproved,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
+        payoutProvider: user.payoutProvider, // ADD THIS
+        payoutDetails: user.payoutDetails, // ADD THIS
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
         interfaceLanguage: user.interfaceLanguage,
@@ -183,6 +192,40 @@ router.get('/me', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/coaching-metrics - Get coaching badge metrics for current tutor
+router.get('/coaching-metrics', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (user.userType !== 'tutor') {
+      return res.status(403).json({ error: 'Only tutors can view coaching metrics' });
+    }
+    
+    const metrics = user.stats?.feedbackMetrics || {};
+    
+    res.json({
+      success: true,
+      data: {
+        feedbackRate: metrics.feedbackRate || 0,
+        avgQuality: metrics.averageFeedbackQuality || 0,
+        currentStreak: metrics.coachingBadge?.qualifyingStreak || 0,
+        totalLessons: metrics.totalLessonsCompleted || 0,
+        totalFeedback: metrics.totalFeedbackProvided || 0,
+        badgeActive: metrics.coachingBadge?.active || false,
+        badgeEarnedAt: metrics.coachingBadge?.earnedAt || null,
+        lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching coaching metrics:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -395,7 +438,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         user.picture = auth0Picture;
       }
       
-      // Update firstName, lastName, and country if provided
+      // Update firstName, lastName, country, and nativeLanguage if provided
       if (req.body.firstName !== undefined) {
         user.firstName = req.body.firstName;
       }
@@ -405,6 +448,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       if (req.body.country !== undefined) {
         user.country = req.body.country;
       }
+      if (req.body.nativeLanguage !== undefined) {
+        user.nativeLanguage = req.body.nativeLanguage;
+      }
     }
     
     // Update onboarding data based on user type
@@ -412,16 +458,33 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate, introductionVideo } = req.body;
+      const { languages, experience, schedule, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
       user.onboardingData = {
+        firstName: firstName || user.firstName || '',
+        lastName: lastName || user.lastName || '',
+        country: country || user.country || '',
+        nativeLanguage: nativeLanguage || user.nativeLanguage || 'en',
         languages: languages || [],
         experience: experience || '',
         schedule: schedule || '',
         bio: bio || '',
         hourlyRate: hourlyRate || 25,
         introductionVideo: introductionVideo || '',
+        videoThumbnail: videoThumbnail || '',
+        videoType: videoType || 'upload',
         completedAt: new Date()
       };
+      
+      // Update user-level fields
+      if (nativeLanguage) {
+        user.nativeLanguage = nativeLanguage;
+      }
+      if (country) {
+        user.country = country; // Nationality
+      }
+      if (residenceCountry) {
+        user.residenceCountry = residenceCountry; // Where they currently live (for payouts)
+      }
     } else {
       // Handle student onboarding data
       const { languages, goals, experienceLevel, preferredSchedule } = req.body;
@@ -434,9 +497,24 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       };
     }
     
-    await user.save();
-    
-    console.log('✅ Onboarding completed successfully for:', user.email);
+    try {
+      await user.save();
+      console.log('✅ Onboarding completed successfully for:', user.email);
+      console.log('✅ Saved onboardingData:', JSON.stringify(user.onboardingData, null, 2));
+    } catch (saveError) {
+      console.error('❌ Error saving user during onboarding:', saveError);
+      console.error('❌ Save error details:', {
+        message: saveError.message,
+        name: saveError.name,
+        errors: saveError.errors
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to save onboarding data',
+        message: saveError.message,
+        details: saveError.errors
+      });
+    }
     
     res.json({
       success: true,
@@ -699,9 +777,16 @@ router.get('/tutors', verifyToken, async (req, res) => {
     } = req.query;
 
     // Build filter query
+    // Only show tutors who can receive payments (Stripe, PayPal, or Manual)
     const filterQuery = {
       userType: 'tutor',
-      onboardingCompleted: true
+      onboardingCompleted: true,
+      tutorApproved: true, // Only show approved tutors
+      $or: [
+        { stripeConnectOnboarded: true },
+        { payoutProvider: 'paypal' },
+        { payoutProvider: 'manual' }
+      ]
     };
 
     // Language filter
@@ -718,10 +803,16 @@ router.get('/tutors', verifyToken, async (req, res) => {
       };
     }
 
-    // Country filter (if you have country data)
+    // Country filter - match either country or residenceCountry (case-insensitive)
     if (country && country !== 'any') {
-      // Assuming you have a country field in the user profile
-      filterQuery['profile.country'] = country;
+      const countryRegex = new RegExp(country, 'i');
+      filterQuery.$and = filterQuery.$and || [];
+      filterQuery.$and.push({
+        $or: [
+          { country: countryRegex },
+          { residenceCountry: countryRegex }
+        ]
+      });
     }
 
     // Availability filter
@@ -795,7 +886,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
             onboardingData: 1,
             profile: 1,
             stats: 1,
-            createdAt: 1
+            createdAt: 1,
+            country: 1,
+            residenceCountry: 1
           }
         }
       ]);
@@ -830,7 +923,9 @@ router.get('/tutors', verifyToken, async (req, res) => {
             onboardingData: 1,
             profile: 1,
             stats: 1,
-            createdAt: 1
+            createdAt: 1,
+            country: 1,
+            residenceCountry: 1
           }
         }
       ]);
@@ -840,7 +935,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         .sort(sortQuery)
         .skip(skip)
         .limit(parseInt(limit))
-        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt');
+        .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt country residenceCountry');
     }
 
     // Get total count for pagination
@@ -882,7 +977,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         introductionVideo: tutor.onboardingData?.introductionVideo || '',
         videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
         videoType: tutor.onboardingData?.videoType || 'upload',
-        country: tutor.profile?.country || tutor.onboardingData?.country || 'Unknown',
+        country: tutor.country || tutor.residenceCountry || 'Unknown',
         gender: tutor.profile?.gender || 'Not specified',
         nativeSpeaker: tutor.profile?.nativeSpeaker || false,
         rating: tutor.stats?.rating || 0,
@@ -890,7 +985,13 @@ router.get('/tutors', verifyToken, async (req, res) => {
         totalHours: tutor.stats?.totalHours || 0,
         joinedDate: tutor.createdAt,
         profile: tutor.profile, // Include full profile object for officeHoursEnabled and other features
-        isActivelyAvailable // Only true if tutor has recent heartbeat
+        isActivelyAvailable, // Only true if tutor has recent heartbeat
+        // Coaching badge data
+        coachingBadge: {
+          active: tutor.stats?.feedbackMetrics?.coachingBadge?.active || false,
+          feedbackRate: tutor.stats?.feedbackMetrics?.feedbackRate || 0,
+          avgQuality: tutor.stats?.feedbackMetrics?.averageFeedbackQuality || 0
+        }
       };
     });
 
@@ -938,17 +1039,71 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
     
     console.log('📹 Current onboardingData before update:', user.onboardingData);
     
-    // Update introduction video, thumbnail, and type
+    // Check if this tutor was previously approved (existing tutor vs new tutor)
+    // A tutor is considered "previously approved" if they have an approved intro video OR tutorApproved is true
+    const hasApprovedVideo = user.onboardingData?.introductionVideo && user.onboardingData.introductionVideo !== '';
+    const wasApproved = (user.tutorOnboarding?.videoApproved === true) || (hasApprovedVideo) || (user.tutorApproved === true);
+    console.log(`🔍 Was previously approved: ${wasApproved} (hasApprovedVideo: ${hasApprovedVideo}, videoApproved: ${user.tutorOnboarding?.videoApproved}, tutorApproved: ${user.tutorApproved})`);
+    
+    // Store the new video as "pending" until admin approves
+    // Keep the old video active for students to see
     if (user.onboardingData) {
-      user.onboardingData.introductionVideo = introductionVideo || '';
-      user.onboardingData.videoThumbnail = videoThumbnail || '';
-      user.onboardingData.videoType = videoType || 'upload';
+      // Store new video in pendingVideo fields
+      user.onboardingData.pendingVideo = introductionVideo || '';
+      user.onboardingData.pendingVideoThumbnail = videoThumbnail || '';
+      user.onboardingData.pendingVideoType = videoType || 'upload';
+      
+      console.log('📹 New video stored as pending (old video remains active)');
     } else {
+      // If no onboardingData, create it with the new video as pending
       user.onboardingData = {
-        introductionVideo: introductionVideo || '',
-        videoThumbnail: videoThumbnail || '',
-        videoType: videoType || 'upload'
+        introductionVideo: '', // No old video
+        videoThumbnail: '',
+        videoType: 'upload',
+        pendingVideo: introductionVideo || '',
+        pendingVideoThumbnail: videoThumbnail || '',
+        pendingVideoType: videoType || 'upload'
       };
+    }
+    
+    // Reset approval status when video is changed (requires re-review)
+    console.log('🔍 Current tutorOnboarding before reset:', user.tutorOnboarding);
+    
+    if (user.tutorOnboarding) {
+      user.tutorOnboarding.videoApproved = false; // Mark for re-review
+      user.tutorOnboarding.videoRejected = false; // Clear rejection
+      user.tutorOnboarding.videoRejectionReason = null;
+      user.tutorOnboarding.videoUploaded = true; // Mark as uploaded for admin queue
+      user.tutorOnboarding.videoUploadedAt = new Date(); // ✅ Set upload timestamp
+      
+      console.log('📹 Video marked for admin review');
+      
+      // CRITICAL: If tutor was previously approved, keep profile visible during re-review
+      if (wasApproved) {
+        console.log('✅ EXISTING tutor: Profile remains visible (tutorApproved stays true)');
+        // tutorApproved remains true - don't change it
+      } else {
+        console.log('🆕 NEW tutor: Profile will be hidden until first approval');
+        user.tutorApproved = false; // Hide profile for brand new tutors
+      }
+      
+      console.log('🔍 tutorOnboarding after reset:', user.tutorOnboarding);
+    } else {
+      // Initialize tutorOnboarding if it doesn't exist (new tutor)
+      user.tutorOnboarding = {
+        photoUploaded: !!user.picture,
+        videoUploaded: true,
+        videoUploadedAt: new Date(), // ✅ Set upload timestamp for new tutors
+        videoApproved: false,
+        videoRejected: false,
+        videoRejectionReason: null,
+        stripeConnected: user.stripeConnectOnboarded || false,
+        completedAt: null,
+        approvedBy: null,
+        approvedAt: null
+      };
+      user.tutorApproved = false; // Hide profile for new tutors
+      console.log('🆕 NEW tutor: Profile hidden until first approval');
     }
     
     await user.save();
@@ -957,24 +1112,44 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
     const updatedUser = await User.findOne({ auth0Id: req.user.sub });
     
     console.log('✅ Tutor video updated and saved:', {
-      video: user.onboardingData.introductionVideo,
-      thumbnail: user.onboardingData.videoThumbnail,
-      type: user.onboardingData.videoType
+      oldVideo: user.onboardingData.introductionVideo,
+      pendingVideo: user.onboardingData.pendingVideo,
+      pendingThumbnail: user.onboardingData.pendingVideoThumbnail,
+      pendingType: user.onboardingData.pendingVideoType
     });
     
     console.log('✅ Confirmed in DB:', {
-      video: updatedUser.onboardingData.introductionVideo,
-      thumbnail: updatedUser.onboardingData.videoThumbnail,
-      type: updatedUser.onboardingData.videoType
+      oldVideo: updatedUser.onboardingData.introductionVideo,
+      pendingVideo: updatedUser.onboardingData.pendingVideo,
+      pendingThumbnail: updatedUser.onboardingData.pendingVideoThumbnail,
+      pendingType: updatedUser.onboardingData.pendingVideoType
     });
     
     res.json({
       success: true,
-      message: 'Introduction video updated successfully',
-      introductionVideo: user.onboardingData.introductionVideo,
+      message: 'Introduction video updated successfully. Pending admin approval.',
+      introductionVideo: user.onboardingData.introductionVideo, // Old video (still active)
+      pendingVideo: user.onboardingData.pendingVideo, // New video (pending)
       videoThumbnail: user.onboardingData.videoThumbnail,
       videoType: user.onboardingData.videoType
     });
+
+    // Notify admins via WebSocket that a new video is pending review
+    try {
+      if (req.io) {
+        req.io.emit('tutor_video_uploaded', {
+          tutorId: user._id,
+          tutorName: user.name || user.email,
+          tutorEmail: user.email,
+          videoUrl: user.onboardingData.pendingVideo,
+          thumbnailUrl: user.onboardingData.pendingVideoThumbnail,
+          timestamp: new Date()
+        });
+        console.log('📬 Notified admins of new video upload from:', user.email);
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+    }
 
   } catch (error) {
     console.error('Error updating tutor video:', error);
@@ -1013,6 +1188,27 @@ router.put('/profile-picture', verifyToken, async (req, res) => {
 
     // Update picture
     user.picture = imageUrl;
+    
+    // For tutors: Check if all approval steps are now complete
+    if (user.userType === 'tutor' && !user.tutorApproved) {
+      user.tutorOnboarding = user.tutorOnboarding || {};
+      const photoComplete = !!imageUrl;
+      const videoApproved = user.tutorOnboarding.videoApproved === true;
+      
+      // Check for ANY payout method (Stripe, PayPal, or Manual)
+      const hasStripe = user.stripeConnectOnboarded === true;
+      const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+      const hasManual = user.payoutProvider === 'manual';
+      const payoutComplete = hasStripe || hasPayPal || hasManual;
+      
+      if (photoComplete && videoApproved && payoutComplete) {
+        user.tutorApproved = true;
+        user.tutorOnboarding.photoUploaded = true;
+        user.tutorOnboarding.completedAt = new Date();
+        console.log(`🎉 Tutor ${user.email} is now FULLY APPROVED (all steps complete after photo upload)`);
+      }
+    }
+    
     await user.save();
 
     console.log('✅ Profile picture updated for user:', user.email);
@@ -1173,6 +1369,7 @@ router.put('/availability', verifyToken, async (req, res) => {
     
     // Merge: kept blocks + new blocks
     user.availability = [...blocksToKeep, ...availabilityBlocks];
+    user.lastAvailabilityUpdate = new Date(); // Track when availability was last updated
     await user.save();
 
     console.log('Final availability count:', user.availability.length);
@@ -1186,6 +1383,70 @@ router.put('/availability', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating availability:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/users/tutors-with-new-availability - Get tutors student has worked with who added availability recently
+// NOTE: This route MUST come BEFORE /:userId/availability to avoid route conflicts
+router.get('/tutors-with-new-availability', verifyToken, async (req, res) => {
+  try {
+    const student = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Only students can see this
+    if (student.userType !== 'student') {
+      return res.status(400).json({ success: false, message: 'Only students can access this' });
+    }
+    
+    // Get past lessons to find tutors the student has worked with
+    const pastLessons = await Lesson.find({
+      studentId: student._id,
+      status: { $in: ['completed', 'finalized'] }
+    }).populate('tutorId', '_id firstName lastName picture availability lastAvailabilityUpdate');
+    
+    // Extract unique tutor IDs
+    const tutorIds = [...new Set(pastLessons.map(lesson => lesson.tutorId?._id?.toString()).filter(Boolean))];
+    
+    if (tutorIds.length === 0) {
+      return res.json({
+        success: true,
+        tutors: []
+      });
+    }
+    
+    // Find tutors who updated availability in the last 4 hours
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    
+    const tutorsWithNewAvailability = await User.find({
+      _id: { $in: tutorIds },
+      userType: 'tutor',
+      lastAvailabilityUpdate: { $gte: fourHoursAgo },
+      // Make sure they have actual availability blocks
+      'availability.0': { $exists: true }
+    }).select('_id firstName lastName picture lastAvailabilityUpdate');
+    
+    const tutorData = tutorsWithNewAvailability.map(tutor => ({
+      id: tutor._id.toString(),
+      name: tutor.firstName && tutor.lastName 
+        ? `${tutor.firstName} ${tutor.lastName}` 
+        : tutor.firstName || 'Tutor',
+      firstName: tutor.firstName,
+      picture: tutor.picture,
+      lastAvailabilityUpdate: tutor.lastAvailabilityUpdate
+    }));
+    
+    console.log(`📅 Found ${tutorData.length} tutors with new availability for student ${student._id}`);
+    
+    res.json({
+      success: true,
+      tutors: tutorData
+    });
+  } catch (error) {
+    console.error('❌ Error getting tutors with new availability:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -1292,6 +1553,12 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
     console.log(`⏱️ [Public Profile] Total request time: ${totalDuration}ms`);
 
     if (user.userType === 'tutor') {
+      // Check if tutor has any valid payout method configured
+      const hasStripe = user.stripeConnectOnboarded === true;
+      const hasPayPal = user.payoutProvider === 'paypal' && !!user.payoutDetails?.paypalEmail;
+      const hasManual = user.payoutProvider === 'manual';
+      const hasPayoutSetup = hasStripe || hasPayPal || hasManual;
+      
       res.json({
         success: true,
         tutor: {
@@ -1311,7 +1578,11 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
           videoThumbnail: user.onboardingData?.videoThumbnail || '',
           videoType: user.onboardingData?.videoType || 'upload',
           stats: user.stats || {},
-          profile: user.profile || {}
+          profile: user.profile || {},
+          // Payout and approval info for booking validation
+          tutorApproved: user.tutorApproved,
+          stripeConnectOnboarded: hasPayoutSetup, // True if ANY payout method is set up
+          payoutProvider: user.payoutProvider // Include actual provider for transparency
         }
       });
     } else {
@@ -1428,6 +1699,52 @@ router.put('/picture', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Error updating profile picture:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/users/tutor/submit-for-review - Submit tutor profile for review
+router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    if (user.userType !== 'tutor') {
+      return res.status(400).json({ success: false, message: 'Only tutors can submit for review' });
+    }
+    
+    // Initialize tutorOnboarding if it doesn't exist
+    if (!user.tutorOnboarding) {
+      user.tutorOnboarding = {};
+    }
+    
+    // Mark photo as uploaded if picture exists
+    if (user.picture) {
+      user.tutorOnboarding.photoUploaded = true;
+    }
+    
+    // Mark video as uploaded if video exists
+    if (user.onboardingData?.introductionVideo) {
+      user.tutorOnboarding.videoUploaded = true;
+    }
+    
+    // Mark Stripe as connected if onboarded
+    if (user.stripeConnectOnboarded) {
+      user.tutorOnboarding.stripeConnected = true;
+    }
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'Profile submitted for review. You will be notified once approved.',
+      tutorOnboarding: user.tutorOnboarding
+    });
+  } catch (error) {
+    console.error('❌ Error submitting tutor for review:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

@@ -7,6 +7,13 @@ import { NotificationService, Notification } from '../services/notification.serv
 import { WebSocketService } from '../services/websocket.service';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
+
+// 🚀 PERFORMANCE FIX: Type for cached, formatted notifications
+interface FormattedNotification extends Notification {
+  formattedTime: string;
+  sanitizedMessage: SafeHtml;
+}
 
 @Component({
   selector: 'app-notifications',
@@ -16,6 +23,12 @@ import { ClassInvitationModalComponent } from '../components/class-invitation-mo
 })
 export class NotificationsPage implements OnDestroy {
   notifications: Notification[] = [];
+  // 🚀 PERFORMANCE FIX: Cache formatted AND grouped notifications
+  todayNotifications: FormattedNotification[] = [];
+  yesterdayNotifications: FormattedNotification[] = [];
+  laterNotifications: FormattedNotification[] = [];
+  unreadNotifications: FormattedNotification[] = [];
+  
   isLoading = false;
   searchTerm: string = '';
   activeFilters: string[] = ['all'];
@@ -67,6 +80,9 @@ export class NotificationsPage implements OnDestroy {
       next: response => {
         if (response.success && response.notifications) {
           this.notifications = response.notifications;
+          
+          // 🚀 PERFORMANCE FIX: Pre-compute formatted values AND group notifications
+          this.groupAndFormatNotifications();
           
           // Track oldest notification and check if there are more
           if (this.notifications.length > 0) {
@@ -125,10 +141,6 @@ export class NotificationsPage implements OnDestroy {
         if (event) event.target.complete();
       }
     });
-  }
-
-  getUnreadNotifications(): Notification[] {
-    return this.notifications.filter(n => !n.read);
   }
 
   getReadNotifications(): Notification[] {
@@ -195,11 +207,12 @@ export class NotificationsPage implements OnDestroy {
     }
 
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
-      const shouldReturnToNotifications = this.platformService.isMobile() || this.platformService.isSmallScreen();
-      this.router.navigate(
-        ['/tabs/tutor-calendar/event', notification.data.lessonId],
-        shouldReturnToNotifications ? { queryParams: { from: 'notifications' } } : undefined
-      );
+      // Navigate to lessons page with lesson ID to scroll to
+      this.router.navigate(['/tabs/home/lessons'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
+      });
     } else if (notification.type === 'lesson_analysis_ready' && notification.data?.lessonId) {
       // Navigate to lesson analysis page
       this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
@@ -208,6 +221,13 @@ export class NotificationsPage implements OnDestroy {
       this.openClassInvitation(notification.data.classId, notification);
     } else if (notification.type === 'message' && notification.data?.conversationId) {
       this.router.navigate(['/tabs/messages', notification.data.conversationId]);
+    } else if (notification.type === 'payment_received' && notification.data?.lessonId) {
+      // Navigate to earnings page with lesson ID to scroll to
+      this.router.navigate(['/tabs/home/earnings'], { 
+        queryParams: { 
+          scrollToLesson: notification.data.lessonId 
+        } 
+      });
     }
   }
 
@@ -236,15 +256,18 @@ export class NotificationsPage implements OnDestroy {
 
   getNotificationIcon(type: string): string {
     const iconMap: { [key: string]: string } = {
-      'lesson_created': 'videocam',
+      'lesson_created': 'calendar',
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
       'message': 'chatbubbles',
-      'lesson_reminder': 'videocam',
+      'lesson_reminder': 'alarm',
       'lesson_cancelled': 'close-circle',
-      'lesson_rescheduled': 'videocam',
-      'office_hours_booking': 'videocam',
-      'office_hours_starting': 'videocam'
+      'lesson_rescheduled': 'swap-horizontal',
+      'office_hours_booking': 'time',
+      'office_hours_starting': 'play-circle',
+      'payment_received': 'cash',
+      'tutor_video_approved': 'checkmark-circle',
+      'tutor_video_rejected': 'close-circle'
     };
     return iconMap[type] || 'notifications';
   }
@@ -256,8 +279,59 @@ export class NotificationsPage implements OnDestroy {
       return 'class-invitation-icon';
     } else if (type === 'lesson_analysis_ready') {
       return 'analysis-icon';
+    } else if (type === 'payment_received') {
+      return 'payment-icon';
     }
     return '';
+  }
+
+  // NEW: Check if notification is from system (app)
+  isSystemNotification(type: string): boolean {
+    const systemTypes = [
+      'tutor_video_approved',
+      'tutor_video_rejected',
+      'lesson_analysis_ready'
+    ];
+    return systemTypes.includes(type);
+  }
+
+  // NEW: Check if notification is money-related
+  isMoneyNotification(type: string): boolean {
+    const moneyTypes = [
+      'payment_received'
+    ];
+    return moneyTypes.includes(type);
+  }
+
+  // NEW: Get contextual icon for right side
+  getContextualIcon(type: string): string {
+    const contextualIcons: { [key: string]: string } = {
+      'lesson_created': 'videocam',
+      'lesson_reminder': 'alarm',
+      'lesson_cancelled': 'close-circle',
+      'lesson_rescheduled': 'calendar',
+      'class_invitation': 'people',
+      'office_hours_booking': 'briefcase',
+      'office_hours_starting': 'play',
+      'payment_received': 'cash',
+      'lesson_analysis_ready': 'bar-chart',
+      'message': 'chatbubble-ellipses'
+    };
+    return contextualIcons[type] || '';
+  }
+
+  // NEW: Get CSS class for contextual icon
+  getContextualIconClass(type: string): string {
+    if (type === 'payment_received') {
+      return 'contextual-icon money-icon';
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+      return 'contextual-icon lesson-icon';
+    } else if (type === 'lesson_analysis_ready') {
+      return 'contextual-icon analysis-icon';
+    } else if (type === 'message') {
+      return 'contextual-icon message-icon';
+    }
+    return 'contextual-icon';
   }
 
   getFilteredNotifications(): Notification[] {
@@ -319,6 +393,9 @@ export class NotificationsPage implements OnDestroy {
       // Add filter if not selected
       this.activeFilters.push(filter);
     }
+    
+    // Re-group notifications when filters change
+    this.groupAndFormatNotifications();
   }
 
   isFilterActive(filter: string): boolean {
@@ -338,18 +415,80 @@ export class NotificationsPage implements OnDestroy {
     return notificationDate.toDateString() === yesterday.toDateString();
   }
 
-  getTodayNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => this.isToday(n.createdAt));
-  }
-
-  getYesterdayNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => this.isYesterday(n.createdAt));
-  }
-
-  getLaterNotifications(): Notification[] {
-    return this.getFilteredNotifications().filter(n => 
+  // 🚀 NEW: Pre-compute and cache grouped notifications
+  private groupAndFormatNotifications() {
+    // Format all notifications once
+    const formatted = this.notifications.map(n => ({
+      ...n,
+      formattedTime: this.formatNotificationTime(n.createdAt),
+      sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+    }));
+    
+    // Apply filters once
+    const filtered = this.applyFiltersToArray(formatted);
+    
+    // Group into today/yesterday/later
+    this.todayNotifications = filtered.filter(n => this.isToday(n.createdAt));
+    this.yesterdayNotifications = filtered.filter(n => this.isYesterday(n.createdAt));
+    this.laterNotifications = filtered.filter(n => 
       !this.isToday(n.createdAt) && !this.isYesterday(n.createdAt)
     );
+    this.unreadNotifications = filtered.filter(n => !n.read);
+  }
+  
+  private applyFiltersToArray(notifications: any[]): any[] {
+    let filtered = [...notifications];
+    
+    // Filter by search term
+    if (this.searchTerm && this.searchTerm.trim() !== '') {
+      const search = this.searchTerm.toLowerCase();
+      filtered = filtered.filter(n => 
+        n.message?.toLowerCase().includes(search) ||
+        n.title?.toLowerCase().includes(search)
+      );
+    }
+    
+    // Filter by type
+    if (this.activeFilters && !this.activeFilters.includes('all')) {
+      filtered = filtered.filter(n => {
+        if (this.activeFilters.includes('lessons')) {
+          return n.type && (
+            n.type.includes('lesson') || 
+            n.type.includes('class') ||
+            n.type.includes('office_hours')
+          );
+        }
+        if (this.activeFilters.includes('payment')) {
+          return n.type && n.type.includes('payment');
+        }
+        if (this.activeFilters.includes('progress')) {
+          return n.type && (n.type.includes('analysis') || n.type.includes('progress'));
+        }
+        return true;
+      });
+    }
+    
+    return filtered;
+  }
+
+  getTodayNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.todayNotifications;
+  }
+
+  getYesterdayNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.yesterdayNotifications;
+  }
+
+  getLaterNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.laterNotifications;
+  }
+  
+  getUnreadNotifications(): FormattedNotification[] {
+    // Use cached version
+    return this.unreadNotifications;
   }
 
   getNotificationTitle(notification: Notification): string {
@@ -375,6 +514,8 @@ export class NotificationsPage implements OnDestroy {
 
   onSearchInput(event: any) {
     this.searchTerm = event.detail.value || '';
+    // Re-group notifications when search changes
+    this.groupAndFormatNotifications();
   }
 
   sanitizeMessage(message: string): SafeHtml {
@@ -401,6 +542,30 @@ export class NotificationsPage implements OnDestroy {
       .catch(error => {
         console.error('Error marking all notifications as read:', error);
       });
+  }
+
+  async openDisputeModal(notification: Notification, event: Event) {
+    // Prevent the notification click from triggering
+    event.stopPropagation();
+    
+    console.log('🔔 Opening dispute modal for notification:', notification);
+    
+    const modal = await this.modalController.create({
+      component: PaymentDisputeModalComponent,
+      componentProps: {
+        notification: notification
+      },
+      cssClass: 'payment-dispute-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onWillDismiss();
+    if (data?.disputed) {
+      // Reload notifications to reflect any changes
+      console.log('✅ Dispute submitted, reloading notifications');
+      this.loadNotifications();
+    }
   }
 }
 

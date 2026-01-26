@@ -982,7 +982,7 @@
       .avatar-placeholder {
         width: 100px;
         height: 100px;
-        border-radius: 50%;
+        border-radius: 16px;
         overflow: hidden;
         background: rgba(45, 51, 84, 0.9);
         border: 3px solid rgba(255, 255, 255, 0.2);
@@ -1171,7 +1171,7 @@
     .avatar-placeholder {
       width: 120px;
       height: 120px;
-      border-radius: 50%;
+      border-radius: 16px;
       overflow: hidden;
       background: rgba(45, 51, 84, 0.9);
       border: 3px solid rgba(255, 255, 255, 0.2);
@@ -1581,7 +1581,7 @@
       .avatar {
         width: 48px;
         height: 48px;
-        border-radius: 50%;
+        border-radius: 16px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
@@ -1640,7 +1640,7 @@
       .message-avatar {
         width: 32px;
         height: 32px;
-        border-radius: 50%;
+        border-radius: 16px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;

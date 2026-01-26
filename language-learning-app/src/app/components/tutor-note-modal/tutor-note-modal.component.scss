@@ -1,0 +1,310 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+ion-content {
+  flex: 1;
+  overflow-y: auto;
+  --background: #ffffff;
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// Floating close button (matches reschedule modal)
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
+  }
+}
+
+// Button group for footer (matches reschedule modal)
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px;
+
+  ion-button {
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    font-size: 16px;
+  }
+}
+
+// Modal content optimization
+.tutor-note-modal-content {
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+}
+
+.view-container {
+  width: 100%;
+  min-height: 100%;
+  padding: 70px 24px 24px 24px; // Top padding for close button
+  will-change: transform, opacity;
+}
+
+// Lesson Summary Banner (similar to reschedule modal's original-time-banner)
+.lesson-summary-banner {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, #e6f4ff 0%, #cce7ff 100%);
+  border-radius: 12px;
+  border: 1px solid #99cfff;
+
+  .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .banner-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+
+    ion-icon {
+      font-size: 22px;
+      color: #0071e3;
+    }
+  }
+
+  .banner-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .banner-label {
+      font-weight: 600;
+      font-size: 15px;
+      color: #1d1d1f;
+    }
+
+    .banner-time {
+      font-size: 13px;
+      color: #6e6e73;
+    }
+  }
+}
+
+// Student Section
+.student-section {
+  margin-bottom: 32px;
+  text-align: center;
+
+  .main-heading {
+    font-size: 26px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .subheading {
+    font-size: 15px;
+    color: #6e6e73;
+    margin: 0;
+    line-height: 1.4;
+  }
+}
+
+// Quick Impressions
+.quick-impressions {
+  margin-bottom: 28px;
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1d1d1f;
+  }
+
+  .tag-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    ion-button {
+      margin: 0;
+      text-transform: none;
+      font-weight: 500;
+      --border-radius: 20px;
+      --padding-start: 16px;
+      --padding-end: 16px;
+      --padding-top: 10px;
+      --padding-bottom: 10px;
+      font-size: 14px;
+      height: auto;
+      
+      &[fill="outline"] {
+        --border-color: #d2d2d7;
+        --border-width: 1.5px;
+        --color: #1d1d1f;
+        --background-hover: #f5f5f7;
+      }
+
+      &[fill="solid"] {
+        --background: #0071e3;
+        --background-hover: #0077ed;
+        --color: #ffffff;
+      }
+    }
+  }
+}
+
+// Note Field
+.note-field,
+.homework-field {
+  margin-bottom: 28px;
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #1d1d1f;
+  }
+
+  ion-textarea {
+    --background: #f5f5f7;
+    --border-radius: 12px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    font-size: 15px;
+    border: 1.5px solid #d2d2d7;
+    border-radius: 12px;
+
+    &:focus-within {
+      border-color: #0071e3;
+    }
+  }
+}
+
+.char-count {
+  text-align: right;
+  font-size: 13px;
+  color: #86868b;
+  margin-top: 8px;
+}
+
+// Quill editor styling
+:host ::ng-deep {
+  quill-editor {
+    display: block;
+    
+    .ql-toolbar {
+      border: 1.5px solid #d2d2d7;
+      border-bottom: 1px solid #e5e5ea;
+      border-radius: 12px 12px 0 0;
+      background: #ffffff;
+      padding: 10px 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    }
+
+    .ql-container {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+      font-size: 15px;
+      border: 1.5px solid #d2d2d7;
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      background: #f5f5f7;
+    }
+
+    .ql-editor {
+      min-height: 180px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding: 16px;
+      line-height: 1.6;
+
+      &.ql-blank::before {
+        color: #86868b;
+        font-style: normal;
+        left: 16px;
+        right: 16px;
+      }
+      
+      p {
+        margin: 0 0 8px 0;
+      }
+      
+      strong {
+        font-weight: 600;
+      }
+      
+      ul, ol {
+        padding-left: 1.5em;
+      }
+    }
+
+    .ql-editor:focus {
+      outline: none;
+    }
+
+    &:focus-within {
+      .ql-container {
+        border-color: #0071e3;
+      }
+      
+      .ql-toolbar {
+        border-color: #0071e3;
+        border-bottom-color: #e5e5ea;
+      }
+    }
+    
+    // Style toolbar buttons
+    .ql-stroke {
+      stroke: #1d1d1f;
+    }
+    
+    .ql-fill {
+      fill: #1d1d1f;
+    }
+    
+    .ql-picker-label {
+      color: #1d1d1f;
+    }
+    
+    button.ql-active {
+      .ql-stroke {
+        stroke: #0071e3;
+      }
+      .ql-fill {
+        fill: #0071e3;
+      }
+    }
+  }
+}
+

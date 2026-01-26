@@ -1,0 +1,108 @@
+<ion-content class="dispute-modal-content">
+  <!-- Floating close button (always visible, matches reschedule modal) -->
+  <ion-button class="floating-close-button" fill="clear" (click)="dismiss()">
+    <ion-icon name="close" slot="icon-only"></ion-icon>
+  </ion-button>
+
+  <!-- Loading State (only show if we have no data at all) -->
+  <div class="loading-state" *ngIf="!lessonDetails && !notification?.data">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading lesson details...</p>
+  </div>
+
+  <!-- Main Content (show if we have lessonDetails OR notification data) -->
+  <div class="view-container" *ngIf="lessonDetails || notification?.data">
+    
+    <!-- Participant Info Section (matches reschedule modal) -->
+    <div class="participant-section">
+      <ion-avatar class="participant-avatar">
+        <img *ngIf="getStudentAvatar() && getStudentAvatar() !== 'assets/default-avatar.png'" 
+             [src]="getStudentAvatar()" 
+             [alt]="getStudentName()" 
+             referrerpolicy="no-referrer">
+        <ion-icon *ngIf="!getStudentAvatar() || getStudentAvatar() === 'assets/default-avatar.png'" 
+                  name="person" 
+                  class="avatar-placeholder"></ion-icon>
+      </ion-avatar>
+      <div class="participant-info">
+        <h3>Dispute Payment Cancellation</h3>
+        <p>Lesson with {{ getStudentName() }} on {{ getLessonDate() }}</p>
+      </div>
+    </div>
+
+    <!-- Lesson Details Card -->
+    <div class="lesson-details-card">
+      <div class="detail-row">
+        <div class="detail-label">Amount</div>
+        <div class="detail-value">${{ notification?.data?.amount || notification?.data?.originalAmount | number:'1.2-2' }}</div>
+      </div>
+      <div class="detail-row">
+        <div class="detail-label">Lesson Date</div>
+        <div class="detail-value">{{ getLessonDate() }}</div>
+      </div>
+    </div>
+    
+    <!-- Admin Investigation Notes -->
+    <div class="admin-notes-section">
+      <h4 class="section-title">Admin Investigation</h4>
+      <div class="admin-notes-card">
+        <div class="admin-header">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>Platform Investigation Team</span>
+        </div>
+        <div class="notes-content">
+          <p>{{ getAdminNotes() }}</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Dispute Form -->
+    <div class="dispute-form-section">
+      <h4 class="section-title">Your Dispute</h4>
+      <p class="section-description">
+        If you believe this cancellation was made in error, please explain your side of the story below.
+      </p>
+      
+      <ion-textarea
+        [(ngModel)]="disputeMessage"
+        placeholder="Explain why you disagree with this decision..."
+        [rows]="6"
+        [autoGrow]="true"
+        class="dispute-textarea">
+      </ion-textarea>
+      
+      <ion-note class="character-count" [class.warning]="disputeMessage.length > 500">
+        {{ disputeMessage.length }} / 500 characters
+      </ion-note>
+    </div>
+    
+    <!-- Info Note -->
+    <div class="info-note">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <p>Your dispute will be reviewed by our team. We'll respond within 24-48 hours.</p>
+    </div>
+    
+  </div>
+</ion-content>
+
+<ion-footer *ngIf="lessonDetails || notification?.data">
+  <ion-toolbar>
+    <div class="button-group">
+      <ion-button 
+        expand="block" 
+        fill="outline"
+        (click)="dismiss()"
+        [disabled]="isSubmitting">
+        Cancel
+      </ion-button>
+      <ion-button 
+        expand="block"
+        color="primary"
+        (click)="submitDispute()"
+        [disabled]="!disputeMessage.trim() || isSubmitting || disputeMessage.length > 500">
+        <ion-spinner name="crescent" *ngIf="isSubmitting"></ion-spinner>
+        <span *ngIf="!isSubmitting">Submit Dispute</span>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

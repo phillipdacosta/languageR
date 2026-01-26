@@ -1,3 +1,6 @@
+// Load environment variables FIRST before any other imports
+require('dotenv').config({ path: './config.env' });
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -9,9 +12,15 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const { setupDeepgramWebSocket } = require('./routes/deepgram-audio');
 const { autoCompleteTranscripts } = require('./jobs/autoCompleteTranscripts');
+const { autoFinalizeLessons } = require('./jobs/autoFinalizeLessons');
 const { autoCancelClasses } = require('./jobs/autoCancelClasses');
+const autoReleaseClassPayments = require('./jobs/autoReleaseClassPayments');
+const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
+const { processPayPalPayouts } = require('./jobs/processPayPalPayouts');
+const { processWithdrawals } = require('./jobs/processWithdrawals');
+const { reconcilePayments } = require('./jobs/reconcilePayments');
+const { releaseEarnings } = require('./jobs/releaseEarnings'); // NEW: Release tutor earnings
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
-require('dotenv').config({ path: './config.env' });
 
 const app = express();
 const server = http.createServer(app);
@@ -76,6 +85,10 @@ const messagingRoutes = require('./routes/messaging');
 const classesRoutes = require('./routes/classes');
 const notificationRoutes = require('./routes/notifications');
 const whiteboardRoutes = require('./routes/whiteboard');
+const walletRoutes = require('./routes/wallet');
+const paymentRoutes = require('./routes/payments');
+const webhookRoutes = require('./routes/webhooks');
+const withdrawalRoutes = require('./routes/withdrawals'); // NEW: Withdrawal system
 
 // Store connected users: userId -> socketId (defined early for routes to access)
 const connectedUsers = new Map();
@@ -92,6 +105,7 @@ app.use((req, res, next) => {
 });
 
 // Use routes
+app.use('/api/webhooks', webhookRoutes); // Webhooks BEFORE other routes (needs raw body)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/lessons', lessonRoutes);
@@ -100,6 +114,11 @@ app.use('/api/messaging', messagingRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/whiteboard', whiteboardRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/withdrawals', withdrawalRoutes); // NEW: Withdrawal system
+app.use('/api/disputes', require('./routes/disputes')); // Dispute system
+app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
@@ -332,6 +351,15 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Auto-complete transcripts (every minute)');
   
+  // Start background job to auto-finalize lessons without transcripts
+  // Runs every minute
+  cron.schedule('* * * * *', () => {
+    autoFinalizeLessons().catch(err => {
+      console.error('❌ [Cron] Error in autoFinalizeLessons:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-finalize lessons (every minute)');
+  
   // Start background job to auto-cancel classes that don't meet minimum enrollment
   // Runs every 10 minutes (checks for classes 11-21 minutes out, ~16 min window)
   cron.schedule('*/10 * * * *', () => {
@@ -341,9 +369,67 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
   
+  // Start background job to release authorized payments for class no-shows
+  // Runs every hour at minute 5
+  cron.schedule('5 * * * *', () => {
+    autoReleaseClassPayments().catch(err => {
+      console.error('❌ [Cron] Error in autoReleaseClassPayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-release class payments (every hour)');
+  
+  // Start background job to release authorized payments for lesson no-shows
+  // Runs every hour at minute 10
+  cron.schedule('10 * * * *', () => {
+    autoReleaseLessonPayments().catch(err => {
+      console.error('❌ [Cron] Error in autoReleaseLessonPayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Auto-release lesson payments (every hour)');
+  
+  // Start background job to process PayPal payouts after Stripe payouts clear
+  // Runs every hour at minute 15
+  cron.schedule('15 * * * *', () => {
+    processPayPalPayouts().catch(err => {
+      console.error('❌ [Cron] Error in processPayPalPayouts:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Process PayPal payouts (every hour)');
+  
+  // Process withdrawal requests (Stripe Connect / PayPal)
+  // Runs every 5 minutes
+  cron.schedule('*/5 * * * *', () => {
+    processWithdrawals().catch(err => {
+      console.error('❌ [Cron] Error in processWithdrawals:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Process withdrawals (every 5 minutes)');
+  
+  // NEW: Release Tutor Earnings (20 minutes past the hour)
+  // Moves earnings from pending to available after 24hr hold period
+  cron.schedule('20 * * * *', () => {
+    releaseEarnings(io).catch(err => {
+      console.error('❌ [Cron] Error in releaseEarnings:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Release tutor earnings (every hour)');
+  
+  // Start background job to reconcile payments (check DB vs Stripe sync)
+  // Runs nightly at 2:00 AM
+  cron.schedule('0 2 * * *', () => {
+    reconcilePayments().catch(err => {
+      console.error('❌ [Cron] Error in reconcilePayments:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Reconcile payments (daily at 2 AM)');
+  
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();
   console.log('✅ Audio backup system initialized');
+  
+  // Initialize coaching badge evaluator
+  const { startCoachingBadgeEvaluator } = require('./jobs/evaluateCoachingBadges');
+  startCoachingBadgeEvaluator();
   
   // Run auto-cancel immediately on startup for testing
   console.log('🚀 Running auto-cancel check immediately on startup...');
@@ -351,6 +437,9 @@ server.listen(PORT, '0.0.0.0', () => {
     console.error('❌ [Startup] Error in autoCancelClasses:', err);
   });
 });
+
+// Export io instance for use in services
+module.exports.getIO = () => io;
 
 // Handle server errors
 server.on('error', (error) => {

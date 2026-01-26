@@ -18,6 +18,38 @@ const LessonAnalysis = require('../models/LessonAnalysis');
 const User = require('../models/User');
 const { analyzeLesson } = require('../routes/transcription');
 
+// Helper function to emit WebSocket events for lesson/payment status changes
+function emitStatusChange(lessonId, status, tutorId, studentId) {
+  try {
+    const io = require('../server').getIO();
+    if (!io) return;
+
+    const payload = {
+      lessonId: lessonId.toString(),
+      status,
+      updatedAt: new Date()
+    };
+
+    // Emit to both tutor and student
+    if (tutorId) {
+      const tutorSocketId = global.userSockets?.[tutorId.toString()];
+      if (tutorSocketId) {
+        io.to(tutorSocketId).emit('lesson_status_changed', payload);
+      }
+    }
+    if (studentId) {
+      const studentSocketId = global.userSockets?.[studentId.toString()];
+      if (studentSocketId) {
+        io.to(studentSocketId).emit('lesson_status_changed', payload);
+      }
+    }
+
+    console.log(`📡 Emitted lesson_status_changed for lesson ${lessonId}: ${status}`);
+  } catch (error) {
+    console.warn('⚠️ Could not emit WebSocket for lesson status change:', error.message);
+  }
+}
+
 /**
  * Main function to auto-complete eligible transcripts
  */
@@ -107,7 +139,20 @@ async function autoCompleteTranscripts() {
         const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lesson._id });
         
         if (existingAnalysis) {
-          console.log(`ℹ️  [AutoComplete] Analysis already exists for lesson ${lesson._id} (status: ${existingAnalysis.status}), skipping analysis generation`);
+          // If analysis exists but is pending with no transcript, update it and trigger AI analysis
+          if (existingAnalysis.status === 'pending' && !existingAnalysis.transcriptId) {
+            console.log(`🔄 [AutoComplete] Analysis exists but pending without transcript - updating and triggering AI analysis`);
+            existingAnalysis.transcriptId = transcript._id;
+            await existingAnalysis.save();
+            
+            // Trigger AI analysis
+            console.log(`🤖 [AutoComplete] Triggering AI analysis for lesson ${lesson._id}...`);
+            analyzeLesson(transcript._id).catch(err => {
+              console.error(`❌ [AutoComplete] Error analyzing transcript ${transcript._id}:`, err.message);
+            });
+          } else {
+            console.log(`ℹ️  [AutoComplete] Analysis already exists for lesson ${lesson._id} (status: ${existingAnalysis.status}), skipping analysis generation`);
+          }
         } else {
           // 3. Trigger analysis in background (don't await - let it run async)
           console.log(`🤖 [AutoComplete] Triggering AI analysis for lesson ${lesson._id}...`);
@@ -185,6 +230,44 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     
     await lesson.save();
     console.log(`✅ [AutoComplete] Lesson ${lesson._id} finalized: status=${lesson.status}, duration=${lesson.actualDurationMinutes}min, price=$${lesson.actualPrice}`);
+    
+    // Emit WebSocket event for lesson status change
+    emitStatusChange(lesson._id, lesson.status, lesson.tutorId, lesson.studentId);
+    
+    // 💰 CAPTURE AND COMPLETE PAYMENT (using proper payment service)
+    if (lesson.paymentId && lesson.actualCallStartTime) {
+      try {
+        const paymentService = require('../services/paymentService');
+        const Payment = require('../models/Payment');
+        const payment = await Payment.findById(lesson.paymentId);
+        
+        if (!payment) {
+          console.error(`❌ [AutoComplete] Payment ${lesson.paymentId} not found`);
+          return;
+        }
+        
+        // Capture payment if still authorized
+        if (payment.status === 'authorized') {
+          console.log(`💳 [AutoComplete] Capturing authorized payment for lesson ${lesson._id}`);
+          try {
+            await paymentService.deductLessonFunds(lesson._id);
+            console.log(`✅ [AutoComplete] Payment captured for lesson ${lesson._id}`);
+          } catch (captureError) {
+            console.error(`❌ [AutoComplete] Payment capture failed:`, captureError.message);
+            throw captureError; // Don't proceed to payout if capture fails
+          }
+        } else if (payment.status === 'succeeded') {
+          console.log(`✅ [AutoComplete] Payment already captured for lesson ${lesson._id}`);
+        }
+        
+        // Complete payment (revenue recognition + tutor payout)
+        await paymentService.completeLessonPayment(lesson._id);
+        console.log(`✅ [AutoComplete] Payment completed (payout sent) for lesson ${lesson._id}`);
+      } catch (paymentError) {
+        console.error(`❌ [AutoComplete] Payment processing failed:`, paymentError.message);
+        // Continue even if payment fails - lesson is already finalized
+      }
+    }
     
   } catch (error) {
     console.error(`❌ [AutoComplete] Error finalizing lesson ${lesson._id}:`, error.message);

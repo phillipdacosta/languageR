@@ -1,0 +1,139 @@
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="page-container">
+    <!-- Header -->
+    <div class="page-header">
+      <h1>Reported Issues</h1>
+      <p>Review and manage student-reported lesson issues</p>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="filter-section">
+      <ion-segment [(ngModel)]="selectedStatus" (ionChange)="onStatusChange()">
+        <ion-segment-button value="pending">
+          <ion-label>Pending</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="investigating">
+          <ion-label>Investigating</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="resolved">
+          <ion-label>Resolved</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="all">
+          <ion-label>All</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-state">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading reported issues...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && lessons.length === 0" class="empty-state">
+      <ion-icon name="checkmark-circle-outline"></ion-icon>
+      <h2>No {{selectedStatus === 'all' ? '' : selectedStatus}} issues</h2>
+      <p *ngIf="selectedStatus === 'pending'">All caught up! No pending issues to review.</p>
+      <p *ngIf="selectedStatus !== 'pending'">No {{selectedStatus}} issues found.</p>
+    </div>
+
+    <!-- Lessons List -->
+    <div *ngIf="!isLoading && lessons.length > 0" class="lessons-list">
+      <div class="results-header">
+        <span class="results-count">{{ totalLessons }} issue(s) found</span>
+      </div>
+
+      <ion-card *ngFor="let lesson of lessons" class="lesson-card">
+        <ion-card-content>
+          <div class="card-header">
+            <div class="issue-type-badge" [class]="getIssueTypeColor(lesson.issueType)">
+              <ion-icon name="flag"></ion-icon>
+              <span>{{ getIssueTypeLabel(lesson.issueType) }}</span>
+            </div>
+            <div class="payout-status">
+              <ion-icon 
+                [name]="lesson.payoutPaused ? 'pause-circle' : 'checkmark-circle'" 
+                [color]="lesson.payoutPaused ? 'warning' : 'success'">
+              </ion-icon>
+              <span [class.paused]="lesson.payoutPaused">
+                {{ lesson.payoutPaused ? 'Payout Paused' : 'Payout Active' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="lesson-info">
+            <h3>{{ lesson.subject }}</h3>
+            <p class="lesson-meta">
+              {{ formatDate(lesson.startTime) }} • ${{ lesson.price }} • {{ lesson.duration }} min
+            </p>
+          </div>
+
+          <div class="participants">
+            <div class="participant">
+              <ion-avatar>
+                <img [src]="lesson.studentId.picture || '/assets/default-avatar.png'" 
+                     [alt]="lesson.studentId.name" />
+              </ion-avatar>
+              <div class="participant-info">
+                <span class="role">Student</span>
+                <span class="name">{{ lesson.studentId.name }}</span>
+              </div>
+            </div>
+            <ion-icon name="arrow-forward" class="arrow"></ion-icon>
+            <div class="participant">
+              <ion-avatar>
+                <img [src]="lesson.tutorId.picture || '/assets/default-avatar.png'" 
+                     [alt]="lesson.tutorId.name" />
+              </ion-avatar>
+              <div class="participant-info">
+                <span class="role">Tutor</span>
+                <span class="name">{{ lesson.tutorId.name }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="issue-details">
+            <p class="details-label">Issue Details:</p>
+            <p class="details-text">{{ lesson.issueDetails }}</p>
+          </div>
+
+          <div class="reported-info">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>Reported {{ formatDate(lesson.issueReportedAt) }}</span>
+          </div>
+
+          <div class="card-actions">
+            <ion-button fill="clear" size="small" (click)="viewDetails(lesson)">
+              <ion-icon slot="start" name="information-circle-outline"></ion-icon>
+              View Full Details
+            </ion-button>
+            <ion-button 
+              *ngIf="!lesson.payoutPaused"
+              fill="outline" 
+              size="small" 
+              color="warning"
+              (click)="pausePayout(lesson)">
+              <ion-icon slot="start" name="pause-circle-outline"></ion-icon>
+              Pause Payout
+            </ion-button>
+            <ion-button 
+              *ngIf="lesson.payoutPaused"
+              fill="solid" 
+              size="small" 
+              color="success"
+              (click)="resumePayout(lesson)">
+              <ion-icon slot="start" name="play-circle-outline"></ion-icon>
+              Resume Payout
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</ion-content>
+
