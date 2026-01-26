@@ -91,6 +91,13 @@ async function releaseEarnings(io = null) {
       // Process each payment with retry tracking
       for (const payment of releasablePayments) {
         try {
+          // SAFETY: Re-fetch payment to ensure it's still on_hold (prevent race conditions)
+          const freshPayment = await Payment.findById(payment._id);
+          if (!freshPayment || freshPayment.transferStatus !== 'on_hold') {
+            console.log(`⏭️  Skipping payment ${payment._id} - status already changed to "${freshPayment?.transferStatus}"`);
+            continue;
+          }
+          
           const tutor = payment.tutorId;
           
           if (!tutor) {
@@ -195,6 +202,22 @@ async function releaseEarnings(io = null) {
       for (const [tutorId, data] of tutorsToNotify) {
         try {
           const { tutor, totalReleased, paymentCount } = data;
+          
+          // SAFETY: Check if we already sent a similar notification in the last 5 minutes
+          // This prevents duplicate notifications if the cron job runs twice
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const recentNotification = await Notification.findOne({
+            userId: tutor._id,
+            type: 'payment_received',
+            createdAt: { $gte: fiveMinutesAgo },
+            'data.amount': totalReleased,
+            'data.paymentCount': paymentCount
+          });
+          
+          if (recentNotification) {
+            console.log(`⏭️  Skipping notification for ${tutor.name} - similar notification sent recently`);
+            continue;
+          }
           
           // Create notification
           const paymentText = paymentCount === 1 ? 'payment' : 'payments';

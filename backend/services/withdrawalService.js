@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Withdrawal = require('../models/Withdrawal');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 /**
@@ -52,8 +53,14 @@ class WithdrawalService {
     }
     
     // Validation checks
-    if (amount < tutor.withdrawalSettings.minimumAmount) {
+    // Stripe Connect has no minimum withdrawal amount, PayPal requires minimum
+    if (method === 'paypal' && amount < tutor.withdrawalSettings.minimumAmount) {
       throw new Error(`Minimum withdrawal is $${tutor.withdrawalSettings.minimumAmount}`);
+    }
+    
+    // For Stripe, only require a positive amount
+    if (method === 'stripe_connect' && amount < 0.01) {
+      throw new Error('Withdrawal amount must be at least $0.01');
     }
     
     if (amount > tutor.tutorEarnings.availableBalance) {
@@ -87,13 +94,29 @@ class WithdrawalService {
     }
     
     // Select payments to include (up to requested amount)
+    // Support partial payment withdrawals by splitting the last payment if needed
     let remaining = amount;
     const paymentsToInclude = [];
+    let paymentToSplit = null;
+    let splitAmount = 0;
     
     for (const payment of availablePayments) {
       if (remaining <= 0) break;
-      paymentsToInclude.push(payment._id);
-      remaining -= payment.tutorPayout;
+      
+      if (payment.tutorPayout <= remaining) {
+        // Take the entire payment
+        paymentsToInclude.push(payment._id);
+        remaining -= payment.tutorPayout;
+        console.log(`  ✅ Including full payment ${payment._id}: $${payment.tutorPayout}`);
+      } else {
+        // Need to split this payment (take only part of it)
+        paymentToSplit = payment;
+        splitAmount = remaining;
+        paymentsToInclude.push(payment._id);
+        console.log(`  ✂️  Splitting payment ${payment._id}: taking $${splitAmount} of $${payment.tutorPayout}`);
+        remaining = 0;
+        break;
+      }
     }
     
     if (paymentsToInclude.length === 0) {
@@ -116,6 +139,51 @@ class WithdrawalService {
     const netAmount = amount - platformFee - paypalFee - stripeFee;
     
     console.log(`📝 Withdrawal breakdown: Amount=$${amount}, Fees=$${platformFee + paypalFee + stripeFee}, Net=$${netAmount}`);
+    
+    // If we need to split a payment, create the remainder payment first
+    if (paymentToSplit && splitAmount < paymentToSplit.tutorPayout) {
+      const remainderAmount = paymentToSplit.tutorPayout - splitAmount;
+      console.log(`✂️  Creating remainder payment: $${remainderAmount.toFixed(2)}`);
+      
+      // Create a new payment for the remainder
+      const remainderPayment = new Payment({
+        lessonId: paymentToSplit.lessonId,
+        studentId: paymentToSplit.studentId,
+        userId: paymentToSplit.userId,
+        tutorId: paymentToSplit.tutorId,
+        amount: remainderAmount,
+        platformFee: 0, // No additional platform fee for split
+        tutorPayout: remainderAmount,
+        paymentType: paymentToSplit.paymentType,
+        paymentMethod: paymentToSplit.paymentMethod,
+        paymentIntentId: `${paymentToSplit.paymentIntentId}_split_${Date.now()}`,
+        status: 'succeeded',
+        transferStatus: 'available', // Immediately available
+        revenueRecognized: true,
+        earningsReleaseDate: paymentToSplit.earningsReleaseDate,
+        metadata: {
+          ...paymentToSplit.metadata,
+          splitFrom: paymentToSplit._id.toString(),
+          splitReason: 'Partial withdrawal - remainder after withdrawal',
+          splitDate: new Date()
+        }
+      });
+      
+      await remainderPayment.save();
+      console.log(`✅ Created remainder payment ${remainderPayment._id}: $${remainderAmount.toFixed(2)}`);
+      
+      // Update the original payment's tutorPayout to reflect only the withdrawn amount
+      paymentToSplit.tutorPayout = splitAmount;
+      paymentToSplit.amount = splitAmount;
+      paymentToSplit.metadata = {
+        ...paymentToSplit.metadata,
+        splitInto: remainderPayment._id.toString(),
+        splitReason: 'Partial withdrawal - withdrawn portion',
+        splitDate: new Date()
+      };
+      await paymentToSplit.save();
+      console.log(`✅ Updated original payment ${paymentToSplit._id}: now $${splitAmount.toFixed(2)}`);
+    }
     
     // Create withdrawal request
     const withdrawal = new Withdrawal({
@@ -212,6 +280,29 @@ class WithdrawalService {
       tutor.tutorEarnings.lastWithdrawal = new Date();
       await tutor.save();
       console.log(`💼 Updated tutor stats: totalWithdrawn=$${tutor.tutorEarnings.totalWithdrawn.toFixed(2)}`);
+      
+      // Create notification for tutor
+      try {
+        const methodName = withdrawal.method === 'stripe_connect' ? 'Stripe' : 'PayPal';
+        const notification = new Notification({
+          userId: withdrawal.tutorId,
+          type: 'withdrawal_completed',
+          title: 'Withdrawal Completed',
+          message: `Your withdrawal of $${withdrawal.netAmount.toFixed(2)} to ${methodName} has been processed successfully.`,
+          data: {
+            withdrawalId: withdrawal._id.toString(),
+            amount: withdrawal.amount,
+            netAmount: withdrawal.netAmount,
+            method: withdrawal.method
+          },
+          link: '/tabs/home/earnings'
+        });
+        await notification.save();
+        console.log(`📬 Withdrawal notification sent to tutor`);
+      } catch (notifError) {
+        console.error(`⚠️ Failed to create withdrawal notification:`, notifError.message);
+        // Don't fail the withdrawal if notification fails
+      }
       
       console.log(`✅ [WITHDRAWAL] Completed: ${withdrawal._id}\n`);
       return withdrawal;

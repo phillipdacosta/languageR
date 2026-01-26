@@ -71,38 +71,22 @@ router.get('/balance', verifyToken, async (req, res) => {
       await user.save();
     }
     
-    // Verify balance matches actual payments (for debugging/integrity)
-    const calculatedAvailable = await withdrawalService.calculateAvailableBalance(user._id);
-    const calculatedPending = await withdrawalService.calculatePendingBalance(user._id);
+    // Use database values (authoritative source)
+    // Note: calculated values don't work correctly with partial withdrawals
+    // because payments get marked as 'withdrawn' even when partial amount remains
+    const availableBalance = user.tutorEarnings.availableBalance || 0;
+    const pendingBalance = user.tutorEarnings.pendingBalance || 0;
     
-    // Log discrepancies
-    if (Math.abs(calculatedAvailable - user.tutorEarnings.availableBalance) > 0.01) {
-      console.warn(`⚠️  Balance discrepancy for tutor ${user._id}:`);
-      console.warn(`   Database: $${user.tutorEarnings.availableBalance.toFixed(2)}`);
-      console.warn(`   Calculated: $${calculatedAvailable.toFixed(2)}`);
-      console.warn(`   Using calculated value (real-time)`);
-    }
-    
-    if (Math.abs(calculatedPending - user.tutorEarnings.pendingBalance) > 0.01) {
-      console.warn(`⚠️  Pending balance discrepancy for tutor ${user._id}:`);
-      console.warn(`   Database: $${user.tutorEarnings.pendingBalance.toFixed(2)}`);
-      console.warn(`   Calculated: $${calculatedPending.toFixed(2)}`);
-      console.warn(`   Using calculated value (real-time)`);
-    }
+    console.log(`💰 Balance for tutor ${user._id}: Available=$${availableBalance.toFixed(2)}, Pending=$${pendingBalance.toFixed(2)}`);
     
     res.json({
       success: true,
       balance: {
-        available: calculatedAvailable, // Use calculated (real-time) value
-        pending: calculatedPending,     // Use calculated (real-time) value
+        available: availableBalance,
+        pending: pendingBalance,
         lifetime: user.tutorEarnings.lifetimeEarnings,
         withdrawn: user.tutorEarnings.totalWithdrawn,
-        lastWithdrawal: user.tutorEarnings.lastWithdrawal,
-        // Include database values for debugging
-        _database: {
-          available: user.tutorEarnings.availableBalance,
-          pending: user.tutorEarnings.pendingBalance
-        }
+        lastWithdrawal: user.tutorEarnings.lastWithdrawal
       },
       settings: user.withdrawalSettings || {
         minimumAmount: 10,

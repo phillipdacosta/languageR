@@ -1135,6 +1135,7 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
     if (wasJustOnboarded) {
       user.stripeConnectOnboarded = true;
       user.stripeConnectOnboardedAt = new Date();
+      user.stripePayoutsEnabled = true; // Enable payouts (required for withdrawals)
       user.payoutProvider = 'stripe'; // Set payout provider when Stripe is connected
       
       // Check if all tutor approval steps are now complete
@@ -1213,6 +1214,13 @@ router.get('/stripe-connect/status', verifyToken, async (req, res) => {
         console.error('❌ Error during auto-retry of pending transfers:', retryError);
         // Don't fail the whole request if retry fails
       }
+    }
+
+    // Always sync stripePayoutsEnabled with Stripe's current status
+    if (user.stripePayoutsEnabled !== account.payouts_enabled) {
+      user.stripePayoutsEnabled = account.payouts_enabled;
+      await user.save();
+      console.log(`🔄 Synced stripePayoutsEnabled to ${account.payouts_enabled} for ${user.email}`);
     }
 
     res.json({

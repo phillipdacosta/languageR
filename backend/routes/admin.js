@@ -1108,7 +1108,8 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
     const totalPendingStripeFees = pendingRevenue.reduce((sum, p) => sum + (p.stripeFee || 0), 0);
     const totalPendingNetRevenue = totalPendingRevenue - totalPendingStripeFees;
     
-    // Calculate next processing time (earliest lesson + 24 hours)
+    // Calculate next processing time (earliest lesson + 15 MINUTES for testing)
+    // TODO: Change back to 24 hours for production
     let nextProcessingTime = null;
     if (pendingRevenue.length > 0) {
       const sortedByEndTime = pendingRevenue
@@ -1117,7 +1118,7 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
       
       if (sortedByEndTime.length > 0) {
         const earliestLessonEnd = new Date(sortedByEndTime[0].lessonId.endTime);
-        nextProcessingTime = new Date(earliestLessonEnd.getTime() + 24 * 60 * 60 * 1000); // +24 hours
+        nextProcessingTime = new Date(earliestLessonEnd.getTime() + 15 * 60 * 1000); // +15 minutes (testing)
       }
     }
     
@@ -1148,31 +1149,101 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
     }
     
     // 2. Calculate total owed to ALL tutors (pending + available)
+    // Also break down by payout method (Stripe vs PayPal)
     const allTutors = await User.find({ 
       userType: 'tutor',
       $or: [
         { 'tutorEarnings.pendingBalance': { $gt: 0 } },
         { 'tutorEarnings.availableBalance': { $gt: 0 } }
       ]
-    }).select('tutorEarnings name email');
+    }).select('tutorEarnings name email payoutProvider stripeConnectOnboarded');
     
     let totalTutorsPending = 0;
     let totalTutorsAvailable = 0;
     let tutorsWithBalances = 0;
     
+    // Track by payout method
+    let owedToStripeTutors = 0;
+    let owedToPayPalTutors = 0;
+    let stripeTutorsCount = 0;
+    let paypalTutorsCount = 0;
+    
     for (const tutor of allTutors) {
       const pending = tutor.tutorEarnings?.pendingBalance || 0;
       const available = tutor.tutorEarnings?.availableBalance || 0;
+      const totalOwed = pending + available;
       
       if (pending > 0 || available > 0) {
         tutorsWithBalances++;
         totalTutorsPending += pending;
         totalTutorsAvailable += available;
         
-        console.log(`   Tutor: ${tutor.name || tutor.email}`);
+        // Determine payout method
+        const usesStripe = tutor.stripeConnectOnboarded === true;
+        const usesPayPal = tutor.payoutProvider === 'paypal';
+        
+        if (usesStripe) {
+          owedToStripeTutors += totalOwed;
+          stripeTutorsCount++;
+        } else if (usesPayPal) {
+          owedToPayPalTutors += totalOwed;
+          paypalTutorsCount++;
+        } else {
+          // Default to PayPal if no clear method (safer assumption)
+          owedToPayPalTutors += totalOwed;
+          paypalTutorsCount++;
+        }
+        
+        console.log(`   Tutor: ${tutor.name || tutor.email} (${usesStripe ? 'Stripe' : usesPayPal ? 'PayPal' : 'Unknown'})`);
         console.log(`     Pending: $${pending.toFixed(2)}, Available: $${available.toFixed(2)}`);
       }
     }
+    
+    // 3. Track PayPal withdrawals (in-flight and historical)
+    const Withdrawal = require('../models/Withdrawal');
+    
+    // Active withdrawals (pending/processing - already sent to PayPal)
+    const activePayPalWithdrawals = await Withdrawal.find({
+      method: 'paypal',
+      status: { $in: ['pending', 'processing'] }
+    }).select('amount netAmount');
+    
+    let paypalWithdrawalsInFlight = 0;
+    activePayPalWithdrawals.forEach(w => {
+      // Use netAmount (after fees) since that's what actually gets sent
+      paypalWithdrawalsInFlight += w.netAmount || w.amount || 0;
+    });
+    
+    // Historical: Total PayPal withdrawals ever sent (completed)
+    const completedPayPalWithdrawals = await Withdrawal.aggregate([
+      {
+        $match: {
+          method: 'paypal',
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSent: { $sum: '$netAmount' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    const totalPayPalSent = completedPayPalWithdrawals[0]?.totalSent || 0;
+    const paypalWithdrawalCount = completedPayPalWithdrawals[0]?.count || 0;
+    
+    // Total PayPal needed = Owed balances + Withdrawals in flight
+    const totalPayPalNeeded = owedToPayPalTutors + paypalWithdrawalsInFlight;
+    
+    console.log(`\n   💳 Owed to Stripe Tutors: $${owedToStripeTutors.toFixed(2)} (${stripeTutorsCount} tutors)`);
+    console.log(`   💰 Owed to PayPal Tutors: $${owedToPayPalTutors.toFixed(2)} (${paypalTutorsCount} tutors)`);
+    if (paypalWithdrawalsInFlight > 0) {
+      console.log(`   ⏳ PayPal Withdrawals in Flight: $${paypalWithdrawalsInFlight.toFixed(2)} (${activePayPalWithdrawals.length} withdrawal(s))`);
+    }
+    console.log(`   💰 TOTAL PayPal Needed: $${totalPayPalNeeded.toFixed(2)}`);
+    console.log(`   📊 Historical: $${totalPayPalSent.toFixed(2)} sent via PayPal (${paypalWithdrawalCount} withdrawals)`)
     
     const totalOwedToTutors = totalTutorsPending + totalTutorsAvailable;
     console.log(`\n   Total Tutors with Balances: ${tutorsWithBalances}`);
@@ -1251,6 +1322,19 @@ router.get('/platform-revenue', verifyToken, requireAdmin, async (req, res) => {
           tutorsPending: parseFloat(totalTutorsPending.toFixed(2)),
           tutorsAvailable: parseFloat(totalTutorsAvailable.toFixed(2)),
           tutorsCount: tutorsWithBalances
+        },
+        // 💰 NEW: Breakdown by payout method
+        byPayoutMethod: {
+          stripe: {
+            owed: parseFloat(owedToStripeTutors.toFixed(2)),
+            tutorsCount: stripeTutorsCount,
+            note: 'Paid from your Stripe balance (automatic)'
+          },
+          paypal: {
+            owed: parseFloat(owedToPayPalTutors.toFixed(2)),
+            tutorsCount: paypalTutorsCount,
+            note: 'Requires funds in your PayPal Business account'
+          }
         },
         safeToWithdraw: parseFloat(safeToWithdraw.toFixed(2)),
         recognizedRevenue: parseFloat(totalNetPlatformRevenue.toFixed(2)),

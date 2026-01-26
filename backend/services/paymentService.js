@@ -94,8 +94,30 @@ class PaymentService {
 
       // Step 3: Handle payment method (saved-card, card, apple_pay, google_pay)
       if (paymentMethod === 'saved-card') {
-        if (!stripePaymentMethodId || !stripeCustomerId) {
-          throw new Error('Stripe Payment Method ID and Customer ID required for saved card payments');
+        if (!stripePaymentMethodId) {
+          throw new Error('Stripe Payment Method ID required for saved card payments');
+        }
+        
+        // If customer ID is missing, create one
+        let customerIdToUse = stripeCustomerId;
+        if (!customerIdToUse) {
+          console.log('💳 [HYBRID] No Stripe customer ID found, creating one...');
+          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+          const student = await User.findById(userId);
+          
+          const customer = await stripe.customers.create({
+            email: student.email,
+            name: student.name || `${student.firstName} ${student.lastName}`,
+            metadata: {
+              userId: userId.toString()
+            }
+          });
+          
+          // Update user with new customer ID
+          student.stripeCustomerId = customer.id;
+          await student.save();
+          customerIdToUse = customer.id;
+          console.log('✅ [HYBRID] Created Stripe customer:', customerIdToUse);
         }
 
         const tutor = lesson.tutorId;
@@ -112,7 +134,7 @@ class PaymentService {
         const paymentIntentParams = {
           amount: Math.round(paymentMethodAmount * 100),
           currency: 'usd',
-          customer: stripeCustomerId,
+          customer: customerIdToUse,
           payment_method: stripePaymentMethodId,
           capture_method: 'manual', // Hold funds, capture when lesson starts
           confirm: true,
@@ -199,8 +221,30 @@ class PaymentService {
       console.log(`💼 Lesson booked with wallet: ${lessonId} for user ${userId} - payment authorized`);
     } else if (paymentMethod === 'saved-card') {
       // Handle saved card payment
-      if (!stripePaymentMethodId || !stripeCustomerId) {
-        throw new Error('Stripe Payment Method ID and Customer ID required for saved card payments');
+      if (!stripePaymentMethodId) {
+        throw new Error('Stripe Payment Method ID required for saved card payments');
+      }
+
+      // If customer ID is missing, create one
+      let customerIdToUse = stripeCustomerId;
+      if (!customerIdToUse) {
+        console.log('💳 No Stripe customer ID found, creating one...');
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        const student = await User.findById(userId);
+        
+        const customer = await stripe.customers.create({
+          email: student.email,
+          name: student.name || `${student.firstName} ${student.lastName}`,
+          metadata: {
+            userId: userId.toString()
+          }
+        });
+        
+        // Update user with new customer ID
+        student.stripeCustomerId = customer.id;
+        await student.save();
+        customerIdToUse = customer.id;
+        console.log('✅ Created Stripe customer:', customerIdToUse);
       }
 
       // Get tutor info
@@ -224,7 +268,7 @@ class PaymentService {
       const paymentIntentParams = {
         amount: Math.round(amount * 100), // Convert to cents
         currency: 'usd',
-        customer: stripeCustomerId,
+        customer: customerIdToUse,
         payment_method: stripePaymentMethodId,
         capture_method: 'manual', // Hold funds, capture when lesson starts
         confirm: true, // Automatically confirm the payment
@@ -641,9 +685,10 @@ class PaymentService {
     console.log(`   Platform Fee (${this.PLATFORM_FEE_PERCENTAGE}%): $${platformFee.toFixed(2)}`);
     console.log(`   Tutor Payout: $${tutorPayout.toFixed(2)}`);
     
-    // Calculate earnings release date (24 hours after lesson ends for dispute protection)
+    // Calculate earnings release date (15 MINUTES for testing - normally 24 hours)
+    // TODO: Change back to 24 hours for production
     const releaseDate = new Date(lesson.endTime);
-    releaseDate.setHours(releaseDate.getHours() + 24);
+    releaseDate.setMinutes(releaseDate.getMinutes() + 15);
     
     console.log(`   Release Date: ${releaseDate.toISOString()}`);
     
