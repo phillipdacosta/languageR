@@ -817,8 +817,10 @@
           fill="clear" 
           size="medium" 
           class="empty-state-cta"
-          routerLink="/tabs/tutor-calendar">
-          View Calendar
+          routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
+          <span [@buttonTextFade]="buttonTextState" class="button-text-animated">
+            {{ hasAvailability ? 'View Calendar' : 'Add Availability' }}
+          </span>
           <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
         </ion-button>
       </div>

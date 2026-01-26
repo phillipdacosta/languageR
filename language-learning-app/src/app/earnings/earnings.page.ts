@@ -340,7 +340,7 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       return payment.cancelReason || 'Lesson was cancelled';
     }
     if (payment.status === 'processing' || payment.lessonStatus === 'ended_early') {
-      return 'Payment amount will update momentarily';
+      return 'Payment amount will be sent after the 24 hour hold period';
     }
     if (payment.status === 'in_progress') {
       return 'Lesson currently in progress';
@@ -460,8 +460,14 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   canWithdraw(): boolean {
-    return this.selectedWithdrawalMethod !== null && 
-           this.withdrawalAmount >= 10 && 
+    if (!this.selectedWithdrawalMethod) {
+      return false;
+    }
+    
+    // Stripe has no minimum withdrawal amount
+    const minAmount = this.selectedWithdrawalMethod === 'stripe_connect' ? 0.01 : 10;
+    
+    return this.withdrawalAmount >= minAmount && 
            this.withdrawalAmount <= this.balance.available;
   }
 
@@ -532,9 +538,13 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   async processWithdrawal(amount: number, method: string) {
-    if (amount < 10) {
+    // Stripe has no minimum withdrawal amount, PayPal requires $10
+    const minAmount = method === 'stripe_connect' ? 0.01 : 10;
+    if (amount < minAmount) {
       const toast = await this.toastController.create({
-        message: 'Minimum withdrawal amount is $10',
+        message: method === 'stripe_connect' 
+          ? 'Please enter a valid withdrawal amount'
+          : 'Minimum withdrawal amount is $10',
         duration: 3000,
         color: 'danger'
       });

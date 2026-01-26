@@ -222,13 +222,13 @@
     </div>
 
     <!-- Help Text -->
-    <div class="help-text">
+    <!-- <div class="help-text">
       <ion-icon name="information-circle-outline"></ion-icon>
       <div>
         <p><strong>New Withdrawal System:</strong> Earnings are held for 24 hours after lesson completion for dispute protection, then become available for withdrawal.</p>
         <p>You can withdraw your available balance at any time. Withdrawals are processed within 1-2 business days.</p>
       </div>
-    </div>
+    </div> -->
   </div>
 </ion-content>
 
@@ -266,7 +266,7 @@
             <div class="balance-card">
               <div class="balance-label">Available Balance</div>
               <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
-              <div class="balance-note">Minimum withdrawal: $10.00</div>
+              <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">Minimum withdrawal: $10.00</div>
             </div>
 
             <!-- Fee Breakdown Card (PayPal) -->
@@ -307,35 +307,24 @@
               </ng-template>
             </div>
 
-            <!-- Fee Breakdown Card (Stripe) -->
+            <!-- Fee Breakdown Card (Stripe) - No fees, always show badge -->
             <div class="fee-breakdown-card stripe-card" *ngIf="selectedWithdrawalMethod === 'stripe_connect'">
-              <!-- Show breakdown when amount is valid -->
-              <div *ngIf="withdrawalAmount >= 10; else stripePlaceholder">
-                <div class="no-fee-badge">
-                  <ion-icon name="checkmark-circle"></ion-icon>
-                  <span>No withdrawal fees</span>
-                </div>
-                <div class="breakdown-row">
-                  <span class="breakdown-label">Withdrawal amount:</span>
-                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
-                </div>
+              <div class="no-fee-badge">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>No withdrawal fees</span>
+              </div>
+              <div class="stripe-benefit-note">
+                <ion-icon name="flash-outline"></ion-icon>
+                <span>Instant transfer to your Stripe account</span>
+              </div>
+              <!-- Only show amount details when valid (Stripe has no minimum) -->
+              <div *ngIf="withdrawalAmount >= 0.01">
                 <div class="breakdown-divider"></div>
                 <div class="breakdown-row total-row">
                   <span class="breakdown-label">You will receive:</span>
-                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
-                </div>
-                <div class="stripe-benefit-note">
-                  <ion-icon name="information-circle-outline"></ion-icon>
-                  <span>Funds arrive in 2-7 business days</span>
+                  <span class="breakdown-value total">${{ withdrawalAmount.toFixed(2) }}</span>
                 </div>
               </div>
-              <!-- Placeholder when amount is invalid -->
-              <ng-template #stripePlaceholder>
-                <div class="breakdown-placeholder">
-                  <ion-icon name="calculator-outline"></ion-icon>
-                  <p>Enter withdrawal amount above to see breakdown</p>
-                </div>
-              </ng-template>
             </div>
 
           </div>
@@ -352,14 +341,17 @@
                   type="number" 
                   class="amount-input"
                   [(ngModel)]="withdrawalAmount"
-                  [min]="10"
+                  [min]="selectedWithdrawalMethod === 'stripe_connect' ? 0.01 : 10"
                   [max]="balance.available"
                   step="0.01"
                   placeholder="0.00">
                 <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
               </div>
-              <div class="amount-error" *ngIf="withdrawalAmount < 10 && withdrawalAmount > 0">
+              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'paypal' && withdrawalAmount < 10 && withdrawalAmount > 0">
                 Minimum amount is $10.00
+              </div>
+              <div class="amount-error" *ngIf="selectedWithdrawalMethod === 'stripe_connect' && withdrawalAmount < 0.01 && withdrawalAmount > 0">
+                Please enter a valid amount
               </div>
               <div class="amount-error" *ngIf="withdrawalAmount > balance.available">
                 Amount exceeds available balance
@@ -377,13 +369,13 @@
                 [class.selected]="selectedWithdrawalMethod === 'stripe_connect'"
                 (click)="selectWithdrawalMethod('stripe_connect')">
                 <div class="method-content">
-                  <div class="method-icon stripe">
-                    <ion-icon name="card-outline"></ion-icon>
+                  <div class="method-icon paypal">
+                    <img src="assets/icon/stripe-icon.png" alt="Stripe" name="logo-paypal">
                   </div>
                   <div class="method-info">
                     <div class="method-name">Stripe Connect</div>
                     <div class="method-detail">Direct to bank account</div>
-                    <div class="method-timing">2-7 business days</div>
+                    <!-- <div class="method-timing">2-7 business days</div> -->
                   </div>
                   <div class="method-radio">
                     <div class="custom-radio" [class.checked]="selectedWithdrawalMethod === 'stripe_connect'">

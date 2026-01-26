@@ -64,6 +64,18 @@ interface PlatformRevenue {
       tutorsAvailable: number;
       tutorsCount: number;
     };
+    byPayoutMethod?: {
+      stripe: {
+        owed: number;
+        tutorsCount: number;
+        note: string;
+      };
+      paypal: {
+        owed: number;
+        tutorsCount: number;
+        note: string;
+      };
+    };
     safeToWithdraw: number;
     recognizedRevenue: number;
     discrepancy: number;

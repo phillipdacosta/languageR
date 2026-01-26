@@ -174,10 +174,13 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   
   // Separate method for heavy data loading - called after initial render
   private async loadDataAndComputeSlots() {
+    console.log('📊 [AvailabilityViewer] loadDataAndComputeSlots called with tutorId:', this.tutorId);
+    
     try {
       // Load data sequentially with individual error handling
       try {
         await this.loadAvailability();
+        console.log('✅ [AvailabilityViewer] Availability loaded, items:', this.availability?.length || 0);
       } catch (error) {
         console.error('❌ Failed to load availability:', error);
       }
@@ -219,6 +222,27 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   ngOnChanges(changes: SimpleChanges) {
+    // Reload availability if tutorId changes (and we have a valid new tutorId)
+    if (changes['tutorId'] && !changes['tutorId'].firstChange) {
+      const newTutorId = changes['tutorId'].currentValue;
+      if (newTutorId) {
+        console.log('🔄 [AvailabilityViewer] tutorId changed to:', newTutorId);
+        // Clear ALL caches before reloading
+        this.slotsCache.clear();
+        this.availabilitySet.clear();
+        this.bookedSlots.clear();
+        this.isLoading = true;
+        
+        // Reload data for the new tutor
+        setTimeout(() => {
+          this.loadDataAndComputeSlots().catch(error => {
+            console.error('❌ [Availability] Error loading data after tutorId change:', error);
+            this.isLoading = false;
+          });
+        }, 100);
+      }
+    }
+    
     // Reload availability if refreshTrigger changes
     if (changes['refreshTrigger']) {
       if (!changes['refreshTrigger'].firstChange) {
@@ -292,6 +316,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   async loadAvailability(): Promise<void> {
+    // Guard: Don't make API call if tutorId is invalid
+    if (!this.tutorId) {
+      console.warn('⚠️ [AvailabilityViewer] Cannot load availability: tutorId is empty');
+      return Promise.resolve();
+    }
+    
     return new Promise((resolve, reject) => {
       // Add timeout to the Observable itself
       this.userService.getTutorAvailability(this.tutorId)
@@ -333,6 +363,12 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   async loadBookedLessons() {
+    // Guard: Don't make API call if tutorId is invalid
+    if (!this.tutorId) {
+      console.warn('⚠️ [AvailabilityViewer] Cannot load booked lessons: tutorId is empty');
+      return;
+    }
+    
     try {
       // Load lessons and classes with individual timeout protection
       const lessonsPromise = firstValueFrom(this.lessonService.getLessonsByTutor(this.tutorId));

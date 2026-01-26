@@ -82,7 +82,7 @@
     <!-- Availability Calendar (Inline) -->
     <div class="calendar-section">
       <app-tutor-availability-viewer
-        [tutorId]="selectedTutor.id"
+        [tutorId]="getTutorId(selectedTutor)"
         [tutorName]="formatTutorName(selectedTutor)"
         [inline]="true"
         [selectionMode]="true"

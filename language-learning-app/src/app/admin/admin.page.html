@@ -157,86 +157,58 @@
       </div>
     </div>
 
-    <!-- Safe Withdrawal Info (NEW) -->
+    <!-- Tutor Payout Status (Simplified) -->
     <div class="withdrawal-section" *ngIf="revenueData.withdrawalInfo">
       <h3>
-        <ion-icon name="wallet-outline"></ion-icon>
-        Withdrawal Status
+        <ion-icon name="people-outline"></ion-icon>
+        Tutor Payout Status
       </h3>
       
-      <div class="withdrawal-card primary-highlight">
-        <!-- Safe to Withdraw Amount (Most Important) -->
-        <div class="withdrawal-main">
-          <div class="withdrawal-label">Safe to Withdraw Now</div>
-          <div class="withdrawal-amount success">
-            {{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}
+      <div class="withdrawal-card">
+        <!-- Simple breakdown by payout method -->
+        <div class="payout-summary">
+          
+          <!-- Stripe Tutors -->
+          <div class="payout-method-card stripe" *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.stripe?.tutorsCount || 0) > 0">
+            <div class="method-header">
+              <ion-icon name="card-outline"></ion-icon>
+              <span>Stripe Connect Tutors</span>
+            </div>
+            <div class="method-amount">{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.stripe?.owed || 0) }}</div>
+            <div class="method-detail">{{ revenueData.withdrawalInfo.byPayoutMethod?.stripe?.tutorsCount || 0 }} tutor(s) • Auto-paid from Stripe</div>
           </div>
-          <div class="withdrawal-sublabel">You can safely transfer this to your bank account</div>
+          
+          <!-- PayPal Tutors -->
+          <div class="payout-method-card paypal" *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.tutorsCount || 0) > 0">
+            <div class="method-header">
+              <ion-icon name="logo-paypal"></ion-icon>
+              <span>PayPal Tutors</span>
+            </div>
+            <div class="method-amount">{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) }}</div>
+            <div class="method-detail">{{ revenueData.withdrawalInfo.byPayoutMethod?.paypal?.tutorsCount || 0 }} tutor(s) • Requires PayPal funding</div>
+          </div>
+          
+          <!-- No tutors with balance -->
+          <div class="no-payouts" *ngIf="revenueData.withdrawalInfo.breakdown.tutorsCount === 0">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <span>No pending tutor payouts</span>
+          </div>
+          
         </div>
-
-        <!-- Breakdown -->
-        <div class="withdrawal-breakdown">
-          <div class="breakdown-row">
-            <span class="breakdown-label">Current Stripe Balance:</span>
-            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.currentStripeBalance) }}</span>
-          </div>
-          <div class="breakdown-row pending" *ngIf="revenueData.withdrawalInfo.stripePendingBalance > 0">
-            <span class="breakdown-label">Stripe Pending (processing):</span>
-            <span class="breakdown-value">{{ formatCurrency(revenueData.withdrawalInfo.stripePendingBalance) }}</span>
-          </div>
-          <div class="breakdown-divider"></div>
-          <div class="breakdown-row">
-            <span class="breakdown-label">Owed to Tutors:</span>
-            <span class="breakdown-value negative">-{{ formatCurrency(revenueData.withdrawalInfo.totalOwedToTutors) }}</span>
-          </div>
-          <div class="breakdown-sub-row">
-            <span class="breakdown-sublabel">
-              <ion-icon name="time-outline"></ion-icon>
-              Pending (24hr hold):
-            </span>
-            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsPending) }}</span>
-          </div>
-          <div class="breakdown-sub-row">
-            <span class="breakdown-sublabel">
-              <ion-icon name="checkmark-circle-outline"></ion-icon>
-              Available (can withdraw):
-            </span>
-            <span class="breakdown-subvalue">{{ formatCurrency(revenueData.withdrawalInfo.breakdown.tutorsAvailable) }}</span>
-          </div>
-          <div class="breakdown-sub-row" *ngIf="revenueData.withdrawalInfo.breakdown.tutorsCount > 0">
-            <span class="breakdown-sublabel">
-              <ion-icon name="people-outline"></ion-icon>
-              Tutors with balance:
-            </span>
-            <span class="breakdown-subvalue">{{ revenueData.withdrawalInfo.breakdown.tutorsCount }}</span>
-          </div>
-          <div class="breakdown-divider"></div>
-          <div class="breakdown-row total">
-            <span class="breakdown-label"><strong>Your Net Revenue:</strong></span>
-            <span class="breakdown-value success"><strong>{{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }}</strong></span>
+        
+        <!-- PayPal Funding Alert (only if PayPal tutors exist) -->
+        <div class="paypal-funding-alert" *ngIf="(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) > 0">
+          <ion-icon name="alert-circle"></ion-icon>
+          <div class="alert-content">
+            <strong>PayPal Funding Required</strong>
+            <p>Keep at least <strong>{{ formatCurrency(revenueData.withdrawalInfo.byPayoutMethod?.paypal?.owed || 0) }}</strong> in your PayPal Business account to process tutor withdrawals.</p>
           </div>
         </div>
-
-        <!-- Warning Message -->
-        <div class="withdrawal-warning" *ngIf="revenueData.withdrawalInfo.warning">
-          <ion-icon name="information-circle-outline"></ion-icon>
-          <span>{{ revenueData.withdrawalInfo.warning }}</span>
-        </div>
-
-        <!-- Discrepancy Info (only show if significant) -->
-        <div class="withdrawal-info" *ngIf="revenueData.withdrawalInfo.discrepancy > 1">
-          <ion-icon name="analytics-outline"></ion-icon>
-          <span>
-            Discrepancy: {{ formatCurrency(revenueData.withdrawalInfo.discrepancy) }} 
-            between safe withdrawal ({{ formatCurrency(revenueData.withdrawalInfo.safeToWithdraw) }})
-            and recognized revenue ({{ formatCurrency(revenueData.withdrawalInfo.recognizedRevenue) }})
-          </span>
-        </div>
-
+        
         <!-- Help Text -->
         <div class="withdrawal-help">
           <ion-icon name="help-circle-outline"></ion-icon>
-          <span>This calculation accounts for all tutor funds (pending + available), ensuring you never over-withdraw.</span>
+          <span>Your earnings are shown above in "Net Platform Revenue". Stripe tutors are paid automatically. PayPal tutors require you to fund your PayPal account.</span>
         </div>
       </div>
     </div>

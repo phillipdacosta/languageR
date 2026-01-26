@@ -34,14 +34,42 @@ ion-content {
   max-height: calc(100vh - 60px);
   align-items: stretch; // Changed from 'start' to 'stretch' for equal heights
   
-  // Embedded mode: single column, no gradient cards
+  // Embedded mode: two column layout for compactness
   &.embedded-layout {
     grid-template-columns: 1fr;
     max-width: 100%;
     padding: 0;
     min-height: auto;
-    max-height: none;
+    max-height: 100%;
     gap: 0;
+    overflow: hidden; // Prevent scrolling at layout level
+    
+    .embedded-columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      height: 100%;
+      overflow: hidden;
+      padding: 12px;
+      
+      .embedded-left-column,
+      .embedded-right-column {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0; // Allow flexbox to shrink
+      }
+      
+      .embedded-left-column {
+        border-right: 1px solid #f2f2f7;
+        padding-right: 10px;
+      }
+      
+      .embedded-right-column {
+        padding-left: 10px;
+      }
+    }
   }
 }
 
@@ -62,11 +90,13 @@ ion-content {
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.35);
   }
   
-  // Embedded mode: no shadow, no hover effect, less padding
+  // Embedded mode: no shadow, no hover effect, very compact padding
   .embedded-layout & {
     box-shadow: none;
     border-radius: 0;
-    padding: 16px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    overflow: visible; // Don't allow internal scrolling
     
     &:hover {
       transform: none;
@@ -806,5 +836,250 @@ h2 {
   
   .wallet-compact {
     grid-column: span 1;
+  }
+}
+
+// ========================================
+// EMBEDDED MODE - Ultra Compact Two-Column Styles
+// ========================================
+.embedded-checkout {
+  .checkout-layout.embedded-layout {
+    // Ensure no scrolling at top level
+    overflow: hidden;
+    
+      .embedded-columns {
+        .summary,
+        .payment {
+          padding: 10px 8px !important;
+          margin: 0 !important;
+          box-shadow: none !important;
+          border-radius: 0 !important;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          gap: 8px !important;
+          
+          h2 {
+            font-size: 13px;
+            margin: 0 0 8px 0;
+            font-weight: 600;
+          }
+        }
+        
+        // Left Column Styles
+        .embedded-left-column {
+          .tutor-card.compact-tutor-card {
+            padding: 10px !important;
+            margin-bottom: 8px !important;
+            gap: 10px !important;
+            border-radius: 10px !important;
+            
+            .avatar {
+              width: 44px !important;
+              height: 44px !important;
+              border-radius: 8px !important;
+              bottom: 0 !important;
+              box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25) !important;
+            }
+            
+            .meta .name {
+              font-size: 13px !important;
+              margin-bottom: 4px !important;
+            }
+            
+            .date-badge {
+              width: 40px !important;
+              padding: 4px !important;
+              border-radius: 6px !important;
+              
+              .mon {
+                font-size: 8px !important;
+              }
+              
+              .day {
+                font-size: 14px !important;
+              }
+            }
+            
+            .slot-text .when {
+              font-size: 11px !important;
+              margin-bottom: 2px !important;
+            }
+            
+            .slot-text .tz-note {
+              font-size: 9px !important;
+            }
+            
+            .tutor-rate {
+              margin-top: 4px !important;
+              
+              .rate-amount {
+                font-size: 16px !important;
+              }
+              
+              .rate-label {
+                font-size: 9px !important;
+              }
+            }
+          }
+          
+          .lesson-info-card.compact {
+            padding: 8px !important;
+            margin-bottom: 8px !important;
+            gap: 6px !important;
+            border-radius: 8px !important;
+            
+            .info-item {
+              font-size: 10px !important;
+              gap: 6px !important;
+              margin: 0 !important;
+              
+              ion-icon {
+                font-size: 14px !important;
+              }
+            }
+          }
+          
+          .price-breakdown-section.compact {
+            padding: 10px !important;
+            margin-bottom: 0 !important;
+            border-radius: 8px !important;
+            
+            .breakdown-title {
+              font-size: 11px !important;
+              margin-bottom: 6px !important;
+              font-weight: 600;
+            }
+            
+            .breakdown-item {
+              margin: 3px 0 !important;
+              padding: 2px 0 !important;
+              font-size: 10px !important;
+              
+              &.total {
+                margin-top: 6px !important;
+                padding-top: 6px !important;
+                border-top: 1px solid #e8e8ed !important;
+                
+                .breakdown-label {
+                  font-weight: 600;
+                }
+                
+                .breakdown-value {
+                  font-size: 14px !important;
+                  font-weight: 700;
+                }
+              }
+            }
+            
+            .breakdown-label,
+            .breakdown-value {
+              font-size: 10px !important;
+            }
+            
+            .payment-breakdown {
+              margin-top: 6px !important;
+              padding-top: 6px !important;
+              border-top: 1px solid #e8e8ed !important;
+              font-size: 9px !important;
+              
+              .breakdown-header {
+                font-size: 10px !important;
+                margin-bottom: 4px !important;
+              }
+              
+              .breakdown-row {
+                font-size: 9px !important;
+                margin: 3px 0 !important;
+              }
+            }
+          }
+        }
+        
+        // Right Column Styles
+        .embedded-right-column {
+          .wallet-balance-display.compact {
+            margin-bottom: 8px !important;
+            padding: 6px 8px !important;
+            font-size: 10px !important;
+            border-radius: 8px !important;
+            
+            ion-icon {
+              font-size: 16px !important;
+            }
+            
+            .balance-label {
+              font-size: 10px !important;
+            }
+            
+            .balance-amount {
+              font-size: 12px !important;
+            }
+          }
+          
+          .payment-methods-grid.compact {
+            gap: 8px !important;
+            margin-bottom: 8px !important;
+            grid-template-columns: 1fr !important;
+          }
+          
+          .payment-card,
+          .default-card-tile {
+            padding: 10px !important;
+            border-radius: 10px !important;
+            min-height: auto !important;
+            
+            .payment-card-icon,
+            .card-brand-icon {
+              width: 32px !important;
+              height: 32px !important;
+            }
+            
+            .payment-card-title,
+            .card-details {
+              font-size: 12px !important;
+            }
+            
+            .payment-card-subtitle,
+            .card-number {
+              font-size: 10px !important;
+            }
+            
+            .check-icon {
+              font-size: 20px !important;
+            }
+          }
+          
+          .top-up-link {
+            margin: 6px 0 !important;
+            font-size: 10px !important;
+            --padding-start: 0 !important;
+            --padding-end: 0 !important;
+            height: auto !important;
+            
+            ion-icon {
+              font-size: 14px !important;
+            }
+          }
+          
+          .confirm-btn {
+            margin-top: 8px !important;
+            margin-bottom: 6px !important;
+            --padding-top: 12px !important;
+            --padding-bottom: 12px !important;
+            font-size: 12px !important;
+            height: 44px !important;
+            font-weight: 600 !important;
+          }
+          
+          .note {
+            font-size: 9px !important;
+            margin-top: 4px !important;
+            margin-bottom: 0 !important;
+            line-height: 1.4 !important;
+          }
+        }
+      }
   }
 }

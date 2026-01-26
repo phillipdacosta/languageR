@@ -52,10 +52,10 @@
         <ion-icon name="trash-outline" slot="start"></ion-icon>
         Clear all
       </ion-button>
-      <ion-button expand="block" fill="outline" (click)="copyWeek(); toggleMobileSettings()">
+      <!-- <ion-button expand="block" fill="outline" (click)="copyWeek(); toggleMobileSettings()">
         <ion-icon name="copy-outline" slot="start"></ion-icon>
         Copy to all days
-      </ion-button>
+      </ion-button> -->
     </div>
 
     <div class="panel-section">
@@ -125,10 +125,10 @@
           <ion-icon name="trash-outline" slot="start"></ion-icon>
           Clear all
         </ion-button>
-        <ion-button expand="block" fill="outline" class="action-btn" (click)="copyWeek()">
+        <!-- <ion-button expand="block" fill="outline" class="action-btn" (click)="copyWeek()">
           <ion-icon name="copy-outline" slot="start"></ion-icon>
           Copy to all days
-        </ion-button>
+        </ion-button> -->
       </div>
     </div>
 
@@ -198,8 +198,24 @@
     
     <!-- Single Day Header (REMOVED - using navigation bar instead) -->
 
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading availability...</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-container" *ngIf="loadError && !isLoading">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <p>Failed to load availability</p>
+      <ion-button fill="outline" size="small" (click)="forceRefreshAvailability()">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Retry
+      </ion-button>
+    </div>
+
     <!-- Time Slot Grid -->
-    <div class="time-grid-container">
+    <div class="time-grid-container" *ngIf="!isLoading && !loadError">
       <div class="time-grid">
         <!-- Day Headers -->
         <div class="day-headers" *ngIf="!isSingleDayMode">
@@ -265,10 +281,10 @@
       </span>
     </div>
     <div class="action-buttons">
-      <ion-button fill="outline" (click)="previewSchedule()">
+      <!-- <ion-button fill="outline" (click)="previewSchedule()">
         <ion-icon name="eye-outline" slot="start"></ion-icon>
         Preview
-      </ion-button>
+      </ion-button> -->
       <ion-button (click)="saveAvailability()" [disabled]="!hasUnsavedChanges">
         <ion-icon name="checkmark-outline" slot="start"></ion-icon>
         Save availability

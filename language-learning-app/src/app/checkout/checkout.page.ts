@@ -39,6 +39,10 @@ export class CheckoutPage implements OnInit {
   walletBalance: number = 0;
   isApplePayAvailable: boolean = false;
   isGooglePayAvailable: boolean = false;
+  
+  // Cached computed values (to avoid calling functions in templates)
+  private _cachedTimeRange: string = '';
+  private _cachedTimeRangeKey: string = '';
 
   constructor(
     private route: ActivatedRoute, 
@@ -704,13 +708,6 @@ export class CheckoutPage implements OnInit {
       // This ensures the lesson is scheduled for the correct local time
       const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
       
-      console.log('🕐 [CHECKOUT] parseStartDate:', {
-        input: { dateIso: this.dateIso, time: this.time },
-        parsed: { year, month, day, hours, minutes },
-        localDate: localDate.toISOString(),
-        localDateString: localDate.toString()
-      });
-      
       return localDate;
     } catch (e) {
       console.error('🕐 [CHECKOUT] Error parsing start date:', e);
@@ -723,10 +720,23 @@ export class CheckoutPage implements OnInit {
   }
 
   get timeRange(): string {
+    // Cache key based on inputs
+    const cacheKey = `${this.dateIso}-${this.time}-${this.lessonMinutes}`;
+    
+    // Return cached value if inputs haven't changed
+    if (this._cachedTimeRangeKey === cacheKey && this._cachedTimeRange) {
+      return this._cachedTimeRange;
+    }
+    
     const start = this.parseStartDate();
     if (!start) return '';
     const end = new Date(start.getTime() + this.lessonMinutes * 60000);
-    return `${this.format12h(start)} – ${this.format12h(end)}`;
+    
+    // Cache the result
+    this._cachedTimeRange = `${this.format12h(start)} – ${this.format12h(end)}`;
+    this._cachedTimeRangeKey = cacheKey;
+    
+    return this._cachedTimeRange;
   }
 
   // Computed properties for template

@@ -133,7 +133,8 @@
                    alt="Speak Freely" />
               <!-- Regular message: show user picture or fallback -->
               <img *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
-                   [src]="conversation.otherUser?.picture" />
+                   [src]="conversation.otherUser?.picture"
+                   referrerpolicy="no-referrer" />
               <div class="avatar-fallback" 
                    *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && !conversation.otherUser?.picture">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
@@ -194,7 +195,7 @@
            [style.opacity]="hasConversationSelected ? '1' : '0'"
            [style.pointer-events]="hasConversationSelected ? 'auto' : 'none'">
            <ion-avatar class="stable-chat-avatar">
-            <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" />
+            <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" referrerpolicy="no-referrer" />
             <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture && selectedConversation">
               {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
             </div>
@@ -240,7 +241,7 @@
               <!-- Row 1: Avatar + Name -->
               <div class="hover-card-header">
                 <ion-avatar class="hover-card-avatar">
-                  <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" />
+                  <img [src]="selectedConversation?.otherUser?.picture" *ngIf="selectedConversation?.otherUser?.picture" referrerpolicy="no-referrer" />
                   <div class="avatar-fallback" *ngIf="!selectedConversation?.otherUser?.picture">
                     {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
                   </div>
@@ -523,7 +524,7 @@
           <div class="user-profile-section">
             <div class="profile-image-container">
               <ion-avatar class="profile-avatar" (click)="openOtherUserProfile($event)" style="cursor: pointer;">
-                <img [src]="otherUser?.picture" *ngIf="otherUser?.picture" />
+                <img [src]="otherUser?.picture" *ngIf="otherUser?.picture" referrerpolicy="no-referrer" />
                 <div class="avatar-fallback" *ngIf="!otherUser?.picture">
                   {{ otherUser?.name?.charAt(0) || '?' }}
                 </div>
@@ -686,7 +687,8 @@
                    alt="Speak Freely" />
               <!-- Regular message: show user picture or fallback -->
               <img *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
-                   [src]="conversation.otherUser?.picture" />
+                   [src]="conversation.otherUser?.picture"
+                   referrerpolicy="no-referrer" />
               <div class="avatar-fallback" 
                    *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && !conversation.otherUser?.picture">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
@@ -743,7 +745,7 @@
             <ion-icon name="chevron-back"></ion-icon>
           </ion-button>
           <ion-avatar class="chat-avatar" (click)="openOtherUserProfile($event)">
-            <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" />
+            <img [src]="selectedConversation.otherUser?.picture" *ngIf="selectedConversation.otherUser?.picture" referrerpolicy="no-referrer" />
             <div class="avatar-fallback" *ngIf="!selectedConversation.otherUser?.picture">
               {{ selectedConversation.otherUser?.name?.charAt(0) || '?' }}
             </div>

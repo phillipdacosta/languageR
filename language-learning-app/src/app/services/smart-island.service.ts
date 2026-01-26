@@ -30,6 +30,10 @@ export class SmartIslandService {
   private availableCards: DynamicCard[] = [];
   private rotationInterval: any;
   private readonly ROTATION_INTERVAL = 10000; // 10 seconds
+  
+  // Storage key for dismissed tutor availability notifications
+  private readonly DISMISSED_AVAILABILITY_KEY = 'dismissed_tutor_availability';
+  private readonly DISMISSED_EXPIRY_HOURS = 24; // Clear dismissed entries after 24 hours
 
   constructor(
     private http: HttpClient,
@@ -37,6 +41,7 @@ export class SmartIslandService {
     private websocketService: WebSocketService
   ) {
     this.initializeCardRotation();
+    this.cleanupOldDismissedEntries();
   }
 
   /**
@@ -183,8 +188,32 @@ export class SmartIslandService {
    * Remove tutor availability card completely
    */
   public removeTutorAvailabilityCard() {
-    this.removeCard('tutor_availability');
-    console.log('🗑️ [SmartIsland] Removed tutor availability card');
+    console.log('🗑️ [SmartIsland] removeTutorAvailabilityCard called');
+    console.log('🗑️ [SmartIsland] Before removal - availableCards:', this.availableCards.map(c => c.type));
+    console.log('🗑️ [SmartIsland] Before removal - currentCard:', this.currentCardSubject.value?.type);
+    
+    // Remove from available cards
+    const hadCard = this.availableCards.some(c => c.type === 'tutor_availability');
+    this.availableCards = this.availableCards.filter(c => c.type !== 'tutor_availability');
+    
+    // If the current card was the tutor availability card, force an update
+    const currentCard = this.currentCardSubject.value;
+    if (currentCard && currentCard.type === 'tutor_availability') {
+      console.log('🗑️ [SmartIsland] Current card WAS tutor_availability, forcing rotation');
+      // Force emit null first to ensure UI updates, then rotate to next
+      this.currentCardSubject.next(null);
+      
+      // Small delay then show next card if available
+      setTimeout(() => {
+        if (this.availableCards.length > 0) {
+          this.rotateToNextCard();
+        }
+      }, 100);
+    }
+    
+    console.log('🗑️ [SmartIsland] After removal - availableCards:', this.availableCards.map(c => c.type));
+    console.log('🗑️ [SmartIsland] After removal - currentCard:', this.currentCardSubject.value?.type);
+    console.log('🗑️ [SmartIsland] Had card:', hadCard, '| Removed successfully');
   }
 
   /**
@@ -438,6 +467,8 @@ export class SmartIslandService {
     if (this.rotationInterval) {
       clearInterval(this.rotationInterval);
     }
+    // Also clear dismissed tutor availability when logging out
+    this.clearDismissedTutorAvailability();
   }
 
   /**
@@ -460,6 +491,112 @@ export class SmartIslandService {
   public restartRotation() {
     console.log('🔄 [SmartIsland] Restarting rotation');
     this.startRotation();
+  }
+
+  // ============================================
+  // Dismissed Tutor Availability Tracking
+  // ============================================
+
+  /**
+   * Mark tutors as "seen" - student has interacted with the availability card
+   * This prevents the card from reappearing for these tutors until they add NEW availability
+   */
+  public dismissTutorAvailability(tutorIds: string[], tutorTimestamps?: { [tutorId: string]: string }) {
+    const dismissed = this.getDismissedTutorAvailability();
+    const now = Date.now();
+    
+    tutorIds.forEach(tutorId => {
+      // Store the lastAvailabilityUpdate timestamp if provided, so we only dismiss THIS update
+      // If tutor adds new availability later, it will have a newer timestamp
+      const timestamp = tutorTimestamps?.[tutorId] || new Date().toISOString();
+      dismissed[tutorId] = {
+        dismissedAt: now,
+        lastAvailabilityUpdate: timestamp
+      };
+    });
+    
+    localStorage.setItem(this.DISMISSED_AVAILABILITY_KEY, JSON.stringify(dismissed));
+    console.log('🔕 [SmartIsland] Dismissed tutor availability for:', tutorIds);
+    
+    // Remove the card since student interacted
+    this.removeCard('tutor_availability');
+  }
+
+  /**
+   * Get the list of dismissed tutor availability entries
+   */
+  private getDismissedTutorAvailability(): { [tutorId: string]: { dismissedAt: number; lastAvailabilityUpdate: string } } {
+    try {
+      const stored = localStorage.getItem(this.DISMISSED_AVAILABILITY_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Check if a tutor's availability has been dismissed
+   * Returns true if dismissed AND the tutor hasn't added newer availability since
+   */
+  public isTutorAvailabilityDismissed(tutorId: string, lastAvailabilityUpdate?: string): boolean {
+    const dismissed = this.getDismissedTutorAvailability();
+    const entry = dismissed[tutorId];
+    
+    if (!entry) return false;
+    
+    // If tutor has updated availability AFTER we dismissed, show it again
+    if (lastAvailabilityUpdate && entry.lastAvailabilityUpdate) {
+      const dismissedTimestamp = new Date(entry.lastAvailabilityUpdate).getTime();
+      const currentTimestamp = new Date(lastAvailabilityUpdate).getTime();
+      
+      if (currentTimestamp > dismissedTimestamp) {
+        console.log(`📅 [SmartIsland] Tutor ${tutorId} has newer availability, showing card`);
+        return false; // Not dismissed - they have new availability
+      }
+    }
+    
+    return true; // Still dismissed
+  }
+
+  /**
+   * Filter out tutors whose availability has already been dismissed
+   */
+  public filterDismissedTutors(tutors: any[]): any[] {
+    return tutors.filter(tutor => {
+      const tutorId = tutor.id || tutor._id;
+      const lastUpdate = tutor.lastAvailabilityUpdate;
+      return !this.isTutorAvailabilityDismissed(tutorId, lastUpdate);
+    });
+  }
+
+  /**
+   * Clean up old dismissed entries (older than DISMISSED_EXPIRY_HOURS)
+   */
+  private cleanupOldDismissedEntries() {
+    const dismissed = this.getDismissedTutorAvailability();
+    const now = Date.now();
+    const expiryMs = this.DISMISSED_EXPIRY_HOURS * 60 * 60 * 1000;
+    let cleaned = false;
+    
+    Object.keys(dismissed).forEach(tutorId => {
+      if (now - dismissed[tutorId].dismissedAt > expiryMs) {
+        delete dismissed[tutorId];
+        cleaned = true;
+      }
+    });
+    
+    if (cleaned) {
+      localStorage.setItem(this.DISMISSED_AVAILABILITY_KEY, JSON.stringify(dismissed));
+      console.log('🧹 [SmartIsland] Cleaned up old dismissed availability entries');
+    }
+  }
+
+  /**
+   * Clear all dismissed entries (useful for testing or when logging out)
+   */
+  public clearDismissedTutorAvailability() {
+    localStorage.removeItem(this.DISMISSED_AVAILABILITY_KEY);
+    console.log('🗑️ [SmartIsland] Cleared all dismissed tutor availability');
   }
 }
 

@@ -388,6 +388,61 @@
   position: relative;
 }
 
+// Loading state
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  gap: 16px;
+  flex: 1;
+  
+  ion-spinner {
+    width: 40px;
+    height: 40px;
+    --color: #007AFF;
+  }
+  
+  p {
+    font-size: 15px;
+    color: #86868b;
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+// Error state
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  gap: 16px;
+  flex: 1;
+  
+  ion-icon {
+    font-size: 48px;
+    color: #FF3B30;
+  }
+  
+  p {
+    font-size: 15px;
+    color: #86868b;
+    margin: 0;
+    font-weight: 400;
+  }
+  
+  ion-button {
+    --background: transparent;
+    --color: #007AFF;
+    --border-color: #007AFF;
+    margin-top: 8px;
+    font-weight: 500;
+  }
+}
+
 .content-header {
   display: none; // Remove the bulky header card completely
 }

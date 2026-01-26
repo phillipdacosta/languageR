@@ -212,6 +212,42 @@ ion-content {
     .breakdown-subvalue {
       color: #666;
       font-weight: 500;
+      
+      &.stripe-value {
+        color: #635bff;
+      }
+      
+      &.paypal-value {
+        color: #003087;
+      }
+    }
+  }
+  
+  .payout-method-breakdown {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e5e5ea;
+  }
+  
+  .paypal-funding-note {
+    background: #fff8e6;
+    border-left: 3px solid #ff9500;
+    padding: 10px 12px;
+    margin: 12px 0 8px 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #8a6d3b;
+    
+    ion-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    
+    strong {
+      color: #003087;
     }
   }
 
@@ -219,6 +255,130 @@ ion-content {
     height: 1px;
     background: #f0f0f0;
     margin: 8px 0;
+  }
+}
+
+// New simplified payout summary
+.payout-summary {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  
+  .payout-method-card {
+    flex: 1;
+    min-width: 200px;
+    padding: 16px;
+    border-radius: 12px;
+    
+    &.stripe {
+      background: linear-gradient(135deg, #f0f0ff 0%, #e8e8ff 100%);
+      border: 1px solid #d4d4ff;
+      
+      .method-header ion-icon {
+        color: #635bff;
+      }
+      
+      .method-amount {
+        color: #635bff;
+      }
+    }
+    
+    &.paypal {
+      background: linear-gradient(135deg, #fff8e6 0%, #fff3d4 100%);
+      border: 1px solid #ffe0a3;
+      
+      .method-header ion-icon {
+        color: #003087;
+      }
+      
+      .method-amount {
+        color: #003087;
+      }
+    }
+    
+    .method-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d1d1f;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+    
+    .method-amount {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .method-detail {
+      font-size: 12px;
+      color: #86868b;
+    }
+  }
+  
+  .no-payouts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px;
+    background: #f0fff4;
+    border-radius: 12px;
+    color: #34c759;
+    font-weight: 500;
+    width: 100%;
+    justify-content: center;
+    
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+.paypal-funding-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  
+  > ion-icon {
+    font-size: 24px;
+    color: #ff9500;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  
+  .alert-content {
+    flex: 1;
+    
+    strong {
+      display: block;
+      font-size: 15px;
+      color: #856404;
+      margin-bottom: 4px;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 13px;
+      color: #856404;
+      
+      strong {
+        display: inline;
+        color: #003087;
+        font-size: inherit;
+      }
+    }
   }
 }
 

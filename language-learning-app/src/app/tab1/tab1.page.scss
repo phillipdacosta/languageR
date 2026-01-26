@@ -1820,15 +1820,16 @@ ion-content {
   align-items: center;
   gap: 4px;
   padding: 1px 4px;
-  background: linear-gradient(135deg, #FFA500 0%, #FF6B35 100%);
-  color: white;
+  background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
+  color: #ffffff;
   border-radius: 6px;
   font-size: 9px;
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(255, 165, 0, 0.25);
+  box-shadow: 0 1px 4px rgba(255, 149, 0, 0.25);
   
   ion-icon {
     font-size: 12px;
+    color: #ffffff;
   }
 }
 
@@ -3228,6 +3229,7 @@ ion-content {
     ion-icon {
       font-size: 10px;
       margin-right: 2px;
+      color: #ffffff;
     }
   }
   
@@ -3543,6 +3545,7 @@ ion-content {
     ion-icon {
       font-size: 10px;
       margin-right: 2px;
+      color: #ffffff;
     }
   }
   
@@ -4311,6 +4314,12 @@ ion-content {
     ion-icon {
       font-size: 16px;
     }
+  }
+  
+  .button-text-animated {
+    display: inline-block;
+    min-width: 120px; // Prevent layout shift during animation
+    text-align: center;
   }
 }
 
@@ -5520,8 +5529,8 @@ ion-content {
       }
       
       &.badge-trial {
-        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-        color: #744210;
+        background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
+        color: #ffffff;
       }
       
       &.badge-rescheduled {
