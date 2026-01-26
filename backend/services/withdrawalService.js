@@ -3,7 +3,18 @@ const Withdrawal = require('../models/Withdrawal');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Lazy-load Stripe to ensure environment variables are loaded first
+let stripe;
+function getStripeClient() {
+  if (!stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+    }
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripe;
+}
 
 /**
  * Withdrawal Service
@@ -345,6 +356,8 @@ class WithdrawalService {
     console.log(`💳 [STRIPE] Initiating transfer to: ${withdrawal.tutorId.stripeConnectAccountId}`);
     
     try {
+      const stripe = getStripeClient();
+      
       // Create transfer from platform account to tutor's connected account
       const transfer = await stripe.transfers.create({
         amount: Math.round(withdrawal.netAmount * 100), // Convert to cents
