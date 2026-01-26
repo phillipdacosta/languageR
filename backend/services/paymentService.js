@@ -15,6 +15,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification'); // NEW
 const walletService = require('./walletService');
 const stripeService = require('./stripeService');
+const { formatNameWithInitial } = require('../utils/nameFormatter');
 
 class PaymentService {
   // Platform fee: 20% of lesson price
@@ -723,9 +724,7 @@ class PaymentService {
     // This prevents duplicate notifications if completeLessonPayment is called multiple times
     if (payment.status === 'succeeded' && !payment.revenueRecognized) {
       try {
-        const studentName = lesson.studentId.firstName 
-          ? `${lesson.studentId.firstName} ${(lesson.studentId.lastName || '').charAt(0)}.`
-          : lesson.studentId.name || 'a student';
+        const studentName = formatNameWithInitial(lesson.studentId);
         
         const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
           month: 'short',

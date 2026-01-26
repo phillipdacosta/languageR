@@ -131,7 +131,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Send notifications to invited students
     if (invitedStudents.length > 0) {
-      const tutorName = tutor.name || 'Your tutor';
+      const tutorName = formatDisplayName(tutor) || 'Your tutor';
       
       for (const invitedStudent of invitedStudents) {
         try {
@@ -349,23 +349,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
       });
       
       // Format tutor name as "FirstName LastInitial."
-      let tutorName = 'a tutor';
-      if (conflictLesson.tutorId) {
-        if (conflictLesson.tutorId.firstName && conflictLesson.tutorId.lastName) {
-          const lastInitial = conflictLesson.tutorId.lastName.charAt(0).toUpperCase();
-          tutorName = `${conflictLesson.tutorId.firstName} ${lastInitial}.`;
-        } else if (conflictLesson.tutorId.name) {
-          // Fallback to parsing name field
-          const names = conflictLesson.tutorId.name.trim().split(' ');
-          if (names.length >= 2) {
-            const lastName = names[names.length - 1];
-            const lastInitial = lastName.charAt(0).toUpperCase();
-            tutorName = `${names[0]} ${lastInitial}.`;
-          } else {
-            tutorName = conflictLesson.tutorId.name;
-          }
-        }
-      }
+      const tutorName = conflictLesson.tutorId ? formatDisplayName(conflictLesson.tutorId) : 'a tutor';
       
       return res.status(409).json({ 
         success: false, 
@@ -673,7 +657,7 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
     }
     
     let newInvitationsCount = 0;
-    const tutorName = tutor.name || 'Your tutor';
+    const tutorName = formatDisplayName(tutor) || 'Your tutor';
     
     // Add new invitations
     for (const studentId of studentIds) {
@@ -1608,9 +1592,7 @@ router.delete('/:classId', verifyToken, async (req, res) => {
       minute: '2-digit' 
     });
     
-    const tutorName = tutor.firstName && tutor.lastName 
-      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-      : tutor.name;
+    const tutorName = formatDisplayName(tutor);
     
     // Notify all confirmed students
     for (const student of cls.confirmedStudents) {
@@ -1778,9 +1760,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
       minute: '2-digit' 
     });
     
-    const tutorName = tutor.firstName && tutor.lastName 
-      ? `${tutor.firstName} ${tutor.lastName.charAt(0)}.`
-      : tutor.name;
+    const tutorName = formatDisplayName(tutor);
     
     // Notify tutor
     const notification = await Notification.create({

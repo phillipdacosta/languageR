@@ -3190,15 +3190,16 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
     await lesson.save();
 
     // Create notification for tutor
+    const studentDisplayName = formatDisplayName(student);
     const notification = new Notification({
       userId: tutor._id,
       type: 'message', // Generic type for tips
       title: '🎉 You received a tip!',
-      message: `${student.name} sent you a $${amount} tip for your lesson!`,
+      message: `${studentDisplayName} sent you a $${amount} tip for your lesson!`,
       data: {
         lessonId: lessonId,
         amount: amount,
-        from: student.name
+        from: studentDisplayName
       },
       read: false
     });
@@ -3210,12 +3211,12 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
           notification: notification,
-          message: `${student.name} sent you a $${amount} tip!`
+          message: `${studentDisplayName} sent you a $${amount} tip!`
         });
         req.io.to(tutorSocketId).emit('tip_received', {
           lessonId: lessonId,
           amount: amount,
-          from: student.name
+          from: studentDisplayName
         });
       }
     }
@@ -3418,14 +3419,15 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     }
 
     // Create notification for student
+    const tutorDisplayName = formatDisplayName(lesson.tutor);
     const notification = new Notification({
       userId: lesson.student._id,
       type: 'message',
-      title: `💬 Note from ${lesson.tutor.name}`,
+      title: `💬 Note from ${tutorDisplayName}`,
       message: `Your tutor left feedback on your recent lesson`,
       data: {
         lessonId: lessonId,
-        tutorName: lesson.tutor.name
+        tutorName: tutorDisplayName
       },
       read: false
     });
@@ -3478,11 +3480,11 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       if (studentSocketId) {
         req.io.to(studentSocketId).emit('new_notification', {
           notification: notification,
-          message: `${lesson.tutor.name} left you feedback!`
+          message: `${tutorDisplayName} left you feedback!`
         });
         req.io.to(studentSocketId).emit('tutor_note_added', {
           lessonId: lessonId,
-          tutorName: lesson.tutor.name
+          tutorName: tutorDisplayName
         });
       }
     }

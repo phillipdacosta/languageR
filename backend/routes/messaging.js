@@ -713,30 +713,8 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Get receiver user to create notification
     const receiver = await User.findOne({ auth0Id: receiverId });
     
-    // Create notification for receiver if they exist
-    if (receiver) {
-      try {
-        const Notification = require('../models/Notification');
-        const senderDisplayName = sender ? formatDisplayName(sender) : null;
-        await Notification.create({
-          userId: receiver._id,
-          type: 'message',
-          title: 'New Message',
-          message: senderDisplayName ? `<strong>${senderDisplayName}</strong> sent you a message` : 'You have a new message',
-          relatedUserPicture: sender?.picture || null,
-          data: {
-            messageId: savedMessage._id.toString(),
-            conversationId: savedMessage.conversationId,
-            senderId: sender?._id?.toString(),
-            senderName: senderDisplayName,
-            content: savedMessage.content.substring(0, 100) // Preview first 100 chars
-          }
-        });
-        console.log('✅ Notification created for message to receiver:', receiver._id);
-      } catch (notifError) {
-        console.error('❌ Error creating notification for message:', notifError);
-      }
-    }
+    // Message notifications removed - users should not get notifications for messages
+    // Messages are handled via the Messages tab and WebSocket events only
 
     // Emit WebSocket message to receiver (for real-time message display)
     const receiverSocketId = req.connectedUsers?.get(receiverId);
