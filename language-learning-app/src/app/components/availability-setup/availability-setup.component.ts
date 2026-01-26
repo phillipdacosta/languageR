@@ -69,6 +69,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   hasUnsavedChanges = false;
   initialSelectedSlotsCount = 0; // Track initial count when page loads
   initialSelectedSlots = new Set<string>(); // Track which slots were initially selected
+  isLoading = true; // Loading state for data fetch
+  loadError = false; // Error state for data fetch
 
   // Getter for new slots count (only newly selected, not already saved)
   get newSlotsCount(): number {
@@ -248,8 +250,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ionViewWillEnter() {
-    // Just update the time position
+    console.log('📍 ionViewWillEnter: Refreshing availability data');
+    // Update the time position
     this.updateCurrentTimePosition();
+    // Reload availability data to ensure fresh state (scroll will happen after load)
+    this.forceRefreshAvailability();
   }
 
   ngOnChanges(changes: any) {
@@ -398,11 +403,43 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Force refresh availability data (with cache busting)
   forceRefreshAvailability() {
     console.log('🔄 Force refreshing availability data...');
+    this.isLoading = true;
+    this.loadError = false;
     this.selectedSlots.clear();
     this.bookedSlots.clear();
+    this.initialSelectedSlots.clear();
     this.selectedSlotsCount = 0;
+    this.initialSelectedSlotsCount = 0;
+    
+    // Ensure weekDays are properly set before loading
+    if (this.weekDays.length === 0 && this.displayedWeekDays.length === 0) {
+      console.log('🔧 WeekDays not initialized, initializing now...');
+      if (this.isSingleDayMode && this.targetDate) {
+        const [year, month, day] = this.targetDate.split('-').map(Number);
+        const targetDateObj = new Date(year, month - 1, day);
+        targetDateObj.setHours(0, 0, 0, 0);
+        this.updateWeekDaysForSingleDay(targetDateObj);
+      } else {
+        this.updateWeekDays(new Date());
+      }
+    }
+    
+    // Safety timeout - if loading takes too long, show error
+    const loadingTimeout = setTimeout(() => {
+      if (this.isLoading) {
+        console.warn('⚠️ Loading timeout - forcing error state');
+        this.isLoading = false;
+        this.loadError = true;
+        this.cdr.detectChanges();
+      }
+    }, 15000); // 15 second timeout
+    
     this.loadExistingAvailability();
     this.loadBookedSlots();
+    
+    // Clear timeout when loading completes (handled in loadExistingAvailability callback)
+    // Store timeout ID for potential cleanup
+    (this as any)._loadingTimeout = loadingTimeout;
   }
 
   private getWeekStart(date: Date): Date {
@@ -454,30 +491,60 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngAfterViewInit() {
-    // Don't auto-scroll here - let the parent page's ionViewDidEnter trigger it
-    // This ensures ion-content is fully initialized before we try to scroll
-    
     // Start time updater like tutor-calendar
     this.startTimeUpdater();
     
-    // Scroll to current time after a short delay
-    setTimeout(() => {
-      this.scrollToCurrentTime();
-    }, 300);
-    
     // Recompute on resize
     window.addEventListener('resize', this.boundResizeHandler);
+    
+    // Don't scroll here - scroll will be triggered after data loads
   }
   
-  private scrollToCurrentTime() {
+  /**
+   * Scroll to the current time indicator with retry logic
+   * Called after data loads to ensure the grid is rendered
+   */
+  private scrollToCurrentTime(retryCount = 0) {
+    const maxRetries = 10;
+    
+    // Check if we're still loading - if so, wait and retry
+    if (this.isLoading) {
+      if (retryCount < maxRetries) {
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+      }
+      return;
+    }
+    
     const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
     if (!timeSlotsElement) {
+      // Element not ready yet, retry
+      if (retryCount < maxRetries) {
+        console.log(`📜 Time slots container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+      } else {
+        console.warn('📜 Failed to find time slots container after retries');
+      }
       return;
     }
     
     // Find the scrollable container
     const scrollContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
     if (!scrollContainer) {
+      if (retryCount < maxRetries) {
+        console.log(`📜 Scroll container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+      } else {
+        console.warn('📜 Failed to find scroll container after retries');
+      }
+      return;
+    }
+    
+    // Check if the container has valid scroll dimensions
+    if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
+      if (retryCount < maxRetries) {
+        console.log(`📜 Scroll container not fully rendered, retrying (${retryCount + 1}/${maxRetries})...`);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+      }
       return;
     }
     
@@ -489,9 +556,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       behavior: 'smooth'
     });
     
-    console.log('📜 Scrolled to current time:', {
+    console.log('📜 ✅ Scrolled to current time:', {
       currentTimePosition: this.currentTimePosition,
-      targetScroll
+      targetScroll,
+      scrollHeight: scrollContainer.scrollHeight,
+      clientHeight: scrollContainer.clientHeight,
+      retryCount
     });
   }
 
@@ -647,18 +717,40 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     return `${displayHour}:${displayMinute} ${period}`;
   }
 
-  private loadExistingAvailability() {
-    console.log('🔧 Loading existing availability...', { isSingleDayMode: this.isSingleDayMode });
+  private loadExistingAvailability(retryCount = 0) {
+    const maxRetries = 3;
+    console.log('🔧 Loading existing availability...', { 
+      isSingleDayMode: this.isSingleDayMode, 
+      retryCount,
+      weekDaysCount: this.weekDays.length,
+      displayedWeekDaysCount: this.displayedWeekDays.length 
+    });
+    
+    // Verify weekDays are populated before making API call
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    if (!dayArray || dayArray.length === 0) {
+      console.warn('🔧 ⚠️ Day array is empty, retrying after delay...');
+      if (retryCount < maxRetries) {
+        setTimeout(() => {
+          this.loadExistingAvailability(retryCount + 1);
+        }, 200 * (retryCount + 1)); // Exponential backoff: 200ms, 400ms, 600ms
+        return;
+      } else {
+        console.error('🔧 ❌ Failed to initialize day array after retries');
+        this.isLoading = false;
+        this.loadError = true;
+        this.cdr.detectChanges();
+        return;
+      }
+    }
+    
     this.userService.getAvailability().subscribe({
       next: (res) => {
         console.log('🔧 Loaded existing availability:', res);
-        console.log('🔧 Raw availability data:', JSON.stringify(res, null, 2));
         // Convert existing availability to selected slots
         if (res.availability && res.availability.length > 0) {
-          console.log('🔧 All availability blocks:', res.availability);
+          console.log('🔧 All availability blocks:', res.availability.length);
           res.availability.forEach(block => {
-            console.log(`🔧 Processing existing block: day=${block.day}, time=${block.startTime}-${block.endTime}, absoluteStart=${block.absoluteStart}`);
-            
             // Parse the absolute start date to get the specific date for this block
             let blockDate: Date;
             if (block.absoluteStart) {
@@ -671,17 +763,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               } else {
                 dayIndex = this.dayNameToIndex(block.day);
               }
-              const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
-              const matchingDay = dayArray.find(d => d.index === dayIndex);
+              const currentDayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+              const matchingDay = currentDayArray.find(d => d.index === dayIndex);
               if (!matchingDay) {
-                console.warn(`🔧 No matching day found for day index ${dayIndex}`);
                 return;
               }
               blockDate = matchingDay.date;
             }
             
             const dateStr = this.formatDateKey(blockDate);
-            console.log(`🔧 Block date: ${dateStr} (${blockDate.toDateString()})`);
             
             // CRITICAL: Check if block applies to currently displayed week
             // For blocks with absoluteStart/absoluteEnd, only load if they fall within displayed dates
@@ -692,12 +782,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               blockEnd.setHours(0, 0, 0, 0);
               
               // Get the range of dates currently displayed in the grid
-              const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
-              const firstDisplayedDate = dayArray[0]?.date;
-              const lastDisplayedDate = dayArray[dayArray.length - 1]?.date;
+              const currentDayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+              const firstDisplayedDate = currentDayArray[0]?.date;
+              const lastDisplayedDate = currentDayArray[currentDayArray.length - 1]?.date;
               
               if (!firstDisplayedDate || !lastDisplayedDate) {
-                console.warn('🔧 No displayed dates found');
                 return;
               }
               
@@ -711,21 +800,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               const blockApplies = blockEnd >= firstDate && blockStart <= lastDate;
               
               if (!blockApplies) {
-                console.log(`🔧 ⏭️ Skipping block - date range ${blockStart.toDateString()} to ${blockEnd.toDateString()} doesn't overlap with displayed week ${firstDate.toDateString()} to ${lastDate.toDateString()}`);
                 return;
               }
-              
-              console.log(`🔧 ✅ Block applies to displayed week`);
             }
             
             // In single day mode, only load slots for the selected day
             if (this.isSingleDayMode) {
               const selectedDate = this.displayedWeekDays[0]?.date;
               if (!selectedDate || !this.isSameDay(blockDate, selectedDate)) {
-                console.log(`🔧 Skipping block for ${dateStr} - not the selected day`);
                 return;
               }
-              console.log(`🔧 ✅ Block matches selected day, processing...`);
             }
 
             // Parse time slots
@@ -735,10 +819,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
             const startIndex = sh * 2 + (sm >= 30 ? 1 : 0);
             const endIndex = eh * 2 + (em >= 30 ? 1 : 0);
 
-            console.log(`🔧 Adding slots from index ${startIndex} to ${endIndex} for date ${dateStr}`);
             for (let idx = startIndex; idx < endIndex; idx++) {
               const slotKey = `${dateStr}-${idx}`;
-              console.log(`🔧 Adding slot: ${slotKey}`);
               this.selectedSlots.add(slotKey);
               this.initialSelectedSlots.add(slotKey); // Track as initially selected
             }
@@ -746,16 +828,45 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           this.updateSelectedCount();
           // Store the initial count after loading existing availability
           this.initialSelectedSlotsCount = this.selectedSlotsCount;
-          console.log('🔧 Final selected slots after loading:', Array.from(this.selectedSlots));
+          console.log('🔧 ✅ Final selected slots count:', this.selectedSlots.size);
         } else {
           // No existing availability, so initial count is 0
           this.initialSelectedSlotsCount = 0;
+          console.log('🔧 No existing availability found');
         }
         // Loaded selections reflect saved state; reset dirty flag
         this.hasUnsavedChanges = false;
+        this.isLoading = false;
+        this.loadError = false;
+        // Clear loading timeout
+        if ((this as any)._loadingTimeout) {
+          clearTimeout((this as any)._loadingTimeout);
+        }
+        // Trigger change detection to ensure view updates
+        this.cdr.detectChanges();
+        
+        // Scroll to current time after grid is rendered
+        // Use setTimeout to allow DOM to update after change detection
+        setTimeout(() => {
+          this.scrollToCurrentTime();
+        }, 100);
       },
       error: (error) => {
-        console.error('Error loading existing availability:', error);
+        console.error('❌ Error loading existing availability:', error);
+        if (retryCount < maxRetries) {
+          console.log(`🔧 Retrying... (${retryCount + 1}/${maxRetries})`);
+          setTimeout(() => {
+            this.loadExistingAvailability(retryCount + 1);
+          }, 500 * (retryCount + 1));
+        } else {
+          this.isLoading = false;
+          this.loadError = true;
+          // Clear loading timeout
+          if ((this as any)._loadingTimeout) {
+            clearTimeout((this as any)._loadingTimeout);
+          }
+          this.cdr.detectChanges();
+        }
       }
     });
   }
@@ -1363,16 +1474,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   async saveAvailability() {
-    if (this.selectedSlotsCount === 0) {
-      const toast = await this.toastController.create({
-        message: 'Please select at least one time slot',
-        duration: 2000,
-        position: 'bottom'
-      });
-      await toast.present();
-      return;
-    }
-
     const loading = await this.loadingController.create({
       message: 'Saving availability...',
       duration: 0
@@ -1383,12 +1484,17 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       // Convert selected slots to availability blocks
       const availabilityBlocks = this.convertSlotsToBlocks();
       
-      console.log('Saving availability blocks:', availabilityBlocks);
+      // Get the dates being edited (so backend knows what to clear)
+      const editedDates = this.getEditedDates();
       
-      this.userService.updateAvailability(availabilityBlocks).subscribe({
+      console.log('Saving availability blocks:', availabilityBlocks);
+      console.log('Edited dates:', editedDates);
+      
+      this.userService.updateAvailability(availabilityBlocks, editedDates).subscribe({
         next: async (response) => {
           await loading.dismiss();
-          console.log('Availability saved successfully:', response);
+          console.log('✅ Availability saved successfully:', response);
+          console.log('✅ Response availability:', response.availability?.length, 'blocks');
           
           const toast = await this.toastController.create({
             message: 'Availability saved successfully!',
@@ -1403,11 +1509,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           this.initialSelectedSlotsCount = this.selectedSlotsCount;
           this.initialSelectedSlots = new Set(this.selectedSlots);
           
-          // Navigate back to calendar with refresh parameter
-          // console.log('🔄 Navigating back to calendar with refresh flag...');
-          // this.router.navigate(['/tabs/tutor-calendar'], { 
-          //   queryParams: { refreshAvailability: 'true' } 
-          // });
+          // Note: The UserService emits availabilityUpdated$ event in tap()
+          // which will be received by tab1 to update hasAvailability immediately
         },
         error: async (error) => {
           await loading.dismiss();
@@ -1533,5 +1636,23 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
    */
   getTimezoneLabel(timezone: string): string {
     return getTimezoneLabel(timezone);
+  }
+
+  /**
+   * Get the dates currently being edited (displayed in the grid)
+   * This tells the backend which dates to clear before adding new blocks
+   */
+  private getEditedDates(): string[] {
+    const dates: string[] = [];
+    const dayArray = this.isSingleDayMode ? this.displayedWeekDays : this.weekDays;
+    
+    dayArray.forEach(day => {
+      if (day.date) {
+        const dateStr = this.formatDateKey(day.date);
+        dates.push(dateStr);
+      }
+    });
+    
+    return dates;
   }
 }

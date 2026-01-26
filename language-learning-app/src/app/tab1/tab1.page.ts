@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
-import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
@@ -47,10 +47,16 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
       transition(':leave', [
         animate('200ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 0, transform: 'scale(0.98)' }))
       ])
+    ]),
+    trigger('buttonTextFade', [
+      transition('* => *', [
+        style({ opacity: 0 }),
+        animate('300ms ease-in-out', style({ opacity: 1 }))
+      ])
     ])
   ]
 })
-export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
+export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave {
   // Smart Island reference
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
   
@@ -69,6 +75,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   pendingClassInvitations: ClassInvitation[] = [];
   isLoadingLessons = false;
   isLoadingInvitations = false;
+  hasAvailability = false;
+  
+  // Getter for button text animation trigger (changes when hasAvailability changes)
+  get buttonTextState(): string {
+    return this.hasAvailability ? 'view' : 'add';
+  }
   
   // Wallet balance
   currentWalletBalance = 0;
@@ -91,7 +103,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   private _lastDataFetch = 0; // Timestamp of last data fetch
   private _cacheValidityMs = 30000; // Cache valid for 30 seconds
   private _lastDynamicCardRefresh = 0; // Track last dynamic card refresh
-  private readonly DYNAMIC_CARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private readonly DYNAMIC_CARD_REFRESH_INTERVAL = 2 * 60 * 1000; // 2 minutes
+  private _dynamicCardRefreshInterval: any = null; // Interval for periodic card refresh while on page
   availabilityBlocks: any[] = [];
   availabilityHeadline = '';
   availabilityDetail = '';
@@ -355,6 +368,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
           this.loadWalletBalance();
           // Load pending class invitations for students
           this.loadPendingInvitations();
+          
+          // Set up real-time tutor availability socket listeners (students only)
+          // These must be set up HERE after currentUser is loaded, not in ngOnInit
+          this.setupTutorAvailabilitySocketListeners();
+          
+          // Start dynamic card refresh interval for students
+          // This is also started in ionViewWillEnter, but we start here too in case
+          // currentUser loads AFTER ionViewWillEnter has already run
+          console.log('🎴 [TAB1] currentUser loaded as student, starting dynamic card interval');
+          this.startDynamicCardRefreshInterval();
+          
+          // Also do an initial load of dynamic cards
+          this.loadAdditionalDynamicCards();
+          this._lastDynamicCardRefresh = Date.now();
         }
       });
     
@@ -370,19 +397,31 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       takeUntil(this.destroy$),
       observeOn(asyncScheduler) // Smooth transition timing
     ).subscribe(card => {
-      console.log('🎴 [TAB1] Dynamic card updated:', card);
+      console.log('🎴 [TAB1] Dynamic card updated:', card?.type || 'NULL', '| Card data:', card ? JSON.stringify({type: card.type, priority: card.priority}) : 'null');
+      
       // Run in Angular zone to ensure proper change detection and animations
       this.ngZone.run(() => {
+        // Handle null card (card was removed)
+        if (!card) {
+          console.log('🎴 [TAB1] Card removed - setting dynamicCard to null');
+          this.dynamicCard = null;
+          this.cdr.detectChanges();
+          return;
+        }
+        
         // Small delay on first card to ensure smooth animation
-        if (!this.dynamicCardReady && card) {
+        if (!this.dynamicCardReady) {
           this.dynamicCardReady = true;
           setTimeout(() => {
+            console.log('🎴 [TAB1] Setting dynamicCard (initial):', card?.type);
             this.dynamicCard = card;
             this.dynamicCardAnimationState++;
             this.cdr.detectChanges();
           }, 100); // 100ms delay for initial card
         } else {
-          this.dynamicCard = card;
+          console.log('🎴 [TAB1] Setting dynamicCard:', card?.type);
+          // Create a new object reference to ensure Angular detects the change
+          this.dynamicCard = { ...card };
           this.dynamicCardAnimationState++; // Increment to trigger animation
           this.cdr.detectChanges();
         }
@@ -398,6 +437,54 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     if (this.isStudent()) {
       this.subscribeToWalletBalance();
     }
+
+    // Subscribe to availability updates (always subscribe, check user type inside)
+    // This ensures the subscription is set up even before user data loads
+    console.log('📅 [TAB1] Setting up availability update subscription');
+    this.userService.availabilityUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((updatedAvailability) => {
+        console.log('📅 [TAB1] Received availability update event!', { isTutor: this.isTutor(), dataLength: updatedAvailability?.length });
+        
+        // Only process if user is a tutor
+        if (!this.isTutor()) {
+          console.log('📅 [TAB1] Not a tutor, ignoring event');
+          return;
+        }
+        
+        console.log('📅 [TAB1] Processing availability update...', updatedAvailability);
+        
+        // Immediately update hasAvailability based on the new data
+        if (updatedAvailability && Array.isArray(updatedAvailability)) {
+          const timeNow = new Date();
+          
+          // Check if there is availability AND at least one slot is in the future
+          const hasFutureAvailability = updatedAvailability.some(slot => {
+            // Check if slot has absoluteEnd and it's in the future
+            if (slot.absoluteEnd) {
+              return new Date(slot.absoluteEnd) > timeNow;
+            }
+            // If no absoluteEnd, check absoluteStart
+            if (slot.absoluteStart) {
+              return new Date(slot.absoluteStart) > timeNow;
+            }
+            // If no absolute dates, assume it's a recurring pattern (future availability)
+            return true;
+          });
+          
+          this.hasAvailability = hasFutureAvailability || false;
+          this.availabilityBlocks = updatedAvailability;
+          this.updateAvailabilitySummary();
+          
+          // Trigger change detection to ensure UI updates immediately
+          this.cdr.detectChanges();
+          
+          console.log('📅 [TAB1] hasAvailability updated to:', this.hasAvailability);
+        }
+        
+        // Also reload to ensure we have the latest data (in case of any edge cases)
+        this.loadAvailability();
+      });
 
     const today = this.startOfDay(new Date());
     this.selectedDate = today;
@@ -1006,6 +1093,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
           this.showRecommendation(data.message, data.type || 'general');
         }
       });
+      
     }
     
     // Listen for tutor note modal trigger from video-call page
@@ -1135,26 +1223,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     const cacheAge = now - this._lastDataFetch;
     const isCacheStale = cacheAge > this._cacheValidityMs;
     
-    // Refresh dynamic cards if enough time has passed (students only)
+    // Refresh dynamic cards when entering the page (students only)
+    // Use a 30s debounce to prevent rapid API calls, but always refresh on page entry
+    console.log('🎴 [TAB1] ionViewWillEnter - checking user type. currentUser:', this.currentUser?.email, 'type:', this.currentUser?.userType);
     if (this.currentUser?.userType === 'student') {
       const timeSinceLastRefresh = now - this._lastDynamicCardRefresh;
-      const shouldRefreshCards = timeSinceLastRefresh > this.DYNAMIC_CARD_REFRESH_INTERVAL;
+      const shortDebounce = 30 * 1000; // 30 seconds debounce for page entries
+      const shouldRefresh = timeSinceLastRefresh > shortDebounce || !this._hasInitiallyLoaded;
       
-      console.log('🎴 [TAB1] Dynamic card refresh check:');
-      console.log('  Time since last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds');
-      console.log('  Refresh interval:', this.DYNAMIC_CARD_REFRESH_INTERVAL / 1000, 'seconds');
-      console.log('  Should refresh?', shouldRefreshCards || !this._hasInitiallyLoaded);
-      console.log('  Has initially loaded?', this._hasInitiallyLoaded);
-      
-      if (shouldRefreshCards || !this._hasInitiallyLoaded) {
-        console.log('🎴 [TAB1] ✅ Refreshing dynamic cards now...');
+      if (shouldRefresh) {
+        console.log('🎴 [TAB1] ✅ Refreshing dynamic cards (last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds ago)');
         this.loadAdditionalDynamicCards();
         this._lastDynamicCardRefresh = now;
       } else {
-        console.log('🎴 [TAB1] ⏭️  Skipping dynamic card refresh (too soon)');
+        console.log('🎴 [TAB1] ⏭️  Skipping card refresh (debounce, last refresh:', Math.round(timeSinceLastRefresh / 1000), 'seconds ago)');
       }
+      
+      // Start periodic refresh interval while on page (refresh every 2 minutes)
+      this.startDynamicCardRefreshInterval();
     } else {
       console.log('🎴 [TAB1] ⏭️  User is not a student, skipping dynamic cards');
+      // Clear any existing interval if user is not a student
+      this.stopDynamicCardRefreshInterval();
     }
     
     console.log('🔄 [TAB1] Cache age:', Math.round(cacheAge / 1000), 'seconds, stale:', isCacheStale);
@@ -1392,6 +1482,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  ionViewDidLeave() {
+    // Stop the dynamic card refresh interval when leaving the page
+    this.stopDynamicCardRefreshInterval();
+  }
+
   ngOnDestroy() {
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
@@ -1403,12 +1498,104 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       clearInterval(this.statusInterval);
     }
     
+    // Stop dynamic card refresh interval
+    this.stopDynamicCardRefreshInterval();
+    
     // Reset dynamic card ready flag so it animates in next time
     this.dynamicCardReady = false;
     
     this.destroy$.next();
 
     this.destroy$.complete();
+  }
+  
+  /**
+   * Start the periodic dynamic card refresh interval
+   * This refreshes tutor availability cards every 5 minutes while user is on the page
+   */
+  private _visibilityChangeHandler: (() => void) | null = null;
+  
+  private startDynamicCardRefreshInterval() {
+    // Clear any existing interval first
+    this.stopDynamicCardRefreshInterval();
+    
+    console.log('🔄 [TAB1] Starting dynamic card refresh interval (every', this.DYNAMIC_CARD_REFRESH_INTERVAL / 1000, 'seconds)');
+    
+    this._dynamicCardRefreshInterval = setInterval(() => {
+      console.log('🎴 [TAB1] ⏰ Periodic dynamic card refresh triggered at', new Date().toLocaleTimeString());
+      console.log('🎴 [TAB1] ⏰ Current card before refresh:', this.dynamicCard?.type);
+      this.loadAdditionalDynamicCards();
+      this._lastDynamicCardRefresh = Date.now();
+    }, this.DYNAMIC_CARD_REFRESH_INTERVAL);
+    
+    // Also refresh when the page becomes visible (handles browser tab switching)
+    if (!this._visibilityChangeHandler) {
+      this._visibilityChangeHandler = () => {
+        if (document.visibilityState === 'visible') {
+          const timeSinceLastRefresh = Date.now() - this._lastDynamicCardRefresh;
+          // If more than 30 seconds since last refresh, refresh now
+          if (timeSinceLastRefresh > 30000) {
+            console.log('🎴 [TAB1] 👁️ Page became visible, refreshing dynamic cards');
+            this.loadAdditionalDynamicCards();
+            this._lastDynamicCardRefresh = Date.now();
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', this._visibilityChangeHandler);
+    }
+  }
+  
+  /**
+   * Stop the periodic dynamic card refresh interval
+   */
+  private stopDynamicCardRefreshInterval() {
+    if (this._dynamicCardRefreshInterval) {
+      console.log('🛑 [TAB1] Stopping dynamic card refresh interval');
+      clearInterval(this._dynamicCardRefreshInterval);
+      this._dynamicCardRefreshInterval = null;
+    }
+    
+    // Also remove visibility change handler
+    if (this._visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', this._visibilityChangeHandler);
+      this._visibilityChangeHandler = null;
+    }
+  }
+  
+  /**
+   * Set up real-time socket listeners for tutor availability updates (students only)
+   * This enables instant dynamic card updates when tutors add new availability
+   */
+  private _tutorAvailabilityListenersSetup = false;
+  private setupTutorAvailabilitySocketListeners() {
+    // Prevent duplicate listeners
+    if (this._tutorAvailabilityListenersSetup) {
+      console.log('📅 [TAB1] Tutor availability socket listeners already set up');
+      return;
+    }
+    this._tutorAvailabilityListenersSetup = true;
+    
+    console.log('📅 [TAB1] Setting up tutor availability socket listeners (student)');
+    
+    // Listen for targeted tutor availability updates
+    this.websocketService.on('tutor_availability_updated').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: any) => {
+      console.log('📅 [TAB1] ⚡ Tutor availability updated (socket):', data);
+      // Immediately refresh dynamic cards when a tutor adds availability
+      this.loadAdditionalDynamicCards();
+      this._lastDynamicCardRefresh = Date.now();
+    });
+    
+    // Also listen for the general broadcast event
+    this.websocketService.on('tutor_availability_changed').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: any) => {
+      console.log('📅 [TAB1] ⚡ Tutor availability changed (socket broadcast):', data);
+      // Refresh dynamic cards
+      this.loadAdditionalDynamicCards();
+      this._lastDynamicCardRefresh = Date.now();
+    });
   }
 
   // 🎨 DEV: Preview the new lesson summary modal with mock data
@@ -2507,21 +2694,38 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
       console.log('📅 [Smart Island] Tutors count:', availabilityResponse.tutors?.length);
       
       if (availabilityResponse.success && availabilityResponse.tutors.length > 0) {
-        const tutors = availabilityResponse.tutors;
+        let tutors = availabilityResponse.tutors;
         
-        console.log('📅 [Smart Island] Tutors with new availability:', tutors);
+        console.log('📅 [Smart Island] Raw tutors with new availability:', tutors.length);
         
-        this.smartIslandService.addTutorAvailabilityCard(
-          tutors, // Pass full tutor objects
-          '/tabs/tutor-search'
-        );
-        console.log('📅 [Smart Island] ✅ Added tutor availability card:', tutors.length, 'tutors');
+        // Filter out tutors whose availability has already been dismissed by the student
+        tutors = this.smartIslandService.filterDismissedTutors(tutors);
+        
+        console.log('📅 [Smart Island] After filtering dismissed:', tutors.length, 'tutors');
+        
+        if (tutors.length > 0) {
+          this.smartIslandService.addTutorAvailabilityCard(
+            tutors, // Pass full tutor objects
+            '/tabs/tutor-search'
+          );
+          console.log('📅 [Smart Island] ✅ Added tutor availability card:', tutors.length, 'tutors');
+        } else {
+          console.log('📅 [Smart Island] ❌ All tutors were previously dismissed by student');
+          // Remove any existing card since all tutors are dismissed
+          this.smartIslandService.removeTutorAvailabilityCard();
+        }
       } else {
-        console.log('📅 [Smart Island] ❌ No tutors with new availability found.');
-        console.log('📅 [Smart Island] Response details:', JSON.stringify(availabilityResponse, null, 2));
+        console.log('📅 [Smart Island] ❌ No tutors with available slots found - removing card');
+        // IMPORTANT: Remove the card since no tutors have availability anymore
+        this.smartIslandService.removeTutorAvailabilityCard();
+        // Force change detection to update UI
+        this.cdr.detectChanges();
       }
     } catch (error) {
       console.error('❌ [Smart Island] Error fetching tutor availability:', error);
+      // On error, also try to remove the card (safe to call even if no card exists)
+      // This prevents stale cards from showing due to API failures
+      this.smartIslandService.removeTutorAvailabilityCard();
     }
     
     // Add personalized tips based on user behavior
@@ -2575,10 +2779,83 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
   async openTutorAvailabilityModal(tutors: any[]) {
     const { TutorAvailabilitySelectionModalComponent } = await import('../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component');
     
+    // Build a map of tutor IDs to their lastAvailabilityUpdate timestamps
+    const tutorTimestamps: { [tutorId: string]: string } = {};
+    tutors.forEach(t => {
+      const id = t.id || t._id;
+      if (id && t.lastAvailabilityUpdate) {
+        tutorTimestamps[id] = t.lastAvailabilityUpdate;
+      }
+    });
+    
+    // Check each tutor's actual availability before showing the modal
+    // This filters out tutors who no longer have any available time slots
+    console.log('🔍 [TAB1] Checking actual availability for', tutors.length, 'tutors...');
+    const tutorsWithAvailability: any[] = [];
+    const tutorsToRemove: string[] = [];
+    
+    for (const tutor of tutors) {
+      const tutorId = tutor.id || tutor._id;
+      try {
+        const response = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/users/${tutorId}/availability`, {
+            headers: this.userService.getAuthHeadersSync()
+          })
+        );
+        
+        // Check if tutor has any future availability slots
+        const availability = response?.availability || [];
+        const now = new Date();
+        const hasFutureSlots = availability.some((block: any) => {
+          if (block.type === 'class') return false;
+          if (block.absoluteEnd) return new Date(block.absoluteEnd) > now;
+          if (block.absoluteStart) return new Date(block.absoluteStart) > now;
+          return true; // Recurring patterns
+        });
+        
+        if (hasFutureSlots) {
+          tutorsWithAvailability.push(tutor);
+          console.log(`✅ [TAB1] Tutor ${tutor.firstName || tutor.name} has available slots`);
+        } else {
+          tutorsToRemove.push(tutorId);
+          console.log(`❌ [TAB1] Tutor ${tutor.firstName || tutor.name} has NO available slots - removing from card`);
+        }
+      } catch (error) {
+        console.error(`❌ [TAB1] Error checking availability for tutor ${tutorId}:`, error);
+        // Keep the tutor in case of error (let modal handle it)
+        tutorsWithAvailability.push(tutor);
+      }
+    }
+    
+    // Remove tutors with no availability from the card
+    tutorsToRemove.forEach(tutorId => {
+      this.smartIslandService.removeTutorFromAvailabilityCard(tutorId);
+      // Also dismiss them so they don't reappear
+      if (tutorTimestamps[tutorId]) {
+        this.smartIslandService.dismissTutorAvailability([tutorId], { [tutorId]: tutorTimestamps[tutorId] });
+      }
+    });
+    
+    // If no tutors have availability, show a toast and return
+    if (tutorsWithAvailability.length === 0) {
+      const toast = await this.toastController.create({
+        message: 'Sorry, these tutors no longer have available time slots.',
+        duration: 3000,
+        position: 'top',
+        color: 'warning',
+        cssClass: 'custom-toast'
+      });
+      await toast.present();
+      
+      // Refresh the dynamic cards to update the UI
+      this.loadAdditionalDynamicCards();
+      return;
+    }
+    
     const modal = await this.modalCtrl.create({
       component: TutorAvailabilitySelectionModalComponent,
       componentProps: {
-        tutors: tutors,
+        tutors: tutorsWithAvailability, // Only pass tutors with actual availability
         title: 'Book a Lesson'
       },
       cssClass: 'tutor-availability-selection-modal' // Proper modal styling
@@ -2600,9 +2877,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy {
         time: data.selectedTime
       });
       
-      // Remove the booked tutor from availability card
+      // Only dismiss the BOOKED tutor, not all tutors
+      // This way the card will remain for other tutors who have availability
+      const bookedTutorId = data.tutorId;
+      const bookedTutorTimestamp = tutorTimestamps[bookedTutorId] ? 
+        { [bookedTutorId]: tutorTimestamps[bookedTutorId] } : undefined;
+      this.smartIslandService.dismissTutorAvailability([bookedTutorId], bookedTutorTimestamp);
+      console.log('🔕 [TAB1] Dismissed tutor availability for booked tutor:', bookedTutorId);
+      
+      // Remove the booked tutor from the availability card
       // If no tutors remain, the card will be removed automatically
-      this.smartIslandService.removeTutorFromAvailabilityCard(data.tutorId);
+      this.smartIslandService.removeTutorFromAvailabilityCard(bookedTutorId);
+      console.log('🔄 [TAB1] Removed booked tutor from availability card');
       
       // Add a longer delay to ensure database transaction is fully committed and replicated
       console.log('⏳ [TAB1] Waiting 2000ms for DB to commit and replicate...');
@@ -4683,10 +4969,40 @@ navigateToLessons() {
     if (!this.isTutor()) {
       return;
     }
+    
+    // First, check if there's a cached state from a recent save (instant update)
+    const cachedHasAvailability = this.userService.getCachedHasAvailability();
+    if (cachedHasAvailability !== null) {
+      console.log('📅 [TAB1] Using cached hasAvailability:', cachedHasAvailability);
+      this.hasAvailability = cachedHasAvailability;
+      this.availabilityBlocks = this.userService.getCachedAvailabilityBlocks();
+      this.updateAvailabilitySummary();
+      this.cdr.detectChanges();
+    }
+    
+    // Then fetch from server to ensure we have the latest data
     this.userService.getAvailability()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
+          console.log("📅 [TAB1] Loaded availability from API:", response);
+          const timeNow = new Date();
+          
+          // Check if there is availability AND at least one slot is in the future
+          const hasFutureAvailability = response?.availability?.some(slot => {
+            // Check if slot has absoluteEnd and it's in the future
+            if (slot.absoluteEnd) {
+              return new Date(slot.absoluteEnd) > timeNow;
+            }
+            // If no absoluteEnd, check absoluteStart
+            if (slot.absoluteStart) {
+              return new Date(slot.absoluteStart) > timeNow;
+            }
+            // If no absolute dates, assume it's a recurring pattern (future availability)
+            return true;
+          });
+          
+          this.hasAvailability = hasFutureAvailability || false;
           this.availabilityBlocks = response?.availability || [];
           this.updateAvailabilitySummary();
         },

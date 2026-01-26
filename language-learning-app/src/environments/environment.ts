@@ -2,7 +2,7 @@ export const environment = {
   production: false,
   apiUrl: 'http://localhost:3000/api', // Backend API URL
   backendUrl: 'http://localhost:3000',
-  stripePublishableKey: 'pk_test_51Sp9J1AcIWTORkzykmovuLWitvQKf9oO2wOgrzu4q0o97ulQq9s2lqBQDl6y2YahKW4DKfoKPd4vzeI9NnELBZ9O007nnrEFZ6',
+  stripePublishableKey: 'pk_test_51SsQr8APHD8TltVxFOXQ8CzoUcwH8DTA4M9qfuKahOj6v6T6257HsLJzPjsPdMmJ5E2jzrF8UNwnOP2xx0wfLLTj004HuD4ZMo',
   agora: {
     appId: '134e5b056b944b66b14fc9e275726131', // Replace with your actual Agora App ID
     token: '007eJxTYBD+/FDjz5O5jcZTuuN+tAQ9e+dkf+tbravQlC8TTKJsN15SYDA0Nkk1TTIwNUuyNDFJMjNLMjRJS7ZMNTI3NTcyMzQ2jOX+m9EQyMgQEubLysgAgSC+EENOYl56aWJ6qm5yTmJxsa6BgSEDAwDVlST1', // Replace with the token from token-generator.html

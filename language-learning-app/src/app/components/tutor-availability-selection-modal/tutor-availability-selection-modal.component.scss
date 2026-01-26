@@ -328,193 +328,272 @@ ion-footer {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 8px 12px !important; // More aggressive compacting
+  padding: 0 !important;
   margin: 0 !important;
   width: 100%;
   height: calc(100% - 56px);
-  overflow-y: auto;
+  overflow: hidden; // Prevent scrolling at container level
   background: #ffffff;
+  display: flex;
+  flex-direction: column;
   
   app-checkout {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
+    overflow: hidden;
     
     // Make checkout content MUCH more compact for embedded mode
     ::ng-deep {
       // Hide gradient background in embedded mode
       ion-content {
         --background: #ffffff !important;
+        --padding-start: 0 !important;
+        --padding-end: 0 !important;
+        --padding-top: 0 !important;
+        --padding-bottom: 0 !important;
+        overflow: hidden !important;
       }
       
-      // More compact layout
-      .checkout-layout {
+      // Two-column layout for embedded mode
+      .checkout-layout.embedded-layout {
         padding: 0 !important;
-        gap: 8px !important;
+        gap: 0 !important;
         min-height: auto !important;
-        max-height: none !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        
+        .embedded-columns {
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 10px !important;
+          height: 100% !important;
+          padding: 12px !important;
+          overflow: hidden !important;
+          
+          .embedded-left-column,
+          .embedded-right-column {
+            display: flex !important;
+            flex-direction: column !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            min-height: 0 !important;
+          }
+          
+          .embedded-left-column {
+            border-right: 1px solid #f2f2f7 !important;
+            padding-right: 10px !important;
+          }
+          
+          .embedded-right-column {
+            padding-left: 10px !important;
+          }
+        }
       }
       
-      // Reduce card spacing
-      ion-card,
+      // Reduce card spacing - very compact
       .summary,
       .payment {
-        margin: 4px 0 !important;
-        padding: 12px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+        margin: 0 0 6px 0 !important;
+        padding: 10px 12px !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        flex-shrink: 0 !important;
         
         &:hover {
           transform: none !important;
         }
       }
       
-      // More compact sections
-      .checkout-section {
-        margin-bottom: 8px !important;
-      }
-      
-      // Compact price rows
-      .price-row,
-      .detail-row,
-      .breakdown-item {
-        margin: 4px 0 !important;
-        padding: 4px 0 !important;
-      }
-      
       // Smaller headings
-      h2, h3 {
-        margin-top: 8px !important;
-        margin-bottom: 6px !important;
-        font-size: 16px !important;
-      }
-      
-      // Compact buttons
-      ion-button {
-        margin-top: 8px !important;
-        margin-bottom: 8px !important;
-        --padding-top: 10px !important;
-        --padding-bottom: 10px !important;
+      h2 {
+        margin: 0 0 8px 0 !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
       }
       
       // More compact tutor card
       .tutor-card {
-        padding: 10px !important;
-        margin-bottom: 10px !important;
+        padding: 8px !important;
+        margin-bottom: 8px !important;
         gap: 10px !important;
-      }
-      
-      .avatar {
-        width: 44px !important;
-        height: 44px !important;
         border-radius: 10px !important;
       }
       
+      .avatar {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        bottom: 0 !important; // Remove negative positioning
+      }
+      
       .meta .name {
-        font-size: 14px !important;
+        font-size: 13px !important;
         margin-bottom: 4px !important;
       }
       
       // Compact date badge
       .date-badge {
-        width: 44px !important;
+        width: 40px !important;
         padding: 4px !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         
         .mon {
-          font-size: 9px !important;
+          font-size: 8px !important;
         }
         
         .day {
-          font-size: 16px !important;
+          font-size: 14px !important;
         }
       }
       
       .slot-text .when {
-        font-size: 12px !important;
+        font-size: 11px !important;
         margin-bottom: 2px !important;
       }
       
       .slot-text .tz-note {
-        font-size: 10px !important;
+        font-size: 9px !important;
       }
       
       // Compact tutor rate display
       .tutor-rate {
-        margin-top: 6px !important;
+        margin-top: 4px !important;
         
         .rate-amount {
-          font-size: 18px !important;
+          font-size: 16px !important;
         }
         
         .rate-label {
-          font-size: 10px !important;
+          font-size: 9px !important;
         }
       }
       
       // Compact lesson info card
       .lesson-info-card {
-        padding: 10px !important;
-        margin-bottom: 10px !important;
-        gap: 8px !important;
+        padding: 8px !important;
+        margin-bottom: 8px !important;
+        gap: 6px !important;
+        border-radius: 8px !important;
         
         .info-item {
-          font-size: 12px !important;
-          gap: 8px !important;
+          font-size: 11px !important;
+          gap: 6px !important;
+          margin: 0 !important;
           
           ion-icon {
-            font-size: 16px !important;
+            font-size: 14px !important;
           }
         }
       }
       
       // Compact price breakdown
       .price-breakdown-section {
-        padding: 10px !important;
-        margin-bottom: 10px !important;
+        padding: 8px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
         
         .breakdown-title {
-          font-size: 13px !important;
+          font-size: 11px !important;
           margin-bottom: 6px !important;
+        }
+        
+        .breakdown-item {
+          margin: 3px 0 !important;
+          padding: 2px 0 !important;
         }
         
         .breakdown-label,
         .breakdown-value {
-          font-size: 12px !important;
-        }
-      }
-      
-      // Compact payment methods
-      .payment-method-icon,
-      .feature-icon {
-        width: 36px !important;
-        height: 36px !important;
-      }
-      
-      .payment-method-card {
-        padding: 10px !important;
-        
-        .payment-method-name {
-          font-size: 13px !important;
-        }
-        
-        .payment-method-details {
           font-size: 11px !important;
         }
       }
       
+      // Compact detail rows
+      .detail-row {
+        margin: 4px 0 !important;
+        padding: 2px 0 !important;
+        font-size: 11px !important;
+      }
+      
       // Compact total row
       .total-row {
-        padding: 8px 0 !important;
-        margin-top: 6px !important;
+        padding: 6px 0 !important;
+        margin-top: 4px !important;
+        border-top: 1px solid #f2f2f7 !important;
         
         .label {
-          font-size: 15px !important;
+          font-size: 13px !important;
         }
         
         .value.total {
-          font-size: 20px !important;
+          font-size: 18px !important;
         }
+      }
+      
+      // Compact wallet balance display
+      .wallet-balance-display {
+        margin-bottom: 8px !important;
+        padding: 6px !important;
+        font-size: 11px !important;
+        
+        ion-icon {
+          font-size: 16px !important;
+        }
+      }
+      
+      // Compact payment methods grid
+      .payment-methods-grid {
+        gap: 8px !important;
+        margin-bottom: 8px !important;
+      }
+      
+      .payment-card,
+      .default-card-tile {
+        padding: 10px !important;
+        border-radius: 10px !important;
+        
+        .payment-card-icon,
+        .card-brand-icon {
+          width: 32px !important;
+          height: 32px !important;
+        }
+        
+        .payment-card-title,
+        .card-details {
+          font-size: 12px !important;
+        }
+        
+        .payment-card-subtitle,
+        .card-number {
+          font-size: 10px !important;
+        }
+      }
+      
+      // Compact buttons
+      ion-button {
+        margin-top: 6px !important;
+        margin-bottom: 6px !important;
+        --padding-top: 10px !important;
+        --padding-bottom: 10px !important;
+        font-size: 13px !important;
+        height: 40px !important;
+      }
+      
+      .note {
+        font-size: 9px !important;
+        margin-top: 4px !important;
+        margin-bottom: 0 !important;
+      }
+      
+      // Hide payment breakdown if not needed
+      .payment-breakdown {
+        margin-top: 6px !important;
+        padding: 6px !important;
+        font-size: 10px !important;
       }
     }
   }

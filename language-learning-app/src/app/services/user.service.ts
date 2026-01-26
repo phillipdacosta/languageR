@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject, from, of } from 'rxjs';
+import { Observable, BehaviorSubject, Subject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
@@ -200,6 +200,14 @@ export class UserService {
     options: null
   });
   public payoutStatus$ = this.payoutStatusSubject.asObservable();
+
+  // Availability update notifications - emits the updated availability array
+  private availabilityUpdatedSubject = new Subject<any[]>();
+  public availabilityUpdated$ = this.availabilityUpdatedSubject.asObservable();
+  
+  // Cached availability state for tutors - updated when availability changes
+  private _hasAvailability: boolean | null = null;
+  private _availabilityBlocks: any[] = [];
 
   constructor(
     private http: HttpClient,
@@ -621,6 +629,20 @@ export class UserService {
   }
 
   /**
+   * Get cached hasAvailability state (returns null if not yet loaded)
+   */
+  getCachedHasAvailability(): boolean | null {
+    return this._hasAvailability;
+  }
+
+  /**
+   * Get cached availability blocks
+   */
+  getCachedAvailabilityBlocks(): any[] {
+    return this._availabilityBlocks;
+  }
+
+  /**
    * Clear current user (should be called on logout)
    */
   clearCurrentUser(): void {
@@ -787,8 +809,10 @@ export class UserService {
 
   /**
    * Update tutor availability
+   * @param availabilityBlocks - Array of availability blocks to save
+   * @param editedDates - Optional array of dates (YYYY-MM-DD) being edited (to clear existing availability for those dates)
    */
-  updateAvailability(availabilityBlocks: any[]): Observable<{ success: boolean; message: string; availability: any[] }> {
+  updateAvailability(availabilityBlocks: any[], editedDates?: string[]): Observable<{ success: boolean; message: string; availability: any[] }> {
     return this.authService.user$.pipe(
       take(1),
       switchMap(user => {
@@ -796,11 +820,29 @@ export class UserService {
         
         return this.http.put<{ success: boolean; message: string; availability: any[] }>(
           `${this.apiUrl}/users/availability`,
-          { availabilityBlocks },
+          { availabilityBlocks, editedDates },
           { headers: this.getAuthHeaders(userEmail) }
         );
       }),
       tap(response => {
+        // Emit event to notify subscribers that availability was updated
+        // Include the updated availability array so subscribers can update immediately
+        console.log('📅 [UserService] updateAvailability response:', response);
+        if (response.success && response.availability) {
+          console.log('📅 [UserService] Emitting availability update event with', response.availability.length, 'blocks');
+          
+          // Cache the availability state
+          this._availabilityBlocks = response.availability;
+          const timeNow = new Date();
+          this._hasAvailability = response.availability.some(slot => {
+            if (slot.absoluteEnd) return new Date(slot.absoluteEnd) > timeNow;
+            if (slot.absoluteStart) return new Date(slot.absoluteStart) > timeNow;
+            return true;
+          });
+          console.log('📅 [UserService] Cached hasAvailability:', this._hasAvailability);
+          
+          this.availabilityUpdatedSubject.next(response.availability);
+        }
       }),
       catchError(error => {
         console.error('📅 Error updating availability:', error);
