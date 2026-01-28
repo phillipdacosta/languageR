@@ -310,6 +310,8 @@ export class NotificationsPage implements OnDestroy {
 
   // NEW: Get contextual icon for right side
   getContextualIcon(type: string): string {
+    if (!type) return '';
+    
     const contextualIcons: { [key: string]: string } = {
       'lesson_created': 'videocam',
       'lesson_reminder': 'alarm',
@@ -327,6 +329,7 @@ export class NotificationsPage implements OnDestroy {
       'lesson_analysis_ready': 'bar-chart',
       'message': 'chatbubble-ellipses'
     };
+    
     return contextualIcons[type] || '';
   }
 
