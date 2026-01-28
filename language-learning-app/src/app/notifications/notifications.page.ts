@@ -261,6 +261,9 @@ export class NotificationsPage implements OnDestroy {
       'class_invitation': 'people',
       'class_cancelled': 'calendar',
       'class_auto_cancelled': 'calendar',
+      'class_invitation_cancelled': 'calendar',
+      'invitation_cancelled': 'calendar',
+      'class_removed': 'calendar',
       'message': 'chatbubbles',
       'lesson_reminder': 'alarm',
       'lesson_cancelled': 'close-circle',
@@ -275,7 +278,7 @@ export class NotificationsPage implements OnDestroy {
   }
 
   getNotificationIconClass(type: string): string {
-    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_cancelled' || type === 'class_auto_cancelled') {
+    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
       return 'lesson-icon';
     } else if (type === 'class_invitation') {
       return 'class-invitation-icon';
@@ -315,6 +318,9 @@ export class NotificationsPage implements OnDestroy {
       'class_invitation': 'people',
       'class_cancelled': 'videocam',
       'class_auto_cancelled': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
+      'class_removed': 'videocam',
       'office_hours_booking': 'briefcase',
       'office_hours_starting': 'play',
       'payment_received': 'cash',
@@ -328,7 +334,7 @@ export class NotificationsPage implements OnDestroy {
   getContextualIconClass(type: string): string {
     if (type === 'payment_received') {
       return 'contextual-icon money-icon';
-    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled') {
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
       return 'contextual-icon lesson-icon';
     } else if (type === 'lesson_analysis_ready') {
       return 'contextual-icon analysis-icon';
