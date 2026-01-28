@@ -259,6 +259,8 @@ export class NotificationsPage implements OnDestroy {
       'lesson_created': 'calendar',
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
+      'class_cancelled': 'calendar',
+      'class_auto_cancelled': 'calendar',
       'message': 'chatbubbles',
       'lesson_reminder': 'alarm',
       'lesson_cancelled': 'close-circle',
@@ -273,7 +275,7 @@ export class NotificationsPage implements OnDestroy {
   }
 
   getNotificationIconClass(type: string): string {
-    if (type === 'lesson_created' || type === 'lesson_reminder') {
+    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_cancelled' || type === 'class_auto_cancelled') {
       return 'lesson-icon';
     } else if (type === 'class_invitation') {
       return 'class-invitation-icon';
@@ -311,6 +313,8 @@ export class NotificationsPage implements OnDestroy {
       'lesson_cancelled': 'close-circle',
       'lesson_rescheduled': 'calendar',
       'class_invitation': 'people',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
       'office_hours_booking': 'briefcase',
       'office_hours_starting': 'play',
       'payment_received': 'cash',
@@ -324,7 +328,7 @@ export class NotificationsPage implements OnDestroy {
   getContextualIconClass(type: string): string {
     if (type === 'payment_received') {
       return 'contextual-icon money-icon';
-    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled') {
       return 'contextual-icon lesson-icon';
     } else if (type === 'lesson_analysis_ready') {
       return 'contextual-icon analysis-icon';
