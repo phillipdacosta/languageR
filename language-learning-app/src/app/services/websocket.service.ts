@@ -271,13 +271,21 @@ export class WebSocketService {
     
     // If already connected, just ensure listeners are set up
     if (this.socket?.connected) {
+      console.log('🔌 WebSocket: Already connected, socket.id:', this.socket.id);
       this.setupEventListeners();
+      return;
+    }
+
+    // If socket exists but not connected, try to reconnect
+    if (this.socket && !this.socket.connected) {
+      console.log('🔌 WebSocket: Socket exists but disconnected, attempting to reconnect...');
+      this.socket.connect();
       return;
     }
 
     this.authService.user$.pipe(take(1)).subscribe(user => {
       if (!user) {
-        console.error('No user available for WebSocket connection');
+        console.error('❌ WebSocket: No user available for connection');
         return;
       }
 
@@ -289,34 +297,61 @@ export class WebSocketService {
       const socketUrl = environment.backendUrl;
       const socketStartTime = performance.now();
       
+      console.log('🔌 WebSocket: Creating new socket connection for user:', userEmail);
+      
       this.socket = io(socketUrl, {
         auth: {
           token: token
         },
         transports: ['websocket', 'polling'],
-        timeout: 5000  // 5 second timeout
+        timeout: 10000,  // 10 second timeout
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000
       });
 
-      console.log('🔌 WebSocket: Attempting to connect...', { socketUrl, token });
+      console.log('🔌 WebSocket: Attempting to connect...', { socketUrl, userEmail });
 
       this.socket.on('connect', () => {
         this.isConnected = true;
         this.connectionSubject.next(true);
-        console.log('✅ WebSocket: Connected successfully!', { socketId: this.socket?.id });
+        console.log('✅ WebSocket: Connected successfully!', { socketId: this.socket?.id, userEmail });
         // Set up listeners after connection is established
         this.setupEventListeners();
       });
 
-      this.socket.on('disconnect', () => {
+      this.socket.on('disconnect', (reason) => {
         this.isConnected = false;
         this.connectionSubject.next(false);
         this.listenersSetup = false; // Reset so listeners are set up again on reconnect
-        console.log('❌ WebSocket: Disconnected');
+        console.log('❌ WebSocket: Disconnected, reason:', reason);
+        
+        // If the server disconnected us, try to reconnect
+        if (reason === 'io server disconnect') {
+          console.log('🔄 WebSocket: Server disconnected, attempting to reconnect...');
+          this.socket?.connect();
+        }
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 WebSocket: Reconnected after', attemptNumber, 'attempts');
+        this.isConnected = true;
+        this.connectionSubject.next(true);
+        this.setupEventListeners();
+      });
+
+      this.socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log('🔄 WebSocket: Reconnection attempt', attemptNumber);
+      });
+
+      this.socket.on('reconnect_error', (error) => {
+        console.error('❌ WebSocket: Reconnection error:', error);
       });
 
       this.socket.on('connect_error', (error) => {
         const errorDuration = performance.now() - socketStartTime;
-        console.error(`⏱️ [WebSocket] Connection error after ${errorDuration.toFixed(2)}ms:`, error);
+        console.error(`❌ [WebSocket] Connection error after ${errorDuration.toFixed(2)}ms:`, error.message);
         this.isConnected = false;
         this.connectionSubject.next(false);
       });
@@ -330,6 +365,36 @@ export class WebSocketService {
       this.isConnected = false;
       this.connectionSubject.next(false);
     }
+  }
+
+  // Ensure connection is active, reconnect if needed
+  ensureConnected(): void {
+    console.log('🔌 WebSocket: ensureConnected called, current status:', {
+      hasSocket: !!this.socket,
+      isConnected: this.isConnected,
+      socketConnected: this.socket?.connected
+    });
+    
+    if (!this.socket) {
+      console.log('🔌 WebSocket: No socket, calling connect()');
+      this.connect();
+    } else if (!this.socket.connected) {
+      console.log('🔌 WebSocket: Socket exists but not connected, attempting reconnect');
+      this.socket.connect();
+    } else {
+      console.log('🔌 WebSocket: Already connected, socket.id:', this.socket.id);
+    }
+  }
+
+  // Force a fresh connection (disconnect and reconnect)
+  forceReconnect(): void {
+    console.log('🔄 WebSocket: Force reconnect requested');
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+      this.listenersSetup = false;
+    }
+    this.connect();
   }
 
   // Generic method to listen to any WebSocket event

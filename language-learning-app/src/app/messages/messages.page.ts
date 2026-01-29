@@ -851,6 +851,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     this.isPageVisible = isOnMessagesPage;
     
+    // Ensure WebSocket is connected for real-time messaging
+    console.log('[MessagesPage] Ensuring WebSocket connection...');
+    this.websocketService.ensureConnected();
+    
     // Clear selected conversation on mobile to always show conversation list first
     // This ensures users can choose which conversation to view
     if (!this.isDesktop) {
