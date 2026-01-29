@@ -25,6 +25,10 @@ interface FormattedNotification extends Notification {
 })
 export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   ionViewWillEnter() {
+    console.log('📱 [TabsPage] ionViewWillEnter - ensuring WebSocket connection');
+    // Ensure WebSocket is connected for real-time updates
+    this.websocketService.ensureConnected();
+    
     // Reload notification count when tabs page becomes active (important for page refresh)
     if (this.currentUser) {
       this.loadUnreadNotificationCount();
@@ -977,12 +981,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     // Unsubscribe from any existing subscription
     this.unsubscribeFromMessageUpdates();
     
+    console.log('📬 [TabsPage] Subscribing to message updates via WebSocket');
+    
     // Subscribe to new messages via WebSocket - always active for real-time updates
     this.messagesSubscription = this.websocketService.newMessage$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(message => {
+      console.log('📬 [TabsPage] Received message via WebSocket:', {
+        id: message.id,
+        senderId: message.senderId,
+        receiverId: message.receiverId,
+        content: message.content?.slice(0, 30)
+      });
+      
       const currentUserId = this.currentUser?.['auth0Id'] || this.currentUser?.['id'];
       if (!currentUserId) {
+        console.log('📬 [TabsPage] No currentUserId, ignoring message');
         return;
       }
       
@@ -1000,10 +1014,19 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       const participatesInMessage = normalizedSenderId === normalizedCurrentUserId || 
                                      normalizedReceiverId === normalizedCurrentUserId;
       
+      console.log('📬 [TabsPage] Message participation check:', {
+        participatesInMessage,
+        normalizedCurrentUserId,
+        normalizedSenderId,
+        normalizedReceiverId
+      });
+      
       if (!participatesInMessage) {
+        console.log('📬 [TabsPage] Message not for current user, ignoring');
         return; // Message not for current user
       }
       
+      console.log('📬 [TabsPage] Updating conversation from message...');
       // Update conversations list in background (works whether dropdown is open or not)
       this.updateConversationFromMessage(message, normalizedCurrentUserId, normalizedSenderId);
     });
@@ -1028,6 +1051,12 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const conversationId = message.conversationId;
     const conversation = this.conversations.find(c => c.conversationId === conversationId);
     
+    console.log('📬 [TabsPage] updateConversationFromMessage:', {
+      conversationId,
+      foundConversation: !!conversation,
+      conversationsCount: this.conversations.length
+    });
+    
     if (conversation) {
       // Clear reaction preview since we have a new message
       this.reactionPreviews.delete(conversationId);
@@ -1044,6 +1073,8 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       
       // Update unread count if message is for current user
       const isMyMessage = senderId === currentUserId;
+      console.log('📬 [TabsPage] Is my message?', isMyMessage);
+      
       if (!isMyMessage && message.receiverId) {
         const normalizeUserId = (id: string) => id?.replace('dev-user-', '') || '';
         const normalizedReceiverId = normalizeUserId(message.receiverId);
@@ -1054,7 +1085,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
           
           // Update global unread count
           const currentUnread = this.unreadCount$.value;
-          this.unreadCount$.next(currentUnread + 1);
+          const newUnread = currentUnread + 1;
+          console.log('📬 [TabsPage] 🔴 Updating unread count:', currentUnread, '->', newUnread);
+          this.unreadCount$.next(newUnread);
         }
       }
       
@@ -1062,6 +1095,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       this.conversations = this.conversations.filter(c => c.conversationId !== conversationId);
       this.conversations.unshift(conversation);
       
+      console.log('📬 [TabsPage] Conversation updated, triggering change detection');
       setTimeout(() => this.cdr.detectChanges(), 0);
     } else {
       // New conversation - reload the list
