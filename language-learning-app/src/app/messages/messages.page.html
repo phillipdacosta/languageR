@@ -132,11 +132,13 @@
                    src="assets/app-icon.png" 
                    alt="Speak Freely" />
               <!-- Regular message: show user picture or fallback -->
-              <img *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
+              <img #avatarImg
+                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
                    [src]="conversation.otherUser?.picture"
-                   referrerpolicy="no-referrer" />
+                   referrerpolicy="no-referrer"
+                   (error)="avatarImg.style.display='none'" />
               <div class="avatar-fallback" 
-                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && !conversation.otherUser?.picture">
+                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system'">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
             </ion-avatar>
@@ -686,11 +688,13 @@
                    src="assets/app-icon.png" 
                    alt="Speak Freely" />
               <!-- Regular message: show user picture or fallback -->
-              <img *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
+              <img #mobileAvatarImg
+                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
                    [src]="conversation.otherUser?.picture"
-                   referrerpolicy="no-referrer" />
+                   referrerpolicy="no-referrer"
+                   (error)="mobileAvatarImg.style.display='none'" />
               <div class="avatar-fallback" 
-                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && !conversation.otherUser?.picture">
+                   *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system'">
                 {{ conversation.otherUser?.name?.charAt(0) || '?' }}
               </div>
             </ion-avatar>
