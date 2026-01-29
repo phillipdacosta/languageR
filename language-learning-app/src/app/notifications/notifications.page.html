@@ -73,6 +73,7 @@
     <ng-container *ngIf="!isLoading">
       <!-- Today Section -->
       <div class="notification-section" *ngIf="getTodayNotifications().length > 0">
+        <div class="section-divider"></div>
         <h2 class="notification-section-title">Today</h2>
         <div class="notification-list">
           <div
@@ -125,6 +126,7 @@
 
       <!-- Yesterday Section -->
       <div class="notification-section" *ngIf="getYesterdayNotifications().length > 0">
+        <div class="section-divider"></div>
         <h2 class="notification-section-title">Yesterday</h2>
         <div class="notification-list">
           <div
@@ -177,6 +179,7 @@
 
       <!-- Later Section -->
       <div class="notification-section" *ngIf="getLaterNotifications().length > 0">
+        <div class="section-divider"></div>
         <h2 class="notification-section-title">Earlier</h2>
         <div class="notification-list">
           <div
