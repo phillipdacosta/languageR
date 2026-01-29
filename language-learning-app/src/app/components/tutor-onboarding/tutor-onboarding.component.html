@@ -1,4 +1,12 @@
 <div class="onboarding-container">
+  <!-- Hidden file input for picture upload -->
+  <input 
+    type="file" 
+    id="tutor-onboarding-photo-input" 
+    accept="image/*" 
+    style="display: none;"
+    (change)="onPictureSelected($event)">
+  
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-state">
     <ion-spinner name="crescent"></ion-spinner>

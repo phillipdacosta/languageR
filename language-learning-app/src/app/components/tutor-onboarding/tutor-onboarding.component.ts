@@ -9,6 +9,8 @@ import { firstValueFrom } from 'rxjs';
 import { SharedModule } from '../../shared/shared.module';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PayoutSelectionModalComponent } from '../payout-selection-modal/payout-selection-modal.component';
+import { FileUploadService } from '../../services/file-upload.service';
+import { ImageCropperComponent } from '../image-cropper/image-cropper.component';
 
 interface OnboardingStep {
   id: string;
@@ -75,7 +77,8 @@ export class TutorOnboardingComponent implements OnInit {
     private alertController: AlertController,
     private toastController: ToastController,
     private sanitizer: DomSanitizer,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private fileUploadService: FileUploadService
   ) {}
 
   async ngOnInit() {
@@ -239,7 +242,7 @@ export class TutorOnboardingComponent implements OnInit {
 
     switch (step.action) {
       case 'upload-photo':
-        this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-photo' } });
+        this.triggerPictureUpload();
         break;
       case 'upload-video':
         this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-video' } });
@@ -247,6 +250,105 @@ export class TutorOnboardingComponent implements OnInit {
       case 'stripe-onboard':
         await this.startStripeOnboarding();
         break;
+    }
+  }
+
+  /**
+   * Trigger file picker for profile picture upload
+   */
+  triggerPictureUpload() {
+    const fileInput = document.getElementById('tutor-onboarding-photo-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    } else {
+      console.error('❌ File input element not found in DOM');
+    }
+  }
+
+  /**
+   * Handle profile picture file selection
+   */
+  async onPictureSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate image
+    const validation = this.fileUploadService.validateImage(file);
+    if (!validation.valid) {
+      const alert = await this.alertController.create({
+        header: 'Invalid Image',
+        message: validation.error,
+        buttons: ['OK']
+      });
+      await alert.present();
+      // Reset file input
+      event.target.value = '';
+      return;
+    }
+
+    // Open cropper modal
+    const modal = await this.modalController.create({
+      component: ImageCropperComponent,
+      componentProps: {
+        imageChangedEvent: event
+      },
+      cssClass: 'image-cropper-modal'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+
+    if (role === 'crop' && data) {
+      // Convert blob to file
+      const croppedFile = new File([data], file.name, { type: 'image/png' });
+      await this.uploadProfilePicture(croppedFile, event);
+    } else {
+      // Reset file input if cancelled
+      event.target.value = '';
+    }
+  }
+
+  /**
+   * Upload profile picture to server
+   */
+  async uploadProfilePicture(file: File, event: any) {
+    const loading = await this.loadingController.create({
+      message: 'Uploading image...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const formData = new FormData();
+      formData.append('picture', file);
+
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/users/profile/picture`,
+          formData,
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      await loading.dismiss();
+
+      if (response.success && response.user) {
+        // Update current user
+        this.currentUser = response.user;
+        // Refresh onboarding status to update the photo step
+        await this.loadOnboardingStatus();
+        this.showToast('Profile photo uploaded successfully!', 'success');
+      } else {
+        this.showToast('Failed to upload photo', 'danger');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('Error uploading profile picture:', error);
+      this.showToast(error.error?.message || 'Failed to upload photo', 'danger');
+    } finally {
+      // Reset file input
+      event.target.value = '';
     }
   }
 
@@ -397,10 +499,6 @@ export class TutorOnboardingComponent implements OnInit {
       position: 'top'
     });
     await toast.present();
-  }
-
-  goToProfileUploadPhoto() {
-    this.router.navigate(['/tabs/profile'], { queryParams: { action: 'upload-photo' } });
   }
 
   closeOnboarding() {
