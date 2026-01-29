@@ -524,7 +524,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           // Reload messages when WebSocket reconnects while viewing a conversation
           console.log('[MessagesPage] WebSocket reconnected - reloading messages for current conversation');
           setTimeout(() => {
-            this.loadMessages(this.selectedConversation!);
+            this.loadMessages(); // loadMessages uses this.selectedConversation internally
           }, 500); // Small delay to ensure socket is fully ready
         }
       });
@@ -537,7 +537,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           if (now - this.lastVisibilityTime > 2000) {
             console.log('[MessagesPage] Tab became visible - reloading messages');
             this.lastVisibilityTime = now;
-            this.loadMessages(this.selectedConversation);
+            this.loadMessages(); // loadMessages uses this.selectedConversation internally
             this.reloadConversationsDebounced();
           }
         }
