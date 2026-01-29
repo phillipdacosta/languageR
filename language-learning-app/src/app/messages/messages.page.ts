@@ -127,6 +127,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   // Track when a message was just deleted to trust server unread counts
   private recentlyDeletedConversations = new Set<string>();
   
+  // Track visibility change handler
+  private visibilityChangeHandler: (() => void) | null = null;
+  private lastVisibilityTime = 0; // Debounce visibility change refreshes
+  
   // Track when avatar/name animation is happening
   private isAnimatingConversationTransition = false;
   private animationCleanupTimeout: any = null;
@@ -510,6 +514,35 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.searchInput$.pipe(debounceTime(150), takeUntil(this.destroy$)).subscribe(term => {
         this.searchTerm = (term || '').trim();
       });
+      
+      // Listen for WebSocket reconnection to reload messages
+      this.websocketService.connection$.pipe(
+        takeUntil(this.destroy$)
+      ).subscribe(isConnected => {
+        console.log('[MessagesPage] WebSocket connection status changed:', isConnected);
+        if (isConnected && this.selectedConversation && this.isPageVisible) {
+          // Reload messages when WebSocket reconnects while viewing a conversation
+          console.log('[MessagesPage] WebSocket reconnected - reloading messages for current conversation');
+          setTimeout(() => {
+            this.loadMessages(this.selectedConversation!);
+          }, 500); // Small delay to ensure socket is fully ready
+        }
+      });
+      
+      // Set up visibility change handler to reload messages when tab becomes active
+      this.visibilityChangeHandler = () => {
+        const now = Date.now();
+        if (document.visibilityState === 'visible' && this.selectedConversation) {
+          // Debounce - only reload if more than 2 seconds since last visibility change
+          if (now - this.lastVisibilityTime > 2000) {
+            console.log('[MessagesPage] Tab became visible - reloading messages');
+            this.lastVisibilityTime = now;
+            this.loadMessages(this.selectedConversation);
+            this.reloadConversationsDebounced();
+          }
+        }
+      };
+      document.addEventListener('visibilitychange', this.visibilityChangeHandler);
     }
 
     // Note: loadConversations() is now called in the authService.user$ subscription above
@@ -1062,6 +1095,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.conversationReloadTimeout) {
       clearTimeout(this.conversationReloadTimeout);
       this.conversationReloadTimeout = null;
+    }
+    // Clean up visibility change handler
+    if (this.visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
+      this.visibilityChangeHandler = null;
     }
     this.clearPendingVoiceNote(false);
   }

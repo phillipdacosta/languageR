@@ -291,11 +291,18 @@ io.on('connection', async (socket) => {
 
       // Emit to receiver if online
       const receiverSocketId = connectedUsers.get(receiverId);
+      console.log('📤 Looking for receiver socket:', {
+        receiverId,
+        receiverSocketId: receiverSocketId || 'NOT FOUND',
+        connectedUsersCount: connectedUsers.size,
+        allConnectedUsers: Array.from(connectedUsers.keys())
+      });
+      
       if (receiverSocketId) {
-        console.log('📤 Sending message to receiver:', receiverId);
+        console.log('✅ Sending message to receiver:', receiverId, 'socket:', receiverSocketId);
         io.to(receiverSocketId).emit('new_message', messagePayload);
       } else {
-        console.log('⚠️ Receiver not online:', receiverId);
+        console.log('⚠️ Receiver not online - message saved but not delivered in real-time:', receiverId);
       }
     } catch (error) {
       console.error('❌ Error sending message via socket:', error);
