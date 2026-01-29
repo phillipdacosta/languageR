@@ -179,9 +179,6 @@
               </ion-icon>
               <!-- Celebrate emoji for system notifications -->
               <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
-              <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                <ion-icon name="ellipsis-vertical"></ion-icon>
-              </button>
             </div>
           </div>
         </div>
@@ -234,9 +231,6 @@
                 </ion-icon>
                 <!-- Celebrate emoji for system notifications -->
                 <span *ngIf="isSystemNotification(notification.type)" class="celebrate-emoji-right">🎉</span>
-                <button class="notification-options-btn" (click)="$event.stopPropagation()">
-                  <ion-icon name="ellipsis-vertical"></ion-icon>
-                </button>
               </div>
             </div>
           </div>
