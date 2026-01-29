@@ -187,6 +187,7 @@ router.get('/me', verifyToken, async (req, res) => {
         country: user.country,
         residenceCountry: user.residenceCountry, // ADD THIS
         picture: user.picture,
+        auth0Picture: user.auth0Picture, // Original Auth0/Google picture (to check if custom photo uploaded)
         emailVerified: user.emailVerified,
         userType: user.userType,
         isAdmin: user.isAdmin, // ADD THIS - Required for admin access
@@ -625,6 +626,7 @@ router.put('/profile', verifyToken, async (req, res) => {
         lastName: user.lastName,
         country: user.country,
         picture: user.picture,
+        auth0Picture: user.auth0Picture, // Original Auth0/Google picture
         emailVerified: user.emailVerified,
         userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,

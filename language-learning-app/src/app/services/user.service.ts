@@ -15,6 +15,7 @@ export interface User {
   country?: string;
   residenceCountry?: string;
   picture?: string;
+  auth0Picture?: string; // Original Auth0/Google profile picture
   emailVerified: boolean;
   userType: 'student' | 'tutor';
   isAdmin?: boolean; // Admin flag for backend access
@@ -346,7 +347,13 @@ export class UserService {
    * Calculate and update tutor approval status based on user data
    */
   private updateTutorApprovalStatus(user: User): void {
-    const photoComplete = !!user.picture;
+    // Photo is complete only if they have a CUSTOM uploaded photo (not just Google/Auth0 default)
+    // Check if picture is from GCS (custom upload) or different from their auth0Picture
+    const hasCustomPhoto = user.picture && (
+      user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+      (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+    );
+    const photoComplete = !!hasCustomPhoto;
     // Video is complete if there's either a pendingVideo (awaiting review), an approved introductionVideo, OR it was rejected
     const videoComplete = !!user.onboardingData?.pendingVideo || 
                           !!user.onboardingData?.introductionVideo || 
