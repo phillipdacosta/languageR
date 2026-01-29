@@ -5,6 +5,22 @@ const Lesson = require('../models/Lesson');
 const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
 const rateLimit = require('express-rate-limit');
 
+/**
+ * Capitalizes a name properly (title case)
+ * "JASON DERULA" -> "Jason Derula"
+ * "jason derula" -> "Jason Derula"
+ * "jAsOn DeRuLa" -> "Jason Derula"
+ */
+function formatName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+    .trim();
+}
+
 // Rate limiters for public endpoints
 const publicProfileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -387,8 +403,9 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       const userType = req.body.userType || 'student';
       
       // Get firstName, lastName, and country from request body or Auth0
-      const firstName = req.body.firstName || req.user.given_name || '';
-      const lastName = req.body.lastName || req.user.family_name || '';
+      // Always format names properly (title case)
+      const firstName = formatName(req.body.firstName || req.user.given_name || '');
+      const lastName = formatName(req.body.lastName || req.user.family_name || '');
       const country = req.body.country || '';
       
       // Ensure we have email and name (required fields)
@@ -439,11 +456,12 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
       
       // Update firstName, lastName, country, and nativeLanguage if provided
+      // Always format names properly (title case)
       if (req.body.firstName !== undefined) {
-        user.firstName = req.body.firstName;
+        user.firstName = formatName(req.body.firstName);
       }
       if (req.body.lastName !== undefined) {
-        user.lastName = req.body.lastName;
+        user.lastName = formatName(req.body.lastName);
       }
       if (req.body.country !== undefined) {
         user.country = req.body.country;
@@ -460,8 +478,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       // Handle tutor onboarding data
       const { languages, experience, schedule, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
       user.onboardingData = {
-        firstName: firstName || user.firstName || '',
-        lastName: lastName || user.lastName || '',
+        firstName: formatName(firstName || user.firstName || ''),
+        lastName: formatName(lastName || user.lastName || ''),
         country: country || user.country || '',
         nativeLanguage: nativeLanguage || user.nativeLanguage || 'en',
         languages: languages || [],

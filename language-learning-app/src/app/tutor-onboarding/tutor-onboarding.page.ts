@@ -23,6 +23,22 @@ export class TutorOnboardingPage implements OnInit {
   firstName = '';
   lastName = '';
   country = ''; // Nationality / Where are you from?
+
+  /**
+   * Capitalizes a name properly (title case)
+   * "JASON DERULA" -> "Jason Derula"
+   * "jason derula" -> "Jason Derula"
+   * "jAsOn DeRuLa" -> "Jason Derula"
+   */
+  private formatName(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .trim();
+  }
   residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
@@ -386,8 +402,8 @@ export class TutorOnboardingPage implements OnInit {
 
       // Prepare tutor onboarding data
       const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string } = {
-        firstName: this.firstName,
-        lastName: this.lastName,
+        firstName: this.formatName(this.firstName),
+        lastName: this.formatName(this.lastName),
         country: this.country,
         residenceCountry: this.residenceCountry, // NEW: For payout method selection
         nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback

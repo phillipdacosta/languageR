@@ -23,6 +23,22 @@ export class OnboardingPage implements OnInit {
   // Onboarding data
   firstName = '';
   lastName = '';
+
+  /**
+   * Capitalizes a name properly (title case)
+   * "JASON DERULA" -> "Jason Derula"
+   * "jason derula" -> "Jason Derula"
+   * "jAsOn DeRuLa" -> "Jason Derula"
+   */
+  private formatName(name: string): string {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .trim();
+  }
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
@@ -421,8 +437,8 @@ export class OnboardingPage implements OnInit {
         // Tutor onboarding
         const tutorData: TutorOnboardingData & { userType: string } = {
           userType: 'tutor',
-          firstName: this.firstName,
-          lastName: this.lastName,
+          firstName: this.formatName(this.firstName),
+          lastName: this.formatName(this.lastName),
           country: this.tutorCountry,
           languages: this.selectedLanguages,
           experience: this.tutorExperience,
@@ -444,8 +460,8 @@ export class OnboardingPage implements OnInit {
         // Student onboarding
         const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string } = {
           userType: 'student',
-          firstName: this.firstName,
-          lastName: this.lastName,
+          firstName: this.formatName(this.firstName),
+          lastName: this.formatName(this.lastName),
           nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
           languages: this.selectedLanguages,
           goals: this.learningGoals,
