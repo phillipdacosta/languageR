@@ -1227,7 +1227,7 @@ ion-content {
 
 .timeline-card {
   border-radius: 24px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: visible;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -2892,7 +2892,7 @@ ion-content {
 .next-class-card {
   margin-bottom: 24px;
   border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08);
   overflow: visible;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -5234,7 +5234,7 @@ ion-content {
 // Up Next Card (Left - Upcoming Lesson)
 .up-next-card {
   border-radius: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -5251,7 +5251,7 @@ ion-content {
     
     &:hover {
       transform: none; // Disable hover effect when lesson is scheduled
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     }
   }
   
@@ -5260,13 +5260,13 @@ ion-content {
     
     &:hover {
       transform: none;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     }
   }
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.12);
   }
   
   ion-card-content {
@@ -5784,7 +5784,7 @@ ion-content {
 .dynamic-card {
   flex: 1;
   border-radius: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -5797,13 +5797,13 @@ ion-content {
     
     &:hover {
       transform: none;
-      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     }
   }
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.12);
   }
   
   ion-card-content {
