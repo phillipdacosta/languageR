@@ -1,3 +1,34 @@
+/* Header styling for close button */
+ion-header {
+  ion-toolbar {
+    ion-buttons[slot="end"] {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      ion-button {
+        --color: #1d1d1f;
+        --padding-start: 12px;
+        --padding-end: 12px;
+        margin: 0;
+        
+        ion-icon {
+          font-size: 28px;
+          color: #1d1d1f;
+        }
+        
+        &:hover {
+          --color: #007aff;
+          
+          ion-icon {
+            color: #007aff;
+          }
+        }
+      }
+    }
+  }
+}
+
 /* Background similar to a soft dashboard card */
 .page-background {
   min-height: 100%;
