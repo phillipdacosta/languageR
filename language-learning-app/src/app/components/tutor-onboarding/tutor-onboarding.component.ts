@@ -320,33 +320,28 @@ export class TutorOnboardingComponent implements OnInit {
     await loading.present();
 
     try {
-      const formData = new FormData();
-      formData.append('picture', file);
-
-      const response = await firstValueFrom(
-        this.http.post<any>(
-          `${environment.apiUrl}/users/profile/picture`,
-          formData,
-          { headers: this.userService.getAuthHeadersSync() }
-        )
-      );
-
-      await loading.dismiss();
-
-      if (response.success && response.user) {
-        // Update current user
-        this.currentUser = response.user;
-        // Refresh onboarding status to update the photo step
-        await this.loadOnboardingStatus();
-        this.showToast('Profile photo uploaded successfully!', 'success');
+      // Upload image using FileUploadService (handles headers correctly)
+      const uploadResult = await firstValueFrom(this.fileUploadService.uploadImage(file));
+      
+      if (uploadResult?.success && uploadResult?.imageUrl) {
+        // Update user picture in database
+        const updateResult = await firstValueFrom(this.userService.updatePicture(uploadResult.imageUrl));
+        
+        if (updateResult?.success) {
+          // Refresh onboarding status to update the photo step
+          await this.loadOnboardingStatus();
+          this.showToast('Profile photo uploaded successfully!', 'success');
+        } else {
+          this.showToast('Failed to update profile picture', 'danger');
+        }
       } else {
-        this.showToast('Failed to upload photo', 'danger');
+        this.showToast('Failed to upload image', 'danger');
       }
     } catch (error: any) {
-      await loading.dismiss();
       console.error('Error uploading profile picture:', error);
       this.showToast(error.error?.message || 'Failed to upload photo', 'danger');
     } finally {
+      await loading.dismiss();
       // Reset file input
       event.target.value = '';
     }
