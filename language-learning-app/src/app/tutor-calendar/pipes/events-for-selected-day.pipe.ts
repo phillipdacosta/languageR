@@ -115,7 +115,10 @@ export class EventsForSelectedDayPipe implements PipeTransform {
         avatar = extendedProps.classThumbnail || '';
       } else {
         const studentName = extendedProps.studentName || extendedProps.student?.name || '';
-        displayName = this.formatNameWithInitial(studentName);
+        const formattedName = this.formatNameWithInitial(studentName);
+        const subject = extendedProps.subject || '';
+        // Include lesson type (e.g., "John D. - Spanish lesson")
+        displayName = subject ? `${formattedName} - ${subject}` : formattedName;
         avatar = extendedProps.studentAvatar || extendedProps.student?.profilePicture || '';
       }
       
