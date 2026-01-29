@@ -5650,55 +5650,57 @@ ion-content {
     // top: 55px;
   }
   
-  // Starts In Card for student up-next section
+  // Starts In Card for student up-next section (compact version)
   .starts-in-card {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    padding: 20px 28px;
+    padding: 12px 16px;
     background: #f9fafb;
-    border-radius: 14px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    margin-top: 8px;
-    gap: 10px;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    margin-top: 4px;
+    gap: 14px;
     width: 100%;
-    max-width: 280px;
+    max-width: 320px;
     margin-left: auto;
     margin-right: auto;
     
     .starts-label-modern {
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 700;
       color: #9ca3af;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.6px;
+      white-space: nowrap;
     }
     
     .countdown-modern {
-      font-size: 22px;
+      font-size: 15px;
       font-weight: 700;
       color: #1d1d1f;
       line-height: 1;
-      letter-spacing: -0.5px;
+      letter-spacing: -0.3px;
+      white-space: nowrap;
     }
     
     .join-button-modern {
       --background: #007aff;
       --background-hover: #0051d5;
       --background-activated: #0051d5;
-      --border-radius: 10px;
-      --padding-top: 12px;
-      --padding-bottom: 12px;
-      --padding-start: 20px;
-      --padding-end: 20px;
-      font-size: 15px;
+      --border-radius: 8px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+      --padding-start: 14px;
+      --padding-end: 14px;
+      font-size: 13px;
       font-weight: 600;
       text-transform: none;
       letter-spacing: 0;
       height: auto;
       margin: 0;
-      width: 100%;
+      flex-shrink: 0;
       
       &.active {
         --background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -5706,7 +5708,7 @@ ion-content {
       }
       
       ion-icon {
-        font-size: 18px;
+        font-size: 15px;
       }
     }
   }
