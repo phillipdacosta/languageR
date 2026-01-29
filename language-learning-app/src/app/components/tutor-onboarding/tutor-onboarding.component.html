@@ -144,14 +144,6 @@
                 </div>
               </div>
             </div>
-            
-            <ion-button 
-              expand="block" 
-              class="primary-action"
-              (click)="goToProfileUploadPhoto()">
-              <ion-icon name="camera-outline" slot="start"></ion-icon>
-              {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
-            </ion-button>
           </div>
 
           <!-- Video Step -->
@@ -238,8 +230,16 @@
           class="primary-action"
           [disabled]="currentStep.completed"
           (click)="handleStepAction()">
-          <ion-icon [name]="currentStep.icon" slot="start"></ion-icon>
-          {{ currentStep.completed ? 'Completed' : currentStep.title }}
+          <ion-icon 
+            [name]="currentStep.id === 'photo' ? 'camera-outline' : currentStep.icon" 
+            slot="start">
+          </ion-icon>
+          <span *ngIf="currentStep.id === 'photo'">
+            {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
+          </span>
+          <span *ngIf="currentStep.id !== 'photo'">
+            {{ currentStep.completed ? 'Completed' : currentStep.title }}
+          </span>
         </ion-button>
       </div>
     </div>
