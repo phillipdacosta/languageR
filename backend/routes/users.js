@@ -634,7 +634,11 @@ router.put('/profile', verifyToken, async (req, res) => {
         interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        // Include tutor-specific fields to prevent banner flashing
+        tutorApproved: user.tutorApproved,
+        tutorOnboarding: user.tutorOnboarding,
+        stripeConnectOnboarded: user.stripeConnectOnboarded
       }
     });
   } catch (error) {
