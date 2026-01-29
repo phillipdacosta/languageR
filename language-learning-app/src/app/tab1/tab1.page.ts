@@ -353,7 +353,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
         
         // Check tutor onboarding status when user loads
-        if (this.isTutorUser) {
+        // Only check if we have complete tutor data (tutorApproved is defined)
+        // This prevents banner flash when partial user data is emitted (e.g., from profile update)
+        if (this.isTutorUser && user?.tutorApproved !== undefined) {
           this.checkTutorOnboardingStatus();
         }
         
