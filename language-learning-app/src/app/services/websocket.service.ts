@@ -136,11 +136,21 @@ export class WebSocketService {
 
     // Listen for new messages (incoming)
     this.socket.on('new_message', (message: Message) => {
+      console.log('📨 [WebSocket] Received new_message event:', {
+        id: message.id,
+        content: message.content?.slice(0, 30),
+        senderId: message.senderId,
+        receiverId: message.receiverId
+      });
       this.newMessageSubject.next(message);
     });
 
     // Listen for message sent confirmation (outgoing)
     this.socket.on('message_sent', (message: Message) => {
+      console.log('📤 [WebSocket] Received message_sent confirmation:', {
+        id: message.id,
+        content: message.content?.slice(0, 30)
+      });
       this.newMessageSubject.next(message);
     });
 

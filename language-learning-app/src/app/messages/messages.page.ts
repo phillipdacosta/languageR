@@ -423,8 +423,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           );
           
           if (!existingMessage) {
-            this.messages.push(message);
+            console.log('[MessagesPage] ✅ Adding new message to UI:', message.content?.slice(0, 30));
+            // Create new array reference for better change detection
+            this.messages = [...this.messages, message];
+            this.cdr.detectChanges(); // Force Angular to detect changes
             this.scrollToBottom(true); // Skip animation check for new incoming messages
+          } else {
+            console.log('[MessagesPage] ⏭️ Skipping duplicate message');
           }
 
           const isActiveConversation = isForSelectedConversation && this.isPageVisible;
