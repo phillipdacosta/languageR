@@ -746,4 +746,33 @@ ion-header {
   }
 }
 
+.close-button-container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  
+  .close-button-top {
+    --color: #1d1d1f;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    margin: 0;
+    width: 44px;
+    height: 44px;
+    
+    ion-icon {
+      font-size: 28px;
+      color: #1d1d1f;
+    }
+    
+    &:hover {
+      --color: #007aff;
+      
+      ion-icon {
+        color: #007aff;
+      }
+    }
+  }
+}
+
 

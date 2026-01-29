@@ -15,6 +15,13 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="wallet-content">
+  <!-- Close Button (Top Right) -->
+  <div class="close-button-container">
+    <ion-button (click)="goToHome()" fill="clear" class="close-button-top">
+      <ion-icon name="close"></ion-icon>
+    </ion-button>
+  </div>
+
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-container">
     <ion-spinner name="crescent" color="medium"></ion-spinner>

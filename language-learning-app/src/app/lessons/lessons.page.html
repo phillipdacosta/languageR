@@ -18,6 +18,13 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
+  <!-- Close Button (Top Right) -->
+  <div class="close-button-container">
+    <ion-button (click)="goToHome()" fill="clear" class="close-button-top">
+      <ion-icon name="close"></ion-icon>
+    </ion-button>
+  </div>
+
   <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
