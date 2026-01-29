@@ -1316,8 +1316,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const studentLast = typeof student?.lastName === 'string' ? student.lastName.trim() : '';
       const studentFullName = [studentFirst, studentLast].filter(Boolean).join(' ');
       const studentName = studentFullName || student?.name || student?.displayName || student?.email || 'Student';
-      const subject = lesson.subject || 'Language Lesson';
+      const subject = lesson.subject || 'Language';
       const isCancelled = lesson.status === 'cancelled';
+      
+      // Format subject with "lesson" suffix (e.g., "Spanish lesson")
+      const subjectWithType = subject.toLowerCase().includes('lesson') 
+        ? subject 
+        : `${subject} lesson`;
       
       // Debug logging for 12:00 PM lesson
       const debugStartTime = new Date(lesson.startTime);
@@ -1368,7 +1373,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const isPast = endTime.getTime() < Date.now();
       const eventData = {
         id: lesson._id,
-        title: `${studentName} - ${subject}`,
+        title: `${studentName} - ${subjectWithType}`,
         start: lesson.startTime,
         end: lesson.endTime,
         backgroundColor: backgroundColor,
@@ -1384,7 +1389,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           studentName: studentName,
           studentDisplayName: studentName,
           studentAvatar: student?.picture || student?.avatar || student?.photoUrl,
-          subject: subject,
+          subject: subjectWithType,
           status: lesson.status,
           timeStr: timeStr,
           price: lesson.price,
