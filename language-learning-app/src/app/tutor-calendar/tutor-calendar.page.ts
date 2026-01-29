@@ -2986,11 +2986,18 @@ When enabled:
       const studentName = extendedProps.studentName || extendedProps.student?.name || '';
       const formattedName = this.formatNameWithInitial(studentName);
       const isAvailability = extendedProps.type === 'availability' || extendedProps.type === 'available';
+      const isLesson = Boolean(extendedProps.lessonId);
+      
+      // For lessons, include the lesson type (e.g., "John - Spanish lesson")
+      const subject = extendedProps.subject || '';
+      const displayName = isLesson && subject 
+        ? `${formattedName} - ${subject}`
+        : formattedName;
       
       return {
         ...event,
         title: isAvailability ? 'Available' : (event.title || 'Untitled Event'),
-        studentName: isAvailability ? '' : formattedName,
+        studentName: isAvailability ? '' : displayName,
         studentAvatar: isAvailability ? '' : (extendedProps.studentAvatar || extendedProps.student?.profilePicture || ''),
         isAvailability: isAvailability,
         isClass: extendedProps.isClass || extendedProps.classId,
