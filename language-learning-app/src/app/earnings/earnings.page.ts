@@ -255,6 +255,10 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
   }
 
+  goToHome() {
+    this.router.navigate(['/tabs/home']);
+  }
+
   goBack() {
     this.location.back();
   }
