@@ -423,6 +423,51 @@
     }
   }
   
+  // Google photo warning state
+  .google-photo-warning {
+    margin: 24px auto;
+    text-align: center;
+    
+    .photo-preview {
+      margin-bottom: 16px;
+      
+      .google-photo {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px dashed #ff9500;
+        opacity: 0.7;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+    }
+    
+    .warning-message {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      background: #fff3e0;
+      border-radius: 12px;
+      border: 1px solid #ffcc80;
+      text-align: left;
+      
+      ion-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+        color: #e65100;
+        line-height: 1.5;
+        font-weight: 500;
+      }
+    }
+  }
+  
   // Info cards for additional information
   .info-cards {
     display: flex;

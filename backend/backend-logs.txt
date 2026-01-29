@@ -44,3 +44,3464 @@ Connected to MongoDB
   'dev-user-baseathleticsdev@gmail.com',
   'dev-user-travelbuggler@gmail.com'
 ]
+127.0.0.1 - - [29/Jan/2026:18:03:52 +0000] "GET /api/health HTTP/1.1" 404 29 "-" "curl/8.7.1"
+
+========================================
+🔄 [CRON] Auto-Finalize Lessons Job Started
+   Time: 2026-01-29T18:04:00.007Z
+   Batch Size: 100, Max Per Run: 1000
+========================================
+
+✅ No lessons to finalize at this time
+
+========================================
+✅ [CRON] Auto-Finalize Lessons Job Completed
+   ✅ Finalized: 0 lessons
+   💳 Payments Captured: 0 (race condition)
+   ⏭️  Skipped: 0 lessons
+   ❌ Failed: 0 lessons
+   Time: 2026-01-29T18:04:00.068Z
+========================================
+
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 69727772fed855d4ed07d1b5 from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: zc--DPQwGGRbsUZ5AAAJ
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/payments/stripe-connect/status HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 69727772fed855d4ed07d1b5 to socket zc--DPQwGGRbsUZ5AAAJ
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-travelbuggler@gmail.com' ]
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/tutor-feedback/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+⏱️ [Lessons By Tutor] Request started for tutorId: 69727772fed855d4ed07d1b5
+📅 Fetching lessons for tutor: 69727772fed855d4ed07d1b5 all: true dateRange: undefined - undefined
+📅 ⚠️ No date range AND all=true, will fetch ALL lessons
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/payments/payout-options HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: 69727772fed855d4ed07d1b5
+📚 Date range: undefined - undefined
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+✅ [GET /api/classes/tutor/:tutorId] Tutor found: travelbuggler (69727772fed855d4ed07d1b5)
+📚 ⚠️ No date range, will fetch ALL classes
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/tutor-feedback/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📊 [GET /api/classes/tutor/:tutorId] Found 0 classes:
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+⏱️ [Lessons By Tutor] DB query took: 141ms
+📅 Found 4 lessons for tutor 69727772fed855d4ed07d1b5
+🔍 12PM Lesson: {
+  id: new ObjectId('697b90d42dffa85542e3d40c'),
+  isTrialLesson: false,
+  hasField: false,
+  rawValue: false
+}
+⏱️ [Lessons By Tutor] Total request time: 152ms
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: HVRuTfmDnzdl6w8gAAAL
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: GSUrz4HS4sMdGdG2AAAN
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 200 1872 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket HVRuTfmDnzdl6w8gAAAL
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket GSUrz4HS4sMdGdG2AAAN
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "OPTIONS /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: VK2vZvJLkJyV401eAAAP
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket VK2vZvJLkJyV401eAAAP
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 200 8301 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/payments/stripe-connect/status HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:04:06 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A04%3A07.089Z&endDate=2026-01-29T18%3A04%3A07.089Z HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+✅ Admin access granted for: baseathleticsdev@gmail.com
+📊 Fetching platform revenue from 2025-12-30T18:04:07.089Z to 2026-01-29T18:04:07.089Z
+📄 Pagination: page 1, limit 50
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+💰 Found 4 payments with recognized revenue
+📄 Returning 4 payments (page 1/1)
+
+💰 Calculating safe withdrawal amount...
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/lessons/my-lessons HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/wallet/balance HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/classes/invitations/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/users/tutors-with-new-availability HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+   Stripe Available: $30.49
+   Stripe Pending: $0.00
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 200 26 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+   Tutor: phillip.dacosta (PayPal)
+     Pending: $0.00, Available: $10.73
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/wallet/balance HTTP/1.1" 200 86 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/transcription/my-analyses?limit=100 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+
+   💳 Owed to Stripe Tutors: $0.00 (0 tutors)
+   💰 Owed to PayPal Tutors: $10.73 (1 tutors)
+   💰 TOTAL PayPal Needed: $10.73
+   📊 Historical: $13.00 sent via PayPal (1 withdrawals)
+
+   Total Tutors with Balances: 1
+   Total Owed (Pending): $0.00
+   Total Owed (Available): $10.73
+   Total Owed to Tutors: $10.73
+
+   ═══════════════════════════════════════
+   Stripe Balance:       $30.49
+   Owed to Tutors:      -$10.73
+   ═══════════════════════════════════════
+   SAFE TO WITHDRAW:     $19.76 ✅
+   ═══════════════════════════════════════
+
+⚠️  Stripe balance is higher than recognized revenue by $13.27. This may include pending payments or wallet top-ups.
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A04%3A07.089Z&endDate=2026-01-29T18%3A04%3A07.089Z HTTP/1.1" 200 5020 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 200 17958 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 200 29 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 [my-analyses] Looking for user with auth0Id: dev-user-baseathleticsdev@gmail.com
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📊 Fetching analyses for user: new ObjectId('69726037d99c9e4e9670a89e') baseathleticsdev@gmail.com
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/wallet/balance HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "OPTIONS /api/classes/student/accepted HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ Fetched 0 analyses for student 69726037d99c9e4e9670a89e (filtered from 0 total)
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/transcription/my-analyses?limit=100 HTTP/1.1" 200 30 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.654Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:04:07.654Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 200 260 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/classes/student/accepted HTTP/1.1" 200 29 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/classes/student/accepted HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:04:07.834Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:04:07.834Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:07 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:04:08.003Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:04:08.003Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:04:08 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+
+========================================
+💸 [CRON] Process Withdrawals Job Started
+   Time: 2026-01-29T18:05:00.023Z
+   Batch Size: 50, Max Per Run: 500
+========================================
+
+
+========================================
+🔄 [CRON] Release Earnings Job Started
+   Time: 2026-01-29T18:05:00.024Z
+   Batch Size: 100, Max Per Run: 1000
+========================================
+
+
+========================================
+🔄 [CRON] Auto-Finalize Lessons Job Started
+   Time: 2026-01-29T18:05:00.025Z
+   Batch Size: 100, Max Per Run: 1000
+========================================
+
+✅ No pending withdrawals at this time
+
+
+========================================
+✅ [CRON] Process Withdrawals Job Completed
+   ✅ Processed: 0 withdrawals
+   ❌ Failed: 0 withdrawals
+   Time: 2026-01-29T18:05:00.060Z
+========================================
+
+✅ No more payments to release at this time
+
+
+========================================
+✅ [CRON] Release Earnings Job Completed
+   ✅ Processed: 0 payments
+   ❌ Failed: 0 payments
+   ⏸️  Skipped: 0 payments (paused)
+   📬 Tutors Notified: 0
+   Time: 2026-01-29T18:05:00.060Z
+========================================
+
+✅ No lessons to finalize at this time
+
+========================================
+✅ [CRON] Auto-Finalize Lessons Job Completed
+   ✅ Finalized: 0 lessons
+   💳 Payments Captured: 0 (race condition)
+   ⏭️  Skipped: 0 lessons
+   ❌ Failed: 0 lessons
+   Time: 2026-01-29T18:05:00.093Z
+========================================
+
+127.0.0.1 - - [29/Jan/2026:18:05:05 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:05 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69727772fed855d4ed07d1b5 from socket mapping
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: KA3zhyTKtu9wfR8kAAAR
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/payments/stripe-connect/status HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📝 Mapped MongoDB user ID 69727772fed855d4ed07d1b5 to socket KA3zhyTKtu9wfR8kAAAR
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-baseathleticsdev@gmail.com',
+  'dev-user-travelbuggler@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/tutor-feedback/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "OPTIONS /api/payments/payout-options HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+⏱️ [Lessons By Tutor] Request started for tutorId: 69727772fed855d4ed07d1b5
+📅 Fetching lessons for tutor: 69727772fed855d4ed07d1b5 all: true dateRange: undefined - undefined
+📅 ⚠️ No date range AND all=true, will fetch ALL lessons
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: 69727772fed855d4ed07d1b5
+📚 Date range: undefined - undefined
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+✅ [GET /api/classes/tutor/:tutorId] Tutor found: travelbuggler (69727772fed855d4ed07d1b5)
+📚 ⚠️ No date range, will fetch ALL classes
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/tutor-feedback/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📊 [GET /api/classes/tutor/:tutorId] Found 0 classes:
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+⏱️ [Lessons By Tutor] DB query took: 69ms
+📅 Found 4 lessons for tutor 69727772fed855d4ed07d1b5
+🔍 12PM Lesson: {
+  id: new ObjectId('697b90d42dffa85542e3d40c'),
+  isTrialLesson: false,
+  hasField: false,
+  rawValue: false
+}
+⏱️ [Lessons By Tutor] Total request time: 69ms
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/payments/stripe-connect/status HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:05:18 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+
+========================================
+🔄 [CRON] Auto-Finalize Lessons Job Started
+   Time: 2026-01-29T18:06:00.006Z
+   Batch Size: 100, Max Per Run: 1000
+========================================
+
+✅ No lessons to finalize at this time
+
+========================================
+✅ [CRON] Auto-Finalize Lessons Job Completed
+   ✅ Finalized: 0 lessons
+   💳 Payments Captured: 0 (race condition)
+   ⏭️  Skipped: 0 lessons
+   ❌ Failed: 0 lessons
+   Time: 2026-01-29T18:06:00.064Z
+========================================
+
+127.0.0.1 - - [29/Jan/2026:18:06:07 +0000] "OPTIONS /api/users/tutors-with-new-availability HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:07.616Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:07.616Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:07 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 69727772fed855d4ed07d1b5 from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: 86KZktJKxF72fX-jAAAT
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 69727772fed855d4ed07d1b5 to socket 86KZktJKxF72fX-jAAAT
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-travelbuggler@gmail.com' ]
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/payments/stripe-connect/status HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/tutor-feedback/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/payments/payout-options HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+⏱️ [Lessons By Tutor] Request started for tutorId: 69727772fed855d4ed07d1b5
+📅 Fetching lessons for tutor: 69727772fed855d4ed07d1b5 all: true dateRange: undefined - undefined
+📅 ⚠️ No date range AND all=true, will fetch ALL lessons
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: 69727772fed855d4ed07d1b5
+📚 Date range: undefined - undefined
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ [GET /api/classes/tutor/:tutorId] Tutor found: travelbuggler (69727772fed855d4ed07d1b5)
+📚 ⚠️ No date range, will fetch ALL classes
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+⏱️ [Lessons By Tutor] DB query took: 78ms
+📅 Found 4 lessons for tutor 69727772fed855d4ed07d1b5
+🔍 12PM Lesson: {
+  id: new ObjectId('697b90d42dffa85542e3d40c'),
+  isTrialLesson: false,
+  hasField: false,
+  rawValue: false
+}
+⏱️ [Lessons By Tutor] Total request time: 78ms
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/tutor-feedback/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📊 [GET /api/classes/tutor/:tutorId] Found 0 classes:
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A06%3A35.711Z&endDate=2026-01-29T18%3A06%3A35.711Z HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: Aw3sn_SXYyigmsyyAAAV
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A06%3A35.711Z&endDate=2026-01-29T18%3A06%3A35.711Z HTTP/1.1" 401 35 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket Aw3sn_SXYyigmsyyAAAV
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: fVzp3Y6nB4_oNUoPAAAX
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: YY8YkN9fTd1myDasAAAZ
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket fVzp3Y6nB4_oNUoPAAAX
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket YY8YkN9fTd1myDasAAAZ
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "OPTIONS /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:35 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/payments/stripe-connect/status HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/lessons/my-lessons HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/users/tutors-with-new-availability HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/wallet/balance HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/classes/invitations/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/wallet/balance HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/transcription/my-analyses?limit=100 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.494Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:36.494Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "OPTIONS /api/classes/student/accepted HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 [my-analyses] Looking for user with auth0Id: dev-user-baseathleticsdev@gmail.com
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/wallet/balance HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📊 Fetching analyses for user: new ObjectId('69726037d99c9e4e9670a89e') baseathleticsdev@gmail.com
+✅ Fetched 0 analyses for student 69726037d99c9e4e9670a89e (filtered from 0 total)
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/transcription/my-analyses?limit=100 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/classes/student/accepted HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.750Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:36.750Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/classes/student/accepted HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:36.932Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:36.932Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:36 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-baseathleticsdev@gmail.com
+📊 Remaining connected users: 1
+📝 Removed MongoDB user ID 69726037d99c9e4e9670a89e from socket mapping
+❌ User disconnected: dev-user-travelbuggler@gmail.com
+📊 Remaining connected users: 0
+📝 Removed MongoDB user ID 69727772fed855d4ed07d1b5 from socket mapping
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-travelbuggler@gmail.com, socket.id: dgBlm1tApwn6iohBAAAb
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/payments/stripe-connect/status HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📝 Mapped MongoDB user ID 69727772fed855d4ed07d1b5 to socket dgBlm1tApwn6iohBAAAb
+📊 Total connected users: 1
+📊 Connected users list: [ 'dev-user-travelbuggler@gmail.com' ]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/payments/payout-options HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/tutor-feedback/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+⏱️ [Lessons By Tutor] Request started for tutorId: 69727772fed855d4ed07d1b5
+📅 Fetching lessons for tutor: 69727772fed855d4ed07d1b5 all: true dateRange: undefined - undefined
+📅 ⚠️ No date range AND all=true, will fetch ALL lessons
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+📚 [GET /api/classes/tutor/:tutorId] Fetching classes for tutor: 69727772fed855d4ed07d1b5
+📚 Date range: undefined - undefined
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/me HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: T0G4gmm4IpLsolxuAAAd
+✅ [GET /api/classes/tutor/:tutorId] Tutor found: travelbuggler (69727772fed855d4ed07d1b5)
+📚 ⚠️ No date range, will fetch ALL classes
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket T0G4gmm4IpLsolxuAAAd
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+📊 [GET /api/classes/tutor/:tutorId] Found 0 classes:
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/classes/tutor/69727772fed855d4ed07d1b5 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+⏱️ [Lessons By Tutor] DB query took: 64ms
+📅 Found 4 lessons for tutor 69727772fed855d4ed07d1b5
+🔍 12PM Lesson: {
+  id: new ObjectId('697b90d42dffa85542e3d40c'),
+  isTrialLesson: false,
+  hasField: false,
+  rawValue: false
+}
+⏱️ [Lessons By Tutor] Total request time: 64ms
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/lessons/by-tutor/69727772fed855d4ed07d1b5?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/tutor-feedback/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: u_JA0dkv8dEkjf65AAAf
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket u_JA0dkv8dEkjf65AAAf
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A06%3A52.443Z&endDate=2026-01-29T18%3A06%3A52.443Z HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+✅ Admin access granted for: baseathleticsdev@gmail.com
+📊 Fetching platform revenue from 2025-12-30T18:06:52.443Z to 2026-01-29T18:06:52.443Z
+📄 Pagination: page 1, limit 50
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/by-email HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+💰 Found 4 payments with recognized revenue
+📄 Returning 4 payments (page 1/1)
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/payments/stripe-connect/status HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ User connected: dev-user-baseathleticsdev@gmail.com, socket.id: IwuCvQvs95LVqx2BAAAh
+
+💰 Calculating safe withdrawal amount...
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: eyJhbGciOiJSUzI1NiIs...
+🔍 Backend: Processing Auth0 JWT token
+🔍 Backend: Full JWT payload: {
+  "given_name": "Buggler",
+  "family_name": "Travler",
+  "nickname": "travelbuggler",
+  "name": "Buggler Travler",
+  "picture": "https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c",
+  "updated_at": "2026-01-23T00:14:13.994Z",
+  "email": "travelbuggler@gmail.com",
+  "email_verified": true,
+  "iss": "https://dev-h6q8nxbfbq8psb4k.us.auth0.com/",
+  "aud": "veJihab93y2EdvOK10ve1TvwSffMTflj",
+  "sub": "google-oauth2|109576374556100407676",
+  "iat": 1769127254,
+  "exp": 1769163254,
+  "sid": "okfhDu2-fNcxg3cH3SgBjY9r6SRDthFV",
+  "nonce": "UGlGQS5heE1JMEFSMHg2TFNLXzNlbkUwZG5YeX5KeVgzLTQ4OVZ2M01DSw=="
+}
+🔍 Backend: Extracted user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler',
+  picture: 'present',
+  given_name: 'Buggler',
+  family_name: 'Travler'
+}
+🔍 Backend: Final user info: {
+  sub: 'google-oauth2|109576374556100407676',
+  email: 'travelbuggler@gmail.com',
+  name: 'Buggler Travler'
+}
+📝 Mapped MongoDB user ID 69726037d99c9e4e9670a89e to socket IwuCvQvs95LVqx2BAAAh
+📊 Total connected users: 2
+📊 Connected users list: [
+  'dev-user-travelbuggler@gmail.com',
+  'dev-user-baseathleticsdev@gmail.com'
+]
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev',
+  picture: null
+}
+🔍 [PAYOUT-OPTIONS] User not found by auth0Id, trying email: travelbuggler@gmail.com
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocLCWLhhtkV1uwqHz4drxfwfI-Ih9SzaL9qspbPXjbjpgKStt8M=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: 'cus_Tq8Lju6thzuBZF'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for student: 69726037d99c9e4e9670a89e
+🔍 [PAYOUT-OPTIONS] Found user by email, updating auth0Id
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/payments/payout-options HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-travelbugg...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: travelbuggler@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler'
+}
+🔍 Getting current user: {
+  sub: 'dev-user-travelbuggler@gmail.com',
+  email: 'travelbuggler@gmail.com',
+  name: 'travelbuggler',
+  picture: null
+}
+✅ Found 8 lessons for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/lessons/student/69726037d99c9e4e9670a89e?all=true HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 User not found by auth0Id, trying email: travelbuggler@gmail.com
+🔍 Found user by email, updating auth0Id from google-oauth2|109576374556100407676 to dev-user-travelbuggler@gmail.com
+   Stripe Available: $30.49
+   Stripe Pending: $0.00
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/notifications/unread-count HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/messaging/conversations HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🖼️ Checking picture sync: {
+  auth0Picture: null,
+  dbPicture: 'https://lh3.googleusercontent.com/a/ACg8ocJo0tEZTe4yixkV8Nc153StHfzIBrTV5Tn3d4DGu12NcboxSg=s96-c',
+  hasAuth0Picture: false,
+  hasDbPicture: true,
+  areDifferent: true
+}
+🌐 Returning user with languages: {
+  interfaceLanguage: 'en',
+  nativeLanguage: 'en',
+  stripeCustomerId: null
+}
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/users/me HTTP/1.1" 200 2047 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+   Tutor: phillip.dacosta (PayPal)
+     Pending: $0.00, Available: $10.73
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/lessons/my-lessons HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/wallet/balance HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/classes/invitations/pending HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "OPTIONS /api/users/tutors-with-new-availability HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+127.0.0.1 - - [29/Jan/2026:18:06:52 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+
+   💳 Owed to Stripe Tutors: $0.00 (0 tutors)
+   💰 Owed to PayPal Tutors: $10.73 (1 tutors)
+   💰 TOTAL PayPal Needed: $10.73
+   📊 Historical: $13.00 sent via PayPal (1 withdrawals)
+
+   Total Tutors with Balances: 1
+   Total Owed (Pending): $0.00
+   Total Owed (Available): $10.73
+   Total Owed to Tutors: $10.73
+
+   ═══════════════════════════════════════
+   Stripe Balance:       $30.49
+   Owed to Tutors:      -$10.73
+   ═══════════════════════════════════════
+   SAFE TO WITHDRAW:     $19.76 ✅
+   ═══════════════════════════════════════
+
+⚠️  Stripe balance is higher than recognized revenue by $13.27. This may include pending payments or wallet top-ups.
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/admin/platform-revenue?page=1&limit=50&startDate=2025-12-30T18%3A06%3A52.443Z&endDate=2026-01-29T18%3A06%3A52.443Z HTTP/1.1" 200 5020 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/wallet/balance HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "OPTIONS /api/transcription/my-analyses?limit=100 HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 [my-analyses] Looking for user with auth0Id: dev-user-baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/wallet/balance HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+📊 Fetching analyses for user: new ObjectId('69726037d99c9e4e9670a89e') baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "OPTIONS /api/classes/student/accepted HTTP/1.1" 204 0 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+📅 Fetching lessons for user: new ObjectId('69726037d99c9e4e9670a89e')
+✅ Fetched 0 analyses for student 69726037d99c9e4e9670a89e (filtered from 0 total)
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/transcription/my-analyses?limit=100 HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/classes/invitations/pending HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.190Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:53.190Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/classes/student/accepted HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/lessons/my-lessons HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/classes/student/accepted HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.353Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:53.353Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Checking tutor Trav availability blocks: 9
+   📅 Block: 2026-01-23T21:00:00.000Z - 2026-01-23T21:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T22:30:00.000Z - 2026-01-23T23:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-23T23:30:00.000Z - 2026-01-24T00:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T16:00:00.000Z - 2026-01-24T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T19:30:00.000Z - 2026-01-24T21:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-24T21:30:00.000Z - 2026-01-24T23:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-25T16:30:00.000Z - 2026-01-25T17:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-26T23:30:00.000Z - 2026-01-27T02:30:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏭️  Block is in the past, skipping
+   📅 Block: 2026-01-29T15:30:00.000Z - 2026-01-29T19:00:00.000Z
+   📅 Now:   2026-01-29T18:06:53.550Z
+   ⏩ Block start is in past, adjusting to now
+   ✅ Found unbooked slot at 2026-01-29T18:06:53.550Z
+✅ Tutor Trav has unbooked availability slots
+📅 Found 1 tutors with actual available slots for student 69726037d99c9e4e9670a89e
+127.0.0.1 - - [29/Jan/2026:18:06:53 +0000] "GET /api/users/tutors-with-new-availability HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+Getting user by email: baseathleticsdev@gmail.com
+User found: baseathleticsdev@gmail.com
+127.0.0.1 - - [29/Jan/2026:18:06:54 +0000] "POST /api/users/by-email HTTP/1.1" 200 1302 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+🔍 Backend: Received token: dev-token-baseathlet...
+🔍 Backend: Processing dev token
+🔍 Backend: Dev token processed, user: baseathleticsdev@gmail.com
+🔍 Backend: Final user info: {
+  sub: 'dev-user-baseathleticsdev@gmail.com',
+  email: 'baseathleticsdev@gmail.com',
+  name: 'baseathleticsdev'
+}
+127.0.0.1 - - [29/Jan/2026:18:06:54 +0000] "GET /api/notifications/unread-count HTTP/1.1" 304 - "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:54 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+127.0.0.1 - - [29/Jan/2026:18:06:54 +0000] "GET /api/messaging/conversations HTTP/1.1" 200 1201 "http://localhost:8100/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"

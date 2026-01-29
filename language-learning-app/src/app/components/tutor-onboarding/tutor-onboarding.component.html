@@ -97,10 +97,24 @@
         <div class="step-content">
           <!-- Photo Step -->
           <div *ngIf="currentStep.id === 'photo'" class="photo-step">
-            <div class="current-photo-large" *ngIf="currentUser?.picture">
+            <!-- Custom uploaded photo (completed) -->
+            <div class="current-photo-large" *ngIf="steps[0].completed && currentUser?.picture">
               <img [src]="currentUser.picture" alt="Profile photo">
               <ion-icon name="checkmark-circle" class="check-badge" color="success"></ion-icon>
             </div>
+            
+            <!-- Google profile photo only (needs custom upload) -->
+            <div class="google-photo-warning" *ngIf="!steps[0].completed && currentUser?.picture">
+              <div class="photo-preview">
+                <img [src]="currentUser.picture" alt="Current photo" class="google-photo">
+              </div>
+              <div class="warning-message">
+                <ion-icon name="information-circle" color="warning"></ion-icon>
+                <p>This is your Google account photo. Please upload a professional profile photo for approval.</p>
+              </div>
+            </div>
+            
+            <!-- No photo at all -->
             <div class="no-photo-large" *ngIf="!currentUser?.picture">
               <ion-icon name="person-circle-outline"></ion-icon>
               <p>No photo uploaded</p>
@@ -136,7 +150,7 @@
               class="primary-action"
               (click)="goToProfileUploadPhoto()">
               <ion-icon name="camera-outline" slot="start"></ion-icon>
-              {{ currentUser?.picture ? 'Change Photo' : 'Upload Photo' }}
+              {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
             </ion-button>
           </div>
 
