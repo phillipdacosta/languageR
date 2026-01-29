@@ -285,6 +285,10 @@ export class LessonsPage implements OnInit, OnDestroy {
     this.location.back();
   }
 
+  goToHome() {
+    this.router.navigate(['/tabs/home']);
+  }
+
   // No longer needed for completed lessons only
   // private async updateLessonStatuses() { ... }
   // canJoinLesson() - removed

@@ -534,4 +534,8 @@ export class WalletPage implements OnInit, OnDestroy {
   goBack() {
     this.location.back();
   }
+
+  goToHome() {
+    this.router.navigate(['/tabs/home']);
+  }
 }
