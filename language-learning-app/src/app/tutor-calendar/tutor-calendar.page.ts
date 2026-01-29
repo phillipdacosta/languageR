@@ -701,7 +701,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     }
     
-    const title = isLesson ? (extended.studentDisplayName || extended.studentName || 'Lesson') : (event.title || extended.subject || 'Available');
+    // For lessons, show student name and lesson type (e.g., "John - Spanish lesson")
+    const studentName = isLesson ? (extended.studentDisplayName || extended.studentName || 'Student') : '';
+    const lessonType = isLesson ? (extended.subject || 'Lesson') : '';
+    const title = isLesson 
+      ? `${studentName} - ${lessonType}` 
+      : (event.title || extended.subject || 'Available');
     const subtitle = isLesson ? (extended.subject || extended.status) : (extended.studentName || extended.subject);
     const meta = isLesson ? this.formatDuration(durationMinutes) : (extended.timeStr || extended.status);
     
