@@ -5699,6 +5699,8 @@ ion-content {
       text-transform: none;
       letter-spacing: 0;
       height: auto;
+      width: auto;
+      min-width: auto;
       margin: 0;
       flex-shrink: 0;
       
