@@ -337,11 +337,14 @@
                   </div>
                 </div>
                 
-                <!-- Join Button Container (centered) -->
-                <div class="join-button-container">
+                <!-- Starts In Card (matches tutor design) -->
+                <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
+                  <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? 'STARTED' : 'STARTS IN' }}</span>
+                  <span class="countdown-modern">{{ getTimeUntilLesson(nextLesson?.lesson) }}</span>
                   <ion-button 
-                    class="join-button-large"
+                    class="join-button-modern"
                     [class.active]="isLessonInProgress(nextLesson?.lesson)"
+                    expand="block"
                     [disabled]="!canJoinStudentLesson(nextLesson)"
                     (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
                     <ion-icon slot="start" [name]="isLessonInProgress(nextLesson?.lesson) ? 'videocam' : 'videocam-outline'"></ion-icon>
