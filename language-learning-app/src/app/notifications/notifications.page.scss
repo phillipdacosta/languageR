@@ -359,40 +359,45 @@ ion-header {
 
 .notification-section-title {
   font-size: 13px;
-  font-weight: 600; // Increased from 500
-  color: #86868b; // Softer color
+  font-weight: 500;
+  color: #6e6e73;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 0 0 12px 0; // Better spacing (divider handles top margin)
-  padding: 0 4px;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px 8px;
   
   @media (min-width: 768px) {
     font-size: 12px;
-    margin: 0 0 16px 0;
+    margin-bottom: 12px;
+    margin-left: 12px;
+    letter-spacing: 0.08em;
   }
 }
 
 .notification-list {
   display: flex;
   flex-direction: column;
-  gap: 10px; // More consistent spacing
+  gap: 8px;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
   
   @media (min-width: 768px) {
-    gap: 12px; // Reduced from 36px for better density
+    gap: 36px;
   }
 }
 
 .notification-item {
   display: flex;
-  align-items: flex-start; // Changed from center for better text alignment
+  align-items: center;
   gap: 14px;
   background: #ffffff;
-  padding: 16px; // Increased from 14px
-  border-radius: 16px; // Increased from 14px
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 14px 16px;
+  border-radius: 14px;
+  transition: background-color 0.2s ease, opacity 0.3s ease, transform 0.3s ease;
   cursor: pointer;
+  border: none;
   position: relative;
-  box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   animation: fadeInUp 0.4s ease forwards;
   opacity: 0;
   
@@ -404,13 +409,14 @@ ion-header {
   }
   
   @media (min-width: 768px) {
-    padding: 18px 20px;
-    border-radius: 18px;
+    padding: 15px 18px;
+    gap: 14px;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     
     &:hover {
-      background: #f8f9fa;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(50, 50, 50, 0.08), 0 2px 4px rgba(50, 50, 50, 0.04);
+      background: rgba(0, 0, 0, 0.018);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     }
     
     &:active {
@@ -421,37 +427,11 @@ ion-header {
 }
 
 .notification-item.unread {
-  background: #f8f9fa;
-  border-left: 3px solid #007aff;
-  padding-left: 13px; // Compensate for border
-  
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 6px;
-    height: 6px;
-    background: #007aff;
-    border-radius: 50%;
-    opacity: 0;
-    animation: pulse 2s ease-in-out infinite;
-  }
+  background: #f0f9ff;
+  // border-left: 3px solid #007bff;
   
   &:hover {
-    background: #f0f0f0 !important;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.4;
-    transform: translateY(-50%) scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: translateY(-50%) scale(1.2);
+    background: #e0f2fe !important;
   }
 }
 
@@ -463,16 +443,16 @@ ion-header {
 }
 
 .notification-avatar {
-  width: 44px; // Increased from 40px
-  height: 44px;
-  border-radius: 22px; // Perfect circle
+  width: 40px;
+  height: 40px;
+  border-radius: 16px;
   object-fit: cover;
-  border: 2px solid #f0f0f0; // Softer border
+  border: 2px solid #e5e7eb;
   flex-shrink: 0;
   
   @media (min-width: 768px) {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 }
 
@@ -580,7 +560,7 @@ ion-header {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -631,31 +611,31 @@ ion-header {
   font-size: 15px;
   color: #1d1d1f;
   font-weight: 400;
-  line-height: 1.5; // Increased from 1.4
+  line-height: 1.4;
   letter-spacing: -0.01em;
+  padding-top: 10px;
+        padding-bottom: 10px;
   
   @media (min-width: 768px) {
     font-size: 15px;
-    line-height: 1.5;
+    line-height: 1.4;
   }
   
   strong {
-    font-weight: 600 !important; // Increased from 500
-    color: #000000 !important;
+    font-weight: 500 !important;
+    color: #1d1d1f !important;
   }
   
   ::ng-deep strong {
-    font-weight: 600 !important;
-    color: #000000 !important;
+    font-weight: 500 !important;
+    color: #1d1d1f !important;
   }
 }
 
 .notification-item-right {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
   margin-left: 12px;
 }
@@ -687,12 +667,13 @@ ion-header {
 }
 
 .notification-time-inline {
-  font-size: 12px;
-  color: #86868b;
+  font-size: 13px;
+  color: #8e8e93;
   white-space: nowrap;
   flex-shrink: 0;
   font-weight: 400;
-  margin-top: 4px; // Add spacing from text
+  letter-spacing: -0.008em;
+  line-height: 1.33333;
   
   @media (min-width: 768px) {
     font-size: 13px;
@@ -758,35 +739,37 @@ ion-header {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 80px 20px;
+  gap: 12px;
+  padding: 60px 20px;
+  background: transparent;
   text-align: center;
+  color: #1d1d1f;
   
   @media (min-width: 768px) {
-    padding: 100px 40px;
-    gap: 20px;
+    padding: 80px 40px;
+    gap: 16px;
   }
 }
 
 .notification-empty ion-icon {
-  font-size: 64px;
-  color: #d1d5db;
-  opacity: 0.5;
+  font-size: 48px;
+  color: #86868b;
+  opacity: 0.6;
   
   @media (min-width: 768px) {
-    font-size: 72px;
+    font-size: 56px;
   }
 }
 
 .notification-empty p {
   margin: 0;
   font-weight: 600;
-  font-size: 20px;
+  font-size: 19px;
   color: #1d1d1f;
   letter-spacing: -0.011em;
   
   @media (min-width: 768px) {
-    font-size: 22px;
+    font-size: 21px;
   }
 }
 
@@ -795,12 +778,10 @@ ion-header {
   font-size: 15px;
   font-weight: 400;
   letter-spacing: -0.01em;
-  line-height: 1.5;
-  max-width: 300px;
+  line-height: 1.47059;
   
   @media (min-width: 768px) {
     font-size: 17px;
-    max-width: 400px;
   }
 }
 
