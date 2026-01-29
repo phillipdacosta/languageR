@@ -338,6 +338,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         this.isTutorUser = this.isTutor(); // Set property once
         this.isStudentUser = this.isStudent(); // Set property once
         
+        // Update showWalletBalance immediately when user profile changes
+        // This ensures instant update when toggled in profile page
+        if (user?.profile) {
+          this.showWalletBalance = user.profile.showWalletBalance || false;
+          this.updateWalletDisplay();
+        }
+        
         // Load notification count when user is available
         if (user) {
           setTimeout(() => {
@@ -1216,7 +1223,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     
     // Reload user settings to ensure wallet display is up to date
-    this.loadUserStats();
+    // Don't force refresh - use cached value first to prevent flashing
+    this.loadUserStats(false);
     
     // Smart refresh: only reload if cache is stale or this is the initial load
     const now = Date.now();
@@ -2417,11 +2425,20 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
   }
 
-  loadUserStats() {
-    console.log('💰 [TAB1] loadUserStats() called');
+  loadUserStats(forceRefresh = false) {
+    console.log('💰 [TAB1] loadUserStats() called, forceRefresh:', forceRefresh);
     
-    // Force refresh from server to get latest settings
-    this.userService.getCurrentUser(true).subscribe(user => {
+    // First, use cached user if available (prevents flashing when returning from profile)
+    const cachedUser = this.userService.getCurrentUserValue();
+    if (cachedUser) {
+      // Apply cached settings immediately to prevent flash
+      this.showWalletBalance = cachedUser?.profile?.showWalletBalance || false;
+      this.updateWalletDisplay();
+      console.log('💰 [TAB1] Applied cached wallet balance setting:', this.showWalletBalance);
+    }
+    
+    // Then fetch from server (only if forced or no cached user)
+    this.userService.getCurrentUser(forceRefresh).subscribe(user => {
       console.log('💰 [TAB1] getCurrentUser callback, user type:', user?.userType);
       
       if (user) {
