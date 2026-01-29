@@ -56,6 +56,11 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  relatedUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
   read: {
     type: Boolean,
     default: false
