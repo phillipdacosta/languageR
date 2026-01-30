@@ -23,46 +23,39 @@
 
   <!-- Lesson Details -->
   <div class="class-details-container" *ngIf="lesson && !loading">
-    <!-- Hero Section -->
-    <div class="hero-section">
-      <div class="thumbnail-container">
-        <div class="thumbnail-placeholder-large">
-          <ion-icon name="book-outline"></ion-icon>
-        </div>
-        
-        <!-- Status Badge -->
-        <div class="status-badge-large" [style.background]="getStatusInfo().color">
-          <span>{{ getStatusInfo().label }}</span>
-        </div>
-        
-        <!-- Trial Badge -->
-        <div class="status-badge-large trial" *ngIf="lesson.isTrialLesson" style="top: 80px;">
-          <ion-icon name="star"></ion-icon>
-          <span>Trial Lesson</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Main Content -->
     <div class="content-section">
-      <!-- Title Section -->
-      <div class="title-section">
-        <h1 class="class-title">{{ lesson.subject || 'Language Lesson' }}</h1>
+      <!-- Header Section -->
+      <div class="header-section">
+        <div class="header-top">
+          <div class="status-badges">
+            <div class="status-badge" [style.background]="getStatusInfo().color">
+              <span>{{ getStatusInfo().label }}</span>
+            </div>
+            <div class="status-badge trial" *ngIf="lesson.isTrialLesson">
+              <ion-icon name="star"></ion-icon>
+              <span>Trial</span>
+            </div>
+          </div>
+        </div>
+        
+        <h1 class="lesson-title">{{ lesson.subject || 'Language Lesson' }}</h1>
         
         <!-- Student Card -->
-        <div class="tutor-card">
-          <ion-avatar class="tutor-avatar-large">
+        <div class="student-card">
+          <ion-avatar class="student-avatar">
             <img 
               *ngIf="lesson.studentId?.picture" 
               [src]="lesson.studentId.picture" 
-              [alt]="lesson.studentId.name">
-            <div *ngIf="!lesson.studentId?.picture" class="avatar-placeholder-large">
+              [alt]="lesson.studentId.name"
+              referrerpolicy="no-referrer">
+            <div *ngIf="!lesson.studentId?.picture" class="avatar-placeholder">
               {{ lesson.studentId?.name?.charAt(0)?.toUpperCase() || 'S' }}
             </div>
           </ion-avatar>
-          <div class="tutor-info">
-            <h3 class="tutor-name">{{ lesson.studentId?.name || 'Student' }}</h3>
-            <p class="tutor-label">{{ lesson.studentId?.email || '' }}</p>
+          <div class="student-info">
+            <h3 class="student-name">{{ lesson.studentId?.name || 'Student' }}</h3>
+            <p class="student-email">{{ lesson.studentId?.email || '' }}</p>
           </div>
         </div>
       </div>
@@ -126,37 +119,24 @@
 
   <!-- Class Details -->
   <div class="class-details-container" *ngIf="classData && !loading && isClass">
-    <!-- Hero Section -->
-    <div class="hero-section">
-      <div class="thumbnail-container">
-        <img 
-          *ngIf="classData.thumbnail" 
-          [src]="classData.thumbnail" 
-          [alt]="classData.name"
-          class="class-thumbnail-large">
-        <div *ngIf="!classData.thumbnail" class="thumbnail-placeholder-large">
-          <ion-icon name="people-outline"></ion-icon>
-        </div>
-        
-        <!-- Public Badge -->
-        <div class="status-badge-large" *ngIf="classData.isPublic">
-          <ion-icon name="globe-outline"></ion-icon>
-          <span>Public Class</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Main Content -->
     <div class="content-section">
-      <!-- Title Section -->
-      <div class="title-section">
-        <h1 class="class-title">{{ classData.name }}</h1>
-        
-        <!-- Level Badge (as a visual element) -->
-        <div class="level-badge-display" *ngIf="classData.level">
-          <ion-icon name="bar-chart-outline"></ion-icon>
-          <span>{{ getLevelLabel(classData.level) }}</span>
+      <!-- Header Section -->
+      <div class="header-section">
+        <div class="header-top">
+          <div class="status-badges">
+            <div class="status-badge" *ngIf="classData.isPublic">
+              <ion-icon name="globe-outline"></ion-icon>
+              <span>Public Class</span>
+            </div>
+            <div class="status-badge level" *ngIf="classData.level">
+              <ion-icon name="bar-chart-outline"></ion-icon>
+              <span>{{ getLevelLabel(classData.level) }}</span>
+            </div>
+          </div>
         </div>
+        
+        <h1 class="lesson-title">{{ classData.name }}</h1>
       </div>
 
       <!-- Class Info -->

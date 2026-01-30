@@ -46,180 +46,114 @@
 }
 
 .class-details-container {
-  max-width: 1200px;
+  max-width: 800px;
   margin: 0 auto;
   background: var(--ion-background-color, #fff);
 }
 
-// Hero Section with Thumbnail
-.hero-section {
-  width: 100%;
-  margin-bottom: 2rem;
-  
-  .thumbnail-container {
-    position: relative;
-    width: 100%;
-    height: 450px;
-    overflow: hidden;
-    background: linear-gradient(135deg, var(--ion-color-primary-tint), var(--ion-color-secondary-tint));
-    
-    @media (max-width: 768px) {
-      height: 280px;
-    }
-    
-    .class-thumbnail-large {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    
-    .thumbnail-placeholder-large {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, var(--ion-color-primary-tint), var(--ion-color-secondary-tint));
-      
-      ion-icon {
-        font-size: 6rem;
-        color: white;
-        opacity: 0.5;
-      }
-    }
-    
-    .status-badge-large {
-      position: absolute;
-      top: 24px;
-      right: 24px;
-      background: var(--ion-color-success);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 30px;
-      font-size: 1rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(10px);
-      
-      &.full {
-        background: var(--ion-color-warning);
-      }
-      
-      &.invited {
-        background: var(--ion-color-tertiary);
-      }
-
-      &.trial {
-        background: linear-gradient(135deg, #fbbf24, #f59e0b);
-      }
-      
-      ion-icon {
-        font-size: 1.3rem;
-      }
-      
-      @media (max-width: 768px) {
-        top: 16px;
-        right: 16px;
-        padding: 8px 16px;
-        font-size: 0.85rem;
-        
-        ion-icon {
-          font-size: 1.1rem;
-        }
-      }
-    }
-  }
-}
-
 .content-section {
-  padding: 2rem 2rem 3rem;
+  padding: 24px;
   
   @media (max-width: 768px) {
-    padding: 1.5rem 1rem 2rem;
+    padding: 20px 16px;
   }
 }
 
-// Title Section
-.title-section {
-  margin-bottom: 2.5rem;
+// Header Section
+.header-section {
+  margin-bottom: 32px;
   
-  .class-title {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: var(--ion-color-dark);
-    margin-bottom: 1.5rem;
+  .header-top {
+    margin-bottom: 16px;
+    
+    .status-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: white;
+      background: var(--ion-color-success);
+      
+      &.trial {
+        background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
+      }
+      
+      &.level {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+  
+  .lesson-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0 0 24px 0;
     line-height: 1.2;
     letter-spacing: -0.5px;
     
     @media (max-width: 768px) {
-      font-size: 1.75rem;
-    }
-  }
-
-  .level-badge-display {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    color: white;
-    border-radius: 20px;
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-
-    ion-icon {
-      font-size: 1.2rem;
+      font-size: 28px;
     }
   }
   
-  .tutor-card {
+  .student-card {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: var(--ion-color-light);
+    gap: 16px;
+    padding: 16px;
+    background: #ffffff;
     border-radius: 16px;
-    cursor: default;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
     
-    .tutor-avatar-large {
-      width: 64px;
-      height: 64px;
+    .student-avatar {
+      width: 56px;
+      height: 56px;
       flex-shrink: 0;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border: 2px solid #f0f0f0;
       
-      .avatar-placeholder-large {
+      .avatar-placeholder {
         width: 100%;
         height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-primary-shade));
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        font-weight: 700;
-        font-size: 1.5rem;
+        font-weight: 600;
+        font-size: 20px;
+        border-radius: 50%;
       }
     }
     
-    .tutor-info {
+    .student-info {
       flex: 1;
       
-      .tutor-name {
-        font-size: 1.1rem;
+      .student-name {
+        font-size: 17px;
         font-weight: 600;
-        color: var(--ion-color-dark);
-        margin: 0 0 0.25rem 0;
+        color: #1d1d1f;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.2px;
       }
       
-      .tutor-label {
-        font-size: 0.9rem;
-        color: var(--ion-color-medium);
+      .student-email {
+        font-size: 15px;
+        color: #86868b;
         margin: 0;
       }
     }
@@ -229,35 +163,33 @@
 // Info Grid
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 32px;
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 12px;
   }
   
   .info-card {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: var(--ion-color-light);
-    border-radius: 16px;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    transition: all 0.3s ease;
+    gap: 16px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
+    transition: all 0.2s ease;
     
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-      border-color: var(--ion-color-primary-tint);
+      box-shadow: 0 2px 8px rgba(50, 50, 50, 0.06), 0 1px 4px rgba(50, 50, 50, 0.03);
     }
     
     .info-icon {
-      font-size: 2.25rem;
-      color: var(--ion-color-primary);
+      font-size: 24px;
+      color: #007aff;
       flex-shrink: 0;
     }
     
@@ -265,19 +197,20 @@
       flex: 1;
       
       .info-label {
-        font-size: 0.7rem;
-        color: var(--ion-color-medium);
+        font-size: 13px;
+        color: #86868b;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
-        font-weight: 700;
-        margin: 0 0 0.375rem 0;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        margin: 0 0 6px 0;
       }
       
       .info-value {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--ion-color-dark);
+        font-size: 17px;
+        font-weight: 600;
+        color: #1d1d1f;
         margin: 0;
+        letter-spacing: -0.2px;
       }
     }
   }
@@ -285,25 +218,25 @@
 
 // Description Section
 .description-section {
-  margin-bottom: 2.5rem;
+  margin-bottom: 32px;
   
   .section-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--ion-color-dark);
-    margin-bottom: 1.25rem;
+    font-size: 22px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 16px;
     letter-spacing: -0.3px;
   }
   
   .description-content {
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--ion-color-dark);
-    background: var(--ion-color-light);
-    padding: 1.75rem;
-    border-radius: 16px;
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1d1d1f;
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
     
     // Style HTML content from Quill editor
     p {
@@ -348,22 +281,22 @@
 
 // Students Section
 .students-section {
-  margin-bottom: 2.5rem;
+  margin-bottom: 32px;
   
   .section-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--ion-color-dark);
-    margin-bottom: 1.25rem;
+    font-size: 22px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 8px;
     letter-spacing: -0.3px;
     
     .student-count {
-      font-size: 1rem;
+      font-size: 15px;
       font-weight: 500;
-      color: var(--ion-color-medium);
+      color: #86868b;
     }
   }
   
@@ -424,39 +357,41 @@
 
 // Revenue Section (for classes)
 .revenue-section {
-  margin-bottom: 2.5rem;
+  margin-bottom: 32px;
 
   .revenue-card {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    gap: 16px;
+    padding: 20px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
 
     ion-icon {
-      font-size: 2.5rem;
-      color: white;
+      font-size: 28px;
+      color: #34c759;
     }
 
     .revenue-info {
       flex: 1;
 
       .revenue-label {
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+        color: #86868b;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
         font-weight: 600;
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 6px 0;
       }
 
       .revenue-amount {
-        font-size: 2rem;
-        font-weight: 800;
-        color: white;
+        font-size: 28px;
+        font-weight: 700;
+        color: #1d1d1f;
         margin: 0;
+        letter-spacing: -0.5px;
       }
     }
   }
@@ -466,23 +401,22 @@
 .actions-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-top: 3rem;
-  padding-top: 2.5rem;
-  border-top: 2px solid var(--ion-color-light-shade);
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   
   ion-button {
-    --border-radius: 14px;
-    height: 54px;
-    font-weight: 700;
-    font-size: 1.05rem;
-    letter-spacing: 0.3px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    --border-radius: 12px;
+    height: 50px;
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.2px;
+    box-shadow: 0 1px 3px rgba(50, 50, 50, 0.04), 0 1px 2px rgba(50, 50, 50, 0.02);
+    transition: all 0.2s ease;
     
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 2px 8px rgba(50, 50, 50, 0.06), 0 1px 4px rgba(50, 50, 50, 0.03);
     }
   }
 }
