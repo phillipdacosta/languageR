@@ -528,8 +528,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if (isConnected && this.selectedConversation && this.isPageVisible) {
           // Reload messages when WebSocket reconnects while viewing a conversation
           console.log('[MessagesPage] WebSocket reconnected - reloading messages for current conversation');
+          // Preserve current scroll position for reconnection (don't jump to unread)
+          const container = this.chatContainer?.nativeElement;
+          const currentScrollTop = container?.scrollTop || 0;
+          const wasAtBottom = container ? (container.scrollHeight - container.scrollTop - container.clientHeight < 50) : true;
+          
           setTimeout(() => {
-            this.loadMessages(); // loadMessages uses this.selectedConversation internally
+            this.loadMessagesPreserveScroll(currentScrollTop, wasAtBottom);
           }, 500); // Small delay to ensure socket is fully ready
         }
       });
@@ -542,7 +547,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
           if (now - this.lastVisibilityTime > 2000) {
             console.log('[MessagesPage] Tab became visible - reloading messages');
             this.lastVisibilityTime = now;
-            this.loadMessages(); // loadMessages uses this.selectedConversation internally
+            // Preserve scroll position when reloading due to visibility change
+            const container = this.chatContainer?.nativeElement;
+            const currentScrollTop = container?.scrollTop || 0;
+            const wasAtBottom = container ? (container.scrollHeight - container.scrollTop - container.clientHeight < 50) : true;
+            this.loadMessagesPreserveScroll(currentScrollTop, wasAtBottom);
             this.reloadConversationsDebounced();
           }
         }
@@ -1864,6 +1873,41 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         if (activeRequestId === this.messageLoadRequestId) {
           this.messagesSubscription = undefined;
         }
+      }
+    });
+  }
+
+  // Load messages while preserving scroll position (used for reconnection)
+  private loadMessagesPreserveScroll(previousScrollTop: number, wasAtBottom: boolean) {
+    console.log(`📥 [${Date.now()}] loadMessagesPreserveScroll - previousScrollTop: ${previousScrollTop}, wasAtBottom: ${wasAtBottom}`);
+    if (!this.selectedConversation?.otherUser) return;
+    
+    const receiverId = this.selectedConversation.otherUser.auth0Id;
+    if (!receiverId || !this.selectedConversation.conversationId) return;
+    
+    this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
+      next: (response) => {
+        this.messages = response.messages || [];
+        this.cdr.detectChanges();
+        
+        // Restore scroll position after messages are loaded
+        setTimeout(() => {
+          const container = this.chatContainer?.nativeElement;
+          if (container) {
+            if (wasAtBottom) {
+              // If was at bottom, scroll to bottom
+              container.scrollTop = container.scrollHeight;
+              console.log('📍 Restored scroll to bottom after reconnect');
+            } else {
+              // Restore previous scroll position
+              container.scrollTop = previousScrollTop;
+              console.log(`📍 Restored scroll position to ${previousScrollTop} after reconnect`);
+            }
+          }
+        }, 100);
+      },
+      error: (error) => {
+        console.error('Error reloading messages after reconnect:', error);
       }
     });
   }
