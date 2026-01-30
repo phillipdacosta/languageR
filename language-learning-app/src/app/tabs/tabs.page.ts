@@ -1116,6 +1116,24 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     } else {
       // New conversation - reload the list
       console.log('📬 New conversation detected, reloading conversations...');
+      
+      // IMMEDIATELY increment unread count for new conversation messages
+      // (if the message is for the current user, not sent by them)
+      const isMyMessage = senderId === currentUserId;
+      if (!isMyMessage && message.receiverId) {
+        const normalizeUserId = (id: string) => id?.replace('dev-user-', '') || '';
+        const normalizedReceiverId = normalizeUserId(message.receiverId);
+        const normalizedCurrentUserId = normalizeUserId(currentUserId);
+        
+        if (normalizedReceiverId === normalizedCurrentUserId) {
+          const currentUnread = this.unreadCount$.value;
+          const newUnread = currentUnread + 1;
+          console.log('📬 [TabsPage] 🔴 New conversation - Updating unread count:', currentUnread, '->', newUnread);
+          this.unreadCount$.next(newUnread);
+          this.cdr.detectChanges();
+        }
+      }
+      
       // Force reload even if currently loading by resetting the flag after a short delay
       if (this.isLoadingConversations) {
         setTimeout(() => {

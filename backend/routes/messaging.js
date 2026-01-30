@@ -716,32 +716,38 @@ router.post('/conversations/:receiverId/messages', verifyToken, async (req, res)
     // Message notifications removed - users should not get notifications for messages
     // Messages are handled via the Messages tab and WebSocket events only
 
-    // Emit WebSocket message to receiver (for real-time message display)
-    const receiverSocketId = req.connectedUsers?.get(receiverId);
-    console.log('📤 Checking WebSocket for message:', {
+    // Emit WebSocket message to receiver using ROOM (reaches ALL of receiver's tabs)
+    const receiverRoom = `user:${receiverId}`;
+    const receiverSockets = req.io?.sockets?.adapter?.rooms?.get(receiverRoom);
+    const receiverSocketCount = receiverSockets ? receiverSockets.size : 0;
+    
+    console.log('📤 Checking WebSocket room for message:', {
       receiverId,
-      receiverSocketId,
-      hasIo: !!req.io,
-      hasConnectedUsers: !!req.connectedUsers,
-      connectedUsersCount: req.connectedUsers?.size || 0
+      receiverRoom,
+      receiverSocketCount,
+      hasIo: !!req.io
     });
     
-    if (receiverSocketId && req.io) {
-      console.log('✅ Emitting new_message to receiver:', receiverId, 'socket:', receiverSocketId);
-      req.io.to(receiverSocketId).emit('new_message', messageResponse);
+    if (receiverSocketCount > 0 && req.io) {
+      console.log(`✅ Emitting new_message to ${receiverSocketCount} socket(s) in room: ${receiverRoom}`);
+      req.io.to(receiverRoom).emit('new_message', messageResponse);
     } else {
       console.log('⚠️ Receiver not online or WebSocket not available:', {
         receiverId,
-        receiverSocketId,
+        receiverRoom,
+        receiverSocketCount,
         hasIo: !!req.io
       });
     }
 
-    // Emit confirmation to sender
-    const senderSocketId = req.connectedUsers?.get(senderId);
-    if (senderSocketId && req.io) {
-      console.log('✅ Emitting message_sent to sender:', senderId, 'socket:', senderSocketId);
-      req.io.to(senderSocketId).emit('message_sent', messageResponse);
+    // Emit confirmation to sender using ROOM (reaches ALL sender's tabs)
+    const senderRoom = `user:${senderId}`;
+    const senderSockets = req.io?.sockets?.adapter?.rooms?.get(senderRoom);
+    const senderSocketCount = senderSockets ? senderSockets.size : 0;
+    
+    if (senderSocketCount > 0 && req.io) {
+      console.log(`✅ Emitting message_sent to ${senderSocketCount} socket(s) in room: ${senderRoom}`);
+      req.io.to(senderRoom).emit('message_sent', messageResponse);
     }
 
     // Emit WebSocket notification to receiver (for notification dropdown - but user said messages shouldn't appear there)
