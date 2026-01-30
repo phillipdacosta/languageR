@@ -286,21 +286,26 @@ io.on('connection', async (socket) => {
         messagePayload.replyTo = savedMessage.replyTo;
       }
 
-      // Emit to sender (confirmation)
+      // Emit to sender (confirmation) - send to all sender's tabs
       socket.emit('message_sent', messagePayload);
+      // Also emit to sender's room so other tabs get the message
+      socket.to(`user:${userId}`).emit('new_message', messagePayload);
 
-      // Emit to receiver if online
-      const receiverSocketId = connectedUsers.get(receiverId);
-      console.log('📤 Looking for receiver socket:', {
+      // Emit to receiver using room (reaches ALL of receiver's tabs/sockets)
+      const receiverRoom = `user:${receiverId}`;
+      const receiverSockets = io.sockets.adapter.rooms.get(receiverRoom);
+      const receiverSocketCount = receiverSockets ? receiverSockets.size : 0;
+      
+      console.log('📤 Sending message to receiver room:', {
         receiverId,
-        receiverSocketId: receiverSocketId || 'NOT FOUND',
-        connectedUsersCount: connectedUsers.size,
-        allConnectedUsers: Array.from(connectedUsers.keys())
+        receiverRoom,
+        receiverSocketCount,
+        connectedUsersCount: connectedUsers.size
       });
       
-      if (receiverSocketId) {
-        console.log('✅ Sending message to receiver:', receiverId, 'socket:', receiverSocketId);
-        io.to(receiverSocketId).emit('new_message', messagePayload);
+      if (receiverSocketCount > 0) {
+        console.log(`✅ Sending message to ${receiverSocketCount} socket(s) in room: ${receiverRoom}`);
+        io.to(receiverRoom).emit('new_message', messagePayload);
       } else {
         console.log('⚠️ Receiver not online - message saved but not delivered in real-time:', receiverId);
       }
@@ -311,16 +316,14 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // Handle typing indicator
+  // Handle typing indicator - emit to room (all of receiver's tabs)
   socket.on('typing', (data) => {
     const { receiverId, isTyping } = data;
-    const receiverSocketId = connectedUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('user_typing', {
-        userId,
-        isTyping
-      });
-    }
+    const receiverRoom = `user:${receiverId}`;
+    io.to(receiverRoom).emit('user_typing', {
+      userId,
+      isTyping
+    });
   });
 
   // Handle disconnect
