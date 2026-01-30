@@ -13,6 +13,13 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
+  <!-- Close Button (Top Right) -->
+  <div class="close-button-container">
+    <ion-button (click)="goBack()" fill="clear" class="close-button-top">
+      <ion-icon name="close"></ion-icon>
+    </ion-button>
+  </div>
+
   <!-- Loading State -->
   <div class="loading-container" *ngIf="loading">
     <ion-spinner name="crescent"></ion-spinner>
