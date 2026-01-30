@@ -4,6 +4,11 @@
       <ion-back-button (click)="goBack()" text=""></ion-back-button>
     </ion-buttons>
     <ion-title>{{ isClass ? 'Class Details' : 'Lesson Details' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="goBack()" fill="clear">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
