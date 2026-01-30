@@ -273,6 +273,22 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
     
+    // Listen for WebSocket reconnection to re-establish message listeners
+    this.websocketService.connection$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(isConnected => {
+      console.log('📬 [TabsPage] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.currentUser) {
+        // Re-subscribe to message updates when WebSocket reconnects
+        console.log('📬 [TabsPage] WebSocket reconnected - re-subscribing to message updates');
+        this.subscribeToMessageUpdates();
+        // Also reload conversations to get accurate unread counts
+        setTimeout(() => {
+          this.loadConversations();
+        }, 500);
+      }
+    });
+    
     // Note: loadUnreadCount() is now called in the user$ subscription in the constructor
     // This ensures the user is authenticated before making API calls
     
