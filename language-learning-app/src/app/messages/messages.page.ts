@@ -2199,10 +2199,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (animationDelay > 0) {
       console.log('⏳ scrollToBottom: Waiting for animations (850ms delay)');
       setTimeout(() => {
-        this.robustScrollToBottom();
+        this.scrollToBottomWithRetry();
       }, animationDelay);
     } else {
-      this.robustScrollToBottom();
+      this.scrollToBottomWithRetry();
     }
   }
   
@@ -2342,7 +2342,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    * @param unreadCount - The number of unread messages (from conversation before loading)
    */
   async scrollToFirstUnreadMessage(unreadCount?: number) {
-    console.log('📍 scrollToFirstUnreadMessage START, unreadCount:', unreadCount);
+    console.log('📍 scrollToFirstUnreadMessage START, unreadCount:', unreadCount, 'messages:', this.messages.length);
+    
+    // Wait for messages to render in DOM
+    await this.waitForMessagesInDOM();
     
     const container = this.chatContainer?.nativeElement;
     if (!container) {
@@ -2350,20 +2353,23 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     
+    // Make messages visible on mobile
+    if (this.platformService.isSmallScreen()) {
+      container.classList.add('messages-ready');
+    }
+    
     // Check if this conversation only contains system messages
     const onlySystemMessages = this.messages.length > 0 && 
       this.messages.every(m => m.type === 'system' || m.isSystemMessage);
     
-    // For system-only conversations, scroll to top to show the full message
     if (onlySystemMessages) {
       console.log('📍 System messages only - scrolling to top');
       container.scrollTop = 0;
       return;
     }
     
-    // Use provided unread count, or try to find unread messages by checking read status
+    // Use provided unread count to find unread messages
     const count = unreadCount !== undefined ? unreadCount : 0;
-    
     let firstUnreadId: string | null = null;
     
     if (count > 0) {
@@ -2372,146 +2378,125 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       firstUnreadId = this.findFirstUnreadMessageByReadStatus();
     }
     
-    console.log('📍 First unread message ID:', firstUnreadId, 'unreadCount:', count);
+    console.log('📍 First unread ID:', firstUnreadId, 'count:', count);
     
-    // Use robust scroll with retries
     if (firstUnreadId) {
-      await this.robustScrollToMessage(firstUnreadId);
+      this.scrollToMessageWithRetry(firstUnreadId);
     } else {
-      await this.robustScrollToBottom();
+      this.scrollToBottomWithRetry();
     }
   }
   
   /**
-   * Robust scroll to a specific message with retries and verification
+   * Wait for messages to appear in DOM
    */
-  private async robustScrollToMessage(messageId: string, maxAttempts = 10): Promise<void> {
-    console.log('📍 robustScrollToMessage START:', messageId);
-    
-    const container = this.chatContainer?.nativeElement;
-    if (!container) return;
-    
-    // Make messages visible on mobile
-    if (this.platformService.isSmallScreen()) {
-      container.classList.add('messages-ready');
-    }
-    
-    // Force change detection
-    this.cdr.detectChanges();
-    
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Wait for DOM to settle
-      await this.delay(attempt === 0 ? 100 : 50);
-      
-      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
-      
-      if (!messageElement) {
-        console.log(`📍 Attempt ${attempt + 1}: Message element not found yet`);
-        continue;
-      }
-      
-      // Calculate target scroll position
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = messageElement.getBoundingClientRect();
-      const scrollTop = container.scrollTop;
-      const elementTop = elementRect.top - containerRect.top + scrollTop;
-      
-      // Position message 100px from top of container (so user sees context above)
-      const targetScroll = Math.max(0, elementTop - 100);
-      
-      // Scroll instantly (no smooth - it gets interrupted)
-      container.scrollTop = targetScroll;
-      
-      // Wait and verify
-      await this.delay(50);
-      
-      // Check if we're close enough to target
-      const actualScroll = container.scrollTop;
-      const diff = Math.abs(actualScroll - targetScroll);
-      
-      if (diff < 20) {
-        console.log(`✅ robustScrollToMessage SUCCESS (attempt ${attempt + 1}), scrollTop: ${actualScroll}`);
-        this.highlightedMessageId = messageId;
-        setTimeout(() => { this.highlightedMessageId = null; }, 2000);
+  private waitForMessagesInDOM(): Promise<void> {
+    return new Promise(resolve => {
+      if (this.messages.length === 0) {
+        resolve();
         return;
       }
       
-      console.log(`📍 Attempt ${attempt + 1}: Scroll diff ${diff}px, retrying...`);
-    }
-    
-    console.warn('⚠️ robustScrollToMessage: Max attempts reached, falling back to bottom');
-    await this.robustScrollToBottom();
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      const check = () => {
+        const firstMessageEl = document.querySelector('[data-message-id]');
+        if (firstMessageEl || attempts >= maxAttempts) {
+          console.log(`📍 Messages in DOM after ${attempts} checks`);
+          setTimeout(resolve, 50); // Extra delay for layout
+          return;
+        }
+        attempts++;
+        requestAnimationFrame(check);
+      };
+      
+      requestAnimationFrame(check);
+    });
   }
   
   /**
-   * Robust scroll to bottom with retries and verification
+   * Scroll to a specific message with retry logic
    */
-  private async robustScrollToBottom(maxAttempts = 15): Promise<void> {
-    console.log('📍 robustScrollToBottom START');
-    
+  private scrollToMessageWithRetry(messageId: string, attempt = 0) {
+    const maxAttempts = 10;
     const container = this.chatContainer?.nativeElement;
-    if (!container) return;
     
-    // Make messages visible on mobile
-    if (this.platformService.isSmallScreen()) {
-      container.classList.add('messages-ready');
+    if (!container || attempt >= maxAttempts) {
+      console.log('📍 Falling back to bottom scroll');
+      this.scrollToBottomWithRetry();
+      return;
     }
     
-    let lastScrollHeight = 0;
-    let stableCount = 0;
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
     
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Force layout recalculation
-      void container.offsetHeight;
-      
-      const scrollHeight = container.scrollHeight;
-      const clientHeight = container.clientHeight;
-      const maxScroll = scrollHeight - clientHeight;
-      
-      // Scroll to absolute bottom
-      container.scrollTop = maxScroll + 1000;
-      
-      // Wait for scroll to settle
-      await this.delay(attempt === 0 ? 100 : 75);
-      
-      // Verify we're at bottom
-      const actualScroll = container.scrollTop;
-      const newMaxScroll = container.scrollHeight - container.clientHeight;
-      const distanceFromBottom = newMaxScroll - actualScroll;
-      
-      // Check if scroll height is stable (content finished loading)
-      if (scrollHeight === lastScrollHeight) {
-        stableCount++;
+    if (!messageElement) {
+      console.log(`📍 Message ${messageId} not found, attempt ${attempt + 1}`);
+      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 100);
+      return;
+    }
+    
+    // Calculate position - put message 100px from top
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = messageElement.getBoundingClientRect();
+    const elementTop = elementRect.top - containerRect.top + container.scrollTop;
+    const targetScroll = Math.max(0, elementTop - 100);
+    
+    console.log(`📍 Scrolling to message, target: ${targetScroll}`);
+    container.scrollTop = targetScroll;
+    
+    // Highlight the message
+    this.highlightedMessageId = messageId;
+    setTimeout(() => { this.highlightedMessageId = null; }, 2000);
+    
+    // Verify scroll worked
+    setTimeout(() => {
+      const diff = Math.abs(container.scrollTop - targetScroll);
+      if (diff > 50 && attempt < maxAttempts - 1) {
+        console.log(`📍 Scroll verification failed, diff: ${diff}, retrying`);
+        this.scrollToMessageWithRetry(messageId, attempt + 1);
       } else {
-        stableCount = 0;
+        console.log(`✅ Scroll to message complete, scrollTop: ${container.scrollTop}`);
       }
-      lastScrollHeight = scrollHeight;
-      
-      // Success: at bottom AND stable for 2 checks
-      if (distanceFromBottom < 10 && stableCount >= 2) {
-        console.log(`✅ robustScrollToBottom SUCCESS (attempt ${attempt + 1})`);
-        return;
-      }
-      
-      // Success: at bottom with reasonable height
-      if (distanceFromBottom < 10 && scrollHeight > 200) {
-        console.log(`✅ robustScrollToBottom SUCCESS (attempt ${attempt + 1}), height: ${scrollHeight}`);
-        return;
-      }
-      
-      if (attempt % 3 === 0) {
-        console.log(`📍 Attempt ${attempt + 1}: ${distanceFromBottom}px from bottom, height: ${scrollHeight}`);
-      }
-    }
-    
-    console.warn('⚠️ robustScrollToBottom: Max attempts reached');
+    }, 100);
   }
   
   /**
-   * Simple delay helper
+   * Scroll to bottom with retry logic
    */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private scrollToBottomWithRetry(attempt = 0) {
+    const maxAttempts = 15;
+    const container = this.chatContainer?.nativeElement;
+    
+    if (!container) {
+      console.warn('⚠️ No container for scroll');
+      return;
+    }
+    
+    // Force layout recalculation
+    void container.offsetHeight;
+    
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    const maxScroll = scrollHeight - clientHeight;
+    
+    // Scroll to bottom
+    container.scrollTop = maxScroll + 500;
+    
+    // Verify
+    setTimeout(() => {
+      const newScrollHeight = container.scrollHeight;
+      const newMaxScroll = newScrollHeight - container.clientHeight;
+      const distanceFromBottom = newMaxScroll - container.scrollTop;
+      
+      if (distanceFromBottom > 20 && attempt < maxAttempts) {
+        // Content might still be loading or scroll failed
+        console.log(`📍 Bottom scroll attempt ${attempt + 1}, distance: ${distanceFromBottom}`);
+        this.scrollToBottomWithRetry(attempt + 1);
+      } else {
+        console.log(`✅ Scroll to bottom complete, scrollTop: ${container.scrollTop}`);
+      }
+    }, attempt === 0 ? 150 : 75);
   }
   
   private scrollToBottomElement() {
@@ -3601,12 +3586,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     if (!messageId) {
       console.warn('⚠️ Message ID is undefined');
-      this.robustScrollToBottom();
+      this.scrollToBottomWithRetry();
       return;
     }
     
-    // Use the robust scroll method
-    this.robustScrollToMessage(messageId);
+    this.scrollToMessageWithRetry(messageId);
   }
 
   // Scroll to and highlight the message being replied to (for the input preview button)
