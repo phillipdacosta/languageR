@@ -178,6 +178,17 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     // Connect to WebSocket for real-time messaging
     this.websocketService.connect();
     
+    // Listen for WebSocket reconnection to reload messages
+    this.websocketService.connection$.pipe(takeUntil(this.destroy$)).subscribe(isConnected => {
+      console.log('🔌 [TUTOR-PAGE] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.showMessagingSidebar && this.tutor) {
+        console.log('🔌 [TUTOR-PAGE] WebSocket reconnected - refreshing messages');
+        setTimeout(() => {
+          this.loadMessages();
+        }, 500);
+      }
+    });
+    
     // Listen for new messages
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (this.showMessagingSidebar && this.tutor && 

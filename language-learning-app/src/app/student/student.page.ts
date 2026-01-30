@@ -99,6 +99,17 @@ export class StudentPage implements OnInit, OnDestroy {
     // Connect to WebSocket for real-time messaging
     this.websocketService.connect();
     
+    // Listen for WebSocket reconnection to reload messages
+    this.websocketService.connection$.pipe(takeUntil(this.destroy$)).subscribe(isConnected => {
+      console.log('🔌 [STUDENT-PAGE] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.showMessagingSidebar && this.student) {
+        console.log('🔌 [STUDENT-PAGE] WebSocket reconnected - refreshing messages');
+        setTimeout(() => {
+          this.loadMessages();
+        }, 500);
+      }
+    });
+    
     // Listen for new messages
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (this.showMessagingSidebar && this.student && 

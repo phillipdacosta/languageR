@@ -221,6 +221,22 @@ export class AppComponent implements OnInit, OnDestroy {
         // Now that we have user, connect to WebSocket
         this.websocketService.connect();
         
+        // Listen for WebSocket reconnection to refresh data
+        this.websocketService.connection$.pipe(
+          takeUntil(this.destroy$)
+        ).subscribe(isConnected => {
+          console.log('🔌 [APP] WebSocket connection status changed:', isConnected);
+          if (isConnected && this.currentUserId) {
+            console.log('🔌 [APP] WebSocket reconnected - refreshing conversations');
+            // Reload conversations after reconnection to sync unread counts
+            setTimeout(() => {
+              this.messagingService.getConversations().subscribe({
+                error: (error) => console.error('Error reloading conversations after reconnect:', error)
+              });
+            }, 500);
+          }
+        });
+        
         // Set up message listener (only once)
         if (!this.isMessageListenerSetup) {
           this.isMessageListenerSetup = true;

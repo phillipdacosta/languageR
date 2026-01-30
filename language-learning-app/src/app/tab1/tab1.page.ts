@@ -826,6 +826,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     // Connect to WebSocket and listen for lesson presence
     this.websocketService.connect();
     
+    // Listen for WebSocket reconnection to refresh data
+    this.websocketService.connection$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(isConnected => {
+      console.log('🔌 [TAB1] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.currentUser) {
+        console.log('🔌 [TAB1] WebSocket reconnected - refreshing data');
+        // Reload important data after reconnection
+        setTimeout(() => {
+          this.loadUnreadNotificationCount();
+          this.loadLessons();
+          if (this.isStudent()) {
+            this.loadPendingInvitations();
+          }
+        }, 500);
+      }
+    });
+    
     this.websocketService.lessonPresence$
       .pipe(takeUntil(this.destroy$))
       .subscribe(presence => {

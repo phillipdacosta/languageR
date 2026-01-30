@@ -2982,6 +2982,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.websocketService.connect();
     }
 
+    // Listen for WebSocket reconnection during video call
+    this.websocketService.connection$.pipe(takeUntil(this.destroy$)).subscribe(isConnected => {
+      console.log('🔌 [VIDEO-CALL] WebSocket connection status changed:', isConnected);
+      if (isConnected && this.lessonId) {
+        console.log('🔌 [VIDEO-CALL] WebSocket reconnected during call - refreshing chat');
+        // Reload chat messages after reconnection
+        setTimeout(() => {
+          this.loadChatMessages();
+        }, 500);
+      }
+    });
+
     // Listen for new messages
     this.websocketService.newMessage$.pipe(takeUntil(this.destroy$)).subscribe(message => {
       if (message) {
