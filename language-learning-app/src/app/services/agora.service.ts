@@ -54,7 +54,7 @@ export class AgoraService {
   public onChatMessage?: (message: any) => void;
   public onRemoteUserStateChange?: (uid: UID, state: { isMuted?: boolean; isVideoOff?: boolean }) => void;
   public onVolumeIndicator?: (volumes: { uid: UID; level: number }[]) => void;
-  public onParticipantIdentity?: (uid: UID, identity: { userId: string; isTutor: boolean; name: string }) => void;
+  public onParticipantIdentity?: (uid: UID, identity: { userId: string; isTutor: boolean; name: string; profilePicture?: string }) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -1089,7 +1089,8 @@ export class AgoraService {
           this.onParticipantIdentity(message.payload.uid, {
             userId: message.payload.userId,
             isTutor: message.payload.isTutor,
-            name: message.payload.name
+            name: message.payload.name,
+            profilePicture: message.payload.profilePicture || ''
           });
         }
       } else {

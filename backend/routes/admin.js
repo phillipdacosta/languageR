@@ -11,6 +11,7 @@ const alertService = require('../services/alertService');
 const walletService = require('../services/walletService');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { triggerManualRelease } = require('../jobs/releaseEarnings'); // Added manual trigger
+const autoReleaseClassPayments = require('../jobs/autoReleaseClassPayments'); // Manual finalize classes
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -1705,6 +1706,30 @@ router.post('/manual-release-earnings', verifyToken, requireAdmin, async (req, r
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to release earnings'
+    });
+  }
+});
+
+/**
+ * POST /api/admin/finalize-classes
+ * Manually trigger the finalize classes job to refund no-show classes (admin only)
+ */
+router.post('/finalize-classes', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    console.log('🔧 [ADMIN] Manually triggering finalize classes job...');
+    
+    const result = await autoReleaseClassPayments();
+    
+    res.json({
+      success: true,
+      message: 'Finalize classes job completed',
+      result
+    });
+  } catch (error) {
+    console.error('❌ [ADMIN] Error in finalize classes:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to finalize classes'
     });
   }
 });

@@ -1368,7 +1368,8 @@
       top: 8px;
       .reaction-main {
         background: #0084ff;
-        border: solid 0.5px white;
+        // border: solid 0.5px white;
+        z-index: 1;;
       }
       
       .bubble-tail .tail-dot {

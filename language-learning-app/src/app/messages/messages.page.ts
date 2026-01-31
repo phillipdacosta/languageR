@@ -1799,6 +1799,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     
     // Store unread count for scrolling (use provided value or get from conversation)
     const storedUnreadCount = unreadCount !== undefined ? unreadCount : (this.selectedConversation.unreadCount || 0);
+    console.log('📍 SCROLL DEBUG - storedUnreadCount:', storedUnreadCount, 'from:', {
+      providedUnreadCount: unreadCount,
+      conversationUnreadCount: this.selectedConversation.unreadCount,
+      conversationId: this.selectedConversation.conversationId
+    });
     
     
     this.messagesSubscription = this.messagingService.getMessages(receiverId, this.MESSAGE_PAGE_SIZE).subscribe({
@@ -1832,30 +1837,39 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
         // Attach scroll listener for lazy loading
         this.attachScrollListener();
         
-        // Immediately scroll to bottom to prevent flash (will be refined later)
-        requestAnimationFrame(() => {
-          const container = this.chatContainer?.nativeElement;
-          if (container) {
-            container.scrollTop = 999999;
-          }
-        });
+        // Hide loading spinner immediately - messages are ready to display
+        this.isLoadingMessages = false;
         
-        setTimeout(async () => {
+        // Use requestAnimationFrame to scroll after the DOM renders
+        requestAnimationFrame(() => {
           if (activeRequestId !== this.messageLoadRequestId) {
-            return; // Another request has started; do not update state
+            return; // Another request has started
           }
-          // Scroll to first unread message based on stored unread count
-          // Note: Backend marks messages as read when fetching, so we use the stored count
-          await this.scrollToFirstUnreadMessage(storedUnreadCount);
-
-          this.isLoadingMessages = false;
-          console.log(`✅ [${Date.now()}] isLoadingMessages = false (no cdr call)`);
           
-          // Now that messages are loaded and UI is stable, refresh conversations
-          // This updates the unread count in the sidebar without causing header flicker
-          console.log(`🔄 [${Date.now()}] Calling loadConversations()`);
-          this.loadConversations();
-        }, 150); // Increased from 40ms to 150ms for more reliable scrolling
+          // Give DOM one more frame to fully render
+          requestAnimationFrame(async () => {
+            if (activeRequestId !== this.messageLoadRequestId) {
+              return;
+            }
+            
+            // Scroll to appropriate position
+            if (storedUnreadCount > 0) {
+              console.log(`📍 Scrolling to first unread message, count: ${storedUnreadCount}`);
+              await this.scrollToFirstUnreadMessage(storedUnreadCount);
+            } else {
+              // No unread messages - scroll to bottom
+              const container = this.getActiveChatContainer();
+              if (container) {
+                container.scrollTop = container.scrollHeight;
+              }
+            }
+            
+            console.log(`✅ [${Date.now()}] Messages loaded and positioned`);
+            
+            // Refresh conversations in background (doesn't affect UI)
+            this.loadConversations();
+          });
+        });
       },
       error: (error) => {
         if (activeRequestId !== this.messageLoadRequestId) {
@@ -2312,7 +2326,8 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       totalMessages: this.messages.length,
       otherUserMessagesCount: otherUserMessages.length,
       unreadCount,
-      currentUserId
+      currentUserId,
+      senderIds: this.messages.map(m => ({ id: m.senderId, content: m.content?.substring(0, 30) }))
     });
     
     // If we have unread messages, scroll to the first unread message
@@ -2327,13 +2342,18 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('📍 Found first unread message:', {
         firstUnreadIndex,
         messageId: firstUnreadMessage?.id,
-        messageContent: firstUnreadMessage?.content?.substring(0, 50)
+        messageContent: firstUnreadMessage?.content?.substring(0, 50),
+        messageSenderId: firstUnreadMessage?.senderId
       });
       
       return firstUnreadMessage?.id || null;
     }
     
-    console.log('📍 Not enough other user messages to find unread message');
+    console.log('📍 Not enough other user messages to find unread message', {
+      otherUserMessagesLength: otherUserMessages.length,
+      unreadCount,
+      condition: `${otherUserMessages.length} >= ${unreadCount} = ${otherUserMessages.length >= unreadCount}`
+    });
     return null;
   }
 
@@ -2342,12 +2362,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    * @param unreadCount - The number of unread messages (from conversation before loading)
    */
   async scrollToFirstUnreadMessage(unreadCount?: number) {
-    console.log('📍 scrollToFirstUnreadMessage START, unreadCount:', unreadCount, 'messages:', this.messages.length);
+    console.log('📍 scrollToFirstUnreadMessage, unreadCount:', unreadCount, 'messages:', this.messages.length);
     
-    // Wait for messages to render in DOM
-    await this.waitForMessagesInDOM();
-    
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     if (!container) {
       console.warn('⚠️ No chat container found');
       return;
@@ -2383,12 +2400,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (firstUnreadId) {
       this.scrollToMessageWithRetry(firstUnreadId);
     } else {
-      this.scrollToBottomWithRetry();
+      // No unread messages - scroll to bottom
+      container.scrollTop = container.scrollHeight;
     }
   }
   
   /**
-   * Wait for messages to appear in DOM
+   * Wait for messages to appear in DOM and be properly laid out
    */
   private waitForMessagesInDOM(): Promise<void> {
     return new Promise(resolve => {
@@ -2398,13 +2416,22 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       }
       
       let attempts = 0;
-      const maxAttempts = 30;
+      const maxAttempts = 50;
       
       const check = () => {
-        const firstMessageEl = document.querySelector('[data-message-id]');
-        if (firstMessageEl || attempts >= maxAttempts) {
-          console.log(`📍 Messages in DOM after ${attempts} checks`);
-          setTimeout(resolve, 50); // Extra delay for layout
+        const container = this.getActiveChatContainer();
+        const firstMessageEl = container?.querySelector('[data-message-id]');
+        const hasScrollContent = container && container.scrollHeight > container.clientHeight;
+        
+        if ((firstMessageEl && hasScrollContent) || attempts >= maxAttempts) {
+          console.log(`📍 Messages in DOM after ${attempts} checks`, {
+            hasMessageElement: !!firstMessageEl,
+            hasScrollContent,
+            scrollHeight: container?.scrollHeight,
+            clientHeight: container?.clientHeight
+          });
+          // Give extra time for CSS to fully apply and layout to stabilize
+          setTimeout(resolve, 100);
           return;
         }
         attempts++;
@@ -2416,49 +2443,85 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   /**
+   * Get the active chat container (handles multiple containers for responsive design)
+   */
+  private getActiveChatContainer(): HTMLElement | null {
+    if (this.chatContainer?.nativeElement) {
+      return this.chatContainer.nativeElement;
+    }
+    
+    // Fallback: Query for all chat containers and find the visible one
+    const containers = document.querySelectorAll('.chat-messages');
+    for (let i = 0; i < containers.length; i++) {
+      const container = containers[i] as HTMLElement;
+      // Check if container is visible (has dimensions)
+      if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+        console.log(`📍 Found visible chat container at index ${i}`);
+        return container;
+      }
+    }
+    
+    console.warn('⚠️ No visible chat container found');
+    return null;
+  }
+
+  /**
    * Scroll to a specific message with retry logic
    */
   private scrollToMessageWithRetry(messageId: string, attempt = 0) {
-    const maxAttempts = 10;
-    const container = this.chatContainer?.nativeElement;
+    const maxAttempts = 5; // Reduced - we don't need many retries with this approach
+    const container = this.getActiveChatContainer();
     
     if (!container || attempt >= maxAttempts) {
-      console.log('📍 Falling back to bottom scroll');
+      console.log('📍 Falling back to bottom scroll (no container or max attempts reached)');
       this.scrollToBottomWithRetry();
       return;
     }
     
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
+    // Find the message element - look inside the visible container
+    const messageElement = container.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement;
     
     if (!messageElement) {
-      console.log(`📍 Message ${messageId} not found, attempt ${attempt + 1}`);
-      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 100);
+      console.log(`📍 Message ${messageId} not found in container, attempt ${attempt + 1}/${maxAttempts}`);
+      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 150);
       return;
     }
     
-    // Calculate position - put message 100px from top
-    const containerRect = container.getBoundingClientRect();
-    const elementRect = messageElement.getBoundingClientRect();
-    const elementTop = elementRect.top - containerRect.top + container.scrollTop;
-    const targetScroll = Math.max(0, elementTop - 100);
+    // Check if container has been laid out (has scroll height)
+    if (container.scrollHeight <= container.clientHeight) {
+      console.log(`📍 Container not fully laid out yet, attempt ${attempt + 1}/${maxAttempts}`, {
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight
+      });
+      setTimeout(() => this.scrollToMessageWithRetry(messageId, attempt + 1), 150);
+      return;
+    }
     
-    console.log(`📍 Scrolling to message, target: ${targetScroll}`);
-    container.scrollTop = targetScroll;
+    // Calculate the target scroll position manually (more reliable than scrollIntoView)
+    const messageRect = messageElement.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate where the message is relative to the container's scroll
+    const messageOffsetInContainer = messageRect.top - containerRect.top + container.scrollTop;
+    
+    // We want the message to be about 80px from the top of the visible area
+    const targetScrollTop = Math.max(0, messageOffsetInContainer - 80);
+    
+    console.log(`📍 Scrolling to message`, {
+      messageId,
+      messageOffsetInContainer,
+      targetScrollTop,
+      currentScrollTop: container.scrollTop
+    });
+    
+    // Set scroll position directly (instant, no animation for initial position)
+    container.scrollTop = targetScrollTop;
     
     // Highlight the message
     this.highlightedMessageId = messageId;
     setTimeout(() => { this.highlightedMessageId = null; }, 2000);
     
-    // Verify scroll worked
-    setTimeout(() => {
-      const diff = Math.abs(container.scrollTop - targetScroll);
-      if (diff > 50 && attempt < maxAttempts - 1) {
-        console.log(`📍 Scroll verification failed, diff: ${diff}, retrying`);
-        this.scrollToMessageWithRetry(messageId, attempt + 1);
-      } else {
-        console.log(`✅ Scroll to message complete, scrollTop: ${container.scrollTop}`);
-      }
-    }, 100);
+    console.log(`✅ Scroll to unread message complete, scrollTop: ${container.scrollTop}`);
   }
   
   /**
@@ -2466,7 +2529,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
    */
   private scrollToBottomWithRetry(attempt = 0) {
     const maxAttempts = 15;
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     
     if (!container) {
       console.warn('⚠️ No container for scroll');
@@ -2501,7 +2564,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   
   private scrollToBottomElement() {
     // Immediately scroll to bottom to prevent any flash
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     if (container) {
       container.scrollTop = 999999;
       
@@ -2527,7 +2590,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   
   private attemptScrollToBottom(attemptNumber: number) {
     const maxAttempts = 10; // More attempts for reliability
-    const container = this.chatContainer?.nativeElement;
+    const container = this.getActiveChatContainer();
     
     if (!container) {
       console.warn('⚠️ Chat container not found');
@@ -2797,13 +2860,19 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   isEmojiOnly(content: string): boolean {
     if (!content || content.trim().length === 0) return false;
     
-    // Remove all emojis and see if anything is left
-    // This regex matches most emoji characters
-    const emojiRegex = /[\p{Emoji}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Component}]/gu;
+    // First check if content contains regular alphanumeric characters
+    // If it has letters or numbers, it's not emoji-only
+    if (/[a-zA-Z0-9]/.test(content)) {
+      return false;
+    }
+    
+    // More specific emoji regex that excludes numeric characters
+    // This matches actual emoji faces, objects, symbols but not numbers
+    const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
     const withoutEmojis = content.replace(emojiRegex, '').trim();
     
     // Also remove variation selectors and zero-width joiners
-    const cleanedText = withoutEmojis.replace(/[\u200D\uFE0F]/g, '').trim();
+    const cleanedText = withoutEmojis.replace(/[\u200D\uFE0F\s]/g, '').trim();
     
     // If nothing left after removing emojis, it's emoji-only
     // Also check that we have at least one emoji

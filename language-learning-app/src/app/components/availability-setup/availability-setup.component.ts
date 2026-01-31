@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, OnChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, AfterViewInit, Input, Output, EventEmitter, OnChanges, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, LoadingController, AlertController, NavController } from '@ionic/angular';
@@ -52,6 +52,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
 
   @Input() targetDate: string | null = null; // Date parameter from route (YYYY-MM-DD format)
+  @Input() embeddedMode: boolean = false; // When true, hides navigation elements and emits events instead
+  @Output() availabilitySaved = new EventEmitter<void>(); // Emitted when availability is saved in embedded mode
   
   private destroy$ = new Subject<void>();
   
@@ -1511,6 +1513,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
           
           // Note: The UserService emits availabilityUpdated$ event in tap()
           // which will be received by tab1 to update hasAvailability immediately
+          
+          // Emit event in embedded mode
+          if (this.embeddedMode) {
+            this.availabilitySaved.emit();
+          }
         },
         error: async (error) => {
           await loading.dismiss();

@@ -1,5 +1,5 @@
 .class-invitation-content {
-  --padding-top: 60px; // Space for floating close button
+  --padding-top: 60px;
   --padding-bottom: 20px;
   --padding-start: 0;
   --padding-end: 0;
@@ -11,11 +11,11 @@
   }
 }
 
-// Floating close button (top-right)
-.floating-close-button {
+// Floating buttons
+.floating-close-button,
+.floating-back-button {
   position: fixed;
   top: 20px;
-  right: 20px;
   z-index: 1000;
   --background: #f5f5f7;
   --background-hover: #e8e8ed;
@@ -40,6 +40,14 @@
   }
 }
 
+.floating-close-button {
+  right: 20px;
+}
+
+.floating-back-button {
+  left: 20px;
+}
+
 // Loading State
 .loading-container {
   display: flex;
@@ -50,56 +58,57 @@
   min-height: 400px;
   
   ion-spinner {
-    margin-bottom: 20px;
+    width: 48px;
+    height: 48px;
     --color: #667eea;
   }
   
   p {
+    margin-top: 16px;
     color: #86868b;
     font-size: 15px;
-    font-weight: 500;
-    margin: 0;
   }
 }
 
-// Main Container
+// Invitation Container (Details Step)
 .invitation-container {
-  padding: 0 24px 24px 24px;
-  max-width: 600px;
-  margin: 0 auto;
-
-  @media (max-width: 768px) {
-    padding: 0 20px 20px 20px;
-  }
+  padding: 0 20px 20px 20px;
 }
 
-// Tutor Banner
+// Tutor Section
 .tutor-section {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
   border-radius: 14px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   
   .tutor-avatar {
     width: 52px;
     height: 52px;
-    border: 3px solid rgba(255, 255, 255, 0.9);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    flex-shrink: 0;
+    min-width: 52px;
+    min-height: 52px;
+    border: 2px solid #e5e5ea;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    background: #f5f5f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
     
     .avatar-placeholder {
       font-size: 28px;
-      color: #94a3b8;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: white;
+      color: #86868b;
     }
   }
   
@@ -108,35 +117,23 @@
     min-width: 0;
     
     .tutor-label {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
-      color: rgba(255, 255, 255, 0.85);
+      color: #86868b;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
+      letter-spacing: 0.5px;
       margin: 0 0 3px 0;
     }
     
     .tutor-name {
-      font-size: 18px;
-      font-weight: 700;
-      color: white;
-      margin: 0;
-      line-height: 1.2;
-      letter-spacing: -0.3px;
-    }
-  }
-
-  @media (max-width: 768px) {
-    padding: 14px;
-    margin-bottom: 16px;
-    
-    .tutor-avatar {
-      width: 48px;
-      height: 48px;
-    }
-    
-    .tutor-info .tutor-name {
       font-size: 17px;
+      font-weight: 600;
+      color: #1d1d1f;
+      margin: 0;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 }
@@ -144,56 +141,47 @@
 // Class Title
 .class-title {
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: #1d1d1f;
   margin: 0 0 20px 0;
+  letter-spacing: -0.4px;
   line-height: 1.2;
-  letter-spacing: -0.5px;
-  text-align: left;
-
-  @media (max-width: 768px) {
-    font-size: 22px;
-    margin-bottom: 16px;
-  }
 }
 
-// Class Details Grid
+// Class Details
 .class-details {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 1px;
+  background: #f5f5f7;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
 }
 
 .detail-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: #f1f3f5;
-  }
-
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  background: #ffffff;
+  
   .detail-icon {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
-    border-radius: 9px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     flex-shrink: 0;
     
     ion-icon {
       font-size: 20px;
-      color: #667eea;
+      color: white;
     }
   }
-
+  
   .detail-content {
     flex: 1;
     min-width: 0;
@@ -230,13 +218,10 @@
       color: #475569;
       line-height: 1.5;
       margin-top: 3px;
-      
-      // Limit height to prevent huge descriptions
       max-height: 150px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       
-      // Style HTML elements from Quill editor
       h1, h2, h3, h4, h5, h6 {
         margin: 0.5em 0 0.3em 0;
         font-weight: 600;
@@ -251,13 +236,8 @@
       p {
         margin: 0.4em 0;
         
-        &:first-child {
-          margin-top: 0;
-        }
-        
-        &:last-child {
-          margin-bottom: 0;
-        }
+        &:first-child { margin-top: 0; }
+        &:last-child { margin-bottom: 0; }
       }
       
       ul, ol {
@@ -270,65 +250,318 @@
         }
       }
       
-      strong {
-        font-weight: 600;
-        color: #1d1d1f;
-      }
-      
-      em {
-        font-style: italic;
-      }
+      strong { font-weight: 600; color: #1d1d1f; }
+      em { font-style: italic; }
+      a { color: #667eea; text-decoration: none; }
+    }
+  }
+}
 
-      a {
-        color: #667eea;
-        text-decoration: none;
-        
-        &:hover {
-          text-decoration: underline;
-        }
+.spots-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  
+  &.full {
+    background: #ffebee;
+    color: #c62828;
+  }
+}
+
+// Payment Section Styles
+.payment-section {
+  margin-top: 16px;
+  
+  .section-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #86868b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+  }
+  
+  .loading-cards {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #86868b;
+    font-size: 14px;
+    padding: 24px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    
+    ion-spinner {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+// Payment Methods List (Radio Style like wallet-topup)
+.payment-methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.payment-method-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8f9fa;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover:not(.disabled) {
+    background: #f0f1f3;
+  }
+  
+  &.selected {
+    background: rgba(102, 126, 234, 0.08);
+    border-color: #667eea;
+    
+    .radio-outer {
+      border-color: #667eea;
+    }
+    
+    .radio-inner {
+      background: #667eea;
+    }
+  }
+  
+  &.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    
+    .option-subtitle.insufficient {
+      color: #ef4444;
+    }
+  }
+  
+  .radio-indicator {
+    flex-shrink: 0;
+  }
+  
+  .radio-outer {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #c7c7cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease;
+  }
+  
+  .radio-inner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: transparent;
+    transition: background 0.2s ease;
+  }
+  
+  .option-icon,
+  .card-icon,
+  .add-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  
+  .option-icon.wallet-icon {
+    color: #10b981;
+  }
+  
+  .card-icon {
+    color: #3b82f6;
+  }
+  
+  .add-icon {
+    color: #667eea;
+  }
+  
+  .option-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    
+    .option-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    
+    .option-subtitle {
+      font-size: 13px;
+      color: #86868b;
+      
+      &.insufficient {
+        color: #ef4444;
       }
     }
   }
+  
+  .default-badge-small {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    --background: #667eea;
+    flex-shrink: 0;
+  }
+}
 
-  @media (max-width: 768px) {
-    padding: 11px;
-    gap: 11px;
+.new-card-item {
+  .option-subtitle {
+    font-style: italic;
+  }
+}
+
+// Card Entry Container (Step 2)
+.card-entry-container {
+  padding: 20px;
+  
+  .step-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1d1d1f;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.3px;
+  }
+  
+  .step-description {
+    font-size: 15px;
+    color: #86868b;
+    margin: 0 0 24px 0;
+    line-height: 1.5;
     
-    .detail-icon {
-      width: 34px;
-      height: 34px;
+    strong {
+      color: #1d1d1f;
+    }
+  }
+  
+  .card-entry-form {
+    margin-bottom: 24px;
+    
+    .card-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0 0 10px 0;
+    }
+    
+    .card-element-container {
+      padding: 16px;
+      background: #f8f9fa;
+      border: 2px solid #e5e5ea;
+      border-radius: 12px;
+      transition: border-color 0.2s ease;
       
-      ion-icon {
-        font-size: 19px;
+      &:focus-within {
+        border-color: #667eea;
+        background: #ffffff;
       }
     }
-
-    .detail-content {
-      .detail-value {
-        font-size: 13px;
+    
+    .save-card-option {
+      margin-top: 16px;
+      
+      ion-checkbox {
+        --size: 20px;
+        --checkbox-background-checked: #667eea;
+        --border-color: #c7c7cc;
+        --border-color-checked: #667eea;
+        font-size: 14px;
+        color: #1d1d1f;
+      }
+    }
+    
+    .card-helper-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: #86868b;
+      
+      ion-icon {
+        font-size: 14px;
+        color: #10b981;
+      }
+    }
+  }
+  
+  .payment-summary {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      font-size: 14px;
+      color: #1d1d1f;
+      
+      &:not(:last-child) {
+        border-bottom: 1px solid #e5e5ea;
+      }
+      
+      &.total {
+        padding-top: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        color: #1d1d1f;
       }
     }
   }
 }
 
-// Spots Badge
-.spots-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  margin-left: 8px;
-  vertical-align: middle;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+// Expired/Cancelled Warning
+.expired-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 20px;
+  padding: 14px 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 12px;
   
-  &.full {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+  ion-icon {
+    font-size: 24px;
+    color: #856404;
+    flex-shrink: 0;
+  }
+  
+  span {
+    font-size: 14px;
+    font-weight: 500;
+    color: #856404;
+    line-height: 1.4;
+  }
+  
+  &.cancelled {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    
+    ion-icon, span {
+      color: #721c24;
+    }
   }
 }
 
@@ -338,62 +571,62 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 32px;
+  padding: 60px 30px;
   text-align: center;
   min-height: 400px;
   
   .error-icon {
-    font-size: 80px;
-    color: #ff3b30;
+    font-size: 56px;
+    color: #d1d1d6;
     margin-bottom: 20px;
-    opacity: 0.8;
   }
   
   h3 {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     color: #1d1d1f;
-    margin: 0 0 12px 0;
+    margin: 0 0 8px 0;
     letter-spacing: -0.3px;
   }
   
   p {
-    color: #86868b;
     font-size: 15px;
-    line-height: 1.5;
+    color: #86868b;
     margin: 0;
-    max-width: 320px;
+    line-height: 1.5;
+    max-width: 280px;
   }
 }
 
-// Footer with Buttons
+// Footer
 ion-footer {
   ion-toolbar {
-    --background: white;
+    --background: #ffffff;
     --border-width: 0;
-    --padding-top: 10px;
-    --padding-bottom: 10px;
-    --padding-start: 20px;
-    --padding-end: 20px;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    padding: 12px 16px 24px 16px;
   }
 }
 
 .button-group {
   display: flex;
   gap: 12px;
-  max-width: 600px;
-  margin: 0 auto;
+  
+  &.single {
+    ion-button {
+      flex: none;
+      width: 100%;
+    }
+  }
   
   ion-button {
     flex: 1;
+    height: 50px;
     margin: 0;
-    height: 48px;
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: none;
-    --border-radius: 12px;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.2px;
+    --border-radius: 14px;
     
     &[fill="outline"] {
       --border-width: 2px;

@@ -1,63 +1,182 @@
-.cropper-wrapper {
-  width: 100%;
-  max-width: 500px;
-  height: 400px;
-  margin: 0 auto 24px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #f8f9fa;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
 
-  @media (max-width: 768px) {
-    height: 300px;
+ion-content {
+  flex: 1;
+  overflow-y: auto;
+  --background: #ffffff;
+}
+
+ion-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+// Floating close button (matches reschedule modal)
+.floating-close-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1001;
+  --background: #f5f5f7;
+  --background-hover: #e8e8ed;
+  --border-radius: 50%;
+  --color: #1d1d1f;
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+
+  ion-icon {
+    font-size: 24px;
   }
 }
 
-.controls {
-  margin-bottom: 24px;
+.modal-content {
+  padding: 60px 24px 24px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  align-items: center;
+}
+
+.modal-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1d1d1f;
+  margin: 0 0 24px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.controls {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto 24px;
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 16px;
+  
+  .controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    
+    @media (max-width: 576px) {
+      flex-direction: column;
+      gap: 12px;
+    }
+  }
 
   .control-group {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 8px;
-    background: #f8f9fa;
-    border-radius: 12px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
     .control-label {
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 600;
       color: #6b7280;
-      min-width: 60px;
+      min-width: 50px;
       text-align: center;
     }
 
-    ion-button {
-      --padding-start: 8px;
-      --padding-end: 8px;
+    .control-btn {
+      --padding-start: 6px;
+      --padding-end: 6px;
+      --color: #1d1d1f;
+      margin: 0;
+      
+      &[disabled] {
+        --color: #d1d5db;
+        opacity: 0.5;
+      }
       
       ion-icon {
-        font-size: 24px;
+        font-size: 20px;
       }
     }
   }
 
   .reset-btn {
-    margin-top: 8px;
+    --border-color: #d1d5db;
+    --color: #1d1d1f;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 10px;
+    --padding-top: 10px;
+    --padding-bottom: 10px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    font-size: 14px;
+    margin: 0;
+    height: 40px;
+    
+    @media (max-width: 576px) {
+      width: 100%;
+    }
   }
 }
 
-.action-buttons {
-  display: flex;
+.cropper-wrapper {
+  width: 100%;
+  max-width: 500px;
+  height: 350px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f8f9fa;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    height: 280px;
+    max-width: 100%;
+  }
+}
+
+// Button group for footer (matches reschedule modal)
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-top: 24px;
+  padding: 16px;
 
   ion-button {
-    flex: 1;
+    margin: 0;
+    text-transform: none;
+    font-weight: 600;
+    --border-radius: 12px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+    font-size: 16px;
+    
+    &[fill="outline"] {
+      --border-color: #d1d5db;
+      --color: #1d1d1f;
+    }
+    
+    &[color="primary"] {
+      --background: #007aff;
+      --background-hover: #0051d5;
+      --color: #ffffff;
+      
+      &[disabled] {
+        --background: #d1d5db;
+        --color: #9ca3af;
+        opacity: 0.6;
+      }
+    }
   }
 }
 

@@ -256,20 +256,20 @@ export class NotificationsPage implements OnDestroy {
 
   getNotificationIcon(type: string): string {
     const iconMap: { [key: string]: string } = {
-      'lesson_created': 'calendar',
+      'lesson_created': 'videocam',
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
-      'class_cancelled': 'calendar',
-      'class_auto_cancelled': 'calendar',
-      'class_invitation_cancelled': 'calendar',
-      'invitation_cancelled': 'calendar',
-      'class_removed': 'calendar',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
+      'class_removed': 'videocam',
       'message': 'chatbubbles',
-      'lesson_reminder': 'alarm',
+      'lesson_reminder': 'videocam',
       'lesson_cancelled': 'close-circle',
-      'lesson_rescheduled': 'swap-horizontal',
-      'office_hours_booking': 'time',
-      'office_hours_starting': 'play-circle',
+      'lesson_rescheduled': 'videocam',
+      'office_hours_booking': 'videocam',
+      'office_hours_starting': 'videocam',
       'payment_received': 'cash',
       'tutor_video_approved': 'checkmark-circle',
       'tutor_video_rejected': 'close-circle'
@@ -278,7 +278,7 @@ export class NotificationsPage implements OnDestroy {
   }
 
   getNotificationIconClass(type: string): string {
-    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
+    if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'lesson_rescheduled' || type === 'office_hours_booking' || type === 'office_hours_starting' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled' || type === 'class_removed') {
       return 'lesson-icon';
     } else if (type === 'class_invitation') {
       return 'class-invitation-icon';

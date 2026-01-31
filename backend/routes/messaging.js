@@ -10,6 +10,17 @@ const { formatNameWithInitial } = require('../utils/nameFormatter');
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
 
+// Helper to normalize user IDs (remove 'dev-user-' prefix for comparison)
+const normalizeUserId = (id) => {
+  if (!id) return '';
+  return id.replace('dev-user-', '');
+};
+
+// Helper to check if two user IDs match (handles prefix differences)
+const userIdsMatch = (id1, id2) => {
+  return normalizeUserId(id1) === normalizeUserId(id2);
+};
+
 // Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -837,23 +848,30 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
       message.reactions = [];
     }
 
-    // Check if user already reacted with this exact emoji
+    console.log(`🎯 [REACTION] User ${userId} reacting with ${emoji} to message ${messageId}`);
+    console.log(`🎯 [REACTION] Existing reactions:`, message.reactions.map(r => ({ userId: r.userId, emoji: r.emoji })));
+
+    // Check if user already reacted with this exact emoji (use normalized comparison)
     const existingReaction = message.reactions.find(
-      r => r.userId === userId && r.emoji === emoji
+      r => userIdsMatch(r.userId, userId) && r.emoji === emoji
     );
 
     let reactionAdded = false; // Track if reaction was added or removed
     
     if (existingReaction) {
       // Remove the reaction if clicking the same emoji (toggle off)
+      console.log(`🎯 [REACTION] Same emoji found - toggling OFF`);
       message.reactions = message.reactions.filter(
-        r => r.userId !== userId
+        r => !userIdsMatch(r.userId, userId)
       );
       reactionAdded = false;
     } else {
       // Remove any existing reaction from this user first (only one reaction allowed)
+      const hadPreviousReaction = message.reactions.some(r => userIdsMatch(r.userId, userId));
+      console.log(`🎯 [REACTION] Had previous reaction: ${hadPreviousReaction}`);
+      
       message.reactions = message.reactions.filter(
-        r => r.userId !== userId
+        r => !userIdsMatch(r.userId, userId)
       );
       // Add the new reaction
       message.reactions.push({
@@ -862,9 +880,10 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
         userName: formatDisplayName(user)
       });
       reactionAdded = true;
+      console.log(`🎯 [REACTION] Added new reaction, total reactions now: ${message.reactions.length}`);
       
       // Create notification for the message author (if not reacting to own message)
-      if (message.senderId !== userId) {
+      if (!userIdsMatch(message.senderId, userId)) {
         try {
           const Notification = require('../models/Notification');
           await Notification.create({
@@ -879,7 +898,15 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
           
           // Emit notification via WebSocket
           if (req.io && req.connectedUsers) {
-            const authorSocketId = req.connectedUsers.get(message.senderId);
+            // Try multiple ID formats to find the socket
+            let authorSocketId = req.connectedUsers.get(message.senderId);
+            if (!authorSocketId) {
+              authorSocketId = req.connectedUsers.get(`dev-user-${message.senderId}`);
+            }
+            if (!authorSocketId) {
+              authorSocketId = req.connectedUsers.get(normalizeUserId(message.senderId));
+            }
+            
             if (authorSocketId) {
               req.io.to(authorSocketId).emit('new_notification', {
                 type: 'message',
@@ -887,6 +914,9 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
                 message: `${formatDisplayName(user)} reacted ${emoji} to your message`,
                 userId: message.senderId
               });
+              console.log('📤 Emitted new_notification to message author');
+            } else {
+              console.log('⚠️ Could not find socket for message author:', message.senderId);
             }
           }
         } catch (notifError) {
@@ -912,9 +942,26 @@ router.post('/messages/:messageId/reactions', verifyToken, async (req, res) => {
     // Emit WebSocket event for real-time update
     console.log('📡 Emitting reaction update, req.io exists:', !!req.io, 'req.connectedUsers exists:', !!req.connectedUsers);
     if (req.io && req.connectedUsers) {
-      const senderSocketId = req.connectedUsers.get(updatedMessage.senderId);
-      const receiverSocketId = req.connectedUsers.get(updatedMessage.receiverId);
+      // Helper to find socket ID with ID normalization
+      const findSocketId = (userId) => {
+        // Try direct lookup first
+        let socketId = req.connectedUsers.get(userId);
+        if (socketId) return socketId;
+        
+        // Try with dev-user- prefix
+        socketId = req.connectedUsers.get(`dev-user-${userId}`);
+        if (socketId) return socketId;
+        
+        // Try without dev-user- prefix
+        const normalizedId = normalizeUserId(userId);
+        socketId = req.connectedUsers.get(normalizedId);
+        return socketId;
+      };
+      
+      const senderSocketId = findSocketId(updatedMessage.senderId);
+      const receiverSocketId = findSocketId(updatedMessage.receiverId);
       console.log('🔍 Sender socket:', senderSocketId, 'Receiver socket:', receiverSocketId);
+      console.log('🔍 Looking up senderId:', updatedMessage.senderId, 'receiverId:', updatedMessage.receiverId);
       
       const reactionUpdate = {
         messageId: updatedMessage._id,

@@ -29,7 +29,7 @@ export interface PaymentHistory {
   amount: number;
   currency: string;
   paymentMethod: 'wallet' | 'card' | 'apple_pay' | 'google_pay';
-  paymentType: 'lesson_booking' | 'office_hours' | 'wallet_top_up';
+  paymentType: 'lesson_booking' | 'office_hours' | 'wallet_top_up' | 'class_booking';
   status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'refunded' | 'partially_refunded' | 'cancelled' | 'authorized';
   lessonId?: {
     _id: string;
@@ -43,6 +43,22 @@ export interface PaymentHistory {
       firstName?: string;
       lastName?: string;
       picture?: string;
+      profilePicture?: string;
+    };
+  };
+  classId?: {
+    _id: string;
+    name?: string;
+    startTime?: Date;
+    endTime?: Date;
+    status?: string;
+    tutorId?: {
+      _id: string;
+      name?: string;
+      firstName?: string;
+      lastName?: string;
+      picture?: string;
+      profilePicture?: string;
     };
   };
   createdAt: Date;

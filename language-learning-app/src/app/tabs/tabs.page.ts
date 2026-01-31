@@ -64,9 +64,23 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   // Track if a conversation is selected (for hiding tabs on mobile)
   hasSelectedConversation = false;
   
-  // Check if tabs should be hidden (on messages route AND conversation selected)
+  // Check if tabs should be hidden (on messages route AND conversation selected, or on schedule-class page on mobile)
   get shouldHideTabs(): boolean {
-    return this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation;
+    // Hide tabs on messages when conversation is selected
+    if (this.isCurrentRoute('/tabs/messages') && this.hasSelectedConversation) {
+      return true;
+    }
+    
+    // Hide tabs on schedule-class page on mobile
+    if (this.isMobile() || this.isMobileViewport()) {
+      const currentUrl = this.router.url;
+      const normalizedUrl = currentUrl.split('?')[0].replace(/\/$/, '');
+      if (normalizedUrl.includes('/schedule-class')) {
+        return true;
+      }
+    }
+    
+    return false;
   }
   
   // Computed property for calendar tab selection
@@ -681,9 +695,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'lesson_analysis_ready': 'analytics',
       'class_invitation': 'people',
       'class_accepted': 'people',
-      'class_cancelled': 'close-circle',
-      'class_auto_cancelled': 'close-circle',
-      'class_removed': 'close-circle',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_removed': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
       'message': 'chatbubbles',
       'progress_milestone': 'trophy'
     };
@@ -691,7 +707,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getNotificationIconClass(type: string): string {
-    if (['lesson_created', 'lesson_reminder', 'lesson_rescheduled', 'office_hours_booking', 'office_hours_starting'].includes(type)) {
+    if (['lesson_created', 'lesson_reminder', 'lesson_rescheduled', 'office_hours_booking', 'office_hours_starting', 'class_cancelled', 'class_auto_cancelled', 'class_removed', 'class_invitation_cancelled', 'invitation_cancelled'].includes(type)) {
       return 'lesson-icon';
     }
     if (type === 'lesson_analysis_ready') {
@@ -735,6 +751,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       'lesson_cancelled': 'close-circle',
       'lesson_rescheduled': 'calendar',
       'class_invitation': 'people',
+      'class_cancelled': 'videocam',
+      'class_auto_cancelled': 'videocam',
+      'class_removed': 'videocam',
+      'class_invitation_cancelled': 'videocam',
+      'invitation_cancelled': 'videocam',
       'office_hours_booking': 'briefcase',
       'office_hours_starting': 'play',
       'payment_received': 'cash',
@@ -747,7 +768,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   getContextualIconClass(type: string): string {
     if (type === 'payment_received') {
       return 'contextual-icon money-icon';
-    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation') {
+    } else if (type === 'lesson_created' || type === 'lesson_reminder' || type === 'class_invitation' || type === 'class_cancelled' || type === 'class_auto_cancelled' || type === 'class_removed' || type === 'class_invitation_cancelled' || type === 'invitation_cancelled') {
       return 'contextual-icon lesson-icon';
     } else if (type === 'message') {
       return 'contextual-icon message-icon';

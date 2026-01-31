@@ -66,12 +66,15 @@ export class ClassService {
     );
   }
 
-  acceptInvitation(classId: string): Observable<{ success: boolean; class: any }> {
+  acceptInvitation(classId: string, paymentMethodId?: string, useWallet?: boolean): Observable<{ success: boolean; class: any }> {
     return this.userService.currentUser$.pipe(
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
-        return this.http.post<{ success: boolean; class: any }>(`${this.apiUrl}/classes/${classId}/accept`, {}, { headers });
+        const body: any = {};
+        if (paymentMethodId) body.paymentMethodId = paymentMethodId;
+        if (useWallet) body.useWallet = true;
+        return this.http.post<{ success: boolean; class: any }>(`${this.apiUrl}/classes/${classId}/accept`, body, { headers });
       })
     );
   }

@@ -4243,13 +4243,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const isClass = (lesson as any).isClass;
         const isCancelled = lesson.status === 'cancelled';
         
+        // For classes, ensure tutor is properly extracted (could be populated object or ID)
+        let tutorObj = tutor;
+        if (isClass && tutor && typeof tutor === 'object') {
+          tutorObj = tutor; // Already populated
+        } else if (isClass && lesson.tutorId && typeof lesson.tutorId === 'object') {
+          tutorObj = lesson.tutorId; // Use the populated tutorId
+        }
+        
         // Precompute reschedule flags
         const isRescheduleProposer = this.isRescheduleProposer(lesson);
         const rescheduleAccepted = lesson.rescheduleProposal?.status === 'accepted';
         
         // Determine which participant to show based on user role
         const isStudentView = this.isStudent();
-        const participantToShow = isStudentView ? tutor : student;
+        const participantToShow = isStudentView ? tutorObj : student;
         
         return {
           time: this.formatTimeOnly(startTime),
@@ -4265,6 +4273,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
             ? ((lesson as any).classData?.thumbnail || null) // Show class thumbnail if available
             : (participantToShow?.picture || participantToShow?.profilePicture || null),
           lesson: lesson,
+          tutor: tutorObj, // Include tutor object for easy access (use properly extracted tutor)
           isTrialLesson: lesson.isTrialLesson || false,
           isCancelled: isCancelled,
           cancelReason: isCancelled ? lesson.cancelReason : null,
@@ -4377,8 +4386,8 @@ navigateToLessons() {
     // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
     // This prevents stale cache issues where userType might be wrong
     const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
-    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
+    const tutorId = lesson.tutorId ? (typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId) : null;
+    const studentId = lesson.studentId ? (typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId) : null;
     
     console.log('🔍 DEBUG: Role determination:', {
       currentUserId,
@@ -4387,9 +4396,10 @@ navigateToLessons() {
       studentId,
       tutorIdRaw: lesson.tutorId,
       studentIdRaw: lesson.studentId,
+      isClass,
       idsMatch: {
         matchesTutor: currentUserId === tutorId,
-        matchesStudent: currentUserId === studentId
+        matchesStudent: studentId ? currentUserId === studentId : 'N/A (class)'
       }
     });
     
@@ -4398,9 +4408,13 @@ navigateToLessons() {
     if (currentUserId === tutorId) {
       role = 'tutor';
       console.log('✅ Determined role: TUTOR (ID match)');
-    } else if (currentUserId === studentId) {
+    } else if (studentId && currentUserId === studentId) {
       role = 'student';
       console.log('✅ Determined role: STUDENT (ID match)');
+    } else if (isClass) {
+      // For classes, studentId may be null - determine role by user type
+      role = this.isTutor() ? 'tutor' : 'student';
+      console.log('✅ Determined role for CLASS:', role);
     } else {
       // Fallback to currentUser if IDs don't match (shouldn't happen)
       console.warn('⚠️ Could not determine role from lesson IDs, using currentUser.userType');
@@ -4582,6 +4596,86 @@ navigateToLessons() {
     }
   }
 
+  // Get the instructor name for a class (First L. format)
+  getClassInstructorName(lesson: any): string {
+    if (!lesson?.tutorId) return 'Instructor';
+    
+    const tutor = lesson.tutorId;
+    if (typeof tutor === 'object' && tutor) {
+      // Try multiple ways to get the name
+      let firstName = tutor.firstName || '';
+      let lastName = tutor.lastName || '';
+      
+      // Fallback to splitting 'name' field
+      if (!firstName && tutor.name) {
+        const nameParts = tutor.name.trim().split(/\s+/);
+        firstName = nameParts[0] || '';
+        lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      }
+      
+      // Fallback to email if no name
+      if (!firstName && tutor.email) {
+        const emailParts = tutor.email.split('@')[0];
+        // Try to extract name from email (e.g., john.doe@email.com)
+        const emailNameParts = emailParts.split(/[._-]/);
+        firstName = emailNameParts[0] || '';
+        firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+      }
+      
+      if (firstName && lastName) {
+        return `${firstName} ${lastName.charAt(0).toUpperCase()}.`;
+      } else if (firstName) {
+        return firstName;
+      }
+    }
+    
+    return 'Instructor';
+  }
+
+  // Get tutor from lesson (handles both populated and non-populated tutorId)
+  getTutorFromLesson(lesson: any): any {
+    if (!lesson) return null;
+    
+    // Try lesson.tutorId first (most common - should be populated for classes)
+    if (lesson.tutorId) {
+      // If it's an object (populated), return it
+      if (typeof lesson.tutorId === 'object' && lesson.tutorId !== null && !Array.isArray(lesson.tutorId)) {
+        // It's a populated object - return it
+        return lesson.tutorId;
+      }
+      // If it's a string ID, we can't use it (not populated)
+      // Return null so template can fallback to event.tutor
+    }
+    
+    return null;
+  }
+
+  // Get tutor picture from multiple possible fields
+  getTutorPicture(tutor: any): string | null {
+    if (!tutor) return null;
+    
+    // Handle if tutor is just an ID string (shouldn't happen but be safe)
+    if (typeof tutor === 'string') return null;
+    
+    // Handle if tutor is an object
+    if (typeof tutor === 'object') {
+      // Try picture first (most common)
+      if (tutor.picture && typeof tutor.picture === 'string' && tutor.picture.trim() !== '') {
+        return tutor.picture;
+      }
+      // Try profilePicture
+      if (tutor.profilePicture && typeof tutor.profilePicture === 'string' && tutor.profilePicture.trim() !== '') {
+        return tutor.profilePicture;
+      }
+      // Try auth0Picture as last resort
+      if (tutor.auth0Picture && typeof tutor.auth0Picture === 'string' && tutor.auth0Picture.trim() !== '') {
+        return tutor.auth0Picture;
+      }
+    }
+    
+    return null;
+  }
+
   async loadLessons(showSkeleton = true) {
     console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons);
     
@@ -4630,6 +4724,7 @@ navigateToLessons() {
                   updatedAt: cls.updatedAt || new Date(),
                   isClass: true, // Mark as class to differentiate
                   className: cls.name,
+                  isPublic: cls.isPublic || false, // Include isPublic flag
                   classData: cls, // Store full class data including attendees
                   attendees: cls.attendees || [], // Confirmed students who are going
                   capacity: cls.capacity,
@@ -4647,9 +4742,17 @@ navigateToLessons() {
         }
 
         // For students, also load their accepted/confirmed classes
+        console.log('🎓 [TAB1] Checking if should load student classes...');
+        console.log('  - isTutor():', this.isTutor());
+        console.log('  - !isTutor():', !this.isTutor());
+        
         if (!this.isTutor()) {
+          console.log('🎓 [TAB1] Loading accepted classes for student...');
           try {
             const classesResp = await this.classService.getAcceptedClasses().toPromise();
+            console.log('🎓 [TAB1] getAcceptedClasses response:', classesResp);
+            console.log('🎓 [TAB1] Number of accepted classes:', classesResp?.classes?.length || 0);
+            
             if (classesResp?.success && classesResp.classes) {
               // Convert accepted classes to lesson-like objects
               const classLessons = classesResp.classes.map((cls: any) => ({
@@ -4667,19 +4770,28 @@ navigateToLessons() {
                 updatedAt: cls.updatedAt || new Date(),
                 isClass: true, // Mark as class to differentiate
                 className: cls.name,
+                isPublic: cls.isPublic || false, // Include isPublic flag
                 classData: cls, // Store full class data
-                attendees: cls.confirmedStudents || [], // Other confirmed students
+                attendees: cls.confirmedStudents || [], // Other confirmed students (with populated picture/profilePicture)
                 capacity: cls.capacity,
                 cancelReason: cls.cancelReason // Include cancel reason
               } as any));
               
+              console.log('🎓 [TAB1] Converted classes to lesson-like objects:', classLessons);
+              
               // Merge classes with lessons
               allLessons = [...allLessons, ...classLessons];
+              console.log('🎓 [TAB1] Total allLessons after merge:', allLessons.length);
             }
           } catch (error) {
-            console.error('Error loading student classes:', error);
+            console.error('🎓 [TAB1] Error loading student classes:', error);
           }
+        } else {
+          console.log('🎓 [TAB1] Skipping class load - user is a tutor');
         }
+
+        console.log('📋 [TAB1] Total lessons before filtering:', allLessons.length);
+        console.log('📋 [TAB1] Lessons with isClass flag:', allLessons.filter(l => (l as any).isClass).length);
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
@@ -5894,15 +6006,18 @@ navigateToLessons() {
     
     // CRITICAL FIX: Determine role from the LESSON, not hardcoded
     const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId;
-    const studentId = typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId;
+    const tutorId = lesson.tutorId ? (typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId) : null;
+    const studentId = lesson.studentId ? (typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId) : null;
     
     // Determine role by comparing IDs
     let role: 'tutor' | 'student';
     if (currentUserId === tutorId) {
       role = 'tutor';
-    } else if (currentUserId === studentId) {
+    } else if (studentId && currentUserId === studentId) {
       role = 'student';
+    } else if (isClass) {
+      // For classes, check if current user is in the students array or is the tutor
+      role = this.isTutor() ? 'tutor' : 'student';
     } else {
       // Fallback - this method is typically called from tutor view, but check to be sure
       role = this.isTutor() ? 'tutor' : 'student';

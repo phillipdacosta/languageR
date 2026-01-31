@@ -1045,7 +1045,15 @@ class PaymentService {
         select: 'subject startTime endTime cancelReason tutorId',
         populate: {
           path: 'tutorId',
-          select: 'name firstName lastName picture'
+          select: 'name firstName lastName picture profilePicture'
+        }
+      })
+      .populate({
+        path: 'classId',
+        select: 'name startTime endTime status tutorId',
+        populate: {
+          path: 'tutorId',
+          select: 'name firstName lastName picture profilePicture'
         }
       })
       .sort({ createdAt: -1 })

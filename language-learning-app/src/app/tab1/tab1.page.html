@@ -290,8 +290,8 @@
                   </span>
                 </div>
                 
-                <!-- Main Content: Avatar + Info -->
-                <div class="lesson-main-content">
+                <!-- Main Content: Avatar + Info (for regular 1:1 lessons) -->
+                <div class="lesson-main-content" *ngIf="!nextLesson.lesson?.isClass">
                   <ion-avatar class="lesson-avatar">
                     <img 
                       *ngIf="nextLesson && getOtherParticipantAvatar(nextLesson.lesson)" 
@@ -334,6 +334,60 @@
                         <span class="detail-label">{{ getTimeRangeOnly(nextLesson?.lesson) }}</span>
                       </div>
                     </div>
+                  </div>
+                </div>
+                
+                <!-- Main Content: Class thumbnail + Info (for classes) -->
+                <div class="lesson-main-content class-content" *ngIf="nextLesson.lesson?.isClass">
+                  <ion-avatar class="lesson-avatar class-avatar">
+                    <img 
+                      *ngIf="nextLesson.lesson?.classData?.thumbnail" 
+                      [src]="nextLesson.lesson.classData.thumbnail" 
+                      [alt]="nextLesson.lesson.className || 'Class'"
+                      referrerpolicy="no-referrer">
+                    <ion-icon *ngIf="!nextLesson.lesson?.classData?.thumbnail" name="people" class="avatar-placeholder-icon"></ion-icon>
+                  </ion-avatar>
+                  
+                  <div class="lesson-info">
+                    <!-- Class Name as title -->
+                    <h3 class="tutor-name class-title">
+                      {{ nextLesson.lesson.className || nextLesson.lesson.subject || 'Group Class' }}
+                    </h3>
+                    
+                    <!-- Instructor info -->
+                    <div class="instructor-info">
+                      <ion-avatar class="instructor-avatar">
+                        <img 
+                          *ngIf="nextLesson.lesson?.tutorId?.picture" 
+                          [src]="nextLesson.lesson.tutorId.picture" 
+                          [alt]="getClassInstructorName(nextLesson.lesson)"
+                          referrerpolicy="no-referrer">
+                        <div class="instructor-avatar-placeholder" *ngIf="!nextLesson.lesson?.tutorId?.picture">
+                          {{ getClassInstructorName(nextLesson.lesson)?.charAt(0) || 'T' }}
+                        </div>
+                      </ion-avatar>
+                      <span class="instructor-name">{{ getClassInstructorName(nextLesson.lesson) }}</span>
+                    </div>
+                    
+                    <div class="lesson-details-row">
+                      <div class="detail-group">
+                        <ion-icon name="calendar-outline"></ion-icon>
+                        <span class="detail-label">{{ nextLesson?.isToday ? 'Today' : nextLesson?.dateTag }}</span>
+                      </div>
+                      
+                      <div class="detail-group">
+                        <ion-icon name="time-outline"></ion-icon>
+                        <span class="detail-label">{{ getTimeRangeOnly(nextLesson?.lesson) }}</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Attendees for classes (going section) -->
+                    <app-class-attendees 
+                      *ngIf="nextLesson.lesson?.attendees"
+                      [attendees]="nextLesson.lesson.attendees"
+                      [capacity]="nextLesson.lesson.capacity"
+                      [maxDisplay]="3">
+                    </app-class-attendees>
                   </div>
                 </div>
                 
@@ -992,6 +1046,43 @@
                         <span *ngIf="!event.lesson?.isClass">{{ event.subject }}</span>
                       </p>
                       
+                      <!-- Private/Public label for classes -->
+                      <div class="timeline-class-type-badge" *ngIf="event.lesson?.isClass">
+                        <span class="class-type-label" 
+                              [class.is-public]="event.lesson.isPublic" 
+                              [class.is-private]="!event.lesson.isPublic">
+                          {{ event.lesson.isPublic ? 'Public' : 'Private' }}
+                        </span>
+                      </div>
+                      
+                      <!-- Tutor info for classes (show for students only) -->
+                      <div class="timeline-tutor-info" *ngIf="event.lesson?.isClass && !isTutorUser">
+                        <ion-avatar class="tutor-mini-avatar">
+                          <img 
+                            *ngIf="event.lesson?.tutorId?.picture || event.lesson?.tutorId?.profilePicture" 
+                            [src]="event.lesson?.tutorId?.picture || event.lesson?.tutorId?.profilePicture" 
+                            [alt]="getClassInstructorName(event.lesson)"
+                            referrerpolicy="no-referrer"
+                            (error)="$event.target.style.display='none'">
+                          <ion-icon *ngIf="!event.lesson?.tutorId?.picture && !event.lesson?.tutorId?.profilePicture" name="person"></ion-icon>
+                        </ion-avatar>
+                        <span class="tutor-name">{{ getClassInstructorName(event.lesson) }}</span>
+                      </div>
+                      
+                      <!-- Tutor info for regular lessons (student view) - show tutor info -->
+                      <div class="timeline-tutor-info" *ngIf="!event.lesson?.isClass && !isTutorUser && (getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor)">
+                        <ion-avatar class="tutor-mini-avatar">
+                          <img 
+                            *ngIf="getTutorPicture(getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor)" 
+                            [src]="getTutorPicture(getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor)" 
+                            [alt]="formatTutorDisplayName(getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor)"
+                            referrerpolicy="no-referrer"
+                            (error)="$event.target.style.display='none'">
+                          <ion-icon *ngIf="!getTutorPicture(getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor)" name="person"></ion-icon>
+                        </ion-avatar>
+                        <span class="tutor-name">{{ formatTutorDisplayName(getTutorFromLesson(event.lesson) || event.lesson?.tutorId || event.tutor) }}</span>
+                      </div>
+                      
                       <!-- Date & Time row -->
                       <div class="timeline-datetime-row">
                         <span class="timeline-datetime-text" [class.is-today]="event.date === 'Today' || event.date === 'Tomorrow'">
@@ -1010,14 +1101,27 @@
                         Cancelled due to insufficient enrollment
                       </p>
                       
-                      <!-- Class Attendees with GOING badge -->
-                      <div class="class-status-section" *ngIf="event.lesson?.isClass && event.lesson?.attendees && !event.isCancelled">
+                      <!-- Class Attendees with GOING badge and avatars -->
+                      <div class="class-status-section" *ngIf="event.lesson?.isClass && event.lesson?.attendees?.length > 0 && !event.isCancelled">
                         <div class="going-badge">
                           <span class="going-text">GOING</span>
-                          <div class="attendee-count-badge">
-                            <ion-avatar class="mini-avatar">
-                              <ion-icon name="person"></ion-icon>
-                            </ion-avatar>
+                          <div class="attendee-avatars-row">
+                            <!-- Show up to 4 student avatars -->
+                            <ng-container *ngFor="let student of event.lesson.attendees.slice(0, 4); let i = index">
+                              <ion-avatar class="attendee-avatar" [style.z-index]="10 - i" [style.margin-left.px]="i > 0 ? -8 : 0">
+                                <img 
+                                  *ngIf="student?.picture || student?.profilePicture" 
+                                  [src]="student?.picture || student?.profilePicture" 
+                                  [alt]="student?.firstName || student?.name || 'Student'"
+                                  referrerpolicy="no-referrer"
+                                  (error)="$event.target.style.display='none'">
+                                <ion-icon *ngIf="!student?.picture && !student?.profilePicture" name="person"></ion-icon>
+                              </ion-avatar>
+                            </ng-container>
+                            <!-- Show +X if more than 4 students -->
+                            <div class="more-attendees" *ngIf="event.lesson.attendees.length > 4">
+                              +{{ event.lesson.attendees.length - 4 }}
+                            </div>
                             <span class="count-text">{{ event.lesson.attendees.length }}/{{ event.lesson.capacity }}</span>
                           </div>
                         </div>

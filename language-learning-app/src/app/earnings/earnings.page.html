@@ -52,9 +52,6 @@
 
       <div class="balance-cards">
         <div class="balance-card pending">
-          <div class="card-icon">
-            <ion-icon name="hourglass-outline"></ion-icon>
-          </div>
           <div class="card-content">
             <div class="card-label">Pending</div>
             <div class="card-value wallet-value" 
@@ -69,9 +66,6 @@
         </div>
 
         <div class="balance-card available">
-          <div class="card-icon">
-            <ion-icon name="wallet-outline"></ion-icon>
-          </div>
           <div class="card-content">
             <div class="card-label">Available</div>
             <div class="card-value wallet-value" 
@@ -86,9 +80,6 @@
         </div>
 
         <div class="balance-card lifetime">
-          <div class="card-icon">
-            <ion-icon name="trophy-outline"></ion-icon>
-          </div>
           <div class="card-content">
             <div class="card-label">Lifetime Earnings</div>
             <div class="card-value wallet-value" 
@@ -131,9 +122,10 @@
             <tr 
               *ngFor="let payment of recentPayments" 
               class="payment-row"
-              [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded'"
+              [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
               [class.refunded-row]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
-              (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded') && viewLesson(payment.lessonId)">
+              [class.class-payment-row]="payment.isClassPayment"
+              (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.lessonId) && viewLesson(payment.lessonId)">
               
               <!-- Date & Time -->
               <td class="datetime-col">
@@ -162,7 +154,13 @@
                   <div class="student-avatar fallback" *ngIf="!payment.studentPicture">
                     <ion-icon name="person"></ion-icon>
                   </div>
-                  <span>{{ payment.studentName }}</span>
+                  <div class="student-details">
+                    <span class="student-name">{{ payment.studentName }}</span>
+                    <span class="class-name" *ngIf="payment.isClassPayment && payment.className">
+                      <ion-icon name="people-outline"></ion-icon>
+                      {{ payment.className }}
+                    </span>
+                  </div>
                 </div>
               </td>
               

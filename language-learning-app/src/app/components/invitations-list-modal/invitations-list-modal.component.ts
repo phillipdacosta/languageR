@@ -177,5 +177,45 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
       hour12: true 
     });
   }
+
+  formatTutorName(tutor: any): string {
+    if (!tutor) return 'Unknown';
+    
+    // Try firstName and lastName first
+    if (tutor.firstName && tutor.lastName) {
+      return `${tutor.firstName} ${tutor.lastName.charAt(0).toUpperCase()}.`;
+    }
+    
+    // Fall back to name field
+    const name = tutor.name || tutor.email || '';
+    if (!name) return 'Unknown';
+    
+    // If it's an email, extract name from email
+    if (name.includes('@')) {
+      const base = name.split('@')[0];
+      const parts = base.split(/[.\s_]+/).filter(Boolean);
+      const first = parts[0];
+      const lastInitial = parts.length > 1 ? parts[parts.length - 1][0] : '';
+      return lastInitial
+        ? `${this.capitalize(first)} ${lastInitial.toUpperCase()}.`
+        : this.capitalize(first);
+    }
+    
+    // Parse regular name
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length === 1) {
+      return this.capitalize(parts[0]);
+    }
+    
+    const first = this.capitalize(parts[0]);
+    const last = parts[parts.length - 1];
+    const lastInitial = last ? last[0].toUpperCase() : '';
+    return lastInitial ? `${first} ${lastInitial}.` : first;
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
 }
 

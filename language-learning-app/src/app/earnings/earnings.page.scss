@@ -86,16 +86,12 @@
 
     &.available {
       
-      .card-icon {
-        background: linear-gradient(135deg, #0baa75 0%, #38cf04 100%);
-        
-        ion-icon {
-          color: white;
-        }
+      .card-content .card-label {
+        color: #10b981 !important;
       }
       
       .card-value {
-        color: #10b981;
+        color: #636469;
         
         &.wallet-value {
           position: relative;
@@ -143,16 +139,12 @@
 
     &.pending {
       
-      .card-icon {
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        
-        ion-icon {
-          color: white;
-        }
+      .card-content .card-label {
+        color: #f59e0b !important;
       }
       
       .card-value {
-        color: #f59e0b;
+        color: #636469;
         
         &.wallet-value {
           position: relative;
@@ -200,16 +192,12 @@
 
     &.lifetime {
       
-      .card-icon {
-        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-        
-        ion-icon {
-          color: white;
-        }
+      .card-content .card-label {
+        color: #8b5cf6 !important;
       }
       
       .card-value {
-        color: #8b5cf6;
+        color: #636469;
         
         &.wallet-value {
           position: relative;
@@ -736,11 +724,44 @@
         }
       }
       
+      .student-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        
+        .student-name {
+          font-weight: 500;
+          color: var(--ion-color-dark);
+          font-size: 0.95em;
+        }
+        
+        .class-name {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.8em;
+          color: #667eea;
+          font-weight: 500;
+          
+          ion-icon {
+            font-size: 12px;
+          }
+        }
+      }
+      
       span {
         font-weight: 500;
         color: var(--ion-color-dark);
         font-size: 0.95em;
       }
+    }
+  }
+  
+  .class-payment-row {
+    background-color: rgba(102, 126, 234, 0.03) !important;
+    
+    &:hover {
+      background-color: rgba(102, 126, 234, 0.08) !important;
     }
   }
   

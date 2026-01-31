@@ -22,9 +22,13 @@ interface PaymentBreakdown {
   platformFee: number;
   refundAmount?: number;
   refundReason?: string;
-  status: 'paid' | 'pending' | 'in_progress' | 'processing' | 'scheduled' | 'cancelled' | 'refunded' | 'partially_refunded';
+  status: 'paid' | 'pending' | 'in_progress' | 'processing' | 'scheduled' | 'cancelled' | 'refunded' | 'partially_refunded' | 'class_scheduled' | 'succeeded';
   lessonStatus: string;
+  classStatus?: string;
   lessonId: string;
+  classId?: string;
+  className?: string;
+  isClassPayment?: boolean;
   cancelReason?: string;
 }
 
@@ -279,6 +283,7 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
         return 'warning';
       case 'pending':
       case 'scheduled':
+      case 'class_scheduled':
         return 'medium';
       case 'cancelled':
       case 'refunded':
@@ -300,6 +305,8 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
         return 'hourglass';
       case 'scheduled':
         return 'calendar';
+      case 'class_scheduled':
+        return 'people'; // Group icon for class
       case 'cancelled':
       case 'refunded':
         return 'close-circle';
@@ -319,6 +326,7 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       case 'processing':
         return 'Processing Payment';
       case 'scheduled':
+      case 'class_scheduled':
         return 'Scheduled';
       case 'cancelled':
         return 'Cancelled';
@@ -341,15 +349,15 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       return payment.refundReason || `Payment reduced after investigation. $${(payment.refundAmount || 0).toFixed(2)} refunded to student.`;
     }
     if (payment.status === 'cancelled') {
-      return payment.cancelReason || 'Lesson was cancelled';
+      return payment.cancelReason || (payment.isClassPayment ? 'Class was cancelled' : 'Lesson was cancelled');
     }
     if (payment.status === 'processing' || payment.lessonStatus === 'ended_early') {
       return 'Payment amount will be sent after the 24 hour hold period';
     }
     if (payment.status === 'in_progress') {
-      return 'Lesson currently in progress';
+      return payment.isClassPayment ? 'Class currently in progress' : 'Lesson currently in progress';
     }
-    if (payment.status === 'scheduled') {
+    if (payment.status === 'scheduled' || payment.status === 'class_scheduled') {
       return '';
     }
     return null;

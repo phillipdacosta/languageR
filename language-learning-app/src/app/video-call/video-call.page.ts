@@ -310,7 +310,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         name: identity.name,
         isTutor: identity.isTutor,
         agoraUid: uid,
-        profilePicture: (identity as any).profilePicture || ''
+        profilePicture: identity.profilePicture || ''
       });
       
       console.log('👤 Current remoteUserIdentities after:', Array.from(this.remoteUserIdentities.entries()));
@@ -436,26 +436,38 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         profilePicture: this.myProfilePicture
       });
 
-      // Load lesson data to get participant names and IDs
+      // Load lesson/class data to get participant names and IDs
       if (qp.lessonId) {
         try {
-          console.log('🎓 VIDEO-CALL: Loading lesson details', { 
-            lessonId: qp.lessonId, 
-            role: this.userRole 
+          console.log('🎓 VIDEO-CALL: Loading session details', { 
+            sessionId: qp.lessonId, 
+            role: this.userRole,
+            isClass: this.isClass
           });
           
-          const lessonResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
-          console.log('🎓 VIDEO-CALL: API Response:', lessonResponse);
+          // Use class service for classes, lesson service for lessons
+          let sessionResponse: any;
+          let session: any;
+          
+          if (this.isClass) {
+            sessionResponse = await firstValueFrom(this.classService.getClass(qp.lessonId));
+            session = sessionResponse?.class;
+            console.log('🎓 VIDEO-CALL: Class API Response:', sessionResponse);
+          } else {
+            sessionResponse = await firstValueFrom(this.lessonService.getLesson(qp.lessonId));
+            session = sessionResponse?.lesson;
+            console.log('🎓 VIDEO-CALL: Lesson API Response:', sessionResponse);
+          }
+          
           console.log('🎓 VIDEO-CALL: Response check:', {
-            hasResponse: !!lessonResponse,
-            hasSuccess: !!lessonResponse?.success,
-            hasLesson: !!lessonResponse?.lesson,
-            successValue: lessonResponse?.success,
-            lessonValue: lessonResponse?.lesson
+            hasResponse: !!sessionResponse,
+            hasSuccess: !!sessionResponse?.success,
+            hasSession: !!session,
+            isClass: this.isClass
           });
           
-          if (lessonResponse?.success && lessonResponse.lesson) {
-            const lesson = lessonResponse.lesson;
+          if (sessionResponse?.success && session) {
+            const lesson = session; // Keep variable name for compatibility with existing code
             
             console.log('🔍 ===== LESSON DATA INSPECTION =====');
             console.log('🔍 Full lesson object:', lesson);
@@ -519,13 +531,31 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Store profile pictures
             this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
-            this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
+            
+            // For classes, studentId doesn't exist - use confirmedStudents or current user's picture
+            if (this.isClass) {
+              // For classes, get the current user's picture from meResponse
+              // This ensures the student has their own picture for broadcasting
+              const myPicture = (meResponse as any)?.picture || '';
+              this.studentProfilePicture = myPicture;
+              
+              console.log('🖼️ CLASS: Using current user picture for student:', myPicture);
+            } else {
+              // For 1:1 lessons, use the studentId from the lesson
+              this.studentProfilePicture = (lesson.studentId as any)?.profilePicture || lesson.studentId?.picture || '';
+            }
             
             // Store my own profile picture based on role
-            this.myProfilePicture = this.userRole === 'tutor' ? this.tutorProfilePicture : this.studentProfilePicture;
+            if (this.userRole === 'tutor') {
+              this.myProfilePicture = this.tutorProfilePicture;
+            } else {
+              // For students: use current user's picture directly (works for both lessons and classes)
+              this.myProfilePicture = (meResponse as any)?.picture || this.studentProfilePicture || '';
+            }
             
-            console.log('🎓 VIDEO-CALL: Lesson loaded', {
-              lessonId: lesson._id,
+            console.log('🎓 VIDEO-CALL: Session loaded', {
+              sessionId: lesson._id,
+              isClass: this.isClass,
               isTrialLesson: lesson.isTrialLesson,
               isTrialLessonComponent: this.isTrialLesson,
               role: this.userRole,
@@ -541,10 +571,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             console.log('🖼️ PROFILE PICTURE DEBUG:', {
               tutorIdObject: lesson.tutorId,
               studentIdObject: lesson.studentId,
+              confirmedStudents: this.isClass ? lesson.confirmedStudents : 'N/A (lesson)',
               tutorHasPicture: !!lesson.tutorId?.picture,
-              studentHasPicture: !!lesson.studentId?.picture,
+              studentHasPicture: !this.isClass && !!lesson.studentId?.picture,
               tutorHasProfilePicture: !!(lesson.tutorId as any)?.profilePicture,
-              studentHasProfilePicture: !!(lesson.studentId as any)?.profilePicture
+              studentHasProfilePicture: !this.isClass && !!(lesson.studentId as any)?.profilePicture,
+              myPictureFromUser: (meResponse as any)?.picture
             });
             
             // Get the other participant's email to look up their auth0Id
@@ -566,14 +598,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               }
             }
           } else {
-            console.error('❌ VIDEO-CALL: Invalid lesson response format:', {
-              lessonResponse,
-              hasSuccess: !!lessonResponse?.success,
-              hasLesson: !!lessonResponse?.lesson
+            console.error(`❌ VIDEO-CALL: Invalid ${this.isClass ? 'class' : 'lesson'} response format:`, {
+              sessionResponse,
+              hasSuccess: !!sessionResponse?.success,
+              hasSession: !!session
             });
           }
         } catch (error) {
-          console.error('❌ VIDEO-CALL: Error loading lesson data:', error);
+          console.error(`❌ VIDEO-CALL: Error loading ${this.isClass ? 'class' : 'lesson'} data:`, error);
           // Fallback to default labels
           this.tutorName = 'Tutor';
           this.studentName = 'Student';
@@ -617,7 +649,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       } else {
         const joinResponse = await this.agoraService.joinLesson(qp.lessonId, role, me?.id, {
           micEnabled,
-          videoEnabled
+          videoEnabled,
+          isClass: this.isClass
         });
         
         // Update channel name from the join response

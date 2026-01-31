@@ -870,6 +870,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     // Get payments with pagination
     let payments = await Payment.find(query)
       .populate('lessonId', 'startTime endTime duration status cancelReason')
+      .populate('classId', 'startTime endTime name status')
       .populate('studentId', 'name firstName lastName picture')
       .sort({ createdAt: -1 }) // Sort by booking date
       .skip(skip)
@@ -881,7 +882,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     const allPayments = await Payment.find({
       tutorId: user._id,
       transferStatus: { $ne: 'acknowledged' }
-    }).populate('lessonId', 'status');
+    }).populate('lessonId', 'status').populate('classId', 'status');
     
     let totalEarnings = 0; // Earnings that have been successfully transferred
     let pendingEarnings = 0; // Earnings that are pending transfer
@@ -889,13 +890,16 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     allPayments.forEach(payment => {
       const tutorPayout = payment.tutorPayout || 0;
       const lessonStatus = payment.lessonId?.status;
+      const classStatus = payment.classId?.status;
+      const isClassPayment = payment.paymentType === 'class_booking' || !!payment.classId;
       
       // Include in calculations if:
-      // 1. Revenue is recognized (completed/ended lessons), OR
-      // 2. Lesson is scheduled (future lesson that student paid for)
+      // 1. Revenue is recognized (completed/ended lessons/classes), OR
+      // 2. Lesson/class is scheduled (future that student paid for)
       const shouldCount = payment.revenueRecognized || 
                           lessonStatus === 'scheduled' || 
-                          lessonStatus === 'in_progress';
+                          lessonStatus === 'in_progress' ||
+                          (isClassPayment && classStatus === 'scheduled');
       
       if (shouldCount) {
         if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
@@ -909,6 +913,9 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         } else if (lessonStatus === 'scheduled' || lessonStatus === 'in_progress') {
           // Scheduled/in-progress lessons - counts as pending (not yet available)
           pendingEarnings += tutorPayout;
+        } else if (isClassPayment && classStatus === 'scheduled') {
+          // Scheduled classes - counts as pending (not yet available)
+          pendingEarnings += tutorPayout;
         } else if (payment.revenueRecognized) {
           // Completed but not yet available - counts as pending
           pendingEarnings += tutorPayout;
@@ -919,12 +926,14 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
     const recentPayments = payments.map(payment => {
       const tutorPayout = payment.tutorPayout || 0;
       const lessonStatus = payment.lessonId?.status || 'unknown';
+      const classStatus = payment.classId?.status;
+      const isClassPayment = payment.paymentType === 'class_booking' || !!payment.classId;
       
       // Determine payment status
       let paymentStatus = 'pending';
       
-      // Check lesson cancellation FIRST (no-show, student/tutor cancelled)
-      if (lessonStatus === 'cancelled') {
+      // Check lesson/class cancellation FIRST (no-show, student/tutor cancelled)
+      if (lessonStatus === 'cancelled' || classStatus === 'cancelled') {
         // Then check if it's an admin refund vs automatic cancellation
         if (payment.status === 'refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
           paymentStatus = 'refunded';
@@ -943,12 +952,15 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       } else if (payment.transferStatus === 'available') {
         // NEW: Available for withdrawal (released from 24hr hold)
         paymentStatus = 'succeeded'; // Frontend will show as "Available"
+      } else if (isClassPayment && classStatus === 'scheduled') {
+        // Class is scheduled but hasn't happened yet
+        paymentStatus = 'class_scheduled';
       } else if (payment.transferStatus === 'on_hold') {
-        // NEW: On hold during 24hr period
+        // On hold during 24hr period (class/lesson has completed)
         paymentStatus = 'pending';
       } else if (payment.revenueRecognized && lessonStatus === 'completed') {
         paymentStatus = 'pending';
-      } else if (lessonStatus === 'in_progress') {
+      } else if (lessonStatus === 'in_progress' || classStatus === 'in_progress') {
         paymentStatus = 'in_progress';
       } else if (lessonStatus === 'ended_early' && payment.revenueRecognized) {
         paymentStatus = 'processing';
@@ -962,13 +974,17 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       
       const studentPicture = payment.studentId?.picture || null;
 
+      // Use class times as fallback when lessonId is not present
+      const startTime = payment.lessonId?.startTime || payment.classId?.startTime || null;
+      const endTime = payment.lessonId?.endTime || payment.classId?.endTime || null;
+
       return {
         id: payment._id,
         studentName,
         studentPicture,
-        date: payment.lessonId?.startTime || payment.createdAt,
-        startTime: payment.lessonId?.startTime || null,
-        endTime: payment.lessonId?.endTime || null,
+        date: startTime || payment.createdAt,
+        startTime,
+        endTime,
         amount: payment.amount || 0,
         tutorPayout,
         platformFee: payment.platformFee || 0,
@@ -976,8 +992,12 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         refundReason: payment.refundReason || null,
         status: paymentStatus,
         lessonStatus: lessonStatus,
+        classStatus: classStatus || null,
         cancelReason: payment.lessonId?.cancelReason || null,
-        lessonId: payment.lessonId?._id,
+        lessonId: payment.lessonId?._id || null,
+        classId: payment.classId?._id || null,
+        className: payment.classId?.name || null,
+        isClassPayment,
         receiptUrl: payment.receiptUrl || null,
         stripeChargeId: payment.stripeChargeId || null,
         paypalTransactionId: payment.paypalTransactionId || null

@@ -123,11 +123,11 @@
                  (click)="openPaymentReceipt(payment)"
                  [class.clickable]="payment.receiptUrl">
               
-              <!-- Tutor Avatar (if lesson has tutor info) -->
-              <ion-avatar class="tutor-avatar" *ngIf="payment.lessonId?.tutorId?.picture">
-                <img [src]="payment.lessonId!.tutorId!.picture" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
+              <!-- Tutor Avatar (if lesson or class has tutor info) -->
+              <ion-avatar class="tutor-avatar" *ngIf="getTutorPicture(payment)">
+                <img [src]="getTutorPicture(payment)" [alt]="getTutorName(payment)" referrerpolicy="no-referrer">
               </ion-avatar>
-              <div class="payment-icon-circle" *ngIf="!payment.lessonId?.tutorId?.picture">
+              <div class="payment-icon-circle" *ngIf="!getTutorPicture(payment)">
                 <ion-icon [name]="getPaymentMethodIcon(payment.paymentMethod)"></ion-icon>
               </div>
               
@@ -144,6 +144,16 @@
                   <span *ngIf="payment.lessonId.subject" class="lesson-subject">{{ payment.lessonId.subject }}</span>
                   <span *ngIf="payment.lessonId.startTime && payment.lessonId.endTime" class="lesson-time">
                     {{ payment.lessonId.startTime | date:'shortTime' }} - {{ payment.lessonId.endTime | date:'shortTime' }}
+                  </span>
+                </div>
+                <!-- Class Details (if available) -->
+                <div class="lesson-details" *ngIf="payment.classId && !payment.lessonId">
+                  <span *ngIf="payment.classId.startTime" class="lesson-date">
+                    {{ payment.classId.startTime | date:'MMM d, y' }}
+                  </span>
+                  <span class="lesson-subject">{{ payment.classId.name || 'Class' }}</span>
+                  <span *ngIf="payment.classId.startTime && payment.classId.endTime" class="lesson-time">
+                    {{ payment.classId.startTime | date:'shortTime' }} - {{ payment.classId.endTime | date:'shortTime' }}
                   </span>
                 </div>
               </div>

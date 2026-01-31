@@ -54,8 +54,18 @@ router.post('/', verifyToken, async (req, res) => {
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
 
-    // Check if tutor has completed Stripe Connect onboarding
-    if (!tutor.stripeConnectOnboarded) {
+    // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
+    const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+    const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManualSetup = tutor.payoutProvider === 'manual';
+    const hasPayoutSetup = hasStripeSetup || hasPayPalSetup || hasManualSetup;
+    
+    if (!hasPayoutSetup) {
+      console.log(`❌ Tutor ${tutor._id} has no payout setup for class creation:`, {
+        stripeConnectOnboarded: tutor.stripeConnectOnboarded,
+        payoutProvider: tutor.payoutProvider,
+        paypalEmail: tutor.payoutDetails?.paypalEmail
+      });
       return res.status(403).json({ 
         success: false, 
         message: 'You must complete payment setup before creating classes.',
@@ -259,6 +269,25 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
     const cls = await ClassModel.findById(classId).populate('tutorId', 'name email picture');
     if (!cls) return res.status(404).json({ success: false, message: 'Class not found' });
 
+    // Check if class is cancelled
+    if (cls.status === 'cancelled') {
+      return res.status(410).json({ 
+        success: false, 
+        message: 'This class has been cancelled.',
+        code: 'CLASS_CANCELLED'
+      });
+    }
+
+    // Check if class has already started
+    const now = new Date();
+    if (new Date(cls.startTime) <= now) {
+      return res.status(410).json({ 
+        success: false, 
+        message: 'This class has already started. You can no longer join.',
+        code: 'CLASS_STARTED'
+      });
+    }
+
     // Find the student's invitation
     const invitation = cls.invitedStudents.find(inv => inv.studentId.toString() === student._id.toString());
     
@@ -380,21 +409,138 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
         const tutor = await User.findById(cls.tutorId);
         
-        if (!tutor || !tutor.stripeConnectAccountId) {
-          throw new Error('Tutor has not connected their Stripe account');
+        if (!tutor) {
+          throw new Error('Tutor not found');
         }
         
-        if (!student.stripeCustomerId) {
-          throw new Error('Student has not set up payment method');
+        // Check if tutor has ANY valid payout method (Stripe Connect, PayPal, or Manual)
+        // With the new withdrawal system, payments go to platform first, so we don't need stripeConnectAccountId
+        const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+        const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+        const hasManualSetup = tutor.payoutProvider === 'manual';
+        
+        if (!hasStripeSetup && !hasPayPalSetup && !hasManualSetup) {
+          throw new Error('Tutor has not completed payment setup. Please contact the tutor.');
         }
         
-        // Get student's default payment method
-        const customer = await stripe.customers.retrieve(student.stripeCustomerId);
-        const defaultPaymentMethod = customer.invoice_settings?.default_payment_method || 
-                                     customer.default_source;
+        // Check if user wants to pay with wallet
+        const { paymentMethodId, useWallet } = req.body;
         
-        if (!defaultPaymentMethod) {
-          throw new Error('No default payment method found. Please add a payment method first.');
+        // Handle wallet payment
+        if (useWallet) {
+          console.log('💰 Student requested wallet payment for class');
+          
+          // Check wallet balance
+          const walletBalance = student.walletBalance?.available || 0;
+          if (walletBalance < cls.price) {
+            throw new Error(`Insufficient wallet balance. You have $${walletBalance.toFixed(2)} but need $${cls.price.toFixed(2)}`);
+          }
+          
+          // Deduct from wallet
+          const PLATFORM_FEE_PERCENTAGE = 20;
+          const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
+          const tutorPayout = cls.price - platformFee;
+          
+          student.walletBalance.available -= cls.price;
+          student.walletBalance.totalSpent = (student.walletBalance.totalSpent || 0) + cls.price;
+          await student.save();
+          
+          // Create payment record for wallet transaction
+          const Payment = require('../models/Payment');
+          const payment = new Payment({
+            userId: student._id,
+            studentId: student._id,
+            tutorId: tutor._id,
+            classId: cls._id,
+            amount: cls.price,
+            currency: 'USD',
+            paymentMethod: 'wallet',
+            status: 'succeeded',
+            platformFee,
+            platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+            tutorPayout,
+            transferStatus: 'on_hold',
+            earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
+            paymentType: 'class_booking',
+            metadata: {
+              classId: cls._id.toString(),
+              className: cls.name,
+              paidWithWallet: true
+            }
+          });
+          await payment.save();
+          
+          // Update tutor's pending earnings
+          if (!tutor.tutorEarnings) {
+            tutor.tutorEarnings = { availableBalance: 0, pendingBalance: 0, lifetimeEarnings: 0, totalWithdrawn: 0 };
+          }
+          tutor.tutorEarnings.pendingBalance = (tutor.tutorEarnings.pendingBalance || 0) + tutorPayout;
+          await tutor.save();
+          
+          // Add payment tracking to studentPayments array
+          cls.studentPayments.push({
+            studentId: student._id,
+            paymentId: payment._id,
+            amount: cls.price,
+            paymentStatus: 'succeeded',
+            authorizedAt: new Date(),
+            attendanceStatus: 'not_joined'
+          });
+          
+          paymentAuthorized = true;
+          
+          console.log('💰 Wallet payment successful:', {
+            amount: cls.price,
+            newBalance: student.walletBalance.available,
+            tutorPayout,
+            platformFee
+          });
+          
+        } else {
+          // Card payment flow
+          if (!student.stripeCustomerId) {
+            throw new Error('Student has not set up payment method');
+          }
+        
+          // Get payment method - prefer user-selected from request body
+          let paymentMethodToUse = paymentMethodId || null;
+        
+        // If user provided a payment method, use it
+        if (paymentMethodToUse) {
+          console.log('💳 Using user-selected payment method:', paymentMethodToUse);
+        } else {
+          // Fallback: Auto-detect payment method
+          // 1. First, check student's saved payment methods in our database
+          if (student.savedPaymentMethods && student.savedPaymentMethods.length > 0) {
+            const defaultMethod = student.savedPaymentMethods.find(pm => pm.isDefault);
+            paymentMethodToUse = defaultMethod?.stripePaymentMethodId || 
+                                student.savedPaymentMethods[0].stripePaymentMethodId;
+            console.log('💳 Using saved payment method from database:', paymentMethodToUse);
+          }
+          
+          // 2. If not found, try Stripe customer's default
+          if (!paymentMethodToUse) {
+            const customer = await stripe.customers.retrieve(student.stripeCustomerId);
+            paymentMethodToUse = customer.invoice_settings?.default_payment_method || 
+                                 customer.default_source;
+            console.log('💳 Using Stripe customer default:', paymentMethodToUse);
+          }
+          
+          // 3. If still not found, list payment methods from Stripe
+          if (!paymentMethodToUse) {
+            const paymentMethods = await stripe.paymentMethods.list({
+              customer: student.stripeCustomerId,
+              type: 'card'
+            });
+            if (paymentMethods.data.length > 0) {
+              paymentMethodToUse = paymentMethods.data[0].id;
+              console.log('💳 Using first available Stripe payment method:', paymentMethodToUse);
+            }
+          }
+        }
+        
+        if (!paymentMethodToUse) {
+          throw new Error('No payment method found. Please add a payment method in your profile first.');
         }
         
         // Calculate platform fee (20%)
@@ -407,7 +553,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           amount: Math.round(cls.price * 100), // Convert to cents
           currency: 'usd',
           customer: student.stripeCustomerId,
-          payment_method: defaultPaymentMethod,
+          payment_method: paymentMethodToUse,
           capture_method: 'manual', // HOLD funds, don't capture yet
           confirm: true,
           off_session: true,
@@ -434,7 +580,9 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           userId: student._id,
           studentId: student._id,
           tutorId: tutor._id,
+          classId: cls._id,
           amount: cls.price,
+          currency: 'USD',
           paymentMethod: 'saved-card',
           paymentType: 'class_booking',
           status: 'authorized',
@@ -442,6 +590,8 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           platformFee: platformFee,
           platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
           tutorPayout: cls.price - platformFee,
+          transferStatus: 'on_hold',
+          earningsReleaseDate: new Date(cls.endTime.getTime() + 24 * 60 * 60 * 1000),
           metadata: {
             classId: cls._id.toString(),
             className: cls.name,
@@ -450,19 +600,20 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           }
         });
         
-        // Add payment tracking to studentPayments array
-        cls.studentPayments.push({
-          studentId: student._id,
-          paymentId: payment._id,
-          amount: cls.price,
-          paymentStatus: 'authorized',
-          stripePaymentIntentId: paymentIntent.id,
-          authorizedAt: new Date(),
-          attendanceStatus: 'not_joined'
-        });
+          // Add payment tracking to studentPayments array
+          cls.studentPayments.push({
+            studentId: student._id,
+            paymentId: payment._id,
+            amount: cls.price,
+            paymentStatus: 'authorized',
+            stripePaymentIntentId: paymentIntent.id,
+            authorizedAt: new Date(),
+            attendanceStatus: 'not_joined'
+          });
         
-        paymentAuthorized = true;
-        console.log(`💳 Payment authorized for student ${student.email} - Class: ${cls.name} ($${cls.price})`);
+          paymentAuthorized = true;
+          console.log(`💳 Payment authorized for student ${student.email} - Class: ${cls.name} ($${cls.price})`);
+        } // End of card payment else block
         
       } catch (error) {
         console.error('❌ Payment authorization failed:', error);
@@ -615,8 +766,8 @@ router.get('/student/accepted', verifyToken, async (req, res) => {
       confirmedStudents: student._id,
       endTime: { $gte: new Date() } // Show classes that haven't ended yet
     })
-    .populate('tutorId', 'name email picture firstName lastName')
-    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate all confirmed students
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName') // Populate all confirmed students with avatars
     .sort({ startTime: 1 });
 
     res.json({ success: true, classes });
@@ -639,8 +790,18 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
     const tutor = await User.findOne({ auth0Id: req.user.sub });
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
-    // Check if tutor has completed Stripe Connect onboarding
-    if (!tutor.stripeConnectOnboarded) {
+    // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
+    const hasStripeSetup = tutor.stripeConnectOnboarded === true;
+    const hasPayPalSetup = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManualSetup = tutor.payoutProvider === 'manual';
+    const hasPayoutSetup = hasStripeSetup || hasPayPalSetup || hasManualSetup;
+    
+    if (!hasPayoutSetup) {
+      console.log(`❌ Tutor ${tutor._id} has no payout setup for inviting students:`, {
+        stripeConnectOnboarded: tutor.stripeConnectOnboarded,
+        payoutProvider: tutor.payoutProvider,
+        paypalEmail: tutor.payoutDetails?.paypalEmail
+      });
       return res.status(403).json({ 
         success: false, 
         message: 'You must complete payment setup before inviting students.',
@@ -831,9 +992,9 @@ router.get('/tutor/:tutorId', verifyToken, async (req, res) => {
     }
     
     const classes = await ClassModel.find(query)
-    .populate('tutorId', 'name email picture')
-    .populate('confirmedStudents', 'name email picture firstName lastName') // Populate confirmed students with details
-    .populate('invitedStudents.studentId', 'name email picture firstName lastName') // Populate invited students
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName') // Populate confirmed students with avatars
+    .populate('invitedStudents.studentId', 'name email picture profilePicture firstName lastName') // Populate invited students with avatars
     .sort({ startTime: 1 });
 
     console.log(`📊 [GET /api/classes/tutor/:tutorId] Found ${classes.length} classes:`);

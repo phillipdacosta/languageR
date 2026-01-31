@@ -1,12 +1,14 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { IonicModule, ToastController, ModalController } from '@ionic/angular';
+import { IonicModule, ToastController, ModalController, ActionSheetController, ViewWillEnter, IonContent } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../../services/class.service';
 import { UserService } from '../../services/user.service';
 import { LessonService } from '../../services/lesson.service';
 import { TutorAvailabilityViewerComponent } from '../../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { AvailabilitySetupComponent } from '../../components/availability-setup/availability-setup.component';
+import { StudentSelectionActionsheetComponent } from '../../components/student-selection-actionsheet/student-selection-actionsheet.component';
 import { Subscription } from 'rxjs';
 import { filter, take } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -26,16 +28,34 @@ interface Student {
   templateUrl: './schedule-class.page.html',
   styleUrls: ['./schedule-class.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, QuillEditorComponent]
+  imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, AvailabilitySetupComponent, QuillEditorComponent]
 })
-export class ScheduleClassPage implements OnInit, OnDestroy {
+export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, AfterViewInit {
+  // Flag to track if students have been loaded
+  private studentsLoadAttempted = false;
+  
+  @ViewChild('stepContentScrollable', { read: ElementRef }) stepContentScrollable?: ElementRef;
+  @ViewChild(IonContent) ionContent?: IonContent;
+
+  ionViewWillEnter() {
+    console.log('📍 ScheduleClassPage ionViewWillEnter() - students:', this.students.length, 'loading:', this.loadingStudents);
+    // If students haven't been loaded yet, try loading them
+    if (this.students.length === 0 && !this.loadingStudents) {
+      console.log('🔄 ionViewWillEnter: Loading students...');
+      this.loadStudents();
+    }
+  }
   classType: 'one' | 'recurring' = 'recurring'; // Default to multiple students
   students: Student[] = [];
   loadingStudents = false;
   showStudentDropdown = false;
-  showMultiStudentDropdown = false;
   showEarningsBreakdown = false; // Toggle for earnings breakdown visibility
   private userSubscription?: Subscription;
+  
+  // Step tracking
+  currentStep = 1;
+  totalSteps = 5; // Class Basics, Economics, Schedule, Recurrence, Visibility
+  showStepsList = false; // For mobile: collapsible steps list
   
   // Pricing properties
   readonly STANDARD_LESSON_DURATION = 50; // Base duration for tutor rates (50 minutes, not 60)
@@ -94,12 +114,13 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
 
   constructor(
     private fb: FormBuilder,
-    private router: Router,
+    public router: Router,
     private toast: ToastController,
     private classService: ClassService,
     private userService: UserService,
     private lessonService: LessonService,
     private modalController: ModalController,
+    private actionSheetController: ActionSheetController,
     private http: HttpClient
   ) {
     // Update validators based on class type
@@ -182,11 +203,143 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
     }
   }
 
+  // Step navigation methods
+  getProgressPercentage(): number {
+    return (this.currentStep / this.totalSteps) * 100;
+  }
+
+  canGoToStep(step: number): boolean {
+    // Can go to step if it's the current step or a previous completed step
+    if (step <= this.currentStep) return true;
+    
+    // Check if previous steps are valid
+    if (step === 2) {
+      // Step 2 (Economics) requires Step 1 (Basics) to be valid
+      return this.isStepValid(1);
+    }
+    if (step === 3) {
+      // Step 3 (Schedule) requires Step 1 to be valid
+      return this.isStepValid(1);
+    }
+    if (step === 4) {
+      // Step 4 (Recurrence) requires Step 1 and 3 to be valid
+      return this.isStepValid(1) && this.isStepValid(3);
+    }
+    if (step === 5) {
+      // Step 5 (Visibility) requires Step 1 and 3 to be valid
+      return this.isStepValid(1) && this.isStepValid(3);
+    }
+    return false;
+  }
+
+  isStepValid(step: number): boolean {
+    switch (step) {
+      case 1: // Class Basics
+        return this.form.controls.name.valid && 
+               this.form.controls.description.valid && 
+               this.form.controls.level.valid && 
+               this.form.controls.duration.valid;
+      case 2: // Economics (only for recurring classes)
+        if (this.classType !== 'recurring') return true;
+        const customPriceValue = this.form.controls.customPrice?.value;
+        const hasPrice = this.form.value.useSuggestedPricing || 
+                        (customPriceValue !== null && customPriceValue !== undefined && customPriceValue > 0);
+        return this.form.controls.maxStudents.valid && 
+               this.form.controls.minStudents.valid && 
+               hasPrice;
+      case 3: // Schedule
+        return this.form.controls.date.valid && this.form.controls.time.valid;
+      case 4: // Recurrence (optional)
+        return true; // Always valid, it's optional
+      case 5: // Visibility (optional)
+        if (this.form.value.isPublic && !this.thumbnailFile && !this.form.value.thumbnail) {
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  ngAfterViewInit() {
+    // Initial scroll to top
+    this.scrollToTopOnStepChange();
+  }
+
+  private scrollToTopOnStepChange() {
+    // Use Ionic's IonContent scrollToTop for proper mobile scrolling
+    if (this.ionContent) {
+      this.ionContent.scrollToTop(300);
+    }
+    
+    // Also scroll the div element
+    if (this.stepContentScrollable) {
+      const element = this.stepContentScrollable.nativeElement;
+      if (element) {
+        element.scrollTop = 0;
+      }
+    }
+    
+    // Also scroll window for desktop
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  goToStep(step: number) {
+    if (this.canGoToStep(step)) {
+      this.currentStep = step;
+      // Scroll to top
+      setTimeout(() => this.scrollToTopOnStepChange(), 100);
+    }
+  }
+
+  nextStep() {
+    if (this.currentStep < this.totalSteps) {
+      // Validate current step before moving forward
+      if (this.isStepValid(this.currentStep)) {
+        this.currentStep++;
+        // Scroll to top
+        setTimeout(() => this.scrollToTopOnStepChange(), 100);
+      } else {
+        // Mark fields as touched to show errors
+        this.markStepFieldsAsTouched(this.currentStep);
+      }
+    }
+  }
+
+  previousStep() {
+    if (this.currentStep > 1) {
+      this.currentStep--;
+      // Scroll to top
+      setTimeout(() => this.scrollToTopOnStepChange(), 100);
+    }
+  }
+
+  private markStepFieldsAsTouched(step: number) {
+    switch (step) {
+      case 1:
+        this.form.controls.name.markAsTouched();
+        this.form.controls.description.markAsTouched();
+        this.form.controls.level.markAsTouched();
+        this.form.controls.duration.markAsTouched();
+        break;
+      case 2:
+        this.form.controls.maxStudents.markAsTouched();
+        this.form.controls.minStudents.markAsTouched();
+        if (!this.form.value.useSuggestedPricing) {
+          this.form.controls.customPrice?.markAsTouched();
+        }
+        break;
+      case 3:
+        this.form.controls.date.markAsTouched();
+        this.form.controls.time.markAsTouched();
+        break;
+    }
+  }
+
   onClassTypeChange() {
     this.updateFormValidators();
     if (this.classType === 'one') {
       this.form.patchValue({ recurrenceType: 'none', studentIds: [] });
-      this.showMultiStudentDropdown = false;
     } else {
       this.form.patchValue({ studentId: '' });
       this.showStudentDropdown = false;
@@ -214,13 +367,22 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
 
   loadStudents() {
     console.log('🚀 loadStudents() called');
+    this.studentsLoadAttempted = true;
     this.loadingStudents = true;
     const currentUser = this.userService.getCurrentUserValue();
     console.log('👤 Current user from service:', currentUser);
     
     if (!currentUser?.id) {
-      console.log('❌ No current user ID found');
+      console.log('❌ No current user ID found, will retry...');
       this.loadingStudents = false;
+      // Retry after a short delay if user isn't available yet
+      setTimeout(() => {
+        const retryUser = this.userService.getCurrentUserValue();
+        if (retryUser?.id) {
+          console.log('🔄 Retrying loadStudents with user:', retryUser.id);
+          this.loadStudents();
+        }
+      }, 500);
       return;
     }
 
@@ -358,6 +520,8 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   // Availability picker modal state
   isAvailabilityPickerOpen = false;
   availabilityPickerProps: any = null;
+  modalView: 'availability-viewer' | 'availability-setup' = 'availability-viewer';
+  availabilityRefreshTrigger = 0; // Used to refresh the availability viewer
 
   async openAvailabilityPicker() {
     const currentUser = this.userService.getCurrentUserValue();
@@ -402,13 +566,15 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
       selectedDuration: selectedDuration
     };
 
-    // Open inline modal
+    // Reset modal view and open
+    this.modalView = 'availability-viewer';
     this.isAvailabilityPickerOpen = true;
   }
 
   onAvailabilityPickerDismiss(event: any) {
     console.log('📅 Availability picker dismissed:', event);
     this.isAvailabilityPickerOpen = false;
+    this.modalView = 'availability-viewer'; // Reset to default view
     
     const data = event.detail?.data;
     if (data?.selectedDate && data?.selectedTime) {
@@ -418,6 +584,21 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
         time: data.selectedTime
       });
     }
+  }
+
+  showAddAvailability() {
+    this.modalView = 'availability-setup';
+  }
+
+  goBackToAvailabilityViewer() {
+    this.modalView = 'availability-viewer';
+  }
+
+  onAvailabilitySaved() {
+    // When availability is saved, go back to the viewer to let tutor select a slot
+    this.modalView = 'availability-viewer';
+    // Trigger a refresh of the availability viewer
+    this.availabilityRefreshTrigger++;
   }
 
   onThumbnailSelected(event: any) {
@@ -731,11 +912,53 @@ export class ScheduleClassPage implements OnInit, OnDestroy {
   }
 
   // Multi-select methods
-  toggleMultiStudentDropdown() {
-    if (this.loadingStudents || this.students.length === 0) {
+  async toggleMultiStudentDropdown() {
+    console.log('🔄 toggleMultiStudentDropdown called', {
+      loadingStudents: this.loadingStudents,
+      studentsCount: this.students.length,
+      students: this.students
+    });
+    
+    // If students haven't loaded yet, try loading them
+    if (this.students.length === 0 && !this.loadingStudents) {
+      console.log('⚠️ No students loaded, attempting to load...');
+      this.loadStudents();
       return;
     }
-    this.showMultiStudentDropdown = !this.showMultiStudentDropdown;
+    
+    if (this.loadingStudents) {
+      console.log('⏳ Still loading students...');
+      return;
+    }
+    
+    // Use actionsheet instead of modal
+    await this.openStudentSelectionActionSheet();
+  }
+
+  async openStudentSelectionActionSheet() {
+    const maxStudents = this.form.value.maxStudents || 2;
+    const selectedIds = this.form.value.studentIds || [];
+    
+    const modal = await this.modalController.create({
+      component: StudentSelectionActionsheetComponent,
+      componentProps: {
+        students: this.students,
+        selectedStudentIds: selectedIds,
+        maxStudents: maxStudents
+      },
+      cssClass: 'student-selection-actionsheet-modal',
+      showBackdrop: true,
+      backdropDismiss: true,
+      breakpoints: [0, 0.5, 0.75, 1],
+      initialBreakpoint: 0.75
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onWillDismiss();
+    if (data && data.selectedIds) {
+      this.form.patchValue({ studentIds: data.selectedIds });
+    }
   }
 
   toggleMultiStudentSelection(studentId: string) {

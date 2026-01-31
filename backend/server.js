@@ -379,9 +379,9 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Auto-cancel classes (every 10 minutes)');
   
-  // Start background job to release authorized payments for class no-shows
-  // Runs every hour at minute 5
-  cron.schedule('5 * * * *', () => {
+  // Start background job to finalize classes (refund no-shows, release payments)
+  // Runs every 10 minutes to quickly catch classes that didn't happen
+  cron.schedule('*/10 * * * *', () => {
     autoReleaseClassPayments().catch(err => {
       console.error('❌ [Cron] Error in autoReleaseClassPayments:', err);
     });
