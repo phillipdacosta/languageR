@@ -73,7 +73,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   pastLessons: Lesson[] = [];
   pastTutors: Array<{ id: string; name: string; picture?: string }> = [];
   pendingClassInvitations: ClassInvitation[] = [];
-  isLoadingLessons = false;
+  isLoadingLessons = true; // Start true to show skeleton until data loads
+  private _isLoadingInProgress = false; // Prevent double-loading
   isLoadingInvitations = false;
   hasAvailability = false;
   
@@ -4677,7 +4678,15 @@ navigateToLessons() {
   }
 
   async loadLessons(showSkeleton = true) {
-    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons);
+    console.log('📊 [TAB1] loadLessons called - showSkeleton:', showSkeleton, 'isLoadingLessons:', this.isLoadingLessons, 'inProgress:', this._isLoadingInProgress);
+    
+    // Prevent double-loading which causes flash
+    if (this._isLoadingInProgress) {
+      console.log('⏭️ [TAB1] Skipping loadLessons - already in progress');
+      return;
+    }
+    
+    this._isLoadingInProgress = true;
     
     // Only show skeleton loader if explicitly requested (e.g., initial load)
     if (showSkeleton) {
@@ -5010,6 +5019,7 @@ navigateToLessons() {
       console.error('Tab1Page: Failed to load lessons', err);
       this.lessons = [];
     } finally {
+      this._isLoadingInProgress = false; // Reset flag
       if (showSkeleton) {
         this.isLoadingLessons = false;
         console.log('✅ [TAB1] Skeleton hidden');

@@ -598,21 +598,48 @@ $spacing-xl: 32px;
     --padding-end: #{$spacing-md};
     --padding-top: 14px;
     --padding-bottom: 14px;
-    --border-width: 0;
-    --highlight-height: 0;
-    border: 1px solid transparent;
+    --border-width: 0 !important;
+    --border-style: none !important;
+    --border-color: transparent !important;
+    --highlight-height: 0 !important;
+    --highlight-color-focused: transparent !important;
+    --highlight-color-valid: transparent !important;
+    --highlight-color-invalid: transparent !important;
+    border: 1px solid #e5e5ea !important;
+    border-top: 1px solid #e5e5ea !important;
+    border-bottom: 1px solid #e5e5ea !important;
+    border-left: 1px solid #e5e5ea !important;
+    border-right: 1px solid #e5e5ea !important;
     border-radius: 12px;
     font-size: 15px;
     color: $color-text-primary;
     min-height: 48px;
     height: 48px; // Fixed height to prevent shifts
     flex-shrink: 0; // Don't shrink
-    transition: border-color 0.2s ease, background-color 0.2s ease; // Only transition safe properties
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; // Only transition safe properties
     contain: layout style; // Prevent layout shifts
+    box-shadow: none !important;
+    outline: none !important;
+    
+    &::part(native) {
+      border: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+      --border-width: 0 !important;
+      --highlight-height: 0 !important;
+    }
+    
+    &::part(container) {
+      border: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
     
     input {
       border: none !important;
       outline: none !important;
+      box-shadow: none !important;
+      --border-width: 0 !important;
     }
     
     &::placeholder {
@@ -621,20 +648,94 @@ $spacing-xl: 32px;
       opacity: 1;
     }
     
-    &:focus-within {
+    &:focus-within,
+    &:focus,
+    &.item-has-focus {
       --background: #ffffff;
-      border: 1px solid #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      --border-width: 0 !important;
+      --highlight-height: 0 !important;
+      --highlight-color-focused: transparent !important;
+      border-color: #667eea !important;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+      outline: none !important;
+      
+      input,
+      .native-input {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
     }
     
     &.error {
       --background: rgba(255, 59, 48, 0.02);
+      --border-width: 0 !important;
+      --highlight-height: 0 !important;
       border: 1px solid rgba(255, 59, 48, 0.3) !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
     
     &.price-input {
       font-weight: 600;
       font-size: 20px;
+    }
+  }
+  
+  // Deep override for Ionic's internal highlight system
+  ::ng-deep {
+    // Target ion-input's internal native input
+    ion-input.modern-input {
+      .native-input,
+      input {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        
+        &:focus,
+        &:focus-visible {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+      }
+    }
+    
+    .modern-input {
+      .native-input {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      
+      .item-inner {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      
+      .input-wrapper {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+      }
+      
+      // Remove Ionic's highlight bar
+      .item-highlight {
+        display: none !important;
+        height: 0 !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+      }
+      
+      // Remove any focus indicators
+      &.item-has-focus,
+      &.item-has-value {
+        .item-highlight {
+          display: none !important;
+        }
+      }
     }
   }
   
@@ -646,15 +747,22 @@ $spacing-xl: 32px;
     --padding-bottom: 14px;
     --border-width: 0;
     --highlight-height: 0;
-    border: 1px solid transparent;
+    border: 1px solid #e5e5ea;
     border-radius: 12px;
     font-size: 15px;
     min-height: 48px;
     height: 48px; // Fixed height to prevent shifts
     flex-shrink: 0; // Don't shrink
-    transition: border-color 0.2s ease, background-color 0.2s ease; // Only transition safe properties
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; // Only transition safe properties
     position: relative; // Stable positioning
     contain: layout style; // Prevent layout shifts
+    box-shadow: none;
+    
+    &::part(native) {
+      border: none !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
     
     &::part(placeholder) {
       color: $color-text-secondary;

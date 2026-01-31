@@ -97,7 +97,89 @@
 
     <!-- Withdrawal History -->
     <div class="payment-breakdown">
-      <h3>Recent Lessons</h3>
+      <div class="section-header-with-filters">
+        <h3>Recent Lessons</h3>
+        <ion-button 
+          fill="clear" 
+          size="small" 
+          (click)="clearFilters()"
+          class="clear-filters-btn"
+          [class.hidden]="!hasActiveFilters()">
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+          Clear Filters
+        </ion-button>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters-container">
+        <!-- Date Filter -->
+        <div class="filter-group">
+          <label>Date</label>
+          <ion-select 
+            [(ngModel)]="selectedDateRange" 
+            (ionChange)="onFilterChange()"
+            interface="popover"
+            placeholder="All dates">
+            <ion-select-option value="all">All dates</ion-select-option>
+            <ion-select-option value="today">Today</ion-select-option>
+            <ion-select-option value="week">Last 7 days</ion-select-option>
+            <ion-select-option value="month">This month</ion-select-option>
+            <ion-select-option value="year">This year</ion-select-option>
+            <ion-select-option value="custom">Custom range</ion-select-option>
+          </ion-select>
+        </div>
+
+        <!-- Custom Date Range -->
+        <div class="filter-group custom-date-range" *ngIf="selectedDateRange === 'custom'">
+          <label>Start Date</label>
+          <input 
+            type="date" 
+            [(ngModel)]="customStartDate" 
+            (change)="onFilterChange()"
+            class="date-input"
+            [max]="customEndDate || undefined">
+        </div>
+
+        <div class="filter-group custom-date-range" *ngIf="selectedDateRange === 'custom'">
+          <label>End Date</label>
+          <input 
+            type="date" 
+            [(ngModel)]="customEndDate" 
+            (change)="onFilterChange()"
+            class="date-input"
+            [min]="customStartDate || undefined">
+        </div>
+
+        <!-- Student Filter -->
+        <div class="filter-group">
+          <label>Student</label>
+          <ion-select 
+            [(ngModel)]="selectedStudent" 
+            (ionChange)="onFilterChange()"
+            interface="popover"
+            placeholder="All students">
+            <ion-select-option value="all">All students</ion-select-option>
+            <ion-select-option *ngFor="let student of uniqueStudents" [value]="student.id">
+              {{ student.name }}
+            </ion-select-option>
+          </ion-select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-group">
+          <label>Status</label>
+          <ion-select 
+            [(ngModel)]="selectedStatus" 
+            (ionChange)="onFilterChange()"
+            interface="popover"
+            placeholder="All statuses">
+            <ion-select-option value="all">All statuses</ion-select-option>
+            <ion-select-option *ngFor="let status of uniqueStatuses" [value]="status">
+              {{ getStatusText(status) }}
+            </ion-select-option>
+          </ion-select>
+        </div>
+      </div>
       
       <div *ngIf="recentPayments.length === 0" class="no-payments">
         <ion-icon name="document-text-outline"></ion-icon>
@@ -105,8 +187,17 @@
         <p class="sublabel">Earnings from lessons will appear here</p>
       </div>
 
+      <div *ngIf="recentPayments.length > 0 && filteredPayments.length === 0" class="no-payments">
+        <ion-icon name="filter-outline"></ion-icon>
+        <p>No payments match your filters</p>
+        <p class="sublabel">Try adjusting your filter criteria</p>
+        <ion-button fill="outline" size="small" (click)="clearFilters()" class="clear-filters-btn-inline">
+          Clear Filters
+        </ion-button>
+      </div>
+
       <!-- Table View -->
-      <div *ngIf="recentPayments.length > 0" class="payments-table-container">
+      <div *ngIf="filteredPayments.length > 0" class="payments-table-container">
         <table class="payments-table">
           <thead>
             <tr>
@@ -120,7 +211,7 @@
           </thead>
           <tbody>
             <tr 
-              *ngFor="let payment of recentPayments" 
+              *ngFor="let payment of filteredPayments" 
               class="payment-row"
               [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
               [class.refunded-row]="payment.status === 'refunded' || payment.status === 'partially_refunded'"

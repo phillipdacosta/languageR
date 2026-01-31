@@ -29,6 +29,52 @@
 @import "~quill/dist/quill.snow.css";
 @import "~quill/dist/quill.core.css";
 
+/* Global Font - Inter (Airbnb Cereal-like, optimized for screens) */
+:root {
+  --ion-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+* {
+  font-family: var(--ion-font-family) !important;
+}
+
+html, body {
+  font-family: var(--ion-font-family) !important;
+}
+
+/* Apply to all Ionic components */
+ion-content, ion-card, ion-item, ion-label, ion-button, ion-title, ion-header, ion-toolbar,
+ion-input, ion-textarea, ion-select, ion-datetime, ion-modal, ion-popover, ion-alert,
+ion-toast, ion-loading, ion-spinner, ion-badge, ion-chip, ion-segment, ion-segment-button,
+ion-tab-bar, ion-tab-button, ion-list, ion-list-header, ion-avatar, ion-icon {
+  font-family: var(--ion-font-family) !important;
+}
+
+/* Apply to all text elements */
+h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select, label {
+  font-family: var(--ion-font-family) !important;
+}
+
+/* Remove default focus outline for modern-input class */
+ion-input.modern-input {
+  --highlight-height: 0;
+  --highlight-color-focused: transparent;
+  
+  .native-input,
+  input {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    
+    &:focus,
+    &:focus-visible {
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+  }
+}
+
 /* Image Cropper Modal */
 // Image Cropper Modal (matches reschedule modal design)
 ion-modal.image-cropper-modal {

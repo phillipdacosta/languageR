@@ -80,7 +80,19 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   pendingEarnings: number = 0;
   
   recentPayments: PaymentBreakdown[] = [];
+  filteredPayments: PaymentBreakdown[] = [];
   withdrawalHistory: WithdrawalHistory[] = [];
+  
+  // Filters
+  selectedDateRange: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom' = 'all';
+  selectedStudent: string = 'all';
+  selectedStatus: string = 'all';
+  customStartDate: string = '';
+  customEndDate: string = '';
+  
+  // Filter options
+  uniqueStudents: Array<{ id: string; name: string; picture?: string }> = [];
+  uniqueStatuses: string[] = [];
   
   error: string | null = null;
   payoutProvider: string = 'none';
@@ -237,6 +249,12 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
         this.paypalEmail = response.paypalEmail || '';
         this.stripeConnectAccountId = response.stripeConnectAccountId || '';
         console.log(`💰 Loaded ${this.recentPayments.length} payments`);
+        
+        // Extract unique students and statuses for filters
+        this.extractFilterOptions();
+        
+        // Apply filters
+        this.applyFilters();
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
@@ -656,6 +674,114 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       default:
         return method;
     }
+  }
+
+  // Filter methods
+  extractFilterOptions() {
+    // Extract unique students
+    const studentMap = new Map<string, { id: string; name: string; picture?: string }>();
+    const statusSet = new Set<string>();
+
+    this.recentPayments.forEach(payment => {
+      // Add student (use studentName as the key since it's unique per student)
+      if (payment.studentName) {
+        if (!studentMap.has(payment.studentName)) {
+          studentMap.set(payment.studentName, {
+            id: payment.studentName,
+            name: payment.studentName,
+            picture: payment.studentPicture
+          });
+        }
+      }
+
+      // Add status
+      if (payment.status) {
+        statusSet.add(payment.status);
+      }
+    });
+
+    this.uniqueStudents = Array.from(studentMap.values()).sort((a, b) => 
+      a.name.localeCompare(b.name)
+    );
+    this.uniqueStatuses = Array.from(statusSet).sort();
+  }
+
+  applyFilters() {
+    let filtered = [...this.recentPayments];
+
+    // Date filter
+    if (this.selectedDateRange !== 'all') {
+      const now = new Date();
+      let startDate: Date;
+
+      switch (this.selectedDateRange) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        case 'custom':
+          if (this.customStartDate && this.customEndDate) {
+            const start = new Date(this.customStartDate);
+            const end = new Date(this.customEndDate);
+            end.setHours(23, 59, 59, 999); // End of day
+            filtered = filtered.filter(payment => {
+              const paymentDate = new Date(payment.date);
+              return paymentDate >= start && paymentDate <= end;
+            });
+          }
+          break;
+        default:
+          break;
+      }
+
+      if (this.selectedDateRange !== 'custom' && startDate!) {
+        filtered = filtered.filter(payment => {
+          const paymentDate = new Date(payment.date);
+          return paymentDate >= startDate!;
+        });
+      }
+    }
+
+    // Student filter
+    if (this.selectedStudent !== 'all') {
+      filtered = filtered.filter(payment => {
+        return payment.studentName === this.selectedStudent;
+      });
+    }
+
+    // Status filter
+    if (this.selectedStatus !== 'all') {
+      filtered = filtered.filter(payment => payment.status === this.selectedStatus);
+    }
+
+    this.filteredPayments = filtered;
+  }
+
+  onFilterChange() {
+    this.applyFilters();
+  }
+
+  clearFilters() {
+    this.selectedDateRange = 'all';
+    this.selectedStudent = 'all';
+    this.selectedStatus = 'all';
+    this.customStartDate = '';
+    this.customEndDate = '';
+    this.applyFilters();
+  }
+
+  hasActiveFilters(): boolean {
+    return this.selectedDateRange !== 'all' || 
+           this.selectedStudent !== 'all' || 
+           this.selectedStatus !== 'all';
   }
 }
 

@@ -24,16 +24,21 @@
       <div class="welcome-header">
         <div class="welcome-content">
           <h1 class="welcome-title">Hi, {{currentUser.firstName}}! 👋</h1>
-          <p class="welcome-subtitle" *ngIf="activeInvitationsCount > 0 && !nextLesson">
+          <!-- Show skeleton while loading -->
+          <p class="welcome-subtitle skeleton-text" *ngIf="isLoadingLessons">
+            <ion-skeleton-text animated style="width: 180px; height: 16px; display: inline-block;"></ion-skeleton-text>
+          </p>
+          <!-- Show actual content only after loading completes -->
+          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
             You have {{activeInvitationsCount}} pending {{activeInvitationsCount === 1 ? 'invitation' : 'invitations'}}
           </p>
-          <p class="welcome-subtitle" *ngIf="!activeInvitationsCount && nextLesson && getNextLessonTimeLabel()">
+          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && nextLesson && getNextLessonTimeLabel()">
             Your next lesson is {{ getNextLessonTimeLabel() }}
           </p>
-          <p class="welcome-subtitle" *ngIf="activeInvitationsCount > 0 && nextLesson && getNextLessonTimeLabel()">
+          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && nextLesson && getNextLessonTimeLabel()">
             {{activeInvitationsCount}} {{activeInvitationsCount === 1 ? 'invitation' : 'invitations'}} pending • Next lesson {{ getNextLessonTimeLabel() }}
           </p>
-          <p class="welcome-subtitle" *ngIf="!activeInvitationsCount && (!nextLesson || !getNextLessonTimeLabel())">
+          <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && (!nextLesson || !getNextLessonTimeLabel())">
             Ready to learn something new today?
           </p>
         </div>
@@ -660,7 +665,7 @@
     </div> -->
 
     <!-- Loading State -->
-    <ion-card class="next-class-card loading-card" *ngIf="isLoadingLessons">
+    <ion-card class="next-class-card loading-card" *ngIf="isLoadingLessons && isTutorUser">
       <ion-card-content>
         <div class="card-inner">
           <div class="loading-skeleton">
@@ -669,10 +674,18 @@
               <div class="skeleton-avatar"></div>
               <div class="skeleton-details">
                 <div class="skeleton-line skeleton-name"></div>
-                <div class="skeleton-line skeleton-subject"></div>
-                <div class="skeleton-line skeleton-time"></div>
+                <div class="skeleton-line skeleton-datetime"></div>
+                <div class="skeleton-going-row">
+                  <div class="skeleton-going-label"></div>
+                  <div class="skeleton-going-avatar"></div>
+                  <div class="skeleton-going-count"></div>
+                </div>
               </div>
-              <div class="skeleton-button"></div>
+              <div class="skeleton-button">
+                <div class="skeleton-button-label"></div>
+                <div class="skeleton-button-time"></div>
+                <div class="skeleton-button-cta"></div>
+              </div>
             </div>
           </div>
         </div>
