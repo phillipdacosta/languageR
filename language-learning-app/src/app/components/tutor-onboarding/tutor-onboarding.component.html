@@ -185,53 +185,221 @@
 
           </div>
 
-          <!-- Stripe Step -->
+          <!-- Payment Setup Step -->
           <div *ngIf="currentStep.id === 'stripe'" class="stripe-step">
+            
+            <!-- Already completed state -->
             <div *ngIf="approvalStatus?.stripeComplete" class="status-card-large success">
               <ion-icon name="checkmark-circle"></ion-icon>
-              <p>Bank account connected!</p>
-            </div>
-            <div *ngIf="!approvalStatus?.stripeComplete" class="status-card-large empty">
-              <ion-icon name="card-outline"></ion-icon>
-              <p>Not connected yet</p>
+              <p>Payment method connected!</p>
+              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'stripe'">via Stripe</span>
+              <span class="provider-badge" *ngIf="currentUser?.payoutProvider === 'paypal'">via PayPal</span>
             </div>
             
-            <!-- Info cards about payout setup -->
-            <div class="info-cards">
-              <div class="info-card">
-                <ion-icon name="shield-checkmark-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Secure payments</h4>
-                  <p>Powered by Stripe Connect</p>
+            <!-- Not completed - show tax questions first -->
+            <div *ngIf="!approvalStatus?.stripeComplete" class="payment-setup-flow">
+              
+              <!-- STEP 1: Tax Status Question -->
+              <div *ngIf="paymentSetupStep === 'tax-status'" class="tax-question-card">
+                <div class="question-header">
+                  <ion-icon name="document-text" class="question-icon"></ion-icon>
+                  <h3>Tax Information</h3>
+                </div>
+                <p class="question-subtitle">We need this to comply with tax regulations and set up your payouts correctly.</p>
+                
+                <div class="question-box">
+                  <h4>Are you a US Person for tax purposes?</h4>
+                  <p class="help-text">A "US Person" includes US citizens, permanent residents (green card holders), and residents who meet the substantial presence test.</p>
+                  
+                  <div class="answer-options">
+                    <div 
+                      class="answer-option"
+                      [class.selected]="isUSPersonForTax === true"
+                      (click)="setUSPersonStatus(true)">
+                      <ion-icon name="flag" class="option-icon us"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">Yes, I am a US Person</span>
+                        <span class="option-note">I will receive a 1099 tax form</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="isUSPersonForTax === true"></div>
+                    </div>
+                    
+                    <div 
+                      class="answer-option"
+                      [class.selected]="isUSPersonForTax === false"
+                      (click)="setUSPersonStatus(false)">
+                      <ion-icon name="globe" class="option-icon international"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">No, I am not a US Person</span>
+                        <span class="option-note">I will provide a W-8BEN form</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="isUSPersonForTax === false"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <ion-button 
+                  expand="block" 
+                  [disabled]="isUSPersonForTax === null"
+                  (click)="nextPaymentStep()"
+                  class="continue-btn">
+                  Continue
+                  <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                </ion-button>
+              </div>
+              
+              <!-- STEP 2: US Bank Account Question (only for US Persons) -->
+              <div *ngIf="paymentSetupStep === 'bank-account'" class="tax-question-card">
+                <div class="question-header">
+                  <ion-icon name="business" class="question-icon"></ion-icon>
+                  <h3>Bank Account</h3>
+                </div>
+                <p class="question-subtitle">This helps us determine the best payout method for you.</p>
+                
+                <div class="question-box">
+                  <h4>Do you have a US bank account?</h4>
+                  <p class="help-text">A US bank account allows for faster, lower-fee payouts via Stripe.</p>
+                  
+                  <div class="answer-options">
+                    <div 
+                      class="answer-option"
+                      [class.selected]="hasUSBankAccount === true"
+                      (click)="setUSBankStatus(true)">
+                      <ion-icon name="checkmark-circle" class="option-icon yes"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">Yes, I have a US bank account</span>
+                        <span class="option-note">Fastest payouts via Stripe</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="hasUSBankAccount === true"></div>
+                    </div>
+                    
+                    <div 
+                      class="answer-option"
+                      [class.selected]="hasUSBankAccount === false"
+                      (click)="setUSBankStatus(false)">
+                      <ion-icon name="globe" class="option-icon no"></ion-icon>
+                      <div class="option-content">
+                        <span class="option-label">No, I don't have a US bank account</span>
+                        <span class="option-note">Payouts via PayPal</span>
+                      </div>
+                      <div class="radio-indicator" [class.selected]="hasUSBankAccount === false"></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="button-row">
+                  <ion-button fill="outline" (click)="previousPaymentStep()">
+                    <ion-icon name="arrow-back" slot="start"></ion-icon>
+                    Back
+                  </ion-button>
+                  <ion-button 
+                    [disabled]="hasUSBankAccount === null"
+                    (click)="nextPaymentStep()"
+                    class="continue-btn">
+                    Continue
+                    <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                  </ion-button>
                 </div>
               </div>
-              <div class="info-card">
-                <ion-icon name="calendar-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Weekly payouts</h4>
-                  <p>Get paid every week automatically</p>
+              
+              <!-- STEP 3: Payment Method Setup -->
+              <div *ngIf="paymentSetupStep === 'setup-method'" class="payment-method-card">
+                <div class="determined-method">
+                  <div class="method-badge" [class.stripe]="determinedPayoutMethod === 'stripe'" [class.paypal]="determinedPayoutMethod === 'paypal'">
+                    <ion-icon [name]="determinedPayoutMethod === 'stripe' ? 'card' : 'logo-paypal'"></ion-icon>
+                    <span>{{ determinedPayoutMethod === 'stripe' ? 'Stripe Connect' : 'PayPal' }}</span>
+                  </div>
+                  <p class="method-reason">
+                    <span *ngIf="determinedPayoutMethod === 'stripe'">As a US Person with a US bank account, Stripe Connect provides the fastest payouts.</span>
+                    <span *ngIf="determinedPayoutMethod === 'paypal' && isUSPersonForTax">As a US Person without a US bank account, PayPal is your best option for receiving payments.</span>
+                    <span *ngIf="determinedPayoutMethod === 'paypal' && !isUSPersonForTax">As an international tutor, PayPal provides reliable worldwide payouts.</span>
+                  </p>
                 </div>
-              </div>
-              <div class="info-card">
-                <ion-icon name="globe-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Multiple currencies</h4>
-                  <p>Support for 135+ countries</p>
+                
+                <!-- Tax Summary -->
+                <div class="tax-summary">
+                  <div class="summary-item">
+                    <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+                    <span>{{ isUSPersonForTax ? 'US Person' : 'Non-US Person' }}</span>
+                  </div>
+                  <div class="summary-item" *ngIf="isUSPersonForTax">
+                    <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+                    <span>{{ hasUSBankAccount ? 'US Bank Account' : 'No US Bank' }}</span>
+                  </div>
+                  <ion-button fill="clear" size="small" (click)="editTaxInfo()">
+                    <ion-icon name="create-outline" slot="start"></ion-icon>
+                    Edit
+                  </ion-button>
                 </div>
-              </div>
-              <div class="info-card">
-                <ion-icon name="lock-closed-outline" color="primary"></ion-icon>
-                <div class="info-text">
-                  <h4>Bank-level security</h4>
-                  <p>Your information is encrypted</p>
+                
+                <!-- PayPal Email Input (if PayPal is determined method) -->
+                <div *ngIf="determinedPayoutMethod === 'paypal'" class="paypal-setup">
+                  <ion-item lines="none" class="paypal-email-item">
+                    <ion-input
+                      label="PayPal Email"
+                      labelPlacement="stacked"
+                      type="email"
+                      [(ngModel)]="paypalEmail"
+                      placeholder="your.email@example.com"
+                      (ionInput)="validatePayPalEmail()">
+                    </ion-input>
+                  </ion-item>
+                  <div *ngIf="paypalEmailError" class="error-message">
+                    <ion-icon name="alert-circle"></ion-icon>
+                    <span>{{ paypalEmailError }}</span>
+                  </div>
+                  <p class="paypal-note">
+                    <ion-icon name="information-circle"></ion-icon>
+                    Make sure this email is linked to your PayPal account
+                  </p>
+                </div>
+                
+                <!-- Info cards -->
+                <div class="info-cards">
+                  <div class="info-card" *ngIf="determinedPayoutMethod === 'stripe'">
+                    <ion-icon name="flash-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Fast payouts</h4>
+                      <p>Direct to your US bank account</p>
+                    </div>
+                  </div>
+                  <div class="info-card" *ngIf="determinedPayoutMethod === 'paypal'">
+                    <ion-icon name="globe-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Worldwide support</h4>
+                      <p>Available in 200+ countries</p>
+                    </div>
+                  </div>
+                  <div class="info-card">
+                    <ion-icon name="shield-checkmark-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Secure payments</h4>
+                      <p>Bank-level encryption</p>
+                    </div>
+                  </div>
+                  <div class="info-card">
+                    <ion-icon name="calendar-outline" color="primary"></ion-icon>
+                    <div class="info-text">
+                      <h4>Weekly payouts</h4>
+                      <p>Get paid every week</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="button-row">
+                  <ion-button fill="outline" (click)="previousPaymentStep()">
+                    <ion-icon name="arrow-back" slot="start"></ion-icon>
+                    Back
+                  </ion-button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Primary Action Button -->
+        <!-- Primary Action Button (Photo & Video steps) -->
         <ion-button 
+          *ngIf="currentStep.id !== 'stripe'"
           expand="block" 
           color="primary" 
           size="large"
@@ -245,9 +413,27 @@
           <span *ngIf="currentStep.id === 'photo'">
             {{ steps[0].completed ? 'Change Photo' : 'Upload Profile Photo' }}
           </span>
-          <span *ngIf="currentStep.id !== 'photo'">
+          
+          <span *ngIf="currentStep.id === 'video'">
             {{ currentStep.completed ? 'Completed' : currentStep.title }}
           </span>
+        </ion-button>
+        <p>You can change your photo later in the settings but it must always be a professional photo.</p>
+
+        <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
+        <ion-button 
+          *ngIf="currentStep.id === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
+          expand="block" 
+          color="primary" 
+          size="large"
+          class="primary-action"
+          [disabled]="!canSetupPayment()"
+          (click)="setupPaymentMethod()">
+          <ion-icon 
+            [name]="determinedPayoutMethod === 'stripe' ? 'card' : 'logo-paypal'" 
+            slot="start">
+          </ion-icon>
+          {{ determinedPayoutMethod === 'stripe' ? 'Connect Stripe' : 'Connect PayPal' }}
         </ion-button>
       </div>
     </div>

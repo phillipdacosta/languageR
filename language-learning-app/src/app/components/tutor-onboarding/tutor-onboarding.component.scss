@@ -276,7 +276,7 @@
   justify-content: flex-start;
   overflow-y: auto; // Enable scrolling
   overflow-x: hidden;
-  padding-right: 8px;
+  padding-right: 4px;
   height: 100%; // Fill grid cell height
   min-height: 0; // Allow shrinking if needed
   
@@ -303,46 +303,46 @@
   width: 100%;
   max-width: 480px;
   text-align: center;
-  padding: 0 0 40px 0; // Add padding at bottom for scrolling clearance
+  padding: 0 0 12px 0; // Add padding at bottom for scrolling clearance
   margin: 0 auto;
   flex-shrink: 0; // Prevent shrinking
   
   .step-icon-circle {
-    width: 56px;
-    height: 56px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 12px auto;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+    margin: 0 auto 6px auto;
+    box-shadow: 0 3px 8px rgba(102, 126, 234, 0.3);
     
     ion-icon {
-      font-size: 28px;
+      font-size: 20px;
       color: white;
     }
   }
   
   .step-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: #1c1c1e;
-    margin: 0 0 6px 0;
+    margin: 0 0 2px 0;
     letter-spacing: -0.5px;
   }
   
   .step-description {
-    font-size: 13px;
+    font-size: 11px;
     color: #8e8e93;
-    margin: 0 0 16px 0;
-    line-height: 1.4;
+    margin: 0 0 8px 0;
+    line-height: 1.3;
   }
 }
 
 // Step Content
 .step-content {
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   
   .current-photo {
     width: 90px;
@@ -370,25 +370,25 @@
   
   // Larger photo display for better space usage
   .current-photo-large {
-    width: 140px;
-    height: 140px;
-    margin: 24px auto;
+    width: 100px;
+    height: 100px;
+    margin: 12px auto;
     position: relative;
     
     img {
       width: 100%;
       height: 100%;
-      border-radius: 70px;
+      border-radius: 50px;
       object-fit: cover;
       border: 3px solid #34c759;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     }
     
     .check-badge {
       position: absolute;
-      bottom: 4px;
-      right: 4px;
-      font-size: 36px;
+      bottom: 2px;
+      right: 2px;
+      font-size: 28px;
       background: white;
       border-radius: 50%;
     }
@@ -408,16 +408,16 @@
   }
   
   .no-photo-large {
-    margin: 24px auto;
+    margin: 12px auto;
     
     ion-icon {
-      font-size: 120px;
+      font-size: 80px;
       color: #c7c7cc;
     }
     
     p {
-      margin: 12px 0 0 0;
-      font-size: 14px;
+      margin: 8px 0 0 0;
+      font-size: 13px;
       color: #8e8e93;
       font-weight: 500;
     }
@@ -425,44 +425,44 @@
   
   // Google photo warning state
   .google-photo-warning {
-    margin: 24px auto;
+    margin: 12px auto;
     text-align: center;
     
     .photo-preview {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       
       .google-photo {
-        width: 100px;
-        height: 100px;
-        border-radius: 50%;
+        width: 80px;
+        height: 80px;
+        border-radius: 40px;
         object-fit: cover;
-        border: 3px dashed #ff9500;
+        border: 2px dashed #ff9500;
         opacity: 0.7;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
     }
     
     .warning-message {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
-      padding: 16px;
+      gap: 10px;
+      padding: 12px;
       background: #fff3e0;
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid #ffcc80;
       text-align: left;
       
       ion-icon {
-        font-size: 24px;
+        font-size: 20px;
         flex-shrink: 0;
         margin-top: 2px;
       }
       
       p {
         margin: 0;
-        font-size: 14px;
+        font-size: 13px;
         color: #e65100;
-        line-height: 1.5;
+        line-height: 1.4;
         font-weight: 500;
       }
     }
@@ -472,17 +472,17 @@
   .info-cards {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    margin: 24px 0;
+    gap: 8px;
+    margin: 12px 0;
     text-align: left;
     
     .info-card {
       display: flex;
       align-items: flex-start;
-      gap: 12px;
-      padding: 14px;
+      gap: 10px;
+      padding: 10px;
       background: #f9f9f9;
-      border-radius: 10px;
+      border-radius: 8px;
       border: 1px solid #e5e5ea;
       transition: all 0.2s ease;
       
@@ -492,7 +492,7 @@
       }
       
       ion-icon {
-        font-size: 24px;
+        font-size: 20px;
         flex-shrink: 0;
         margin-top: 2px;
       }
@@ -502,7 +502,7 @@
         
         h4 {
           margin: 0 0 2px 0;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           color: #1c1c1e;
           letter-spacing: -0.2px;
@@ -510,9 +510,9 @@
         
         p {
           margin: 0;
-          font-size: 12px;
+          font-size: 11px;
           color: #8e8e93;
-          line-height: 1.4;
+          line-height: 1.3;
         }
       }
     }
@@ -686,9 +686,16 @@
   font-weight: 600;
   text-transform: none;
   letter-spacing: -0.2px;
-  margin-bottom: 0;
-  margin-top: 16px; // Add space above button
+  margin-bottom: 6px;
+  margin-top: 8px; // Add space above button
   flex-shrink: 0; // Prevent button from shrinking
+}
+
+.step-content-card p {
+  font-size: 11px;
+  color: #8e8e93;
+  margin: 0;
+  line-height: 1.3;
 }
 
 .submit-action {
@@ -811,6 +818,399 @@
     ion-button {
       flex: 1;
       max-width: 200px;
+    }
+  }
+}
+
+// Payment Setup Step Styles
+.stripe-step {
+  .status-card-large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    
+    ion-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+    }
+    
+    .provider-badge {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+    
+    &.success {
+      background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+      color: #166534;
+      
+      ion-icon {
+        color: #22c55e;
+      }
+    }
+    
+    &.empty {
+      background: #f5f5f7;
+      color: #6b7280;
+      
+      ion-icon {
+        color: #9ca3af;
+      }
+    }
+  }
+  
+  .payment-setup-flow {
+    width: 100%;
+  }
+  
+  .tax-question-card,
+  .payment-method-card {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 6px;
+  }
+  
+  .question-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    
+    .question-icon {
+      font-size: 24px;
+      color: #667eea;
+    }
+    
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+  }
+  
+  .question-subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 12px 0;
+    line-height: 1.4;
+  }
+  
+  .question-box {
+    background: white;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    
+    h4 {
+      margin: 0 0 6px 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    
+    .help-text {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0 0 12px 0;
+      line-height: 1.4;
+    }
+  }
+  
+  .answer-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .answer-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+    
+    &:hover {
+      border-color: #d1d5db;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    &.selected {
+      border-color: #667eea;
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+    
+    .option-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      
+      &.us {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+      }
+      
+      &.international {
+        background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+        color: white;
+      }
+      
+      &.yes {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: white;
+      }
+      
+      &.no {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+      }
+    }
+    
+    .option-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      
+      .option-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1d1d1f;
+      }
+      
+      .option-note {
+        font-size: 12px;
+        color: #6b7280;
+      }
+    }
+    
+    .radio-indicator {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #d1d5db;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      
+      &.selected {
+        border-color: #667eea;
+        border-width: 6px;
+      }
+    }
+  }
+  
+  .continue-btn {
+    --border-radius: 8px;
+    font-weight: 600;
+    margin-top: 8px;
+    height: 40px;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: -0.2px;
+  }
+  
+  .button-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+    margin-bottom: 0;
+    
+    ion-button {
+      flex: 1;
+      --border-radius: 8px;
+      font-weight: 600;
+      height: 40px;
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: -0.2px;
+      
+      &[fill="outline"] {
+        --border-color: #d1d5db;
+        --color: #6b7280;
+      }
+    }
+  }
+  
+  // Payment method card
+  .determined-method {
+    text-align: center;
+    margin-bottom: 6px;
+    
+    .method-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      
+      ion-icon {
+        font-size: 18px;
+      }
+      
+      &.stripe {
+        background: linear-gradient(135deg, #635bff 0%, #7c4dff 100%);
+        color: white;
+      }
+      
+      &.paypal {
+        background: linear-gradient(135deg, #003087 0%, #009cde 100%);
+        color: white;
+      }
+    }
+    
+    .method-reason {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0;
+      line-height: 1.3;
+    }
+  }
+  
+  .tax-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #1d1d1f;
+      
+      ion-icon {
+        font-size: 16px;
+        color: #667eea;
+      }
+    }
+    
+    ion-button {
+      --color: #667eea;
+      font-size: 12px;
+      height: 28px;
+    }
+  }
+  
+  .paypal-setup {
+    margin-bottom: 8px;
+    
+    .paypal-email-item {
+      --background: white;
+      --border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      
+      ion-input {
+        --padding-start: 12px;
+        --padding-end: 12px;
+      }
+    }
+    
+    .error-message {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: #fef2f2;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #dc2626;
+      margin-bottom: 6px;
+      
+      ion-icon {
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+    }
+    
+    .paypal-note {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0;
+      line-height: 1.3;
+      
+      ion-icon {
+        font-size: 14px;
+        color: #3b82f6;
+        flex-shrink: 0;
+      }
+    }
+  }
+  
+  .info-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    margin-top: 6px;
+    
+    @media (max-width: 500px) {
+      grid-template-columns: 1fr;
+    }
+    
+    .info-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px;
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      
+      ion-icon {
+        font-size: 16px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      
+      .info-text {
+        h4 {
+          margin: 0 0 1px 0;
+          font-size: 12px;
+          font-weight: 600;
+          color: #1d1d1f;
+        }
+        
+        p {
+          margin: 0;
+          font-size: 10px;
+          color: #6b7280;
+          line-height: 1.2;
+        }
+      }
     }
   }
 }

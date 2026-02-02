@@ -63,7 +63,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
         userType: 'tutor',
         'tutorOnboarding.videoApproved': true,
         'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' }
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
       
       // Filter out tutors with pending videos (do this in JavaScript for clarity)
       tutors = tutors.filter(tutor => {
@@ -79,7 +79,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
           { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
           { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
         ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
     } else {
       // Get ALL tutors with videos
       const allTutors = await User.find({
@@ -88,7 +88,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
           { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
           { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
         ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt createdAt');
       
       console.log('📋 Sample tutor data from query:', allTutors[0] ? {
         email: allTutors[0].email,
@@ -280,10 +280,13 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         userId: tutor._id,
         type: 'tutor_video_approved',
         title: '🎉 Video Approved!',
-        message: 'Your introduction video has been <strong>approved</strong>. You can now <strong>start tutoring</strong>!',
+        message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
         data: {
           tutorApproved: tutor.tutorApproved,
-          approvedAt: new Date()
+          approvedAt: new Date(),
+          hasActionButton: true,
+          actionButtonText: 'Add Availability',
+          actionRoute: '/tabs/availability-setup'
         },
         read: false
       });
@@ -321,9 +324,14 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
           type: 'tutor_video_approved',
           title: '🎉 Video Approved!',
-          message: 'Your introduction video has been approved!',
+          message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
           timestamp: new Date(),
-          urgent: false
+          urgent: false,
+          data: {
+            hasActionButton: true,
+            actionButtonText: 'Add Availability',
+            actionRoute: '/tabs/availability-setup'
+          }
         });
       }
     } catch (socketError) {
@@ -439,10 +447,13 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
         userId: tutor._id,
         type: 'tutor_video_approved',
         title: '🎉 Video Approved!',
-        message: 'Your introduction video has been approved!',
+        message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
         data: {
           tutorApproved: tutor.tutorApproved,
-          approvedAt: new Date()
+          approvedAt: new Date(),
+          hasActionButton: true,
+          actionButtonText: 'Add Availability',
+          actionRoute: '/tabs/availability-setup'
         },
         read: false
       });
@@ -456,7 +467,7 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
     try {
       if (req.io) {
         req.io.to(`user:${tutor.auth0Id}`).emit('tutor_video_approved', {
-          message: 'Your introduction video has been approved!',
+          message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
           approved: true,
           tutorApproved: tutor.tutorApproved,
           timestamp: new Date()
@@ -467,7 +478,7 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
         if (global.userSockets && global.userSockets[tutor._id.toString()]) {
           const socketId = global.userSockets[tutor._id.toString()];
           req.io.to(socketId).emit('tutor_video_approved', {
-            message: 'Your introduction video has been approved!',
+            message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
             approved: true,
             tutorApproved: tutor.tutorApproved,
             timestamp: new Date()
@@ -478,9 +489,14 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
           type: 'tutor_video_approved',
           title: '🎉 Video Approved!',
-          message: 'Your introduction video has been approved!',
+          message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
           timestamp: new Date(),
-          urgent: false
+          urgent: false,
+          data: {
+            hasActionButton: true,
+            actionButtonText: 'Add Availability',
+            actionRoute: '/tabs/availability-setup'
+          }
         });
       }
     } catch (socketError) {

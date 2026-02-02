@@ -228,7 +228,14 @@ export class NotificationsPage implements OnDestroy {
           scrollToLesson: notification.data.lessonId 
         } 
       });
+    } else if (notification.type === 'tutor_video_approved' && notification.data?.actionRoute) {
+      // Navigate to the action route (e.g., tutor calendar for availability)
+      this.router.navigate([notification.data.actionRoute]);
     }
+  }
+
+  navigateToTutorCalendar() {
+    this.router.navigate(['/tabs/availability-setup']);
   }
 
   async openClassInvitation(classId: string, notification?: Notification) {

@@ -37,16 +37,17 @@ ion-content {
 
 .modal-content {
   display: grid;
-  grid-template-columns: 420px 1fr; // Increased from 380px
-  gap: 40px; // Increased from 32px
-  padding: 40px 40px 40px 40px;
+  grid-template-columns: 380px 1fr;
+  gap: 40px;
+  padding: 40px;
   height: 100%;
   background: white;
-  position: relative; // For proper positioning context
+  position: relative;
+  overflow: hidden;
   
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
-    padding: 70px 20px 24px 20px; // More top padding on mobile
+    padding: 70px 20px 24px 20px;
     overflow-y: auto;
   }
 }
@@ -57,7 +58,8 @@ ion-content {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 20px 0;
+  padding: 8px 0;
+  justify-content: flex-start;
   
   @media (max-width: 900px) {
     padding: 0 0 20px 0;
@@ -65,8 +67,8 @@ ion-content {
 }
 
 .icon-wrapper {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   margin: 0 auto 20px;
   border-radius: 50%;
   display: flex;
@@ -76,23 +78,23 @@ ion-content {
   flex-shrink: 0;
   
   ion-icon {
-    font-size: 48px;
+    font-size: 40px;
     color: #667eea;
   }
 }
 
 .modal-heading {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: #1d1d1f;
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
   letter-spacing: -0.5px;
   line-height: 1.2;
 }
 
 .modal-description {
-  font-size: 15px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.5;
   color: #6b7280;
   margin: 0 0 24px 0;
   font-weight: 400;
@@ -103,14 +105,15 @@ ion-content {
   gap: 14px;
   padding: 16px 18px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
+  border-radius: 14px;
   color: white;
   text-align: left;
   width: 100%;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+  margin-top: auto;
   
   ion-icon {
-    font-size: 24px;
+    font-size: 22px;
     flex-shrink: 0;
     margin-top: 1px;
   }
@@ -134,6 +137,12 @@ ion-content {
     opacity: 0.95;
     line-height: 1.5;
   }
+  
+  p {
+    font-size: 13px;
+    margin: 0;
+    line-height: 1.5;
+  }
 }
 
 // Right Column
@@ -141,8 +150,9 @@ ion-content {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding-right: 8px;
-  padding-top: 0; // Align with left column
+  padding-right: 4px;
+  padding-top: 0;
+  justify-content: flex-start;
   
   &::-webkit-scrollbar {
     width: 6px;
@@ -171,10 +181,10 @@ ion-content {
 .options-container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   flex: 1;
-      position: relative;
-    top: 35px;
+  position: relative;
+  top: 0;
 }
 
 .loading-container {
@@ -194,7 +204,7 @@ ion-content {
 .option-card {
   padding: 0;
   border: 2px solid #e5e5ea;
-  border-radius: 16px;
+  border-radius: 12px;
   background: white;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -230,14 +240,14 @@ ion-content {
 .option-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
+  gap: 14px;
+  padding: 18px;
 }
 
 .icon-circle {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -248,7 +258,7 @@ ion-content {
     background: linear-gradient(135deg, #635bff 0%, #7c4dff 100%);
     
     ion-icon {
-      font-size: 26px;
+      font-size: 24px;
       color: white;
     }
   }
@@ -258,8 +268,8 @@ ion-content {
     border: 2px solid #e5e5ea;
     
     .paypal-logo {
-      width: 49px;
-      height: 49px;
+      width: 44px;
+      height: 44px;
       object-fit: cover;
     }
   }
@@ -268,7 +278,7 @@ ion-content {
     background: linear-gradient(135deg, #8e8e93 0%, #636366 100%);
     
     ion-icon {
-      font-size: 26px;
+      font-size: 24px;
       color: white;
     }
   }
@@ -288,7 +298,7 @@ ion-content {
   
   h3 {
     margin: 0;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     color: #1c1c1e;
     line-height: 1.2;
@@ -430,20 +440,21 @@ ion-content {
 }
 
 .button-container {
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid #e5e5ea;
   flex-shrink: 0;
   
   ion-button {
     --border-radius: 12px;
     --box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-    --padding-top: 13px;
-    --padding-bottom: 13px;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
     font-weight: 600;
     font-size: 15px;
     text-transform: none;
     letter-spacing: 0;
+    height: 44px;
   }
 }
 
@@ -464,6 +475,192 @@ ion-content {
     
     ion-icon {
       font-size: 40px;
+    }
+  }
+}
+
+// Step-based wizard styles - removed, using two-column layout for all steps
+
+.icon-wrapper.tax-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  
+  ion-icon {
+    color: white;
+  }
+}
+
+.icon-wrapper.bank-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  
+  ion-icon {
+    color: white;
+  }
+}
+
+.question-card {
+  max-width: 100%;
+  margin: 0;
+  width: 100%;
+}
+
+.question-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin: 0 0 10px 0;
+  text-align: left;
+}
+
+.question-help {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 24px 0;
+  text-align: left;
+  line-height: 1.5;
+}
+
+.answer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.answer-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 2px solid #e5e5ea;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
+  
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+  
+  &.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f7f8ff 0%, #faf7ff 100%);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+  }
+  
+  .option-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    
+    ion-icon {
+      font-size: 24px;
+    }
+    
+    &.yes-icon {
+      background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
+      
+      ion-icon {
+        color: white;
+      }
+    }
+    
+    &.no-icon {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      
+      ion-icon {
+        color: white;
+      }
+    }
+  }
+  
+  .option-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    
+    .option-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    
+    .option-note {
+      font-size: 13px;
+      color: #8e8e93;
+    }
+  }
+}
+
+.info-banner.warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  margin-bottom: 0;
+  
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+.button-container.two-buttons {
+  display: flex;
+  gap: 12px;
+  
+  ion-button {
+    flex: 1;
+    
+    &[fill="outline"] {
+      --box-shadow: none;
+      --background: transparent;
+      --border-color: #e5e5ea;
+      --color: #6b7280;
+      
+      &:hover {
+        --background: #f5f5f7;
+      }
+    }
+  }
+}
+
+// Tax summary in payment step
+.tax-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f5f5f7;
+  border-radius: 10px;
+  margin-top: 12px;
+  
+  .summary-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #1d1d1f;
+    
+    ion-icon {
+      font-size: 16px;
+      color: #667eea;
+    }
+  }
+  
+  ion-button {
+    margin-left: auto;
+    --color: #667eea;
+    font-size: 12px;
+    height: 28px;
+    
+    ion-icon {
+      font-size: 14px;
     }
   }
 }

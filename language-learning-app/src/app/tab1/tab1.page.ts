@@ -178,6 +178,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor onboarding state
   showOnboardingBanner = false;
   tutorOnboardingStatus: any = null;
+  hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
   isStudentUser = false; // Use property instead of function call in template
   
@@ -3011,6 +3012,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     
     this.tutorOnboardingStatus = user.tutorOnboarding || {};
+    
+    // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+    this.hasCustomProfilePhoto = !!(user.picture && (
+      user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+      (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+    ));
     
     // Show banner only if user is NOT fully approved
     // tutorApproved is set to true on the backend only when ALL steps are complete

@@ -267,12 +267,28 @@ const userSchema = new mongoose.Schema({
     default: false,
     comment: 'Whether tutors Connect account has payouts enabled'
   },
+  // Tax classification for payout routing
+  isUSPersonForTax: {
+    type: Boolean,
+    default: null,
+    comment: 'Is the tutor a US Person for tax purposes? (US citizen, resident, green card holder). null = not yet answered'
+  },
+  hasUSBankAccount: {
+    type: Boolean,
+    default: null,
+    comment: 'Does the tutor have a US bank account? Only relevant if isUSPersonForTax=true. null = not yet answered'
+  },
+  taxInfoCompletedAt: {
+    type: Date,
+    default: null,
+    comment: 'When the tutor completed the tax classification questions'
+  },
   // Payout method configuration
   payoutProvider: {
     type: String,
     enum: ['stripe', 'paypal', 'manual', 'none'],
     default: 'none',
-    comment: 'Selected payout method: stripe (Connect), paypal (PayPal Payouts), manual (bank transfer), none (not set up)'
+    comment: 'Selected payout method: stripe (US Person + US bank), paypal (US Person w/o US bank OR non-US), manual (fallback), none (not set up)'
   },
   payoutDetails: {
     paypalEmail: {

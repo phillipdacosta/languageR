@@ -583,6 +583,20 @@ router.post('/stripe-connect/onboard', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only tutors can onboard to Stripe Connect' });
     }
 
+    const { isUSPersonForTax, hasUSBankAccount } = req.body;
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
+    }
+    await user.save();
+
     // Create Stripe Connect account if doesn't exist
     if (!user.stripeConnectAccountId) {
       const account = await stripeService.createConnectAccount({
@@ -1118,7 +1132,11 @@ router.get('/payout-options', verifyToken, async (req, res) => {
         }
       },
       currentProvider: user.payoutProvider || 'none',
-      currentPaypalEmail: user.payoutDetails?.paypalEmail || null
+      currentPaypalEmail: user.payoutDetails?.paypalEmail || null,
+      // Tax classification info
+      isUSPersonForTax: user.isUSPersonForTax,
+      hasUSBankAccount: user.hasUSBankAccount,
+      taxInfoCompletedAt: user.taxInfoCompletedAt
     });
   } catch (error) {
     console.error('❌ Error checking payout options:', error);
@@ -1510,10 +1528,21 @@ router.post('/setup-paypal', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
     }
 
-    const { paypalEmail } = req.body;
+    const { paypalEmail, isUSPersonForTax, hasUSBankAccount } = req.body;
     
     if (!paypalEmail || !paypalEmail.includes('@')) {
       return res.status(400).json({ success: false, message: 'Valid PayPal email required' });
+    }
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
     }
 
     // Update payout provider
@@ -1565,6 +1594,19 @@ router.post('/setup-manual', verifyToken, async (req, res) => {
 
     if (user.userType !== 'tutor') {
       return res.status(403).json({ success: false, message: 'Only tutors can setup payout methods' });
+    }
+
+    const { isUSPersonForTax, hasUSBankAccount } = req.body;
+
+    // Save tax classification info if provided
+    if (isUSPersonForTax !== undefined) {
+      user.isUSPersonForTax = isUSPersonForTax;
+      user.taxInfoCompletedAt = new Date();
+      console.log(`📋 Tax info saved for ${user.email}: isUSPerson=${isUSPersonForTax}`);
+    }
+    if (hasUSBankAccount !== undefined) {
+      user.hasUSBankAccount = hasUSBankAccount;
+      console.log(`📋 Bank info saved for ${user.email}: hasUSBank=${hasUSBankAccount}`);
     }
 
     // Update payout provider

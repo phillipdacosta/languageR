@@ -69,21 +69,37 @@
               <ion-icon name="rocket-outline"></ion-icon>
             </div>
             <div class="banner-text">
-              <h3>Complete Your Profile Setup</h3>
-              <p class="banner-items">
-                <span *ngIf="!tutorOnboardingStatus?.photoUploaded && !currentUser?.picture"> Upload your profile photo</span>
-                <span class="separator" *ngIf="(!tutorOnboardingStatus?.photoUploaded && !currentUser?.picture) && (!tutorOnboardingStatus?.videoApproved || !tutorOnboardingStatus?.stripeConnected || !currentUser?.stripeConnectOnboarded)"> | </span>
-                
-                <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> Introduction video pending review </span>
-                <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> Upload your introduction video </span>
-                <span class="separator" *ngIf="!tutorOnboardingStatus?.videoApproved && (!tutorOnboardingStatus?.stripeConnected || !currentUser?.stripeConnectOnboarded)">|</span>
-                
-                <span *ngIf="!tutorOnboardingStatus?.stripeConnected && !currentUser?.stripeConnectOnboarded"> Connect your bank account </span>
-                
-                <span *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.stripeConnected && currentUser?.stripeConnectOnboarded"> Your profile is being reviewed </span>
-              </p>
+              <!-- Video Approved Message -->
+              <div *ngIf="tutorOnboardingStatus?.videoApproved && !currentUser?.tutorApproved">
+                <h3>🎉 Your Introduction Video Has Been Approved!</h3>
+                <p class="banner-items">
+                  You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!
+                </p>
+              </div>
+              <!-- Regular Onboarding Message -->
+              <div *ngIf="!tutorOnboardingStatus?.videoApproved">
+                <h3>Complete Your Profile Setup</h3>
+                <p class="banner-items">
+                  <span *ngIf="!hasCustomProfilePhoto"> Upload your profile photo</span>
+                  <span class="separator" *ngIf="!hasCustomProfilePhoto && (!tutorOnboardingStatus?.videoApproved || (!tutorOnboardingStatus?.stripeConnected && !currentUser?.stripeConnectOnboarded))"> | </span>
+                  
+                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> Introduction video pending review </span>
+                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> Upload your introduction video </span>
+                  <span class="separator" *ngIf="!tutorOnboardingStatus?.videoApproved && (!tutorOnboardingStatus?.stripeConnected && !currentUser?.stripeConnectOnboarded)"> | </span>
+                  
+                  <span *ngIf="!tutorOnboardingStatus?.stripeConnected && !currentUser?.stripeConnectOnboarded"> Connect your bank account </span>
+                  
+                  <span *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.stripeConnected && currentUser?.stripeConnectOnboarded"> Your profile is being reviewed </span>
+                </p>
+              </div>
             </div>
-            <ion-button fill="solid" color="primary" (click)="openTutorOnboarding()">
+            <!-- Add Availability Button (when video approved) -->
+            <ion-button *ngIf="tutorOnboardingStatus?.videoApproved && !currentUser?.tutorApproved" fill="solid" color="primary" (click)="router.navigate(['/tabs/tutor-calendar'])">
+              <ion-icon name="calendar-outline" slot="start"></ion-icon>
+              Add Availability
+            </ion-button>
+            <!-- Continue Setup Button (when onboarding incomplete) -->
+            <ion-button *ngIf="!tutorOnboardingStatus?.videoApproved" fill="solid" color="primary" (click)="openTutorOnboarding()">
               <ion-icon name="arrow-forward" slot="end"></ion-icon>
               Continue Setup
             </ion-button>

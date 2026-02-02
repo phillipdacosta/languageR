@@ -120,6 +120,13 @@ class StripeService {
           card_payments: { requested: true },
           transfers: { requested: true }
         },
+        business_type: 'individual', // Tutors are individuals, not companies
+        business_profile: {
+          mcc: '8299', // Educational Services - Schools and Educational Services
+          product_description: 'Online language tutoring services - teaching students languages through one-on-one video lessons.'
+          // Note: URL is not provided to avoid validation errors during development
+          // Stripe will use the product_description instead
+        },
         metadata
       });
       

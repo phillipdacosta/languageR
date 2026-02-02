@@ -487,8 +487,8 @@
         <!-- CUSTOM CALENDAR (NEW) -->
         <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
           <!-- Calendar Toolbar -->
-          <div class="custom-toolbar">
-            <div class="toolbar-left">
+          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete">
+            <div class="toolbar-left" *ngIf="!isOnboardingIncomplete">
               <button class="nav-btn" (click)="navigatePrevious()">
                 <ion-icon name="chevron-back"></ion-icon>
               </button>
@@ -498,33 +498,42 @@
               <button class="today-btn" (click)="navigateToday()">Today</button>
             </div>
             <div class="toolbar-center">
-              <h2 class="calendar-title" *ngIf="customView === 'week'">{{ currentWeekTitle }}</h2>
-              <h2 class="calendar-title" *ngIf="customView === 'day'">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+              <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete">{{ currentWeekTitle }}</h2>
+              <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
               
-              <!-- Onboarding Warning Banner -->
-              <!-- Only show if photo incomplete, no approved video yet, or payout not setup -->
-              <div class="stripe-warning-banner-inline" 
-                   *ngIf="(!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)"
-                   style="background: #ffa50075; font-size: 14px; padding: 10px; border-radius: 13px; display: flex; align-items: center; gap: 8px;">
-                <ion-icon name="warning-outline"></ion-icon>
-                <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
-                  <span>Onboarding incomplete:</span>
-                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px;">
-                    <span *ngIf="!currentUser?.picture">Upload your profile photo</span>
-                    <span *ngIf="!currentUser?.picture && ((!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded))" style="opacity: 0.6; margin: 0 4px;">|</span>
-                    
-                    <!-- Video status -->
-                    <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)">Introduction video pending review</span>
-                    <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo">Upload your introduction video</span>
-                    <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)" style="opacity: 0.6; margin: 0 4px;">|</span>
-                    
-                    <span *ngIf="!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded">Connect your bank account</span>
-                  </span>
-                  <a (click)="router.navigate(['/tutor-approval'])" style="color: #007bff; text-decoration: underline; cursor: pointer; white-space: nowrap;">Complete now</a>
-                </span>
+              <!-- Onboarding Warning Banner - Show when onboarding incomplete -->
+              <div class="onboarding-banner-container" *ngIf="isOnboardingIncomplete">
+                <ion-card class="onboarding-banner">
+                  <ion-card-content>
+                    <div class="banner-content">
+                      <div class="banner-icon">
+                        <ion-icon name="rocket-outline"></ion-icon>
+                      </div>
+                      <div class="banner-text">
+                        <h3>Complete Your Profile Setup</h3>
+                        <p class="banner-items">
+                          <span *ngIf="!hasCustomProfilePhoto">Upload your profile photo</span>
+                          <span class="separator" *ngIf="!hasCustomProfilePhoto && ((!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded))"> | </span>
+                          
+                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)">Introduction video pending review</span>
+                          <span *ngIf="!currentUser?.tutorOnboarding?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo">Upload your introduction video</span>
+                          <span class="separator" *ngIf="!currentUser?.tutorOnboarding?.videoApproved && (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)"> | </span>
+                          
+                          <span *ngIf="!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded">Connect your bank account</span>
+                          
+                          <span *ngIf="currentUser?.tutorOnboarding?.videoApproved && currentUser?.tutorOnboarding?.stripeConnected && currentUser?.stripeConnectOnboarded">Your profile is being reviewed</span>
+                        </p>
+                      </div>
+                      <ion-button fill="solid" color="primary" (click)="router.navigate(['/tutor-approval'])">
+                        <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                        Continue Setup
+                      </ion-button>
+                    </div>
+                  </ion-card-content>
+                </ion-card>
               </div>
             </div>
-            <div class="toolbar-right">
+            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete">
               <div class="view-switcher">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
                 <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>

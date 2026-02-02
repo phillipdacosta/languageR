@@ -106,6 +106,14 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                Add availability
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
@@ -159,6 +167,14 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                Add availability
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
@@ -212,6 +228,14 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                Add availability
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>

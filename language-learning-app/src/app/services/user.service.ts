@@ -43,6 +43,10 @@ export interface User {
     paypalEmail?: string;
     bankInfo?: any;
   };
+  // Tax classification for payout routing
+  isUSPersonForTax?: boolean | null;
+  hasUSBankAccount?: boolean | null;
+  taxInfoCompletedAt?: string;
   onboardingData?: {
     languages: string[];
     goals: string[];

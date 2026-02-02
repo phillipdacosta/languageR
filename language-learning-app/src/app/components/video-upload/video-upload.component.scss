@@ -157,6 +157,11 @@
   
   ion-button {
     --border-radius: 8px;
+    height: 40px;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.2px;
   }
 }
 
@@ -431,6 +436,24 @@
   gap: 8px;
   justify-content: center;
   margin-top: 12px;
+  
+  ion-button {
+    --border-radius: 8px;
+    height: 36px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: -0.2px;
+    
+    &[fill="outline"] {
+      --border-color: #d1d5db;
+      --color: #6b7280;
+      
+      &:hover {
+        --background: #f9fafb;
+      }
+    }
+  }
 }
 
 // Upload Progress

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { UserService } from '../../services/user.service';
@@ -26,7 +27,7 @@ interface OnboardingStep {
   templateUrl: './tutor-onboarding.component.html',
   styleUrls: ['./tutor-onboarding.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, SharedModule]
+  imports: [CommonModule, FormsModule, IonicModule, SharedModule]
 })
 export class TutorOnboardingComponent implements OnInit {
   currentUser: any = null;
@@ -68,6 +69,14 @@ export class TutorOnboardingComponent implements OnInit {
   isVideoPlayerModalOpen = false;
   isVideoPlaying = false;
   videoPlayerData: { videoUrl: string; safeVideoUrl: any; videoType: string } | null = null;
+
+  // Payment setup flow state
+  paymentSetupStep: 'tax-status' | 'bank-account' | 'setup-method' = 'tax-status';
+  isUSPersonForTax: boolean | null = null;
+  hasUSBankAccount: boolean | null = null;
+  determinedPayoutMethod: 'stripe' | 'paypal' | null = null;
+  paypalEmail = '';
+  paypalEmailError = '';
 
   constructor(
     private userService: UserService,
@@ -134,6 +143,32 @@ export class TutorOnboardingComponent implements OnInit {
       console.log('🖼️ [CUSTOM-THUMBNAIL-CHECK] Is Vimeo CDN?', thumbnailUrl?.includes('vimeocdn.com'));
       console.log('📹 [TUTOR-APPROVAL] Video approved:', user.tutorOnboarding?.videoApproved);
       console.log('📹 [TUTOR-APPROVAL] Video rejected:', user.tutorOnboarding?.videoRejected);
+
+      // Load existing tax info if available
+      if (user.isUSPersonForTax !== null && user.isUSPersonForTax !== undefined) {
+        this.isUSPersonForTax = user.isUSPersonForTax;
+        console.log('📋 [TUTOR-APPROVAL] Loaded isUSPersonForTax:', this.isUSPersonForTax);
+      }
+      if (user.hasUSBankAccount !== null && user.hasUSBankAccount !== undefined) {
+        this.hasUSBankAccount = user.hasUSBankAccount;
+        console.log('📋 [TUTOR-APPROVAL] Loaded hasUSBankAccount:', this.hasUSBankAccount);
+      }
+      
+      // If tax info is already complete, skip to the appropriate step
+      if (this.isUSPersonForTax !== null) {
+        if (this.isUSPersonForTax === false) {
+          // Non-US person - skip to setup
+          this.determinedPayoutMethod = 'paypal';
+          this.paymentSetupStep = 'setup-method';
+        } else if (this.hasUSBankAccount !== null) {
+          // US person with bank status known
+          this.determinedPayoutMethod = this.hasUSBankAccount ? 'stripe' : 'paypal';
+          this.paymentSetupStep = 'setup-method';
+        } else {
+          // US person but bank status unknown
+          this.paymentSetupStep = 'bank-account';
+        }
+      }
 
       // Update step 3 title/description based on payout provider
       if (user.payoutProvider === 'paypal') {
@@ -234,6 +269,87 @@ export class TutorOnboardingComponent implements OnInit {
   nextStep() {
     if (this.currentStepIndex < this.steps.length - 1) {
       this.currentStepIndex++;
+    }
+  }
+
+  // Payment setup flow methods
+  setUSPersonStatus(isUSPerson: boolean) {
+    this.isUSPersonForTax = isUSPerson;
+  }
+
+  setUSBankStatus(hasUSBank: boolean) {
+    this.hasUSBankAccount = hasUSBank;
+  }
+
+  nextPaymentStep() {
+    if (this.paymentSetupStep === 'tax-status') {
+      if (this.isUSPersonForTax === false) {
+        // Non-US Person → PayPal
+        this.determinedPayoutMethod = 'paypal';
+        this.paymentSetupStep = 'setup-method';
+      } else {
+        // US Person → Ask about bank account
+        this.paymentSetupStep = 'bank-account';
+      }
+    } else if (this.paymentSetupStep === 'bank-account') {
+      // Determine payout method based on answers
+      if (this.hasUSBankAccount) {
+        // US Person + US Bank → Stripe
+        this.determinedPayoutMethod = 'stripe';
+      } else {
+        // US Person + No US Bank → PayPal
+        this.determinedPayoutMethod = 'paypal';
+      }
+      this.paymentSetupStep = 'setup-method';
+    }
+  }
+
+  previousPaymentStep() {
+    if (this.paymentSetupStep === 'bank-account') {
+      this.paymentSetupStep = 'tax-status';
+    } else if (this.paymentSetupStep === 'setup-method') {
+      if (this.isUSPersonForTax) {
+        this.paymentSetupStep = 'bank-account';
+      } else {
+        this.paymentSetupStep = 'tax-status';
+      }
+    }
+  }
+
+  editTaxInfo() {
+    this.paymentSetupStep = 'tax-status';
+    this.determinedPayoutMethod = null;
+  }
+
+  validatePayPalEmail() {
+    this.paypalEmailError = '';
+    
+    if (!this.paypalEmail.trim()) {
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.paypalEmail.trim())) {
+      this.paypalEmailError = 'Please enter a valid email address';
+    }
+  }
+
+  canSetupPayment(): boolean {
+    if (this.determinedPayoutMethod === 'paypal') {
+      return this.paypalEmail.trim().length > 0 && !this.paypalEmailError;
+    }
+    return this.determinedPayoutMethod !== null;
+  }
+
+  async setupPaymentMethod() {
+    if (!this.canSetupPayment()) {
+      return;
+    }
+
+    if (this.determinedPayoutMethod === 'stripe') {
+      await this.setupStripeConnect(this.isUSPersonForTax, this.hasUSBankAccount);
+    } else if (this.determinedPayoutMethod === 'paypal') {
+      await this.setupPayPal(this.paypalEmail, this.isUSPersonForTax, this.hasUSBankAccount);
     }
   }
 
@@ -364,23 +480,26 @@ export class TutorOnboardingComponent implements OnInit {
       return;
     }
 
-    console.log('🏦 [PAYMENT-SETUP] User selected:', data.provider);
+    console.log('🏦 [PAYMENT-SETUP] User selected:', data.provider, 'Tax info:', {
+      isUSPersonForTax: data.isUSPersonForTax,
+      hasUSBankAccount: data.hasUSBankAccount
+    });
 
-    // Handle based on selected provider
+    // Handle based on selected provider - pass tax info along
     switch (data.provider) {
       case 'stripe':
-        await this.setupStripeConnect();
+        await this.setupStripeConnect(data.isUSPersonForTax, data.hasUSBankAccount);
         break;
       case 'paypal':
-        await this.setupPayPal(data.paypalEmail);
+        await this.setupPayPal(data.paypalEmail, data.isUSPersonForTax, data.hasUSBankAccount);
         break;
       case 'manual':
-        await this.setupManualPayout();
+        await this.setupManualPayout(data.isUSPersonForTax, data.hasUSBankAccount);
         break;
     }
   }
 
-  private async setupStripeConnect() {
+  private async setupStripeConnect(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const loading = await this.loadingController.create({
       message: 'Setting up Stripe...'
     });
@@ -392,7 +511,7 @@ export class TutorOnboardingComponent implements OnInit {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/stripe-connect/onboard`,
-          {},
+          { isUSPersonForTax, hasUSBankAccount },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -625,7 +744,7 @@ export class TutorOnboardingComponent implements OnInit {
     console.log('🎬 Closing video player modal');
   }
 
-  private async setupPayPal(paypalEmail: string) {
+  private async setupPayPal(paypalEmail: string, isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const loading = await this.loadingController.create({
       message: 'Setting up PayPal...'
     });
@@ -635,7 +754,7 @@ export class TutorOnboardingComponent implements OnInit {
       const response = await firstValueFrom(
         this.http.post<any>(
           `${environment.apiUrl}/payments/setup-paypal`,
-          { paypalEmail },
+          { paypalEmail, isUSPersonForTax, hasUSBankAccount },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
@@ -655,7 +774,7 @@ export class TutorOnboardingComponent implements OnInit {
     }
   }
 
-  private async setupManualPayout() {
+  private async setupManualPayout(isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {
     const alert = await this.alertController.create({
       header: 'Manual Bank Transfer',
       message: 'Your payout method has been set to manual bank transfer. You\'ll be able to request withdrawals from your earnings page, and our team will process them manually.',
@@ -676,7 +795,7 @@ export class TutorOnboardingComponent implements OnInit {
               const response = await firstValueFrom(
                 this.http.post<any>(
                   `${environment.apiUrl}/payments/setup-manual`,
-                  {},
+                  { isUSPersonForTax, hasUSBankAccount },
                   { headers: this.userService.getAuthHeadersSync() }
                 )
               );

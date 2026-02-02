@@ -644,6 +644,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate(['/tabs/notifications']);
   }
 
+  navigateToTutorCalendar() {
+    this.closeNotificationDropdown();
+    this.router.navigate(['/tabs/availability-setup']);
+  }
+
   private calculateDropdownPosition() {
     if (!this.notificationBtn) {
       return;

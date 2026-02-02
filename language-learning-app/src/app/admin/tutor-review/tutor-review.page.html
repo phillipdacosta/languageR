@@ -61,6 +61,22 @@
           <h3>{{ tutor.name || tutor.email }}</h3>
           <p>{{ tutor.email }}</p>
           
+          <!-- Tax Status Badges -->
+          <div class="status-badges tax-status">
+            <ion-badge *ngIf="tutor.isUSPersonForTax === true" color="primary">
+              <ion-icon name="flag"></ion-icon> US Person
+            </ion-badge>
+            <ion-badge *ngIf="tutor.isUSPersonForTax === false" color="tertiary">
+              <ion-icon name="globe"></ion-icon> Non-US Person
+            </ion-badge>
+            <ion-badge *ngIf="tutor.hasUSBankAccount === true && tutor.isUSPersonForTax === true" color="secondary">
+              <ion-icon name="business"></ion-icon> US Bank
+            </ion-badge>
+            <ion-badge *ngIf="tutor.hasUSBankAccount === false && tutor.isUSPersonForTax === true" color="medium">
+              <ion-icon name="card"></ion-icon> No US Bank
+            </ion-badge>
+          </div>
+          
           <!-- Payout Status Badges -->
           <div class="status-badges">
             <ion-badge *ngIf="tutor.stripeConnectOnboarded" color="success">
@@ -72,7 +88,7 @@
             <ion-badge *ngIf="tutor.payoutProvider === 'manual'" color="warning">
               <ion-icon name="alert-circle"></ion-icon> Manual Payout
             </ion-badge>
-            <ion-badge *ngIf="!tutor.stripeConnectOnboarded && !tutor.payoutProvider" color="danger">
+            <ion-badge *ngIf="!tutor.stripeConnectOnboarded && tutor.payoutProvider === 'none'" color="danger">
               <ion-icon name="close-circle"></ion-icon> No Payout Setup
             </ion-badge>
           </div>
@@ -159,24 +175,30 @@
         </ng-template>
       </ion-modal>
 
-      <div class="actions">
+      <!-- Action Buttons - Always show on pending tab -->
+      <div class="actions" *ngIf="selectedTab === 'pending'" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
         <ion-button 
-          *ngIf="selectedTab !== 'approved'" 
           color="success" 
-          (click)="approveTutor(tutor)"
-          [disabled]="hasUpdates(tutor._id)">
-          <ion-icon name="checkmark" slot="start"></ion-icon>
+          expand="block"
+          (click)="approveVideo(tutor)"
+          [disabled]="hasUpdates(tutor._id)"
+          style="display: block !important; visibility: visible !important;">
+          <ion-icon name="checkmark-circle" slot="start"></ion-icon>
           Approve
         </ion-button>
         <ion-button 
-          *ngIf="selectedTab === 'pending'" 
           color="danger" 
-          (click)="rejectTutor(tutor)"
-          [disabled]="hasUpdates(tutor._id)">
-          <ion-icon name="close" slot="start"></ion-icon>
+          expand="block"
+          (click)="rejectVideo(tutor)"
+          [disabled]="hasUpdates(tutor._id)"
+          style="display: block !important; visibility: visible !important;">
+          <ion-icon name="close-circle" slot="start"></ion-icon>
           Reject
         </ion-button>
-        <ion-badge *ngIf="selectedTab === 'rejected'" color="danger">
+      </div>
+      
+      <div class="actions" *ngIf="selectedTab === 'rejected'">
+        <ion-badge color="danger">
           Rejected: {{ tutor.tutorOnboarding?.rejectionReason || 'No reason provided' }}
         </ion-badge>
       </div>

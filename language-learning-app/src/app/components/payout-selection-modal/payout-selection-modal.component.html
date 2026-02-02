@@ -10,25 +10,177 @@
     <p>Loading payment options...</p>
   </div>
 
-  <!-- Payment Options -->
-  <div *ngIf="!loading && options" class="modal-content">
+  <!-- STEP 1: US Person Tax Question -->
+  <div *ngIf="!loading && currentStep === 'tax-status'" class="modal-content">
+    <!-- Left Column: Header & Info -->
+    <div class="left-column">
+      <div class="icon-wrapper tax-icon">
+        <ion-icon name="document-text"></ion-icon>
+      </div>
+      <h2 class="modal-heading">Tax Information</h2>
+      <p class="modal-description">We need this information to comply with tax regulations and set up your payouts correctly.</p>
+      
+      <div class="info-banner warning">
+        <ion-icon name="information-circle"></ion-icon>
+        <p>This information is required for tax compliance. Please answer accurately as it affects how your earnings are reported.</p>
+      </div>
+    </div>
+
+    <!-- Right Column: Question & Options -->
+    <div class="right-column">
+      <div class="question-card">
+        <h3 class="question-title">Are you a US Person for tax purposes?</h3>
+        <p class="question-help">A "US Person" includes US citizens, permanent residents (green card holders), and residents who meet the substantial presence test.</p>
+        
+        <div class="answer-options">
+          <div 
+            class="answer-option"
+            [class.selected]="isUSPersonForTax === true"
+            (click)="setUSPersonStatus(true)">
+            <div class="option-icon yes-icon">
+              <ion-icon name="checkmark-circle"></ion-icon>
+            </div>
+            <div class="option-text">
+              <span class="option-label">Yes, I am a US Person</span>
+              <span class="option-note">I will receive a 1099 tax form</span>
+            </div>
+            <div class="radio-wrapper">
+              <div class="custom-radio" [class.selected]="isUSPersonForTax === true"></div>
+            </div>
+          </div>
+
+          <div 
+            class="answer-option"
+            [class.selected]="isUSPersonForTax === false"
+            (click)="setUSPersonStatus(false)">
+            <div class="option-icon no-icon">
+              <ion-icon name="globe"></ion-icon>
+            </div>
+            <div class="option-text">
+              <span class="option-label">No, I am not a US Person</span>
+              <span class="option-note">I will provide a W-8BEN form</span>
+            </div>
+            <div class="radio-wrapper">
+              <div class="custom-radio" [class.selected]="isUSPersonForTax === false"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-container">
+        <ion-button
+          expand="block"
+          [disabled]="isUSPersonForTax === null"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: US Bank Account Question (Only for US Persons) -->
+  <div *ngIf="!loading && currentStep === 'bank-account'" class="modal-content">
+    <!-- Left Column: Header & Info -->
+    <div class="left-column">
+      <div class="icon-wrapper bank-icon">
+        <ion-icon name="business"></ion-icon>
+      </div>
+      <h2 class="modal-heading">Bank Account</h2>
+      <p class="modal-description">This helps us determine the best payout method for you.</p>
+    </div>
+
+    <!-- Right Column: Question & Options -->
+    <div class="right-column">
+      <div class="question-card">
+        <h3 class="question-title">Do you have a US bank account?</h3>
+        <p class="question-help">A US bank account allows for faster, lower-fee payouts via Stripe.</p>
+        
+        <div class="answer-options">
+          <div 
+            class="answer-option"
+            [class.selected]="hasUSBankAccount === true"
+            (click)="setUSBankStatus(true)">
+            <div class="option-icon yes-icon">
+              <ion-icon name="checkmark-circle"></ion-icon>
+            </div>
+            <div class="option-text">
+              <span class="option-label">Yes, I have a US bank account</span>
+              <span class="option-note">Fastest payouts via Stripe</span>
+            </div>
+            <div class="radio-wrapper">
+              <div class="custom-radio" [class.selected]="hasUSBankAccount === true"></div>
+            </div>
+          </div>
+
+          <div 
+            class="answer-option"
+            [class.selected]="hasUSBankAccount === false"
+            (click)="setUSBankStatus(false)">
+            <div class="option-icon no-icon">
+              <ion-icon name="globe"></ion-icon>
+            </div>
+            <div class="option-text">
+              <span class="option-label">No, I don't have a US bank account</span>
+              <span class="option-note">Payouts via PayPal</span>
+            </div>
+            <div class="radio-wrapper">
+              <div class="custom-radio" [class.selected]="hasUSBankAccount === false"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="button-container two-buttons">
+        <ion-button fill="outline" (click)="previousStep()">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          Back
+        </ion-button>
+        <ion-button
+          [disabled]="hasUSBankAccount === null"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Payment Method Selection -->
+  <div *ngIf="!loading && currentStep === 'payment-method' && options" class="modal-content">
     <!-- Left Column: Header & Info -->
     <div class="left-column">
       <div class="icon-wrapper">
         <ion-icon name="wallet"></ion-icon>
       </div>
 
-      <h2 class="modal-heading">Select Payment Method</h2>
-      <p class="modal-description">Choose how you'd like to receive your earnings</p>
+      <h2 class="modal-heading">{{ getPaymentStepTitle() }}</h2>
+      <p class="modal-description">{{ getPaymentStepDescription() }}</p>
 
-      <div class="info-banner">
-        <ion-icon name="location-outline"></ion-icon>
+      <div class="info-banner" *ngIf="determinedPayoutMethod">
+        <ion-icon name="checkmark-circle"></ion-icon>
         <div>
-          <p class="banner-title">Location: <strong>{{ residenceCountry }}</strong></p>
+          <p class="banner-title">Recommended Method</p>
           <p class="banner-text">
-            Based on your country of residence, here are your available payout methods.
+            Based on your tax status, {{ determinedPayoutMethod === 'stripe' ? 'Stripe Connect' : 'PayPal' }} is the best option for you.
           </p>
         </div>
+      </div>
+
+      <!-- Tax Summary -->
+      <div class="tax-summary" *ngIf="isUSPersonForTax !== null">
+        <div class="summary-item">
+          <ion-icon [name]="isUSPersonForTax ? 'flag' : 'globe'"></ion-icon>
+          <span>{{ isUSPersonForTax ? 'US Person' : 'Non-US Person' }}</span>
+        </div>
+        <div class="summary-item" *ngIf="isUSPersonForTax && hasUSBankAccount !== null">
+          <ion-icon [name]="hasUSBankAccount ? 'business' : 'card'"></ion-icon>
+          <span>{{ hasUSBankAccount ? 'US Bank Account' : 'No US Bank' }}</span>
+        </div>
+        <ion-button fill="clear" size="small" (click)="editTaxInfo()">
+          <ion-icon name="create-outline" slot="start"></ion-icon>
+          Edit
+        </ion-button>
       </div>
     </div>
 
@@ -36,11 +188,11 @@
     <div class="right-column">
       <div class="options-container">
 
-    <!-- Stripe Option - Only show if available -->
+    <!-- Stripe Option - Only show if available AND it's the determined method -->
     <div 
-      *ngIf="options.stripe.available"
+      *ngIf="options.stripe.available && (determinedPayoutMethod === 'stripe' || !determinedPayoutMethod)"
       class="option-card"
-      [class.recommended]="options.stripe.recommended"
+      [class.recommended]="determinedPayoutMethod === 'stripe'"
       [class.selected]="selectedProvider === 'stripe'"
       (click)="selectProvider('stripe')">
       
@@ -51,7 +203,7 @@
         <div class="option-content">
           <div class="option-title-row">
             <h3>{{ options.stripe.label }}</h3>
-            <span *ngIf="options.stripe.recommended" class="badge-recommended">RECOMMENDED</span>
+            <span *ngIf="determinedPayoutMethod === 'stripe'" class="badge-recommended">RECOMMENDED</span>
           </div>
           <p class="option-description">{{ options.stripe.description }}</p>
         </div>
@@ -61,10 +213,11 @@
       </div>
     </div>
 
-    <!-- PayPal Option -->
+    <!-- PayPal Option - Always show for non-US or US without US bank -->
     <div 
+      *ngIf="options.paypal.available && (determinedPayoutMethod === 'paypal' || !determinedPayoutMethod)"
       class="option-card"
-      [class.recommended]="options.paypal.recommended"
+      [class.recommended]="determinedPayoutMethod === 'paypal'"
       [class.selected]="selectedProvider === 'paypal'"
       (click)="selectProvider('paypal')">
       
@@ -75,7 +228,7 @@
         <div class="option-content">
           <div class="option-title-row">
             <h3>{{ options.paypal.label }}</h3>
-            <span *ngIf="options.paypal.recommended" class="badge-recommended">RECOMMENDED</span>
+            <span *ngIf="determinedPayoutMethod === 'paypal'" class="badge-recommended">RECOMMENDED</span>
           </div>
           <p class="option-description">{{ options.paypal.description }}</p>
         </div>
@@ -106,7 +259,7 @@
       </div>
     </div>
 
-    <!-- Manual Option -->
+    <!-- Manual Option - Always available as fallback -->
     <div 
       class="option-card"
       [class.selected]="selectedProvider === 'manual'"
@@ -135,9 +288,12 @@
       </div>
 
       <!-- Continue Button -->
-      <div class="button-container">
+      <div class="button-container two-buttons">
+        <ion-button fill="outline" (click)="previousStep()">
+          <ion-icon name="arrow-back" slot="start"></ion-icon>
+          Back
+        </ion-button>
         <ion-button
-          expand="block"
           [disabled]="!canContinue()"
           (click)="continue()">
           Continue with {{ getProviderLabel() }}

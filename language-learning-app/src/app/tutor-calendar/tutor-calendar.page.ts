@@ -134,6 +134,15 @@ interface AgendaSection {
 })
 export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   currentUser: User | null = null;
+  hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
+  
+  // Check if onboarding is incomplete (same condition as banner)
+  get isOnboardingIncomplete(): boolean {
+    return !this.hasCustomProfilePhoto || 
+           !this.currentUser?.tutorOnboarding?.videoApproved || 
+           (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
+  }
+  
   private calendar?: Calendar;
   events: EventInput[] = [];
   isInitialized = false;
@@ -228,6 +237,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   stripeConnectOnboarded = false; // Legacy name, but now checks for ANY payout method (Stripe/PayPal/Manual)
   approvalStatus: any; // Tutor approval status from UserService
   private approvalStatusSubscription?: any;
+  private userSubscription?: any;
 
   private viewportResizeHandler = () => this.evaluateViewport();
 
@@ -823,6 +833,19 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
     
+    // Subscribe to user changes to keep hasCustomProfilePhoto in sync
+    this.userSubscription = this.userService.currentUser$.subscribe(user => {
+      if (user) {
+        this.currentUser = user;
+        // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+        this.hasCustomProfilePhoto = !!(user.picture && (
+          user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+          (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+        ));
+        console.log(`📷 [TUTOR-CALENDAR] User updated, hasCustomProfilePhoto:`, this.hasCustomProfilePhoto);
+      }
+    });
+    
     // Initialize custom calendar
     this.initializeCustomCalendar();
     this.startTimeUpdater();
@@ -1012,6 +1035,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       this.approvalStatusSubscription.unsubscribe();
     }
     
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+    }
+    
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.viewportResizeHandler);
     }
@@ -1096,6 +1123,12 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
+        
+        // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
+        this.hasCustomProfilePhoto = !!(user.picture && (
+          user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
+          (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
+        ));
         
         // Initialize calendar first, then load data
         if (!this.isInitialized) {

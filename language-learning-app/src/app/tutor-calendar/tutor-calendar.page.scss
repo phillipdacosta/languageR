@@ -930,10 +930,16 @@ ion-content {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: #ffffff;
   
+  // When onboarding incomplete, center the banner
+  &.onboarding-incomplete {
+    justify-content: center;
+  }
+  
   .toolbar-left, .toolbar-right {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
   }
   
   .nav-btn {
@@ -2862,56 +2868,27 @@ ion-content {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 0;
     flex: 1;
+    min-width: 0; // Allow shrinking
+    text-align: center;
+    
+    // When onboarding incomplete, ensure banner is centered
+    .custom-toolbar.onboarding-incomplete & {
+      flex: 0 0 auto;
+      width: auto;
+    }
   }
   
-  .stripe-warning-banner-inline {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 24px;
-    background: #fbbf24 !important;
-    border-radius: 20px !important;
-    font-size: 14px;
-    color: #000000 !important ;
-    font-weight: 400;
-    margin-top: 10px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    
-    ion-icon {
-      font-size: 20px;
-      color: #000000;
-      flex-shrink: 0;
-    }
-    
-    span {
-      line-height: 1.4;
-      
-      a {
-        color: #1d4ed8;
-        font-weight: 400;
-        cursor: pointer;
-        text-decoration: underline;
-        
-        &:hover {
-          color: #1e40af;
-        }
-      }
-    }
-    
-    @media (max-width: 768px) {
-      font-size: 13px;
-      padding: 8px 16px;
-      gap: 6px;
-      border-radius: 16px;
-      
-      ion-icon {
-        font-size: 18px;
-      }
-    }
-  }
+}
+
+// Tutor Onboarding Banner - uses global styles from global.scss
+// Only page-specific overrides here if needed
+.custom-toolbar .onboarding-banner-container {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 // OLD SIMPLE TEXT WARNING (now removed)

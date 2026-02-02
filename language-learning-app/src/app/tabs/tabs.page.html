@@ -156,6 +156,14 @@
             </div>
             <div class="notification-item-content">
               <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+              <!-- Add Availability Button inline for tutor_video_approved notifications -->
+              <button 
+                *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                class="add-availability-btn"
+                (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                <ion-icon name="calendar-outline"></ion-icon>
+                Add availability
+              </button>
               <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
             <div class="notification-item-right">
@@ -200,6 +208,14 @@
               </div>
               <div class="notification-item-content">
                 <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
+                <!-- Add Availability Button inline for tutor_video_approved notifications -->
+                <button 
+                  *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
+                  class="add-availability-btn"
+                  (click)="navigateToTutorCalendar(); $event.stopPropagation()">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  Add availability
+                </button>
                 <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>
               <div class="notification-item-right">
