@@ -1357,3 +1357,41 @@ ion-modal.video-player-modal {
     }
   }
 }
+
+// ==========================================
+// STRIPE ELEMENTS GLOBAL STYLES
+// ==========================================
+// Ensure Stripe iframes render and are interactive
+.StripeElement {
+  width: 100%;
+  padding: 0;
+}
+
+.StripeElement--focus {
+  outline: none;
+}
+
+// Ensure Stripe iframe is visible and clickable
+.stripe-element iframe {
+  pointer-events: auto !important;
+  min-height: 20px !important;
+}
+
+// ==========================================
+// EVENT DETAILS MODAL STYLES
+// ==========================================
+.event-details-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
+  
+  &::part(backdrop) {
+    display: none; // We handle our own overlay
+  }
+  
+  &::part(content) {
+    background: transparent;
+    box-shadow: none;
+  }
+}

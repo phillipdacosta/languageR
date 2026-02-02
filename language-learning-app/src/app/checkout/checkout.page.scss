@@ -24,15 +24,15 @@ ion-content {
 }
 
 .checkout-layout {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 16px; // Reduced from 20px
+  padding: 16px 32px;
   display: grid;
-  grid-template-columns: 1fr 420px;
-  gap: 16px; // Reduced from 20px
+  grid-template-columns: 1fr 650px;
+  gap: 32px;
   min-height: calc(100vh - 60px); // Fit within viewport
   max-height: calc(100vh - 60px);
-  align-items: stretch; // Changed from 'start' to 'stretch' for equal heights
+  align-items: stretch; // Both cards same height
   
   // Embedded mode: two column layout for compactness
   &.embedded-layout {
@@ -78,7 +78,7 @@ ion-content {
   background: #ffffff;
   border: none;
   border-radius: 20px;
-  padding: 20px; // Reduced from 24px
+  padding: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
@@ -89,6 +89,11 @@ ion-content {
     transform: translateY(-2px);
     box-shadow: 0 24px 72px rgba(0, 0, 0, 0.35);
   }
+}
+
+// Payment section - push confirm button to bottom when cards match height
+.payment {
+  justify-content: space-between;
   
   // Embedded mode: no shadow, no hover effect, very compact padding
   .embedded-layout & {
@@ -823,11 +828,475 @@ h2 {
   line-height: 1.5;
 }
 
+// ================== NEW PAYMENT TAB STYLES ==================
+
+// Payment Method Tabs
+.payment-method-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+  
+  @media (max-width: 500px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.payment-tab {
+  padding: 10px 8px;
+  border: 2px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1c1c1e;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  white-space: nowrap;
+  
+  &:hover:not(.disabled) {
+    border-color: #667eea;
+  }
+  
+  &.active {
+    border-color: #667eea;
+    background: #ffffff;
+    color: #1c1c1e;
+  }
+  
+  &.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  ion-icon {
+    font-size: 16px;
+  }
+  
+  .google-logo {
+    font-family: 'Google Sans', -apple-system, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: #4285f4;
+  }
+}
+
+// Payment Content Area
+.payment-content {
+  flex: 1; // Take up available space so button stays at bottom
+  min-height: 100px;
+}
+
+// Card Form Section
+.card-form-section {
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0 0 12px 0;
+  }
+}
+
+// Card Brand Icons
+.card-brands {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+  
+  img {
+    height: 24px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+}
+
+// Form Rows
+.form-row {
+  margin-bottom: 12px;
+  
+  &.two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  &.card-number-row {
+    display: grid;
+    grid-template-columns: 1fr 140px 110px;
+    gap: 12px;
+    
+    @media (max-width: 600px) {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  &.save-card-row {
+    margin-top: 12px;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  &.full-width {
+    width: 100%;
+  }
+  
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #3c3c43;
+  }
+}
+
+.form-input,
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1c1c1e;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 40px;
+  box-sizing: border-box;
+  
+  &::placeholder {
+    color: #8e8e93;
+  }
+  
+  &:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+}
+
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
+
+// Stripe Elements
+.stripe-element {
+  padding: 10px 12px;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 40px;
+  position: relative;
+  
+  // Ensure Stripe iframe is properly sized and interactive
+  iframe {
+    width: 100% !important;
+    height: 20px !important;
+    display: block;
+  }
+  
+  // Stripe's inner element
+  .StripeElement {
+    width: 100%;
+  }
+  
+  &:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  // When Stripe element is empty/loading
+  &:empty::before {
+    content: 'Loading...';
+    color: #8e8e93;
+    font-size: 13px;
+  }
+}
+
+// Checkbox Label
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1c1c1e;
+  
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #667eea;
+  }
+}
+
+// Back to cards link
+.back-to-cards-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-top: 16px;
+  
+  ion-icon {
+    font-size: 18px;
+  }
+  
+  &:hover {
+    color: #5a3ec8;
+  }
+}
+
+// Saved Cards Section
+.saved-cards-section {
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1c1c1e;
+    margin: 0 0 16px 0;
+  }
+}
+
+.saved-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.saved-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid #e5e5ea;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    border-color: #667eea;
+    background: #f9f9fb;
+  }
+  
+  &.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  }
+}
+
+.card-radio {
+  .radio-circle {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #c7c7cc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    
+    &.checked {
+      border-color: #667eea;
+      background: #667eea;
+      
+      &::after {
+        content: '';
+        width: 8px;
+        height: 8px;
+        background: #ffffff;
+        border-radius: 50%;
+      }
+    }
+  }
+}
+
+.saved-card-item .card-icon {
+  width: 40px;
+  height: 28px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  ion-icon {
+    font-size: 18px;
+    color: #ffffff;
+  }
+}
+
+.saved-card-item .card-details {
+  flex: 1;
+  
+  .card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1e;
+  }
+  
+  .card-expiry {
+    font-size: 12px;
+    color: #8e8e93;
+    margin-top: 2px;
+  }
+}
+
+.saved-card-item .default-badge {
+  background: #667eea;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+// Add new card button
+.add-new-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 2px dashed #c7c7cc;
+  border-radius: 12px;
+  background: transparent;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  ion-icon {
+    font-size: 20px;
+  }
+  
+  &:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+  }
+}
+
+// Wallet Info Card
+.wallet-info-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border-radius: 16px;
+  border: 2px solid #667eea;
+  
+  .wallet-icon {
+    font-size: 36px;
+    color: #667eea;
+  }
+  
+  .wallet-details {
+    flex: 1;
+    
+    .wallet-label {
+      font-size: 13px;
+      color: #8e8e93;
+      font-weight: 500;
+    }
+    
+    .wallet-amount {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1c1c1e;
+    }
+  }
+  
+  .check-icon {
+    font-size: 28px;
+    color: #34c759;
+  }
+}
+
+.wallet-note {
+  font-size: 13px;
+  color: #8e8e93;
+  margin-top: 12px;
+  text-align: center;
+  
+  &.insufficient {
+    color: #ff3b30;
+  }
+}
+
+// Digital Wallet Card (Apple/Google Pay)
+.digital-wallet-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: #f9f9f9;
+  border-radius: 16px;
+  text-align: center;
+  
+  .wallet-logo {
+    font-size: 48px;
+    margin-bottom: 16px;
+    
+    &.apple {
+      color: #1c1c1e;
+    }
+  }
+  
+  .google-pay-logo {
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    
+    .g {
+      color: #4285f4;
+      font-weight: 700;
+    }
+  }
+  
+  .wallet-text {
+    p {
+      font-size: 14px;
+      color: #1c1c1e;
+      margin: 0;
+      
+      &.unavailable {
+        color: #8e8e93;
+      }
+    }
+  }
+}
+
 // Responsive
-@media (max-width: 900px) {
+@media (max-width: 1300px) {
   .checkout-layout {
     grid-template-columns: 1fr;
     padding: 20px 16px;
+    max-width: 700px;
+    margin: 0 auto;
   }
   
   .payment-methods-grid {

@@ -131,6 +131,151 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       hasManual
     });
 
+    // ==========================================
+    // VALIDATION CHECKS - Must all pass before creating lesson
+    // ==========================================
+    
+    const lessonStartTime = new Date(lessonData.startTime);
+    const lessonEndTime = new Date(lessonData.endTime);
+    const now = new Date();
+
+    // 1. CHECK: Lesson start time must be in the future
+    // Allow 2 minute buffer for processing time
+    const minStartTime = new Date(now.getTime() - 2 * 60 * 1000);
+    if (lessonStartTime < minStartTime) {
+      console.log('❌ Booking rejected: Lesson time is in the past', {
+        lessonStart: lessonStartTime,
+        now: now,
+        diff: (now - lessonStartTime) / 1000 / 60, // minutes
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot book a lesson in the past. Please select a future time slot.',
+        code: 'LESSON_TIME_PAST'
+      });
+    }
+
+    // 2. CHECK: Tutor is approved and active
+    if (!tutor.tutorApproved) {
+      console.log('❌ Booking rejected: Tutor not approved', { tutorId: tutor._id });
+      return res.status(403).json({
+        success: false,
+        message: 'This tutor is not currently accepting bookings.',
+        code: 'TUTOR_NOT_APPROVED'
+      });
+    }
+
+    // 3. CHECK: Timeslot is still in tutor's availability
+    const dayOfWeek = lessonStartTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+    const requestedStartMinutes = lessonStartTime.getUTCHours() * 60 + lessonStartTime.getUTCMinutes();
+    const requestedEndMinutes = lessonEndTime.getUTCHours() * 60 + lessonEndTime.getUTCMinutes();
+    
+    const availabilityBlocks = tutor.availability || [];
+    const matchingBlocks = availabilityBlocks.filter(block => {
+      if (block.type !== 'available') return false;
+      if (block.day !== dayOfWeek) return false;
+      
+      const blockStart = (block.startHour || 0) * 60 + (block.startMinute || 0);
+      const blockEnd = (block.endHour || 24) * 60 + (block.endMinute || 0);
+      
+      return requestedStartMinutes >= blockStart && requestedEndMinutes <= blockEnd;
+    });
+
+    if (matchingBlocks.length === 0) {
+      console.log('❌ Booking rejected: Timeslot no longer available', {
+        tutorId: tutor._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        dayOfWeek,
+        requestedStartMinutes,
+        requestedEndMinutes
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot is no longer available. The tutor may have updated their schedule. Please refresh and select a different time.',
+        code: 'SLOT_NOT_AVAILABLE'
+      });
+    }
+
+    // 4. CHECK: No conflicting lessons for the tutor at this time
+    const tutorConflict = await Lesson.findOne({
+      tutorId: tutor._id,
+      status: { $in: ['scheduled', 'in_progress'] },
+      $or: [
+        // New lesson starts during existing lesson
+        { startTime: { $lte: lessonStartTime }, endTime: { $gt: lessonStartTime } },
+        // New lesson ends during existing lesson
+        { startTime: { $lt: lessonEndTime }, endTime: { $gte: lessonEndTime } },
+        // New lesson completely overlaps existing lesson
+        { startTime: { $gte: lessonStartTime }, endTime: { $lte: lessonEndTime } }
+      ]
+    });
+
+    if (tutorConflict) {
+      console.log('❌ Booking rejected: Tutor has conflicting lesson', {
+        tutorId: tutor._id,
+        conflictingLessonId: tutorConflict._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        conflictTime: { start: tutorConflict.startTime, end: tutorConflict.endTime }
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'This time slot has just been booked by someone else. Please refresh and select a different time.',
+        code: 'TUTOR_TIME_CONFLICT'
+      });
+    }
+
+    // 5. CHECK: No conflicting lessons for the student at this time
+    const studentConflict = await Lesson.findOne({
+      studentId: user._id,
+      status: { $in: ['scheduled', 'in_progress'] },
+      $or: [
+        { startTime: { $lte: lessonStartTime }, endTime: { $gt: lessonStartTime } },
+        { startTime: { $lt: lessonEndTime }, endTime: { $gte: lessonEndTime } },
+        { startTime: { $gte: lessonStartTime }, endTime: { $lte: lessonEndTime } }
+      ]
+    });
+
+    if (studentConflict) {
+      console.log('❌ Booking rejected: Student has conflicting lesson', {
+        studentId: user._id,
+        conflictingLessonId: studentConflict._id,
+        requestedTime: { start: lessonStartTime, end: lessonEndTime },
+        conflictTime: { start: studentConflict.startTime, end: studentConflict.endTime }
+      });
+      return res.status(409).json({
+        success: false,
+        message: 'You already have a lesson scheduled at this time. Please select a different time.',
+        code: 'STUDENT_TIME_CONFLICT'
+      });
+    }
+
+    // 6. CHECK: Lesson duration is valid
+    const durationMinutes = (lessonEndTime - lessonStartTime) / (1000 * 60);
+    const allowedDurations = [25, 50];
+    if (!allowedDurations.includes(durationMinutes)) {
+      console.log('❌ Booking rejected: Invalid lesson duration', { durationMinutes });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid lesson duration. Lessons must be 25 or 50 minutes.',
+        code: 'INVALID_DURATION'
+      });
+    }
+
+    // 7. CHECK: Price is valid (must be non-negative)
+    if (lessonData.price < 0) {
+      console.log('❌ Booking rejected: Invalid price', { price: lessonData.price });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid lesson price.',
+        code: 'INVALID_PRICE'
+      });
+    }
+
+    console.log('✅ All booking validations passed');
+    // ==========================================
+    // END VALIDATION CHECKS
+    // ==========================================
+
     // Check if this is a trial lesson (first lesson between student and tutor)
     const previousLessons = await Lesson.countDocuments({
       tutorId: tutor._id,

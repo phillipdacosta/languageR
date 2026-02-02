@@ -1,6 +1,7 @@
 import { Component, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ViewWillEnter, ViewDidEnter, ActionSheetController, ModalController, ToastController, AlertController } from '@ionic/angular';
+import { EventDetailsModalComponent } from '../components/event-details-modal/event-details-modal.component';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { UserService, User } from '../services/user.service';
 import { LessonService, Lesson } from '../services/lesson.service';
@@ -2012,20 +2013,63 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.persistEvent(updatedEvent);
   }
 
-  handleEventClick(clickInfoOrEvent: any) {
+  async handleEventClick(clickInfoOrEvent: any, domEvent?: any) {
     // Handle both FullCalendar format (clickInfo.event) and custom calendar format (direct event)
     const event = clickInfoOrEvent.event || clickInfoOrEvent;
-    const extendedProps = event.extendedProps;
+    const extendedProps = event.extendedProps || {};
     
     // Check if this is a lesson event (has lessonId) or an availability block
-    if (extendedProps?.lessonId) {
-      // Save current view before navigating (only if FullCalendar is active)
-      if (this.calendar) {
-        const currentView = this.calendar.view.type;
-        localStorage.setItem('tutor-calendar-view', currentView);
+    if (extendedProps?.lessonId || extendedProps?.classId) {
+      // Convert to TimelineEntry format for the modal
+      const start = event.start ? new Date(event.start) : new Date();
+      const end = event.end ? new Date(event.end) : new Date();
+      const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+      
+      // Look up class data from classesMap if this is a class
+      let attendees: any[] | undefined = extendedProps.attendees;
+      let capacity: number | undefined = extendedProps.capacity;
+      let thumbnail: string | undefined = extendedProps.thumbnail;
+      let isCancelled = extendedProps.isCancelled || false;
+      
+      if (extendedProps.isClass && extendedProps.classId) {
+        const classId = String(extendedProps.classId);
+        const classData = this.classesMap.get(classId);
+        if (classData) {
+          attendees = classData.attendees || classData.confirmedStudents || [];
+          capacity = classData.capacity || 1;
+          thumbnail = classData.thumbnail;
+          isCancelled = classData.status === 'cancelled';
+        }
       }
-      // This is a lesson - navigate to event details page
-      this.router.navigate(['/tabs/tutor-calendar/event', extendedProps.lessonId]);
+      
+      const eventDetails = {
+        id: extendedProps.lessonId || extendedProps.classId,
+        lessonId: extendedProps.lessonId,
+        classId: extendedProps.classId,
+        title: event.title || extendedProps.subject || 'Event',
+        subtitle: extendedProps.studentName || extendedProps.subject,
+        start,
+        end,
+        durationMinutes,
+        location: extendedProps.location || extendedProps.platform,
+        avatarUrl: extendedProps.studentAvatar,
+        isTrialLesson: extendedProps.isTrialLesson || false,
+        isClass: extendedProps.isClass || false,
+        isOfficeHours: extendedProps.isOfficeHours || false,
+        isCancelled: isCancelled,
+        isLesson: Boolean(extendedProps.lessonId),
+        studentName: extendedProps.studentName,
+        studentDisplayName: extendedProps.studentDisplayName || extendedProps.studentName,
+        subject: extendedProps.subject,
+        color: this.getEventColor(event),
+        attendees: attendees,
+        capacity: capacity,
+        thumbnail: thumbnail
+      };
+      
+      // Get the DOM event for positioning
+      const clickEvent = domEvent || (clickInfoOrEvent.jsEvent) || { target: null };
+      await this.openEventDetailsModal(eventDetails, clickEvent);
     } else {
       // This is an availability block - keep existing delete behavior
       if (confirm('Delete this availability block?')) {
@@ -2033,6 +2077,28 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.deleteEvent(event.id);
       }
     }
+  }
+  
+  private getEventColor(event: any): string {
+    const extended = event.extendedProps || {};
+    if (extended.isOfficeHours) return '#f59e0b';
+    if (extended.isClass) return '#8b5cf6';
+    if (extended.lessonId) return '#10b981';
+    return '#007bff';
+  }
+  
+  async openEventDetailsModal(eventDetails: any, clickEvent?: any) {
+    const modal = await this.modalController.create({
+      component: EventDetailsModalComponent,
+      componentProps: {
+        event: eventDetails,
+        clickEvent: clickEvent
+      },
+      cssClass: 'event-details-modal',
+      showBackdrop: false // We handle our own overlay
+    });
+    
+    return await modal.present();
   }
 
   handleViewChange(viewInfo: any) {
@@ -2750,13 +2816,56 @@ When enabled:
   }
 
   // Navigate to event details page
-  onEventClick(item: TimelineEntry) {
+  async onEventClick(item: TimelineEntry, event?: any) {
     if (!item.id || item.type === 'free') {
       return; // Don't navigate for free slots or items without ID
     }
     
-    // Navigate to the event details page
-    this.router.navigate(['/tabs/tutor-calendar/event', item.id]);
+    // Look up class data from classesMap if this is a class (to ensure we have latest attendees)
+    let attendees: any[] | undefined = item.attendees;
+    let capacity: number | undefined = item.capacity;
+    let thumbnail: string | undefined = item.thumbnail;
+    let isCancelled = item.isCancelled || false;
+    
+    if (item.isClass && item.id) {
+      const classId = String(item.id);
+      const classData = this.classesMap.get(classId);
+      if (classData) {
+        attendees = classData.attendees || classData.confirmedStudents || [];
+        capacity = classData.capacity || 1;
+        thumbnail = classData.thumbnail;
+        isCancelled = classData.status === 'cancelled';
+      }
+    }
+    
+    // Convert TimelineEntry to event details format
+    const eventDetails = {
+      id: item.id,
+      lessonId: item.isLesson ? item.id : undefined,
+      classId: item.isClass ? item.id : undefined,
+      title: item.title,
+      subtitle: item.subtitle,
+      start: item.start,
+      end: item.end,
+      durationMinutes: item.durationMinutes,
+      location: item.location,
+      avatarUrl: item.avatarUrl,
+      isTrialLesson: item.isTrialLesson,
+      isClass: item.isClass,
+      isOfficeHours: item.isOfficeHours,
+      isCancelled: isCancelled,
+      isLesson: item.isLesson,
+      studentName: item.subtitle,
+      studentDisplayName: item.subtitle,
+      subject: item.subtitle,
+      color: item.color,
+      attendees: attendees,
+      capacity: capacity,
+      thumbnail: thumbnail,
+      meta: item.meta
+    };
+    
+    await this.openEventDetailsModal(eventDetails, event);
   }
 
   // ============ CUSTOM CALENDAR METHODS ============

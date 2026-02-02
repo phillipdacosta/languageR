@@ -100,117 +100,212 @@
         </section>
       </div>
 
-      <!-- Right Column: Payment Methods -->
+      <!-- Right Column: Payment Methods - New Design -->
       <div class="embedded-right-column">
         <section class="payment">
-          <h2>Payment Method</h2>
+          <h2>Payment method</h2>
 
-          <!-- Wallet Balance Display -->
-          <div class="wallet-balance-display compact" *ngIf="walletBalance">
-            <ion-icon name="wallet-outline"></ion-icon>
-            <div class="balance-info">
-              <span class="balance-label">Wallet</span>
-              <span class="balance-amount">${{ formattedAvailableBalance }}</span>
-            </div>
-          </div>
-
-          <div class="payment-methods-grid compact">
-            <!-- Wallet Payment -->
-            <div 
-              class="payment-card wallet-compact" 
-              [class.selected]="selectedPaymentMethod === 'wallet'"
+          <!-- Payment Method Tabs -->
+          <div class="payment-method-tabs">
+            <button 
+              class="payment-tab"
+              [class.active]="selectedPaymentTab === 'card'"
+              (click)="selectPaymentTab('card')">
+              Credit or Debit card
+            </button>
+            <button 
+              class="payment-tab"
+              [class.active]="selectedPaymentTab === 'wallet'"
               [class.disabled]="!canUseWallet"
-              (click)="canUseWallet && selectPaymentMethod('wallet')">
-              <div class="payment-card-icon">
-                <ion-icon name="wallet"></ion-icon>
-              </div>
-              <div class="payment-card-content">
-                <div class="payment-card-title">Wallet</div>
-                <div class="payment-card-subtitle" *ngIf="!canUseWallet">Insufficient funds</div>
-                <div class="payment-card-subtitle available" *ngIf="canUseWallet">${{ formattedAvailableBalance }} available</div>
-              </div>
-              <ion-icon *ngIf="selectedPaymentMethod === 'wallet'" name="checkmark-circle" class="check-icon"></ion-icon>
-            </div>
-
-            <!-- Default Card Tile -->
-            <div 
-              class="default-card-tile"
-              [class.selected]="selectedPaymentMethod === 'saved-card'"
-              [class.has-default]="defaultCard"
-              (click)="defaultCard ? selectPaymentMethod('saved-card', defaultCard.stripePaymentMethodId) : openCardManagementModal()">
-              
-              <!-- No Default Card - Show (+) -->
-              <ng-container *ngIf="!defaultCard">
-                <ion-icon name="add-circle" class="plus-icon"></ion-icon>
-                <div class="add-card-text">Add Card</div>
-              </ng-container>
-              
-              <!-- Has Default Card - Show Card Details -->
-              <ng-container *ngIf="defaultCard">
-                <div class="card-content">
-                  <ion-icon name="card" class="card-brand-icon"></ion-icon>
-                  <div class="card-details">
-                    {{ defaultCard.brand | titlecase }} •••• {{ defaultCard.last4 }}
-                  </div>
-                  <div class="card-number">
-                    Expires {{ defaultCard.expiryMonth }}/{{ defaultCard.expiryYear }}
-                  </div>
-                  <div class="default-badge">Default</div>
-                  <!-- Manage Cards Button -->
-                  <ion-icon 
-                    name="settings-outline" 
-                    class="manage-icon" 
-                    (click)="$event.stopPropagation(); openCardManagementModal()">
-                  </ion-icon>
-                </div>
-                <ion-icon *ngIf="selectedPaymentMethod === 'saved-card'" name="checkmark-circle" class="check-icon"></ion-icon>
-              </ng-container>
-            </div>
-
-            <!-- Apple Pay -->
-            <div 
-              class="payment-card" 
-              [class.selected]="selectedPaymentMethod === 'apple'"
+              (click)="canUseWallet && selectPaymentTab('wallet')">
+              Wallet
+            </button>
+            <button 
+              class="payment-tab"
+              [class.active]="selectedPaymentTab === 'apple'"
               [class.disabled]="!isApplePayAvailable"
-              (click)="isApplePayAvailable && selectPaymentMethod('apple')">
-              <div class="payment-card-icon apple">
-                <ion-icon name="logo-apple"></ion-icon>
+              (click)="isApplePayAvailable && selectPaymentTab('apple')">
+              <ion-icon name="logo-apple"></ion-icon> Pay
+            </button>
+            <button 
+              class="payment-tab"
+              [class.active]="selectedPaymentTab === 'google'"
+              [class.disabled]="!isGooglePayAvailable"
+              (click)="isGooglePayAvailable && selectPaymentTab('google')">
+              <span class="google-logo">G</span> Pay
+            </button>
+          </div>
+
+          <!-- Credit/Debit Card Content -->
+          <div class="payment-content" *ngIf="selectedPaymentTab === 'card'">
+            <!-- Show Add New Card Form -->
+            <div class="card-form-section" *ngIf="isAddingNewCard || savedCards.length === 0">
+              <h3 class="section-title">Payment information</h3>
+              
+              <!-- Card Brand Icons -->
+              <div class="card-brands">
+                <img src="assets/card-brands/mastercard.svg" alt="Mastercard" onerror="this.style.display='none'">
+                <img src="assets/card-brands/visa.svg" alt="Visa" onerror="this.style.display='none'">
+                <img src="assets/card-brands/amex.svg" alt="American Express" onerror="this.style.display='none'">
+                <img src="assets/card-brands/unionpay.svg" alt="UnionPay" onerror="this.style.display='none'">
+                <img src="assets/card-brands/discover.svg" alt="Discover" onerror="this.style.display='none'">
               </div>
-              <div class="payment-card-content">
-                <div class="payment-card-title">Apple Pay</div>
-                <div class="payment-card-subtitle" *ngIf="!isApplePayAvailable">Not available</div>
+
+              <!-- Card Number Row -->
+              <div class="form-row card-number-row">
+                <div class="form-group card-number-group">
+                  <label>Card number</label>
+                  <div id="card-number-element" class="stripe-element"></div>
+                </div>
+                <div class="form-group expiry-group">
+                  <label>Expiry date</label>
+                  <div id="card-expiry-element" class="stripe-element"></div>
+                </div>
+                <div class="form-group cvc-group">
+                  <label>CVC</label>
+                  <div id="card-cvc-element" class="stripe-element"></div>
+                </div>
               </div>
-              <ion-icon *ngIf="selectedPaymentMethod === 'apple'" name="checkmark-circle" class="check-icon"></ion-icon>
+
+              <!-- Name on Card and Country in two columns -->
+              <div class="form-row two-columns">
+                <div class="form-group">
+                  <label>Name on card</label>
+                  <input type="text" [(ngModel)]="cardholderName" placeholder="e.g. John Smith" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label>Country</label>
+                  <select [(ngModel)]="billingAddress.country" class="form-select">
+                    <option value="">Select country</option>
+                    <option value="US">United States</option>
+                    <option value="CA">Canada</option>
+                    <option value="GB">United Kingdom</option>
+                    <option value="AU">Australia</option>
+                    <option value="DE">Germany</option>
+                    <option value="FR">France</option>
+                    <option value="ES">Spain</option>
+                    <option value="IT">Italy</option>
+                    <option value="NL">Netherlands</option>
+                    <option value="JP">Japan</option>
+                    <option value="BR">Brazil</option>
+                    <option value="MX">Mexico</option>
+                    <option value="IN">India</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Address -->
+              <div class="form-row two-columns">
+                <div class="form-group">
+                  <label>Street address</label>
+                  <input type="text" [(ngModel)]="billingAddress.line1" placeholder="Street address" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label>Apt/Suite (Optional)</label>
+                  <input type="text" [(ngModel)]="billingAddress.line2" placeholder="Apt, suite, unit" class="form-input">
+                </div>
+              </div>
+
+              <!-- City and State -->
+              <div class="form-row two-columns">
+                <div class="form-group">
+                  <label>City</label>
+                  <input type="text" [(ngModel)]="billingAddress.city" placeholder="City" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label>State / Province</label>
+                  <input type="text" [(ngModel)]="billingAddress.state" placeholder="State" class="form-input">
+                </div>
+              </div>
+
+              <!-- Save Card Checkbox -->
+              <div class="form-row save-card-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" [(ngModel)]="saveCardForFuture">
+                  <span class="checkmark"></span>
+                  Save this card for future purchases
+                </label>
+              </div>
+
+              <!-- Back to saved cards link (only if has saved cards) -->
+              <button *ngIf="savedCards.length > 0" class="back-to-cards-link" (click)="cancelAddCard()">
+                <ion-icon name="arrow-back-outline"></ion-icon>
+                Back to saved cards
+              </button>
             </div>
 
-            <!-- Google Pay -->
-            <div 
-              class="payment-card" 
-              [class.selected]="selectedPaymentMethod === 'google'"
-              [class.disabled]="!isGooglePayAvailable"
-              (click)="isGooglePayAvailable && selectPaymentMethod('google')">
-              <div class="payment-card-icon google">
-                <ion-icon name="logo-google"></ion-icon>
+            <!-- Saved Cards List -->
+            <div class="saved-cards-section" *ngIf="!isAddingNewCard && savedCards.length > 0">
+              <h3 class="section-title">Select a card</h3>
+              
+              <div class="saved-cards-list">
+                <div 
+                  *ngFor="let card of savedCards" 
+                  class="saved-card-item"
+                  [class.selected]="selectedCardId === card.stripePaymentMethodId"
+                  (click)="selectSavedCard(card)">
+                  <div class="card-radio">
+                    <div class="radio-circle" [class.checked]="selectedCardId === card.stripePaymentMethodId"></div>
+                  </div>
+                  <div class="card-icon">
+                    <ion-icon name="card"></ion-icon>
+                  </div>
+                  <div class="card-details">
+                    <div class="card-name">{{ card.brand | titlecase }} •••• {{ card.last4 }}</div>
+                    <div class="card-expiry">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</div>
+                  </div>
+                  <div class="default-badge" *ngIf="card.isDefault">Default</div>
+                </div>
               </div>
-              <div class="payment-card-content">
-                <div class="payment-card-title">Google Pay</div>
-                <div class="payment-card-subtitle" *ngIf="!isGooglePayAvailable">Not available</div>
-              </div>
-              <ion-icon *ngIf="selectedPaymentMethod === 'google'" name="checkmark-circle" class="check-icon"></ion-icon>
+
+              <button class="add-new-card-btn" (click)="showAddCardForm()">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                Add new card
+              </button>
             </div>
           </div>
 
-          <!-- Top Up Wallet Link -->
-          <ion-button 
-            *ngIf="!canUseWallet && selectedPaymentMethod === 'wallet'"
-            fill="clear" 
-            size="small"
-            class="top-up-link"
-            routerLink="/tabs/home/wallet">
-            <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-            Add funds to wallet
-          </ion-button>
+          <!-- Wallet Content -->
+          <div class="payment-content" *ngIf="selectedPaymentTab === 'wallet'">
+            <div class="wallet-info-card">
+              <ion-icon name="wallet" class="wallet-icon"></ion-icon>
+              <div class="wallet-details">
+                <div class="wallet-label">Available Balance</div>
+                <div class="wallet-amount">${{ formattedAvailableBalance }}</div>
+              </div>
+              <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canUseWallet"></ion-icon>
+            </div>
+            <p class="wallet-note" *ngIf="canUseWallet">Your wallet balance will be used for this purchase.</p>
+            <p class="wallet-note insufficient" *ngIf="!canUseWallet">
+              Insufficient funds. You need ${{ total | number:'1.2-2' }} but only have ${{ formattedAvailableBalance }}.
+            </p>
+          </div>
 
+          <!-- Apple Pay Content -->
+          <div class="payment-content" *ngIf="selectedPaymentTab === 'apple'">
+            <div class="digital-wallet-card">
+              <ion-icon name="logo-apple" class="wallet-logo apple"></ion-icon>
+              <div class="wallet-text">
+                <p *ngIf="isApplePayAvailable">Click below to pay with Apple Pay</p>
+                <p *ngIf="!isApplePayAvailable" class="unavailable">Apple Pay is not available on this device</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Google Pay Content -->
+          <div class="payment-content" *ngIf="selectedPaymentTab === 'google'">
+            <div class="digital-wallet-card">
+              <span class="google-pay-logo">
+                <span class="g">G</span>oogle Pay
+              </span>
+              <div class="wallet-text">
+                <p *ngIf="isGooglePayAvailable">Click below to pay with Google Pay</p>
+                <p *ngIf="!isGooglePayAvailable" class="unavailable">Google Pay is not available on this device</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm Button -->
           <ion-button 
             expand="block" 
             color="primary" 
@@ -218,7 +313,7 @@
             [disabled]="isBooking || !tutor || !currentUser || !hasValidPaymentMethod"
             (click)="confirmBooking()">
             <ion-spinner *ngIf="isBooking" name="crescent"></ion-spinner>
-            {{ isBooking ? 'Processing...' : 'CONFIRM & BOOK LESSON' }}
+            {{ isBooking ? 'Processing...' : 'Confirm & Book Lesson' }}
           </ion-button>
           <p class="note">By confirming, you agree to our terms and refund policy.</p>
         </section>
@@ -318,114 +413,209 @@
       </section>
 
       <section class="payment">
-        <h2>Payment Method</h2>
+        <h2>Payment method</h2>
 
-        <!-- Wallet Balance Display -->
-        <div class="wallet-balance-display" *ngIf="walletBalance">
-          <ion-icon name="wallet-outline"></ion-icon>
-          <div class="balance-info">
-            <span class="balance-label">Wallet Balance</span>
-            <span class="balance-amount">${{ formattedAvailableBalance }}</span>
-          </div>
-        </div>
-
-        <div class="payment-methods-grid">
-          <!-- Wallet Payment -->
-          <div 
-            class="payment-card wallet-compact" 
-            [class.selected]="selectedPaymentMethod === 'wallet'"
+        <!-- Payment Method Tabs -->
+        <div class="payment-method-tabs">
+          <button 
+            class="payment-tab"
+            [class.active]="selectedPaymentTab === 'card'"
+            (click)="selectPaymentTab('card')">
+            Credit or Debit card
+          </button>
+          <button 
+            class="payment-tab"
+            [class.active]="selectedPaymentTab === 'wallet'"
             [class.disabled]="!canUseWallet"
-            (click)="canUseWallet && selectPaymentMethod('wallet')">
-            <div class="payment-card-icon">
-              <ion-icon name="wallet"></ion-icon>
-            </div>
-            <div class="payment-card-content">
-              <div class="payment-card-title">Wallet</div>
-              <div class="payment-card-subtitle" *ngIf="!canUseWallet">Insufficient funds</div>
-              <div class="payment-card-subtitle available" *ngIf="canUseWallet">${{ formattedAvailableBalance }} available</div>
-            </div>
-            <ion-icon *ngIf="selectedPaymentMethod === 'wallet'" name="checkmark-circle" class="check-icon"></ion-icon>
-          </div>
-
-          <!-- Default Card Tile -->
-          <div 
-            class="default-card-tile"
-            [class.selected]="selectedPaymentMethod === 'saved-card'"
-            [class.has-default]="defaultCard"
-            (click)="defaultCard ? selectPaymentMethod('saved-card', defaultCard.stripePaymentMethodId) : openCardManagementModal()">
-            
-            <!-- No Default Card - Show (+) -->
-            <ng-container *ngIf="!defaultCard">
-              <ion-icon name="add-circle" class="plus-icon"></ion-icon>
-              <div class="add-card-text">Add Card</div>
-            </ng-container>
-            
-            <!-- Has Default Card - Show Card Details -->
-            <ng-container *ngIf="defaultCard">
-              <div class="card-content">
-                <ion-icon name="card" class="card-brand-icon"></ion-icon>
-                <div class="card-details">
-                  {{ defaultCard.brand | titlecase }} •••• {{ defaultCard.last4 }}
-                </div>
-                <div class="card-number">
-                  Expires {{ defaultCard.expiryMonth }}/{{ defaultCard.expiryYear }}
-                </div>
-                <div class="default-badge">Default</div>
-                <!-- Manage Cards Button -->
-                <ion-icon 
-                  name="settings-outline" 
-                  class="manage-icon" 
-                  (click)="$event.stopPropagation(); openCardManagementModal()">
-                </ion-icon>
-              </div>
-              <ion-icon *ngIf="selectedPaymentMethod === 'saved-card'" name="checkmark-circle" class="check-icon"></ion-icon>
-            </ng-container>
-          </div>
-
-          <!-- Apple Pay -->
-          <div 
-            class="payment-card" 
-            [class.selected]="selectedPaymentMethod === 'apple'"
+            (click)="canUseWallet && selectPaymentTab('wallet')">
+            Wallet
+          </button>
+          <button 
+            class="payment-tab"
+            [class.active]="selectedPaymentTab === 'apple'"
             [class.disabled]="!isApplePayAvailable"
-            (click)="isApplePayAvailable && selectPaymentMethod('apple')">
-            <div class="payment-card-icon apple">
-              <ion-icon name="logo-apple"></ion-icon>
+            (click)="isApplePayAvailable && selectPaymentTab('apple')">
+            <ion-icon name="logo-apple"></ion-icon> Pay
+          </button>
+          <button 
+            class="payment-tab"
+            [class.active]="selectedPaymentTab === 'google'"
+            [class.disabled]="!isGooglePayAvailable"
+            (click)="isGooglePayAvailable && selectPaymentTab('google')">
+            <span class="google-logo">G</span> Pay
+          </button>
+        </div>
+
+        <!-- Credit/Debit Card Content -->
+        <div class="payment-content" *ngIf="selectedPaymentTab === 'card'">
+          <!-- Show Add New Card Form -->
+          <div class="card-form-section" *ngIf="isAddingNewCard || savedCards.length === 0">
+            <h3 class="section-title">Payment information</h3>
+            
+            <!-- Card Brand Icons -->
+            <div class="card-brands">
+              <img src="assets/card-brands/mastercard.svg" alt="Mastercard" onerror="this.style.display='none'">
+              <img src="assets/card-brands/visa.svg" alt="Visa" onerror="this.style.display='none'">
+              <img src="assets/card-brands/amex.svg" alt="American Express" onerror="this.style.display='none'">
+              <img src="assets/card-brands/unionpay.svg" alt="UnionPay" onerror="this.style.display='none'">
+              <img src="assets/card-brands/discover.svg" alt="Discover" onerror="this.style.display='none'">
             </div>
-            <div class="payment-card-content">
-              <div class="payment-card-title">Apple Pay</div>
-              <div class="payment-card-subtitle" *ngIf="!isApplePayAvailable">Not available</div>
+
+            <!-- Card Number Row -->
+            <div class="form-row card-number-row">
+              <div class="form-group card-number-group">
+                <label>Card number</label>
+                <div id="card-number-element-standalone" class="stripe-element"></div>
+              </div>
+              <div class="form-group expiry-group">
+                <label>Expiry date</label>
+                <div id="card-expiry-element-standalone" class="stripe-element"></div>
+              </div>
+              <div class="form-group cvc-group">
+                <label>CVC</label>
+                <div id="card-cvc-element-standalone" class="stripe-element"></div>
+              </div>
             </div>
-            <ion-icon *ngIf="selectedPaymentMethod === 'apple'" name="checkmark-circle" class="check-icon"></ion-icon>
+
+            <!-- Name on Card and Address in two columns -->
+            <div class="form-row two-columns">
+              <div class="form-group">
+                <label>Name on card</label>
+                <input type="text" [(ngModel)]="cardholderName" placeholder="e.g. John Smith" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>Country</label>
+                <select [(ngModel)]="billingAddress.country" class="form-select">
+                  <option value="">Select country</option>
+                  <option value="US">United States</option>
+                  <option value="CA">Canada</option>
+                  <option value="GB">United Kingdom</option>
+                  <option value="AU">Australia</option>
+                  <option value="DE">Germany</option>
+                  <option value="FR">France</option>
+                  <option value="ES">Spain</option>
+                  <option value="IT">Italy</option>
+                  <option value="NL">Netherlands</option>
+                  <option value="JP">Japan</option>
+                  <option value="BR">Brazil</option>
+                  <option value="MX">Mexico</option>
+                  <option value="IN">India</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Address -->
+            <div class="form-row two-columns">
+              <div class="form-group">
+                <label>Street address</label>
+                <input type="text" [(ngModel)]="billingAddress.line1" placeholder="Street address" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>Apt/Suite (Optional)</label>
+                <input type="text" [(ngModel)]="billingAddress.line2" placeholder="Apt, suite, unit" class="form-input">
+              </div>
+            </div>
+
+            <!-- City and State -->
+            <div class="form-row two-columns">
+              <div class="form-group">
+                <label>City</label>
+                <input type="text" [(ngModel)]="billingAddress.city" placeholder="City" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>State / Province</label>
+                <input type="text" [(ngModel)]="billingAddress.state" placeholder="State" class="form-input">
+              </div>
+            </div>
+
+            <!-- Save Card Checkbox -->
+            <div class="form-row save-card-row">
+              <label class="checkbox-label">
+                <input type="checkbox" [(ngModel)]="saveCardForFuture">
+                <span class="checkmark"></span>
+                Save this card for future purchases
+              </label>
+            </div>
+
+            <!-- Back to saved cards link (only if has saved cards) -->
+            <button *ngIf="savedCards.length > 0" class="back-to-cards-link" (click)="cancelAddCard()">
+              <ion-icon name="arrow-back-outline"></ion-icon>
+              Back to saved cards
+            </button>
           </div>
 
-          <!-- Google Pay -->
-          <div 
-            class="payment-card" 
-            [class.selected]="selectedPaymentMethod === 'google'"
-            [class.disabled]="!isGooglePayAvailable"
-            (click)="isGooglePayAvailable && selectPaymentMethod('google')">
-            <div class="payment-card-icon google">
-              <ion-icon name="logo-google"></ion-icon>
+          <!-- Saved Cards List -->
+          <div class="saved-cards-section" *ngIf="!isAddingNewCard && savedCards.length > 0">
+            <h3 class="section-title">Select a card</h3>
+            
+            <div class="saved-cards-list">
+              <div 
+                *ngFor="let card of savedCards" 
+                class="saved-card-item"
+                [class.selected]="selectedCardId === card.stripePaymentMethodId"
+                (click)="selectSavedCard(card)">
+                <div class="card-radio">
+                  <div class="radio-circle" [class.checked]="selectedCardId === card.stripePaymentMethodId"></div>
+                </div>
+                <div class="card-icon">
+                  <ion-icon name="card"></ion-icon>
+                </div>
+                <div class="card-details">
+                  <div class="card-name">{{ card.brand | titlecase }} •••• {{ card.last4 }}</div>
+                  <div class="card-expiry">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</div>
+                </div>
+                <div class="default-badge" *ngIf="card.isDefault">Default</div>
+              </div>
             </div>
-            <div class="payment-card-content">
-              <div class="payment-card-title">Google Pay</div>
-              <div class="payment-card-subtitle" *ngIf="!isGooglePayAvailable">Not available</div>
-            </div>
-            <ion-icon *ngIf="selectedPaymentMethod === 'google'" name="checkmark-circle" class="check-icon"></ion-icon>
+
+            <button class="add-new-card-btn" (click)="showAddCardForm()">
+              <ion-icon name="add-circle-outline"></ion-icon>
+              Add new card
+            </button>
           </div>
         </div>
 
-        <!-- Top Up Wallet Link -->
-        <ion-button 
-          *ngIf="!canUseWallet && selectedPaymentMethod === 'wallet'"
-          fill="clear" 
-          size="small"
-          class="top-up-link"
-          routerLink="/tabs/home/wallet">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-          Add funds to wallet
-        </ion-button>
+        <!-- Wallet Content -->
+        <div class="payment-content" *ngIf="selectedPaymentTab === 'wallet'">
+          <div class="wallet-info-card">
+            <ion-icon name="wallet" class="wallet-icon"></ion-icon>
+            <div class="wallet-details">
+              <div class="wallet-label">Available Balance</div>
+              <div class="wallet-amount">${{ formattedAvailableBalance }}</div>
+            </div>
+            <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canUseWallet"></ion-icon>
+          </div>
+          <p class="wallet-note" *ngIf="canUseWallet">Your wallet balance will be used for this purchase.</p>
+          <p class="wallet-note insufficient" *ngIf="!canUseWallet">
+            Insufficient funds. You need ${{ total | number:'1.2-2' }} but only have ${{ formattedAvailableBalance }}.
+          </p>
+        </div>
 
+        <!-- Apple Pay Content -->
+        <div class="payment-content" *ngIf="selectedPaymentTab === 'apple'">
+          <div class="digital-wallet-card">
+            <ion-icon name="logo-apple" class="wallet-logo apple"></ion-icon>
+            <div class="wallet-text">
+              <p *ngIf="isApplePayAvailable">Click below to pay with Apple Pay</p>
+              <p *ngIf="!isApplePayAvailable" class="unavailable">Apple Pay is not available on this device</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Pay Content -->
+        <div class="payment-content" *ngIf="selectedPaymentTab === 'google'">
+          <div class="digital-wallet-card">
+            <span class="google-pay-logo">
+              <span class="g">G</span>oogle Pay
+            </span>
+            <div class="wallet-text">
+              <p *ngIf="isGooglePayAvailable">Click below to pay with Google Pay</p>
+              <p *ngIf="!isGooglePayAvailable" class="unavailable">Google Pay is not available on this device</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confirm Button -->
         <ion-button 
           expand="block" 
           color="primary" 
@@ -433,7 +623,7 @@
           [disabled]="isBooking || !tutor || !currentUser || !hasValidPaymentMethod"
           (click)="confirmBooking()">
           <ion-spinner *ngIf="isBooking" name="crescent"></ion-spinner>
-          {{ isBooking ? 'Processing...' : 'CONFIRM & BOOK LESSON' }}
+          {{ isBooking ? 'Processing...' : 'Confirm & Book Lesson' }}
         </ion-button>
         <p class="note">By confirming, you agree to our terms and refund policy.</p>
       </section>

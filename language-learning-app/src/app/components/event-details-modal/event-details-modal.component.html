@@ -1,0 +1,163 @@
+<!-- Event Details Context Menu Overlay -->
+<div class="event-context-menu-overlay" 
+     *ngIf="true"
+     (click)="close()">
+  <div class="event-context-menu-container" 
+       [style.top.px]="position?.showBelow ? position?.top : null"
+       [style.bottom.px]="!position?.showBelow ? position?.bottom : null"
+       [style.left.px]="position?.left"
+       [style.max-height.px]="position?.maxHeight"
+       [class.show-below]="position?.showBelow"
+       (click)="$event.stopPropagation()">
+    
+    <!-- Pointer Arrow -->
+    <div class="menu-arrow" 
+         [style.left.px]="position?.arrowOffset"
+         [class.arrow-above]="!position?.showBelow"></div>
+    
+    <div class="event-details-content">
+      <!-- Close Button -->
+      <button class="close-button" (click)="close()">
+        <ion-icon name="close"></ion-icon>
+      </button>
+      
+      <div class="event-details-container">
+        <!-- Event Header -->
+        <div class="event-header">
+      <div class="event-icon" [style.background]="event.color || '#667eea'">
+        <ion-icon 
+          [name]="event.isClass ? 'people' : (event.isOfficeHours ? 'flash' : 'person')"
+          *ngIf="!event.avatarUrl && !event.thumbnail">
+        </ion-icon>
+        <img *ngIf="event.avatarUrl" [src]="event.avatarUrl" [alt]="event.studentName || 'Student'">
+        <img *ngIf="event.thumbnail && !event.avatarUrl" [src]="event.thumbnail" [alt]="event.title">
+      </div>
+      
+      <div class="event-title-section">
+        <h2 class="event-title">{{ event.title || (formatStudentName(event.studentName || event.studentDisplayName || '')) || 'Event' }}</h2>
+        <div class="event-badges">
+          <span class="badge trial" *ngIf="event.isTrialLesson">
+            <ion-icon name="star"></ion-icon>
+            Trial Lesson
+          </span>
+          <span class="badge office-hours" *ngIf="event.isOfficeHours">
+            <ion-icon name="flash"></ion-icon>
+            Office Hours
+          </span>
+          <span class="badge class" *ngIf="event.isClass">
+            <ion-icon name="people"></ion-icon>
+            Class
+          </span>
+          <span class="badge cancelled" *ngIf="event.isCancelled">
+            <ion-icon name="close-circle"></ion-icon>
+            Cancelled
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Details -->
+    <div class="event-details-section">
+      <!-- Date & Time -->
+      <div class="detail-row">
+        <ion-icon name="calendar-outline" class="detail-icon"></ion-icon>
+        <div class="detail-content">
+          <div class="detail-label">Date & Time</div>
+          <div class="detail-value">
+            <div>{{ formatDate(event.start) }}</div>
+            <div class="time-range">
+              {{ formatTime(event.start) }} - {{ formatTime(event.end) }}
+            </div>
+            <div class="duration">{{ formatDuration(event.durationMinutes) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student/Attendees -->
+      <div class="detail-row" *ngIf="event.isLesson && event.studentName">
+        <ion-icon name="person-outline" class="detail-icon"></ion-icon>
+        <div class="detail-content">
+          <div class="detail-label">Student</div>
+          <div class="detail-value">{{ formatStudentName(event.studentDisplayName || event.studentName) }}</div>
+        </div>
+      </div>
+
+      <!-- Class Attendees with GOING badge and avatars -->
+      <div class="class-status-section" *ngIf="event.isClass && !event.isCancelled">
+        <div class="going-badge" *ngIf="event.attendees && event.attendees.length > 0">
+          <span class="going-text">GOING</span>
+          <div class="attendee-avatars-row">
+            <!-- Show up to 4 student avatars -->
+            <ng-container *ngFor="let student of event.attendees.slice(0, 4); let i = index">
+              <ion-avatar class="attendee-avatar" [style.z-index]="10 - i" [style.margin-left.px]="i > 0 ? -8 : 0">
+                <img 
+                  *ngIf="student?.picture || student?.profilePicture" 
+                  [src]="student?.picture || student?.profilePicture" 
+                  [alt]="student?.firstName || student?.name || 'Student'"
+                  referrerpolicy="no-referrer"
+                  (error)="$event.target.style.display='none'">
+                <ion-icon *ngIf="!student?.picture && !student?.profilePicture" name="person"></ion-icon>
+              </ion-avatar>
+            </ng-container>
+            <!-- Show +X if more than 4 students -->
+            <div class="more-attendees" *ngIf="event.attendees.length > 4">
+              +{{ event.attendees.length - 4 }}
+            </div>
+            <span class="count-text">{{ event.attendees.length }}<span *ngIf="event.capacity">/{{ event.capacity }}</span></span>
+          </div>
+        </div>
+        <div class="no-attendees" *ngIf="!event.attendees || event.attendees.length === 0">
+          <span class="going-text">No attendees yet</span>
+        </div>
+      </div>
+
+      <!-- Subject/Lesson Type -->
+      <div class="detail-row" *ngIf="event.subject">
+        <ion-icon name="book-outline" class="detail-icon"></ion-icon>
+        <div class="detail-content">
+          <div class="detail-label">Subject</div>
+          <div class="detail-value">{{ event.subject }}</div>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="detail-row" *ngIf="event.location">
+        <ion-icon name="location-outline" class="detail-icon"></ion-icon>
+        <div class="detail-content">
+          <div class="detail-label">Location</div>
+          <div class="detail-value">{{ event.location }}</div>
+        </div>
+      </div>
+
+      <!-- Meta/Additional Info -->
+      <div class="detail-row" *ngIf="event.meta">
+        <ion-icon name="information-circle-outline" class="detail-icon"></ion-icon>
+        <div class="detail-content">
+          <div class="detail-label">Additional Info</div>
+          <div class="detail-value">{{ event.meta }}</div>
+        </div>
+      </div>
+    </div>
+
+      <!-- Action Buttons -->
+      <div class="event-actions">
+        <!-- Join Button (for upcoming/in-progress lessons) -->
+        <button 
+          class="action-item join-button" 
+          *ngIf="(event.lessonId || event.classId) && !event.isCancelled"
+          [class.disabled]="!canJoin"
+          [disabled]="!canJoin"
+          (click)="joinLesson()">
+          <ion-icon [name]="isLessonInProgress ? 'videocam' : 'videocam-outline'"></ion-icon>
+          <span>{{ joinLabel }}</span>
+        </button>
+        
+        <button class="action-item" (click)="openFullDetails()">
+          <ion-icon name="open-outline"></ion-icon>
+          <span>View Full Details</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

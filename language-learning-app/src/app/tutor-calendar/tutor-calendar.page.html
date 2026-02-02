@@ -191,7 +191,7 @@
                          [class.trial-lesson]="item.isTrialLesson"
                          [class.office-hours]="item.isOfficeHours"
                          [class.clickable]="item.id"
-                         (click)="item.id && onEventClick(item)">
+                         (click)="item.id && onEventClick(item, $event)">
                       <!-- Trial Badge -->
                       <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
                         <ion-icon name="star"></ion-icon>
@@ -297,7 +297,7 @@
                            [class.trial-lesson]="item.isTrialLesson"
                            [class.office-hours]="item.isOfficeHours"
                            [class.clickable]="item.type === 'event' && item.id"
-                           (click)="item.type === 'event' && item.id && onEventClick(item)">
+                           (click)="item.type === 'event' && item.id && onEventClick(item, $event)">
                         <!-- Trial Badge -->
                         <div class="trial-corner-badge" *ngIf="item.isTrialLesson">
                           <ion-icon name="star"></ion-icon>
@@ -579,7 +579,7 @@
                          [class.past]="event | isEventPast"
                          [class.short-event]="(event | eventHeight) < 45"
                          [class.compact-event]="(event | eventHeight) < 30"
-                         (click)="handleEventClick(event)">
+                         (click)="handleEventClick(event, $event)">
                       
                       <!-- Trial badge for trial lessons -->
                       <div class="calendar-trial-badge" 
