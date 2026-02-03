@@ -16,6 +16,8 @@ export class VideoThumbnailComponent implements OnInit, OnChanges {
 
   externalVideoThumbnail: string | null = null;
   detectedVideoType: 'upload' | 'youtube' | 'vimeo' = 'upload';
+  isLoadingThumbnail: boolean = false;
+  thumbnailLoadFailed: boolean = false;
 
   constructor(private http: HttpClient) {}
 
@@ -121,12 +123,23 @@ export class VideoThumbnailComponent implements OnInit, OnChanges {
       return;
     }
 
+    this.isLoadingThumbnail = true;
+    this.thumbnailLoadFailed = false;
+
     // YouTube thumbnail with fallback
     if (this.videoType === 'youtube') {
       const videoId = this.extractYouTubeId(this.videoUrl);
       if (videoId) {
-        this.externalVideoThumbnail = await this.getYouTubeThumbnail(videoId);
+        try {
+          this.externalVideoThumbnail = await this.getYouTubeThumbnail(videoId);
+        } catch (error) {
+          console.error('📹 Error fetching YouTube thumbnail:', error);
+          this.thumbnailLoadFailed = true;
+        }
+      } else {
+        this.thumbnailLoadFailed = true;
       }
+      this.isLoadingThumbnail = false;
       return;
     }
 
@@ -140,11 +153,17 @@ export class VideoThumbnailComponent implements OnInit, OnChanges {
           
           if (response && response.thumbnail_url) {
             this.externalVideoThumbnail = response.thumbnail_url.replace(/_\d+x\d+/, '_1280x720');
+          } else {
+            this.thumbnailLoadFailed = true;
           }
         } catch (error) {
           console.error('📹 Error fetching Vimeo thumbnail:', error);
+          this.thumbnailLoadFailed = true;
         }
+      } else {
+        this.thumbnailLoadFailed = true;
       }
+      this.isLoadingThumbnail = false;
     }
   }
 

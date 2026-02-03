@@ -839,13 +839,23 @@ export class CheckoutPage implements OnInit, OnDestroy {
     // Rate is for standard 50-minute lesson, not hourly (60 min)
     const STANDARD_LESSON_DURATION = 50;
     const basePrice = Math.round((rate * (this.lessonMinutes / STANDARD_LESSON_DURATION)) * 100) / 100;
-    
-    // Trial lessons have no discount, just shorter duration (25 min by default)
     return basePrice;
   }
 
   get processingFee(): number { return 0; }
-  get discount(): number { return 0; }
+  
+  // 30% discount for trial lessons (first lesson with this tutor)
+  get discount(): number {
+    if (this.isTrialLesson) {
+      return Math.round(this.pricePerLesson * 0.30 * 100) / 100;
+    }
+    return 0;
+  }
+  
+  get discountPercentage(): number {
+    return this.isTrialLesson ? 30 : 0;
+  }
+  
   get total(): number { 
     return Math.max(this.pricePerLesson + this.processingFee - this.discount, 0); 
   }
@@ -1101,6 +1111,131 @@ export class CheckoutPage implements OnInit, OnDestroy {
       }
       this.selectedPaymentMethod = 'saved-card';
     }
+  }
+
+  // Check if a card is expired
+  isCardExpired(card: any): boolean {
+    if (!card.expiryMonth || !card.expiryYear) return false;
+    
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // getMonth() is 0-indexed
+    
+    // Card expires at the end of the expiry month
+    const expiryYear = parseInt(card.expiryYear, 10);
+    const expiryMonth = parseInt(card.expiryMonth, 10);
+    
+    if (expiryYear < currentYear) return true;
+    if (expiryYear === currentYear && expiryMonth < currentMonth) return true;
+    
+    return false;
+  }
+
+  // Set a card as default
+  async setCardAsDefault(card: any, event: Event): Promise<void> {
+    event.stopPropagation(); // Prevent card selection
+    
+    try {
+      const response = await this.http.put<any>(
+        `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}/default`,
+        {},
+        { headers: this.userService.getAuthHeadersSync() }
+      ).toPromise();
+      
+      if (response.success) {
+        // Update local state
+        this.savedCards.forEach(c => c.isDefault = false);
+        card.isDefault = true;
+        this.defaultCard = card;
+        
+        // Show success toast
+        const toast = await this.toastController.create({
+          message: 'Card set as default',
+          duration: 2000,
+          color: 'success',
+          position: 'top'
+        });
+        await toast.present();
+      }
+    } catch (error) {
+      console.error('Error setting default card:', error);
+      const toast = await this.toastController.create({
+        message: 'Failed to set default card',
+        duration: 2000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    }
+  }
+
+  // Delete a saved card
+  async deleteCard(card: any, event: Event): Promise<void> {
+    event.stopPropagation(); // Prevent card selection
+    
+    // Confirm deletion
+    const alert = await this.alertController.create({
+      header: 'Delete Card',
+      message: `Are you sure you want to delete the card ending in ${card.last4}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const response = await this.http.delete<any>(
+                `${environment.apiUrl}/payments/payment-method/${card.stripePaymentMethodId}`,
+                { headers: this.userService.getAuthHeadersSync() }
+              ).toPromise();
+              
+              if (response.success) {
+                // Remove card from local state
+                this.savedCards = this.savedCards.filter(c => c.stripePaymentMethodId !== card.stripePaymentMethodId);
+                
+                // If deleted card was selected, select another or show add form
+                if (this.selectedCardId === card.stripePaymentMethodId) {
+                  if (this.savedCards.length > 0) {
+                    const newDefault = this.savedCards.find(c => c.isDefault) || this.savedCards[0];
+                    this.selectSavedCard(newDefault);
+                  } else {
+                    this.isAddingNewCard = true;
+                    this.selectedPaymentMethod = 'new-card';
+                    setTimeout(() => this.mountStripeElements(), 300);
+                  }
+                }
+                
+                // Update default card reference
+                this.defaultCard = this.savedCards.find(c => c.isDefault) || this.savedCards[0] || null;
+                
+                // Show success toast
+                const toast = await this.toastController.create({
+                  message: 'Card deleted successfully',
+                  duration: 2000,
+                  color: 'success',
+                  position: 'top'
+                });
+                await toast.present();
+              }
+            } catch (error) {
+              console.error('Error deleting card:', error);
+              const toast = await this.toastController.create({
+                message: 'Failed to delete card',
+                duration: 2000,
+                color: 'danger',
+                position: 'top'
+              });
+              await toast.present();
+            }
+          }
+        }
+      ]
+    });
+    
+    await alert.present();
   }
 
   private mountStripeElements(retryCount = 0): void {

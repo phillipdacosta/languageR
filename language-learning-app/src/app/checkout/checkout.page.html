@@ -59,7 +59,13 @@
 
           <!-- Price Breakdown -->
           <div class="price-breakdown-section compact">
-            <div class="breakdown-title">Price Calculation</div>
+            <div class="breakdown-title">
+              Price Calculation
+              <span class="trial-badge" *ngIf="isTrialLesson">
+                <ion-icon name="gift-outline"></ion-icon>
+                30% Trial Discount
+              </span>
+            </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Base rate (50 min)</span>
               <span class="breakdown-value">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate || 0 }}</span>
@@ -70,7 +76,14 @@
             </div>
             <div class="breakdown-item subtotal">
               <span class="breakdown-label">Lesson price</span>
-              <span class="breakdown-value">${{ pricePerLesson | number:'1.2-2' }}</span>
+              <span class="breakdown-value" [class.strikethrough]="isTrialLesson">${{ pricePerLesson | number:'1.2-2' }}</span>
+            </div>
+            <div class="breakdown-item discount" *ngIf="discount > 0">
+              <span class="breakdown-label">
+                <ion-icon name="gift-outline"></ion-icon>
+                Trial discount ({{ discountPercentage }}%)
+              </span>
+              <span class="breakdown-value discount-value">-${{ discount | number:'1.2-2' }}</span>
             </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Processing fee</span>
@@ -236,25 +249,42 @@
 
             <!-- Saved Cards List -->
             <div class="saved-cards-section" *ngIf="!isAddingNewCard && savedCards.length > 0">
-              <h3 class="section-title">Select a card</h3>
+              <h3 class="section-title">Your saved cards</h3>
               
               <div class="saved-cards-list">
                 <div 
                   *ngFor="let card of savedCards" 
                   class="saved-card-item"
                   [class.selected]="selectedCardId === card.stripePaymentMethodId"
+                  [class.expired]="isCardExpired(card)"
                   (click)="selectSavedCard(card)">
-                  <div class="card-radio">
-                    <div class="radio-circle" [class.checked]="selectedCardId === card.stripePaymentMethodId"></div>
+                  
+                  <!-- Card Brand Logo -->
+                  <div class="card-brand-logo">
+                    <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa.svg" alt="Visa">
+                    <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard.svg" alt="Mastercard">
+                    <img *ngIf="card.brand?.toLowerCase() === 'amex'" src="assets/card-brands/amex.svg" alt="Amex">
+                    <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover.svg" alt="Discover">
+                    <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'discover'].includes(card.brand?.toLowerCase())">
+                      <ion-icon name="card"></ion-icon>
+                    </div>
                   </div>
-                  <div class="card-icon">
-                    <ion-icon name="card"></ion-icon>
-                  </div>
+                  
+                  <!-- Card Details -->
                   <div class="card-details">
-                    <div class="card-name">{{ card.brand | titlecase }} •••• {{ card.last4 }}</div>
-                    <div class="card-expiry">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</div>
+                    <div class="card-name">{{ card.brand | titlecase }} ending in {{ card.last4 }}</div>
+                    <div class="card-expiry">Exp. date {{ card.expiryMonth | number:'2.0-0' }}/{{ card.expiryYear?.toString()?.slice(-2) }}</div>
                   </div>
-                  <div class="default-badge" *ngIf="card.isDefault">Default</div>
+                  
+                  <!-- Card Actions -->
+                  <div class="card-actions">
+                    <span class="default-badge" *ngIf="card.isDefault">Default</span>
+                    <button class="set-default-btn" *ngIf="!card.isDefault && !isCardExpired(card)" (click)="setCardAsDefault(card, $event)">Set as Default</button>
+                    <span class="expired-badge" *ngIf="isCardExpired(card)">Expired</span>
+                    <button class="delete-card-btn" (click)="deleteCard(card, $event)" title="Delete card">
+                      <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -370,7 +400,13 @@
         <div class="details">
           <!-- Price Breakdown -->
           <div class="price-breakdown-section">
-            <div class="breakdown-title">Price Calculation</div>
+            <div class="breakdown-title">
+              Price Calculation
+              <span class="trial-badge" *ngIf="isTrialLesson">
+                <ion-icon name="gift-outline"></ion-icon>
+                30% OFF
+              </span>
+            </div>
             <div class="breakdown-item">
               <span class="breakdown-label">Base rate (50 min)</span>
               <span class="breakdown-value">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate || 0 }}</span>
@@ -381,7 +417,14 @@
             </div>
             <div class="breakdown-item subtotal">
               <span class="breakdown-label">Lesson price</span>
-              <span class="breakdown-value">${{ pricePerLesson | number:'1.2-2' }}</span>
+              <span class="breakdown-value" [class.strikethrough]="isTrialLesson">${{ pricePerLesson | number:'1.2-2' }}</span>
+            </div>
+            <div class="breakdown-item discount" *ngIf="discount > 0">
+              <span class="breakdown-label">
+                <ion-icon name="gift-outline"></ion-icon>
+                Trial discount ({{ discountPercentage }}%)
+              </span>
+              <span class="breakdown-value discount-value">-${{ discount | number:'1.2-2' }}</span>
             </div>
           </div>
           
@@ -546,25 +589,42 @@
 
           <!-- Saved Cards List -->
           <div class="saved-cards-section" *ngIf="!isAddingNewCard && savedCards.length > 0">
-            <h3 class="section-title">Select a card</h3>
+            <h3 class="section-title">Your saved cards</h3>
             
             <div class="saved-cards-list">
               <div 
                 *ngFor="let card of savedCards" 
                 class="saved-card-item"
                 [class.selected]="selectedCardId === card.stripePaymentMethodId"
+                [class.expired]="isCardExpired(card)"
                 (click)="selectSavedCard(card)">
-                <div class="card-radio">
-                  <div class="radio-circle" [class.checked]="selectedCardId === card.stripePaymentMethodId"></div>
+                
+                <!-- Card Brand Logo -->
+                <div class="card-brand-logo">
+                  <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa.svg" alt="Visa">
+                  <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard.svg" alt="Mastercard">
+                  <img *ngIf="card.brand?.toLowerCase() === 'amex'" src="assets/card-brands/amex.svg" alt="Amex">
+                  <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover.svg" alt="Discover">
+                  <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'discover'].includes(card.brand?.toLowerCase())">
+                    <ion-icon name="card"></ion-icon>
+                  </div>
                 </div>
-                <div class="card-icon">
-                  <ion-icon name="card"></ion-icon>
-                </div>
+                
+                <!-- Card Details -->
                 <div class="card-details">
-                  <div class="card-name">{{ card.brand | titlecase }} •••• {{ card.last4 }}</div>
-                  <div class="card-expiry">Expires {{ card.expiryMonth }}/{{ card.expiryYear }}</div>
+                  <div class="card-name">{{ card.brand | titlecase }} ending in {{ card.last4 }}</div>
+                  <div class="card-expiry">Exp. date {{ card.expiryMonth | number:'2.0-0' }}/{{ card.expiryYear?.toString()?.slice(-2) }}</div>
                 </div>
-                <div class="default-badge" *ngIf="card.isDefault">Default</div>
+                
+                <!-- Card Actions -->
+                <div class="card-actions">
+                  <span class="default-badge" *ngIf="card.isDefault">Default</span>
+                  <button class="set-default-btn" *ngIf="!card.isDefault && !isCardExpired(card)" (click)="setCardAsDefault(card, $event)">Set as Default</button>
+                  <span class="expired-badge" *ngIf="isCardExpired(card)">Expired</span>
+                  <button class="delete-card-btn" (click)="deleteCard(card, $event)" title="Delete card">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </button>
+                </div>
               </div>
             </div>
 

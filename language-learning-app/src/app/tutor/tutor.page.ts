@@ -3,6 +3,7 @@ import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
 import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { UserService } from '../services/user.service';
 import { LanguageService } from '../services/language.service';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
@@ -15,6 +16,7 @@ import { VideoPlayerModalComponent } from '../tutor-search-content/video-player-
 import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
 import { DisplayNamePipe } from '../pipes/display-name.pipe';
+import { LessonService } from '../services/lesson.service';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 
@@ -23,7 +25,37 @@ import { Subject, firstValueFrom } from 'rxjs';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe]
+  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe],
+  animations: [
+    trigger('fadeInUp', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(20px)' }),
+        animate('400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
+    ]),
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.98)' }),
+        animate('400ms 100ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'scale(1)' }))
+      ])
+    ]),
+    trigger('slideInRight', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(30px)' }),
+        animate('500ms 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateX(0)' }))
+      ])
+    ]),
+    trigger('staggerIn', [
+      transition(':enter', [
+        query('.highlight-item, .content-section', [
+          style({ opacity: 0, transform: 'translateY(15px)' }),
+          stagger(80, [
+            animate('350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)', style({ opacity: 1, transform: 'translateY(0)' }))
+          ])
+        ], { optional: true })
+      ])
+    ])
+  ]
 })
 export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   tutorId = '';
@@ -71,6 +103,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   private longPressTimeout: any;
   private readonly LONG_PRESS_DURATION = 500; // ms
   highlightedMessageId: string | null = null; // Track which message is highlighted
+  
+  // Trial lesson eligibility
+  studentHadPreviousLesson = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -84,7 +119,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private websocketService: WebSocketService,
     private authService: AuthService,
     private alertController: AlertController,
-    private animationCtrl: AnimationController
+    private animationCtrl: AnimationController,
+    private lessonService: LessonService
   ) {}
 
   ngOnInit() {
@@ -136,7 +172,11 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         const duration = performance.now() - startTime;
         this.tutor = res.tutor;
         console.log('🔄 tutor:', this.tutor);
+        console.log('🌍 tutor country:', this.tutor?.country, 'residenceCountry:', this.tutor?.residenceCountry);
         this.isLoading = false;
+        
+        // Check if student has had a previous lesson with this tutor
+        this.checkPreviousLessonsWithTutor();
       },
       error: (err) => {
         const duration = performance.now() - startTime;
@@ -510,12 +550,75 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       .slice(0, 2);
   }
 
+  getTutorLocation(): string | null {
+    if (!this.tutor) return null;
+    const location = this.tutor.country || this.tutor.residenceCountry || this.tutor.location;
+    // Return null if location is empty string or falsy
+    return location && location.trim() ? location.trim() : null;
+  }
+
   toggleBio() {
     this.bioExpanded = !this.bioExpanded;
   }
 
   shouldShowReadMore(bio: string | undefined): boolean {
     return !!(bio && typeof bio === 'string' && bio.length > 200);
+  }
+
+  /**
+   * Check if the current student has had any previous lessons with this tutor.
+   * If so, they are not eligible for a trial lesson.
+   */
+  private async checkPreviousLessonsWithTutor() {
+    try {
+      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
+      
+      // Only check for students
+      if (!currentUser || currentUser.userType !== 'student') {
+        return;
+      }
+      
+      // Get the student's lessons and check if any were with this tutor
+      this.lessonService.getMyLessons().subscribe({
+        next: (response: any) => {
+          const lessons = response.lessons || response || [];
+          // Check if any completed or in-progress lesson was with this tutor
+          this.studentHadPreviousLesson = lessons.some((lesson: any) => {
+            const tutorAuth0Id = this.tutor?.auth0Id;
+            const tutorUserId = this.tutor?._id || this.tutorId;
+            const lessonTutorId = lesson.tutorId?._id || lesson.tutorId?.auth0Id || lesson.tutorId;
+            
+            // Match by either _id or auth0Id
+            const isSameTutor = lessonTutorId === tutorUserId || 
+                               lessonTutorId === tutorAuth0Id ||
+                               lesson.tutorId?.auth0Id === tutorAuth0Id;
+            
+            // Consider completed, confirmed, in-progress, OR scheduled lessons
+            // Including 'scheduled' prevents showing trial discount for a second booking before first lesson happens
+            const isValidStatus = ['completed', 'confirmed', 'in_progress', 'scheduled'].includes(lesson.status);
+            
+            return isSameTutor && isValidStatus;
+          });
+          
+          console.log('📚 Student had previous lesson with tutor:', this.studentHadPreviousLesson);
+        },
+        error: (err) => {
+          console.error('Error checking previous lessons:', err);
+          // Default to false if there's an error
+          this.studentHadPreviousLesson = false;
+        }
+      });
+    } catch (error) {
+      console.error('Error in checkPreviousLessonsWithTutor:', error);
+      this.studentHadPreviousLesson = false;
+    }
+  }
+
+  scrollToAvailability() {
+    const availabilitySection = document.querySelector('.availability-mobile');
+    if (availabilitySection) {
+      availabilitySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   async messageTutor() {

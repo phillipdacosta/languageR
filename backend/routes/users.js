@@ -1759,6 +1759,7 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
           introductionVideo: user.onboardingData?.introductionVideo || '',
           videoThumbnail: user.onboardingData?.videoThumbnail || '',
           videoType: user.onboardingData?.videoType || 'upload',
+          country: user.country || user.residenceCountry || '',
           stats: user.stats || {},
           profile: user.profile || {},
           // Payout and approval info for booking validation

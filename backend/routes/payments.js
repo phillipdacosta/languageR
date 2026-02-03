@@ -166,19 +166,83 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     }
 
     // 3. CHECK: Timeslot is still in tutor's availability
-    const dayOfWeek = lessonStartTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
-    const requestedStartMinutes = lessonStartTime.getUTCHours() * 60 + lessonStartTime.getUTCMinutes();
-    const requestedEndMinutes = lessonEndTime.getUTCHours() * 60 + lessonEndTime.getUTCMinutes();
+    // NOTE: Availability blocks are stored in the TUTOR'S local timezone
+    // The lesson times from frontend are in UTC, so we need to handle this carefully
+    
+    // Get tutor's timezone (default to America/New_York if not set)
+    const tutorTimezone = tutor.timezone || 'America/New_York';
+    
+    // Convert lesson start time to tutor's local timezone for comparison
+    const lessonInTutorTz = new Date(lessonStartTime.toLocaleString('en-US', { timeZone: tutorTimezone }));
+    const lessonEndInTutorTz = new Date(lessonEndTime.toLocaleString('en-US', { timeZone: tutorTimezone }));
+    
+    // Get day of week in tutor's timezone (as string like 'Wednesday')
+    const dayOfWeekString = lessonStartTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: tutorTimezone });
+    
+    // Also get day as number (0=Sunday, 1=Monday, ..., 6=Saturday) for comparison
+    // Availability blocks may store day as number OR string depending on how they were created
+    const dayOfWeekNumber = lessonInTutorTz.getDay(); // 0-6, Sunday=0
+    
+    // Map to handle both formats - availability may use 0-6 (Sun-Sat) or 1-7 (Mon-Sun) or strings
+    const dayNameToNumber = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+    
+    // Get hours and minutes in tutor's local time
+    const localStartHours = lessonInTutorTz.getHours();
+    const localStartMinutes = lessonInTutorTz.getMinutes();
+    const localEndHours = lessonEndInTutorTz.getHours();
+    const localEndMinutes = lessonEndInTutorTz.getMinutes();
+    
+    const requestedStartMinutes = localStartHours * 60 + localStartMinutes;
+    const requestedEndMinutes = localEndHours * 60 + localEndMinutes;
     
     const availabilityBlocks = tutor.availability || [];
+    
+    // Helper to check if a block's day matches
+    const blockDayMatches = (blockDay) => {
+      // Handle both string and number formats
+      if (typeof blockDay === 'string') {
+        return blockDay === dayOfWeekString;
+      }
+      // If number, check both 0-6 format and 1-7 format
+      // 0-6 format: Sunday=0, Monday=1, etc.
+      // 1-7 format: Monday=1, Tuesday=2, ..., Sunday=7
+      return blockDay === dayOfWeekNumber || blockDay === (dayOfWeekNumber === 0 ? 7 : dayOfWeekNumber);
+    };
+    
+    console.log('🔍 Availability check:', {
+      tutorTimezone,
+      lessonStartUTC: lessonStartTime.toISOString(),
+      lessonStartLocal: `${localStartHours}:${localStartMinutes.toString().padStart(2, '0')}`,
+      dayOfWeekString,
+      dayOfWeekNumber,
+      requestedStartMinutes,
+      requestedEndMinutes,
+      availabilityBlocksCount: availabilityBlocks.length,
+      allAvailableDays: [...new Set(availabilityBlocks.filter(b => b.type === 'available').map(b => b.day))],
+      matchingDayBlocks: availabilityBlocks.filter(b => blockDayMatches(b.day)).map(b => ({
+        day: b.day,
+        type: b.type,
+        start: `${b.startHour}:${(b.startMinute || 0).toString().padStart(2, '0')}`,
+        end: `${b.endHour}:${(b.endMinute || 0).toString().padStart(2, '0')}`,
+        startMinutes: (b.startHour || 0) * 60 + (b.startMinute || 0),
+        endMinutes: (b.endHour || 24) * 60 + (b.endMinute || 0)
+      }))
+    });
+    
     const matchingBlocks = availabilityBlocks.filter(block => {
       if (block.type !== 'available') return false;
-      if (block.day !== dayOfWeek) return false;
+      if (!blockDayMatches(block.day)) return false;
       
       const blockStart = (block.startHour || 0) * 60 + (block.startMinute || 0);
       const blockEnd = (block.endHour || 24) * 60 + (block.endMinute || 0);
       
-      return requestedStartMinutes >= blockStart && requestedEndMinutes <= blockEnd;
+      const matches = requestedStartMinutes >= blockStart && requestedEndMinutes <= blockEnd;
+      console.log(`  Block day=${block.day} ${blockStart}-${blockEnd}: requested ${requestedStartMinutes}-${requestedEndMinutes} = ${matches ? '✅ MATCH' : '❌ NO MATCH'}`);
+      
+      return matches;
     });
 
     if (matchingBlocks.length === 0) {
@@ -286,12 +350,43 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     
     const isTrialLesson = previousLessons === 0;
     
+    // Calculate expected price with trial discount (30% off for first lesson)
+    const TRIAL_DISCOUNT_PERCENT = 30;
+    const tutorHourlyRate = tutor.hourlyRate || tutor.onboardingData?.hourlyRate || 20;
+    const STANDARD_LESSON_DURATION = 50;
+    const basePrice = Math.round((tutorHourlyRate * (lessonData.duration / STANDARD_LESSON_DURATION)) * 100) / 100;
+    
+    let expectedPrice = basePrice;
+    let discountAmount = 0;
+    
+    if (isTrialLesson) {
+      discountAmount = Math.round(basePrice * (TRIAL_DISCOUNT_PERCENT / 100) * 100) / 100;
+      expectedPrice = Math.round((basePrice - discountAmount) * 100) / 100;
+    }
+    
     console.log('🎓 Trial lesson check during booking:', {
       tutorId: tutor._id,
       studentId: user._id,
       previousScheduledLessons: previousLessons,
-      isTrialLesson
+      isTrialLesson,
+      tutorHourlyRate,
+      basePrice,
+      discountAmount,
+      expectedPrice,
+      clientPrice: lessonData.price
     });
+    
+    // Validate client price matches expected price (with small tolerance for rounding)
+    const priceDifference = Math.abs(lessonData.price - expectedPrice);
+    if (priceDifference > 0.02) {
+      console.log('⚠️ Price mismatch detected, using server-calculated price:', {
+        clientPrice: lessonData.price,
+        expectedPrice,
+        difference: priceDifference
+      });
+      // Override with server-calculated price for security
+      lessonData.price = expectedPrice;
+    }
 
     // Generate a unique channel name for Agora
     const channelName = `lesson_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -302,7 +397,10 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       channelName,
       status: 'scheduled',
       billingStatus: 'pending',
-      isTrialLesson // Add trial lesson flag
+      isTrialLesson, // Add trial lesson flag
+      discountAmount: isTrialLesson ? discountAmount : 0,
+      discountPercent: isTrialLesson ? TRIAL_DISCOUNT_PERCENT : 0,
+      originalPrice: basePrice // Store original price before discount
     });
 
     await lesson.save();

@@ -6,6 +6,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   /* Unified slot height to keep time labels and day cells perfectly aligned */
   --slot-height: 44px;
+  min-height: 500px; // Prevent layout shift during loading
 }
 
 .header-controls {
@@ -114,6 +115,7 @@
   overflow-y: visible; // Allow content to flow naturally
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.04);
   position: relative;
+  min-height: 300px; // Prevent layout shift when slots load
   
   @media (max-width: 1024px) {
     grid-template-columns: repeat(7, minmax(90px, 1fr));
@@ -173,36 +175,36 @@
 
 /* Duration selector styles - Segmented control design */
 .duration-selector.segmented {
-  padding: 14px;
-  margin-bottom: 14px;
+  padding: 8px;
+  margin-bottom: 10px;
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 
   .selector-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    font-size: 13px;
+    gap: 5px;
+    margin-bottom: 6px;
+    font-size: 11px;
     font-weight: 600;
     color: #1d1d1f;
     letter-spacing: -0.2px;
     
     ion-icon {
-      font-size: 16px;
+      font-size: 12px;
       color: #007aff;
     }
     
     .trial-badge {
       margin-left: auto;
-      padding: 4px 10px;
+      padding: 2px 6px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border-radius: 12px;
-      font-size: 11px;
+      border-radius: 8px;
+      font-size: 9px;
       font-weight: 600;
       letter-spacing: 0.2px;
     }
@@ -213,37 +215,49 @@
     grid-template-columns: 1fr 1fr;
     gap: 0;
     background: #f2f2f7;
-    border-radius: 10px;
-    padding: 3px;
+    border-radius: 6px;
+    padding: 1px;
     border: none;
+    min-height: auto !important;
+    height: auto !important;
 
     .segment {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      padding: 10px;
+      gap: 2px;
+      padding: 4px 6px;
+      min-height: auto !important;
+      height: auto !important;
+      max-height: none !important;
+      line-height: 1.2;
       background: transparent;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
       position: relative;
 
       ion-icon {
-        font-size: 18px;
+        font-size: 14px;
         color: #86868b;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        margin: 0;
+        padding: 0;
+        line-height: 1;
       }
 
       .label {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         color: #86868b;
         letter-spacing: -0.2px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1.2;
+        margin: 0;
+        padding: 0;
       }
 
       .time {
@@ -252,12 +266,16 @@
         color: #86868b;
         letter-spacing: -0.1px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        line-height: 1.2;
+        margin: 0;
+        padding: 0;
       }
       
       .badge {
-        font-size: 10px;
+        font-size: 9px;
         color: #86868b;
         margin-top: 2px;
+        line-height: 1.2;
       }
       
       &.disabled {
@@ -276,28 +294,31 @@
 
       &.active {
         background: white;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+        border: 2px solid #007aff;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2), 0 0 0 1px rgba(0, 122, 255, 0.1);
 
         ion-icon {
           color: #007aff;
-          transform: scale(1.05);
+          transform: scale(1.1);
         }
 
         .label {
-          color: #1d1d1f;
+          color: #007aff;
+          font-weight: 700;
         }
 
         .time {
           color: #007aff;
+          font-weight: 600;
         }
       }
 
       &:hover:not(.active) {
-        background: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.5);
         transform: scale(1.01);
 
         ion-icon {
-          color: #007aff;
+          color: #86868b;
         }
       }
 
@@ -321,18 +342,18 @@
     }
 
     .segmented-control {
-      padding: 3px;
+      padding: 2px;
 
       .segment {
-        padding: 9px 7px;
+        padding: 3px 5px;
         gap: 2px;
 
         ion-icon {
-          font-size: 16px;
+          font-size: 12px;
         }
 
         .label {
-          font-size: 12px;
+          font-size: 11px;
         }
 
         .time {
@@ -553,6 +574,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
+  min-height: 400px; // Match approximate calendar height to prevent layout shift
   
   ion-spinner {
     margin-bottom: 16px;
