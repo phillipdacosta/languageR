@@ -269,6 +269,57 @@
         font-weight: 500;
       }
       
+      .profile-discoverable-name {
+        font-size: 14px;
+        color: #86868b;
+        margin: 0 0 12px 0;
+        font-weight: 400;
+        line-height: 1.4;
+        
+        strong {
+          color: #1d1d1f;
+          font-weight: 600;
+        }
+      }
+      
+      .visibility-status {
+        margin: 12px 0 16px 0;
+        
+        .visibility-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 600;
+          transition: all 0.2s ease;
+          
+          ion-icon {
+            font-size: 16px;
+          }
+          
+          &.visible {
+            background: rgba(52, 199, 89, 0.12);
+            color: #34c759;
+            border: 1px solid rgba(52, 199, 89, 0.3);
+          }
+          
+          &.hidden {
+            background: rgba(255, 149, 0, 0.12);
+            color: #ff9500;
+            border: 1px solid rgba(255, 149, 0, 0.3);
+          }
+        }
+        
+        .visibility-reason {
+          font-size: 12px;
+          color: #ff9500;
+          margin: 8px 0 0 0;
+          font-weight: 500;
+        }
+      }
+      
       ion-chip {
         --background: #34c759;
         --color: white;
@@ -893,6 +944,32 @@
         
         .profile-email {
           color: #98989d;
+        }
+        
+        .profile-discoverable-name {
+          color: #98989d;
+          
+          strong {
+            color: #f5f5f7;
+          }
+        }
+        
+        .visibility-status {
+          .visibility-badge {
+            &.visible {
+              background: rgba(52, 199, 89, 0.2);
+              border-color: rgba(52, 199, 89, 0.4);
+            }
+            
+            &.hidden {
+              background: rgba(255, 149, 0, 0.2);
+              border-color: rgba(255, 149, 0, 0.4);
+            }
+          }
+          
+          .visibility-reason {
+            color: #ffb340;
+          }
         }
         
         .languages-section {

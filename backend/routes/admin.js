@@ -230,6 +230,13 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
     }
 
     if (approved) {
+      // Determine if this is a RE-APPROVAL (tutor changed video after being previously approved)
+      // or a FIRST-TIME approval
+      const isReApproval = !!tutor.onboardingData?.pendingVideo;
+      const wasAlreadyApproved = tutor.tutorApproved === true;
+      
+      console.log('📹 Video approval type:', { isReApproval, wasAlreadyApproved });
+      
       // If there's a pending video, move it to main video
       if (tutor.onboardingData?.pendingVideo) {
         console.log('📹 Moving pending video to approved:', {
@@ -274,20 +281,41 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
 
     await tutor.save();
 
+    // Determine notification message based on first-time vs re-approval
+    // First-time: Full message with "Add availability" button
+    // Re-approval: Simple message without button
+    const isFirstTimeApproval = !isReApproval && !wasAlreadyApproved;
+    
+    const notificationTitle = '🎉 Video Approved!';
+    const notificationMessage = isFirstTimeApproval 
+      ? 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!'
+      : 'Your introduction video has been approved.';
+    
+    const notificationData = isFirstTimeApproval 
+      ? {
+          tutorApproved: tutor.tutorApproved,
+          approvedAt: new Date(),
+          hasActionButton: true,
+          actionButtonText: 'Add Availability',
+          actionRoute: '/tabs/availability-setup',
+          isFirstTimeApproval: true
+        }
+      : {
+          tutorApproved: tutor.tutorApproved,
+          approvedAt: new Date(),
+          isFirstTimeApproval: false
+        };
+    
+    console.log(`📝 Notification type: ${isFirstTimeApproval ? 'FIRST-TIME' : 'RE-APPROVAL'}`);
+
     // Create database notification for tutor
     try {
       const notification = new Notification({
         userId: tutor._id,
         type: 'tutor_video_approved',
-        title: '🎉 Video Approved!',
-        message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
-        data: {
-          tutorApproved: tutor.tutorApproved,
-          approvedAt: new Date(),
-          hasActionButton: true,
-          actionButtonText: 'Add Availability',
-          actionRoute: '/tabs/availability-setup'
-        },
+        title: notificationTitle,
+        message: notificationMessage,
+        data: notificationData,
         read: false
       });
       await notification.save();
@@ -301,10 +329,11 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
       if (req.io) {
         // Method 1: Try room-based notification (using auth0Id)
         req.io.to(`user:${tutor.auth0Id}`).emit('tutor_video_approved', {
-          message: 'Your introduction video has been approved!',
+          message: notificationMessage,
           approved: true,
           tutorApproved: tutor.tutorApproved,
-          timestamp: new Date()
+          timestamp: new Date(),
+          isFirstTimeApproval
         });
         console.log(`📬 Real-time video approval notification sent to tutor room: user:${tutor.auth0Id}`);
         
@@ -312,10 +341,11 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         if (global.userSockets && global.userSockets[tutor._id.toString()]) {
           const socketId = global.userSockets[tutor._id.toString()];
           req.io.to(socketId).emit('tutor_video_approved', {
-            message: 'Your introduction video has been approved!',
+            message: notificationMessage,
             approved: true,
             tutorApproved: tutor.tutorApproved,
-            timestamp: new Date()
+            timestamp: new Date(),
+            isFirstTimeApproval
           });
           console.log(`📬 Also sent to socket ${socketId} via MongoDB ID`);
         }
@@ -323,15 +353,11 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
         // Also emit new_notification for the notification bell
         req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
           type: 'tutor_video_approved',
-          title: '🎉 Video Approved!',
-          message: 'Your introduction video has been approved. You can now start tutoring! Your profile will now be discoverable to students. Be sure to add your availability!',
+          title: notificationTitle,
+          message: notificationMessage,
           timestamp: new Date(),
           urgent: false,
-          data: {
-            hasActionButton: true,
-            actionButtonText: 'Add Availability',
-            actionRoute: '/tabs/availability-setup'
-          }
+          data: notificationData
         });
       }
     } catch (socketError) {

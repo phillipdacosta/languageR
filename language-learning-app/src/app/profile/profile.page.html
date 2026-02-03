@@ -32,9 +32,22 @@
                 (change)="onPictureSelected($event)"
                 *ngIf="!isViewingOtherUser">
               <div class="profile-info">
-                <h2 class="profile-name">{{ getDisplayUser()?.name }}</h2>
-                <p class="profile-email" *ngIf="!isViewingOtherUser">{{ getDisplayUser()?.email }}</p>
+                <h2 class="profile-name">{{ getFullName() }}</h2>
+                <p class="profile-discoverable-name" *ngIf="!isViewingOtherUser">
+                  Discoverable to students as <strong>{{ getDiscoverableName() }}</strong>
+                </p>
                 <p class="profile-email" *ngIf="isViewingOtherUser && isTutor()">{{ getDisplayUser()?.email }}</p>
+                
+                <!-- Visibility Status for Tutors -->
+                <div class="visibility-status" *ngIf="!isViewingOtherUser && isTutor()">
+                  <div class="visibility-badge" [class.visible]="isTutorVisible" [class.hidden]="!isTutorVisible">
+                    <ion-icon [name]="isTutorVisible ? 'eye' : 'eye-off'"></ion-icon>
+                    <span>{{ isTutorVisible ? 'Visible to Students' : 'Hidden from Students' }}</span>
+                  </div>
+                  <p class="visibility-reason" *ngIf="!isTutorVisible && visibilityMissingItems.length > 0">
+                    Missing: {{ visibilityMissingItems.join(' • ') }}
+                  </p>
+                </div>
                 
                 <!-- Picture actions when picture exists -->
                 <div class="picture-actions-inline" *ngIf="!isViewingOtherUser && hasCustomPicture()">

@@ -1501,4 +1501,31 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
+
+  async shareTutor() {
+    if (!this.tutor) return;
+    
+    const shareData = {
+      title: `Learn with ${this.tutor.name}`,
+      text: `Check out ${this.tutor.name}, a ${this.tutor.languages?.join(', ')} tutor on our platform!`,
+      url: window.location.href
+    };
+    
+    try {
+      if (navigator.share && this.platform.is('mobile')) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        const alert = await this.alertController.create({
+          header: 'Link Copied',
+          message: 'Profile link has been copied to your clipboard.',
+          buttons: ['OK']
+        });
+        await alert.present();
+      }
+    } catch (error) {
+      console.log('Share failed or cancelled:', error);
+    }
+  }
 }

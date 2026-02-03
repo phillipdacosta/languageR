@@ -66,6 +66,10 @@ export class ProfilePage implements OnInit {
   hasPayoutSetup: boolean | undefined = undefined; // undefined = loading, false = not setup, true = setup
   payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
 
+  // Visibility status (for tutors)
+  isTutorVisible: boolean = false;
+  visibilityMissingItems: string[] = [];
+
   // Earnings (for tutors)
   totalEarnings = 0;
   pendingEarnings = 0;
@@ -134,6 +138,9 @@ export class ProfilePage implements OnInit {
         }
         
         console.log('💰 [PROFILE] Payout status updated from service:', payoutStatus);
+        
+        // Update visibility status when payout status changes
+        this.updateVisibilityStatus();
       }
     });
     
@@ -272,6 +279,9 @@ export class ProfilePage implements OnInit {
         } else {
           console.log('📹 No introduction video in onboardingData');
         }
+        
+        // Update visibility status after loading user data
+        this.updateVisibilityStatus();
       }
     });
     
@@ -330,6 +340,116 @@ export class ProfilePage implements OnInit {
   getUserInitials(user: User | null | any): string {
     if (!user || !user.name) return '?';
     return user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  // Update tutor visibility status
+  updateVisibilityStatus(): void {
+    if (!this.isTutor()) {
+      return;
+    }
+    
+    const user = this.getDisplayUser();
+    if (!user) {
+      this.isTutorVisible = false;
+      this.visibilityMissingItems = ['Profile not loaded'];
+      return;
+    }
+    
+    const missingItems: string[] = [];
+    
+    // Check 1: Onboarding completed
+    const onboardingCompleted = user.onboardingCompleted === true;
+    if (!onboardingCompleted) {
+      missingItems.push('Complete onboarding');
+    }
+    
+    // Check 2: Video approved (tutorApproved is set when video is approved)
+    const tutorApproved = user.tutorApproved === true;
+    if (!tutorApproved) {
+      missingItems.push('Video approval');
+    }
+    
+    // Check 3: Has payout setup (Stripe, PayPal, or Manual)
+    // Use hasPayoutSetup which is already loaded
+    const hasPayoutMethod = this.hasPayoutSetup === true;
+    if (!hasPayoutMethod) {
+      missingItems.push('Payout setup');
+    }
+    
+    // All conditions must be met
+    this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod;
+    this.visibilityMissingItems = missingItems;
+    
+    console.log('👁️ [PROFILE] Visibility status updated:', {
+      isTutorVisible: this.isTutorVisible,
+      onboardingCompleted,
+      tutorApproved,
+      hasPayoutMethod,
+      missingItems
+    });
+  }
+
+  // Get full name for display
+  getFullName(): string {
+    const user = this.getDisplayUser();
+    if (!user) return 'Unknown';
+    
+    // If user has firstName and lastName, combine them
+    if (user.firstName && user.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    
+    // If user has a name field, use it
+    if (user.name) {
+      return user.name;
+    }
+    
+    // Fallback to email
+    return user.email || 'Unknown';
+  }
+
+  // Format discoverable name as "Firstname L." (first name + last initial)
+  getDiscoverableName(): string {
+    const user = this.getDisplayUser();
+    if (!user) return 'Unknown';
+    
+    // If user has firstName and lastName
+    if (user.firstName && user.lastName) {
+      const firstName = this.capitalize(user.firstName);
+      const lastInitial = user.lastName.charAt(0).toUpperCase();
+      return `${firstName} ${lastInitial}.`;
+    }
+    
+    // If user has a name field, parse it
+    if (user.name) {
+      const nameParts = user.name.trim().split(' ').filter(Boolean);
+      if (nameParts.length > 1) {
+        const firstName = this.capitalize(nameParts[0]);
+        const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+      } else if (nameParts.length === 1) {
+        return this.capitalize(nameParts[0]);
+      }
+    }
+    
+    // Fallback to email if available
+    if (user.email) {
+      const emailParts = user.email.split('@')[0].split(/[.\s_]+/).filter(Boolean);
+      if (emailParts.length > 1) {
+        const firstName = this.capitalize(emailParts[0]);
+        const lastInitial = emailParts[emailParts.length - 1].charAt(0).toUpperCase();
+        return `${firstName} ${lastInitial}.`;
+      } else if (emailParts.length === 1) {
+        return this.capitalize(emailParts[0]);
+      }
+    }
+    
+    return 'Unknown';
+  }
+
+  private capitalize(value: string): string {
+    if (!value) return '';
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
   }
 
   // User type methods

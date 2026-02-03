@@ -29,17 +29,40 @@
 @import "~quill/dist/quill.snow.css";
 @import "~quill/dist/quill.core.css";
 
-/* Global Font - Inter (Airbnb Cereal-like, optimized for screens) */
+/* Global Font - Manrope (Airbnb-style) */
 :root {
-  --ion-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --ion-font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  
+  /* Airbnb Manrope typography settings */
+  --ion-font-weight-normal: 400;
+  --ion-font-weight-medium: 500;
+  --ion-font-weight-semibold: 600;
+  --ion-font-weight-bold: 700;
+  --ion-font-weight-extrabold: 800;
+  
+  /* Letter spacing for better readability (Airbnb-style) */
+  --ion-letter-spacing-tight: -0.01em;
+  --ion-letter-spacing-normal: 0;
+  --ion-letter-spacing-wide: 0.01em;
+  
+  /* Line heights (Airbnb-style) */
+  --ion-line-height-tight: 1.2;
+  --ion-line-height-normal: 1.5;
+  --ion-line-height-relaxed: 1.6;
 }
 
 * {
   font-family: var(--ion-font-family) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 html, body {
   font-family: var(--ion-font-family) !important;
+  font-weight: 400;
+  letter-spacing: var(--ion-letter-spacing-normal);
+  line-height: var(--ion-line-height-normal);
 }
 
 /* Apply to all Ionic components */
@@ -50,9 +73,42 @@ ion-tab-bar, ion-tab-button, ion-list, ion-list-header, ion-avatar, ion-icon {
   font-family: var(--ion-font-family) !important;
 }
 
-/* Apply to all text elements */
-h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select, label {
+/* Apply to all text elements with Airbnb-style typography */
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--ion-font-family) !important;
+  font-weight: 700;
+  letter-spacing: var(--ion-letter-spacing-tight);
+  line-height: var(--ion-line-height-tight);
+}
+
+h1 {
+  font-weight: 800;
+}
+
+h2, h3 {
+  font-weight: 700;
+}
+
+h4, h5, h6 {
+  font-weight: 600;
+}
+
+p, span, div, a, button, input, textarea, select, label {
+  font-family: var(--ion-font-family) !important;
+  letter-spacing: var(--ion-letter-spacing-normal);
+  line-height: var(--ion-line-height-normal);
+}
+
+/* Buttons - slightly tighter letter spacing for better readability */
+button, ion-button {
+  letter-spacing: var(--ion-letter-spacing-wide);
+  font-weight: 600;
+}
+
+/* Inputs - maintain readability */
+input, textarea, ion-input, ion-textarea {
+  letter-spacing: var(--ion-letter-spacing-normal);
+  font-weight: 400;
 }
 
 /* Remove default focus outline for modern-input class */
