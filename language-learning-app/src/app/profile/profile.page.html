@@ -34,7 +34,7 @@
               <div class="profile-info">
                 <h2 class="profile-name">{{ getFullName() }}</h2>
                 <p class="profile-discoverable-name" *ngIf="!isViewingOtherUser">
-                  Discoverable to students as <strong>{{ getDiscoverableName() }}</strong>
+                  Discoverable to {{isTutor() ? 'students': 'tutors'}} as <strong>{{ getDiscoverableName() }}</strong>
                 </p>
                 <p class="profile-email" *ngIf="isViewingOtherUser && isTutor()">{{ getDisplayUser()?.email }}</p>
                 

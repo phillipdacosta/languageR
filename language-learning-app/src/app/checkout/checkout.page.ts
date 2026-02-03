@@ -378,6 +378,12 @@ export class CheckoutPage implements OnInit, OnDestroy {
       return;
     }
 
+    // Show confirmation dialog before proceeding
+    const confirmed = await this.showBookingConfirmation();
+    if (!confirmed) {
+      return; // User cancelled
+    }
+
     this.isBooking = true;
     let loading: HTMLIonLoadingElement | null = null;
     let bookingLoading: HTMLIonLoadingElement | null = null;
@@ -778,6 +784,36 @@ export class CheckoutPage implements OnInit, OnDestroy {
         // Already dismissed, ignore
       }
     }
+  }
+
+  private async showBookingConfirmation(): Promise<boolean> {
+    const tutorName = this.tutorDisplayName || 'this tutor';
+    const dateStr = this.formattedDate || this.dateIso;
+    const timeStr = this.timeRange || this.time;
+    const price = `$${this.total.toFixed(2)}`;
+    
+    const message = `Book a ${this.lessonMinutes}-minute lesson with ${tutorName} on ${dateStr} at ${timeStr} for ${price}?`;
+
+    return new Promise(async (resolve) => {
+      const alert = await this.alertController.create({
+        header: 'Confirm Booking',
+        message: message,
+        cssClass: 'booking-confirmation-alert',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => resolve(false)
+          },
+          {
+            text: 'Book',
+            handler: () => resolve(true)
+          }
+        ]
+      });
+
+      await alert.present();
+    });
   }
 
   get formattedDate(): string {

@@ -22,7 +22,32 @@ $radius-xl: 20px;
 $transition: all 0.2s ease;
 
 // ============================================
-// Header
+// Responsive Utilities
+// ============================================
+.mobile-only {
+  display: block;
+  
+  @media (min-width: 768px) {
+    display: none !important;
+  }
+}
+
+.desktop-only {
+  display: none;
+  
+  @media (min-width: 768px) {
+    display: block;
+  }
+}
+
+.desktop-header {
+  @media (max-width: 767px) {
+    display: none !important;
+  }
+}
+
+// ============================================
+// Header (Desktop Only)
 // ============================================
 ion-header {
   ion-toolbar {
@@ -58,18 +83,559 @@ ion-content {
 }
 
 // ============================================
-// Profile Layout
+// MOBILE LAYOUT (Airbnb Style)
 // ============================================
-.profile-layout {
+.mobile-layout {
   display: flex;
   flex-direction: column;
-  max-width: 100%;
-  margin: 0;
-  padding: 0 20px 120px;
+  min-height: 100vh;
+  padding-bottom: 100px; // Space for sticky footer
+}
+
+// Hero Video Section
+.mobile-hero {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  background: #000;
+  overflow: hidden;
   
-  @media (min-width: 1024px) {
+  ::ng-deep .hero-video-thumbnail {
+    width: 100%;
+    height: 100%;
+    
+    video, img, .video-thumbnail-container, .external-video-placeholder {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+  
+  &.no-video {
+    height: 120px;
+    
+    .hero-gradient {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, $accent 0%, darken($accent, 15%) 100%);
+    }
+  }
+}
+
+.hero-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.2);
+  
+  .play-button-hero {
+    width: 64px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    
+    ion-icon {
+      font-size: 28px;
+      color: $primary;
+      margin-left: 4px;
+    }
+  }
+}
+
+.hero-nav-buttons {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  
+  .nav-btn-group {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .nav-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+    
+    ion-icon {
+      font-size: 18px;
+      color: $primary;
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    &.heart ion-icon {
+      color: $primary;
+    }
+  }
+}
+
+// Mobile Content Card
+.mobile-content-card {
+  background: white;
+  border-radius: 24px 24px 0 0;
+  margin-top: -24px;
+  position: relative;
+  z-index: 5;
+  padding: 24px 20px;
+}
+
+// Title Section
+.mobile-title-section {
+  margin-bottom: 16px;
+  
+  .title-with-avatar {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  
+  .title-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    background: #f2f2f7;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .avatar-fallback {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 600;
+      color: $primary;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .online-dot {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 14px;
+      height: 14px;
+      background: #34c759;
+      border: 2px solid white;
+      border-radius: 50%;
+    }
+  }
+  
+  .title-content {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .mobile-tutor-name {
+    font-size: 26px;
+    font-weight: 700;
+    color: $primary;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  
+  .mobile-tutor-subtitle {
+    font-size: 15px;
+    color: $primary;
+    margin: 0 0 6px 0;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    
+    .lang-flag {
+      margin-right: 2px;
+    }
+  }
+  
+  .mobile-tutor-location {
+    font-size: 14px;
+    color: $primary-light;
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    .country-flag {
+      flex-shrink: 0;
+    }
+  }
+  
+  .mobile-tutor-meta {
+    font-size: 14px;
+    color: $primary-light;
+    margin: 0;
+  }
+}
+
+// Stats Row (Airbnb style)
+.mobile-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0;
+  gap: 16px;
+  
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: $primary;
+    }
+    
+    .stat-stars {
+      display: flex;
+      gap: 1px;
+      
+      ion-icon {
+        font-size: 10px;
+        color: #ddd;
+        
+        &.filled {
+          color: $primary;
+        }
+      }
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: $primary-light;
+      line-height: 1.2;
+    }
+    
+    .stat-badge {
+      font-size: 14px;
+    }
+    
+    &.featured {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      
+      .stat-label {
+        font-weight: 600;
+        color: $primary;
+      }
+    }
+  }
+  
+  .stat-divider {
+    width: 1px;
+    height: 40px;
+    background: $border;
+  }
+}
+
+// First Student Message
+.first-student-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 0;
+  margin: 12px 0;
+  
+  .sparkles {
+    font-size: 16px;
+    line-height: 1;
+  }
+  
+  .message {
+    font-size: 14px;
+    font-weight: 500;
+    color: $primary-light;
+    letter-spacing: -0.1px;
+  }
+}
+
+// Host Row
+.mobile-host-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid $border-light;
+  border-bottom: 1px solid $border-light;
+  
+  .host-avatar {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    
+    img, .avatar-fallback {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    .avatar-fallback {
+      background: linear-gradient(135deg, $accent 0%, darken($accent, 10%) 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+    }
+    
+    .superhost-badge {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 22px;
+      height: 22px;
+      background: #FF385C;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      border: 2px solid white;
+    }
+  }
+  
+  .host-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    
+    .host-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: $primary;
+    }
+    
+    .host-subtitle {
+      font-size: 14px;
+      color: $primary-light;
+    }
+  }
+}
+
+.mobile-divider {
+  height: 1px;
+  background: $border-light;
+  margin: 20px 0;
+}
+
+// Highlights
+.mobile-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  
+  .highlight-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    
+    .highlight-icon {
+      font-size: 24px;
+      width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    
+    .highlight-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      
+      strong {
+        font-size: 15px;
+        font-weight: 600;
+        color: $primary;
+      }
+      
+      span {
+        font-size: 14px;
+        color: $primary-light;
+      }
+    }
+  }
+}
+
+// About Section
+.mobile-about {
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: $primary;
+    margin: 0 0 12px 0;
+  }
+  
+  p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: $primary;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    
+    &.expanded {
+      -webkit-line-clamp: unset;
+    }
+  }
+  
+  .show-more-btn {
+    background: none;
+    border: none;
+    padding: 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: $primary;
+    text-decoration: underline;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+// Availability Section
+.mobile-availability {
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: $primary;
+    margin: 0 0 6px 0;
+  }
+  
+  .availability-subtitle {
+    font-size: 14px;
+    color: $primary-light;
+    margin: 0 0 20px 0;
+  }
+}
+
+// Mobile Sticky Footer
+.mobile-sticky-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid $border;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  
+  // Safe area padding for iPhone notch
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  
+  .footer-price-section {
+    display: flex;
+    flex-direction: column;
+    
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    
+    .price-original {
+      font-size: 14px;
+      color: $primary-light;
+      text-decoration: line-through;
+    }
+    
+    .price-current {
+      font-size: 18px;
+      font-weight: 700;
+      color: $primary;
+    }
+    
+    .price-meta {
+      font-size: 13px;
+      color: $primary-light;
+      
+      .discount-text {
+        color: $success;
+        font-weight: 600;
+      }
+    }
+  }
+  
+  .reserve-btn {
+    background: linear-gradient(to right, #E61E4D, #D70466);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    
+    &:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+  }
+}
+
+// ============================================
+// Profile Layout (Desktop Only)
+// ============================================
+.profile-layout {
+  display: none; // Hidden on mobile (mobile-layout is used instead)
+  
+  @media (min-width: 768px) {
+    display: flex;
     flex-direction: row;
     gap: 32px;
+    max-width: 100%;
+    margin: 0;
     padding: 0 32px 48px 32px;
   }
   
@@ -463,6 +1029,31 @@ ion-content {
   ion-icon {
     font-size: 13px;
     color: $gold;
+  }
+  
+  &.lessons-pill {
+    flex-wrap: wrap;
+    
+    .first-student-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 6px;
+      padding-left: 6px;
+      border-left: 1px solid rgba(0, 0, 0, 0.1);
+      
+      .sparkles {
+        font-size: 12px;
+        line-height: 1;
+      }
+      
+      .message {
+        font-size: 11px;
+        font-weight: 500;
+        color: $primary-light;
+        white-space: nowrap;
+      }
+    }
   }
 }
 
@@ -888,19 +1479,6 @@ ion-content {
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-// ============================================
-// Responsive Helpers
-// ============================================
-.mobile-only {
-  display: block;
-  @media (min-width: 1024px) { display: none !important; }
-}
-
-.desktop-only {
-  display: none;
-  @media (min-width: 1024px) { display: block; }
 }
 
 // ============================================

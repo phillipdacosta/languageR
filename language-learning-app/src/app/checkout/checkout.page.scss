@@ -1,6 +1,38 @@
 // Apple-Inspired Checkout Design - Matching Tutor Onboarding
 // Clean, minimal, premium feel with gradient background
 
+// Animation keyframes
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 ion-header {
   ion-toolbar {
     --background: transparent;
@@ -32,6 +64,7 @@ ion-content {
   gap: 24px;
   height: calc(100vh - 84px); // Fit within viewport with some padding
   align-items: stretch; // Both cards same height
+  animation: fadeIn 0.4s ease-out;
   
   // Embedded mode: two column layout for compactness
   &.embedded-layout {
@@ -83,6 +116,7 @@ ion-content {
   display: flex;
   flex-direction: column;
   overflow: hidden; // No scrolling - content must fit
+  animation: fadeInUp 0.4s ease-out;
   
   &:hover {
     box-shadow: 0 6px 32px rgba(0, 0, 0, 0.12);
@@ -132,6 +166,7 @@ h2 {
   padding: 14px;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
   border-radius: 14px;
+  animation: fadeInUp 0.4s ease-out 0.1s both;
 }
 
 .avatar { 
@@ -287,6 +322,7 @@ h2 {
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 12px;
+  animation: fadeInUp 0.4s ease-out 0.15s both;
   
   .breakdown-title {
     font-size: 12px;
@@ -871,6 +907,7 @@ h2 {
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: none;
+  animation: fadeInUp 0.4s ease-out 0.4s both;
   height: 50px;
   transition: all 0.2s ease;
   
@@ -907,6 +944,7 @@ h2 {
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   margin-bottom: 16px;
+  animation: fadeInUp 0.4s ease-out 0.25s both;
   
   @media (max-width: 500px) {
     grid-template-columns: repeat(2, 1fr);
@@ -924,10 +962,37 @@ h2 {
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 6px;
   white-space: nowrap;
+  
+  .card-brands-logo {
+    height: 18px;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.85;
+  }
+  
+  &.active .card-brands-logo {
+    opacity: 1;
+  }
+  
+  .wallet-icon {
+    font-size: 20px;
+    color: #1c1c1e;
+    opacity: 0.85;
+  }
+  
+  &.active .wallet-icon {
+    opacity: 1;
+    color: #667eea;
+  }
+  
+  &.disabled .wallet-icon {
+    opacity: 0.4;
+  }
   
   &:hover:not(.disabled) {
     border-color: #667eea;
@@ -1148,6 +1213,7 @@ h2 {
     font-weight: 600;
     color: #1c1c1e;
     margin: 0 0 14px 0;
+    animation: fadeInUp 0.4s ease-out 0.2s both;
   }
 }
 
@@ -1170,6 +1236,15 @@ h2 {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  opacity: 0;
+  animation: fadeInUp 0.4s ease-out forwards;
+  
+  // Staggered animation for each card
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.1}s;
+    }
+  }
   
   &:hover {
     border-color: #d1d1d6;
@@ -1320,6 +1395,7 @@ h2 {
   border-radius: 12px;
   background: transparent;
   color: #667eea;
+  animation: fadeInUp 0.4s ease-out 0.3s both;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -1427,7 +1503,7 @@ h2 {
   }
 }
 
-// Responsive
+// Responsive - Tablet
 @media (max-width: 1300px) {
   .checkout-layout {
     grid-template-columns: 1fr;
@@ -1442,6 +1518,244 @@ h2 {
   
   .wallet-compact {
     grid-column: span 1;
+  }
+}
+
+// Responsive - Mobile
+@media (max-width: 768px) {
+  .checkout-layout {
+    padding: 16px;
+    gap: 16px;
+    height: auto;
+    min-height: calc(100vh - 60px);
+  }
+  
+  .summary, .payment {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  .tutor-card {
+    gap: 12px;
+    
+    .avatar {
+      width: 56px;
+      height: 56px;
+    }
+    
+    .meta .name {
+      font-size: 16px;
+    }
+  }
+  
+  // Saved cards - mobile optimized
+  .saved-cards-list {
+    gap: 10px;
+  }
+  
+  .saved-card-item {
+    padding: 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+    
+    .card-brand-logo {
+      width: 48px;
+      height: 32px;
+      
+      img {
+        max-width: 34px;
+        max-height: 24px;
+      }
+    }
+    
+    .card-details {
+      flex: 1;
+      min-width: 120px;
+      
+      .card-name {
+        font-size: 14px;
+      }
+      
+      .card-expiry {
+        font-size: 12px;
+      }
+    }
+    
+    .card-actions {
+      width: 100%;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px solid #f2f2f7;
+      justify-content: flex-start;
+      gap: 8px;
+      
+      .default-badge {
+        font-size: 10px;
+        padding: 4px 10px;
+      }
+      
+      .set-default-btn {
+        font-size: 12px;
+      }
+      
+      .delete-card-btn {
+        margin-left: auto;
+        width: 32px;
+        height: 32px;
+        
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  // Payment tabs - mobile
+  .payment-method-tabs {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .payment-tab {
+    padding: 10px 6px;
+    font-size: 11px;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+    
+    .card-brands-logo {
+      height: 14px;
+    }
+    
+    .wallet-icon {
+      font-size: 18px;
+    }
+  }
+  
+  // Price breakdown - mobile
+  .price-breakdown-section {
+    padding: 12px;
+    
+    .breakdown-title {
+      font-size: 13px;
+    }
+    
+    .breakdown-item {
+      font-size: 13px;
+      
+      &.total {
+        .breakdown-value {
+          font-size: 18px;
+        }
+      }
+    }
+    
+    .trial-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+    }
+  }
+  
+  // Confirm button - mobile
+  .confirm-btn {
+    height: 48px;
+    font-size: 15px;
+    margin-top: 16px;
+  }
+  
+  .note {
+    font-size: 11px;
+    margin-top: 10px;
+  }
+}
+
+// Responsive - Small phones
+@media (max-width: 480px) {
+  .checkout-layout {
+    padding: 12px;
+  }
+  
+  .summary, .payment {
+    padding: 14px;
+    border-radius: 14px;
+  }
+  
+  // Stack card item content vertically on very small screens
+  .saved-card-item {
+    padding: 12px;
+    
+    .card-brand-logo {
+      width: 44px;
+      height: 28px;
+      
+      img {
+        max-width: 30px;
+        max-height: 20px;
+      }
+    }
+    
+    .card-details {
+      .card-name {
+        font-size: 13px;
+      }
+      
+      .card-expiry {
+        font-size: 11px;
+      }
+    }
+  }
+  
+  .payment-method-tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .payment-tab {
+    padding: 8px 4px;
+    font-size: 10px;
+    gap: 4px;
+    
+    ion-icon {
+      font-size: 14px;
+    }
+    
+    .card-brands-logo {
+      height: 12px;
+    }
+    
+    .wallet-icon {
+      font-size: 16px;
+    }
+    
+    // Hide text on very small screens, show only icons
+    &.show-icon-only-mobile span:not(.g) {
+      display: none;
+    }
+  }
+  
+  .add-new-card-btn {
+    padding: 12px;
+    font-size: 13px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+  }
+  
+  // Form fields - mobile
+  .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .form-input, .form-select, .stripe-element {
+    padding: 12px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  
+  .form-group label {
+    font-size: 11px;
   }
 }
 
@@ -1689,3 +2003,5 @@ h2 {
       }
   }
 }
+
+// Booking Confirmation Alert Styles are in global.scss

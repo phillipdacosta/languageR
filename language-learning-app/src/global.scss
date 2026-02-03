@@ -1451,3 +1451,67 @@ ion-modal.video-player-modal {
     box-shadow: none;
   }
 }
+
+// Booking Confirmation Alert Styles
+.booking-confirmation-alert {
+  --backdrop-opacity: 0.4;
+  
+  .alert-wrapper {
+    border-radius: 14px !important;
+    max-width: 320px !important;
+  }
+  
+  .alert-head {
+    padding: 20px 20px 8px 20px !important;
+    text-align: center !important;
+    
+    .alert-title {
+      font-size: 18px !important;
+      font-weight: 600 !important;
+      color: #1c1c1e !important;
+    }
+  }
+  
+  .alert-message {
+    padding: 0 20px 20px 20px !important;
+    color: #3c3c43 !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+  }
+  
+  .alert-button-group {
+    padding: 0 !important;
+    border-top: 0.5px solid #c7c7cc !important;
+    
+    button {
+      flex: 1 !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      font-weight: 400 !important;
+      text-transform: none !important;
+      height: 44px !important;
+      font-size: 17px !important;
+      border: none !important;
+      background: transparent !important;
+      
+      .alert-button-inner {
+        justify-content: center !important;
+      }
+    }
+    
+    // Cancel button
+    button:first-child {
+      color: #007aff !important;
+      border-right: 0.5px solid #c7c7cc !important;
+      border-bottom-left-radius: 14px !important;
+    }
+    
+    // Book button - blue and bold
+    button:last-child {
+      color: #007aff !important;
+      font-weight: 600 !important;
+      border-bottom-right-radius: 14px !important;
+    }
+  }
+}

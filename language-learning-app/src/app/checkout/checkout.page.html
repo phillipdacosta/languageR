@@ -124,14 +124,16 @@
               class="payment-tab"
               [class.active]="selectedPaymentTab === 'card'"
               (click)="selectPaymentTab('card')">
-              Credit or Debit card
+              <span>Credit or Debit card</span>
+              <img src="assets/card-brands/4-card-logo.png" alt="Accepted cards" class="card-brands-logo">
             </button>
             <button 
               class="payment-tab"
               [class.active]="selectedPaymentTab === 'wallet'"
               [class.disabled]="!canUseWallet"
               (click)="canUseWallet && selectPaymentTab('wallet')">
-              Wallet
+              <ion-icon name="wallet-outline" class="wallet-icon"></ion-icon>
+              <span>Wallet</span>
             </button>
             <button 
               class="payment-tab"
@@ -157,11 +159,7 @@
               
               <!-- Card Brand Icons -->
               <div class="card-brands">
-                <img src="assets/card-brands/mastercard.svg" alt="Mastercard" onerror="this.style.display='none'">
-                <img src="assets/card-brands/visa.svg" alt="Visa" onerror="this.style.display='none'">
-                <img src="assets/card-brands/amex.svg" alt="American Express" onerror="this.style.display='none'">
-                <img src="assets/card-brands/unionpay.svg" alt="UnionPay" onerror="this.style.display='none'">
-                <img src="assets/card-brands/discover.svg" alt="Discover" onerror="this.style.display='none'">
+                <img src="assets/card-brands/4-card-logo.png" alt="Accepted cards" onerror="this.style.display='none'">
               </div>
 
               <!-- Card Number Row -->
@@ -261,11 +259,12 @@
                   
                   <!-- Card Brand Logo -->
                   <div class="card-brand-logo">
-                    <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa.svg" alt="Visa">
-                    <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard.svg" alt="Mastercard">
-                    <img *ngIf="card.brand?.toLowerCase() === 'amex'" src="assets/card-brands/amex.svg" alt="Amex">
-                    <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover.svg" alt="Discover">
-                    <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'discover'].includes(card.brand?.toLowerCase())">
+                    <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
+                    <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
+                    <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
+                    <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
+                    <img *ngIf="card.brand?.toLowerCase() === 'unionpay'" src="assets/card-brands/unionpay.svg" alt="UnionPay">
+                    <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover', 'unionpay'].includes(card.brand?.toLowerCase())">
                       <ion-icon name="card"></ion-icon>
                     </div>
                   </div>
@@ -387,10 +386,10 @@
             <ion-icon name="videocam-outline"></ion-icon>
             <span>Live video lesson</span>
           </div>
-          <div class="info-item">
+          <!-- <div class="info-item">
             <ion-icon name="document-text-outline"></ion-icon>
             <span>Session transcript included</span>
-          </div>
+          </div> -->
           <div class="info-item">
             <ion-icon name="calendar-outline"></ion-icon>
             <span>Flexible rescheduling</span>
@@ -464,14 +463,16 @@
             class="payment-tab"
             [class.active]="selectedPaymentTab === 'card'"
             (click)="selectPaymentTab('card')">
-            Credit or Debit card
+            <span>Credit or Debit card</span>
+            <img src="assets/card-brands/4-card-logo.png" alt="Accepted cards" class="card-brands-logo">
           </button>
           <button 
             class="payment-tab"
             [class.active]="selectedPaymentTab === 'wallet'"
             [class.disabled]="!canUseWallet"
             (click)="canUseWallet && selectPaymentTab('wallet')">
-            Wallet
+            <ion-icon name="wallet-outline" class="wallet-icon"></ion-icon>
+            <span>Wallet</span>
           </button>
           <button 
             class="payment-tab"
@@ -497,11 +498,7 @@
             
             <!-- Card Brand Icons -->
             <div class="card-brands">
-              <img src="assets/card-brands/mastercard.svg" alt="Mastercard" onerror="this.style.display='none'">
-              <img src="assets/card-brands/visa.svg" alt="Visa" onerror="this.style.display='none'">
-              <img src="assets/card-brands/amex.svg" alt="American Express" onerror="this.style.display='none'">
-              <img src="assets/card-brands/unionpay.svg" alt="UnionPay" onerror="this.style.display='none'">
-              <img src="assets/card-brands/discover.svg" alt="Discover" onerror="this.style.display='none'">
+              <img src="assets/card-brands/4-card-logo.png" alt="Accepted cards" onerror="this.style.display='none'">
             </div>
 
             <!-- Card Number Row -->
@@ -601,10 +598,10 @@
                 
                 <!-- Card Brand Logo -->
                 <div class="card-brand-logo">
-                  <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa.svg" alt="Visa">
-                  <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard.svg" alt="Mastercard">
-                  <img *ngIf="card.brand?.toLowerCase() === 'amex'" src="assets/card-brands/amex.svg" alt="Amex">
-                  <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover.svg" alt="Discover">
+                  <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
+                  <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
+                  <img *ngIf="card.brand?.toLowerCase() === 'amex'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
+                  <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
                   <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'discover'].includes(card.brand?.toLowerCase())">
                     <ion-icon name="card"></ion-icon>
                   </div>

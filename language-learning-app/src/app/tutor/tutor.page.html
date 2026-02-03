@@ -1,4 +1,5 @@
-<ion-header class="ion-no-border">
+<!-- Desktop Header - Hidden on Mobile -->
+<ion-header class="ion-no-border desktop-header">
   <ion-toolbar>
     <ion-buttons slot="start">
       <ion-button 
@@ -25,9 +26,230 @@
 
 <ion-content [fullscreen]="true">
   <div class="tutor-profile" *ngIf="!isLoading && tutor; else loadingTpl">
-    
-    <!-- Two Column Layout -->
-    <div class="profile-layout">
+
+    <!-- ============================================ -->
+    <!-- MOBILE LAYOUT (Airbnb-style) -->
+    <!-- ============================================ -->
+    <div class="mobile-layout mobile-only">
+      
+      <!-- Hero Video Section (Full Width) -->
+      <div class="mobile-hero" *ngIf="tutor.introductionVideo" (click)="openVideoModal($event)">
+        <app-video-thumbnail
+          [videoUrl]="tutor.introductionVideo"
+          [thumbnailUrl]="tutor.videoThumbnail || ''"
+          [videoType]="tutor.videoType || 'upload'"
+          [showPlayButton]="false"
+          cssClass="hero-video-thumbnail">
+        </app-video-thumbnail>
+        
+        <!-- Play Button Overlay -->
+        <div class="hero-play-overlay">
+          <div class="play-button-hero">
+            <ion-icon name="play"></ion-icon>
+          </div>
+        </div>
+
+        <!-- Floating Action Buttons -->
+        <div class="hero-nav-buttons">
+          <button class="nav-btn back" (click)="goBackToSearch(); $event.stopPropagation()">
+            <ion-icon name="arrow-back"></ion-icon>
+          </button>
+          <div class="nav-btn-group">
+            <button class="nav-btn" (click)="shareTutor(); $event.stopPropagation()">
+              <ion-icon name="share-outline"></ion-icon>
+            </button>
+            <button class="nav-btn heart" (click)="$event.stopPropagation()">
+              <ion-icon name="heart-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fallback Hero with Avatar if no video -->
+      <div class="mobile-hero no-video" *ngIf="!tutor.introductionVideo">
+        <div class="hero-gradient"></div>
+        <div class="hero-nav-buttons">
+          <button class="nav-btn back" (click)="goBackToSearch()">
+            <ion-icon name="arrow-back"></ion-icon>
+          </button>
+          <div class="nav-btn-group">
+            <button class="nav-btn" (click)="shareTutor()">
+              <ion-icon name="share-outline"></ion-icon>
+            </button>
+            <button class="nav-btn heart">
+              <ion-icon name="heart-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Content Card -->
+      <div class="mobile-content-card">
+        <!-- Tutor Title Section -->
+        <div class="mobile-title-section">
+          <div class="title-with-avatar">
+            <div class="title-avatar">
+              <img 
+                *ngIf="tutor.picture" 
+                [src]="tutor.picture" 
+                [alt]="tutor.name"
+                referrerpolicy="no-referrer">
+              <div class="avatar-fallback" *ngIf="!tutor.picture">
+                {{ getInitials(tutor.name) }}
+              </div>
+              <div class="online-dot" *ngIf="tutor?.isActivelyAvailable"></div>
+            </div>
+            <div class="title-content">
+              <h1 class="mobile-tutor-name">{{ tutor | displayName }}</h1>
+              <p class="mobile-tutor-subtitle">
+                <ng-container *ngFor="let lang of tutor?.languages; let last = last">
+                  <app-flag-icon [language]="lang" [size]="14" class="lang-flag"></app-flag-icon>
+                  {{ lang }}{{ !last ? ', ' : '' }}
+                </ng-container>
+                Tutor
+              </p>
+              <p class="mobile-tutor-location" *ngIf="tutor?.country || tutor?.residenceCountry">
+                <app-flag-icon 
+                  [country]="tutor?.country || tutor?.residenceCountry" 
+                  [size]="14"
+                  class="country-flag">
+                </app-flag-icon>
+                From {{ tutor?.country || tutor?.residenceCountry }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Row (Airbnb style) -->
+        <div class="mobile-stats-row">
+          <!-- Rating (if exists) -->
+          <div class="stat-item" *ngIf="tutor.stats?.rating">
+            <span class="stat-value">{{ tutor.stats.rating }}</span>
+            <div class="stat-stars">
+              <ion-icon name="star" *ngFor="let i of [1,2,3,4,5]" [class.filled]="i <= tutor.stats.rating"></ion-icon>
+            </div>
+          </div>
+          <div class="stat-divider" *ngIf="tutor.stats?.rating"></div>
+          
+          <!-- Top Tutor Badge OR Lessons Count (middle position) -->
+          <ng-container *ngIf="tutor.stats?.rating >= 4.5; else lessonsInMiddle">
+            <div class="stat-item featured">
+              <span class="stat-badge">🏆</span>
+              <span class="stat-label">Top<br>Tutor</span>
+              <span class="stat-badge">🏆</span>
+            </div>
+            <div class="stat-divider"></div>
+          </ng-container>
+          <ng-template #lessonsInMiddle>
+            <div class="stat-item">
+              <span class="stat-value">{{ tutor.stats?.totalLessons || 0 }}</span>
+              <span class="stat-label">Lessons</span>
+            </div>
+            <div class="stat-divider"></div>
+          </ng-template>
+          
+          <!-- Students -->
+          <div class="stat-item">
+            <span class="stat-value">{{ tutor.stats?.students || 0 }}</span>
+            <span class="stat-label">Students</span>
+          </div>
+        </div>
+
+        <!-- First Student Message -->
+        <div class="first-student-message" *ngIf="(tutor.stats?.totalLessons || 0) === 0 && (tutor.stats?.students || 0) === 0">
+          <span class="sparkles">✨</span>
+          <span class="message">Be their first student!</span>
+        </div>
+
+        <!-- Highlights -->
+        <div class="mobile-highlights">
+          <div class="highlight-row" *ngIf="tutor.stats?.rating >= 4.5">
+            <div class="highlight-icon">🏆</div>
+            <div class="highlight-content">
+              <strong>Top-rated tutor</strong>
+              <span>One of the highest-rated tutors on the platform</span>
+            </div>
+          </div>
+          <div class="highlight-row" *ngIf="tutor?.isActivelyAvailable">
+            <div class="highlight-icon">⚡</div>
+            <div class="highlight-content">
+              <strong>Available now</strong>
+              <span>Start a lesson instantly</span>
+            </div>
+          </div>
+          <div class="highlight-row" *ngIf="tutor.stats?.totalLessons >= 10">
+            <div class="highlight-icon">📚</div>
+            <div class="highlight-content">
+              <strong>Experienced educator</strong>
+              <span>{{ tutor.stats.totalLessons }} lessons completed</span>
+            </div>
+          </div>
+          <div class="highlight-row">
+            <div class="highlight-icon">✓</div>
+            <div class="highlight-content">
+              <strong>Verified profile</strong>
+              <span>Identity and credentials confirmed</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mobile-divider"></div>
+
+        <!-- About Section -->
+        <div class="mobile-about" *ngIf="tutor.bio">
+          <h2>About {{ ((tutor | displayName) || '').split(' ')[0] || 'me' }}</h2>
+          <p [class.expanded]="bioExpanded">{{ tutor.bio }}</p>
+          <button 
+            *ngIf="shouldShowReadMore(tutor.bio)"
+            class="show-more-btn"
+            (click)="toggleBio()">
+            {{ bioExpanded ? 'Show less' : 'Show more' }} <ion-icon [name]="bioExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
+          </button>
+        </div>
+
+        <div class="mobile-divider"></div>
+
+        <!-- Availability Section -->
+        <div class="mobile-availability" *ngIf="tutorId">
+          <h2>Book a lesson</h2>
+          <p class="availability-subtitle">Select a time that works for you</p>
+          <app-tutor-availability-viewer 
+            [tutorId]="tutorId" 
+            [tutorName]="tutor.name"
+            [inline]="true"
+            [showDurationSelector]="true"
+            [refreshTrigger]="availabilityRefreshTrigger"
+            [currentUserAuth0Id]="currentUserAuth0Id"
+            [tutorAuth0Id]="tutor?.auth0Id">
+          </app-tutor-availability-viewer>
+        </div>
+      </div>
+
+      <!-- Mobile Sticky Footer -->
+      <!-- <div class="mobile-sticky-footer">
+        <div class="footer-price-section">
+          <ng-container *ngIf="!studentHadPreviousLesson">
+            <div class="price-row">
+              <span class="price-original">${{ ((tutor.hourlyRate || 25) * 0.5) | number:'1.0-0' }}</span>
+              <span class="price-current">${{ ((tutor.hourlyRate || 25) * 0.5 * 0.7) | number:'1.0-0' }}</span>
+            </div>
+            <span class="price-meta">For 25 min trial · <span class="discount-text">30% off</span></span>
+          </ng-container>
+          <ng-container *ngIf="studentHadPreviousLesson">
+            <span class="price-current">${{ tutor.hourlyRate || 25 }}</span>
+            <span class="price-meta">For 50 min lesson</span>
+          </ng-container>
+        </div>
+        <button class="reserve-btn" (click)="scrollToAvailability()">
+          {{ !studentHadPreviousLesson ? 'Book Trial' : 'Reserve' }}
+        </button>
+      </div> -->
+    </div>
+
+    <!-- ============================================ -->
+    <!-- DESKTOP LAYOUT (Original) -->
+    <!-- ============================================ -->
+    <div class="profile-layout desktop-only">
       
       <!-- Left Column: Profile Content -->
       <div class="profile-column">
@@ -78,9 +300,13 @@
                     <ion-icon name="star"></ion-icon>
                     {{ tutor.stats.rating }}
                   </span>
-                  <span class="pill">
+                  <span class="pill lessons-pill">
                     <ion-icon name="school-outline"></ion-icon>
                     {{ tutor.stats?.totalLessons || 0 }} lessons
+                    <span class="first-student-inline" *ngIf="(tutor.stats?.totalLessons || 0) === 0 && (tutor.stats?.students || 0) === 0">
+                      <span class="sparkles">✨</span>
+                      <span class="message">Be their first student!</span>
+                    </span>
                   </span>
                   <span class="pill" *ngIf="tutor.stats?.students">
                     <ion-icon name="people-outline"></ion-icon>
@@ -198,24 +424,10 @@
           </div>
         </section>
 
-        <!-- Mobile Availability (shown below content on mobile) -->
-        <section class="content-section availability-mobile mobile-only" *ngIf="tutorId" @fadeInUp>
-          <h2 class="section-title">Book a lesson</h2>
-          <p class="section-desc">Select a time that works for you</p>
-          <app-tutor-availability-viewer 
-            [tutorId]="tutorId" 
-            [tutorName]="tutor.name"
-            [inline]="true"
-            [showDurationSelector]="true"
-            [refreshTrigger]="availabilityRefreshTrigger"
-            [currentUserAuth0Id]="currentUserAuth0Id"
-            [tutorAuth0Id]="tutor?.auth0Id">
-          </app-tutor-availability-viewer>
-        </section>
       </div>
 
       <!-- Right Column: Sticky Availability -->
-      <div class="availability-column desktop-only" *ngIf="tutorId" @slideInRight>
+      <div class="availability-column" *ngIf="tutorId" @slideInRight>
         <div class="availability-sticky">
           <!-- Trial Discount Banner -->
           <div class="trial-discount-banner" *ngIf="!studentHadPreviousLesson">
@@ -259,21 +471,6 @@
       </div>
     </div>
 
-    <!-- Mobile Sticky Footer -->
-    <div class="mobile-footer mobile-only">
-      <div class="footer-info">
-        <ng-container *ngIf="!studentHadPreviousLesson">
-          <!-- Trial is 25 min, so base price is half of 50 min rate -->
-          <span class="footer-price-original">${{ ((tutor.hourlyRate || 25) * 0.5) | number:'1.2-2' }}</span>
-          <span class="footer-price discounted">${{ ((tutor.hourlyRate || 25) * 0.5 * 0.7) | number:'1.2-2' }}</span>
-          <span class="footer-discount">30% off</span>
-        </ng-container>
-        <span class="footer-price" *ngIf="studentHadPreviousLesson">${{ tutor.hourlyRate || 25 }}<span>/50min</span></span>
-      </div>
-      <button class="footer-btn" (click)="scrollToAvailability()">
-        {{ !studentHadPreviousLesson ? 'Book Trial Lesson' : 'Book a lesson' }}
-      </button>
-    </div>
   </div>
 
   <!-- Loading Template -->
