@@ -151,7 +151,7 @@ export interface TutorSearchFilters {
   language?: string;
   priceMin?: number;
   priceMax?: number;
-  country?: string;
+  country?: string | string[];
   availability?: string;
   specialties?: string[];
   gender?: string;
@@ -731,13 +731,19 @@ export class UserService {
           const value = filters[key as keyof TutorSearchFilters];
           if (value !== undefined && value !== null) {
             if (Array.isArray(value)) {
-              value.forEach(item => params.append(key, item.toString()));
+              // Only append if array has items
+              if (value.length > 0) {
+                value.forEach(item => params.append(key, item.toString()));
+              }
             } else {
               params.append(key, value.toString());
             }
           }
         });
 
+        console.log('🌍 [TUTOR-SEARCH] Filters being sent:', filters);
+        console.log('🌍 [TUTOR-SEARCH] Query params:', params.toString());
+        console.log('🌍 [TUTOR-SEARCH] Country filter:', filters.country);
 
         return this.http.get<TutorSearchResponse>(`${this.apiUrl}/users/tutors?${params.toString()}`, {
           headers: this.getAuthHeaders(userEmail)

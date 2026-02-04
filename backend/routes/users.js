@@ -827,16 +827,28 @@ router.get('/tutors', verifyToken, async (req, res) => {
       };
     }
 
-    // Country filter - match either country or residenceCountry (case-insensitive)
+    // Country filter - match only country (country of birth/origin), not residenceCountry
+    // Handle both single country (string) and multiple countries (array)
     if (country && country !== 'any') {
-      const countryRegex = new RegExp(country, 'i');
+      const countriesArray = Array.isArray(country) ? country : [country];
+      
+      console.log('🌍 [COUNTRY-FILTER] Filtering by countries:', countriesArray);
+      
+      // Use exact case-insensitive matching instead of regex to avoid partial matches
+      // This ensures "United States" doesn't match "United States of America" or vice versa incorrectly
+      const countryConditions = countriesArray.map(c => ({
+        country: { $regex: new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      }));
+      
+      console.log('🌍 [COUNTRY-FILTER] Country conditions:', JSON.stringify(countryConditions, null, 2));
+      
+      // Match only the country field (country of birth/origin), not residenceCountry
       filterQuery.$and = filterQuery.$and || [];
       filterQuery.$and.push({
-        $or: [
-          { country: countryRegex },
-          { residenceCountry: countryRegex }
-        ]
+        $or: countryConditions
       });
+      
+      console.log('🌍 [COUNTRY-FILTER] Filter query country condition:', JSON.stringify(filterQuery.$and[filterQuery.$and.length - 1], null, 2));
     }
 
     // Availability filter
@@ -968,6 +980,14 @@ router.get('/tutors', verifyToken, async (req, res) => {
     // Format response
     const now = new Date();
     const activeThreshold = 60 * 1000; // 60 seconds for heartbeat validity
+    
+    // Log country information for returned tutors when country filter is active
+    if (country && country !== 'any') {
+      console.log('🌍 [COUNTRY-FILTER] Returned tutors with their country values:');
+      tutors.forEach(tutor => {
+        console.log(`  - ${tutor.name || tutor.email}: country="${tutor.country}", residenceCountry="${tutor.residenceCountry}"`);
+      });
+    }
     
     const formattedTutors = tutors.map(tutor => {
       const lastActive = tutor.profile?.officeHoursLastActive;

@@ -355,19 +355,24 @@
       <!-- Country Filter -->
       <div class="filter-section">
         <h3>Country of birth</h3>
-        <ion-select [(ngModel)]="filters.country" interface="action-sheet" placeholder="Select country">
-          <ion-select-option value="any">Any country</ion-select-option>
-          <ion-select-option value="spain">Spain</ion-select-option>
-          <ion-select-option value="mexico">Mexico</ion-select-option>
-          <ion-select-option value="argentina">Argentina</ion-select-option>
-          <ion-select-option value="colombia">Colombia</ion-select-option>
-        </ion-select>
+        <ion-button 
+          fill="outline" 
+          expand="block" 
+          (click)="openCountryFilter($event)"
+          class="country-filter-button">
+          <span *ngIf="!hasCountryFilter()">
+            Select countries
+          </span>
+          <span *ngIf="hasCountryFilter()">
+            {{ getCountryDisplayName() }}
+          </span>
+        </ion-button>
       </div>
 
       <!-- Availability Filter -->
       <div class="filter-section">
         <h3>I'm available</h3>
-        <ion-select [(ngModel)]="filters.availability" interface="action-sheet" placeholder="Select availability">
+        <ion-select [(ngModel)]="filters.availability" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select availability">
           <ion-select-option value="anytime">Any time</ion-select-option>
           <ion-select-option value="morning">Morning</ion-select-option>
           <ion-select-option value="afternoon">Afternoon</ion-select-option>
@@ -378,7 +383,7 @@
       <!-- Additional Filters -->
       <div class="filter-section">
         <h3>Specialties</h3>
-        <ion-select [(ngModel)]="filters.specialties" interface="action-sheet" placeholder="Select specialties" multiple="true">
+        <ion-select [(ngModel)]="filters.specialties" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select specialties" multiple="true">
           <ion-select-option value="conversation">Conversation</ion-select-option>
           <ion-select-option value="business">Business</ion-select-option>
           <ion-select-option value="exam">Exam preparation</ion-select-option>
@@ -388,7 +393,7 @@
 
       <div class="filter-section">
         <h3>Gender</h3>
-        <ion-select [(ngModel)]="filters.gender" interface="action-sheet" placeholder="Select gender">
+        <ion-select [(ngModel)]="filters.gender" (ionChange)="onFilterChange()" interface="action-sheet" placeholder="Select gender">
           <ion-select-option value="any">Any</ion-select-option>
           <ion-select-option value="male">Male</ion-select-option>
           <ion-select-option value="female">Female</ion-select-option>

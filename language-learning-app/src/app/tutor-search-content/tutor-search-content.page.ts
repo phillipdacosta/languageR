@@ -69,7 +69,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     language: 'Spanish',
     priceMin: 6,
     priceMax: 200,
-    country: 'any',
+    country: [],
     availability: 'anytime',
     specialties: [],
     gender: 'any',
@@ -335,6 +335,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
           parsed.sortBy = 'random';
         }
         
+        // Migrate country filter from string to array format (backward compatibility)
+        if (parsed.country && typeof parsed.country === 'string') {
+          if (parsed.country === 'any') {
+            parsed.country = [];
+          } else {
+            parsed.country = [parsed.country];
+          }
+        } else if (!parsed.country) {
+          parsed.country = [];
+        }
+        
         // Restore filters while preserving defaults for missing fields
         this.filters = {
           ...this.filters,
@@ -598,12 +609,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     this.searchTutors();
   }
 
+  onFilterChange() {
+    // Auto-save filters when any filter changes in mobile view
+    this.saveFilters();
+  }
+
   clearFilters() {
     this.filters = {
       language: 'any',
       priceMin: 6,
       priceMax: 200,
-      country: 'any',
+      country: [],
       availability: 'anytime',
       specialties: [],
       gender: 'any',
@@ -649,8 +665,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       count++;
     }
     
-    // Count country if not 'any'
-    if (this.filters.country && this.filters.country !== 'any') {
+    // Count country if any selected
+    if (this.filters.country && Array.isArray(this.filters.country) && this.filters.country.length > 0) {
       count++;
     }
     
@@ -869,7 +885,92 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       'El Salvador',
       'Nicaragua',
       'Bolivia',
-      'Paraguay'
+      'Paraguay',
+      // Additional countries
+      'Jamaica',
+      'Trinidad and Tobago',
+      'Barbados',
+      'Bahamas',
+      'Belize',
+      'Haiti',
+      'Puerto Rico',
+      'Philippines',
+      'Indonesia',
+      'Malaysia',
+      'Singapore',
+      'Thailand',
+      'Vietnam',
+      'Taiwan',
+      'Hong Kong',
+      'Israel',
+      'Saudi Arabia',
+      'United Arab Emirates',
+      'Egypt',
+      'Morocco',
+      'Nigeria',
+      'Kenya',
+      'Ghana',
+      'Czech Republic',
+      'Hungary',
+      'Romania',
+      'Bulgaria',
+      'Croatia',
+      'Serbia',
+      'Slovakia',
+      'Slovenia',
+      'Lithuania',
+      'Latvia',
+      'Estonia',
+      'Iceland',
+      'Luxembourg',
+      'Malta',
+      'Cyprus',
+      'Ukraine',
+      'Belarus',
+      'Georgia',
+      'Armenia',
+      'Azerbaijan',
+      'Kazakhstan',
+      'Uzbekistan',
+      'Pakistan',
+      'Bangladesh',
+      'Sri Lanka',
+      'Nepal',
+      'Myanmar',
+      'Cambodia',
+      'Laos',
+      'Mongolia',
+      'North Korea',
+      'Afghanistan',
+      'Iran',
+      'Iraq',
+      'Jordan',
+      'Lebanon',
+      'Syria',
+      'Yemen',
+      'Oman',
+      'Qatar',
+      'Kuwait',
+      'Bahrain',
+      'Tunisia',
+      'Algeria',
+      'Libya',
+      'Sudan',
+      'Ethiopia',
+      'Tanzania',
+      'Uganda',
+      'Rwanda',
+      'Senegal',
+      'Ivory Coast',
+      'Cameroon',
+      'Zimbabwe',
+      'Zambia',
+      'Botswana',
+      'Namibia',
+      'Mozambique',
+      'Madagascar',
+      'Mauritius',
+      'Seychelles'
     ].sort((a, b) => {
       if (a === 'Any country') return -1;
       if (b === 'Any country') return 1;
@@ -881,7 +982,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       event: event,
       componentProps: {
         countries: countries,
-        selectedCountry: this.filters.country || 'any'
+        selectedCountries: Array.isArray(this.filters.country) ? this.filters.country : (this.filters.country && this.filters.country !== 'any' ? [this.filters.country] : [])
       },
       cssClass: 'country-filter-popover',
       mode: 'ios'
@@ -890,18 +991,45 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     await popover.present();
 
     const { data } = await popover.onWillDismiss();
-    if (data?.selectedCountry !== undefined) {
-      const newCountry = data.selectedCountry;
-      this.filters.country = newCountry === 'Any country' ? 'any' : newCountry;
+    if (data?.selectedCountries !== undefined) {
+      this.filters.country = data.selectedCountries;
+      this.saveFilters(); // Save filters to persist after refresh
       await this.searchTutors();
     }
   }
 
   getCountryDisplayName(): string {
-    if (!this.filters.country || this.filters.country === 'any') {
+    if (!this.filters.country || (Array.isArray(this.filters.country) && this.filters.country.length === 0)) {
       return 'Any country';
     }
-    return this.filters.country;
+    
+    // Handle backward compatibility: if it's a string, return it
+    if (typeof this.filters.country === 'string') {
+      return this.filters.country === 'any' ? 'Any country' : this.filters.country;
+    }
+    
+    // Handle array: show count or list
+    if (Array.isArray(this.filters.country)) {
+      if (this.filters.country.length === 0) {
+        return 'Any country';
+      } else if (this.filters.country.length === 1) {
+        return this.filters.country[0];
+      } else {
+        return `${this.filters.country.length} countries`;
+      }
+    }
+    
+    return 'Any country';
+  }
+
+  hasCountryFilter(): boolean {
+    if (!this.filters.country) {
+      return false;
+    }
+    if (Array.isArray(this.filters.country)) {
+      return this.filters.country.length > 0;
+    }
+    return this.filters.country !== 'any';
   }
 
   openAvailabilityFilter() {
