@@ -1,9 +1,8 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { AlertController, LoadingController, IonicModule } from '@ionic/angular';
+import { AlertController, IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../../services/user.service';
-import { EarlyExitService } from '../../services/early-exit.service';
 import { environment } from '../../../environments/environment';
 import { firstValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
@@ -23,116 +22,22 @@ export class EarlyExitModalComponent {
 
   constructor(
     private alertController: AlertController,
-    private loadingController: LoadingController,
     private router: Router,
     private http: HttpClient,
-    private userService: UserService,
-    private earlyExitService: EarlyExitService
+    private userService: UserService
   ) {}
 
   /**
    * Close modal without taking any action
+   * Lesson continues until scheduled end time
    */
   dismiss() {
+    console.log('🚪 User dismissed early exit modal - lesson continues until scheduled end');
     this.modalDismissed.emit({ action: 'dismissed' });
   }
 
   /**
-   * Handle "Report a technical error"
-   */
-  async reportTechnicalError() {
-    // For now, just close the modal and do nothing
-    // In the future, this could open a support ticket form
-    console.log('📝 Reporting technical error for lesson:', this.lessonId);
-    
-    this.modalDismissed.emit({ action: 'report_error' });
-  }
-
-  /**
-   * Handle "End Lesson" - show confirmation dialog
-   */
-  async endLesson() {
-    const alert = await this.alertController.create({
-      header: 'End Lesson Early?',
-      message: `Are you sure you want to end the class early? There are ${this.minutesRemaining} minutes remaining.`,
-      buttons: [
-        {
-          text: 'No',
-          role: 'cancel',
-          handler: () => {
-            console.log('❌ User cancelled ending lesson early');
-            // Don't dismiss modal - let them choose again
-          }
-        },
-        {
-          text: 'Yes, End Lesson',
-          role: 'destructive',
-          handler: async () => {
-            console.log('✅ User confirmed ending lesson early');
-            await this.finalizeLesson();
-          }
-        }
-      ]
-    });
-
-    await alert.present();
-  }
-
-  /**
-   * Finalize the lesson and trigger analysis
-   */
-  private async finalizeLesson() {
-    const loading = await this.loadingController.create({
-      message: 'Finalizing lesson...'
-    });
-    await loading.present();
-
-    try {
-      // FIRST: Notify video-call page to stop transcription immediately
-      console.log('🛑 Notifying video-call to stop transcription...');
-      this.earlyExitService.confirmLessonEnded(this.lessonId);
-      
-      // Small delay to let transcription stop
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // THEN: Call the call-end endpoint to finalize the lesson
-      const headers = this.userService.getAuthHeadersSync();
-
-      await firstValueFrom(
-        this.http.post(`${environment.backendUrl}/api/lessons/${this.lessonId}/call-end`, {}, { headers })
-      );
-
-      console.log('✅ Lesson finalized');
-      
-      await loading.dismiss();
-
-      // Dismiss modal with action
-      this.modalDismissed.emit({ action: 'end_lesson_confirmed' });
-
-      // Navigate based on role: students see post-lesson page, tutors see post-lesson page
-      if (this.userRole === 'student') {
-        // Students see the post-lesson page with tipping
-        await this.router.navigate(['/post-lesson-student', this.lessonId]);
-      } else {
-        // Tutors see the post-lesson page with note form
-        await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
-      }
-
-    } catch (error) {
-      console.error('❌ Error finalizing lesson:', error);
-      await loading.dismiss();
-      
-      const errorAlert = await this.alertController.create({
-        header: 'Error',
-        message: 'Failed to finalize the lesson. Please try again.',
-        buttons: ['OK']
-      });
-      await errorAlert.present();
-    }
-  }
-
-  /**
-   * Handle "Rejoin Call"
+   * Handle "Rejoin Call" - navigate back to the lesson
    */
   async rejoinCall() {
     console.log('🔄 Attempting to rejoin call for lesson:', this.lessonId);

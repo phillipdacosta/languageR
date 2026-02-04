@@ -1,9 +1,11 @@
-import { Component, Input, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { LessonService } from '../../services/lesson.service';
 import { UserService } from '../../services/user.service';
+import { CancelReasonModalComponent } from '../cancel-reason-modal/cancel-reason-modal.component';
+import { ConfirmActionModalComponent } from '../confirm-action-modal/confirm-action-modal.component';
 
 interface EventDetails {
   id?: string;
@@ -48,19 +50,23 @@ interface MenuPosition {
   templateUrl: './event-details-modal.component.html',
   styleUrls: ['./event-details-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent]
 })
 export class EventDetailsModalComponent implements OnInit, OnDestroy {
   @Input() event!: EventDetails;
   @Input() clickEvent?: any; // The click event to position the menu
+  @Output() lessonCancelled = new EventEmitter<string>(); // Emit when lesson is cancelled
   
   position: MenuPosition | null = null;
   canJoin = false;
   joinLabel = 'Join';
   isLessonInProgress = false;
+  canCancel = false;
 
   constructor(
     private modalController: ModalController,
+    private toastController: ToastController,
+    private loadingController: LoadingController,
     private router: Router,
     private lessonService: LessonService,
     private userService: UserService
@@ -70,6 +76,27 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     console.log('Event details modal opened with event:', this.event);
     this.calculatePosition();
     this.updateJoinButton();
+    this.updateCancelButton();
+  }
+  
+  private updateCancelButton() {
+    // Can cancel if:
+    // 1. It's a lesson or class
+    // 2. It's not already cancelled
+    // 3. The start time hasn't passed yet
+    if (!this.event.lessonId && !this.event.classId) {
+      this.canCancel = false;
+      return;
+    }
+    
+    if (this.event.isCancelled) {
+      this.canCancel = false;
+      return;
+    }
+    
+    const now = new Date();
+    const start = new Date(this.event.start);
+    this.canCancel = start > now;
   }
 
   private updateJoinButton() {
@@ -307,6 +334,129 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
         isClass: isClass ? 'true' : 'false'
       }
     });
+  }
+
+  async cancelLesson() {
+    if (!this.event.lessonId || this.event.isCancelled) return;
+    
+    const currentUser = await this.userService.getCurrentUser().toPromise();
+    if (!currentUser) return;
+
+    const isTutor = (currentUser as any)?.userType === 'tutor';
+    
+    // Get participant name (for tutor, this is the student)
+    const participantName = this.formatStudentName(this.event.studentDisplayName || this.event.studentName || '');
+    const participantAvatar = this.event.avatarUrl;
+    const lessonId = this.event.lessonId;
+    const lessonStartTime = this.event.start;
+    const lessonSubject = this.event.subject || this.event.title;
+    const lessonDuration = this.event.durationMinutes;
+    
+    // Close this event details modal FIRST to avoid visual clutter
+    await this.modalController.dismiss();
+    
+    // Small delay to ensure modal is fully closed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // STEP 1: Show the cancellation reason modal
+    const reasonModal = await this.modalController.create({
+      component: CancelReasonModalComponent,
+      componentProps: {
+        participantName: participantName,
+        participantAvatar: participantAvatar || undefined,
+        userRole: isTutor ? 'tutor' : 'student',
+        lessonStartTime: lessonStartTime,
+        lessonSubject: lessonSubject,
+        lessonDuration: lessonDuration
+      },
+      cssClass: 'cancel-reason-modal'
+    });
+    
+    await reasonModal.present();
+    const reasonResult = await reasonModal.onDidDismiss();
+    
+    // If user cancelled or didn't select a reason, stop here
+    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+      console.log('🔴 User cancelled or did not select a reason');
+      return;
+    }
+    
+    const selectedReason = reasonResult.data.reason;
+    console.log('🔴 Selected cancellation reason:', selectedReason);
+    console.log('🔴 Calling cancelLesson with - lessonId:', lessonId, 'reasonId:', selectedReason.id, 'reasonText:', selectedReason.label);
+    
+    // STEP 2: Show confirmation modal
+    const confirmModal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Cancel Lesson',
+        message: `Reason: ${selectedReason.label}`,
+        notificationMessage: `${participantName || 'The other participant'} will be notified and this action cannot be undone.`,
+        confirmText: 'Cancel Lesson',
+        cancelText: 'Go Back',
+        confirmColor: 'danger',
+        icon: 'close-circle',
+        iconColor: 'danger',
+        participantName: participantName,
+        participantAvatar: participantAvatar || undefined
+      },
+      cssClass: 'confirm-action-modal'
+    });
+    
+    await confirmModal.present();
+    const confirmResult = await confirmModal.onDidDismiss();
+    
+    // If user didn't confirm, stop here
+    if (!confirmResult.data?.confirmed) {
+      console.log('🔴 User did not confirm cancellation');
+      return;
+    }
+    
+    // STEP 3: Proceed with cancellation
+    const loading = await this.loadingController.create({
+      message: 'Cancelling lesson...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+    
+    try {
+      const response = await this.lessonService.cancelLesson(
+        lessonId!,
+        selectedReason.id,
+        selectedReason.label
+      ).toPromise();
+      
+      await loading.dismiss();
+      
+      if (response?.success) {
+        const toast = await this.toastController.create({
+          message: 'Lesson cancelled successfully',
+          duration: 3000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+        
+        // Dispatch custom event to notify calendar to refresh
+        // (EventEmitter won't work since modal was already dismissed)
+        window.dispatchEvent(new CustomEvent('lesson-cancelled', { 
+          detail: { lessonId: lessonId } 
+        }));
+      } else {
+        throw new Error(response?.message || 'Failed to cancel lesson');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      console.error('❌ Error cancelling lesson:', error);
+      
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 }
 

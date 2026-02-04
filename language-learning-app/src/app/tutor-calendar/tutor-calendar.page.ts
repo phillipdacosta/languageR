@@ -824,7 +824,16 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       relative
     };
   }
+  // Handler for lesson cancelled event
+  private lessonCancelledHandler = (event: any) => {
+    console.log('🔴 [TUTOR-CALENDAR] Received lesson-cancelled event:', event.detail);
+    this.refreshCalendar();
+  };
+
   ngOnInit() {
+    // Listen for lesson cancelled events (from event-details-modal)
+    window.addEventListener('lesson-cancelled', this.lessonCancelledHandler);
+    
     // Subscribe to approval status from UserService
     this.approvalStatusSubscription = this.userService.tutorApprovalStatus$.subscribe(status => {
       if (status) {
@@ -1039,6 +1048,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     if (this.userSubscription) {
       this.userSubscription.unsubscribe();
     }
+    
+    // Clean up lesson cancelled event listener
+    window.removeEventListener('lesson-cancelled', this.lessonCancelledHandler);
     
     if (typeof window !== 'undefined') {
       window.removeEventListener('resize', this.viewportResizeHandler);
@@ -2098,7 +2110,14 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       showBackdrop: false // We handle our own overlay
     });
     
-    return await modal.present();
+    await modal.present();
+    
+    // Handle modal dismiss - refresh calendar if lesson was cancelled
+    const { data } = await modal.onDidDismiss();
+    if (data?.cancelled && data?.lessonId) {
+      console.log('🔴 Lesson cancelled from event details modal, refreshing calendar...');
+      this.refreshCalendar();
+    }
   }
 
   handleViewChange(viewInfo: any) {

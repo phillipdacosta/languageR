@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { EarlyExit } from './early-exit';
+import { EarlyExitService } from './early-exit.service';
 
-describe('EarlyExit', () => {
-  let service: EarlyExit;
+describe('EarlyExitService', () => {
+  let service: EarlyExitService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(EarlyExit);
+    service = TestBed.inject(EarlyExitService);
   });
 
   it('should be created', () => {

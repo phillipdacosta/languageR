@@ -1049,6 +1049,92 @@ ion-modal.early-exit-modal {
   }
 }
 
+// Confirm Action Modal Styling
+ion-modal.confirm-action-modal {
+  --width: 95%;
+  --max-width: 480px;
+  --height: 70vh;
+  --max-height: 550px;
+  --border-radius: 20px;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: none;
+    --border-radius: 16px;
+    --height: 65vh;
+    --max-height: 500px;
+  }
+  
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  app-confirm-action-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    
+    ion-header {
+      flex-shrink: 0;
+    }
+    
+    ion-content {
+      flex: 1;
+      --background: #f9fafb;
+    }
+    
+    ion-footer {
+      flex-shrink: 0;
+    }
+  }
+}
+
+// Cancel Reason Modal Styling
+ion-modal.cancel-reason-modal {
+  --width: 95%;
+  --max-width: 560px;
+  --height: 90vh;
+  --max-height: 800px;
+  --border-radius: 24px;
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  
+  @media (max-width: 768px) {
+    --width: 95%;
+    --max-width: none;
+    --border-radius: 20px;
+    --height: 92vh;
+    --max-height: none;
+  }
+  
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  
+  app-cancel-reason-modal {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    
+    ion-header {
+      flex-shrink: 0;
+    }
+    
+    ion-content {
+      flex: 1;
+      --background: #f9fafb;
+    }
+    
+    ion-footer {
+      flex-shrink: 0;
+    }
+  }
+}
+
 // Student Selection Actionsheet Modal
 ion-modal.student-selection-actionsheet-modal {
   --border-radius: 20px 20px 0 0;

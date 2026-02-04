@@ -711,4 +711,62 @@ export class LessonsPage implements OnInit, OnDestroy {
     });
     await toast.present();
   }
+
+  /**
+   * Check if tutor has already added a note for this lesson
+   */
+  hasTutorNote(lesson: Lesson): boolean {
+    const tutorNote = (lesson as any).tutorNote;
+    return !!(tutorNote && tutorNote.text);
+  }
+
+  /**
+   * Navigate to add/edit tutor note for a lesson
+   */
+  addTutorNote(lesson: Lesson) {
+    // Navigate to the post-lesson-tutor page to add a note
+    this.router.navigate(['/post-lesson-tutor', lesson._id]);
+  }
+
+  /**
+   * View the tutor's note for a lesson
+   */
+  async viewTutorNote(lesson: Lesson) {
+    const tutorNote = (lesson as any).tutorNote;
+    
+    if (!tutorNote || !tutorNote.text) {
+      await this.showToast('No note found for this lesson', 'warning');
+      return;
+    }
+
+    let message = '';
+    
+    if (tutorNote.quickImpression) {
+      message += `<strong>Quick Impression:</strong> ${tutorNote.quickImpression}<br><br>`;
+    }
+    
+    message += `<strong>Your Note:</strong><br>${tutorNote.text}`;
+    
+    if (tutorNote.homework) {
+      message += `<br><br><strong>Homework:</strong><br>${tutorNote.homework}`;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Your Note for This Lesson',
+      message,
+      buttons: [
+        {
+          text: 'Edit',
+          handler: () => {
+            this.addTutorNote(lesson);
+          }
+        },
+        {
+          text: 'Close',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
 }

@@ -19,6 +19,7 @@ import { NotificationService } from '../services/notification.service';
 import { MessagingService } from '../services/messaging.service';
 import { ReminderService } from '../services/reminder.service';
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
+import { CancelReasonModalComponent } from '../components/cancel-reason-modal/cancel-reason-modal.component';
 import { InviteStudentModalComponent } from '../components/invite-student-modal/invite-student-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
@@ -6559,6 +6560,9 @@ navigateToLessons() {
     }
   }
 
+  // Store selected cancellation reason
+  private selectedCancelReason: { id: string; label: string } | null = null;
+
   async cancelLesson(lessonId: string, lesson: Lesson) {
     console.log('🔴 cancelLesson called for:', lessonId);
     
@@ -6568,19 +6572,46 @@ navigateToLessons() {
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
       // Format participant name using the participant object directly (not the .name string)
-      // This ensures we use firstName/lastName for proper formatting
       const participantName = this.formatStudentDisplayName(otherParticipant);
       
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
+      // STEP 1: Show the cancellation reason modal first
+      const reasonModal = await this.modalCtrl.create({
+        component: CancelReasonModalComponent,
+        componentProps: {
+          participantName: participantName,
+          participantAvatar: participantAvatar || undefined,
+          userRole: isTutor ? 'tutor' : 'student',
+          lessonStartTime: lesson.startTime,
+          lessonSubject: lesson.subject || 'Language Lesson',
+          lessonDuration: lesson.duration
+        },
+        cssClass: 'cancel-reason-modal'
+      });
+      
+      await reasonModal.present();
+      const reasonResult = await reasonModal.onDidDismiss();
+      
+      // If user cancelled or didn't select a reason, stop here
+      if (reasonResult.data?.cancelled || !reasonResult.data?.reason) {
+        console.log('🔴 User cancelled or did not select a reason');
+        return;
+      }
+      
+      // Store the selected reason for use in confirmation
+      this.selectedCancelReason = reasonResult.data.reason;
+      const selectedReasonLabel = this.selectedCancelReason?.label || 'Not specified';
+      console.log('🔴 Selected cancellation reason:', this.selectedCancelReason);
+      
+      // STEP 2: Show confirmation modal with the selected reason
       this.confirmCancelModalData = {
         title: 'Cancel Lesson',
-        message: 'Are you sure you want to cancel your lesson?',
+        message: `Reason: ${selectedReasonLabel}`,
         notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
         confirmText: 'Cancel Lesson',
-        cancelText: 'Keep Lesson',
+        cancelText: 'Go Back',
         confirmColor: 'danger',
         icon: 'close-circle',
         iconColor: 'danger',
@@ -6613,10 +6644,17 @@ navigateToLessons() {
       await loading.present();
 
       try {
-        // Call the backend to cancel the lesson
-        const response = await this.lessonService.cancelLesson(lessonId).toPromise();
+        // Call the backend to cancel the lesson with the reason
+        const response = await this.lessonService.cancelLesson(
+          lessonId, 
+          this.selectedCancelReason?.id,
+          this.selectedCancelReason?.label
+        ).toPromise();
         
         await loading.dismiss();
+        
+        // Clear the selected reason
+        this.selectedCancelReason = null;
 
         if (response?.success) {
           // Show success toast
@@ -6635,6 +6673,7 @@ navigateToLessons() {
         }
       } catch (error: any) {
         await loading.dismiss();
+        this.selectedCancelReason = null;
         console.error('❌ Error cancelling lesson:', error);
         
         const toast = await this.toastController.create({
@@ -6645,6 +6684,9 @@ navigateToLessons() {
         });
         await toast.present();
       }
+    } else {
+      // User cancelled the confirmation, clear the reason
+      this.selectedCancelReason = null;
     }
   }
 

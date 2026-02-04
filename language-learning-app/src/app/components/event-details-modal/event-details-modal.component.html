@@ -156,6 +156,15 @@
           <ion-icon name="open-outline"></ion-icon>
           <span>View Full Details</span>
         </button>
+        
+        <!-- Cancel Button -->
+        <button 
+          class="action-item cancel-button" 
+          *ngIf="canCancel && event.lessonId"
+          (click)="cancelLesson()">
+          <ion-icon name="close-circle-outline"></ion-icon>
+          <span>Cancel Lesson</span>
+        </button>
       </div>
     </div>
   </div>

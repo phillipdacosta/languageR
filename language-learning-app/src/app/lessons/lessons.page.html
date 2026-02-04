@@ -265,6 +265,35 @@
                     <ion-icon name="flag" color="warning"></ion-icon>
                     <span>Issue reported - under review</span>
                   </div>
+                  
+                  <!-- Tutor Note Actions (for Tutors only) -->
+                  <div *ngIf="getUserRole(lesson) === 'tutor'" class="tutor-note-actions">
+                    <!-- Note Already Added -->
+                    <ion-button
+                      *ngIf="hasTutorNote(lesson)"
+                      fill="outline"
+                      color="success"
+                      size="small"
+                      (click)="viewTutorNote(lesson)"
+                      class="view-note-btn"
+                    >
+                      <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+                      View Note
+                    </ion-button>
+                    
+                    <!-- No Note Yet - Add Button -->
+                    <ion-button
+                      *ngIf="!hasTutorNote(lesson)"
+                      fill="outline"
+                      color="primary"
+                      size="small"
+                      (click)="addTutorNote(lesson)"
+                      class="add-note-btn"
+                    >
+                      <ion-icon name="create-outline" slot="start"></ion-icon>
+                      Add Note
+                    </ion-button>
+                  </div>
                 </div>
               </div>
             </ion-card-content>

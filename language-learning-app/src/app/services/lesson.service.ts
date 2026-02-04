@@ -419,11 +419,27 @@ export class LessonService {
     return this.http.post<{ success: boolean; lesson: any; message: string }>(`${this.baseUrl}/${lessonId}/respond-reschedule`, body, { headers });
   }
 
-  // Cancel a lesson
-  cancelLesson(lessonId: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
+  // Cancel a lesson with optional reason
+  cancelLesson(lessonId: string, reasonId?: string, reasonText?: string): Observable<{ success: boolean; message: string; lesson: Lesson }> {
     const headers = this.userService.getAuthHeadersSync();
+    
+    // Build query params for cancellation reason
+    let url = `${this.baseUrl}/${lessonId}/cancel`;
+    const params: string[] = [];
+    if (reasonId) {
+      params.push(`reasonId=${encodeURIComponent(reasonId)}`);
+    }
+    if (reasonText) {
+      params.push(`reasonText=${encodeURIComponent(reasonText)}`);
+    }
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
+    
+    console.log('🔴 [LESSON-SERVICE] Cancelling lesson - URL:', url, 'reasonId:', reasonId, 'reasonText:', reasonText);
+    
     return this.http.delete<{ success: boolean; message: string; lesson: Lesson }>(
-      `${this.baseUrl}/${lessonId}/cancel`,
+      url,
       { headers }
     );
   }

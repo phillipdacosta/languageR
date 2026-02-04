@@ -19,6 +19,7 @@
 const Lesson = require('../models/Lesson');
 const LessonTranscript = require('../models/LessonTranscript');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const alertService = require('../services/alertService');
 
 // Configuration
@@ -354,6 +355,86 @@ async function finalizeLesson(lesson, endTime = new Date()) {
     
     // Emit WebSocket event for lesson status change
     emitStatusChange(lesson._id, lesson.status, lesson.tutorId, lesson.studentId);
+    
+    // 📬 SEND NOTIFICATIONS IF LESSON COMPLETED SUCCESSFULLY
+    if (lesson.status === 'completed' && lesson.actualCallStartTime) {
+      try {
+        // Get populated lesson data for notification messages
+        const populatedLesson = await Lesson.findById(lesson._id)
+          .populate('tutorId', 'name firstName lastName picture')
+          .populate('studentId', 'name firstName lastName picture');
+        
+        if (populatedLesson) {
+          const tutor = populatedLesson.tutorId;
+          const student = populatedLesson.studentId;
+          
+          // Format names
+          const tutorName = tutor.firstName || tutor.name?.split(' ')[0] || 'Your tutor';
+          const studentName = student.firstName || student.name?.split(' ')[0] || 'Your student';
+          
+          // Notification for STUDENT - Analysis is available
+          await Notification.create({
+            userId: student._id,
+            type: 'lesson_completed',
+            title: '📊 Lesson Completed',
+            message: `Your lesson with ${tutorName} has ended. View your lesson analysis and leave a tip!`,
+            relatedUserPicture: tutor.picture || null,
+            data: {
+              lessonId: lesson._id.toString(),
+              action: 'view_analysis',
+              tutorName: tutorName
+            }
+          });
+          console.log(`📬 [AutoFinalize] Sent completion notification to student ${student._id}`);
+          
+          // Notification for TUTOR - Leave feedback
+          await Notification.create({
+            userId: tutor._id,
+            type: 'feedback_reminder',
+            title: '📝 Leave Feedback',
+            message: `Your lesson with ${studentName} has ended. Leave feedback for your student!`,
+            relatedUserPicture: student.picture || null,
+            data: {
+              lessonId: lesson._id.toString(),
+              action: 'add_note',
+              studentName: studentName
+            }
+          });
+          console.log(`📬 [AutoFinalize] Sent feedback reminder to tutor ${tutor._id}`);
+          
+          // Emit WebSocket notifications
+          try {
+            const io = require('../server').getIO();
+            if (io) {
+              // Notify student
+              const studentSocketId = global.userSockets?.[student._id.toString()];
+              if (studentSocketId) {
+                io.to(studentSocketId).emit('lesson_completed_notification', {
+                  lessonId: lesson._id.toString(),
+                  tutorName: tutorName,
+                  action: 'view_analysis'
+                });
+              }
+              
+              // Notify tutor
+              const tutorSocketId = global.userSockets?.[tutor._id.toString()];
+              if (tutorSocketId) {
+                io.to(tutorSocketId).emit('feedback_reminder', {
+                  lessonId: lesson._id.toString(),
+                  studentName: studentName,
+                  action: 'add_note'
+                });
+              }
+            }
+          } catch (wsError) {
+            console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
+          }
+        }
+      } catch (notifError) {
+        console.error('⚠️ [AutoFinalize] Failed to send notifications:', notifError.message);
+        // Don't throw - notifications failing shouldn't break the finalization
+      }
+    }
     
     // 💰 HANDLE PAYMENT BASED ON LESSON OUTCOME
     if (lesson.paymentId) {

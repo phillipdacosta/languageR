@@ -39,9 +39,19 @@ const LessonSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  cancelReasonText: {
+    type: String,
+    default: null,
+    comment: 'Human-readable cancellation reason text provided by user'
+  },
   cancelledAt: {
     type: Date,
     default: null
+  },
+  isLateCancellation: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether the lesson was cancelled within 12 hours of start time'
   },
   cancellationFeeCharged: {
     type: Number,

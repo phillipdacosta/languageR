@@ -950,26 +950,32 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
     const LessonAnalysis = require('../models/LessonAnalysis');
     const lessonIds = lessons.map(l => l._id);
     const analyses = await LessonAnalysis.find({ 
-      lessonId: { $in: lessonIds },
-      status: { $in: ['completed', 'generating'] }
-    }).select('lessonId status');
+      lessonId: { $in: lessonIds }
+    }).select('lessonId status tutorNote');
     
-    // Create a map of lessonId -> analysis status
+    // Create a map of lessonId -> { status, tutorNote }
     const analysisMap = new Map();
     analyses.forEach(analysis => {
-      analysisMap.set(analysis.lessonId.toString(), analysis.status);
+      analysisMap.set(analysis.lessonId.toString(), {
+        status: analysis.status,
+        tutorNote: analysis.tutorNote
+      });
     });
     
-    // Attach analysis status to each lesson
+    // Attach analysis status and tutorNote to each lesson
     const lessonsWithAnalysis = lessons.map(lesson => {
       const lessonObj = lesson.toObject();
-      const analysisStatus = analysisMap.get(lesson._id.toString());
+      const analysisData = analysisMap.get(lesson._id.toString());
       
-      if (analysisStatus) {
+      if (analysisData) {
         lessonObj.aiAnalysis = {
-          status: analysisStatus,
-          hasAnalysis: analysisStatus === 'completed'
+          status: analysisData.status,
+          hasAnalysis: analysisData.status === 'completed'
         };
+        // Include tutorNote if exists
+        if (analysisData.tutorNote && analysisData.tutorNote.text) {
+          lessonObj.tutorNote = analysisData.tutorNote;
+        }
       } else {
         lessonObj.aiAnalysis = {
           status: 'unavailable',
@@ -2654,6 +2660,9 @@ router.get('/:id/analysis', verifyToken, async (req, res) => {
 router.delete('/:id/cancel', verifyToken, async (req, res) => {
   try {
     const { id: lessonId } = req.params;
+    const { reasonId, reasonText } = req.query; // Get cancellation reason from query params
+    
+    console.log(`🔴 [LESSON-CANCEL] Received cancel request - lessonId: ${lessonId}, reasonId: "${reasonId}", reasonText: "${reasonText}"`);
     
     const user = await User.findOne({ auth0Id: req.user.sub });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
@@ -2687,12 +2696,23 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
       });
     }
     
-    // Cancel the lesson
+    // Calculate if this is a late cancellation (within 12 hours)
+    const hoursUntilLesson = (lessonStart.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const isLateCancellation = hoursUntilLesson < 12;
+    
+    // Cancel the lesson with detailed reason
     lesson.status = 'cancelled';
     lesson.cancelledAt = new Date();
-    lesson.cancelReason = isTutor ? 'tutor_cancelled' : 'student_cancelled';
     lesson.cancelledBy = isTutor ? 'tutor' : 'student';
+    
+    // Store both the reason ID and human-readable text
+    lesson.cancelReason = reasonId || (isTutor ? 'tutor_cancelled' : 'student_cancelled');
+    lesson.cancelReasonText = reasonText || null;
+    lesson.isLateCancellation = isLateCancellation;
+    
     await lesson.save();
+    
+    console.log(`🔴 [LESSON-CANCEL] Lesson ${lesson._id} cancelled by ${isTutor ? 'tutor' : 'student'}. Reason: ${lesson.cancelReason}${reasonText ? ` - "${reasonText}"` : ''} (Late: ${isLateCancellation})`);
     
     // Release reserved funds if payment was made with wallet
     if (lesson.paymentId) {
@@ -2761,8 +2781,6 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
       ? `${user.firstName} ${user.lastName.charAt(0)}.`
       : user.name;
     
-    console.log(`🔴 [LESSON-CANCEL] Lesson ${lesson._id} cancelled by ${isTutor ? 'tutor' : 'student'} ${cancelledByName}`);
-    
     // NOTE: Lessons don't create availability blocks like classes do.
     // The tutor-availability-viewer component queries lessons directly from the database
     // and filters out cancelled lessons, so the time slot will automatically become available.
@@ -2787,11 +2805,25 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
       : otherParticipant.name;
     
     try {
+      // Build notification message with cancellation reason
+      const cancelReasonForNotification = lesson.cancelReasonText || lesson.cancelReason;
+      console.log(`📧 [LESSON-CANCEL] Building notification - cancelReasonText: "${lesson.cancelReasonText}", cancelReason: "${lesson.cancelReason}", final: "${cancelReasonForNotification}"`);
+      
+      let notificationMessage = `<strong>${cancelledByName}</strong> cancelled the <strong>${lesson.subject || 'lesson'}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`;
+      
+      // Add reason to notification if provided (skip generic reason IDs)
+      if (cancelReasonForNotification && 
+          cancelReasonForNotification !== 'tutor_cancelled' && 
+          cancelReasonForNotification !== 'student_cancelled' &&
+          cancelReasonForNotification !== 'other') {
+        notificationMessage += `<br><br><em>Reason: "${cancelReasonForNotification}"</em>`;
+      }
+      
       const notification = await Notification.create({
         userId: otherParticipant._id,
         type: 'lesson_cancelled',
         title: 'Lesson Cancelled',
-        message: `<strong>${cancelledByName}</strong> cancelled the <strong>${lesson.subject || 'lesson'}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`,
+        message: notificationMessage,
         relatedUserPicture: user.picture || null,
         relatedItemId: lesson._id,
         relatedItemType: 'Lesson',
@@ -2800,10 +2832,20 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
           cancelledByName: cancelledByName,
           startTime: lesson.startTime,
           cancelReason: lesson.cancelReason,
+          cancelReasonText: lesson.cancelReasonText,
           cancelledByType: isTutor ? 'tutor' : 'student'
         }
       });
       console.log(`📧 [LESSON-CANCEL] Notified ${isTutor ? 'student' : 'tutor'} ${otherParticipantName} about cancellation`);
+      
+      // Build WebSocket message (plain text version)
+      let wsMessage = `${cancelledByName} cancelled the ${lesson.subject || 'lesson'} scheduled for ${formattedDate} at ${formattedTime}.`;
+      if (cancelReasonForNotification && 
+          cancelReasonForNotification !== 'tutor_cancelled' && 
+          cancelReasonForNotification !== 'student_cancelled' &&
+          cancelReasonForNotification !== 'other') {
+        wsMessage += ` Reason: "${cancelReasonForNotification}"`;
+      }
       
       // Emit WebSocket event to the other participant if connected
       if (req.io && req.connectedUsers && otherParticipant.auth0Id) {
@@ -2812,12 +2854,14 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
           req.io.to(otherSocketId).emit('new_notification', {
             type: 'lesson_cancelled',
             title: 'Lesson Cancelled',
-            message: `${cancelledByName} cancelled the ${lesson.subject || 'lesson'} scheduled for ${formattedDate} at ${formattedTime}.`,
+            message: wsMessage,
             data: {
               lessonId: lesson._id.toString(),
               lessonSubject: lesson.subject,
               cancelledByName: cancelledByName,
               startTime: lesson.startTime,
+              cancelReason: lesson.cancelReason,
+              cancelReasonText: lesson.cancelReasonText,
               cancelledByType: isTutor ? 'tutor' : 'student'
             }
           });

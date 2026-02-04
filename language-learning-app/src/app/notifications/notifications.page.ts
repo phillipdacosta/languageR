@@ -231,6 +231,16 @@ export class NotificationsPage implements OnDestroy {
     } else if (notification.type === 'tutor_video_approved' && notification.data?.actionRoute) {
       // Navigate to the action route (e.g., tutor calendar for availability)
       this.router.navigate([notification.data.actionRoute]);
+    } else if (notification.type === 'lesson_completed' && notification.data?.lessonId) {
+      // Student notification - Navigate to post-lesson page or lesson analysis
+      if (notification.data?.action === 'view_analysis') {
+        this.router.navigate(['/post-lesson-student', notification.data.lessonId]);
+      } else {
+        this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
+      }
+    } else if (notification.type === 'feedback_reminder' && notification.data?.lessonId) {
+      // Tutor notification - Navigate to post-lesson tutor page to add note
+      this.router.navigate(['/post-lesson-tutor', notification.data.lessonId]);
     }
   }
 
@@ -265,6 +275,8 @@ export class NotificationsPage implements OnDestroy {
     const iconMap: { [key: string]: string } = {
       'lesson_created': 'videocam',
       'lesson_analysis_ready': 'analytics',
+      'lesson_completed': 'checkmark-circle',
+      'feedback_reminder': 'create',
       'class_invitation': 'people',
       'class_cancelled': 'videocam',
       'class_auto_cancelled': 'videocam',

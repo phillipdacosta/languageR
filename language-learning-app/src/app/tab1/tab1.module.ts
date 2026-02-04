@@ -9,6 +9,7 @@ import { ClassAttendeesComponent } from '../components/class-attendees/class-att
 import { DisplayNamePipe } from '../pipes/display-name.pipe';
 // Import modal components to preload them and prevent first-load freeze
 import { ConfirmActionModalComponent } from '../components/confirm-action-modal/confirm-action-modal.component';
+import { CancelReasonModalComponent } from '../components/cancel-reason-modal/cancel-reason-modal.component';
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
@@ -32,6 +33,7 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     DisplayNamePipe,
     // Import standalone modal components to preload and compile them
     ConfirmActionModalComponent,
+    CancelReasonModalComponent,
     RescheduleLessonModalComponent,
     RescheduleProposalModalComponent,
     ClassInvitationModalComponent,
