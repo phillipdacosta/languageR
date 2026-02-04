@@ -41,6 +41,10 @@ export class LessonsPage implements OnInit, OnDestroy {
   
   // Coaching metrics
   coachingMetrics: any = null;
+  
+  // Note modal
+  isNoteModalOpen = false;
+  selectedNoteLesson: any = null;
 
   constructor(
     private lessonService: LessonService,
@@ -152,9 +156,10 @@ export class LessonsPage implements OnInit, OnDestroy {
       if (role === 'student') {
         // Student sees tutors
         const tutor = lesson.tutorId as any;
-        const tutorId = tutor._id || tutor.id;
+        if (!tutor) return; // Skip if no tutor data
+        const tutorId = tutor._id || tutor.id || tutor;
         
-        if (!tutorMap.has(tutorId)) {
+        if (tutorId && !tutorMap.has(tutorId)) {
           const participant = this.getOtherParticipant(lesson);
           tutorMap.set(tutorId, {
             id: tutorId,
@@ -165,9 +170,10 @@ export class LessonsPage implements OnInit, OnDestroy {
       } else {
         // Tutor sees students
         const student = lesson.studentId as any;
-        const studentId = student._id || student.id;
+        if (!student) return; // Skip if no student data
+        const studentId = student._id || student.id || student;
         
-        if (!studentMap.has(studentId)) {
+        if (studentId && !studentMap.has(studentId)) {
           const participant = this.getOtherParticipant(lesson);
           studentMap.set(studentId, {
             id: studentId,
@@ -298,7 +304,8 @@ export class LessonsPage implements OnInit, OnDestroy {
 
   getUserRole(lesson: Lesson): 'tutor' | 'student' {
     if (!this.currentUser) return 'student';
-    return lesson.tutorId._id === this.currentUser.id ? 'tutor' : 'student';
+    const tutorId = (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || lesson.tutorId;
+    return tutorId === this.currentUser.id ? 'tutor' : 'student';
   }
 
   getOtherParticipant(lesson: Lesson): { name: string; picture: string } {
@@ -739,34 +746,26 @@ export class LessonsPage implements OnInit, OnDestroy {
       return;
     }
 
-    let message = '';
-    
-    if (tutorNote.quickImpression) {
-      message += `<strong>Quick Impression:</strong> ${tutorNote.quickImpression}<br><br>`;
-    }
-    
-    message += `<strong>Your Note:</strong><br>${tutorNote.text}`;
-    
-    if (tutorNote.homework) {
-      message += `<br><br><strong>Homework:</strong><br>${tutorNote.homework}`;
-    }
+    this.selectedNoteLesson = lesson;
+    this.isNoteModalOpen = true;
+  }
 
-    const alert = await this.alertController.create({
-      header: 'Your Note for This Lesson',
-      message,
-      buttons: [
-        {
-          text: 'Edit',
-          handler: () => {
-            this.addTutorNote(lesson);
-          }
-        },
-        {
-          text: 'Close',
-          role: 'cancel'
-        }
-      ]
-    });
-    await alert.present();
+  /**
+   * Close the note modal
+   */
+  closeNoteModal() {
+    this.isNoteModalOpen = false;
+    this.selectedNoteLesson = null;
+  }
+
+  /**
+   * Edit note from modal
+   */
+  editNoteFromModal() {
+    if (this.selectedNoteLesson) {
+      const lesson = this.selectedNoteLesson;
+      this.closeNoteModal();
+      this.addTutorNote(lesson);
+    }
   }
 }

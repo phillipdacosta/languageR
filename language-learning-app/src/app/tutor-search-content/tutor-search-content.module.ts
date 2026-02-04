@@ -10,6 +10,7 @@ import { TutorSearchContentPage } from './tutor-search-content.page';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { SharedModule } from '../shared/shared.module';
+import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
 
 @NgModule({
   imports: [
@@ -17,7 +18,8 @@ import { SharedModule } from '../shared/shared.module';
     FormsModule,
     IonicModule,
     TutorSearchContentPageRoutingModule,
-    SharedModule
+    SharedModule,
+    TutorFiltersModalComponent // Standalone component
   ],
   declarations: [TutorSearchContentPage, VideoPlayerModalComponent, CountryFilterPopoverComponent],
   exports: [TutorSearchContentPage, VideoPlayerModalComponent]

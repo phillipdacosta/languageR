@@ -1,0 +1,302 @@
+<ion-header class="modal-header">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()" class="close-btn">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Filters</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="modal-content">
+  <!-- Selected Filters Chips -->
+  <section class="selected-section" *ngIf="getActiveFilters().length > 0">
+    <h3 class="section-title">Selected</h3>
+    <div class="selected-chips">
+      <button 
+        class="filter-chip" 
+        *ngFor="let filter of getActiveFilters()" 
+        (click)="removeFilter(filter)">
+        <app-flag-icon 
+          *ngIf="filter.type === 'country'" 
+          [country]="filter.value" 
+          [size]="16">
+        </app-flag-icon>
+        <app-flag-icon 
+          *ngIf="filter.type === 'language' && filter.value !== 'any'" 
+          [language]="filter.value" 
+          [size]="16">
+        </app-flag-icon>
+        <span>{{ filter.label }}</span>
+        <ion-icon name="close"></ion-icon>
+      </button>
+    </div>
+  </section>
+
+  <div class="divider" *ngIf="getActiveFilters().length > 0"></div>
+
+  <!-- Quick Picks -->
+  <section class="quick-picks-section">
+    <h3 class="section-title">Quick picks</h3>
+    <div class="quick-picks-grid">
+      <button 
+        class="quick-pick-card" 
+        *ngFor="let pick of quickPicks"
+        [class.active]="isQuickPickActive(pick)"
+        (click)="toggleQuickPick(pick)">
+        <div class="pick-icon">
+          <ion-icon [name]="pick.icon"></ion-icon>
+        </div>
+        <span class="pick-label">{{ pick.label }}</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Language Filter -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('language')">
+      <span class="section-label">I want to learn</span>
+      <ion-icon [name]="isSectionExpanded('language') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('language')">
+      <div class="search-input-wrapper">
+        <ion-icon name="search-outline" class="search-icon"></ion-icon>
+        <input 
+          type="text" 
+          [(ngModel)]="languageSearchTerm"
+          placeholder="Search languages..."
+          class="search-input">
+        <ion-icon 
+          *ngIf="languageSearchTerm"
+          name="close-circle" 
+          class="clear-icon"
+          (click)="languageSearchTerm = ''">
+        </ion-icon>
+      </div>
+      
+      <div class="checkbox-grid">
+        <label 
+          class="checkbox-item" 
+          *ngFor="let lang of getFilteredLanguages()"
+          [class.selected]="isLanguageSelected(lang.value)"
+          (click)="selectLanguage(lang.value)">
+          <div class="checkbox" [class.checked]="isLanguageSelected(lang.value)">
+            <ion-icon name="checkmark" *ngIf="isLanguageSelected(lang.value)"></ion-icon>
+          </div>
+          <app-flag-icon 
+            *ngIf="lang.value !== 'any'" 
+            [language]="lang.value" 
+            [size]="18">
+          </app-flag-icon>
+          <span>{{ lang.label }}</span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Price Filter -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('price')">
+      <span class="section-label">Price per lesson</span>
+      <div class="section-value" *ngIf="filters.priceMin !== 0 || filters.priceMax !== 200">
+        ${{ filters.priceMin }} - ${{ filters.priceMax }}
+      </div>
+      <ion-icon [name]="isSectionExpanded('price') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('price')">
+      <div class="price-display">
+        ${{ priceRange.lower }} – ${{ priceRange.upper }}{{ priceRange.upper >= 200 ? '+' : '' }}
+      </div>
+      <ion-range 
+        [value]="priceRange" 
+        (ionChange)="onPriceRangeChange($event)" 
+        dual-knobs="true" 
+        min="0" 
+        max="200" 
+        pin="true"
+        class="price-slider">
+        <ion-label slot="start">$0</ion-label>
+        <ion-label slot="end">$200+</ion-label>
+      </ion-range>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Country Filter -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('country')">
+      <span class="section-label">Country of birth</span>
+      <div class="section-value" *ngIf="filters.country && filters.country.length > 0">
+        {{ filters.country.length }} selected
+      </div>
+      <ion-icon [name]="isSectionExpanded('country') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('country')">
+      <div class="search-input-wrapper">
+        <ion-icon name="search-outline" class="search-icon"></ion-icon>
+        <input 
+          type="text" 
+          [(ngModel)]="countrySearchTerm"
+          placeholder="Search countries..."
+          class="search-input">
+        <ion-icon 
+          *ngIf="countrySearchTerm"
+          name="close-circle" 
+          class="clear-icon"
+          (click)="countrySearchTerm = ''">
+        </ion-icon>
+      </div>
+      
+      <div class="checkbox-grid">
+        <label 
+          class="checkbox-item" 
+          *ngFor="let country of getFilteredCountries()"
+          [class.selected]="isCountrySelected(country.value)"
+          (click)="toggleCountry(country.value)">
+          <div class="checkbox" [class.checked]="isCountrySelected(country.value)">
+            <ion-icon name="checkmark" *ngIf="isCountrySelected(country.value)"></ion-icon>
+          </div>
+          <app-flag-icon 
+            *ngIf="country.value !== 'any'" 
+            [country]="country.value" 
+            [size]="18">
+          </app-flag-icon>
+          <span>{{ country.label }}</span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Specialties Filter -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('specialties')">
+      <span class="section-label">Specialties</span>
+      <div class="section-value" *ngIf="filters.specialties && filters.specialties.length > 0">
+        {{ filters.specialties.length }} selected
+      </div>
+      <ion-icon [name]="isSectionExpanded('specialties') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('specialties')">
+      <div class="specialty-grid">
+        <button 
+          class="specialty-item" 
+          *ngFor="let spec of availableSpecialties"
+          [class.selected]="isSpecialtySelected(spec.value)"
+          (click)="toggleSpecialty(spec.value)">
+          <ion-icon [name]="spec.icon"></ion-icon>
+          <span>{{ spec.label }}</span>
+          <div class="check-indicator" *ngIf="isSpecialtySelected(spec.value)">
+            <ion-icon name="checkmark"></ion-icon>
+          </div>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Availability Filter -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('availability')">
+      <span class="section-label">I'm available</span>
+      <div class="section-value" *ngIf="filters.availability !== 'anytime'">
+        {{ filters.availability }}
+      </div>
+      <ion-icon [name]="isSectionExpanded('availability') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('availability')">
+      <div class="segmented-control">
+        <button 
+          *ngFor="let avail of availableAvailability"
+          class="segment-btn"
+          [class.active]="filters.availability === avail.value"
+          (click)="selectAvailability(avail.value)">
+          {{ avail.label }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Additional Filters -->
+  <section class="filter-section">
+    <button class="section-header" (click)="toggleSection('more')">
+      <span class="section-label">More filters</span>
+      <ion-icon [name]="isSectionExpanded('more') ? 'chevron-up' : 'chevron-down'"></ion-icon>
+    </button>
+    
+    <div class="section-content" *ngIf="isSectionExpanded('more')">
+      <!-- Native Speaker Toggle -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <ion-icon name="person-circle-outline"></ion-icon>
+          <div class="toggle-text">
+            <span class="toggle-label">Native speaker only</span>
+            <span class="toggle-description">Show tutors who are native speakers</span>
+          </div>
+        </div>
+        <ion-toggle 
+          [checked]="filters.nativeSpeaker" 
+          (ionChange)="toggleNativeSpeaker()">
+        </ion-toggle>
+      </div>
+      
+      <!-- Gender -->
+      <div class="gender-section">
+        <span class="mini-label">Tutor gender</span>
+        <div class="gender-buttons">
+          <button 
+            class="gender-btn" 
+            [class.active]="filters.gender === 'any'"
+            (click)="selectGender('any')">
+            Any
+          </button>
+          <button 
+            class="gender-btn" 
+            [class.active]="filters.gender === 'male'"
+            (click)="selectGender('male')">
+            Male
+          </button>
+          <button 
+            class="gender-btn" 
+            [class.active]="filters.gender === 'female'"
+            (click)="selectGender('female')">
+            Female
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</ion-content>
+
+<ion-footer class="modal-footer">
+  <div class="footer-content">
+    <button class="clear-all-btn" (click)="clearAllFilters()" [disabled]="!hasActiveFilters()">
+      Clear all
+    </button>
+    <button class="show-results-btn" (click)="applyFilters()">
+      <span *ngIf="isLoadingCount" class="loading-dots">...</span>
+      <span *ngIf="!isLoadingCount && resultCount !== null">
+        Show {{ resultCount }} tutor{{ resultCount !== 1 ? 's' : '' }}
+      </span>
+      <span *ngIf="!isLoadingCount && resultCount === null">
+        Show tutors
+      </span>
+    </button>
+  </div>
+</ion-footer>
+

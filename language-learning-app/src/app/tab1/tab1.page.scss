@@ -1,7 +1,10 @@
-// Variables
-$text-primary: #1a1a1a;
-$text-secondary: #6b7280;
-$border-color: rgba(0, 0, 0, 0.06);
+// Variables - Airbnb-style color palette
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border-color: #ebebeb;
+$border-color-dark: #dddddd;
+$background-hover: #f7f7f7;
 $blue: #3b82f6;
 $green: #22c55e;
 
@@ -390,10 +393,10 @@ ion-content {
   position: relative;
 }
 
-// Welcome Section (students only)
+// Welcome Section (students only) - Airbnb-style
 .welcome-section {
-  position: relative; // For absolute positioning of Smart Island
-  margin-bottom: 0; // Smart Island directly below
+  position: relative;
+  margin-bottom: 0;
   padding-bottom: 6px;
   animation: fadeIn 0.3s ease-out both;
   
@@ -413,23 +416,24 @@ ion-content {
   }
   
   .welcome-title {
-    font-size: 23px;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0 0 8px 0;
-    letter-spacing: -0.5px;
-    padding-bottom: 8px;
+    font-size: 24px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+    
     @media (max-width: 600px) {
-      font-size: 24px;
+      font-size: 22px;
     }
   }
   
   .welcome-subtitle {
     font-size: 15px;
-    color: #6b7280;
+    font-weight: 400;
+    color: $text-secondary;
     margin: 0;
-    position: relative;
-    bottom: 6px;
+    line-height: 1.4;
     
     // Skeleton loading state
     &.skeleton-text {
@@ -444,27 +448,26 @@ ion-content {
   }
 }
 
-// Compact Search Bar (inline with welcome)
+// Compact Search Bar (inline with welcome) - Airbnb-style
 .search-container-compact {
   flex: 0 0 auto;
   max-width: 180px;
   min-width: 140px;
-  height: 40px;
+  height: 42px;
   background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 20px;
+  border: 1px solid $border-color-dark;
+  border-radius: 24px;
   display: flex;
   align-items: center;
   padding: 0 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 4px; // Align with title
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.15s ease;
+  margin-top: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 
   &:hover {
-    border-color: #9ca3af;
-    background: #f9fafb;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    border-color: $text-primary;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &:active {
@@ -473,7 +476,7 @@ ion-content {
 
   .search-icon {
     font-size: 18px;
-    color: #6b7280;
+    color: $text-primary;
     margin-right: 8px;
     flex-shrink: 0;
   }
@@ -483,19 +486,21 @@ ion-content {
     background: transparent;
     outline: none;
     font-size: 14px;
-    color: #374151;
+    font-weight: 500;
+    color: $text-primary;
     width: 100%;
     pointer-events: none;
 
     &::placeholder {
-      color: #9ca3af;
+      color: $text-secondary;
+      font-weight: 400;
     }
   }
 
   @media (max-width: 600px) {
     max-width: 140px;
     min-width: 120px;
-    height: 36px;
+    height: 38px;
     padding: 0 12px;
 
     .search-icon {
@@ -953,16 +958,17 @@ ion-content {
   }
 }
 
-// Tutor Insights Panel (single card)
+// Tutor Insights Panel (single card) - Airbnb-style
 .insights-panel {
   background: #fff;
-  border-radius: 20px;
+  border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+  border: 1px solid $border-color;
+  box-shadow: none;
   gap: 16px;
   animation: fadeInUp 0.4s ease-out both;
   
@@ -1058,8 +1064,8 @@ ion-content {
   
   .insight-divider {
     width: 1px;
-    height: 60px;
-    background: #e5e7eb;
+    height: 56px;
+    background: $border-color;
     
     @media (max-width: 600px) {
       height: 50px;
@@ -1170,31 +1176,32 @@ ion-content {
   
   .insight-text {
     .insight-value {
-      font-size: 21px;
-      font-weight: 800;
-      color: #1f2937;
+      font-size: 22px;
+      font-weight: 600;
+      color: $text-primary;
       line-height: 1;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
       
       &.wallet-clickable {
         cursor: pointer;
         transition: color 0.2s ease;
         
         &:hover {
-          color: #667eea;
+          color: $text-secondary;
         }
       }
 
       &.pending {
-        color: #f59e0b;
+        color: #d97706;
       }
       
       @media (max-width: 600px) {
-        font-size: 21px;
+        font-size: 20px;
       }
       
       @media (max-width: 400px) {
-        font-size: 20px;
+        font-size: 18px;
       }
       
       &.wallet-value {
@@ -1278,16 +1285,16 @@ ion-content {
     
     .insight-label {
       font-size: 13px;
-      color: #6b7280;
-      font-weight: 500;
+      color: $text-secondary;
+      font-weight: 400;
       white-space: nowrap;
       
       @media (max-width: 600px) {
-        font-size: 11px;
+        font-size: 12px;
       }
       
       @media (max-width: 400px) {
-        font-size: 10px;
+        font-size: 11px;
       }
     }
   }
@@ -1298,6 +1305,838 @@ ion-content {
   margin-bottom: 24px;
   animation: fadeInUp 0.4s ease-out 0.15s both;
 }
+
+// =============================================
+// TWO COLUMN LAYOUT - COMING UP SECTION
+// =============================================
+
+.coming-up-grid {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  
+  @media (max-width: 968px) {
+    flex-direction: column;
+  }
+}
+
+// =============================================
+// UPCOMING LESSONS CARD - AIRBNB EXACT STYLE
+// =============================================
+
+// Main ion-card wrapper
+.airbnb-dates-card {
+  margin: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.airbnb-dates-content {
+  padding: 20px 24px 24px !important;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex: 1;
+}
+
+// Header with count and show all button
+.airbnb-dates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #EBEBEB;
+  margin-bottom: 8px;
+}
+
+.airbnb-dates-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.airbnb-dates-count {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+  
+  // Underline like Airbnb's "$40"
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.airbnb-dates-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+}
+
+.airbnb-dates-show-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 24px;
+  background: linear-gradient(to right, #E61E4D 0%, #E31C5F 50%, #D70466 100%);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  
+  &:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(227, 28, 95, 0.3);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// Date items list
+.airbnb-dates-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  // overflow-y: auto;
+  min-height: 0;
+}
+
+// Individual date item - clean rows
+.airbnb-date-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #EBEBEB;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin: 0 -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+  border-radius: 8px;
+  
+  &:hover {
+    background: #F7F7F7;
+  }
+  
+  &.last-item {
+    border-bottom: none;
+  }
+}
+
+.airbnb-date-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.airbnb-date-day {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+  line-height: 1.25;
+}
+
+.airbnb-date-time {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+  line-height: 1.25;
+}
+
+.airbnb-date-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-left: 16px;
+}
+
+// Participant with avatar and name
+.airbnb-participant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.airbnb-participant-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.airbnb-participant-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #222222;
+  white-space: nowrap;
+}
+
+.airbnb-cancelled-badge {
+  font-size: 13px;
+  font-weight: 500;
+  color: #E31C5F;
+}
+
+.airbnb-participant-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #EBEBEB;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  ion-icon {
+    font-size: 22px;
+    color: #BDBDBD;
+  }
+}
+
+.airbnb-date-info {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+  white-space: nowrap;
+  
+  &.cancelled {
+    color: #E31C5F;
+    font-weight: 500;
+  }
+}
+
+// Empty state when no lessons
+.airbnb-empty-lessons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 48px;
+    color: #DDDDDD;
+    margin-bottom: 12px;
+  }
+  
+  p {
+    font-size: 14px;
+    color: #717171;
+    margin: 0;
+  }
+}
+
+// Show all link at bottom
+.airbnb-show-all-bottom {
+  display: flex;
+  justify-content: center;
+  padding-top: 16px;
+}
+
+.airbnb-show-all-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  
+  &:hover {
+    color: #000000;
+  }
+}
+
+// =============================================
+// QUICK ACTIONS CARD - RIGHT COLUMN
+// =============================================
+
+.airbnb-quick-actions-card {
+  margin: 0;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  
+  @media (max-width: 968px) {
+    margin-top: 0;
+  }
+}
+
+.airbnb-quick-actions-content {
+  padding: 20px 24px 24px !important;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.quick-actions-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #EBEBEB;
+  margin-bottom: 8px;
+  
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+}
+
+.quick-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.quick-action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: left;
+  width: 100%;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: #F7F7F7;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-radius: 8px;
+  }
+}
+
+.quick-action-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 20px;
+    color: #222222;
+  }
+}
+
+.quick-action-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.quick-action-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.quick-action-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+}
+
+.chevron-icon {
+  font-size: 18px;
+  color: #BDBDBD;
+  flex-shrink: 0;
+}
+
+// =============================================
+// END UPCOMING LESSONS CARD
+// =============================================
+
+// =============================================
+// ALL LESSONS MODAL - AIRBNB STYLE
+// =============================================
+
+// Ion header/content for modal
+.airbnb-modal-ion-header {
+  --background: #ffffff;
+  --border-width: 0;
+  
+  &::after {
+    display: none; // Remove default border
+  }
+}
+
+.airbnb-modal-ion-content {
+  --background: #ffffff;
+}
+
+.airbnb-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 24px 20px;
+  border-bottom: 1px solid #EBEBEB;
+  position: relative;
+  min-height: 72px;
+  
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+    flex: 1;
+    text-align: left;
+  }
+}
+
+.airbnb-modal-close,
+.airbnb-modal-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  
+  &:hover {
+    background: #F7F7F7;
+    border-color: #BDBDBD;
+  }
+  
+  ion-icon {
+    font-size: 16px;
+    color: #222222;
+  }
+}
+
+.airbnb-modal-back {
+  margin-right: 12px;
+}
+
+// Month selector with calendar icon
+.airbnb-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px 16px;
+  border-bottom: 1px solid #EBEBEB;
+  background: #ffffff;
+}
+
+.airbnb-month-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.airbnb-month-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.airbnb-clear-filter {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #E31C5F;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  
+  &:hover {
+    color: #C21852;
+  }
+}
+
+.airbnb-calendar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  
+  &:hover {
+    background: #F7F7F7;
+    border-color: #BDBDBD;
+  }
+  
+  ion-icon {
+    font-size: 20px;
+    color: #222222;
+  }
+}
+
+.airbnb-modal-body {
+  padding: 8px 24px 24px;
+}
+
+.airbnb-date-section {
+  padding: 20px 0 12px;
+  
+  &:first-child {
+    padding-top: 12px;
+  }
+}
+
+.airbnb-date-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+// Clean lesson row - NO borders (like Airbnb)
+.airbnb-lesson-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: #F7F7F7;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  
+  &.cancelled {
+    .airbnb-lesson-date,
+    .airbnb-lesson-time {
+      color: #717171;
+    }
+  }
+}
+
+.airbnb-lesson-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.airbnb-lesson-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.airbnb-lesson-date {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-lesson-time {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+}
+
+.airbnb-lesson-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.airbnb-lesson-participant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.airbnb-lesson-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-lesson-cancelled {
+  font-size: 14px;
+  color: #E31C5F;
+  font-weight: 500;
+}
+
+.airbnb-lesson-avatar-small {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  ion-icon {
+    font-size: 22px;
+    color: #BDBDBD;
+  }
+}
+
+.airbnb-no-lessons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 48px;
+    color: #DDDDDD;
+    margin-bottom: 16px;
+  }
+  
+  p {
+    font-size: 16px;
+    color: #717171;
+    margin: 0;
+  }
+}
+
+.airbnb-clear-filter-btn {
+  margin-top: 16px;
+  padding: 12px 24px;
+  background: #222222;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:hover {
+    background: #000000;
+  }
+}
+
+// Date Picker View (inside same modal)
+.airbnb-datepicker-view {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  
+  ion-datetime {
+    --background: #ffffff;
+    --background-rgb: 255, 255, 255;
+    width: 100%;
+    height: 100%;
+    
+    &::part(calendar-day) {
+      font-size: 14px;
+    }
+    
+    &::part(calendar-day today) {
+      border: 1px solid #222222;
+      border-radius: 50%;
+    }
+    
+    &::part(calendar-day active) {
+      background: #222222;
+      color: #ffffff;
+    }
+  }
+}
+
+// Legacy styles (keeping for backwards compatibility)
+.all-lessons-modal-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+}
+
+.all-lessons-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0;
+    letter-spacing: -0.3px;
+  }
+  
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    
+    &:hover {
+      background: #f5f5f5;
+    }
+    
+    ion-icon {
+      font-size: 18px;
+      color: $text-primary;
+    }
+  }
+}
+
+.all-lessons-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 24px 24px;
+}
+
+.date-header {
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  padding: 16px 0 8px;
+  letter-spacing: -0.2px;
+  
+  &:first-child {
+    padding-top: 8px;
+  }
+}
+
+.all-lessons-body .lesson-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:hover {
+    background: #f7f7f7;
+  }
+  
+  &.cancelled {
+    opacity: 0.6;
+  }
+}
+
+.lesson-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lesson-time {
+  font-size: 15px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.2px;
+}
+
+.lesson-details {
+  font-size: 13px;
+  font-weight: 400;
+  color: $text-secondary;
+}
+
+.lesson-row-right {
+  text-align: right;
+}
+
+.lesson-duration {
+  font-size: 13px;
+  font-weight: 400;
+  color: $text-secondary;
+}
+
+.lesson-cancelled {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ef4444;
+}
+
+.no-lessons {
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 15px;
+  color: $text-secondary;
+}
+
+// =============================================
+// END ALL LESSONS MODAL
+// =============================================
 
 // Private/Public label for classes
 .timeline-class-type-badge {
@@ -1372,11 +2211,11 @@ ion-content {
 }
 
 .timeline-card {
-  border-radius: 24px;
-  box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+  border-radius: 16px;
+  box-shadow: none;
   overflow: visible;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  border: 1px solid $border-color;
   max-width: 600px;
   margin: 0 auto;
 
@@ -1399,7 +2238,7 @@ ion-content {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: #6366f1; // Solid purple, no gradient
+  background: $text-primary;
   z-index: 1;
   pointer-events: none; // Don't interfere with clicks
   
@@ -1636,7 +2475,7 @@ ion-content {
   height: 12px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2.5px solid #6366f1;
+  border: 2.5px solid $text-primary;
   flex-shrink: 0;
   margin-top: 4px;
   z-index: 3;
@@ -1645,9 +2484,9 @@ ion-content {
 
 // Only the first timeline item's dot should be solid
 .timeline-item:first-child .timeline-dot {
-  background: #6366f1;
-  border: 2.5px solid #6366f1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+  background: $text-primary;
+  border: 2.5px solid $text-primary;
+  box-shadow: 0 0 0 4px rgba(34, 34, 34, 0.15);
 }
 
 // New timeline dot (in track)
@@ -1656,7 +2495,7 @@ ion-content {
   height: 12px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2.5px solid #6366f1;
+  border: 2.5px solid $text-primary;
   margin: 0;
   z-index: 3;
   position: relative;
@@ -1670,9 +2509,9 @@ ion-content {
   &.is-next {
     width: 14px;
     height: 14px;
-    background: #6366f1;
-    border: 2.5px solid #6366f1;
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+    background: $text-primary;
+    border: 2.5px solid $text-primary;
+    box-shadow: 0 0 0 4px rgba(34, 34, 34, 0.15);
   }
 }
 
@@ -1683,7 +2522,7 @@ ion-content {
   top: 16px;
   bottom: -24px;
   width: 2px;
-  background: #6366f1;
+  background: $text-primary;
   z-index: 1;
 }
 
@@ -1694,15 +2533,13 @@ ion-content {
   padding: 18px 20px;
   border-radius: 16px;
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: all 0.25s ease;
+  border: 1px solid $border-color;
+  box-shadow: none;
+  transition: all 0.2s ease;
 
   &:hover {
-    background: #fafbfc;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border-color: #d1d5db;
+    background: $background-hover;
+    border-color: $border-color-dark;
   }
 
   &:active {
@@ -5613,7 +6450,7 @@ ion-content {
 
 // Up Next Section (Two Cards Side-by-Side)
 .up-next-section {
-  margin: 24px 16px;
+  margin: 24px 0;
   overflow: visible;
   position: relative;
   top: 25px;
@@ -5625,7 +6462,7 @@ ion-content {
   }
   
   @media (max-width: 600px) {
-    margin: 16px;
+    margin: 16px 0;
     top: 20px;
   }
 }
@@ -8401,9 +9238,10 @@ ion-modal.reschedule-proposal-modal {
   }
 
   .onboarding-banner {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #fff;
     border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+    border: 1px solid $border-color;
+    box-shadow: none;
     margin: 0;
 
     ion-card-content {
@@ -8418,8 +9256,8 @@ ion-modal.reschedule-proposal-modal {
       .banner-icon {
         width: 48px;
         height: 48px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        background: $background-hover;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -8427,7 +9265,7 @@ ion-modal.reschedule-proposal-modal {
 
         ion-icon {
           font-size: 24px;
-          color: white;
+          color: $text-primary;
         }
       }
 
@@ -8435,21 +9273,25 @@ ion-modal.reschedule-proposal-modal {
         flex: 1;
 
         h3 {
-          margin: 0 0 4px 0;
+          margin: 0 0 6px 0;
           font-size: 17px;
-          font-weight: 700;
-          color: white;
+          font-weight: 600;
+          color: $text-primary;
           letter-spacing: -0.3px;
         }
 
-        p {
+        p, .banner-items {
           margin: 0;
           font-size: 14px;
-          color: rgba(255, 255, 255, 0.9);
+          font-weight: 400;
+          color: $text-secondary;
+          line-height: 1.4;
         }
       }
 
       ion-button {
+        --background: #{$text-primary};
+        --background-hover: #000;
         --border-radius: 10px;
         --padding-start: 16px;
         --padding-end: 16px;

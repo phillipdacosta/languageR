@@ -1457,6 +1457,48 @@ h2 {
   &.insufficient {
     color: #ff3b30;
   }
+  
+  &.hybrid {
+    color: #34c759;
+  }
+}
+
+// Hybrid Payment Info (Wallet + Card)
+.hybrid-payment-info {
+  margin-top: 16px;
+  
+  .hybrid-breakdown {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .hybrid-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #1c1c1e;
+    
+    &:not(:last-child) {
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e5ea;
+    }
+    
+    &.remaining {
+      font-weight: 600;
+    }
+  }
+  
+  .hybrid-value {
+    font-weight: 600;
+    
+    .hybrid-row:first-child & {
+      color: #34c759;
+    }
+  }
 }
 
 // Digital Wallet Card (Apple/Google Pay)

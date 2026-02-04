@@ -803,4 +803,161 @@ ion-header {
   }
 }
 
+// =============================================
+// TUTOR NOTE MODAL - Airbnb Style
+// =============================================
+.note-modal-container {
+  background: white;
+  border-radius: 24px;
+  padding: 0;
+  max-width: 480px;
+  width: 100%;
+  margin: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.note-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #EBEBEB;
+  
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+}
+
+.note-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #F7F7F7;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  ion-icon {
+    font-size: 18px;
+    color: #222222;
+  }
+  
+  &:hover {
+    background: #EBEBEB;
+  }
+}
+
+.note-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.note-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #717171;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.note-impression {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+  
+  &.impression-excellent {
+    background: #ECFDF5;
+    color: #059669;
+  }
+  
+  &.impression-good {
+    background: #EFF6FF;
+    color: #2563EB;
+  }
+  
+  &.impression-needs-work {
+    background: #FEF3C7;
+    color: #D97706;
+  }
+  
+  &.impression-struggling {
+    background: #FEE2E2;
+    color: #DC2626;
+  }
+}
+
+.note-text {
+  font-size: 15px;
+  color: #222222;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.note-modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #EBEBEB;
+  background: #FAFAFA;
+}
+
+.note-action-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  
+  ion-icon {
+    font-size: 18px;
+  }
+  
+  &.edit {
+    background: #222222;
+    color: white;
+    border: none;
+    
+    &:hover {
+      background: #000000;
+    }
+  }
+  
+  &.close {
+    background: white;
+    color: #222222;
+    border: 1.5px solid #DDDDDD;
+    
+    &:hover {
+      background: #F7F7F7;
+      border-color: #222222;
+    }
+  }
+}
 

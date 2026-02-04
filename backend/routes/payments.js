@@ -80,11 +80,22 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
       paymentMethod, 
       stripePaymentIntentId, 
       stripePaymentMethodId, 
-      stripeCustomerId,
-      walletAmount = 0,
-      paymentMethodAmount = 0,
-      isHybridPayment = false
+      stripeCustomerId
     } = req.body;
+    
+    // Parse payment amounts as numbers and hybrid flag as boolean
+    const walletAmount = parseFloat(req.body.walletAmount) || 0;
+    const paymentMethodAmount = parseFloat(req.body.paymentMethodAmount) || 0;
+    const isHybridPayment = req.body.isHybridPayment === true || req.body.isHybridPayment === 'true';
+    
+    console.log('💳 [ROUTE DEBUG] Parsed payment params:', {
+      walletAmount,
+      paymentMethodAmount,
+      isHybridPayment,
+      rawWalletAmount: req.body.walletAmount,
+      rawPaymentMethodAmount: req.body.paymentMethodAmount,
+      rawIsHybridPayment: req.body.isHybridPayment
+    });
 
     if (!lessonData || !paymentMethod) {
       return res.status(400).json({ 

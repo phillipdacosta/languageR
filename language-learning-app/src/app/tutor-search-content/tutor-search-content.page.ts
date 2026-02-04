@@ -10,6 +10,7 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
 import { MessagingService } from '../services/messaging.service';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
+import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
 
 @Component({
   selector: 'app-tutor-search-content',
@@ -55,7 +56,10 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   
   showFiltersView = false;
   showLanguageDropdown = false;
+  showCountryDropdown = false;
   showSecondaryFilters = false;
+  countrySearchTerm = '';
+  shouldShowSelectedFirst = false; // Flag to show selected countries at top when dropdown first opens
   isLoading = true; // prevent initial FOUC of empty state until first load completes
   isTransitioning = false; // For smooth filter transitions
   hasLoadedOnce = false; // Track if we've done initial data load
@@ -92,10 +96,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   highlightedTutorId: string | null = null; // Track which tutor is highlighted
   isReturningFromProfile = false; // Track if we're returning from a profile to prevent animations
   
+  // Availability preview cache: tutorId -> array of next available times
+  availabilityPreviews: Map<string, { date: string; time: string; label: string }[]> = new Map();
+  loadingAvailability: Set<string> = new Set(); // Track which tutors are loading availability
+  
   // Video modal state (inline ion-modal)
   isVideoModalOpen = false;
   currentVideoTutor: Tutor | null = null;
   videoModalCircleBounds: { x: number; y: number; width: number; height: number } | null = null;
+
+  // Filters modal state (inline ion-modal)
+  isFiltersModalOpen = false;
 
   // Available languages for the dropdown
   availableLanguages = [
@@ -130,6 +141,146 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     { value: 'Swahili', label: 'Swahili' },
     { value: 'English', label: 'English' }
   ];
+
+  // Available countries for the dropdown
+  availableCountries = [
+    { value: 'any', label: 'Any country' },
+    { value: 'United States', label: 'United States' },
+    { value: 'United Kingdom', label: 'United Kingdom' },
+    { value: 'Spain', label: 'Spain' },
+    { value: 'Mexico', label: 'Mexico' },
+    { value: 'Argentina', label: 'Argentina' },
+    { value: 'Colombia', label: 'Colombia' },
+    { value: 'France', label: 'France' },
+    { value: 'Germany', label: 'Germany' },
+    { value: 'Italy', label: 'Italy' },
+    { value: 'Brazil', label: 'Brazil' },
+    { value: 'Portugal', label: 'Portugal' },
+    { value: 'Canada', label: 'Canada' },
+    { value: 'Australia', label: 'Australia' },
+    { value: 'Japan', label: 'Japan' },
+    { value: 'China', label: 'China' },
+    { value: 'South Korea', label: 'South Korea' },
+    { value: 'India', label: 'India' },
+    { value: 'Russia', label: 'Russia' },
+    { value: 'Poland', label: 'Poland' },
+    { value: 'Netherlands', label: 'Netherlands' },
+    { value: 'Sweden', label: 'Sweden' },
+    { value: 'Norway', label: 'Norway' },
+    { value: 'Denmark', label: 'Denmark' },
+    { value: 'Finland', label: 'Finland' },
+    { value: 'Switzerland', label: 'Switzerland' },
+    { value: 'Austria', label: 'Austria' },
+    { value: 'Belgium', label: 'Belgium' },
+    { value: 'Ireland', label: 'Ireland' },
+    { value: 'Greece', label: 'Greece' },
+    { value: 'Turkey', label: 'Turkey' },
+    { value: 'South Africa', label: 'South Africa' },
+    { value: 'New Zealand', label: 'New Zealand' },
+    { value: 'Chile', label: 'Chile' },
+    { value: 'Peru', label: 'Peru' },
+    { value: 'Venezuela', label: 'Venezuela' },
+    { value: 'Ecuador', label: 'Ecuador' },
+    { value: 'Uruguay', label: 'Uruguay' },
+    { value: 'Costa Rica', label: 'Costa Rica' },
+    { value: 'Panama', label: 'Panama' },
+    { value: 'Cuba', label: 'Cuba' },
+    { value: 'Dominican Republic', label: 'Dominican Republic' },
+    { value: 'Guatemala', label: 'Guatemala' },
+    { value: 'Honduras', label: 'Honduras' },
+    { value: 'El Salvador', label: 'El Salvador' },
+    { value: 'Nicaragua', label: 'Nicaragua' },
+    { value: 'Bolivia', label: 'Bolivia' },
+    { value: 'Paraguay', label: 'Paraguay' },
+    { value: 'Jamaica', label: 'Jamaica' },
+    { value: 'Trinidad and Tobago', label: 'Trinidad and Tobago' },
+    { value: 'Barbados', label: 'Barbados' },
+    { value: 'Bahamas', label: 'Bahamas' },
+    { value: 'Belize', label: 'Belize' },
+    { value: 'Haiti', label: 'Haiti' },
+    { value: 'Puerto Rico', label: 'Puerto Rico' },
+    { value: 'Philippines', label: 'Philippines' },
+    { value: 'Indonesia', label: 'Indonesia' },
+    { value: 'Malaysia', label: 'Malaysia' },
+    { value: 'Singapore', label: 'Singapore' },
+    { value: 'Thailand', label: 'Thailand' },
+    { value: 'Vietnam', label: 'Vietnam' },
+    { value: 'Taiwan', label: 'Taiwan' },
+    { value: 'Hong Kong', label: 'Hong Kong' },
+    { value: 'Israel', label: 'Israel' },
+    { value: 'Saudi Arabia', label: 'Saudi Arabia' },
+    { value: 'United Arab Emirates', label: 'United Arab Emirates' },
+    { value: 'Egypt', label: 'Egypt' },
+    { value: 'Morocco', label: 'Morocco' },
+    { value: 'Nigeria', label: 'Nigeria' },
+    { value: 'Kenya', label: 'Kenya' },
+    { value: 'Ghana', label: 'Ghana' },
+    { value: 'Czech Republic', label: 'Czech Republic' },
+    { value: 'Hungary', label: 'Hungary' },
+    { value: 'Romania', label: 'Romania' },
+    { value: 'Bulgaria', label: 'Bulgaria' },
+    { value: 'Croatia', label: 'Croatia' },
+    { value: 'Serbia', label: 'Serbia' },
+    { value: 'Slovakia', label: 'Slovakia' },
+    { value: 'Slovenia', label: 'Slovenia' },
+    { value: 'Lithuania', label: 'Lithuania' },
+    { value: 'Latvia', label: 'Latvia' },
+    { value: 'Estonia', label: 'Estonia' },
+    { value: 'Iceland', label: 'Iceland' },
+    { value: 'Luxembourg', label: 'Luxembourg' },
+    { value: 'Malta', label: 'Malta' },
+    { value: 'Cyprus', label: 'Cyprus' },
+    { value: 'Ukraine', label: 'Ukraine' },
+    { value: 'Belarus', label: 'Belarus' },
+    { value: 'Georgia', label: 'Georgia' },
+    { value: 'Armenia', label: 'Armenia' },
+    { value: 'Azerbaijan', label: 'Azerbaijan' },
+    { value: 'Kazakhstan', label: 'Kazakhstan' },
+    { value: 'Uzbekistan', label: 'Uzbekistan' },
+    { value: 'Pakistan', label: 'Pakistan' },
+    { value: 'Bangladesh', label: 'Bangladesh' },
+    { value: 'Sri Lanka', label: 'Sri Lanka' },
+    { value: 'Nepal', label: 'Nepal' },
+    { value: 'Myanmar', label: 'Myanmar' },
+    { value: 'Cambodia', label: 'Cambodia' },
+    { value: 'Laos', label: 'Laos' },
+    { value: 'Mongolia', label: 'Mongolia' },
+    { value: 'North Korea', label: 'North Korea' },
+    { value: 'Afghanistan', label: 'Afghanistan' },
+    { value: 'Iran', label: 'Iran' },
+    { value: 'Iraq', label: 'Iraq' },
+    { value: 'Jordan', label: 'Jordan' },
+    { value: 'Lebanon', label: 'Lebanon' },
+    { value: 'Syria', label: 'Syria' },
+    { value: 'Yemen', label: 'Yemen' },
+    { value: 'Oman', label: 'Oman' },
+    { value: 'Qatar', label: 'Qatar' },
+    { value: 'Kuwait', label: 'Kuwait' },
+    { value: 'Bahrain', label: 'Bahrain' },
+    { value: 'Tunisia', label: 'Tunisia' },
+    { value: 'Algeria', label: 'Algeria' },
+    { value: 'Libya', label: 'Libya' },
+    { value: 'Sudan', label: 'Sudan' },
+    { value: 'Ethiopia', label: 'Ethiopia' },
+    { value: 'Tanzania', label: 'Tanzania' },
+    { value: 'Uganda', label: 'Uganda' },
+    { value: 'Rwanda', label: 'Rwanda' },
+    { value: 'Senegal', label: 'Senegal' },
+    { value: 'Ivory Coast', label: 'Ivory Coast' },
+    { value: 'Cameroon', label: 'Cameroon' },
+    { value: 'Zimbabwe', label: 'Zimbabwe' },
+    { value: 'Zambia', label: 'Zambia' },
+    { value: 'Botswana', label: 'Botswana' },
+    { value: 'Namibia', label: 'Namibia' },
+    { value: 'Mozambique', label: 'Mozambique' },
+    { value: 'Madagascar', label: 'Madagascar' },
+    { value: 'Mauritius', label: 'Mauritius' },
+    { value: 'Seychelles', label: 'Seychelles' }
+  ].sort((a, b) => {
+    if (a.value === 'any') return -1;
+    if (b.value === 'any') return 1;
+    return a.label.localeCompare(b.label);
+  });
 
 
   constructor(
@@ -346,6 +497,11 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
           parsed.country = [];
         }
         
+        // Don't restore language filter from saved filters - it will be set from onboarding data
+        // This ensures students always see tutors for their preferred language
+        const savedLanguage = parsed.language;
+        delete parsed.language; // Remove language from saved filters
+        
         // Restore filters while preserving defaults for missing fields
         this.filters = {
           ...this.filters,
@@ -353,6 +509,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
           page: 1, // Always reset page to 1
           limit: this.filters.limit // Preserve limit
         };
+        
+        // Language will be set by getPreferredLanguage() after user data loads
         
         // Restore price range if it exists
         if (parsed.priceMin !== undefined && parsed.priceMax !== undefined) {
@@ -464,22 +622,21 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   }
 
   getPreferredLanguage() {
-    // Only set preferred language if no saved filters exist
-    const savedFilters = localStorage.getItem(this.FILTER_STORAGE_KEY);
-    if (savedFilters) {
-      // Filters already loaded from localStorage, don't override
-      return;
-    }
-    
-    if (this.currentUser) {
-      const preferredLang = this.currentUser.onboardingData?.languages[0] || 'Spanish';
-      console.log('Setting preferred language from user data:', preferredLang);
-      console.log('User languages array:', this.currentUser.onboardingData?.languages);
+    // Always set preferred language from student's onboarding data
+    // This ensures students only see tutors for the language they want to learn
+    if (this.currentUser && this.currentUser.onboardingData?.languages && this.currentUser.onboardingData.languages.length > 0) {
+      const preferredLang = this.currentUser.onboardingData.languages[0];
+      console.log('Setting preferred language from user onboarding data:', preferredLang);
+      console.log('User languages array:', this.currentUser.onboardingData.languages);
       this.filters.language = preferredLang;
-      this.saveFilters(); // Save the initial preferred language
+      this.saveFilters(); // Save the language preference
     } else {
-      console.log('No current user found, using default language: Spanish');
-      this.saveFilters(); // Save the default
+      // Fallback to default if no onboarding data
+      console.log('No onboarding language found, using default: Spanish');
+      if (this.filters.language === 'any' || !this.filters.language) {
+        this.filters.language = 'Spanish';
+        this.saveFilters();
+      }
     }
   }
   
@@ -569,6 +726,15 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
             this.tutors = response.tutors;
             console.log('🔍 Tutors loaded:', this.tutors);
             this.isLoading = false;
+            
+            // Load availability previews for tutors (lazy load after a short delay)
+            setTimeout(() => {
+              this.tutors.forEach(tutor => {
+                if (!tutor.isActivelyAvailable) {
+                  this.loadAvailabilityPreview(tutor);
+                }
+              });
+            }, 500);
           }
           
           // If no tutors found and user has a specific language preference, suggest alternatives
@@ -591,6 +757,46 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   closeFilters() {
     this.showFiltersView = false;
+  }
+
+  /**
+   * Open the Airbnb-style filters modal (inline)
+   */
+  openFiltersModal() {
+    this.isFiltersModalOpen = true;
+  }
+
+  /**
+   * Close the filters modal
+   */
+  closeFiltersModal() {
+    this.isFiltersModalOpen = false;
+  }
+
+  /**
+   * Handle filters modal dismiss
+   */
+  onFiltersModalDismiss(event: any) {
+    this.isFiltersModalOpen = false;
+    
+    const { data, role } = event.detail;
+    
+    if (role === 'apply' && data) {
+      // Apply the filters returned from the modal
+      this.filters = { ...data, page: 1 };
+      this.priceRange = {
+        lower: this.filters.priceMin || 0,
+        upper: this.filters.priceMax || 200
+      };
+      
+      // Clear scroll target when applying new filters
+      this.scrollToTutorId = undefined;
+      this.hasScrolledToTutor = false;
+      this.isReturningFromProfile = false;
+      
+      this.saveFilters();
+      this.searchTutors();
+    }
   }
 
   applyFilters() {
@@ -646,6 +852,29 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   toggleLanguageDropdown() {
     console.log('Toggle language dropdown', this.showLanguageDropdown);
     this.showLanguageDropdown = !this.showLanguageDropdown;
+    // Close country dropdown if open
+    if (this.showCountryDropdown) {
+      this.showCountryDropdown = false;
+    }
+  }
+
+  toggleCountryDropdown() {
+    const wasOpen = this.showCountryDropdown;
+    this.showCountryDropdown = !this.showCountryDropdown;
+    
+    // Clear search when closing dropdown
+    if (!this.showCountryDropdown) {
+      this.countrySearchTerm = '';
+      this.shouldShowSelectedFirst = false; // Reset flag when closing
+    } else if (!wasOpen && this.showCountryDropdown) {
+      // Dropdown just opened - show selected countries at top if any are selected
+      this.shouldShowSelectedFirst = this.hasCountryFilter();
+    }
+    
+    // Close language dropdown if open
+    if (this.showLanguageDropdown) {
+      this.showLanguageDropdown = false;
+    }
   }
 
   toggleSecondaryFilters() {
@@ -744,9 +973,12 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event) {
-    // Close language dropdown when clicking outside
+    // Close dropdowns when clicking outside
     if (this.showLanguageDropdown) {
       this.showLanguageDropdown = false;
+    }
+    if (this.showCountryDropdown) {
+      this.showCountryDropdown = false;
     }
   }
 
@@ -835,167 +1067,121 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     // Open price filter popover for desktop
   }
 
-  async openCountryFilter(event: any) {
-    // Get list of countries
-    const countries = [
-      'Any country',
-      'United States',
-      'United Kingdom',
-      'Spain',
-      'Mexico',
-      'Argentina',
-      'Colombia',
-      'France',
-      'Germany',
-      'Italy',
-      'Brazil',
-      'Portugal',
-      'Canada',
-      'Australia',
-      'Japan',
-      'China',
-      'South Korea',
-      'India',
-      'Russia',
-      'Poland',
-      'Netherlands',
-      'Sweden',
-      'Norway',
-      'Denmark',
-      'Finland',
-      'Switzerland',
-      'Austria',
-      'Belgium',
-      'Ireland',
-      'Greece',
-      'Turkey',
-      'South Africa',
-      'New Zealand',
-      'Chile',
-      'Peru',
-      'Venezuela',
-      'Ecuador',
-      'Uruguay',
-      'Costa Rica',
-      'Panama',
-      'Cuba',
-      'Dominican Republic',
-      'Guatemala',
-      'Honduras',
-      'El Salvador',
-      'Nicaragua',
-      'Bolivia',
-      'Paraguay',
-      // Additional countries
-      'Jamaica',
-      'Trinidad and Tobago',
-      'Barbados',
-      'Bahamas',
-      'Belize',
-      'Haiti',
-      'Puerto Rico',
-      'Philippines',
-      'Indonesia',
-      'Malaysia',
-      'Singapore',
-      'Thailand',
-      'Vietnam',
-      'Taiwan',
-      'Hong Kong',
-      'Israel',
-      'Saudi Arabia',
-      'United Arab Emirates',
-      'Egypt',
-      'Morocco',
-      'Nigeria',
-      'Kenya',
-      'Ghana',
-      'Czech Republic',
-      'Hungary',
-      'Romania',
-      'Bulgaria',
-      'Croatia',
-      'Serbia',
-      'Slovakia',
-      'Slovenia',
-      'Lithuania',
-      'Latvia',
-      'Estonia',
-      'Iceland',
-      'Luxembourg',
-      'Malta',
-      'Cyprus',
-      'Ukraine',
-      'Belarus',
-      'Georgia',
-      'Armenia',
-      'Azerbaijan',
-      'Kazakhstan',
-      'Uzbekistan',
-      'Pakistan',
-      'Bangladesh',
-      'Sri Lanka',
-      'Nepal',
-      'Myanmar',
-      'Cambodia',
-      'Laos',
-      'Mongolia',
-      'North Korea',
-      'Afghanistan',
-      'Iran',
-      'Iraq',
-      'Jordan',
-      'Lebanon',
-      'Syria',
-      'Yemen',
-      'Oman',
-      'Qatar',
-      'Kuwait',
-      'Bahrain',
-      'Tunisia',
-      'Algeria',
-      'Libya',
-      'Sudan',
-      'Ethiopia',
-      'Tanzania',
-      'Uganda',
-      'Rwanda',
-      'Senegal',
-      'Ivory Coast',
-      'Cameroon',
-      'Zimbabwe',
-      'Zambia',
-      'Botswana',
-      'Namibia',
-      'Mozambique',
-      'Madagascar',
-      'Mauritius',
-      'Seychelles'
-    ].sort((a, b) => {
-      if (a === 'Any country') return -1;
-      if (b === 'Any country') return 1;
-      return a.localeCompare(b);
-    });
-
-    const popover = await this.popoverController.create({
-      component: CountryFilterPopoverComponent,
-      event: event,
-      componentProps: {
-        countries: countries,
-        selectedCountries: Array.isArray(this.filters.country) ? this.filters.country : (this.filters.country && this.filters.country !== 'any' ? [this.filters.country] : [])
-      },
-      cssClass: 'country-filter-popover',
-      mode: 'ios'
-    });
-
-    await popover.present();
-
-    const { data } = await popover.onWillDismiss();
-    if (data?.selectedCountries !== undefined) {
-      this.filters.country = data.selectedCountries;
-      this.saveFilters(); // Save filters to persist after refresh
-      await this.searchTutors();
+  selectCountry(country: string) {
+    // Handle "any" country - clear selection
+    if (country === 'any') {
+      this.filters.country = [];
+    } else {
+      // Toggle country selection (support multiple)
+      const currentCountries = Array.isArray(this.filters.country) ? this.filters.country : [];
+      const index = currentCountries.indexOf(country);
+      
+      if (index > -1) {
+        // Remove if already selected
+        currentCountries.splice(index, 1);
+      } else {
+        // Add if not selected
+        currentCountries.push(country);
+      }
+      
+      this.filters.country = currentCountries;
     }
+    
+    // Once user starts selecting, disable the "show selected first" behavior
+    // This keeps countries in their normal positions while user is selecting
+    this.shouldShowSelectedFirst = false;
+    
+    // Don't close dropdown - let user select multiple countries
+    // User will click "Apply" to confirm selection
+  }
+
+  applyCountryFilter() {
+    // Close the dropdown
+    this.showCountryDropdown = false;
+    this.countrySearchTerm = '';
+    
+    // Clear scroll target when user manually changes country filter
+    this.scrollToTutorId = undefined;
+    this.hasScrolledToTutor = false;
+    
+    // Clear the returning from profile flag since user is now actively filtering
+    this.isReturningFromProfile = false;
+    
+    this.saveFilters(); // Save filters to persist after refresh
+    this.searchSubject$.next();
+  }
+
+  isCountrySelected(country: string): boolean {
+    if (country === 'any') {
+      return !this.filters.country || (Array.isArray(this.filters.country) && this.filters.country.length === 0);
+    }
+    return Array.isArray(this.filters.country) && this.filters.country.includes(country);
+  }
+
+  getFilteredCountries() {
+    let filtered = this.availableCountries;
+    
+    // Apply search filter if there's a search term
+    if (this.countrySearchTerm.trim()) {
+      const searchLower = this.countrySearchTerm.toLowerCase().trim();
+      filtered = this.availableCountries.filter(country =>
+        country.label.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Only show selected countries at top when dropdown first opens (not while selecting)
+    if (!this.shouldShowSelectedFirst) {
+      return filtered;
+    }
+    
+    // Separate selected and unselected countries
+    const selected: typeof this.availableCountries = [];
+    const unselected: typeof this.availableCountries = [];
+    
+    filtered.forEach(country => {
+      if (this.isCountrySelected(country.value)) {
+        selected.push(country);
+      } else {
+        unselected.push(country);
+      }
+    });
+    
+    // Return selected countries first, then unselected
+    // "Any country" should always be at the top if it's the only selection or if nothing is selected
+    const hasAnySelected = selected.some(c => c.value === 'any');
+    const hasOtherSelected = selected.some(c => c.value !== 'any');
+    
+    if (hasAnySelected && !hasOtherSelected) {
+      // Only "Any country" is selected - keep it at top
+      return [...selected, ...unselected];
+    } else if (hasOtherSelected) {
+      // Other countries are selected - put them at top, "Any country" goes to unselected list
+      const anyCountry = selected.find(c => c.value === 'any');
+      const otherSelected = selected.filter(c => c.value !== 'any');
+      const unselectedWithAny = anyCountry 
+        ? [anyCountry, ...unselected.filter(c => c.value !== 'any')]
+        : unselected;
+      return [...otherSelected, ...unselectedWithAny];
+    } else {
+      // Nothing selected - normal order
+      return filtered;
+    }
+  }
+
+  clearCountrySearch() {
+    this.countrySearchTerm = '';
+    // When clearing search, if we had selected-first enabled, keep it enabled
+    // This maintains the behavior when user clears search after reopening dropdown
+  }
+
+  getSelectedCountryCount(): number {
+    if (!this.filters.country) {
+      return 0;
+    }
+    if (Array.isArray(this.filters.country)) {
+      return this.filters.country.length;
+    }
+    return this.filters.country !== 'any' ? 1 : 0;
   }
 
   getCountryDisplayName(): string {
@@ -1008,14 +1194,20 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       return this.filters.country === 'any' ? 'Any country' : this.filters.country;
     }
     
-    // Handle array: show count or list
+    // Handle array: show list of country names
     if (Array.isArray(this.filters.country)) {
       if (this.filters.country.length === 0) {
         return 'Any country';
       } else if (this.filters.country.length === 1) {
         return this.filters.country[0];
+      } else if (this.filters.country.length <= 4) {
+        // Show all countries if 4 or fewer
+        return this.filters.country.join(', ');
       } else {
-        return `${this.filters.country.length} countries`;
+        // Show first 4 countries and indicate how many more
+        const firstFour = this.filters.country.slice(0, 4).join(', ');
+        const remaining = this.filters.country.length - 4;
+        return `${firstFour} + ${remaining} more`;
       }
     }
     
@@ -1626,6 +1818,178 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   // Check if user has watched a tutor's video
   hasWatchedVideo(tutorId: string): boolean {
     return this.watchedVideos.has(tutorId);
+  }
+
+  /**
+   * Check if a tutor should show the "New tutor" badge
+   * Criteria: Joined within last 15 days AND has less than 5 lessons
+   */
+  isNewTutor(tutor: Tutor): boolean {
+    // Must have less than 5 lessons
+    if (tutor.totalLessons >= 5) {
+      return false;
+    }
+    
+    // Must have joined within the last 15 days
+    if (!tutor.joinedDate) {
+      return false; // No join date = not considered new
+    }
+    
+    const joinedDate = new Date(tutor.joinedDate);
+    const daysSinceJoined = (Date.now() - joinedDate.getTime()) / (1000 * 60 * 60 * 24);
+    
+    return daysSinceJoined <= 15;
+  }
+
+  /**
+   * Load availability preview for a tutor (today/tomorrow only)
+   * Simplified version that just shows if they have availability, not exact times
+   */
+  async loadAvailabilityPreview(tutor: Tutor) {
+    // Don't load if already loading or already cached
+    if (this.loadingAvailability.has(tutor.id) || this.availabilityPreviews.has(tutor.id)) {
+      return;
+    }
+
+    // Don't load if tutor is actively available (they have the "Available now" badge)
+    if (tutor.isActivelyAvailable) {
+      return;
+    }
+
+    this.loadingAvailability.add(tutor.id);
+
+    try {
+      const response = await this.userService.getTutorAvailability(tutor.id).toPromise();
+      
+      if (!response?.success || !response.availability || response.availability.length === 0) {
+        this.loadingAvailability.delete(tutor.id);
+        return;
+      }
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dayAfterTomorrow = new Date(tomorrow);
+      dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+      const availableSlots: { date: Date; time: string }[] = [];
+
+      // Process availability blocks to find available slots for today/tomorrow
+      for (const block of response.availability) {
+        if (block.type !== 'available') continue;
+
+        let blockStart: Date | null = null;
+        let blockEnd: Date | null = null;
+
+        // Handle absolute date blocks
+        if (block.absoluteStart && block.absoluteEnd) {
+          blockStart = new Date(block.absoluteStart);
+          blockEnd = new Date(block.absoluteEnd);
+        } 
+        // Handle recurring blocks
+        else if (block.startTime && block.endTime && typeof block.day === 'number') {
+          const dayOfWeek = block.day;
+          const todayDay = today.getDay();
+          const tomorrowDay = tomorrow.getDay();
+
+          if (dayOfWeek === todayDay) {
+            const [hours, minutes] = block.startTime.split(':').map(Number);
+            blockStart = new Date(today);
+            blockStart.setHours(hours, minutes || 0, 0, 0);
+            const [endHours, endMinutes] = block.endTime.split(':').map(Number);
+            blockEnd = new Date(today);
+            blockEnd.setHours(endHours, endMinutes || 0, 0, 0);
+          } else if (dayOfWeek === tomorrowDay) {
+            const [hours, minutes] = block.startTime.split(':').map(Number);
+            blockStart = new Date(tomorrow);
+            blockStart.setHours(hours, minutes || 0, 0, 0);
+            const [endHours, endMinutes] = block.endTime.split(':').map(Number);
+            blockEnd = new Date(tomorrow);
+            blockEnd.setHours(endHours, endMinutes || 0, 0, 0);
+          }
+        }
+
+        if (!blockStart || !blockEnd) continue;
+
+        // Only include future slots
+        if (blockStart < now) {
+          // If block started but hasn't ended, use current time as start
+          if (blockEnd > now) {
+            blockStart = now;
+          } else {
+            continue;
+          }
+        }
+
+        // Only include slots for today or tomorrow
+        if (blockStart >= dayAfterTomorrow) {
+          continue;
+        }
+
+        // Generate 25-minute slots within this block (every 30 minutes to allow buffer)
+        let slotStart = new Date(blockStart);
+        const maxSlots = 5; // Limit to prevent too many slots
+        let slotCount = 0;
+        
+        while (slotStart < blockEnd && slotStart < dayAfterTomorrow && slotCount < maxSlots) {
+          const slotEnd = new Date(slotStart.getTime() + 25 * 60 * 1000);
+          if (slotEnd <= blockEnd && slotStart >= now) {
+            availableSlots.push({
+              date: new Date(slotStart),
+              time: slotStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            });
+            slotCount++;
+          }
+          slotStart = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 min intervals
+        }
+      }
+
+      // Sort by date/time and take first 3
+      availableSlots.sort((a, b) => a.date.getTime() - b.date.getTime());
+      const preview = availableSlots.slice(0, 3).map(slot => {
+        const slotDate = new Date(slot.date);
+        const isToday = slotDate.toDateString() === today.toDateString();
+        const isTomorrow = slotDate.toDateString() === tomorrow.toDateString();
+        
+        let label = '';
+        if (isToday) {
+          label = `Today ${slot.time}`;
+        } else if (isTomorrow) {
+          label = `Tomorrow ${slot.time}`;
+        } else {
+          label = slot.time;
+        }
+
+        return {
+          date: slot.date.toISOString(),
+          time: slot.time,
+          label: label
+        };
+      });
+
+      if (preview.length > 0) {
+        this.availabilityPreviews.set(tutor.id, preview);
+      }
+    } catch (error) {
+      console.error('Error loading availability preview for tutor:', tutor.id, error);
+    } finally {
+      this.loadingAvailability.delete(tutor.id);
+    }
+  }
+
+  /**
+   * Get availability preview for a tutor
+   */
+  getAvailabilityPreview(tutor: Tutor): { date: string; time: string; label: string }[] | null {
+    return this.availabilityPreviews.get(tutor.id) || null;
+  }
+
+  /**
+   * Check if availability is loading for a tutor
+   */
+  isAvailabilityLoading(tutor: Tutor): boolean {
+    return this.loadingAvailability.has(tutor.id);
   }
 
   // Mark a video as watched

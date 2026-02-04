@@ -4312,6 +4312,148 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return timelineLessons.length > 3;
   }
 
+  // Track if all lessons modal is open
+  isAllLessonsModalOpen = false;
+  allLessonsForModal: any[] = [];
+
+  /**
+   * Open modal to show all upcoming lessons (Airbnb style)
+   */
+  async openAllLessonsModal() {
+    // Reset filter state
+    this.selectedFilterMonth = null;
+    this.selectedFilterYear = null;
+    this.selectedDateForPicker = new Date().toISOString();
+    
+    // Get all future lessons
+    const allLessons = [...this.lessons, ...this.cancelledLessons];
+    const now = new Date();
+    
+    this.allLessonsForModal = allLessons
+      .filter(lesson => new Date(lesson.startTime) > now)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+      .map(lesson => {
+        const startTime = new Date(lesson.startTime);
+        const endTime = lesson.endTime ? new Date(lesson.endTime) : null;
+        const student = lesson.studentId as any;
+        const tutor = lesson.tutorId as any;
+        const isStudentView = this.isStudent();
+        const participantToShow = isStudentView ? tutor : student;
+        
+        return {
+          date: this.formatRelativeDate(startTime),
+          fullDate: this.formatFullDate(startTime),
+          time: this.formatTimeOnly(startTime),
+          endTime: endTime ? this.formatTimeOnly(endTime) : null,
+          name: participantToShow ? (isStudentView ? this.formatTutorDisplayName(participantToShow) : this.formatStudentDisplayName(participantToShow)) : 'Unknown',
+          avatar: participantToShow?.picture || participantToShow?.profilePicture || null,
+          subject: this.formatSubject(lesson.subject),
+          duration: lesson.duration || 25,
+          isCancelled: lesson.status === 'cancelled',
+          lesson: lesson
+        };
+      });
+    
+    // Store unfiltered list
+    this.allLessonsUnfiltered = [...this.allLessonsForModal];
+    
+    this.isAllLessonsModalOpen = true;
+  }
+
+  closeAllLessonsModal() {
+    this.isAllLessonsModalOpen = false;
+    this.isDatePickerView = false; // Reset to lessons view
+  }
+
+  // Date picker view state (same modal, different view)
+  isDatePickerView = false;
+  selectedDateForPicker: string = new Date().toISOString();
+  minDateForPicker: string = new Date().toISOString();
+  highlightedLessonDates: any[] = [];
+  
+  // Filtering state
+  selectedFilterMonth: number | null = null;
+  selectedFilterYear: number | null = null;
+  allLessonsUnfiltered: any[] = [];
+  
+  // Get current month label for display
+  get currentMonthLabel(): string {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    if (this.selectedFilterMonth !== null && this.selectedFilterYear !== null) {
+      return `${months[this.selectedFilterMonth]} ${this.selectedFilterYear}`;
+    }
+    
+    const now = new Date();
+    return `${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
+
+  openDatePickerView() {
+    // Store unfiltered lessons if not already stored
+    if (this.allLessonsUnfiltered.length === 0) {
+      this.allLessonsUnfiltered = [...this.allLessonsForModal];
+    }
+    
+    // Get dates that have lessons for highlighting (from unfiltered list)
+    const lessonDates = this.allLessonsUnfiltered.map(event => {
+      const date = new Date(event.lesson.startTime);
+      return {
+        date: date.toISOString().split('T')[0],
+        textColor: '#E31C5F',
+        backgroundColor: '#FCE4EC'
+      };
+    });
+    
+    // Remove duplicates
+    this.highlightedLessonDates = lessonDates.filter((item, index, self) =>
+      index === self.findIndex(t => t.date === item.date)
+    );
+    
+    this.isDatePickerView = true;
+  }
+
+  closeDatePickerView() {
+    this.isDatePickerView = false;
+    
+    // Apply month filter if a date was selected
+    if (this.selectedFilterMonth !== null && this.selectedFilterYear !== null) {
+      this.filterLessonsByMonth();
+    }
+  }
+  
+  onDateSelected(event: any) {
+    const selectedDate = new Date(event.detail.value);
+    this.selectedFilterMonth = selectedDate.getMonth();
+    this.selectedFilterYear = selectedDate.getFullYear();
+    this.selectedDateForPicker = event.detail.value;
+  }
+  
+  filterLessonsByMonth() {
+    if (this.selectedFilterMonth === null || this.selectedFilterYear === null) {
+      return;
+    }
+    
+    // Filter lessons to only show those in the selected month
+    this.allLessonsForModal = this.allLessonsUnfiltered.filter(event => {
+      const lessonDate = new Date(event.lesson.startTime);
+      return lessonDate.getMonth() === this.selectedFilterMonth && 
+             lessonDate.getFullYear() === this.selectedFilterYear;
+    });
+  }
+  
+  clearMonthFilter() {
+    this.selectedFilterMonth = null;
+    this.selectedFilterYear = null;
+    this.allLessonsForModal = [...this.allLessonsUnfiltered];
+  }
+
+  // Format full date like "Friday, February 6"
+  formatFullDate(date: Date): string {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  }
+
   /**
    * Open modal to display lesson notes
    */

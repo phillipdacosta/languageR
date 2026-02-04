@@ -531,13 +531,39 @@ export class CheckoutPage implements OnInit, OnDestroy {
         stripePaymentMethodId = newPaymentMethodId;
       }
 
+      // Determine if this is a hybrid payment (wallet + card)
+      const isHybridWalletPayment = this.selectedPaymentMethod === 'wallet' && !this.canPayFullyWithWallet && this.walletBalance > 0;
+      const walletAmountForPayment = this.selectedPaymentMethod === 'wallet' ? Math.min(this.walletBalance, this.total) : 0;
+      const remainingAfterWallet = this.selectedPaymentMethod === 'wallet' ? Math.max(this.total - this.walletBalance, 0) : 0;
+
       // Book the lesson with payment (use the correct endpoint!)
-      const bookingPayload = {
+      const bookingPayload: any = {
         lessonData: lessonData,
         paymentMethod: this.selectedPaymentMethod === 'new-card' ? 'saved-card' : this.selectedPaymentMethod,
         stripePaymentMethodId: stripePaymentMethodId,
         stripeCustomerId: this.currentUser.stripeCustomerId
       };
+      
+      // Add hybrid payment info if using wallet
+      if (this.selectedPaymentMethod === 'wallet') {
+        bookingPayload.walletAmount = walletAmountForPayment;
+        bookingPayload.useWallet = true;
+        
+        if (isHybridWalletPayment) {
+          // Hybrid: wallet + card
+          bookingPayload.isHybridPayment = true;
+          bookingPayload.paymentMethodAmount = remainingAfterWallet;
+          bookingPayload.stripePaymentMethodId = this.defaultCard?.stripePaymentMethodId || this.selectedCardId;
+          // Change paymentMethod to indicate card will be used for the remainder
+          bookingPayload.paymentMethod = 'saved-card';
+          console.log('💳 Hybrid payment setup:', {
+            walletAmount: walletAmountForPayment,
+            cardAmount: remainingAfterWallet,
+            total: this.total,
+            paymentMethodId: bookingPayload.stripePaymentMethodId
+          });
+        }
+      }
 
       console.log('💳 Booking with payment:', {
         paymentMethod: bookingPayload.paymentMethod,
@@ -1000,6 +1026,11 @@ export class CheckoutPage implements OnInit, OnDestroy {
   }
 
   get canUseWallet(): boolean {
+    // Allow wallet tab if user has ANY balance (hybrid payment will handle the rest)
+    return this.walletBalance > 0;
+  }
+  
+  get canPayFullyWithWallet(): boolean {
     return this.walletBalance >= this.total;
   }
 
@@ -1009,7 +1040,8 @@ export class CheckoutPage implements OnInit, OnDestroy {
 
   get hasValidPaymentMethod(): boolean {
     if (this.selectedPaymentMethod === 'wallet') {
-      return this.canUseWallet;
+      // Full wallet payment OR hybrid (wallet + saved card)
+      return this.canPayFullyWithWallet || (this.walletBalance > 0 && (!!this.defaultCard || !!this.selectedCardId));
     }
     if (this.selectedPaymentMethod === 'saved-card') {
       return !!this.defaultCard || !!this.selectedCardId;

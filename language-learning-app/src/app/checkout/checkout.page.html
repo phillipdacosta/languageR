@@ -302,12 +302,33 @@
                 <div class="wallet-label">Available Balance</div>
                 <div class="wallet-amount">${{ formattedAvailableBalance }}</div>
               </div>
-              <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canUseWallet"></ion-icon>
+              <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canPayFullyWithWallet"></ion-icon>
             </div>
-            <p class="wallet-note" *ngIf="canUseWallet">Your wallet balance will be used for this purchase.</p>
-            <p class="wallet-note insufficient" *ngIf="!canUseWallet">
-              Insufficient funds. You need ${{ total | number:'1.2-2' }} but only have ${{ formattedAvailableBalance }}.
+            
+            <!-- Full wallet payment -->
+            <p class="wallet-note" *ngIf="canPayFullyWithWallet">
+              Your wallet balance will cover the full purchase.
             </p>
+            
+            <!-- Hybrid payment (wallet + card) -->
+            <div class="hybrid-payment-info" *ngIf="!canPayFullyWithWallet && walletBalance > 0">
+              <div class="hybrid-breakdown">
+                <div class="hybrid-row">
+                  <span>Wallet balance</span>
+                  <span class="hybrid-value">-${{ formattedAvailableBalance }}</span>
+                </div>
+                <div class="hybrid-row remaining">
+                  <span>Pay with card</span>
+                  <span class="hybrid-value">${{ (total - walletBalance) | number:'1.2-2' }}</span>
+                </div>
+              </div>
+              <p class="wallet-note hybrid" *ngIf="defaultCard || selectedCardId">
+                We'll use your wallet balance and charge the remaining ${{ (total - walletBalance) | number:'1.2-2' }} to your saved card.
+              </p>
+              <p class="wallet-note insufficient" *ngIf="!defaultCard && !selectedCardId">
+                Please add a card to cover the remaining ${{ (total - walletBalance) | number:'1.2-2' }}.
+              </p>
+            </div>
           </div>
 
           <!-- Apple Pay Content -->
@@ -640,12 +661,33 @@
               <div class="wallet-label">Available Balance</div>
               <div class="wallet-amount">${{ formattedAvailableBalance }}</div>
             </div>
-            <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canUseWallet"></ion-icon>
+            <ion-icon name="checkmark-circle" class="check-icon" *ngIf="canPayFullyWithWallet"></ion-icon>
           </div>
-          <p class="wallet-note" *ngIf="canUseWallet">Your wallet balance will be used for this purchase.</p>
-          <p class="wallet-note insufficient" *ngIf="!canUseWallet">
-            Insufficient funds. You need ${{ total | number:'1.2-2' }} but only have ${{ formattedAvailableBalance }}.
+          
+          <!-- Full wallet payment -->
+          <p class="wallet-note" *ngIf="canPayFullyWithWallet">
+            Your wallet balance will cover the full purchase.
           </p>
+          
+          <!-- Hybrid payment (wallet + card) -->
+          <div class="hybrid-payment-info" *ngIf="!canPayFullyWithWallet && walletBalance > 0">
+            <div class="hybrid-breakdown">
+              <div class="hybrid-row">
+                <span>Wallet balance</span>
+                <span class="hybrid-value">-${{ formattedAvailableBalance }}</span>
+              </div>
+              <div class="hybrid-row remaining">
+                <span>Pay with card</span>
+                <span class="hybrid-value">${{ (total - walletBalance) | number:'1.2-2' }}</span>
+              </div>
+            </div>
+            <p class="wallet-note hybrid" *ngIf="defaultCard || selectedCardId">
+              We'll use your wallet balance and charge the remaining ${{ (total - walletBalance) | number:'1.2-2' }} to your saved card.
+            </p>
+            <p class="wallet-note insufficient" *ngIf="!defaultCard && !selectedCardId">
+              Please add a card to cover the remaining ${{ (total - walletBalance) | number:'1.2-2' }}.
+            </p>
+          </div>
         </div>
 
         <!-- Apple Pay Content -->

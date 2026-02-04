@@ -320,3 +320,46 @@
     </div>
   </div>
 </ion-content>
+
+<!-- Tutor Note Modal -->
+<ion-modal [isOpen]="isNoteModalOpen" (didDismiss)="closeNoteModal()" class="tutor-note-modal">
+  <ng-template>
+    <div class="note-modal-container">
+      <div class="note-modal-header">
+        <h2>Your Note for This Lesson</h2>
+        <button class="note-modal-close" (click)="closeNoteModal()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+      
+      <div class="note-modal-body" *ngIf="selectedNoteLesson">
+        <div class="note-section" *ngIf="selectedNoteLesson.tutorNote?.quickImpression">
+          <span class="note-label">Quick Impression</span>
+          <span class="note-impression" [class]="'impression-' + selectedNoteLesson.tutorNote?.quickImpression">
+            {{ selectedNoteLesson.tutorNote?.quickImpression }}
+          </span>
+        </div>
+        
+        <div class="note-section">
+          <span class="note-label">Your Note</span>
+          <p class="note-text">{{ selectedNoteLesson.tutorNote?.text }}</p>
+        </div>
+        
+        <div class="note-section" *ngIf="selectedNoteLesson.tutorNote?.homework">
+          <span class="note-label">Homework</span>
+          <p class="note-text">{{ selectedNoteLesson.tutorNote?.homework }}</p>
+        </div>
+      </div>
+      
+      <div class="note-modal-actions">
+        <button class="note-action-btn edit" (click)="editNoteFromModal()">
+          <ion-icon name="create-outline"></ion-icon>
+          Edit
+        </button>
+        <button class="note-action-btn close" (click)="closeNoteModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </ng-template>
+</ion-modal>

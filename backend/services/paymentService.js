@@ -61,6 +61,19 @@ class PaymentService {
     let payment;
     const payments = []; // For hybrid payments, we might create multiple payment records
 
+    // DEBUG: Log all payment parameters
+    console.log('💳 [PAYMENT DEBUG] Payment parameters received:', {
+      paymentMethod,
+      isHybridPayment,
+      walletAmount,
+      paymentMethodAmount,
+      amount,
+      walletAmountType: typeof walletAmount,
+      paymentMethodAmountType: typeof paymentMethodAmount,
+      isHybridPaymentType: typeof isHybridPayment,
+      hybridCheck: isHybridPayment && walletAmount > 0 && paymentMethodAmount > 0
+    });
+
     // HYBRID PAYMENT: Wallet + Payment Method
     if (isHybridPayment && walletAmount > 0 && paymentMethodAmount > 0) {
       console.log(`🔀 Hybrid payment detected: $${walletAmount} from wallet + $${paymentMethodAmount} from ${paymentMethod}`);
