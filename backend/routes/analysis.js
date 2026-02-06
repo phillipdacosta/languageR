@@ -173,6 +173,8 @@ function calculateProgressionSummary(analyses) {
   
   return {
     totalLessons: analyses.length,
+    aiAnalyzedCount: analyses.filter(a => a.source === 'ai' || !a.source).length,
+    tutorAssessedCount: analyses.filter(a => a.source === 'tutor').length,
     startingLevel: first.overallAssessment.proficiencyLevel,
     currentLevel: latest.overallAssessment.proficiencyLevel,
     overallTrend: currentLevel > startLevel ? 'improving' : 

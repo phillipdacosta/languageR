@@ -2891,6 +2891,30 @@ ion-content {
   max-width: 100% !important;
 }
 
+// Feedback banner in toolbar context
+.toolbar-center .feedback-banner-airbnb {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  flex-shrink: 0;
+  align-self: stretch;
+  min-width: 0; // Allow shrinking
+  
+  .feedback-banner-left {
+    min-width: 0;
+    flex: 1;
+  }
+  
+  .feedback-banner-copy {
+    min-width: 0;
+    flex: 1;
+  }
+  
+  .feedback-banner-cta {
+    flex-shrink: 0;
+  }
+}
+
 // OLD SIMPLE TEXT WARNING (now removed)
 .stripe-warning-banner {
   position: fixed !important;
@@ -4602,5 +4626,355 @@ ion-content {
   ion-button {
     margin-bottom: 0;
   }
+}
+
+// =============================================
+// OUTSTANDING FEEDBACK BANNER (Airbnb style)
+// =============================================
+.feedback-banner-airbnb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFEEDD;
+  border: 1px solid #FFC085;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: feedbackBannerIn 0.4s ease-out;
+  width: 100%;
+  max-width: 100%;
+  box-shadow: 0 2px 12px rgba(255, 138, 0, 0.12);
+  box-sizing: border-box;
+  gap: 16px;
+
+  &:hover {
+    background: #FFE4C7;
+    border-color: #FFB366;
+    box-shadow: 0 4px 16px rgba(255, 138, 0, 0.18);
+  }
+
+  &:active {
+    transform: scale(0.995);
+  }
+
+  .feedback-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .feedback-banner-count {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #222;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+  }
+
+  .feedback-banner-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .feedback-banner-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: #717171;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-cta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    flex-grow: 0;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    margin-left: auto;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: #000;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+
+    .feedback-banner-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .feedback-banner-title,
+    .feedback-banner-subtitle {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .feedback-banner-cta {
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+
+    .feedback-banner-count {
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+      border-radius: 10px;
+    }
+
+    .feedback-banner-title {
+      font-size: 14px;
+    }
+
+    .feedback-banner-subtitle {
+      font-size: 12px;
+    }
+
+    .feedback-banner-cta {
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+@keyframes feedbackBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// =============================================
+// OUTSTANDING FEEDBACK MODAL (Airbnb style)
+// =============================================
+
+.airbnb-modal-ion-header {
+  --background: #ffffff;
+  ion-toolbar { --background: #ffffff; }
+  &::after { display: none; }
+}
+
+.airbnb-modal-ion-content {
+  --background: #ffffff;
+}
+
+.airbnb-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 24px 20px;
+  border-bottom: 1px solid #EBEBEB;
+  position: relative;
+  min-height: 72px;
+
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+    flex: 1;
+    text-align: left;
+  }
+}
+
+.airbnb-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover { background: #F7F7F7; border-color: #BDBDBD; }
+  ion-icon { font-size: 16px; color: #222222; }
+}
+
+.airbnb-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px 16px;
+  border-bottom: 1px solid #EBEBEB;
+  background: #ffffff;
+}
+
+.airbnb-month-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.airbnb-month-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+}
+
+.airbnb-modal-body {
+  padding: 8px 24px 24px;
+}
+
+.airbnb-lesson-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #F0F0F0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:last-child { border-bottom: none; }
+  &:hover {
+    background: #F7F7F7;
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+.airbnb-lesson-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.airbnb-lesson-date {
+  font-size: 16px;
+  font-weight: 600;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-lesson-time {
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+}
+
+.airbnb-lesson-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.airbnb-lesson-participant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.airbnb-lesson-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #222222;
+  letter-spacing: -0.2px;
+}
+
+.airbnb-feedback-pending {
+  font-size: 14px;
+  color: #ff9500;
+  font-weight: 500;
+}
+
+.airbnb-lesson-avatar-small {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #F7F7F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 22px; color: #BDBDBD; }
+}
+
+.airbnb-no-lessons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+
+  ion-icon { font-size: 48px; color: #DDDDDD; margin-bottom: 16px; }
+  p { font-size: 16px; color: #717171; margin: 0; }
+}
+
+.feedback-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 8px;
+
+  ion-icon { font-size: 20px; color: #222222; }
 }
 

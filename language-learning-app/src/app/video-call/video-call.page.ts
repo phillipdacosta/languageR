@@ -149,10 +149,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private TRANSCRIPTION_SESSION_KEY = 'activeTranscriptionSession';
   private currentTranscriptId: string = '';
   
-  // OpenAI Audio recording for transcription (COMMENTED OUT - keeping as fallback)
+  // OpenAI Audio recording for transcription
   private transcriptionRecorder: MediaRecorder | null = null;
   private transcriptionAudioChunks: Blob[] = [];
   private transcriptionUploadInterval: any = null;
+  
+  // Window-based audio sampling (record 3x5min windows instead of continuous)
+  private samplingWindows: { startMin: number; endMin: number }[] = [];
+  private samplingCheckInterval: any = null;
+  private lessonStartTimestamp: number = 0;
+  private isCurrentlyRecording = false;
+  private batchAudioBlobs: Blob[] = []; // All recorded audio stored for batch upload
+  private transcriptionStream: MediaStream | null = null;
+  private transcriptionMimeType: string = 'audio/webm';
   
   // Deepgram real-time transcription
   private deepgramService: DeepgramAudioService | null = null;
@@ -499,6 +508,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
                 bookedPrice: lesson.price,
                 perMinuteRate: this.perMinuteRate
               });
+            }
+            
+            // Set bookedDuration for standard lessons (needed for audio sampling windows)
+            if (!this.isOfficeHours && lesson.duration) {
+              this.bookedDuration = lesson.duration;
+              console.log(`📊 Standard lesson duration set: ${this.bookedDuration} minutes`);
             }
             
             // Store tutor and student user IDs for proper role identification
@@ -4771,7 +4786,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
       let isPermanentEnd = false;
       
-      if (this.lessonId && this.isTranscriptionEnabled) {
+      if (this.lessonId) {
         try {
           const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
           const lesson = lessonResponse?.lesson;
@@ -4794,26 +4809,32 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
       
-      // ALWAYS stop audio recording when leaving the page
-      // This prevents audio from continuing to record/upload after navigation
+      // ALWAYS stop audio recording and complete transcription before navigating away.
+      // This is critical: once we navigate, the video-call component is destroyed
+      // and any deferred completeTranscription calls (e.g. from early exit modal) will never fire.
       if (this.isTranscriptionEnabled) {
-        console.log('🛑 Stopping audio recording on page exit...');
+        console.log('🛑 Stopping audio recording and completing transcription...');
         await this.stopAudioCapture_FIXED();
         
-        // Wait for final upload to complete
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('✅ Audio recording stopped');
-      }
-      
-      // Clear transcription session based on whether this is permanent or temporary
-      if (isPermanentEnd) {
-        console.log('✅ Permanent end (at/after scheduled time) - clearing transcription session completely');
+        // Wait for batch upload to finish
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('✅ Audio recording stopped and uploaded');
+        
+        // Complete transcription NOW — before navigating away
+        // This triggers Whisper + GPT analysis on the backend
+        if (this.currentTranscriptId) {
+          try {
+            console.log('📝 Completing transcription before navigation...');
+            await firstValueFrom(this.transcriptionService.completeTranscription());
+            console.log('✅ Transcription completion sent to backend');
+          } catch (error) {
+            console.error('❌ Error completing transcription (non-fatal):', error);
+            // Non-fatal: the retry cron will catch it
+          }
+        }
+        
         this.clearTranscriptionSession();
         this.isTranscriptionEnabled = false;
-      } else {
-        console.log('⏸️ Temporary leave (before scheduled time) - keeping session metadata for potential resume');
-        // DON'T clear localStorage - session metadata stays for resume
-        // But the audio recorder is already stopped above to prevent background recording
       }
       
       // Call leave endpoint if we have a lessonId
@@ -5168,7 +5189,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     
     // CRITICAL: Always stop audio recording when page is destroyed
     // This prevents orphaned MediaRecorder from continuing to record/upload
-    if (this.transcriptionRecorder || this.transcriptionUploadInterval) {
+    if (this.transcriptionRecorder || this.transcriptionUploadInterval || this.samplingCheckInterval) {
       console.log('🛑🛑🛑 SAFETY: Stopping audio recording in ngOnDestroy');
       try {
         await this.stopAudioCapture_FIXED();
@@ -5677,22 +5698,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // FEATURE TEMPORARILY DISABLED: AI analysis toggle
-      // Always enable transcription for now
-      // 
-      // // Check if student has AI analysis enabled
-      // // Default to TRUE if we can't determine (backwards compatibility)
-      // console.log('🤖 Checking AI analysis setting for student...');
-      // const student = lesson.studentId as any; // Should be populated by backend
-      // 
-      // // Only skip if explicitly disabled
-      // if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
-      //   console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
-      //   console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END (AI DISABLED) ===');
-      //   return;
-      // }
-      // 
-      // console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
+      // Check if student has AI analysis enabled
+      // Default to TRUE if we can't determine (backwards compatibility)
+      console.log('🤖 Checking AI analysis setting for student...');
+      const student = lesson.studentId as any; // Should be populated by backend
+      
+      // Only skip if explicitly disabled
+      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
+        console.log('🎤 === TRANSCRIPTION CHECK END (AI DISABLED) ===');
+        return;
+      }
+      
+      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
       
       console.log('✅ Proceeding with transcription (AI analysis always enabled)');
 
@@ -5711,7 +5729,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         'Arabic': 'ar'
       };
       
-      const subjectLanguage = lesson.subject || 'English';
+      // Normalize "Spanish Lesson" → "Spanish", etc.
+      const rawSubject = lesson.subject || 'English';
+      const subjectLanguage = rawSubject.replace(/\s*Lesson$/i, '').trim();
       this.lessonLanguage = languageMap[subjectLanguage] || 'en';
       
       console.log(`🎙️ Deepgram language conversion:`, {
@@ -6107,33 +6127,96 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * FIXED: Start capturing audio with better format handling
+   * Calculate sampling windows based on lesson duration.
+   * Only 25-min and 50-min standard lessons are supported.
+   * All other durations (trial, office hours, quick, etc.) return empty = no recording.
+   */
+  private calculateSamplingWindows(durationMinutes: number): { startMin: number; endMin: number }[] {
+    if (durationMinutes === 25) {
+      // 25-min lesson: 3 windows = 15 min recorded (60%)
+      // ┌──────────────────────────────────────────────────────────┐
+      // │  [🔴 min 1-6]  ...  [🔴 min 10-15]  ...  [🔴 min 19-24] │
+      // │  ▲ Opening        ▲ Mid-lesson core     ▲ Closing        │
+      // └──────────────────────────────────────────────────────────┘
+      return [
+        { startMin: 1, endMin: 6 },     // Opening/warm-up
+        { startMin: 10, endMin: 15 },   // Mid-lesson core practice
+        { startMin: 19, endMin: 24 },   // Closing/wrap-up
+      ];
+    }
+    
+    if (durationMinutes === 50) {
+      // 50-min lesson: 3 windows = 15 min recorded (30%)
+      // ┌──────────────────────────────────────────────────────────────────┐
+      // │  [🔴 min 2-7]  ...silence...  [🔴 min 22-27]  ...  [🔴 min 42-47]  │
+      // │  ▲ Opening        ▲ Mid-lesson core         ▲ Closing           │
+      // └──────────────────────────────────────────────────────────────────┘
+      return [
+        { startMin: 2, endMin: 7 },      // Opening/warm-up
+        { startMin: 22, endMin: 27 },    // Mid-lesson core practice
+        { startMin: 42, endMin: 47 },    // Closing/natural speech
+      ];
+    }
+    
+    // Any other duration: no recording
+    console.log(`⏭️ No sampling windows for ${durationMinutes}min lesson — only 25 and 50 min lessons are recorded`);
+    return [];
+  }
+
+  /**
+   * Start capturing audio using window-based sampling.
+   * Only records for 25-min and 50-min standard lessons.
+   * Trial lessons, office hours, quick lessons, and classes are never recorded.
    */
   private async startAudioCapture_FIXED() {
     try {
-      console.log('🎙️ ========== STARTING FIXED AUDIO CAPTURE ==========');
+      console.log('🎙️ ========== STARTING SAMPLED AUDIO CAPTURE ==========');
       
-      // Get microphone access directly (don't rely on Agora)
+      // Guard: no recording for trial lessons
+      if (this.isTrialLesson) {
+        console.log('⏭️ SKIPPING audio capture — trial lesson');
+        return;
+      }
+      
+      // Guard: no recording for classes (group sessions)
+      if (this.isClass) {
+        console.log('⏭️ SKIPPING audio capture — class (group session)');
+        return;
+      }
+      
+      // Guard: no recording for office hours
+      if (this.isOfficeHours) {
+        console.log('⏭️ SKIPPING audio capture — office hours');
+        return;
+      }
+      
+      // Guard: only 25-min and 50-min lessons get recorded
+      const lessonDuration = this.bookedDuration;
+      if (lessonDuration !== 25 && lessonDuration !== 50) {
+        console.log(`⏭️ SKIPPING audio capture — unsupported duration: ${lessonDuration}min (only 25 and 50 min supported)`);
+        return;
+      }
+      
+      // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,    // Whisper prefers 16kHz
-          channelCount: 1,      // Mono
+          sampleRate: 16000,
+          channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true
         }
       });
       
+      this.transcriptionStream = stream;
       console.log('✅ Got direct microphone access');
       
-      // Use audio/webm which is most reliable across browsers
-      // MP3 would be ideal but not supported by MediaRecorder
-      let selectedType = 'audio/webm'; // Default to webm (will be converted to MP3 on backend)
-      
+      // Determine audio format
+      let selectedType = 'audio/webm';
       const preferredTypes = [
-        'audio/webm;codecs=opus', // Best quality webm
-        'audio/webm',              // Fallback webm
-        'audio/mp4',               // iOS/Safari
-        'audio/wav'                // Last resort
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
       ];
       
       for (const type of preferredTypes) {
@@ -6143,20 +6226,75 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           break;
         }
       }
+      this.transcriptionMimeType = selectedType;
       
-      // Create MediaRecorder with optimal settings
-      this.transcriptionRecorder = new MediaRecorder(stream, {
-        mimeType: selectedType,
-        audioBitsPerSecond: 64000  // Lower bitrate for smaller files
+      // Calculate sampling windows (guaranteed to be non-empty for 25/50 min)
+      this.samplingWindows = this.calculateSamplingWindows(lessonDuration);
+      this.lessonStartTimestamp = Date.now();
+      this.batchAudioBlobs = [];
+      this.transcriptionAudioChunks = [];
+      this.isCurrentlyRecording = false;
+      
+      console.log(`📊 Sampling strategy for ${lessonDuration}min lesson:`, this.samplingWindows);
+      console.log(`📊 Total recording time: ${this.samplingWindows.reduce((sum, w) => sum + (w.endMin - w.startMin), 0)} minutes`);
+      
+      // Check every 10 seconds whether we should be recording
+      this.samplingCheckInterval = setInterval(() => {
+        this.checkSamplingWindow();
+      }, 10000);
+      
+      // Do an immediate check
+      this.checkSamplingWindow();
+      
+      console.log('🎙️ ========== SAMPLED AUDIO CAPTURE READY ==========');
+      
+    } catch (error) {
+      console.error('❌ Error in sampled audio capture:', error);
+    }
+  }
+
+  /**
+   * Check if we should be recording based on current time in the lesson.
+   * Starts/stops the MediaRecorder based on sampling windows.
+   */
+  private checkSamplingWindow(): void {
+    const elapsedMs = Date.now() - this.lessonStartTimestamp;
+    const elapsedMin = elapsedMs / 60000;
+    
+    // Check if we're inside any sampling window
+    const shouldRecord = this.samplingWindows.some(
+      w => elapsedMin >= w.startMin && elapsedMin < w.endMin
+    );
+    
+    if (shouldRecord && !this.isCurrentlyRecording) {
+      // START recording for this window
+      this.startWindowRecording();
+    } else if (!shouldRecord && this.isCurrentlyRecording) {
+      // STOP recording for this window and save the audio
+      this.stopWindowRecording();
+    }
+  }
+
+  /**
+   * Start recording for a sampling window.
+   */
+  private startWindowRecording(): void {
+    if (!this.transcriptionStream || this.isCurrentlyRecording) return;
+    
+    try {
+      const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
+      console.log(`🟢 Starting sampling window recording at minute ${elapsedMin}`);
+      
+      this.transcriptionRecorder = new MediaRecorder(this.transcriptionStream, {
+        mimeType: this.transcriptionMimeType,
+        audioBitsPerSecond: 64000
       });
       
       this.transcriptionAudioChunks = [];
       
-      // Collect audio data
       this.transcriptionRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.transcriptionAudioChunks.push(event.data);
-          console.log(`🎙️ ✅ Audio chunk: ${event.data.size} bytes (Total: ${this.transcriptionAudioChunks.length})`);
         }
       };
       
@@ -6164,148 +6302,191 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.error('❌ MediaRecorder error:', event);
       };
       
-      // Start recording with longer intervals (30 seconds)
+      // Collect data every 30 seconds within the window
       this.transcriptionRecorder.start(30000);
-      console.log(`✅ Recording started with format: ${selectedType}`);
-      
-      // Upload chunks every 30 seconds
-      this.transcriptionUploadInterval = setInterval(() => {
-        this.uploadAudioChunk_FIXED();
-      }, 30000);
-      
-      // Add visibility change listener to upload immediately on page hide/refresh
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden && this.transcriptionAudioChunks.length > 0) {
-          console.log('🚨 Page hidden - uploading buffer immediately to prevent data loss');
-          this.uploadAudioChunk_FIXED();
-        }
-      });
-      
-      console.log('🎙️ ========== FIXED AUDIO CAPTURE READY ==========');
+      this.isCurrentlyRecording = true;
       
     } catch (error) {
-      console.error('❌ Error in fixed audio capture:', error);
+      console.error('❌ Error starting window recording:', error);
     }
   }
 
   /**
-   * FIXED: Upload audio chunk with better error handling
+   * Stop recording for a sampling window and save the audio blob.
    */
-  private uploadAudioChunk_FIXED(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      console.log('🎙️ ========== FIXED UPLOAD CALLED ==========');
-      
-      if (!this.transcriptionRecorder || this.transcriptionAudioChunks.length === 0) {
-        console.log('⏭️ No audio to upload yet');
-        resolve();
-        return;
-      }
-      
-      try {
-        // Stop recorder to finalize the current chunk
-        if (this.transcriptionRecorder.state === 'recording') {
-          this.transcriptionRecorder.stop();
+  private stopWindowRecording(): void {
+    if (!this.transcriptionRecorder || !this.isCurrentlyRecording) return;
+    
+    const elapsedMin = ((Date.now() - this.lessonStartTimestamp) / 60000).toFixed(1);
+    console.log(`🔴 Stopping sampling window recording at minute ${elapsedMin}`);
+    
+    const recorder = this.transcriptionRecorder;
+    
+    recorder.onstop = () => {
+      // Save this window's audio as a blob for batch upload later
+      if (this.transcriptionAudioChunks.length > 0) {
+        const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
+        if (windowBlob.size > 1000) {
+          this.batchAudioBlobs.push(windowBlob);
+          console.log(`📦 Window audio saved: ${windowBlob.size} bytes (${this.batchAudioBlobs.length} windows stored)`);
         }
-        
-        // Wait for the final chunk, then upload
-        this.transcriptionRecorder.onstop = () => {
-          const audioBlob = new Blob(this.transcriptionAudioChunks, { 
-            type: this.transcriptionRecorder?.mimeType || 'audio/wav'
-          });
-          
-          console.log(`📦 Created audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
-          
-          if (audioBlob.size > 1000) { // Only upload substantial audio
-            const transcriptId = this.transcriptionService.currentTranscriptId;
-            
-            if (transcriptId) {
-              console.log('📤 Uploading to Whisper...');
-              this.transcriptionService.uploadAudio(transcriptId, audioBlob, 'student')
-                .subscribe({
-                  next: (response) => {
-                    console.log('✅ ✅ ✅ WHISPER UPLOAD SUCCESS:', response);
-                    
-                    // Restart recording for next chunk
-                    this.transcriptionAudioChunks = [];
-                    if (this.transcriptionRecorder) {
-                      this.transcriptionRecorder.start(30000);
-                    }
-                    resolve();
-                  },
-                  error: (error) => {
-                    console.error('❌ ❌ ❌ WHISPER UPLOAD ERROR:', error);
-                    reject(error);
-                  }
-                });
-            } else {
-              console.error('❌ No transcript ID');
-              resolve();
-            }
-          } else {
-            console.log('⏭️ Blob too small, skipping');
-            resolve();
-          }
-        };
-        
-      } catch (error) {
-        console.error('❌ Error in fixed upload:', error);
-        reject(error);
       }
-    });
+      this.transcriptionAudioChunks = [];
+    };
+    
+    if (recorder.state === 'recording') {
+      recorder.stop();
+    }
+    
+    this.transcriptionRecorder = null;
+    this.isCurrentlyRecording = false;
   }
 
   /**
-   * FIXED: Stop audio capture
+   * BATCH UPLOAD: Upload all sampled audio windows as a single concatenated blob at lesson end.
+   * This replaces the old per-30-second upload approach.
+   */
+  private async uploadBatchAudio(): Promise<void> {
+    console.log('🎙️ ========== BATCH UPLOAD CALLED ==========');
+    
+    // If currently recording, stop and save the current window first
+    if (this.isCurrentlyRecording && this.transcriptionRecorder) {
+      await new Promise<void>((resolve) => {
+        const recorder = this.transcriptionRecorder!;
+        recorder.onstop = () => {
+          if (this.transcriptionAudioChunks.length > 0) {
+            const windowBlob = new Blob(this.transcriptionAudioChunks, { type: this.transcriptionMimeType });
+            if (windowBlob.size > 1000) {
+              this.batchAudioBlobs.push(windowBlob);
+            }
+          }
+          this.transcriptionAudioChunks = [];
+          resolve();
+        };
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        } else {
+          resolve();
+        }
+      });
+      this.transcriptionRecorder = null;
+      this.isCurrentlyRecording = false;
+    }
+    
+    if (this.batchAudioBlobs.length === 0) {
+      console.log('⏭️ No audio windows to upload');
+      return;
+    }
+    
+    // Concatenate all window blobs into one
+    const combinedBlob = new Blob(this.batchAudioBlobs, { type: this.transcriptionMimeType });
+    console.log(`📦 Combined batch audio: ${combinedBlob.size} bytes from ${this.batchAudioBlobs.length} windows`);
+    
+    if (combinedBlob.size < 1000) {
+      console.log('⏭️ Combined blob too small, skipping');
+      return;
+    }
+    
+    const transcriptId = this.transcriptionService.currentTranscriptId;
+    if (!transcriptId) {
+      console.error('❌ No transcript ID for batch upload');
+      return;
+    }
+    
+    console.log('📤 Uploading batch audio to Whisper...');
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.transcriptionService.uploadAudio(transcriptId, combinedBlob, 'student')
+          .subscribe({
+            next: (response) => {
+              console.log('✅ ✅ ✅ BATCH WHISPER UPLOAD SUCCESS:', response);
+              resolve();
+            },
+            error: (error) => {
+              console.error('❌ ❌ ❌ BATCH WHISPER UPLOAD ERROR:', error);
+              reject(error);
+            }
+          });
+      });
+    } catch (error) {
+      console.error('❌ Batch upload failed:', error);
+    }
+    
+    // Clear stored blobs
+    this.batchAudioBlobs = [];
+  }
+
+  /**
+   * Legacy compatibility wrapper - redirects to batch upload.
+   */
+  private uploadAudioChunk_FIXED(): Promise<void> {
+    return this.uploadBatchAudio();
+  }
+
+  /**
+   * Legacy compatibility wrapper - no longer needed with sampling approach.
+   */
+  private restartRecorder(_mimeType: string): void {
+    // No-op: sampling approach handles recorder lifecycle via window start/stop
+  }
+
+  /**
+   * Stop audio capture and perform batch upload of all sampled windows.
    */
   private async stopAudioCapture_FIXED(): Promise<void> {
-    console.log('🛑 Stopping fixed audio capture...');
+    console.log('🛑 Stopping sampled audio capture...');
     
     try {
-      // Stop upload interval FIRST
+      // Stop the sampling check interval
+      if (this.samplingCheckInterval) {
+        clearInterval(this.samplingCheckInterval);
+        this.samplingCheckInterval = null;
+        console.log('✅ Sampling check interval cleared');
+      }
+      
+      // Stop legacy upload interval if still running
       if (this.transcriptionUploadInterval) {
         clearInterval(this.transcriptionUploadInterval);
         this.transcriptionUploadInterval = null;
-        console.log('✅ Upload interval cleared');
       }
       
-      // Stop recorder and its tracks
+      // Perform batch upload of all sampled audio
+      console.log('📤 Performing batch upload of all sampled windows...');
+      try {
+        await Promise.race([
+          this.uploadBatchAudio(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Batch upload timeout after 30 seconds')), 30000)
+          )
+        ]);
+        console.log('✅ Batch upload completed');
+      } catch (error) {
+        console.error('❌ Error in batch upload:', error);
+      }
+      
+      // Stop recorder if still active
       if (this.transcriptionRecorder) {
         if (this.transcriptionRecorder.state === 'recording') {
           this.transcriptionRecorder.stop();
         }
-        
-        // Stop all audio tracks to release microphone
-        if (this.transcriptionRecorder.stream) {
-          this.transcriptionRecorder.stream.getTracks().forEach(track => {
-            track.stop();
-            console.log('🛑 Stopped audio track:', track.kind);
-          });
-        }
-        
         this.transcriptionRecorder = null;
-        console.log('✅ Recorder stopped and tracks released');
       }
       
-      // Upload final chunk if there is one (but ONLY if we haven't cleared the interval above)
-      if (this.transcriptionAudioChunks.length > 0 && this.transcriptionUploadInterval === null) {
-        console.log('📤 Uploading final chunk...');
-        try {
-          await Promise.race([
-            this.uploadAudioChunk_FIXED(),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Upload timeout after 10 seconds')), 10000)
-            )
-          ]);
-          console.log('✅ Final chunk uploaded');
-        } catch (error) {
-          console.error('❌ Error uploading final chunk:', error);
-        }
+      // Release microphone
+      if (this.transcriptionStream) {
+        this.transcriptionStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 Stopped audio track:', track.kind);
+        });
+        this.transcriptionStream = null;
       }
       
-      // Clear any remaining chunks
+      // Clear all audio data
       this.transcriptionAudioChunks = [];
+      this.batchAudioBlobs = [];
+      this.isCurrentlyRecording = false;
       
-      console.log('✅ Fixed audio capture stopped');
+      console.log('✅ Sampled audio capture stopped');
     } catch (error) {
       console.error('❌ Error in stopAudioCapture_FIXED:', error);
     }

@@ -266,7 +266,8 @@ router.get('/struggles/:language', verifyToken, async (req, res) => {
 
 /**
  * @route   GET /api/progress/check-milestone/:language
- * @desc    Check if student hit a 5-lesson milestone and create notification if needed
+ * @desc    Check if student hit a 5-lesson milestone and create notification if needed.
+ *          Calculates averages for the milestone block and includes them in the notification.
  * @access  Private
  */
 router.get('/check-milestone/:language', verifyToken, async (req, res) => {
@@ -279,7 +280,7 @@ router.get('/check-milestone/:language', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    // Count total completed lessons for this language (excluding trial & quick office hours)
+    // Get all completed analyses for this language (excluding trial & quick office hours)
     const allCompletedLessons = await LessonAnalysis.find({
       studentId: user._id,
       language: language,
@@ -289,6 +290,7 @@ router.get('/check-milestone/:language', verifyToken, async (req, res) => {
         path: 'lessonId',
         select: 'isTrialLesson isOfficeHours officeHoursType'
       })
+      .sort({ lessonDate: 1 }) // oldest first for milestone block calculation
       .lean();
     
     // Filter out trial lessons and quick office hours
@@ -302,7 +304,6 @@ router.get('/check-milestone/:language', verifyToken, async (req, res) => {
     
     const totalLessons = filteredLessons.length;
     console.log(`📊 [Milestone] ${totalLessons} regular lessons (filtered from ${allCompletedLessons.length} total) for ${language}`);
-
     
     const isMilestone = totalLessons > 0 && totalLessons % 5 === 0;
     
@@ -310,73 +311,66 @@ router.get('/check-milestone/:language', verifyToken, async (req, res) => {
       // Check if we already created a notification for this milestone
       const existingNotification = await Notification.findOne({
         userId: user._id,
-        type: 'struggle_milestone',
+        type: 'progress_milestone',
         'data.language': language,
         'data.milestone': totalLessons
       });
       
       if (!existingNotification) {
-        // Get struggle data from last 5 REGULAR lessons (already filtered)
-        const strugglesLessons = await LessonAnalysis.find({
-          studentId: user._id,
-          language: language,
-          status: 'completed'
-        })
-          .populate({
-            path: 'lessonId',
-            select: 'isTrialLesson isOfficeHours officeHoursType'
-          })
-          .sort({ lessonDate: -1 })
-          .select('topErrors progressionMetrics lessonId')
-          .lean();
+        // Get the most recent 5-lesson block for averages
+        const milestoneBlock = filteredLessons.slice(-5);
         
-        // Filter and take last 5
-        const recentLessons = strugglesLessons
-          .filter(lesson => {
-            const lessonData = lesson.lessonId;
-            if (!lessonData) return true;
-            if (lessonData.isTrialLesson === true) return false;
-            if (lessonData.isOfficeHours === true && lessonData.officeHoursType === 'quick') return false;
-            return true;
-          })
-          .slice(0, 5);
-
+        // Calculate averages for this milestone block
+        const levelMap = { 'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6 };
+        const levelNames = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
         
-        // Count struggles
-        const struggleMap = new Map();
-        recentLessons.forEach(lesson => {
-          lesson.topErrors?.forEach(error => {
-            const key = error.issue.toLowerCase().trim();
-            if (!struggleMap.has(key)) {
-              struggleMap.set(key, { issue: error.issue, count: 0 });
-            }
-            struggleMap.get(key).count += 1;
-          });
-        });
+        const cefrLevels = milestoneBlock.map(a => levelMap[a.overallAssessment?.proficiencyLevel] || 3);
+        const avgCefrNum = Math.round(cefrLevels.reduce((s, l) => s + l, 0) / cefrLevels.length);
+        const avgCefrLevel = levelNames[Math.max(1, Math.min(6, avgCefrNum))];
         
-        const topStruggle = Array.from(struggleMap.values())
-          .filter(s => s.count >= 2)
-          .sort((a, b) => b.count - a.count)[0];
+        const grammarScores = milestoneBlock.map(a => a.grammarAnalysis?.accuracyScore || 0).filter(s => s > 0);
+        const fluencyScores = milestoneBlock.map(a => a.fluencyAnalysis?.overallFluencyScore || 0).filter(s => s > 0);
         
-        // Create notification
-        const message = topStruggle 
-          ? `You've completed <strong>${totalLessons} ${language}</strong> lessons! We've noticed you're working on <strong>${topStruggle.issue}</strong>. Check your progress page for insights.`
-          : `Great progress! You've completed <strong>${totalLessons} ${language}</strong> lessons. Check your progress page to see how you're doing!`;
+        const vocabToScore = (range) => {
+          const map = { 'limited': 30, 'moderate': 55, 'good': 75, 'excellent': 92 };
+          return map[range] || 50;
+        };
+        const vocabScores = milestoneBlock.map(a => vocabToScore(a.vocabularyAnalysis?.vocabularyRange)).filter(s => s > 0);
+        
+        const avgGrammar = grammarScores.length > 0 ? Math.round(grammarScores.reduce((s, v) => s + v, 0) / grammarScores.length) : 0;
+        const avgFluency = fluencyScores.length > 0 ? Math.round(fluencyScores.reduce((s, v) => s + v, 0) / fluencyScores.length) : 0;
+        const avgVocab = vocabScores.length > 0 ? Math.round(vocabScores.reduce((s, v) => s + v, 0) / vocabScores.length) : 0;
+        const totalStudyTime = milestoneBlock.reduce((s, a) => s + (a.progressionMetrics?.speakingTimeMinutes || 0), 0);
+        
+        const milestoneNumber = totalLessons / 5;
+        
+        // Create rich notification with averages and action button
+        const message = milestoneNumber === 1
+          ? `🎉 You've unlocked your Progress Profile after 5 <strong>${language}</strong> lessons! Tap to see your full breakdown.`
+          : `📊 Milestone ${milestoneNumber} complete! You've finished ${totalLessons} <strong>${language}</strong> lessons. Tap to see how you've improved.`;
         
         await Notification.create({
           userId: user._id,
-          type: 'struggle_milestone',
-          title: `${language} Progress Milestone! 🎯`,
+          type: 'progress_milestone',
+          title: milestoneNumber === 1 ? `Progress Profile Unlocked! 🏆` : `${language} Milestone ${milestoneNumber}! 🎯`,
           message: message,
           data: {
             language: language,
             milestone: totalLessons,
-            topStruggle: topStruggle?.issue
+            milestoneNumber: milestoneNumber,
+            avgCefrLevel: avgCefrLevel,
+            avgGrammar: avgGrammar,
+            avgFluency: avgFluency,
+            avgVocab: avgVocab,
+            totalStudyTime: totalStudyTime,
+            hasActionButton: true,
+            actionButtonText: 'View Progress',
+            actionRoute: '/tabs/progress'
           },
           read: false
         });
         
-        console.log(`✅ Created struggle milestone notification for ${user._id} - ${language} (${totalLessons} lessons)`);
+        console.log(`✅ Created progress milestone notification for ${user._id} - ${language} (milestone ${milestoneNumber}, ${totalLessons} lessons, avg CEFR: ${avgCefrLevel})`);
       }
     }
     

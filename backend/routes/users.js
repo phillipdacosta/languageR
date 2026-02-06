@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
+const TutorFeedback = require('../models/TutorFeedback');
 const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
 const rateLimit = require('express-rate-limit');
 
@@ -974,8 +975,27 @@ router.get('/tutors', verifyToken, async (req, res) => {
         .select('name firstName lastName email picture auth0Id onboardingData profile stats createdAt country residenceCountry');
     }
 
-    // Get total count for pagination
-    const totalCount = await User.countDocuments(filterQuery);
+    // Get all matching tutor IDs (for accurate totalCount after filtering hidden tutors)
+    // We need to filter out tutors with pending feedback before counting
+    const allMatchingTutorIds = await User.find(filterQuery).select('_id auth0Id').lean();
+    
+    // Get tutors with pending feedback (hidden from search)
+    // TutorFeedback.tutorId can be either MongoDB _id or auth0Id, so check both
+    const allTutorMongoIds = allMatchingTutorIds.map(t => t._id);
+    const allTutorAuth0Ids = allMatchingTutorIds.map(t => t.auth0Id).filter(Boolean);
+    const feedbackBlocked = await TutorFeedback.distinct('tutorId', {
+      $or: [
+        { tutorId: { $in: allTutorMongoIds } },
+        { tutorId: { $in: allTutorAuth0Ids } }
+      ],
+      status: 'pending'
+    });
+    const blockedIdSet = new Set(feedbackBlocked.map(id => id.toString()));
+    
+    // Calculate accurate totalCount by excluding blocked tutors
+    const totalCount = allMatchingTutorIds.filter(t => 
+      !blockedIdSet.has(t._id.toString()) && !blockedIdSet.has(t.auth0Id)
+    ).length;
 
     // Format response
     const now = new Date();
@@ -987,6 +1007,16 @@ router.get('/tutors', verifyToken, async (req, res) => {
       tutors.forEach(tutor => {
         console.log(`  - ${tutor.name || tutor.email}: country="${tutor.country}", residenceCountry="${tutor.residenceCountry}"`);
       });
+    }
+    
+    // Filter out tutors with pending feedback from the paginated results
+    // Use the same blockedIdSet we calculated above
+    if (blockedIdSet.size > 0) {
+      const beforeCount = tutors.length;
+      tutors = tutors.filter(t => 
+        !blockedIdSet.has(t._id.toString()) && !blockedIdSet.has(t.auth0Id)
+      );
+      console.log(`🚫 Hiding ${beforeCount - tutors.length} tutor(s) with pending feedback from search results`);
     }
     
     const formattedTutors = tutors.map(tutor => {

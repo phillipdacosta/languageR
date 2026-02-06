@@ -553,7 +553,11 @@ ion-content {
   background: #fff;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
@@ -564,7 +568,10 @@ ion-content {
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.06);
   }
   
   &:active {
@@ -967,8 +974,12 @@ ion-content {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  border: 1px solid $border-color;
-  box-shadow: none;
+  border: none;
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   gap: 16px;
   animation: fadeInUp 0.4s ease-out both;
   
@@ -1328,10 +1339,22 @@ ion-content {
 .airbnb-dates-card {
   margin: 0;
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   flex: 1;
   display: flex;
   flex-direction: column;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  
+  &:hover {
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.06);
+  }
 }
 
 .airbnb-dates-content {
@@ -1367,6 +1390,11 @@ ion-content {
   // Underline like Airbnb's "$40"
   text-decoration: underline;
   text-underline-offset: 2px;
+  
+  // Cancelled variant - muted color
+  &.cancelled-count {
+    color: #717171;
+  }
 }
 
 .airbnb-dates-subtitle {
@@ -1574,10 +1602,22 @@ ion-content {
 .airbnb-quick-actions-card {
   margin: 0;
   border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   flex: 1;
   display: flex;
   flex-direction: column;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  
+  &:hover {
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.06);
+  }
   
   @media (max-width: 968px) {
     margin-top: 0;
@@ -1677,6 +1717,49 @@ ion-content {
 .chevron-icon {
   font-size: 18px;
   color: #BDBDBD;
+  flex-shrink: 0;
+}
+
+// Outstanding feedback urgent quick action
+.quick-action-urgent {
+  background: rgba(255, 59, 48, 0.04) !important;
+  border-radius: 12px;
+  margin: 0 -8px;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  border-bottom: 1px solid rgba(255, 59, 48, 0.12) !important;
+  
+  &:hover {
+    background: rgba(255, 59, 48, 0.08) !important;
+  }
+  
+  .quick-action-title {
+    color: #222222;
+    font-weight: 600;
+  }
+  
+  .quick-action-subtitle {
+    color: #FF3B30;
+    font-weight: 500;
+  }
+}
+
+.quick-action-icon.urgent {
+  background: linear-gradient(135deg, #FF6B6B, #ee5a24);
+  
+  ion-icon {
+    color: white;
+  }
+}
+
+.feedback-count-badge {
+  --background: #FF3B30;
+  --color: white;
+  font-weight: 700;
+  font-size: 13px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 13px;
   flex-shrink: 0;
 }
 
@@ -1975,6 +2058,176 @@ ion-content {
   
   &:hover {
     background: #000000;
+  }
+}
+
+// =============================================
+// OUTSTANDING FEEDBACK BANNER (Airbnb style)
+// =============================================
+.feedback-banner-airbnb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFEEDD;
+  border: 1px solid #FFC085;
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: feedbackBannerIn 0.4s ease-out;
+  position: relative;
+  bottom: 14px;
+  box-shadow: 0 2px 12px rgba(255, 138, 0, 0.12);
+  gap: 16px;
+
+  &:hover {
+    background: #FFE4C7;
+    border-color: #FFB366;
+    box-shadow: 0 4px 16px rgba(255, 138, 0, 0.18);
+  }
+
+  &:active {
+    transform: scale(0.995);
+  }
+
+  .feedback-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .feedback-banner-count {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #222;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+  }
+
+  .feedback-banner-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .feedback-banner-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #222;
+    letter-spacing: -0.2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-subtitle {
+    font-size: 13px;
+    font-weight: 400;
+    color: #717171;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .feedback-banner-cta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    flex-grow: 0;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+    margin-left: auto;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &:hover {
+      background: #000;
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 14px 16px;
+
+    .feedback-banner-count {
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+      border-radius: 10px;
+    }
+
+    .feedback-banner-title {
+      font-size: 14px;
+    }
+
+    .feedback-banner-subtitle {
+      font-size: 12px;
+    }
+
+    .feedback-banner-cta {
+      padding: 7px 12px;
+      font-size: 13px;
+    }
+  }
+}
+
+@keyframes feedbackBannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Feedback modal specifics (reuses all airbnb-* lesson row styles)
+.airbnb-feedback-pending {
+  font-size: 14px;
+  color: #ff9500;
+  font-weight: 500;
+}
+
+.feedback-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 8px;
+  
+  ion-icon {
+    font-size: 20px;
+    color: #222222;
   }
 }
 
@@ -4011,6 +4264,13 @@ ion-content {
   overflow: visible;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
+
+  // Disabled state when tutor has outstanding feedback
+  &.card-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    filter: grayscale(0.3);
+  }
   
   // Smooth load-in animation (only for actual card, not loading state)
   &:not(.loading-card) {
@@ -5316,7 +5576,12 @@ ion-content {
   padding: 48px 24px;
   background: #ffffff;
   border-radius: 20px;
-  border: 1px solid #e5e7eb;
+  border: none;
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   
   @media (max-width: 600px) {
     padding: 40px 20px;
@@ -6496,7 +6761,11 @@ ion-content {
 // Up Next Card (Left - Upcoming Lesson)
 .up-next-card {
   border-radius: 24px;
-  box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -7287,7 +7556,11 @@ ion-content {
 .dynamic-card {
   flex: 1;
   border-radius: 24px;
-  box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+  // Clean elevated shadow - Apple/Airbnb style
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
   background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -7300,13 +7573,19 @@ ion-content {
     
     &:hover {
       transform: none;
-      box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
+      box-shadow: 
+        0 1px 2px rgba(0, 0, 0, 0.04),
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        0 8px 24px rgba(0, 0, 0, 0.04);
     }
   }
   
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(50, 50, 50, 0.06), 0 2px 6px rgba(50, 50, 50, 0.04);
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 8px 20px rgba(0, 0, 0, 0.08),
+      0 12px 32px rgba(0, 0, 0, 0.06);
   }
   
   ion-card-content {
@@ -7514,7 +7793,11 @@ ion-content {
   
   .insights-panel {
     background: #2a2a2a !important;
-    border: 1px solid #3a3a3a !important;
+    border: none !important;
+    box-shadow: 
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.2) !important;
   }
   
   .timeline-card {

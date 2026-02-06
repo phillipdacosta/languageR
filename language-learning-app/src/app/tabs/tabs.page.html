@@ -164,6 +164,14 @@
                 <ion-icon name="calendar-outline"></ion-icon>
                 Add availability
               </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                View Progress
+              </button>
               <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
             <div class="notification-item-right">
@@ -215,6 +223,14 @@
                   (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                   <ion-icon name="calendar-outline"></ion-icon>
                   Add availability
+                </button>
+                <!-- View Progress Button for progress_milestone notifications -->
+                <button 
+                  *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                  class="add-availability-btn milestone-btn"
+                  (click)="navigateToProgress(); $event.stopPropagation()">
+                  <ion-icon name="trophy-outline"></ion-icon>
+                  View Progress
                 </button>
                 <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>

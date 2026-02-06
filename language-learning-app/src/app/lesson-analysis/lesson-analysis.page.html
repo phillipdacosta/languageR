@@ -129,6 +129,10 @@
                 ></ion-icon>
               </div>
             </div>
+            <div class="source-badge" *ngIf="analysisSource">
+              <ion-icon [name]="analysisSource === 'ai' ? 'hardware-chip-outline' : 'person-outline'"></ion-icon>
+              <span>{{ analysisSource === 'ai' ? 'AI Analysis' : 'Tutor Assessment' }}</span>
+            </div>
             <div
               class="progress-note"
               *ngIf="shouldShowProgress()"

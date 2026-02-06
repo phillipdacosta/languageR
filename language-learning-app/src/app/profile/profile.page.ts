@@ -8,7 +8,7 @@ import { LanguageService, LanguageOption, SupportedLanguage } from '../services/
 import { WebSocketService } from '../services/websocket.service';
 import { FileUploadService } from '../services/file-upload.service';
 import { Observable, firstValueFrom, Subject } from 'rxjs';
-import { take, takeUntil } from 'rxjs/operators';
+import { filter, take, takeUntil } from 'rxjs/operators';
 import { LoadingController, AlertController, ModalController, ToastController, Platform } from '@ionic/angular';
 import { VideoUploadComponent } from '../components/video-upload/video-upload.component';
 import { TimezoneSelectorComponent } from '../components/timezone-selector/timezone-selector.component';
@@ -18,6 +18,7 @@ import { detectUserTimezone } from '../shared/timezone.constants';
 import { getTimezoneLabel } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
+import { TutorFeedbackService } from '../services/tutor-feedback.service';
 
 @Component({
   selector: 'app-profile',
@@ -67,8 +68,12 @@ export class ProfilePage implements OnInit {
   payoutProvider: string = 'none'; // Current payout provider: 'stripe', 'paypal', 'manual', 'none'
 
   // Visibility status (for tutors)
-  isTutorVisible: boolean = false;
+  isTutorVisible: boolean = true;
+  visibilityLoaded: boolean = false;
+  feedbackCountLoaded: boolean = false;
   visibilityMissingItems: string[] = [];
+  pendingFeedbackCount: number = 0;
+  pendingFeedbackItems: any[] = [];
 
   // Earnings (for tutors)
   totalEarnings = 0;
@@ -91,7 +96,8 @@ export class ProfilePage implements OnInit {
     private sanitizer: DomSanitizer,
     private http: HttpClient,
     private platform: Platform,
-    private websocketService: WebSocketService
+    private websocketService: WebSocketService,
+    private tutorFeedbackService: TutorFeedbackService
   ) {
     this.user$ = this.authService.user$;
     this.isAuthenticated$ = this.authService.isAuthenticated$;
@@ -143,6 +149,9 @@ export class ProfilePage implements OnInit {
         this.updateVisibilityStatus();
       }
     });
+    
+    // Note: loadPendingFeedbackCount is called from loadCurrentUserProfile()
+    // after currentUser is set, since isTutor() needs currentUser to work.
     
     // Subscribe to video approval WebSocket notifications
     this.websocketService.tutorVideoApproved$.pipe(
@@ -208,6 +217,10 @@ export class ProfilePage implements OnInit {
       if (this.isTutor()) {
         this.checkPayoutStatus();
         this.loadEarnings();
+        this.loadPendingFeedbackCount();
+      } else {
+        // Not a tutor — mark feedback as loaded so visibility badge doesn't wait
+        this.feedbackCountLoaded = true;
       }
       
       // Load settings from user profile (database)
@@ -376,17 +389,98 @@ export class ProfilePage implements OnInit {
       missingItems.push('Payout setup');
     }
     
+    // Check 4: No outstanding feedback
+    const hasPendingFeedback = this.pendingFeedbackCount > 0;
+    if (hasPendingFeedback) {
+      missingItems.push(`Complete ${this.pendingFeedbackCount} outstanding feedback`);
+    }
+    
     // All conditions must be met
-    this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod;
+    this.isTutorVisible = onboardingCompleted && tutorApproved && hasPayoutMethod && !hasPendingFeedback;
     this.visibilityMissingItems = missingItems;
+    
+    // Only show the badge once the feedback count has loaded (prevents flash)
+    if (this.feedbackCountLoaded) {
+      this.visibilityLoaded = true;
+    }
     
     console.log('👁️ [PROFILE] Visibility status updated:', {
       isTutorVisible: this.isTutorVisible,
       onboardingCompleted,
       tutorApproved,
       hasPayoutMethod,
+      hasPendingFeedback,
+      feedbackCountLoaded: this.feedbackCountLoaded,
       missingItems
     });
+  }
+
+  // Load pending feedback count for visibility check.
+  // Uses the service cache for instant rendering, then refreshes in the background.
+  private loadPendingFeedbackCount(): void {
+    // 1. If the service already has cached data (e.g. from tab1), apply it immediately
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedbackCount = cached.count || 0;
+      this.pendingFeedbackItems = cached.pendingFeedback || [];
+      this.feedbackCountLoaded = true;
+      console.log(`📝 [PROFILE] Using cached feedback count: ${this.pendingFeedbackCount}`);
+      this.updateVisibilityStatus();
+    }
+
+    // 2. Subscribe to future updates (including the background refresh below).
+    //    Skip emissions until the service has actually loaded from the API at
+    //    least once — otherwise the BehaviorSubject's initial { count: 0 }
+    //    causes a flash of "Visible to Students" before the real data arrives.
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(
+        filter(() => this.tutorFeedbackService.isCacheLoaded),
+        takeUntil(this.destroy$)
+      )
+      .subscribe(response => {
+        this.pendingFeedbackCount = response.count || 0;
+        this.pendingFeedbackItems = response.pendingFeedback || [];
+        this.feedbackCountLoaded = true;
+        console.log(`📝 [PROFILE] Feedback count updated: ${this.pendingFeedbackCount}`);
+        this.updateVisibilityStatus();
+
+        // Auto-reopen the feedback modal after submitting one item
+        if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+          setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+        }
+      });
+
+    // 3. Always trigger a background refresh to pick up any new changes
+    this.tutorFeedbackService.refreshPendingFeedback();
+  }
+
+  // Feedback modal state
+  isFeedbackModalOpen = false;
+
+  openFeedbackModal(): void {
+    if (this.pendingFeedbackItems.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  navigateToFeedback(feedbackId: string): void {
+    this.closeFeedbackModal();
+    this.router.navigate(['/tutor-feedback', feedbackId]);
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 
   // Get full name for display

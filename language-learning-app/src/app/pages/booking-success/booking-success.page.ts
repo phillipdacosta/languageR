@@ -2,7 +2,6 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { ActivatedRoute } from '@angular/router';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
 @Component({
@@ -36,18 +35,6 @@ import { trigger, state, style, transition, animate } from '@angular/animations'
         }))
       ])
     ]),
-    trigger('checkmark', [
-      state('void', style({
-        opacity: 0,
-        transform: 'scale(0) rotate(-45deg)'
-      })),
-      transition(':enter', [
-        animate('400ms 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55)', style({
-          opacity: 1,
-          transform: 'scale(1) rotate(0deg)'
-        }))
-      ])
-    ])
   ]
 })
 export class BookingSuccessPage implements OnInit {
@@ -58,8 +45,7 @@ export class BookingSuccessPage implements OnInit {
   formattedTime: string = '';
 
   constructor(
-    private router: Router,
-    private route: ActivatedRoute
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -116,6 +102,7 @@ export class BookingSuccessPage implements OnInit {
   }
 
   getSubjectEmoji(subject: string): string {
+    if (!subject) return '🌍';
     const emojiMap: { [key: string]: string } = {
       'Spanish': '🇪🇸',
       'French': '🇫🇷',
@@ -129,7 +116,9 @@ export class BookingSuccessPage implements OnInit {
       'Russian': '🇷🇺',
       'Arabic': '🇸🇦'
     };
-    return emojiMap[subject] || '🌍';
+    // Handle "Spanish Lesson" → "Spanish"
+    const lang = subject.replace(/\s*Lesson$/i, '').trim();
+    return emojiMap[lang] || '🌍';
   }
 
   formatPrice(price: number): string {

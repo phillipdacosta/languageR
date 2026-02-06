@@ -1,181 +1,467 @@
-// Variables matching your existing design system
-$text-primary: #1a1a1a;
-$text-secondary: #6b7280;
-$border-color: rgba(0, 0, 0, 0.06);
-$background-light: #f9fafb;
-$blue: #3b82f6;
-$green: #22c55e;
+// ─── Airbnb-inspired Tutor Feedback ───
 
+:host {
+  --page-bg: #f7f7f7;
+  --card-bg: #ffffff;
+  --text-primary: #222222;
+  --text-secondary: #717171;
+  --text-hint: #b0b0b0;
+  --border: #ebebeb;
+  --accent: #222222;
+  --danger: #e53935;
+}
+
+.feedback-page {
+  --background: var(--page-bg);
+}
+
+// ─── Loading ───
 .loading-container {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 16px;
-  
+  padding: 32px;
+}
+
+.loading-card {
+  text-align: center;
+
+  ion-spinner {
+    --color: var(--text-primary);
+    transform: scale(1.4);
+    margin-bottom: 16px;
+  }
+
   p {
-    color: $text-secondary;
-    font-size: 14px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin: 0;
   }
 }
 
-.feedback-container {
-  max-width: 700px;
-  margin: 0 auto;
-  padding-bottom: 40px;
-}
-
-.student-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 24px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  color: white;
-  margin-bottom: 24px;
-  
-  ion-avatar {
-    width: 56px;
-    height: 56px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    
-    .avatar-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255, 255, 255, 0.2);
-      font-size: 24px;
-      font-weight: 600;
-    }
-  }
-  
-  .student-info {
-    flex: 1;
-    
-    h2 {
-      margin: 0 0 4px 0;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-    
-    p {
-      margin: 0;
-      font-size: 13px;
-      opacity: 0.9;
-    }
-  }
-}
-
-.form-content {
-  padding: 0 20px;
-}
-
-.form-section {
-  margin-bottom: 32px;
-  
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-    
-    ion-icon {
-      font-size: 24px;
-    }
-    
-    h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: $text-primary;
-      letter-spacing: -0.01em;
-    }
-  }
-  
-  .section-subtitle {
-    margin: 0 0 16px 0;
-    font-size: 13px;
-    color: $text-secondary;
-    padding-left: 34px;
-  }
-}
-
-.dynamic-list {
+// ─── Wrapper ───
+.feedback-wrapper {
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 12px;
-  
-  .list-item {
+  align-items: center;
+  padding: 24px 16px 60px;
+}
+
+// ─── Top bar ───
+.top-bar {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  margin-bottom: 16px;
+}
+
+.close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  ion-icon {
+    font-size: 20px;
+    color: var(--text-primary);
+  }
+
+  &:hover {
+    background: #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// ─── Card ───
+.feedback-card {
+  width: 100%;
+  max-width: 620px;
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
+  padding: 36px 32px 32px;
+  animation: slideUp 0.35s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ─── Header ───
+.card-header {
+  margin-bottom: 28px;
+}
+
+.page-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+// ─── Student row ───
+.student-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.student-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-initial {
+    width: 100%;
+    height: 100%;
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    
-    ion-textarea {
-      flex: 1;
-    }
-    
-    ion-button {
-      margin-top: 8px;
-    }
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--card-bg);
+    background: var(--text-primary);
   }
 }
 
-.feedback-input {
-  --background: #{$background-light};
-  --border-radius: 10px;
-  --padding-start: 14px;
-  --padding-end: 14px;
-  --padding-top: 12px;
-  --padding-bottom: 12px;
-  border: 1px solid $border-color;
-  font-size: 14px;
-  
-  &::part(native) {
-    font-size: 14px;
-  }
+.student-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.submit-button {
-  margin-top: 32px;
-  height: 48px;
+.student-name {
+  font-size: 17px;
   font-weight: 600;
-  --border-radius: 12px;
-  
+  color: var(--text-primary);
+}
+
+.lesson-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+// ─── Divider ───
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 28px;
+}
+
+// ─── Form sections ───
+.form-section {
+  margin-bottom: 28px;
+}
+
+.section-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+
+  .optional-tag {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-hint);
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.section-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+  line-height: 1.4;
+}
+
+// ─── CEFR Level Estimate ───
+.cefr-last-known {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+
+  ion-icon {
+    font-size: 16px;
+    color: var(--text-hint);
+    flex-shrink: 0;
+  }
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .cefr-last-date {
+    color: var(--text-hint);
+  }
+}
+
+.cefr-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cefr-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--page-bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+
+  &:hover {
+    border-color: #ccc;
+    background: #f5f5f5;
+  }
+
+  &.selected {
+    border-color: var(--text-primary);
+    background: #fafafa;
+    box-shadow: 0 0 0 1px var(--text-primary);
+
+    .cefr-level-badge {
+      background: var(--text-primary);
+      color: white;
+    }
+  }
+}
+
+.cefr-level-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #e8e8e8;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  letter-spacing: -0.02em;
+}
+
+.cefr-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  flex: 1;
+}
+
+// ─── Items list (strengths / improvements) ───
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  .airbnb-textarea {
+    flex: 1;
+  }
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.15s ease;
+
+  ion-icon {
+    font-size: 20px;
+    color: #ccc;
+  }
+
+  &:hover {
+    background: #fef2f2;
+
+    ion-icon {
+      color: var(--danger);
+    }
+  }
+}
+
+// ─── Textarea ───
+.airbnb-textarea {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: var(--text-hint);
+  }
+
+  &:focus {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--text-primary);
+  }
+}
+
+// ─── Add button ───
+.add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 2px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &:hover {
+    color: #000;
+  }
+}
+
+// ─── Submit button ───
+.submit-btn {
+  width: 100%;
+  height: 52px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+
   ion-spinner {
-    margin-right: 8px;
+    --color: white;
+  }
+
+  &:hover:not(:disabled) {
+    background: #000;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  &:disabled {
+    background: #ddd;
+    color: #aaa;
+    cursor: not-allowed;
   }
 }
 
-// Mobile optimizations
-@media (max-width: 768px) {
-  .student-banner {
-    padding: 20px 16px;
-    
-    ion-avatar {
-      width: 48px;
-      height: 48px;
-    }
-    
-    .student-info h2 {
-      font-size: 18px;
-    }
-  }
-  
-  .form-content {
-    padding: 0 16px;
-  }
-  
-  .form-section {
-    margin-bottom: 24px;
-    
-    .section-header h3 {
-      font-size: 16px;
-    }
-  }
+// ─── Footer note ───
+.footer-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-hint);
+  margin: 16px 0 0;
 }
 
+// ─── Responsive ───
+@media (max-width: 640px) {
+  .feedback-wrapper {
+    padding: 16px 12px 48px;
+  }
+
+  .feedback-card {
+    padding: 28px 20px 24px;
+    border-radius: 14px;
+  }
+
+  .page-title {
+    font-size: 22px;
+  }
+
+  .student-avatar {
+    width: 44px;
+    height: 44px;
+  }
+}

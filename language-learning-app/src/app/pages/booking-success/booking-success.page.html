@@ -1,102 +1,97 @@
-<div class="success-container">
-  <!-- Close Button -->
-  <button class="close-button" (click)="close()">
-    <ion-icon name="close"></ion-icon>
-  </button>
+<div class="success-page">
+  <!-- Confetti Dots (decorative) -->
+  <div class="confetti-container" aria-hidden="true">
+    <span class="dot dot-1"></span>
+    <span class="dot dot-2"></span>
+    <span class="dot dot-3"></span>
+    <span class="dot dot-4"></span>
+    <span class="dot dot-5"></span>
+    <span class="dot dot-6"></span>
+    <span class="dot dot-7"></span>
+    <span class="dot dot-8"></span>
+  </div>
 
-  <!-- Success Content -->
-  <div class="success-content" @fadeInUp>
-    <!-- Success Icon with Checkmark -->
-    <div class="success-icon" @scaleIn>
-      <div class="checkmark-circle">
-        <ion-icon name="checkmark" class="checkmark" @checkmark></ion-icon>
+  <div class="success-inner" @fadeInUp>
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-check" @scaleIn>
+        <ion-icon name="checkmark-sharp"></ion-icon>
       </div>
+      <h1 class="hero-title">You're all set!</h1>
+      <p class="hero-subtitle">Your lesson has been booked and confirmed.</p>
     </div>
 
-    <!-- Heading -->
-    <h1 class="success-title">Lesson Booked!</h1>
-    <p class="success-subtitle">Your lesson has been confirmed</p>
-
-    <!-- Two Column Layout: Tutor (Left) + Lesson Details (Right) -->
-    <div class="content-columns" @fadeInUp>
-      <!-- Left Column: Tutor Card -->
-      <div class="tutor-card">
-        <ion-avatar class="tutor-avatar">
-          <img [src]="tutorAvatar" *ngIf="tutorAvatar" alt="{{ tutorName }}" />
+    <!-- Booking Card -->
+    <div class="booking-card" @fadeInUp>
+      <!-- Tutor Row -->
+      <div class="tutor-row">
+        <ion-avatar class="tutor-photo">
+          <img [src]="tutorAvatar" *ngIf="tutorAvatar" [alt]="tutorName" />
           <ion-icon name="person" *ngIf="!tutorAvatar"></ion-icon>
         </ion-avatar>
-        <h2 class="tutor-name">{{ tutorName }}</h2>
-        <p class="tutor-label">Your Tutor</p>
+        <div class="tutor-info">
+          <span class="tutor-name-text">{{ tutorName }}</span>
+          <span class="tutor-role">Tutor</span>
+        </div>
+        <div class="subject-chip">
+          <span class="subject-flag">{{ getSubjectEmoji(lessonDetails?.subject) }}</span>
+          <span class="subject-text">{{ lessonDetails?.subject }}</span>
+        </div>
       </div>
 
-      <!-- Right Column: Lesson Details Card -->
-      <div class="details-card" *ngIf="lessonDetails">
-        <!-- Subject Header -->
-        <div class="subject-header">
-          <div class="subject-icon">
-            <span class="subject-emoji">{{ getSubjectEmoji(lessonDetails.subject) }}</span>
+      <!-- Divider -->
+      <div class="card-divider"></div>
+
+      <!-- Details List -->
+      <div class="detail-rows">
+        <div class="detail-row">
+          <div class="detail-icon-wrap">
+            <ion-icon name="calendar-outline"></ion-icon>
           </div>
-          <div class="subject-info">
-            <p class="subject-label">SUBJECT</p>
-            <h3 class="subject-name">{{ lessonDetails.subject }}</h3>
+          <div class="detail-text">
+            <span class="detail-label">Date</span>
+            <span class="detail-value">{{ formattedDate }}</span>
           </div>
         </div>
-
-        <!-- Details Grid (2x2) -->
-        <div class="details-grid">
-          <!-- Date -->
-          <div class="detail-item">
-            <div class="item-icon">
-              <ion-icon name="calendar-outline"></ion-icon>
-            </div>
-            <div class="item-content">
-              <p class="item-label">DATE</p>
-              <p class="item-value">{{ formattedDate }}</p>
-            </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap">
+            <ion-icon name="time-outline"></ion-icon>
           </div>
-
-          <!-- Time -->
-          <div class="detail-item">
-            <div class="item-icon">
-              <ion-icon name="time-outline"></ion-icon>
-            </div>
-            <div class="item-content">
-              <p class="item-label">TIME</p>
-              <p class="item-value">{{ formattedTime }}</p>
-            </div>
+          <div class="detail-text">
+            <span class="detail-label">Time</span>
+            <span class="detail-value">{{ formattedTime }}</span>
           </div>
-
-          <!-- Duration -->
-          <div class="detail-item">
-            <div class="item-icon">
-              <ion-icon name="hourglass-outline"></ion-icon>
-            </div>
-            <div class="item-content">
-              <p class="item-label">DURATION</p>
-              <p class="item-value">{{ lessonDetails.duration }} min</p>
-            </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap">
+            <ion-icon name="hourglass-outline"></ion-icon>
           </div>
-
-          <!-- Price -->
-          <div class="detail-item">
-            <div class="item-icon">
-              <ion-icon name="cash-outline"></ion-icon>
-            </div>
-            <div class="item-content">
-              <p class="item-label">TOTAL</p>
-              <p class="item-value price">${{ formatPrice(lessonDetails.price) }}</p>
-            </div>
+          <div class="detail-text">
+            <span class="detail-label">Duration</span>
+            <span class="detail-value">{{ lessonDetails?.duration }} min</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap price-icon">
+            <ion-icon name="card-outline"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-label">Total paid</span>
+            <span class="detail-value detail-price">${{ formatPrice(lessonDetails?.price) }}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Next Steps (Frosted Glass) -->
-    <div class="next-steps" @fadeInUp>
-      <p class="next-steps-text">
-        <ion-icon name="information-circle-outline"></ion-icon>
-        You'll receive a confirmation email and reminder before your lesson
-      </p>
+    <!-- Info Note -->
+    <div class="info-note">
+      <ion-icon name="mail-outline"></ion-icon>
+      <span>You'll receive a confirmation email and a reminder before your lesson.</span>
     </div>
+
+    <!-- CTA -->
+    <button class="done-btn" (click)="close()">
+      Done
+    </button>
   </div>
 </div>

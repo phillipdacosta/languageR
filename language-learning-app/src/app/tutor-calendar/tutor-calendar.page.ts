@@ -20,6 +20,7 @@ import { ClassAttendeesComponent } from '../components/class-attendees/class-att
 import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { TutorFeedbackService } from '../services/tutor-feedback.service';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -143,6 +144,11 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
            !this.currentUser?.tutorOnboarding?.videoApproved || 
            (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
   }
+
+  // Outstanding feedback
+  pendingFeedbackCount = 0;
+  pendingFeedbackItems: any[] = [];
+  isFeedbackModalOpen = false;
   
   private calendar?: Calendar;
   events: EventInput[] = [];
@@ -381,7 +387,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     private alertController: AlertController,
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
-    private http: HttpClient
+    private http: HttpClient,
+    private tutorFeedbackService: TutorFeedbackService
   ) { }
 
   private evaluateViewport() {
@@ -853,8 +860,26 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
         ));
         console.log(`📷 [TUTOR-CALENDAR] User updated, hasCustomProfilePhoto:`, this.hasCustomProfilePhoto);
+
+        // Load outstanding feedback for tutors
+        if (user.userType === 'tutor') {
+          this.loadPendingFeedback();
+        }
       }
     });
+
+    // Subscribe to feedback updates
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(response => {
+        this.pendingFeedbackCount = response.count || 0;
+        this.pendingFeedbackItems = response.pendingFeedback || [];
+
+        // Auto-reopen the feedback modal after submitting one item
+        if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+          setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+        }
+      });
     
     // Initialize custom calendar
     this.initializeCustomCalendar();
@@ -3445,6 +3470,43 @@ When enabled:
       ]
     });
     await alert.present();
+  }
+
+  // ── Outstanding Feedback ──
+
+  loadPendingFeedback(): void {
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedbackCount = cached.count || 0;
+      this.pendingFeedbackItems = cached.pendingFeedback || [];
+    }
+    this.tutorFeedbackService.refreshPendingFeedback();
+  }
+
+  openFeedbackModal(): void {
+    if (this.pendingFeedbackItems.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  navigateToFeedback(feedbackId: string): void {
+    this.closeFeedbackModal();
+    this.router.navigate(['/tutor-feedback', feedbackId]);
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
 }
 

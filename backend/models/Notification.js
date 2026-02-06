@@ -36,7 +36,15 @@ const NotificationSchema = new mongoose.Schema({
       'payment_cancelled',
       'payment_reduced',
       'investigation_resolved',
-      'dispute_submitted'
+      'dispute_submitted',
+      'feedback_required',
+      'tip_sent',
+      'tip_received',
+      'withdrawal_initiated',
+      'lesson_completed',
+      'feedback_reminder',
+      'feedback_received',
+      'progress_milestone'
     ],
     required: true
   },

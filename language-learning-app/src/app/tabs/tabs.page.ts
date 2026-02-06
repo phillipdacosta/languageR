@@ -649,6 +649,11 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     this.router.navigate(['/tabs/availability-setup']);
   }
 
+  navigateToProgress() {
+    this.closeNotificationDropdown();
+    this.router.navigate(['/tabs/progress']);
+  }
+
   private calculateDropdownPosition() {
     if (!this.notificationBtn) {
       return;

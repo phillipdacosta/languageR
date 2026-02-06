@@ -2,11 +2,12 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
-import { LoadingController, AlertController, ToastController } from '@ionic/angular';
+import { LoadingController, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
+import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 
 interface LessonInfo {
   _id: string;
@@ -47,6 +48,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   tutorFirstName = '';
   tutorDisplayName = 'Tutor';
   
+  // AI analysis
+  aiAnalysisEnabled = true;
+  
   // Tip functionality
   showTipSection = false;
   selectedTipAmount: number | null = null;
@@ -68,7 +72,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private lessonService: LessonService,
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private modalCtrl: ModalController
   ) {}
 
   async ngOnInit() {
@@ -79,8 +84,14 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     await this.ensureUserLoaded();
     
     if (this.lessonId) {
-      this.loadLessonInfo();
-      this.startAnalysisPolling();
+      await this.loadLessonInfo();
+      
+      // Only poll for analysis if AI is enabled
+      if (this.aiAnalysisEnabled && !this.isTrialLesson) {
+        this.startAnalysisPolling();
+      } else {
+        console.log('⏭️ POST-LESSON-STUDENT: Skipping analysis polling (AI disabled or trial lesson)');
+      }
     } else {
       console.error('❌ POST-LESSON-STUDENT: No lesson ID provided!');
     }
@@ -121,6 +132,27 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         // Set trial lesson flag and tutor name properties
         this.isTrialLesson = response.lesson.isTrial || response.lesson.isTrialLesson || false;
         this.updateTutorProperties();
+        
+        // Check if tip was already sent for this lesson
+        if (response.lesson.tip && response.lesson.tip.amount) {
+          this.tipSubmitted = true;
+          console.log('💰 POST-LESSON-STUDENT: Tip already sent for this lesson:', response.lesson.tip.amount);
+        }
+        
+        // Use the lesson snapshot of AI setting; fall back to live profile for legacy lessons
+        const lesson = response.lesson;
+        if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
+          this.aiAnalysisEnabled = lesson.aiAnalysisEnabledAtTime !== false;
+          console.log('🤖 POST-LESSON-STUDENT: AI analysis (snapshot):', this.aiAnalysisEnabled);
+        } else {
+          const student = lesson.studentId;
+          if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
+            this.aiAnalysisEnabled = false;
+          } else {
+            this.aiAnalysisEnabled = true;
+          }
+          console.log('🤖 POST-LESSON-STUDENT: AI analysis (live fallback):', this.aiAnalysisEnabled);
+        }
       } else {
         console.warn('⚠️ POST-LESSON-STUDENT: Response missing lesson data');
       }
@@ -236,13 +268,27 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     const tipAmount = this.getTipAmount();
     if (tipAmount <= 0 || this.submittingTip) return;
 
+    // Confirmation popup
+    const confirm = await this.alertCtrl.create({
+      header: 'Confirm tip',
+      message: `Send a $${tipAmount.toFixed(2)} tip to ${this.tutorFirstName}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Send tip', role: 'confirm' }
+      ]
+    });
+    await confirm.present();
+    const { role } = await confirm.onDidDismiss();
+    if (role !== 'confirm') return;
+
     this.submittingTip = true;
 
     try {
+      const headers = this.userService.getAuthHeadersSync();
       const response: any = await firstValueFrom(
         this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/tip`, {
           amount: tipAmount
-        })
+        }, { headers })
       );
 
       if (response.success) {
@@ -250,7 +296,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.showTipSection = false;
         
         const toast = await this.toastCtrl.create({
-          message: `✅ $${tipAmount} tip sent to ${this.tutor?.name.split(' ')[0]}!`,
+          message: `$${tipAmount.toFixed(2)} tip sent to ${this.tutorFirstName}!`,
           duration: 3000,
           color: 'success',
           position: 'top'
@@ -260,12 +306,32 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     } catch (error: any) {
       console.error('Error submitting tip:', error);
       
-      const alert = await this.alertCtrl.create({
-        header: 'Tip Failed',
-        message: error.error?.error || 'Failed to send tip. Please try again.',
-        buttons: ['OK']
-      });
-      await alert.present();
+      const errorMessage = error.error?.error || 'Failed to send tip. Please try again.';
+      const isNoPaymentMethod = errorMessage.toLowerCase().includes('payment method') 
+        || errorMessage.toLowerCase().includes('no card');
+      
+      if (isNoPaymentMethod) {
+        // Offer to add a card right here
+        const alert = await this.alertCtrl.create({
+          header: 'No payment method',
+          message: 'You need a card on file to send a tip. Would you like to add one now?',
+          buttons: [
+            { text: 'Not now', role: 'cancel' },
+            { 
+              text: 'Add card', 
+              handler: () => { this.openCardManagement(); }
+            }
+          ]
+        });
+        await alert.present();
+      } else {
+        const alert = await this.alertCtrl.create({
+          header: 'Tip failed',
+          message: errorMessage,
+          buttons: ['OK']
+        });
+        await alert.present();
+      }
     } finally {
       this.submittingTip = false;
     }
@@ -306,6 +372,26 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       minute: '2-digit',
       hour12: true
     });
+  }
+
+  async openCardManagement() {
+    const modal = await this.modalCtrl.create({
+      component: CardManagementModalComponent,
+      cssClass: 'card-management-modal'
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onDidDismiss();
+    if (data?.cardsUpdated || data?.selectedCard) {
+      const toast = await this.toastCtrl.create({
+        message: 'Card added! You can now send your tip.',
+        duration: 3000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    }
   }
 
   viewFullAnalysis() {

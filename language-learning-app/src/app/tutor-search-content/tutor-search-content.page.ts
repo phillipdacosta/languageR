@@ -44,6 +44,12 @@ import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tu
         // This will be used for the list container
         animate('300ms cubic-bezier(0.4, 0, 0.2, 1)')
       ])
+    ]),
+    trigger('fadeIn', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'scale(0.95)' }),
+        animate('300ms cubic-bezier(0.4, 0, 0.2, 1)', style({ opacity: 1, transform: 'scale(1)' }))
+      ])
     ])
   ]
 })
@@ -99,6 +105,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
   // Availability preview cache: tutorId -> array of next available times
   availabilityPreviews: Map<string, { date: string; time: string; label: string }[]> = new Map();
   loadingAvailability: Set<string> = new Set(); // Track which tutors are loading availability
+  checkedAvailability: Set<string> = new Set(); // Track which tutors have been checked (loading complete)
   
   // Video modal state (inline ion-modal)
   isVideoModalOpen = false;
@@ -655,6 +662,11 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       return;
     }
     
+    // Clear availability cache for new search
+    this.availabilityPreviews.clear();
+    this.loadingAvailability.clear();
+    this.checkedAvailability.clear();
+    
     if (hasExistingContent && !isFirstLoad) {
       // If we have existing content (tutors OR empty state), use smooth transition
       this.isTransitioning = true;
@@ -727,14 +739,20 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
             console.log('🔍 Tutors loaded:', this.tutors);
             this.isLoading = false;
             
-            // Load availability previews for tutors (lazy load after a short delay)
-            setTimeout(() => {
-              this.tutors.forEach(tutor => {
-                if (!tutor.isActivelyAvailable) {
-                  this.loadAvailabilityPreview(tutor);
-                }
-              });
-            }, 500);
+            // Start loading availability IMMEDIATELY (no delay) to prevent layout shifts
+            // Mark all non-active tutors as loading right away
+            this.tutors.forEach(tutor => {
+              if (!tutor.isActivelyAvailable) {
+                this.loadingAvailability.add(tutor.id);
+              }
+            });
+            
+            // Then actually fetch the data
+            this.tutors.forEach(tutor => {
+              if (!tutor.isActivelyAvailable) {
+                this.loadAvailabilityPreview(tutor);
+              }
+            });
           }
           
           // If no tutors found and user has a specific language preference, suggest alternatives
@@ -1027,6 +1045,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
 
   trackByTutorId(index: number, tutor: Tutor): string {
     return tutor.id;
+  }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  trackBySlot(index: number, slot: { date: string; time: string; label: string }): string {
+    return `${slot.date}-${slot.time}`;
   }
 
   onImageError(event: any) {
@@ -1846,8 +1872,8 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
    * Simplified version that just shows if they have availability, not exact times
    */
   async loadAvailabilityPreview(tutor: Tutor) {
-    // Don't load if already loading or already cached
-    if (this.loadingAvailability.has(tutor.id) || this.availabilityPreviews.has(tutor.id)) {
+    // Don't load if already cached or already checked
+    if (this.availabilityPreviews.has(tutor.id) || this.checkedAvailability.has(tutor.id)) {
       return;
     }
 
@@ -1856,13 +1882,17 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       return;
     }
 
-    this.loadingAvailability.add(tutor.id);
+    // Ensure loading state is set (may already be set from initial load)
+    if (!this.loadingAvailability.has(tutor.id)) {
+      this.loadingAvailability.add(tutor.id);
+    }
 
     try {
       const response = await this.userService.getTutorAvailability(tutor.id).toPromise();
       
       if (!response?.success || !response.availability || response.availability.length === 0) {
         this.loadingAvailability.delete(tutor.id);
+        this.checkedAvailability.add(tutor.id); // Mark as checked even with no data
         return;
       }
 
@@ -1975,6 +2005,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       console.error('Error loading availability preview for tutor:', tutor.id, error);
     } finally {
       this.loadingAvailability.delete(tutor.id);
+      this.checkedAvailability.add(tutor.id); // Mark as checked (loading complete)
     }
   }
 
@@ -1990,6 +2021,24 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
    */
   isAvailabilityLoading(tutor: Tutor): boolean {
     return this.loadingAvailability.has(tutor.id);
+  }
+
+  /**
+   * Check if availability has been checked for a tutor (loading complete, may or may not have data)
+   */
+  isAvailabilityChecked(tutor: Tutor): boolean {
+    return this.checkedAvailability.has(tutor.id);
+  }
+
+  /**
+   * Check if availability preview should be shown
+   * ONLY show when we have actual data - never show skeleton to prevent layout shifts
+   * Tutors without availability will simply not show this section
+   */
+  shouldShowAvailabilityPreview(tutor: Tutor): boolean {
+    if (tutor.isActivelyAvailable) return false;
+    // Only show when we have actual availability data (not during loading)
+    return !!this.getAvailabilityPreview(tutor);
   }
 
   // Mark a video as watched

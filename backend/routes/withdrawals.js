@@ -4,6 +4,7 @@ const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const withdrawalService = require('../services/withdrawalService');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
+const Notification = require('../models/Notification');
 
 /**
  * GET /api/withdrawals/balance
@@ -162,6 +163,33 @@ router.post('/request', verifyToken, async (req, res) => {
     });
     
     console.log(`✅ Withdrawal request created: ${withdrawal._id}`);
+
+    // Create notification for the tutor
+    const payoutMethodLabel = method === 'stripe_connect' ? 'bank account' : 'PayPal';
+    const withdrawalNotification = new Notification({
+      userId: user._id,
+      type: 'withdrawal_initiated',
+      title: '💸 Withdrawal initiated',
+      message: `You withdrew $${amount.toFixed(2)} to your ${payoutMethodLabel}.`,
+      data: {
+        withdrawalId: withdrawal._id,
+        amount: amount,
+        method: method
+      },
+      read: false
+    });
+    await withdrawalNotification.save();
+
+    // Send real-time notification via WebSocket
+    if (req.io && req.connectedUsers) {
+      const socketId = req.connectedUsers.get(user.auth0Id);
+      if (socketId) {
+        req.io.to(socketId).emit('new_notification', {
+          notification: withdrawalNotification,
+          message: withdrawalNotification.message
+        });
+      }
+    }
     
     // Process immediately in background (don't block response)
     console.log(`🚀 Processing withdrawal ${withdrawal._id} immediately...`);

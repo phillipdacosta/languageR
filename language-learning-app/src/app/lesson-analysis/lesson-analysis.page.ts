@@ -47,6 +47,9 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   pollCount = 0;
   maxPollAttempts = 60;
   
+  // Analysis source (ai or tutor)
+  analysisSource: string = '';
+  
   // Review deck
   savedCorrections: Set<string> = new Set();
   reviewDeckItems: ReviewDeckItem[] = [];
@@ -113,9 +116,11 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
         // New format
         this.analysis = response.analysis;
         this.lesson = response.lesson;
+        this.analysisSource = response.analysis?.source || 'ai';
       } else if (response.status) {
         // Direct LessonAnalysis document format - use it as-is with proper type
         this.analysis = response as LessonAnalysis;
+        this.analysisSource = (response as any).source || 'ai';
         
         // Try to populate lesson info from lessonId if populated
         if (response.lessonId) {

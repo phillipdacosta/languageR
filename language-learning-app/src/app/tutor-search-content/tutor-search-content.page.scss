@@ -1519,17 +1519,28 @@
 }
 
 // Availability Preview - Next available times
+// Shows skeleton immediately, then actual pills or hides with animation
 .availability-preview {
   display: flex;
-  align-items: center;
+  align-items: flex-start; // Align to top to prevent vertical centering issues
   gap: 8px;
   margin: 6px 0;
   padding: 6px 0;
+  min-height: 36px; // Minimum height when visible
+  box-sizing: border-box;
+  overflow: hidden; // Prevent content overflow during transitions
+  position: relative;
+  
+  // Account for potential wrapping (2 rows max)
+  @media (max-width: 768px) {
+    min-height: 50px;
+  }
   
   ion-icon {
     font-size: 16px;
     color: #222;
     flex-shrink: 0;
+    margin-top: 2px; // Align with first row of chips
   }
   
   .available-label {
@@ -1537,6 +1548,8 @@
     font-weight: 400;
     color: #222;
     white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px; // Align with first row of chips
     
     @media (max-width: 768px) {
       font-size: 13px;
@@ -1545,9 +1558,21 @@
   
   .availability-times {
     display: flex;
-    align-items: center;
+    align-items: flex-start; // Align to top
     gap: 6px;
     flex-wrap: wrap;
+    height: 24px; // Fixed height for single row (matches chip height)
+    align-content: flex-start; // Align wrapped items to start
+    flex: 1; // Take remaining space
+    min-width: 0; // Allow flex shrinking
+    overflow: hidden; // Hide overflow to maintain fixed height
+    // Force consistent layout calculation
+    contain: layout style;
+    
+    // Allow wrapping on mobile but maintain fixed container height
+    @media (max-width: 768px) {
+      height: 44px; // Fixed height for 2 rows (22px + 6px gap + 22px - 6px for alignment)
+    }
   }
   
   .time-chip {
@@ -1560,11 +1585,70 @@
     font-weight: 500;
     color: #333;
     white-space: nowrap;
+    height: 24px; // Fixed height to match skeleton
+    line-height: 12px; // Center text vertically
+    box-sizing: border-box;
+    animation: fadeInChip 0.3s ease-out;
+    vertical-align: middle;
     
     @media (max-width: 768px) {
       font-size: 11px;
       padding: 5px 10px;
+      height: 22px;
+      line-height: 11px;
     }
+    
+    // Skeleton loading state
+    &.skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      border: 1px solid #e5e5e5;
+      color: transparent;
+      min-width: 70px;
+      width: 70px; // Fixed width for consistency
+      height: 24px; // Match actual chip height
+      line-height: 24px; // Center shimmer effect
+      animation: shimmer 1.5s ease-in-out infinite;
+      
+      &.skeleton-wide {
+        min-width: 90px;
+        width: 90px; // Wider pill to simulate longer time labels
+      }
+      
+      @media (max-width: 768px) {
+        min-width: 60px;
+        width: 60px;
+        height: 22px;
+        line-height: 22px;
+        
+        &.skeleton-wide {
+          min-width: 75px;
+          width: 75px;
+        }
+      }
+    }
+  }
+}
+
+// Shimmer animation for skeleton pills
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// Fade in animation for time chips
+@keyframes fadeInChip {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

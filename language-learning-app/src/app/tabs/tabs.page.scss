@@ -610,6 +610,14 @@
             &:hover {
               background: #4338ca;
             }
+            
+            &.milestone-btn {
+              background: linear-gradient(135deg, #f59e0b, #d97706);
+              
+              &:hover {
+                background: linear-gradient(135deg, #d97706, #b45309);
+              }
+            }
           }
           
           // Dispute Button

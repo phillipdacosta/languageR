@@ -76,12 +76,150 @@ function startAnalysisRetryCron() {
 }
 
 /**
+ * Cron job to rescue "stuck" transcripts that have audio but were never completed.
+ * This catches the edge case where the frontend navigates away before completeTranscription fires.
+ * Runs every 15 minutes.
+ */
+function startStuckTranscriptionCron() {
+  cron.schedule('*/15 * * * *', async () => {
+    console.log('🩹 [CRON] Checking for stuck transcripts...');
+    
+    try {
+      const LessonTranscript = require('../models/LessonTranscript');
+      const Lesson = require('../models/Lesson');
+      
+      // Find transcripts stuck in "processing" for more than 10 minutes
+      // that have segments (audio was uploaded and transcribed) but never got "completed"
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      
+      const stuckTranscripts = await LessonTranscript.find({
+        status: 'processing',
+        startTime: { $lt: tenMinutesAgo },
+        'segments.0': { $exists: true } // Has at least 1 segment (audio was processed)
+      });
+      
+      if (stuckTranscripts.length === 0) {
+        console.log('🩹 [CRON] No stuck transcripts found');
+        return;
+      }
+      
+      console.log(`🩹 [CRON] Found ${stuckTranscripts.length} stuck transcript(s) — attempting to complete them`);
+      
+      for (const transcript of stuckTranscripts) {
+        try {
+          // Verify the lesson is completed or in_progress (not cancelled)
+          const lesson = await Lesson.findById(transcript.lessonId);
+          if (!lesson || lesson.status === 'cancelled') {
+            console.log(`⏭️ [CRON] Skipping transcript ${transcript._id} — lesson cancelled or missing`);
+            continue;
+          }
+          
+          // Populate fullText from segments
+          transcript.fullText = transcript.segments.map(s => s.text).join(' ');
+          transcript.status = 'completed';
+          transcript.endTime = new Date();
+          
+          const studentSegments = transcript.segments.filter(s => s.speaker === 'student');
+          const tutorSegments = transcript.segments.filter(s => s.speaker === 'tutor');
+          transcript.metadata = {
+            totalDuration: (transcript.endTime - transcript.startTime) / 1000,
+            studentSpeakingTime: studentSegments.length,
+            tutorSpeakingTime: tutorSegments.length,
+            wordCount: transcript.segments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0)
+          };
+          
+          await transcript.save();
+          console.log(`✅ [CRON] Completed stuck transcript ${transcript._id} for lesson ${transcript.lessonId} (${transcript.segments.length} segments, ${transcript.metadata.wordCount} words)`);
+          
+          // Check AI setting and trigger analysis or tutor feedback
+          const User = require('../models/User');
+          let aiDisabled = false;
+          if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
+            aiDisabled = lesson.aiAnalysisEnabledAtTime === false;
+          } else {
+            const student = await User.findOne({ auth0Id: transcript.studentId });
+            const liveValue = student?.profile?.aiAnalysisEnabled !== false;
+            lesson.aiAnalysisEnabledAtTime = liveValue;
+            await lesson.save();
+            aiDisabled = !liveValue;
+          }
+          
+          if (aiDisabled) {
+            console.log(`📝 [CRON] AI disabled for lesson ${transcript.lessonId} — creating tutor feedback requirement`);
+            const TutorFeedback = require('../models/TutorFeedback');
+            const Notification = require('../models/Notification');
+            const { getRandomFeedbackMessage } = require('../utils/feedbackMessages');
+            const { formatNameWithInitial } = require('../utils/nameFormatter');
+            
+            lesson.requiresTutorFeedback = true;
+            if (lesson.status !== 'completed') lesson.status = 'completed';
+            await lesson.save();
+            
+            const tutor = await User.findOne({ auth0Id: transcript.tutorId });
+            const studentData = await User.findOne({ auth0Id: transcript.studentId });
+            
+            const existingFeedback = await TutorFeedback.findOne({ lessonId: transcript.lessonId });
+            if (!existingFeedback) {
+              await TutorFeedback.create({
+                lessonId: transcript.lessonId,
+                tutorId: tutor ? tutor._id : transcript.tutorId,
+                studentId: studentData ? studentData._id : transcript.studentId,
+                status: 'pending'
+              });
+              
+              const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
+              if (tutor) {
+                await Notification.create({
+                  userId: tutor._id,
+                  type: 'feedback_required',
+                  title: feedbackMsg.title,
+                  message: feedbackMsg.message,
+                  data: {
+                    lessonId: transcript.lessonId,
+                    studentName: studentData ? formatNameWithInitial(studentData) : 'Student'
+                  }
+                });
+              }
+              console.log(`📢 [CRON] Created tutor feedback requirement for stuck lesson ${transcript.lessonId}`);
+            }
+          } else {
+            // Trigger GPT analysis via the transcription routes export
+            try {
+              const transcriptionRoutes = require('../routes/transcription');
+              if (typeof transcriptionRoutes.analyzeLesson === 'function') {
+                transcriptionRoutes.analyzeLesson(transcript._id).catch(err => {
+                  console.error(`❌ [CRON] Error analyzing stuck transcript ${transcript._id}:`, err);
+                });
+                console.log(`🤖 [CRON] Triggered GPT analysis for stuck transcript ${transcript._id}`);
+              } else {
+                console.warn(`⚠️ [CRON] analyzeLesson not available — will rely on analysis retry cron`);
+              }
+            } catch (importErr) {
+              console.error(`❌ [CRON] Could not import analyzeLesson:`, importErr.message);
+            }
+          }
+          
+        } catch (err) {
+          console.error(`❌ [CRON] Error processing stuck transcript ${transcript._id}:`, err);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ [CRON] Error in stuck transcript check:', error);
+    }
+  });
+  
+  console.log('✅ Stuck transcript rescue cron job scheduled (every 15 minutes)');
+}
+
+/**
  * Initialize all audio-related cron jobs
  */
 function initializeAudioCronJobs() {
   startAudioCleanupCron();
   startTranscriptionRetryCron();
   startAnalysisRetryCron();
+  startStuckTranscriptionCron();
   console.log('✅ All audio cron jobs initialized');
 }
 
@@ -89,6 +227,7 @@ module.exports = {
   initializeAudioCronJobs,
   startAudioCleanupCron,
   startTranscriptionRetryCron,
-  startAnalysisRetryCron
+  startAnalysisRetryCron,
+  startStuckTranscriptionCron
 };
 

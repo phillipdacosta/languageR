@@ -457,7 +457,28 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     let audioBuffer = req.file.buffer;
     const isWebm = req.file.mimetype === 'audio/webm' || req.file.originalname.endsWith('.webm');
     
-    console.log(`📤 Attempting transcription with ${isWebm ? 'WebM' : 'original'} format (${audioBuffer.length} bytes)`);
+    console.log(`📤 Received audio: ${isWebm ? 'WebM' : 'other'} format (${audioBuffer.length} bytes)`);
+    console.log(`📤 First 20 bytes: ${[...audioBuffer.slice(0, 20)].map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+    
+    // ALWAYS convert WebM to MP3 for better Whisper compatibility
+    if (isWebm) {
+      console.log('🔄 Converting WebM to MP3 for Whisper compatibility...');
+      try {
+        audioBuffer = await convertWebmToMp3(originalAudioBuffer);
+        console.log(`✅ Converted to MP3: ${audioBuffer.length} bytes`);
+      } catch (conversionError) {
+        console.error('❌ WebM to MP3 conversion failed:', conversionError.message);
+        return res.status(500).json({
+          message: `Audio conversion failed: ${conversionError.message}`,
+          error: 'audio_conversion_failed',
+          details: 'Could not convert WebM to MP3. This audio chunk will be skipped.',
+          inputSize: originalAudioBuffer.length,
+          firstBytes: [...originalAudioBuffer.slice(0, 20)].map(b => b.toString(16).padStart(2, '0')).join(' ')
+        });
+      }
+    }
+    
+    console.log(`📤 Attempting transcription with MP3 format (${audioBuffer.length} bytes)`);
     
     // BACKUP: Save audio to GCS BEFORE transcription attempt
     // This allows retry if Whisper/GPT is down
@@ -754,36 +775,51 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
     
     console.log(`✅ Transcription completed for lesson ${transcript.lessonId}`);
     
-    // Check if student has AI analysis enabled
+    // Check if student had AI analysis enabled at lesson time (use snapshot, fall back to live profile)
     const User = require('../models/User');
-    const student = await User.findOne({ auth0Id: transcript.studentId });
+    const Lesson = require('../models/Lesson');
+    const lesson = await Lesson.findById(transcript.lessonId);
     
-    if (student?.profile?.aiAnalysisEnabled === false) {
-      console.log('⏭️  AI analysis disabled by student - creating manual feedback requirement');
+    // Determine AI setting: prefer snapshot, fall back to live profile
+    let aiDisabledForThisLesson = false;
+    if (lesson) {
+      if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
+        aiDisabledForThisLesson = lesson.aiAnalysisEnabledAtTime === false;
+      } else {
+        // Legacy lesson without snapshot — check live profile and stamp it
+        const student = await User.findOne({ auth0Id: transcript.studentId });
+        const liveValue = student?.profile?.aiAnalysisEnabled !== false;
+        lesson.aiAnalysisEnabledAtTime = liveValue;
+        await lesson.save();
+        console.log(`📸 [Transcription] Snapshotted aiAnalysisEnabledAtTime=${liveValue} for lesson ${lesson._id}`);
+        aiDisabledForThisLesson = !liveValue;
+      }
+    }
+    
+    if (aiDisabledForThisLesson) {
+      console.log('⏭️  AI analysis disabled (snapshot) - creating manual feedback requirement');
       
       // Mark lesson as requiring tutor feedback
-      const Lesson = require('../models/Lesson');
       const TutorFeedback = require('../models/TutorFeedback');
       const Notification = require('../models/Notification');
       const { getRandomFeedbackMessage } = require('../utils/feedbackMessages');
       
-      const lesson = await Lesson.findById(transcript.lessonId);
       if (lesson) {
         lesson.requiresTutorFeedback = true;
         lesson.status = 'completed';
         await lesson.save();
         
-        // Create pending feedback record
-        await TutorFeedback.create({
-          lessonId: transcript.lessonId,
-          tutorId: transcript.tutorId,
-          studentId: transcript.studentId,
-          status: 'pending'
-        });
-        
-        // Get tutor for notification
+        // Get tutor and student for feedback record and notification
         const tutor = await User.findOne({ auth0Id: transcript.tutorId });
         const studentData = await User.findOne({ auth0Id: transcript.studentId });
+        
+        // Create pending feedback record using MongoDB _id for consistency
+        await TutorFeedback.create({
+          lessonId: transcript.lessonId,
+          tutorId: tutor ? tutor._id : transcript.tutorId,
+          studentId: studentData ? studentData._id : transcript.studentId,
+          status: 'pending'
+        });
         
         // Get dynamic message
         const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());
@@ -1758,14 +1794,14 @@ async function analyzeLesson(transcriptId) {
         const Notification = require('../models/Notification');
         const existingNotification = await Notification.findOne({
           userId: transcript.studentId,
-          type: 'struggle_milestone',
+          type: 'progress_milestone',
           'data.language': transcript.language,
           'data.milestone': totalLessons
         });
         
         if (!existingNotification) {
-          // Get last 5 REGULAR lessons to identify top struggle
-          const recentAnalyses = await LessonAnalysis.find({
+          // Get the most recent 5-lesson block (sorted oldest-first for the block)
+          const milestoneAnalyses = await LessonAnalysis.find({
             studentId: transcript.studentId,
             language: transcript.language,
             status: 'completed'
@@ -1774,57 +1810,65 @@ async function analyzeLesson(transcriptId) {
               path: 'lessonId',
               select: 'isTrialLesson isOfficeHours officeHoursType'
             })
-            .sort({ lessonDate: -1 })
-            .select('topErrors lessonId')
+            .sort({ lessonDate: 1 })
             .lean();
           
-          // Filter out trial/office hours and take last 5
-          const recentLessons = recentAnalyses
-            .filter(analysis => {
-              const lesson = analysis.lessonId;
-              if (!lesson) return true;
-              if (lesson.isTrialLesson === true) return false;
-              if (lesson.isOfficeHours === true && lesson.officeHoursType === 'quick') return false;
+          const milestoneBlock = milestoneAnalyses
+            .filter(a => {
+              const l = a.lessonId;
+              if (!l) return true;
+              if (l.isTrialLesson === true) return false;
+              if (l.isOfficeHours === true && l.officeHoursType === 'quick') return false;
               return true;
             })
-            .slice(0, 5);
-
+            .slice(-5);
           
-          // Count struggles
-          const struggleMap = new Map();
-          recentLessons.forEach(lesson => {
-            lesson.topErrors?.forEach(error => {
-              const key = error.issue.toLowerCase().trim();
-              if (!struggleMap.has(key)) {
-                struggleMap.set(key, { issue: error.issue, count: 0 });
-              }
-              struggleMap.get(key).count += 1;
-            });
-          });
+          // Calculate averages for the milestone block
+          const levelMap = { 'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6 };
+          const levelNames = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
           
-          const topStruggle = Array.from(struggleMap.values())
-            .filter(s => s.count >= 2)
-            .sort((a, b) => b.count - a.count)[0];
+          const cefrLevels = milestoneBlock.map(a => levelMap[a.overallAssessment?.proficiencyLevel] || 3);
+          const avgCefrNum = Math.round(cefrLevels.reduce((s, l) => s + l, 0) / cefrLevels.length);
+          const avgCefrLevel = levelNames[Math.max(1, Math.min(6, avgCefrNum))];
           
-          // Create notification
-          const message = topStruggle 
-            ? `You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons! We've noticed you're working on <strong>${topStruggle.issue}</strong>. Check your progress page for insights.`
-            : `Great progress! You've completed <strong>${totalLessons} ${transcript.language}</strong> lessons. Check your progress page to see how you're doing!`;
+          const grammarScores = milestoneBlock.map(a => a.grammarAnalysis?.accuracyScore || 0).filter(s => s > 0);
+          const fluencyScores = milestoneBlock.map(a => a.fluencyAnalysis?.overallFluencyScore || 0).filter(s => s > 0);
+          const vocabToScore = (range) => ({ 'limited': 30, 'moderate': 55, 'good': 75, 'excellent': 92 }[range] || 50);
+          const vocabScores = milestoneBlock.map(a => vocabToScore(a.vocabularyAnalysis?.vocabularyRange)).filter(s => s > 0);
+          
+          const avgGrammar = grammarScores.length > 0 ? Math.round(grammarScores.reduce((s, v) => s + v, 0) / grammarScores.length) : 0;
+          const avgFluency = fluencyScores.length > 0 ? Math.round(fluencyScores.reduce((s, v) => s + v, 0) / fluencyScores.length) : 0;
+          const avgVocab = vocabScores.length > 0 ? Math.round(vocabScores.reduce((s, v) => s + v, 0) / vocabScores.length) : 0;
+          const totalStudyTime = milestoneBlock.reduce((s, a) => s + (a.progressionMetrics?.speakingTimeMinutes || 0), 0);
+          
+          const milestoneNumber = totalLessons / 5;
+          
+          const message = milestoneNumber === 1
+            ? `🎉 You've unlocked your Progress Profile after 5 <strong>${transcript.language}</strong> lessons! Tap to see your full breakdown.`
+            : `📊 Milestone ${milestoneNumber} complete! You've finished ${totalLessons} <strong>${transcript.language}</strong> lessons. Tap to see how you've improved.`;
           
           await Notification.create({
             userId: transcript.studentId,
-            type: 'struggle_milestone',
-            title: `${transcript.language} Progress Milestone! 🎯`,
+            type: 'progress_milestone',
+            title: milestoneNumber === 1 ? `Progress Profile Unlocked! 🏆` : `${transcript.language} Milestone ${milestoneNumber}! 🎯`,
             message: message,
             data: {
               language: transcript.language,
               milestone: totalLessons,
-              topStruggle: topStruggle?.issue
+              milestoneNumber: milestoneNumber,
+              avgCefrLevel: avgCefrLevel,
+              avgGrammar: avgGrammar,
+              avgFluency: avgFluency,
+              avgVocab: avgVocab,
+              totalStudyTime: totalStudyTime,
+              hasActionButton: true,
+              actionButtonText: 'View Progress',
+              actionRoute: '/tabs/progress'
             },
             read: false
           });
           
-          console.log(`✅ Created struggle milestone notification - ${transcript.language} (${totalLessons} lessons)`);
+          console.log(`✅ Created progress milestone notification - ${transcript.language} (milestone ${milestoneNumber}, ${totalLessons} lessons, avg CEFR: ${avgCefrLevel})`);
         }
       }
     } catch (milestoneError) {

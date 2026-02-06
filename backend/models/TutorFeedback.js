@@ -42,6 +42,13 @@ const tutorFeedbackSchema = new mongoose.Schema({
     default: ''
   },
   
+  // CEFR level estimate (required — used for progress tracking when AI is off)
+  estimatedCefrLevel: {
+    type: String,
+    enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+    default: null
+  },
+  
   // Metadata
   status: {
     type: String,

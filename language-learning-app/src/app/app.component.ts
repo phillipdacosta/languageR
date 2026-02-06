@@ -260,20 +260,13 @@ export class AppComponent implements OnInit, OnDestroy {
             }
           });
           
-          /* 
-          TEMPORARILY DISABLED: Global Feedback Required Listener
-          TODO: Re-enable if we want to support AI-disabled mode
-          
           // Listen for feedback_required events globally (for tutors)
-          // Set a flag instead of showing alert immediately to avoid conflicts
+          // No popup — the home page Quick Actions and profile page handle the UI
           this.websocketService.on('feedback_required').pipe(
             takeUntil(this.destroy$)
-          ).subscribe(async (data: any) => {
+          ).subscribe((data: any) => {
             console.log('📝 [APP] Feedback required event received:', data);
-            // Don't show alert here - let the home page handle it
-            // This avoids conflicts with other alerts (e.g., "student left early")
           });
-          */
 
           // Listen for tutor video approval notifications
           this.websocketService.tutorVideoApproved$.pipe(
@@ -522,15 +515,14 @@ export class AppComponent implements OnInit, OnDestroy {
   
   /**
    * Check for pending tutor feedback globally (when app loads)
-   * Just logs the count - the home page will show the actual UI
+   * Triggers the backfill endpoint — no popup, just logging.
+   * The home page Quick Actions and profile page handle the UI.
    */
   private checkPendingFeedbackGlobally() {
     this.tutorFeedbackService.getPendingFeedback().subscribe({
-      next: async (response) => {
+      next: (response) => {
         const count = response.count || 0;
         console.log(`📝 [APP] Global feedback check: ${count} pending feedback requests`);
-        // Don't show alert here - let the home page handle the UI
-        // This avoids interrupting the user during initial app load
       },
       error: (error) => {
         console.error('❌ [APP] Error checking pending feedback:', error);

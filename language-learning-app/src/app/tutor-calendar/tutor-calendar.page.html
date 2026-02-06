@@ -71,7 +71,7 @@
           <h3>Quick Actions</h3>
             <ion-button expand="block" class="schedule-lesson-btn" 
                         (click)="onScheduleLesson(); toggleMobileSettings()"
-                        [disabled]="(!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="add-outline" slot="start"></ion-icon>
               Schedule Class
             </ion-button>
@@ -87,7 +87,7 @@
             
             <ion-button expand="block" fill="outline" 
                         (click)="onSetUpAvailability(); toggleMobileSettings()"
-                        [disabled]="(!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               Set up availability
             </ion-button>
@@ -387,7 +387,7 @@
           <div class="action-buttons">
             <ion-button size="small" class="schedule-lesson-btn" 
                         (click)="onScheduleLesson()"
-                        [disabled]="(!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="add-outline" slot="start"></ion-icon>
               Schedule Class
             </ion-button>
@@ -404,7 +404,7 @@
 
             <ion-button expand="block" fill="outline" class="action-btn" 
                         (click)="onSetUpAvailability()" 
-                        [disabled]="isScreenLocked() || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
+                        [disabled]="pendingFeedbackCount > 0 || isScreenLocked() || (!currentUser?.picture) || (!currentUser?.tutorOnboarding?.videoApproved) || (!currentUser?.tutorOnboarding?.stripeConnected && !currentUser?.stripeConnectOnboarded)">
               <ion-icon name="settings-outline" slot="start"></ion-icon>
               Set up availability
             </ion-button>
@@ -487,8 +487,8 @@
         <!-- CUSTOM CALENDAR (NEW) -->
         <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
           <!-- Calendar Toolbar -->
-          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete">
-            <div class="toolbar-left" *ngIf="!isOnboardingIncomplete">
+          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete || pendingFeedbackCount > 0">
+            <div class="toolbar-left" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
               <button class="nav-btn" (click)="navigatePrevious()">
                 <ion-icon name="chevron-back"></ion-icon>
               </button>
@@ -498,8 +498,8 @@
               <button class="today-btn" (click)="navigateToday()">Today</button>
             </div>
             <div class="toolbar-center">
-              <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete">{{ currentWeekTitle }}</h2>
-              <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
+              <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>
+              <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
               
               <!-- Onboarding Warning Banner - Show when onboarding incomplete -->
               <div class="onboarding-banner-container" *ngIf="isOnboardingIncomplete">
@@ -532,8 +532,23 @@
                   </ion-card-content>
                 </ion-card>
               </div>
+
+              <!-- Outstanding Feedback Banner (Airbnb style) -->
+              <div class="feedback-banner-airbnb" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount > 0" (click)="openFeedbackModal()">
+                <div class="feedback-banner-left">
+                  <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
+                  <div class="feedback-banner-copy">
+                    <span class="feedback-banner-title">Feedback needed</span>
+                    <span class="feedback-banner-subtitle">Your profile is hidden until complete</span>
+                  </div>
+                </div>
+                <button class="feedback-banner-cta">
+                  Review
+                  <ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+              </div>
             </div>
-            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete">
+            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
               <div class="view-switcher">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
                 <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>
@@ -751,5 +766,59 @@
       [endTime]="blockTimeModalData.endTime"
       [durationMinutes]="blockTimeModalData.durationMinutes">
     </app-block-time>
+  </ng-template>
+</ion-modal>
+
+<!-- Outstanding Feedback Modal - Same design as Upcoming Lessons -->
+<ion-modal 
+  [isOpen]="isFeedbackModalOpen" 
+  (didDismiss)="closeFeedbackModal()" 
+  class="all-lessons-modal"
+  [backdropDismiss]="false">
+  <ng-template>
+    <ion-header class="airbnb-modal-ion-header">
+      <div class="airbnb-modal-header">
+        <h2>Outstanding feedback</h2>
+        <button class="airbnb-modal-close" (click)="closeFeedbackModal()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+      <div class="airbnb-month-selector">
+        <div class="airbnb-month-left">
+          <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
+        </div>
+        <div class="feedback-modal-icon">
+          <ion-icon name="clipboard-outline"></ion-icon>
+        </div>
+      </div>
+    </ion-header>
+
+    <ion-content class="airbnb-modal-ion-content">
+      <div class="airbnb-modal-body">
+        <ng-container *ngFor="let fb of pendingFeedbackItems">
+          <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb._id)">
+            <div class="airbnb-lesson-left">
+              <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
+              <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>
+            </div>
+            <div class="airbnb-lesson-right">
+              <div class="airbnb-lesson-participant-info">
+                <div class="airbnb-lesson-name">{{ fb.studentName || 'Student' }}</div>
+                <div class="airbnb-feedback-pending">Pending</div>
+              </div>
+              <div class="airbnb-lesson-avatar-small">
+                <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
+                <ion-icon *ngIf="!fb.studentPicture" name="person"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <div class="airbnb-no-lessons" *ngIf="pendingFeedbackItems.length === 0">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <p>All feedback completed!</p>
+        </div>
+      </div>
+    </ion-content>
   </ng-template>
 </ion-modal>

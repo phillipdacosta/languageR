@@ -142,6 +142,9 @@ export interface LessonAnalysis {
     addedBy: string;
   };
   
+  // Analysis source
+  source?: 'ai' | 'tutor';
+  
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'generating';
   error?: string; // Optional error message when status is 'failed'
 }

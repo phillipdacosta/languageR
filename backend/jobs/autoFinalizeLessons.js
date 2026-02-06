@@ -20,6 +20,7 @@ const Lesson = require('../models/Lesson');
 const LessonTranscript = require('../models/LessonTranscript');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const TutorFeedback = require('../models/TutorFeedback');
 const alertService = require('../services/alertService');
 
 // Configuration
@@ -361,8 +362,8 @@ async function finalizeLesson(lesson, endTime = new Date()) {
       try {
         // Get populated lesson data for notification messages
         const populatedLesson = await Lesson.findById(lesson._id)
-          .populate('tutorId', 'name firstName lastName picture')
-          .populate('studentId', 'name firstName lastName picture');
+          .populate('tutorId', 'name firstName lastName picture auth0Id')
+          .populate('studentId', 'name firstName lastName picture auth0Id profile');
         
         if (populatedLesson) {
           const tutor = populatedLesson.tutorId;
@@ -428,6 +429,86 @@ async function finalizeLesson(lesson, endTime = new Date()) {
             }
           } catch (wsError) {
             console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
+          }
+          
+          // 📝 CHECK IF MANDATORY TUTOR FEEDBACK IS NEEDED (AI disabled)
+          // Skip for trial lessons
+          if (!populatedLesson.isTrialLesson) {
+            // Snapshot the student's AI setting at lesson completion time (immutable once set)
+            if (populatedLesson.aiAnalysisEnabledAtTime === null || populatedLesson.aiAnalysisEnabledAtTime === undefined) {
+              const snapshotValue = student?.profile?.aiAnalysisEnabled !== false;
+              populatedLesson.aiAnalysisEnabledAtTime = snapshotValue;
+              await populatedLesson.save();
+              console.log(`📸 [AutoFinalize] Snapshotted aiAnalysisEnabledAtTime=${snapshotValue} for lesson ${lesson._id}`);
+            }
+            
+            // Use the snapshot (not the live profile)
+            const aiAnalysisEnabled = populatedLesson.aiAnalysisEnabledAtTime !== false;
+            
+            if (!aiAnalysisEnabled) {
+              console.log(`📝 [AutoFinalize] AI disabled for student ${student._id} — creating mandatory tutor feedback`);
+              
+              try {
+                const feedbackExists = await TutorFeedback.findOne({ lessonId: lesson._id });
+                
+                if (!feedbackExists) {
+                  await TutorFeedback.create({
+                    lessonId: lesson._id,
+                    tutorId: tutor._id,
+                    studentId: student._id,
+                    status: 'pending'
+                  });
+                  
+                  // Mark lesson as requiring tutor feedback
+                  populatedLesson.requiresTutorFeedback = true;
+                  await populatedLesson.save();
+                  
+                  // Send feedback_required notification (stronger than feedback_reminder)
+                  const feedbackMessages = [
+                    { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${studentName} just ended — leave your feedback while it's fresh!` },
+                    { title: '✍️ Share Your Insights', message: `${studentName} is waiting for your feedback from today's lesson!` },
+                    { title: '💭 Time to Reflect', message: `Quick! Share what went well in your lesson with ${studentName}.` },
+                    { title: '📊 Feedback Time', message: `Help ${studentName} improve — leave feedback for today's lesson!` }
+                  ];
+                  const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+                  
+                  await Notification.create({
+                    userId: tutor._id,
+                    type: 'feedback_required',
+                    title: randomMsg.title,
+                    message: randomMsg.message,
+                    relatedUserId: student._id,
+                    relatedUserPicture: student.picture || null,
+                    data: {
+                      lessonId: lesson._id.toString(),
+                      studentName: studentName,
+                      studentAuth0Id: student.auth0Id
+                    }
+                  });
+                  
+                  // Emit real-time WebSocket event
+                  try {
+                    const io = require('../server').getIO();
+                    if (io && tutor.auth0Id) {
+                      io.to(`user:${tutor.auth0Id}`).emit('feedback_required', {
+                        lessonId: lesson._id.toString(),
+                        studentName: studentName,
+                        title: randomMsg.title,
+                        message: randomMsg.message
+                      });
+                    }
+                  } catch (wsErr) {
+                    console.warn('⚠️ [AutoFinalize] feedback_required WebSocket failed:', wsErr.message);
+                  }
+                  
+                  console.log(`✅ [AutoFinalize] Created mandatory TutorFeedback for lesson ${lesson._id} (AI disabled)`);
+                } else {
+                  console.log(`ℹ️ [AutoFinalize] TutorFeedback already exists for lesson ${lesson._id}`);
+                }
+              } catch (fbError) {
+                console.error('⚠️ [AutoFinalize] Failed to create TutorFeedback:', fbError.message);
+              }
+            }
           }
         }
       } catch (notifError) {

@@ -38,15 +38,28 @@
                 </p>
                 <p class="profile-email" *ngIf="isViewingOtherUser && isTutor()">{{ getDisplayUser()?.email }}</p>
                 
-                <!-- Visibility Status for Tutors -->
+                <!-- Visibility Status for Tutors — always reserve space to prevent layout shift -->
                 <div class="visibility-status" *ngIf="!isViewingOtherUser && isTutor()">
-                  <div class="visibility-badge" [class.visible]="isTutorVisible" [class.hidden]="!isTutorVisible">
-                    <ion-icon [name]="isTutorVisible ? 'eye' : 'eye-off'"></ion-icon>
-                    <span>{{ isTutorVisible ? 'Visible to Students' : 'Hidden from Students' }}</span>
+                  <!-- Skeleton placeholder while loading -->
+                  <div class="visibility-skeleton" *ngIf="!visibilityLoaded">
+                    <ion-skeleton-text [animated]="true" style="width: 180px; height: 34px; border-radius: 20px;"></ion-skeleton-text>
                   </div>
-                  <p class="visibility-reason" *ngIf="!isTutorVisible && visibilityMissingItems.length > 0">
-                    Missing: {{ visibilityMissingItems.join(' • ') }}
-                  </p>
+                  <!-- Actual badge once loaded -->
+                  <ng-container *ngIf="visibilityLoaded">
+                    <div class="visibility-badge" [class.visible]="isTutorVisible" [class.hidden]="!isTutorVisible">
+                      <ion-icon [name]="isTutorVisible ? 'eye' : 'eye-off'"></ion-icon>
+                      <span>{{ isTutorVisible ? 'Visible to Students' : 'Hidden from Students' }}</span>
+                    </div>
+                    <p class="visibility-reason" *ngIf="!isTutorVisible && visibilityMissingItems.length > 0">
+                      {{ visibilityMissingItems.join(' · ') }}
+                    </p>
+                    <button class="feedback-action-btn" 
+                            *ngIf="pendingFeedbackCount > 0"
+                            (click)="openFeedbackModal()">
+                      <ion-icon name="clipboard-outline"></ion-icon>
+                      Leave Feedback ({{ pendingFeedbackCount }})
+                    </button>
+                  </ng-container>
                 </div>
                 
                 <!-- Picture actions when picture exists -->
@@ -381,19 +394,14 @@
             <ion-label>Show Wallet Balance</ion-label>
             <ion-toggle slot="end" [checked]="showWalletBalance" (ionChange)="toggleShowWalletBalance($event)"></ion-toggle>
           </ion-item>
-          <!-- 
-          TEMPORARILY DISABLED: AI Analysis Toggle
-          TODO: Re-enable if we want to allow users to disable AI analysis
-          
           <ion-item button *ngIf="isStudent()">
             <ion-icon name="analytics" slot="start"></ion-icon>
             <ion-label>
-              <h3>AI Analysis</h3>
-              <p>Get detailed feedback from AI after lessons. When disabled, your tutor will provide all feedback.</p>
+              <h3>AI Lesson Review</h3>
+              <p>When enabled, AI analyzes key moments of your lessons to provide detailed grammar, vocabulary, and fluency feedback. When disabled, your tutor will assess your progress directly. Your CEFR level is tracked either way.</p>
             </ion-label>
             <ion-toggle slot="end" [checked]="aiAnalysisEnabled" (ionChange)="toggleAIAnalysis($event)"></ion-toggle>
           </ion-item>
-          -->
           <ion-item button>
             <ion-icon name="help-circle" slot="start"></ion-icon>
             <ion-label>{{ 'PROFILE_SCREEN.HELP_SUPPORT' | translate }}</ion-label>
@@ -467,6 +475,60 @@
             autoplay
             class="video-player">
           </video>
+        </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Outstanding Feedback Modal - Same design as Upcoming Lessons -->
+  <ion-modal 
+    [isOpen]="isFeedbackModalOpen" 
+    (didDismiss)="closeFeedbackModal()" 
+    class="all-lessons-modal"
+    [backdropDismiss]="false">
+    <ng-template>
+      <ion-header class="airbnb-modal-ion-header">
+        <div class="airbnb-modal-header">
+          <h2>Outstanding feedback</h2>
+          <button class="airbnb-modal-close" (click)="closeFeedbackModal()">
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+        <div class="airbnb-month-selector">
+          <div class="airbnb-month-left">
+            <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
+          </div>
+          <div class="feedback-modal-icon">
+            <ion-icon name="clipboard-outline"></ion-icon>
+          </div>
+        </div>
+      </ion-header>
+
+      <ion-content class="airbnb-modal-ion-content">
+        <div class="airbnb-modal-body">
+          <ng-container *ngFor="let fb of pendingFeedbackItems">
+            <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb._id)">
+              <div class="airbnb-lesson-left">
+                <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
+                <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>
+              </div>
+              <div class="airbnb-lesson-right">
+                <div class="airbnb-lesson-participant-info">
+                  <div class="airbnb-lesson-name">{{ fb.studentName || 'Student' }}</div>
+                  <div class="airbnb-feedback-pending">Pending</div>
+                </div>
+                <div class="airbnb-lesson-avatar-small">
+                  <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
+                  <ion-icon *ngIf="!fb.studentPicture" name="person"></ion-icon>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <div class="airbnb-no-lessons" *ngIf="pendingFeedbackItems.length === 0">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <p>All feedback completed!</p>
+          </div>
         </div>
       </ion-content>
     </ng-template>

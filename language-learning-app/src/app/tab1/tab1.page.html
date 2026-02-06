@@ -94,7 +94,7 @@
               </div>
             </div>
             <!-- Add Availability Button (when video approved) -->
-            <ion-button *ngIf="tutorOnboardingStatus?.videoApproved && !currentUser?.tutorApproved" fill="solid" color="primary" (click)="router.navigate(['/tabs/tutor-calendar'])">
+            <ion-button *ngIf="tutorOnboardingStatus?.videoApproved && !currentUser?.tutorApproved" fill="solid" color="primary" (click)="router.navigate(['/tabs/tutor-calendar'])" >
               <ion-icon name="calendar-outline" slot="start"></ion-icon>
               Add Availability
             </ion-button>
@@ -108,6 +108,21 @@
       </ion-card>
     </div>
     
+    <!-- Outstanding Feedback Banner (Airbnb style) -->
+    <div class="feedback-banner-airbnb" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
+      <div class="feedback-banner-left">
+        <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
+        <div class="feedback-banner-copy">
+          <span class="feedback-banner-title">Feedback needed</span>
+          <span class="feedback-banner-subtitle">Your profile is hidden until complete</span>
+        </div>
+      </div>
+      <button class="feedback-banner-cta">
+        Review
+        <ion-icon name="arrow-forward-outline"></ion-icon>
+      </button>
+    </div>
+
     <!-- Insights Panel (for both students and tutors) -->
     <div class="insights-panel" *ngIf="currentUser">
       <!-- Tutors see: Students | Lessons | Rating | Wallet -->
@@ -709,7 +724,7 @@
     </ion-card>
 
     <!-- Next Class Info Card (for tutors only - students use Up Next card) -->
-    <ion-card class="next-class-card" *ngIf="!isLoadingLessons && nextLesson && isTutorUser">
+    <ion-card class="next-class-card" [class.card-disabled]="pendingFeedbackCount > 0" *ngIf="!isLoadingLessons && nextLesson && isTutorUser">
       <!-- Hidden reference to countdownTick to trigger change detection -->
       <span style="display: none;">{{ countdownTick }}</span>
       <ion-card-content>
@@ -899,6 +914,7 @@
         <p class="empty-state-subtitle" *ngIf="hadLessonsEarlierToday()">You don't have any more lessons scheduled for today.</p>
         
         <ion-button 
+          [disabled]="pendingFeedbackCount > 0"
           fill="clear" 
           size="medium" 
           class="empty-state-cta"
@@ -1019,8 +1035,11 @@
             <!-- Header with count -->
             <div class="airbnb-dates-header">
               <div class="airbnb-dates-header-left">
-                <span class="airbnb-dates-count">{{ timelineEvents.length }} upcoming</span>
-                <span class="airbnb-dates-subtitle">lessons scheduled</span>
+                <!-- Show scheduled count if any, otherwise show cancelled count -->
+                <span class="airbnb-dates-count" *ngIf="scheduledTimelineCount > 0">{{ scheduledTimelineCount }} upcoming</span>
+                <span class="airbnb-dates-count cancelled-count" *ngIf="scheduledTimelineCount === 0 && cancelledTimelineCount > 0">{{ cancelledTimelineCount }} cancelled</span>
+                <span class="airbnb-dates-subtitle" *ngIf="scheduledTimelineCount > 0">lessons scheduled</span>
+                <span class="airbnb-dates-subtitle" *ngIf="scheduledTimelineCount === 0 && cancelledTimelineCount > 0">lessons</span>
               </div>
             </div>
             
@@ -1073,7 +1092,8 @@
             <!-- Empty state when no lessons -->
             <div class="airbnb-empty-lessons" *ngIf="timelineEvents.length === 0">
               <ion-icon name="calendar-outline"></ion-icon>
-              <p>No upcoming lessons scheduled.</p>
+              <p *ngIf="nextLesson">No additional lessons scheduled.</p>
+              <p *ngIf="!nextLesson">No upcoming lessons.</p>
             </div>
             
             <!-- Show all link at bottom - always visible -->
@@ -1091,7 +1111,26 @@
             </div>
             
             <div class="quick-actions-list">
-              <button class="quick-action-item" (click)="openSearchTutors()">
+              <!-- Outstanding Feedback — replaces "Find tutors" when tutor has pending feedback -->
+              <button class="quick-action-item quick-action-urgent" 
+                      *ngIf="isTutorUser && pendingFeedbackCount > 0" 
+                      (click)="openPendingFeedback()">
+                <div class="quick-action-icon urgent">
+                  <ion-icon name="clipboard-outline"></ion-icon>
+                </div>
+                <div class="quick-action-text">
+                  <span class="quick-action-title">Outstanding feedback</span>
+                  <span class="quick-action-subtitle">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount > 1 ? 's' : '' }} need your feedback</span>
+                </div>
+                <ion-chip class="feedback-count-badge">
+                  {{ pendingFeedbackCount }}
+                </ion-chip>
+              </button>
+              
+              <!-- Find tutors — hidden when tutor has pending feedback -->
+              <button class="quick-action-item" 
+                      *ngIf="!(isTutorUser && pendingFeedbackCount > 0)"
+                      (click)="openSearchTutors()">
                 <div class="quick-action-icon">
                   <ion-icon name="search-outline"></ion-icon>
                 </div>
@@ -1442,7 +1481,8 @@
         
         <div class="airbnb-no-lessons" *ngIf="allLessonsForModal.length === 0">
           <ion-icon name="calendar-outline"></ion-icon>
-          <p *ngIf="selectedFilterMonth === null">No upcoming lessons scheduled.</p>
+          <p *ngIf="selectedFilterMonth === null && nextLesson">No additional lessons scheduled.</p>
+          <p *ngIf="selectedFilterMonth === null && !nextLesson">No upcoming lessons.</p>
           <p *ngIf="selectedFilterMonth !== null">No lessons in {{ currentMonthLabel }}.</p>
           <button class="airbnb-clear-filter-btn" *ngIf="selectedFilterMonth !== null" (click)="clearMonthFilter()">
             Show all lessons
@@ -1462,6 +1502,60 @@
           [showDefaultButtons]="false"
           size="cover">
         </ion-datetime>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>
+
+<!-- Outstanding Feedback Modal - Same design as Upcoming Lessons -->
+<ion-modal 
+  [isOpen]="isFeedbackModalOpen" 
+  (didDismiss)="closeFeedbackModal()" 
+  class="all-lessons-modal"
+  [backdropDismiss]="false">
+  <ng-template>
+    <ion-header class="airbnb-modal-ion-header">
+      <div class="airbnb-modal-header">
+        <h2>Outstanding feedback</h2>
+        <button class="airbnb-modal-close" (click)="closeFeedbackModal()">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+      <div class="airbnb-month-selector">
+        <div class="airbnb-month-left">
+          <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
+        </div>
+        <div class="feedback-modal-icon">
+          <ion-icon name="clipboard-outline"></ion-icon>
+        </div>
+      </div>
+    </ion-header>
+
+    <ion-content class="airbnb-modal-ion-content">
+      <div class="airbnb-modal-body">
+        <ng-container *ngFor="let fb of pendingFeedback; let i = index">
+          <div class="airbnb-lesson-row" (click)="openFeedbackForm(fb._id); closeFeedbackModal()">
+            <div class="airbnb-lesson-left">
+              <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
+              <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>
+            </div>
+            <div class="airbnb-lesson-right">
+              <div class="airbnb-lesson-participant-info">
+                <div class="airbnb-lesson-name">{{ fb.studentName || 'Student' }}</div>
+                <div class="airbnb-feedback-pending">Pending</div>
+              </div>
+              <div class="airbnb-lesson-avatar-small">
+                <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
+                <ion-icon *ngIf="!fb.studentPicture" name="person"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <div class="airbnb-no-lessons" *ngIf="pendingFeedback.length === 0">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <p>All feedback completed!</p>
+        </div>
       </div>
     </ion-content>
   </ng-template>

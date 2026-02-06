@@ -304,6 +304,13 @@ const LessonSchema = new mongoose.Schema({
       default: 'pending'
     }
   },
+  // Snapshot of the student's AI setting at the time the lesson ended.
+  // null = not yet recorded (legacy lessons). true/false = captured at completion.
+  aiAnalysisEnabledAtTime: {
+    type: Boolean,
+    default: null,
+    comment: 'Student AI analysis setting captured when the lesson completed — immutable after being set'
+  },
   // Manual feedback tracking (when AI analysis is disabled)
   requiresTutorFeedback: {
     type: Boolean,

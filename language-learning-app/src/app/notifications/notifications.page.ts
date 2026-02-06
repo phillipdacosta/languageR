@@ -248,6 +248,10 @@ export class NotificationsPage implements OnDestroy {
     this.router.navigate(['/tabs/availability-setup']);
   }
 
+  navigateToProgress() {
+    this.router.navigate(['/tabs/progress']);
+  }
+
   async openClassInvitation(classId: string, notification?: Notification) {
     const modal = await this.modalController.create({
       component: ClassInvitationModalComponent,

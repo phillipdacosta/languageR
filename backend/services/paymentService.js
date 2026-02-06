@@ -530,12 +530,39 @@ class PaymentService {
         
         console.log(`✅ [CAPTURE] Successfully captured and saved $${amount} for lesson ${lessonId}`);
       } catch (captureError) {
-        console.error(`❌ [CAPTURE] Failed to capture Stripe payment for lesson ${lessonId}:`, captureError.message);
-        console.error(`❌ [CAPTURE] PaymentIntent ID: ${payment.stripePaymentIntentId}`);
-        console.error(`❌ [CAPTURE] Full error:`, captureError);
-        
-        // ⚠️ DO NOT update database if Stripe capture failed
-        throw new Error(`Payment capture failed: ${captureError.message}`);
+        // Check if error is "already captured" - this means it actually succeeded
+        if (captureError.message?.includes('already been captured') || 
+            captureError.code === 'payment_intent_unexpected_state') {
+          console.log(`✅ [CAPTURE] Payment was already captured (likely race condition) - treating as success`);
+          
+          // Retrieve the actual payment status from Stripe to confirm
+          const existingIntent = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId);
+          if (existingIntent.status === 'succeeded') {
+            payment.status = 'succeeded';
+            payment.chargedAt = new Date();
+            
+            // Get charge details if available
+            if (existingIntent.latest_charge) {
+              const chargeId = typeof existingIntent.latest_charge === 'string' 
+                ? existingIntent.latest_charge 
+                : existingIntent.latest_charge.id;
+              payment.stripeChargeId = chargeId;
+            }
+            
+            await payment.save();
+            console.log(`✅ [CAPTURE] Confirmed payment succeeded via Stripe retrieve`);
+          } else {
+            console.error(`❌ [CAPTURE] Stripe shows status: ${existingIntent.status}`);
+            throw new Error(`Payment capture failed: ${captureError.message}`);
+          }
+        } else {
+          console.error(`❌ [CAPTURE] Failed to capture Stripe payment for lesson ${lessonId}:`, captureError.message);
+          console.error(`❌ [CAPTURE] PaymentIntent ID: ${payment.stripePaymentIntentId}`);
+          console.error(`❌ [CAPTURE] Full error:`, captureError);
+          
+          // ⚠️ DO NOT update database if Stripe capture failed
+          throw new Error(`Payment capture failed: ${captureError.message}`);
+        }
       }
     }
 
@@ -590,11 +617,48 @@ class PaymentService {
         
         console.log(`✅ [HYBRID] Hybrid card payment captured: $${hybridCardPayment.amount}`);
       } catch (hybridError) {
-        console.error(`❌ [HYBRID] Failed to capture hybrid card payment:`, hybridError.message);
-        // Don't throw - let main payment succeed even if hybrid portion fails
-        hybridCardPayment.status = 'failed';
-        hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
-        await hybridCardPayment.save();
+        // Check if error is "already captured" - this means it actually succeeded
+        if (hybridError.message?.includes('already been captured') || 
+            hybridError.code === 'payment_intent_unexpected_state') {
+          console.log(`✅ [HYBRID] Payment was already captured (likely race condition) - treating as success`);
+          
+          // Retrieve the actual payment status from Stripe to confirm
+          try {
+            const existingIntent = await stripe.paymentIntents.retrieve(hybridCardPayment.stripePaymentIntentId);
+            if (existingIntent.status === 'succeeded') {
+              hybridCardPayment.status = 'succeeded';
+              hybridCardPayment.chargedAt = new Date();
+              
+              // Get charge details if available
+              if (existingIntent.latest_charge) {
+                const chargeId = typeof existingIntent.latest_charge === 'string' 
+                  ? existingIntent.latest_charge 
+                  : existingIntent.latest_charge.id;
+                hybridCardPayment.stripeChargeId = chargeId;
+              }
+              
+              await hybridCardPayment.save();
+              console.log(`✅ [HYBRID] Confirmed payment succeeded via Stripe retrieve`);
+            } else {
+              console.error(`❌ [HYBRID] Stripe shows status: ${existingIntent.status}`);
+              hybridCardPayment.status = 'failed';
+              hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+              await hybridCardPayment.save();
+            }
+          } catch (retrieveError) {
+            console.error(`❌ [HYBRID] Error retrieving payment status:`, retrieveError.message);
+            // If we can't verify, still mark as failed to be safe
+            hybridCardPayment.status = 'failed';
+            hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+            await hybridCardPayment.save();
+          }
+        } else {
+          console.error(`❌ [HYBRID] Failed to capture hybrid card payment:`, hybridError.message);
+          // Don't throw - let main payment succeed even if hybrid portion fails
+          hybridCardPayment.status = 'failed';
+          hybridCardPayment.errorMessage = `Hybrid capture failed: ${hybridError.message}`;
+          await hybridCardPayment.save();
+        }
       }
     }
 

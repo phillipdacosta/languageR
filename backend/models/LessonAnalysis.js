@@ -208,10 +208,18 @@ const lessonAnalysisSchema = new mongoose.Schema({
   // Tutor Notes
   tutorNotes: String,
   
+  // Analysis source tracking
+  source: {
+    type: String,
+    enum: ['ai', 'tutor'],
+    default: 'ai',
+    index: true
+  },
+  
   // AI Processing
   aiModel: {
     type: String,
-    default: 'gpt-4'
+    default: 'gpt-4o-mini'
   },
   processingTime: Number, // milliseconds
   status: {

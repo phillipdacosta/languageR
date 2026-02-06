@@ -258,9 +258,9 @@ const ANALYSIS_CONFIG = {
   SAMPLE_MIDDLE_PERCENT: 0.25,     // Middle 25% 
   SAMPLE_END_PERCENT: 0.40,        // Last 40% (most recent)
   
-  // Cost tracking (GPT-4o pricing per 1M tokens)
-  COST_PER_INPUT_TOKEN: 0.0000025,   // $2.50 per 1M
-  COST_PER_OUTPUT_TOKEN: 0.000010,   // $10.00 per 1M
+  // Cost tracking (GPT-4o-mini pricing per 1M tokens)
+  COST_PER_INPUT_TOKEN: 0.00000015,   // $0.15 per 1M
+  COST_PER_OUTPUT_TOKEN: 0.0000006,   // $0.60 per 1M
   
   // Quality thresholds
   MIN_WORDS_FOR_ANALYSIS: 50,
@@ -696,7 +696,7 @@ IMPORTANT GUIDELINES:
 `;
 
     const response = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4o-2024-08-06",
+      model: "gpt-4o-mini",
       temperature: 0,
       messages: [
         { role: "system", content: CORRECTION_SYSTEM_MESSAGE },
@@ -807,6 +807,7 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
     });
     
     console.log(`✅ Raw transcription completed: ${transcription.segments?.length || 0} segments`);
+    console.log(`📝 RAW WHISPER TEXT: "${transcription.text || '(empty)'}"`);
     
     // CRITICAL: Check the TOP-LEVEL detected language
     // Whisper's verbose_json returns a single 'language' field for the entire audio
@@ -817,35 +818,25 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
     console.log(`Detected language: ${detectedLanguage || 'unknown'} (${getLanguageName(detectedLanguage || 'unknown')})`);
     console.log(`Speaker: ${speaker}`);
     console.log(`Segments: ${transcription.segments?.length || 0}`);
+    console.log(`Full text: "${transcription.text?.substring(0, 200) || '(none)'}..."`);
     
-    // If the detected language doesn't match the target language, reject the entire chunk
+    // LANGUAGE LEARNING FIX: Accept ALL transcriptions regardless of detected language
+    // In language learning, students naturally mix their native language with the target language
+    // e.g., a student learning Spanish might say "How do you say 'hello' in Spanish? Ah, hola!"
+    
     if (detectedLanguage !== targetLanguage) {
-      console.log(`🚫 REJECTED - Wrong language detected!`);
-      console.log(`   Expected: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
+      console.log(`ℹ️  Language mismatch (this is normal in language learning):`);
+      console.log(`   Target: ${targetLanguage} (${getLanguageName(targetLanguage)})`);
       console.log(`   Detected: ${detectedLanguage} (${getLanguageName(detectedLanguage)})`);
-      console.log(`   Transcribed text: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
-      console.log(`   This audio chunk will NOT be analyzed.`);
-      console.log(`=======================================\n`);
-      
-      // Return empty result - this chunk is completely ignored
-      return {
-        text: '',
-        segments: [],
-        language: targetLanguage,
-        duration: transcription.duration,
-        originalSegmentCount: transcription.segments?.length || 0,
-        filteredSegmentCount: 0,
-        rejectedSegmentCount: transcription.segments?.length || 0,
-        detectedLanguage: detectedLanguage,
-        wasRejected: true
-      };
+      console.log(`   ✅ ACCEPTING ANYWAY - mixed language is expected in lessons`);
+    } else {
+      console.log(`✅ Language matches target: ${targetLanguage}`);
     }
     
-    // Language matches! Accept all segments
-    console.log(`✅ Language matches target! All segments accepted.`);
-    console.log(`📝 Transcribed text preview: "${transcription.text?.substring(0, 100)}${transcription.text?.length > 100 ? '...' : ''}"`);
+    console.log(`📝 Transcribed text: "${transcription.text?.substring(0, 200) || '(none)'}${transcription.text?.length > 200 ? '...' : ''}"`);
     console.log(`=======================================\n`);
     
+    // Accept all transcriptions - the AI analysis will handle mixed-language content
     return {
       text: transcription.text || '',
       segments: transcription.segments || [],
@@ -1748,7 +1739,7 @@ Respond ONLY with valid JSON:
 }`;
 
     const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',  // Changed from gpt-4-turbo-preview - better at structured output
+      model: 'gpt-4o-mini',  // Cost optimized from gpt-4o
       messages: [
         {
           role: 'system',
@@ -1999,7 +1990,7 @@ Respond ONLY with valid JSON in this format:
 }`;
 
     const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',

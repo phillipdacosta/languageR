@@ -34,6 +34,8 @@ interface AnalysisSummary {
   isTrialLesson?: boolean;
   isOfficeHours?: boolean;
   officeHoursType?: string | null;
+  // Analysis source (ai or tutor)
+  source?: string;
   // Cached computed values (added for performance)
   formattedDate?: string;
   levelClass?: string;
@@ -129,6 +131,11 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   milestoneSnapshots: any[] = [];
   selectedMilestone: number = 0;
   
+  // Celebration state
+  showCelebration: boolean = false;
+  celebrationSnapshot: any = null;
+  milestonesCalculated: boolean = false; // Prevents stats flash before milestone check
+  
   // Expose Math for template
   Math = Math;
   
@@ -211,6 +218,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔍 [Progress] Starting to load analyses...');
       this.loading = true;
       this.error = '';
+      this.milestonesCalculated = false;
 
       const headers = this.userService.getAuthHeadersSync();
       const url = `${environment.backendUrl}/api/transcription/my-analyses`;
@@ -304,6 +312,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
                 // Step 6: Load struggles (can happen in parallel)
                 console.log('📊 [Progress] Step 6: Loading struggles...');
                 this.loadStruggles();
+                
+                // Step 7: Trigger milestone check (sends notification if needed)
+                this.triggerMilestoneCheck();
               }, 0);
             }, 0);
           }, 0);
@@ -886,9 +897,58 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     // Auto-select the most recent milestone
     if (this.milestoneSnapshots.length > 0) {
       this.selectedMilestone = this.milestoneSnapshots.length - 1;
+      
+      // Check if we should show a celebration (first time profile is unlocked or new milestone)
+      const latestSnapshot = this.milestoneSnapshots[this.milestoneSnapshots.length - 1];
+      const celebrationKey = `milestone_celebrated_${latestSnapshot.milestoneNumber}`;
+      const alreadyCelebrated = localStorage.getItem(celebrationKey);
+      
+      if (!alreadyCelebrated) {
+        this.showCelebration = true;
+        this.celebrationSnapshot = latestSnapshot;
+      }
     }
     
+    this.milestonesCalculated = true;
     console.log('📊 Calculated milestone snapshots:', this.milestoneSnapshots);
+  }
+  
+  triggerMilestoneCheck() {
+    // Determine the primary language from analyses
+    if (this.analyses.length === 0) return;
+    
+    const languageCounts: { [key: string]: number } = {};
+    this.analyses.forEach(a => {
+      const lang = a.language || 'Unknown';
+      languageCounts[lang] = (languageCounts[lang] || 0) + 1;
+    });
+    const primaryLanguage = Object.keys(languageCounts).reduce((a, b) => 
+      languageCounts[a] > languageCounts[b] ? a : b
+    );
+    
+    if (primaryLanguage && this.analyses.length % 5 === 0) {
+      this.progressService.checkMilestone(primaryLanguage).subscribe({
+        next: (res) => console.log('🎯 Milestone check result:', res),
+        error: (err) => console.error('⚠️ Milestone check error:', err)
+      });
+    }
+  }
+  
+  dismissCelebration() {
+    if (this.celebrationSnapshot) {
+      const celebrationKey = `milestone_celebrated_${this.celebrationSnapshot.milestoneNumber}`;
+      localStorage.setItem(celebrationKey, 'true');
+    }
+    this.showCelebration = false;
+    this.celebrationSnapshot = null;
+    
+    // Trigger milestone check notification in the background
+    if (this.currentLanguage) {
+      this.progressService.checkMilestone(this.currentLanguage).subscribe({
+        next: (res) => console.log('📊 Milestone check:', res),
+        error: (err) => console.error('⚠️ Milestone check error:', err)
+      });
+    }
   }
   
   selectMilestone(index: number) {

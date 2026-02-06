@@ -7,6 +7,7 @@ const Notification = require('../models/Notification');
 const Message = require('../models/Message');
 const LessonAnalysis = require('../models/LessonAnalysis');
 const Payment = require('../models/Payment');
+const TutorFeedback = require('../models/TutorFeedback');
 const walletService = require('../services/walletService');
 const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
@@ -144,6 +145,25 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(404).json({ 
         success: false, 
         message: 'Tutor or student not found' 
+      });
+    }
+
+    // Check if tutor has pending feedback (block new bookings)
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
+      $or: [
+        { tutorId: tutor._id },
+        { tutorId: tutor.auth0Id }
+      ],
+      status: 'pending'
+    });
+    
+    if (pendingFeedbackCount > 0) {
+      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      return res.status(403).json({
+        success: false,
+        message: `This tutor has ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before accepting new lessons.`,
+        code: 'PENDING_FEEDBACK',
+        pendingCount: pendingFeedbackCount
       });
     }
 
@@ -654,6 +674,25 @@ router.post('/office-hours', verifyToken, async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'This tutor does not have office hours enabled' 
+      });
+    }
+
+    // Check if tutor has pending feedback (block new bookings)
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
+      $or: [
+        { tutorId: tutor._id },
+        { tutorId: tutor.auth0Id }
+      ],
+      status: 'pending'
+    });
+    
+    if (pendingFeedbackCount > 0) {
+      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      return res.status(403).json({
+        success: false,
+        message: `You have ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before starting new lessons.`,
+        code: 'PENDING_FEEDBACK',
+        pendingCount: pendingFeedbackCount
       });
     }
 
@@ -2136,21 +2175,30 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
           
           if (!lessonForAnalysis) return;
           
-          /* 
-          TEMPORARILY DISABLED: Tutor Feedback Flow (AI opt-out)
-          TODO: Re-enable if we want to support AI-disabled mode
+          // ── Snapshot the student's AI setting at lesson completion time ──
+          // This is immutable — if already set (e.g. by autoFinalize), don't overwrite.
+          if (lessonForAnalysis.aiAnalysisEnabledAtTime === null || lessonForAnalysis.aiAnalysisEnabledAtTime === undefined) {
+            const snapshotValue = lessonForAnalysis.studentId?.profile?.aiAnalysisEnabled !== false;
+            lessonForAnalysis.aiAnalysisEnabledAtTime = snapshotValue;
+            await lessonForAnalysis.save();
+            console.log(`📸 Snapshotted aiAnalysisEnabledAtTime=${snapshotValue} for lesson ${lessonForAnalysis._id}`);
+          }
           
-          // Check if student has AI analysis enabled
-          const studentProfile = lessonForAnalysis.studentId?.profile;
-          const aiAnalysisEnabled = studentProfile?.aiAnalysisEnabled !== false; // Default to true
+          // Skip feedback/analysis for trial lessons
+          if (lessonForAnalysis.isTrialLesson) {
+            console.log(`⏭️ Skipping feedback/analysis - Trial lesson ${lessonForAnalysis._id}`);
+            return;
+          }
           
-          console.log(`🤖 AI Analysis Enabled for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
+          // Use the snapshot (not the live profile) to decide feedback vs AI analysis
+          const aiAnalysisEnabled = lessonForAnalysis.aiAnalysisEnabledAtTime !== false; // true or null → AI on
+          
+          console.log(`🤖 AI Analysis Enabled (snapshot) for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
           
           if (!aiAnalysisEnabled) {
-            // AI disabled - require manual tutor feedback
+            // AI disabled — require mandatory tutor feedback
             console.log('📝 AI disabled - Creating tutor feedback requirement...');
             
-            const TutorFeedback = require('../models/TutorFeedback');
             const feedbackExists = await TutorFeedback.findOne({ lessonId: lessonForAnalysis._id });
             
             if (!feedbackExists) {
@@ -2161,75 +2209,71 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
                 status: 'pending'
               });
               
-              // Get dynamic feedback message
+              // Mark lesson as requiring tutor feedback
+              lessonForAnalysis.requiresTutorFeedback = true;
+              await lessonForAnalysis.save();
+              
+              // Dynamic feedback message
               const feedbackMessages = [
-                { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
-                { title: '✍️ Share Your Insights', message: 'Your student is waiting for your feedback!' },
-                { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
-                { title: '📊 Feedback Time', message: 'Help your student improve with your feedback!' }
+                { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${formatDisplayName(lessonForAnalysis.studentId)} just ended — leave your feedback while it's fresh!` },
+                { title: '✍️ Share Your Insights', message: `${formatDisplayName(lessonForAnalysis.studentId)} is waiting for your feedback from today's lesson!` },
+                { title: '💭 Time to Reflect', message: `Quick! Share what went well in your lesson with ${formatDisplayName(lessonForAnalysis.studentId)}.` },
+                { title: '📊 Feedback Time', message: `Help ${formatDisplayName(lessonForAnalysis.studentId)} improve — leave feedback for today's lesson!` }
               ];
               const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
               
-              console.log('📝 Creating notification for tutor:', lessonForAnalysis.tutorId.email);
-              console.log('   Tutor ID:', lessonForAnalysis.tutorId._id);
-              console.log('   Student:', formatDisplayName(lessonForAnalysis.studentId));
+              console.log('📝 Creating feedback_required notification for tutor:', lessonForAnalysis.tutorId.email);
               
               try {
-                // Create notification for tutor
                 const notification = await Notification.create({
                   userId: lessonForAnalysis.tutorId._id,
                   type: 'feedback_required',
                   title: randomMsg.title,
                   message: randomMsg.message,
+                  relatedUserId: lessonForAnalysis.studentId._id,
+                  relatedUserPicture: lessonForAnalysis.studentId.picture || null,
                   data: {
                     lessonId: lessonForAnalysis._id,
                     studentName: formatDisplayName(lessonForAnalysis.studentId),
                     studentAuth0Id: lessonForAnalysis.studentId.auth0Id
                   }
                 });
-                console.log('✅ Notification created:', notification._id);
+                console.log('✅ feedback_required notification created:', notification._id);
               } catch (notifError) {
-                console.error('❌ Error creating notification:', notifError);
+                console.error('❌ Error creating feedback_required notification:', notifError);
               }
               
               try {
-                // Emit WebSocket event
                 if (req.io) {
                   const socketRoom = `user:${lessonForAnalysis.tutorId.auth0Id}`;
-                  console.log('📡 Emitting feedback_required to room:', socketRoom);
                   req.io.to(socketRoom).emit('feedback_required', {
                     lessonId: lessonForAnalysis._id.toString(),
                     studentName: formatDisplayName(lessonForAnalysis.studentId),
                     title: randomMsg.title,
                     message: randomMsg.message
                   });
-                  console.log('✅ WebSocket event emitted');
-                } else {
-                  console.warn('⚠️ req.io is not available - WebSocket event not sent');
+                  console.log('✅ feedback_required WebSocket event emitted to', socketRoom);
                 }
               } catch (socketError) {
-                console.error('❌ Error emitting WebSocket event:', socketError);
+                console.error('❌ Error emitting feedback_required WebSocket:', socketError);
               }
               
-              console.log(`📢 Feedback request process completed for tutor: ${lessonForAnalysis.tutorId.email}`);
+              console.log(`📢 Tutor feedback requirement created for lesson ${lessonForAnalysis._id}`);
             }
             
-            return; // Skip AI analysis generation
+            return; // Skip AI analysis — tutor will provide manual feedback
           }
-          */
           
-          // AI is always enabled - generate analysis for all completed lessons
+          // AI is enabled — generate placeholder analysis
           console.log(`🤖 Generating AI analysis for lesson ${lessonForAnalysis._id}`);
           
           const actualDuration = lessonForAnalysis.actualDurationMinutes || lessonForAnalysis.duration;
           const scheduledDuration = lessonForAnalysis.duration;
           const endedEarly = actualDuration < scheduledDuration;
           
-          // Check if analysis already exists
           const existingAnalysis = await LessonAnalysis.findOne({ lessonId: lessonForAnalysis._id });
           
           if (!existingAnalysis) {
-            // Create a new LessonAnalysis document
             await LessonAnalysis.create({
               lessonId: lessonForAnalysis._id,
               tutorId: lessonForAnalysis.tutorId._id,
@@ -2431,7 +2475,10 @@ router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
 // POST /api/lessons/:id/tutor-note - Add tutor's supplementary note to lesson
 router.post('/:id/tutor-note', verifyToken, async (req, res) => {
   try {
-    const { text, quickImpression, homework } = req.body;
+    const { text, quickImpression, homework, 
+            cefrLevel, grammarRating, fluencyRating, 
+            keyErrorAreas, strengths, areasToImprove, 
+            isTutorAssessment } = req.body;
     const lessonId = req.params.id;
     
     // Verify user is a tutor
@@ -2456,57 +2503,114 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     let analysis = await LessonAnalysis.findOne({ lessonId });
     
     if (!analysis) {
-      // Create placeholder analysis (AI will fill it in later)
-      analysis = new LessonAnalysis({
-        lessonId,
-        studentId: lesson.studentId,
-        tutorId: lesson.tutorId,
-        language: lesson.language || lesson.subject,
-        lessonDate: lesson.startTime,
-        status: 'pending', // Use 'pending' instead of 'generating'
-        transcriptId: null,   // Will be added when transcription completes
-        // Add required fields with placeholder values
-        studentSummary: 'Analysis pending - tutor note added',
-        overallAssessment: {
-          proficiencyLevel: 'B1', // Placeholder
-          confidence: 0,
-          summary: 'Tutor feedback provided. AI analysis will be generated when lesson transcription is available.'
-        },
-        strengths: [],
-        areasForImprovement: [],
-        grammarAnalysis: {
-          mistakeTypes: [],
-          suggestions: [],
-          accuracyScore: 0
-        },
-        vocabularyAnalysis: {
-          uniqueWordCount: 0,
-          vocabularyRange: 'moderate',
-          suggestedWords: [],
-          advancedWordsUsed: []
-        },
-        fluencyAnalysis: {
-          speakingSpeed: 'moderate',
-          pauseFrequency: 'moderate',
-          fillerWords: {
-            count: 0,
-            examples: []
+      if (isTutorAssessment && cefrLevel) {
+        // Create a COMPLETE tutor-sourced analysis (student has AI off)
+        console.log('📝 Creating tutor-sourced LessonAnalysis for lesson:', lessonId);
+        analysis = new LessonAnalysis({
+          lessonId,
+          studentId: lesson.studentId,
+          tutorId: lesson.tutorId,
+          language: lesson.language || lesson.subject,
+          lessonDate: lesson.startTime,
+          source: 'tutor',
+          status: 'completed',
+          transcriptId: null,
+          studentSummary: text,
+          overallAssessment: {
+            proficiencyLevel: cefrLevel,
+            confidence: 75,
+            summary: text
           },
-          overallFluencyScore: 0
-        },
-        topicsDiscussed: [],
-        conversationQuality: 'intermediate',
-        recommendedFocus: [],
-        suggestedExercises: [],
-        homeworkSuggestions: [],
-        tutorNote: {
-          text,
-          quickImpression,
-          homework,
-          addedAt: new Date(),
-          addedBy: user._id
-        }
-      });
+          strengths: strengths || [],
+          areasForImprovement: areasToImprove || [],
+          grammarAnalysis: {
+            mistakeTypes: (keyErrorAreas || []).map(area => ({
+              type: area,
+              frequency: 1,
+              severity: 'medium',
+              examples: []
+            })),
+            suggestions: [],
+            accuracyScore: (grammarRating || 5) * 10
+          },
+          vocabularyAnalysis: {
+            uniqueWordCount: 0,
+            vocabularyRange: 'moderate',
+            suggestedWords: [],
+            advancedWordsUsed: []
+          },
+          fluencyAnalysis: {
+            speakingSpeed: 'natural',
+            pauseFrequency: 'moderate',
+            fillerWords: { count: 0, examples: [] },
+            overallFluencyScore: (fluencyRating || 5) * 10
+          },
+          topicsDiscussed: [],
+          conversationQuality: 'intermediate',
+          recommendedFocus: areasToImprove || [],
+          suggestedExercises: [],
+          homeworkSuggestions: homework ? [homework] : [],
+          tutorNote: {
+            text,
+            quickImpression,
+            homework,
+            addedAt: new Date(),
+            addedBy: user._id
+          }
+        });
+      } else {
+        // Create placeholder analysis (AI will fill it in later)
+        analysis = new LessonAnalysis({
+          lessonId,
+          studentId: lesson.studentId,
+          tutorId: lesson.tutorId,
+          language: lesson.language || lesson.subject,
+          lessonDate: lesson.startTime,
+          source: 'ai',
+          status: 'pending',
+          transcriptId: null,
+          studentSummary: 'Analysis pending - tutor note added',
+          overallAssessment: {
+            proficiencyLevel: 'B1',
+            confidence: 0,
+            summary: 'Tutor feedback provided. AI analysis will be generated when lesson transcription is available.'
+          },
+          strengths: [],
+          areasForImprovement: [],
+          grammarAnalysis: {
+            mistakeTypes: [],
+            suggestions: [],
+            accuracyScore: 0
+          },
+          vocabularyAnalysis: {
+            uniqueWordCount: 0,
+            vocabularyRange: 'moderate',
+            suggestedWords: [],
+            advancedWordsUsed: []
+          },
+          fluencyAnalysis: {
+            speakingSpeed: 'moderate',
+            pauseFrequency: 'moderate',
+            fillerWords: {
+              count: 0,
+              examples: []
+            },
+            overallFluencyScore: 0
+          },
+          topicsDiscussed: [],
+          conversationQuality: 'intermediate',
+          recommendedFocus: [],
+          suggestedExercises: [],
+          homeworkSuggestions: [],
+          tutorNote: {
+            text,
+            quickImpression,
+            homework,
+            addedAt: new Date(),
+            addedBy: user._id
+          }
+        });
+      }
     } else {
       // Update existing analysis with tutor note
       analysis.tutorNote = {
@@ -2516,11 +2620,70 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
         addedAt: new Date(),
         addedBy: user._id
       };
+      
+      // If this is a tutor assessment, also update the structured fields
+      if (isTutorAssessment && cefrLevel) {
+        analysis.source = 'tutor';
+        analysis.status = 'completed';
+        analysis.overallAssessment = {
+          proficiencyLevel: cefrLevel,
+          confidence: 75,
+          summary: text
+        };
+        analysis.grammarAnalysis.accuracyScore = (grammarRating || 5) * 10;
+        analysis.fluencyAnalysis.overallFluencyScore = (fluencyRating || 5) * 10;
+        analysis.strengths = strengths || [];
+        analysis.areasForImprovement = areasToImprove || [];
+        analysis.recommendedFocus = areasToImprove || [];
+        analysis.studentSummary = text;
+        if (keyErrorAreas && keyErrorAreas.length > 0) {
+          analysis.grammarAnalysis.mistakeTypes = keyErrorAreas.map(area => ({
+            type: area,
+            frequency: 1,
+            severity: 'medium',
+            examples: []
+          }));
+        }
+        if (homework) {
+          analysis.homeworkSuggestions = [homework];
+        }
+      }
     }
     
     await analysis.save();
     
     console.log(`✅ Tutor note saved for lesson ${lessonId}`);
+    
+    // If this was a tutor assessment (AI off), also mark TutorFeedback as completed
+    if (isTutorAssessment) {
+      try {
+        const TutorFeedback = require('../models/TutorFeedback');
+        const pendingFeedback = await TutorFeedback.findOne({
+          lessonId: lessonId,
+          status: 'pending'
+        });
+        
+        if (pendingFeedback) {
+          pendingFeedback.strengths = strengths || [];
+          pendingFeedback.areasForImprovement = areasToImprove || [];
+          pendingFeedback.homework = homework || '';
+          pendingFeedback.overallNotes = text || '';
+          pendingFeedback.status = 'completed';
+          pendingFeedback.providedAt = new Date();
+          await pendingFeedback.save();
+          
+          // Also clear the lesson's requiresTutorFeedback flag
+          lesson.requiresTutorFeedback = false;
+          await lesson.save();
+          
+          console.log(`✅ TutorFeedback record marked as completed for lesson ${lessonId}`);
+        } else {
+          console.log(`ℹ️ No pending TutorFeedback record found for lesson ${lessonId}`);
+        }
+      } catch (fbError) {
+        console.error('⚠️ Error completing TutorFeedback (non-critical):', fbError.message);
+      }
+    }
     
     // Populate lesson with student details for notification
     // Re-fetch lesson with populated studentId to ensure we have all fields
@@ -3148,6 +3311,7 @@ router.post('/:id/respond-reschedule', verifyToken, async (req, res) => {
 });
 
 // POST /api/lessons/:id/tip - Send a tip to the tutor
+// Payment strategy: try wallet first, fall back to card on file
 router.post('/:id/tip', verifyToken, async (req, res) => {
   try {
     const { amount } = req.body;
@@ -3164,14 +3328,17 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       });
     }
 
-    // Get lesson
-    const lesson = await Lesson.findById(lessonId).populate('tutor student');
+    // Get lesson (fields are tutorId / studentId in the schema)
+    const lesson = await Lesson.findById(lessonId).populate('tutorId studentId');
     if (!lesson) {
       return res.status(404).json({ success: false, error: 'Lesson not found' });
     }
 
+    const student = lesson.studentId;
+    const tutor = lesson.tutorId;
+
     // Verify requester is the student
-    if (lesson.student.auth0Id !== studentAuth0Id) {
+    if (student.auth0Id !== studentAuth0Id) {
       return res.status(403).json({ success: false, error: 'Only the student can tip' });
     }
 
@@ -3180,17 +3347,7 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tip already sent for this lesson' });
     }
 
-    // Get student's default payment method
-    const student = lesson.student;
-    if (!student.stripeCustomerId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'No payment method on file' 
-      });
-    }
-
-    // Get tutor's Stripe Connect account
-    const tutor = lesson.tutor;
+    // Get tutor's Stripe Connect account (required to receive tips)
     if (!tutor.stripeConnectAccountId) {
       return res.status(400).json({ 
         success: false, 
@@ -3198,64 +3355,176 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       });
     }
 
-    // Create Stripe payment for tip (100% to tutor, no platform fee)
-    const amountInCents = Math.round(amount * 100);
-    const stripeFee = Math.round(amountInCents * 0.029 + 30); // Stripe's fee
-    const tutorReceives = amountInCents - stripeFee;
+    // ---- Payment Strategy: Wallet first, then card ----
+    let paymentMethod = null; // 'wallet' or 'card'
+    let paymentIntentId = null;
+    let stripeFee = 0;
+    let tutorReceives = amount;
 
-    const paymentIntent = await stripeService.stripe.paymentIntents.create({
-      amount: amountInCents,
-      currency: 'usd',
-      customer: student.stripeCustomerId,
-      payment_method: student.defaultPaymentMethod,
-      confirm: true,
-      off_session: true,
-      description: `Tip for lesson with ${tutor.name}`,
-      transfer_data: {
-        amount: tutorReceives, // Tutor gets full amount minus Stripe fee
-        destination: tutor.stripeConnectAccountId
-      },
-      metadata: {
-        type: 'tip',
+    // 1. Check wallet balance
+    const walletInfo = await walletService.getBalance(student._id);
+    const availableBalance = walletInfo.availableBalance || 0;
+
+    if (availableBalance >= amount) {
+      // Wallet has enough — deduct directly (no Stripe fees!)
+      paymentMethod = 'wallet';
+      stripeFee = 0;
+      tutorReceives = amount;
+
+      await walletService.deductFunds({
+        userId: student._id,
         lessonId: lessonId,
-        studentId: student._id.toString(),
-        tutorId: tutor._id.toString()
+        amount: amount
+      });
+
+      // Transfer to tutor via Stripe Connect (platform initiates transfer)
+      const amountInCents = Math.round(amount * 100);
+      const transfer = await stripeService.stripe.transfers.create({
+        amount: amountInCents,
+        currency: 'usd',
+        destination: tutor.stripeConnectAccountId,
+        metadata: {
+          type: 'tip',
+          lessonId: lessonId,
+          paymentMethod: 'wallet'
+        }
+      });
+      paymentIntentId = transfer.id;
+
+      console.log(`💰 Tip paid from wallet: $${amount} (no fees)`);
+
+    } else {
+      // 2. Fall back to card on file
+      if (!student.stripeCustomerId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Insufficient wallet balance and no card on file. Please add a payment method.' 
+        });
       }
-    });
+
+      // Find the student's default/first payment method
+      let stripePaymentMethodId = student.stripePaymentMethodId;
+
+      if (!stripePaymentMethodId) {
+        // Try to get first payment method from Stripe
+        try {
+          const methods = await stripeService.stripe.paymentMethods.list({
+            customer: student.stripeCustomerId,
+            type: 'card',
+            limit: 1
+          });
+          if (methods.data.length > 0) {
+            stripePaymentMethodId = methods.data[0].id;
+          }
+        } catch (pmError) {
+          console.error('Error fetching payment methods:', pmError);
+        }
+      }
+
+      if (!stripePaymentMethodId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'No payment method on file. Please add a card in your profile.' 
+        });
+      }
+
+      paymentMethod = 'card';
+      const amountInCents = Math.round(amount * 100);
+      stripeFee = Math.round(amountInCents * 0.029 + 30); // Stripe's processing fee
+      const tutorReceivesCents = amountInCents - stripeFee;
+      tutorReceives = tutorReceivesCents / 100;
+
+      const paymentIntent = await stripeService.stripe.paymentIntents.create({
+        amount: amountInCents,
+        currency: 'usd',
+        customer: student.stripeCustomerId,
+        payment_method: stripePaymentMethodId,
+        confirm: true,
+        off_session: true,
+        description: `Tip for lesson with ${tutor.name}`,
+        transfer_data: {
+          amount: tutorReceivesCents,
+          destination: tutor.stripeConnectAccountId
+        },
+        metadata: {
+          type: 'tip',
+          lessonId: lessonId,
+          studentId: student._id.toString(),
+          tutorId: tutor._id.toString(),
+          paymentMethod: 'card'
+        }
+      });
+
+      paymentIntentId = paymentIntent.id;
+      stripeFee = stripeFee / 100;
+
+      console.log(`💰 Tip paid by card: $${amount} (Stripe fee: $${stripeFee.toFixed(2)})`);
+    }
 
     // Update lesson with tip info
     lesson.tip = {
       amount: amount,
-      stripeFee: stripeFee / 100,
-      tutorReceived: tutorReceives / 100,
-      paymentIntentId: paymentIntent.id,
+      stripeFee: stripeFee,
+      tutorReceived: tutorReceives,
+      paymentIntentId: paymentIntentId,
+      paymentMethod: paymentMethod,
       paidAt: new Date()
     };
     await lesson.save();
 
-    // Create notification for tutor
+    // Format lesson date/time for notifications
     const studentDisplayName = formatDisplayName(student);
-    const notification = new Notification({
+    const tutorDisplayName = formatDisplayName(tutor);
+    const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric'
+    });
+    const lessonTime = new Date(lesson.startTime).toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', hour12: true
+    });
+    const lessonDatetime = `${lessonDate} at ${lessonTime}`;
+
+    // 1. Notification for tutor — "You received a tip"
+    const tutorNotification = new Notification({
       userId: tutor._id,
-      type: 'message', // Generic type for tips
+      type: 'tip_received',
       title: '🎉 You received a tip!',
-      message: `${studentDisplayName} sent you a $${amount} tip for your lesson!`,
+      message: `You received a $${amount} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}.`,
       data: {
         lessonId: lessonId,
         amount: amount,
         from: studentDisplayName
       },
+      relatedUserId: student._id,
+      relatedUserPicture: student.picture || null,
       read: false
     });
-    await notification.save();
+    await tutorNotification.save();
 
-    // Send WebSocket notification to tutor
+    // 2. Notification for student — "You sent a tip"
+    const studentNotification = new Notification({
+      userId: student._id,
+      type: 'tip_sent',
+      title: '💸 Tip sent!',
+      message: `You sent a $${amount} tip to ${tutorDisplayName} for your lesson on ${lessonDatetime}.`,
+      data: {
+        lessonId: lessonId,
+        amount: amount,
+        to: tutorDisplayName
+      },
+      relatedUserId: tutor._id,
+      relatedUserPicture: tutor.picture || null,
+      read: false
+    });
+    await studentNotification.save();
+
+    // Send WebSocket notifications
     if (req.io && req.connectedUsers) {
+      // Tutor real-time notification
       const tutorSocketId = req.connectedUsers.get(tutor.auth0Id);
       if (tutorSocketId) {
         req.io.to(tutorSocketId).emit('new_notification', {
-          notification: notification,
-          message: `${studentDisplayName} sent you a $${amount} tip!`
+          notification: tutorNotification,
+          message: tutorNotification.message
         });
         req.io.to(tutorSocketId).emit('tip_received', {
           lessonId: lessonId,
@@ -3263,17 +3532,28 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
           from: studentDisplayName
         });
       }
+
+      // Student real-time notification
+      const studentSocketId = req.connectedUsers.get(student.auth0Id);
+      if (studentSocketId) {
+        req.io.to(studentSocketId).emit('new_notification', {
+          notification: studentNotification,
+          message: studentNotification.message
+        });
+      }
     }
 
     console.log('✅ Tip processed successfully:', {
-      amount: amount,
-      stripeFee: stripeFee / 100,
-      tutorReceived: tutorReceives / 100
+      amount,
+      paymentMethod,
+      stripeFee,
+      tutorReceives
     });
 
     res.json({ 
       success: true,
       tip: lesson.tip,
+      paymentMethod,
       message: `Tip sent to ${tutor.name}!`
     });
 

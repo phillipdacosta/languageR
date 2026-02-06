@@ -167,7 +167,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
   pendingFeedbackCount = 0;
-  hasShownFeedbackAlertThisSession = false; // Track if we've shown the alert in this session (public for debugging)
   
   // All tutors modal state
   isAllTutorsModalOpen = false;
@@ -355,6 +354,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           }, 500);
         }
         
+        // Load pending feedback for tutors as soon as currentUser is available.
+        // This catches the case where ionViewWillEnter fired before currentUser was set
+        // (due to asyncScheduler), so loadPendingFeedback() was skipped.
+        if (this.isTutorUser) {
+          this.loadPendingFeedback();
+        }
+        
         // Check tutor onboarding status when user loads
         // Only check if we have complete tutor data (tutorApproved is defined)
         // This prevents banner flash when partial user data is emitted (e.g., from profile update)
@@ -439,6 +445,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }
       });
     });
+
+    // Subscribe to pending feedback cache so tab1 updates reactively
+    // when the cache is populated by any page (e.g. profile).
+    this.tutorFeedbackService.pendingFeedback$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(response => {
+        if (this.isTutorUser) {
+          this.pendingFeedback = response.pendingFeedback || [];
+          this.pendingFeedbackCount = response.count || 0;
+
+          // Auto-reopen the feedback modal after submitting one item
+          // so the tutor can continue working through remaining feedback.
+          if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
+            setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
+          }
+        }
+      });
   }
 
   ngOnInit() {
@@ -1229,18 +1252,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         }, 10000);
       }
       
-      /* 
-      TEMPORARILY DISABLED: Tutor Feedback Loading
-      TODO: Re-enable if we want to support AI-disabled mode
-      
-      // Load pending feedback for tutors
+      // Load pending feedback for tutors (drives Quick Actions feedback item)
       if (this.currentUser.userType === 'tutor') {
         console.log('📝 [TAB1] ionViewWillEnter - User IS a tutor, calling loadPendingFeedback()');
         this.loadPendingFeedback();
       } else {
         console.log('📝 [TAB1] ionViewWillEnter - User is NOT a tutor (userType:', this.currentUser.userType, ')');
       }
-      */
     } else {
       console.warn('⚠️ [TAB1] ionViewWillEnter - No currentUser available!');
     }
@@ -4217,6 +4235,13 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
                               nextClassLesson?.lesson?._id || 
                               (nextClassLesson?.lesson && String(nextClassLesson.lesson._id));
     
+    // Get all scheduled (non-cancelled) lesson times to check for replacements
+    const scheduledLessonTimes = new Set(
+      allLessonsForTimeline
+        .filter(l => l.status !== 'cancelled')
+        .map(l => new Date(l.startTime).getTime())
+    );
+    
     // Filter and sort all lessons for timeline
     return allLessonsForTimeline
       .filter(lesson => {
@@ -4230,6 +4255,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           if (startTime <= now) return false;
           // Exclude if it's the next class being shown in the "Up Next" card
           if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
+          // Exclude if there's a scheduled lesson at the same time (user rebooked)
+          if (scheduledLessonTimes.has(startTime.getTime())) return false;
           return true;
         }
         
@@ -4292,6 +4319,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       });
   }
 
+  // Get count of scheduled (non-cancelled) timeline events
+  get scheduledTimelineCount(): number {
+    return this.timelineEvents.filter(e => !e.isCancelled).length;
+  }
+  
+  // Get count of cancelled timeline events
+  get cancelledTimelineCount(): number {
+    return this.timelineEvents.filter(e => e.isCancelled).length;
+  }
+
   hasMoreTimelineEvents(): boolean {
     const allLessons = [...this.lessons, ...this.cancelledLessons];
     const now = new Date();
@@ -4315,6 +4352,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Track if all lessons modal is open
   isAllLessonsModalOpen = false;
   allLessonsForModal: any[] = [];
+  
+  // Track if feedback modal is open
+  isFeedbackModalOpen = false;
 
   /**
    * Open modal to show all upcoming lessons (Airbnb style)
@@ -6981,88 +7021,30 @@ navigateToLessons() {
 
   /**
    * Load pending feedback requests for tutors
+   * No popup — the Quick Actions card handles the UI inline.
    */
   async loadPendingFeedback() {
     if (!this.isTutor()) return;
     
     console.log('📝 [TAB1] loadPendingFeedback called');
     
+    // 1. If the service already has cached data (e.g. from profile), apply it immediately
+    if (this.tutorFeedbackService.isCacheLoaded) {
+      const cached = this.tutorFeedbackService.getCachedPendingFeedback();
+      this.pendingFeedback = cached.pendingFeedback || [];
+      this.pendingFeedbackCount = cached.count || 0;
+      console.log(`📝 [TAB1] Using cached feedback count: ${this.pendingFeedbackCount}`);
+    }
+    
+    // 2. Always fetch fresh data from the API (updates the cache for other pages too)
     try {
       const response = await firstValueFrom(this.tutorFeedbackService.getPendingFeedback());
-      const previousCount = this.pendingFeedbackCount;
       this.pendingFeedback = response.pendingFeedback || [];
       this.pendingFeedbackCount = response.count || 0;
-      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests (previous: ${previousCount})`);
-      console.log(`📝 [TAB1] hasShownFeedbackAlertThisSession: ${this.hasShownFeedbackAlertThisSession}`);
-      
-      // Show feedback alert if:
-      // 1. There's pending feedback (count > 0)
-      // 2. AND either:
-      //    - We haven't shown the alert this session yet
-      //    - OR the count increased (new feedback added)
-      const shouldShowAlert = this.pendingFeedbackCount > 0 && 
-                             (!this.hasShownFeedbackAlertThisSession || this.pendingFeedbackCount > previousCount);
-      
-      console.log(`📝 [TAB1] Should show alert: ${shouldShowAlert} (count: ${this.pendingFeedbackCount}, shown: ${this.hasShownFeedbackAlertThisSession}, prev: ${previousCount})`);
-      
-      if (shouldShowAlert) {
-        // Longer delay to ensure the "lesson ended" alert is fully dismissed
-        setTimeout(() => {
-          console.log('📝 [TAB1] Showing feedback alert after 1.5s delay');
-          this.showFeedbackAlert();
-        }, 1500); // Increased from 500ms to 1500ms to avoid conflicts
-      }
+      console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
     } catch (error) {
       console.error('❌ [TAB1] Error loading pending feedback:', error);
     }
-  }
-  
-  /**
-   * Show feedback alert to tutor
-   */
-  async showFeedbackAlert() {
-    console.log('📝 [TAB1] showFeedbackAlert called');
-    this.hasShownFeedbackAlertThisSession = true;
-    
-    const feedbackMessages = [
-      { title: '📝 Lesson Feedback Needed', message: 'Do it while it\'s fresh in your mind!' },
-      { title: '✍️ Share Your Insights', message: `You have ${this.pendingFeedbackCount} lesson${this.pendingFeedbackCount > 1 ? 's' : ''} waiting for your feedback!` },
-      { title: '💭 Time to Reflect', message: 'Quick! Share what went well in the lesson.' },
-      { title: '📊 Feedback Time', message: `${this.pendingFeedbackCount} student${this.pendingFeedbackCount > 1 ? 's are' : ' is'} waiting for your feedback!` }
-    ];
-    const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
-    
-    console.log('📝 [TAB1] Creating alert with message:', randomMsg);
-    
-    const alert = await this.alertController.create({
-      header: randomMsg.title,
-      message: randomMsg.message,
-      buttons: [
-        {
-          text: 'Later',
-          role: 'cancel',
-          handler: () => {
-            console.log('📝 [TAB1] User chose to provide feedback later');
-            // Reset flag so alert can show again if user returns to home
-            this.hasShownFeedbackAlertThisSession = false;
-          }
-        },
-        {
-          text: 'Provide Feedback',
-          handler: () => {
-            console.log('📝 [TAB1] User chose to provide feedback now');
-            // Open the first pending feedback item
-            if (this.pendingFeedback.length > 0) {
-              this.openFeedbackForm(this.pendingFeedback[0]._id);
-            }
-          }
-        }
-      ],
-      backdropDismiss: false
-    });
-    
-    console.log('📝 [TAB1] Presenting alert');
-    await alert.present();
   }
 
   /**
@@ -7070,6 +7052,56 @@ navigateToLessons() {
    */
   async openFeedbackForm(feedbackId: string) {
     this.router.navigate(['/tutor-feedback', feedbackId]);
+  }
+
+  /**
+   * Open pending feedback modal (Airbnb style, matches Upcoming Lessons modal)
+   */
+  async openPendingFeedback(): Promise<void> {
+    if (this.pendingFeedback.length === 0) return;
+    this.isFeedbackModalOpen = true;
+  }
+
+  closeFeedbackModal(): void {
+    this.isFeedbackModalOpen = false;
+  }
+
+  formatFeedbackDate(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  formatFeedbackTime(dateStr: any): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  // ---- LEGACY ACTION SHEET (kept for reference, replaced by modal) ----
+  async _openPendingFeedbackActionSheet(): Promise<void> {
+    if (this.pendingFeedback.length === 0) return;
+    
+    const buttons = this.pendingFeedback.map((fb: any) => {
+      const date = fb.lesson?.startTime
+        ? new Date(fb.lesson.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : '';
+      return {
+        text: `${fb.studentName || 'Student'} — ${date}`,
+        icon: 'clipboard-outline',
+        handler: () => {
+          this.openFeedbackForm(fb._id);
+        }
+      };
+    });
+    
+    buttons.push({ text: 'Cancel', icon: 'close-outline', handler: () => {} });
+    
+    const actionSheet = await this.actionSheetController.create({
+      header: `${this.pendingFeedbackCount} lessons need feedback`,
+      buttons: buttons as any
+    });
+    await actionSheet.present();
   }
   
   /**

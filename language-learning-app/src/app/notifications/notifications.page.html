@@ -114,6 +114,14 @@
                 <ion-icon name="calendar-outline"></ion-icon>
                 Add availability
               </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                View Progress
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
@@ -175,6 +183,14 @@
                 <ion-icon name="calendar-outline"></ion-icon>
                 Add availability
               </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                View Progress
+              </button>
             </div>
             <div class="notification-item-right">
               <span class="notification-time-inline">{{ notification.formattedTime }}</span>
@@ -235,6 +251,14 @@
                 (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                 <ion-icon name="calendar-outline"></ion-icon>
                 Add availability
+              </button>
+              <!-- View Progress Button for progress_milestone notifications -->
+              <button 
+                *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
+                class="add-availability-btn milestone-btn"
+                (click)="navigateToProgress(); $event.stopPropagation()">
+                <ion-icon name="trophy-outline"></ion-icon>
+                View Progress
               </button>
             </div>
             <div class="notification-item-right">

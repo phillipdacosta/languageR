@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { RouterModule, Routes } from '@angular/router';
 import { PostLessonStudentPage } from './post-lesson-student.page';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 
 const routes: Routes = [
   {
@@ -19,7 +20,8 @@ const routes: Routes = [
     FormsModule,
     IonicModule,
     RouterModule.forChild(routes),
-    TutorAvailabilityViewerComponent
+    TutorAvailabilityViewerComponent,
+    CardManagementModalComponent
   ],
   declarations: [PostLessonStudentPage]
 })

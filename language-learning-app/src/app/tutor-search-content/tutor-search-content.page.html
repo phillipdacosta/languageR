@@ -156,12 +156,17 @@
               <span>Available now</span>
             </div>
             
-            <!-- Availability Preview -->
-            <div class="availability-preview" *ngIf="!tutor.isActivelyAvailable && getAvailabilityPreview(tutor)">
+            <!-- Availability Preview - Only show when we have actual data (prevents layout shifts) -->
+            <div class="availability-preview" 
+                 *ngIf="shouldShowAvailabilityPreview(tutor)"
+                 [@fadeIn]>
               <ion-icon name="time-outline"></ion-icon>
               <span class="available-label">Available</span>
               <div class="availability-times">
-                <span class="time-chip" *ngFor="let slot of getAvailabilityPreview(tutor)">{{ slot.label }}</span>
+                <span class="time-chip" 
+                      *ngFor="let slot of getAvailabilityPreview(tutor); trackBy: trackBySlot">
+                  {{ slot.label }}
+                </span>
               </div>
             </div>
             
