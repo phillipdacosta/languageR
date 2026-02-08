@@ -9,6 +9,7 @@ import { UserService } from '../services/user.service';
 import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
+import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
@@ -2892,34 +2893,49 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openBookLesson() {
-    // Desktop: Open details panel and show availability viewer
-    // Mobile: Open modal with availability viewer
-    if (this.isDesktop) {
-      this.showDetailsPanel = true;
-      this.showAvailabilityViewer = true;
-      this.showUserHoverCard = false; // Hide hover card
-      
-      // Clear hover card timeout if any
-      if (this.hoverCardTimeout) {
-        clearTimeout(this.hoverCardTimeout);
-        this.hoverCardTimeout = null;
-      }
-    } else {
-      // Mobile: Open in modal
-      this.openAvailabilityModal();
+    // Always open availability modal (both desktop and mobile)
+    this.openAvailabilityModal();
+    
+    // Hide hover card if visible
+    this.showUserHoverCard = false;
+    
+    // Clear hover card timeout if any
+    if (this.hoverCardTimeout) {
+      clearTimeout(this.hoverCardTimeout);
+      this.hoverCardTimeout = null;
     }
   }
 
   async openAvailabilityModal() {
     if (!this.selectedConversation?.otherUser) return;
 
+    // Use the centralized TutorAvailabilitySelectionModalComponent
+    // This matches the dimensions and behavior of the "Tutor added availability" modal
+    const tutor = this.selectedConversation.otherUser;
+    
+    // Parse name into firstName and lastName
+    const nameParts = tutor.name?.split(' ') || [];
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    // Format tutor data to match the component interface
+    const tutorData = [{
+      id: tutor.id,
+      _id: tutor.id,
+      firstName: firstName,
+      lastName: lastName,
+      name: tutor.name,
+      picture: tutor.picture,
+      hourlyRate: tutor.hourlyRate
+    }];
+
     const modal = await this.modalController.create({
-      component: TutorAvailabilityViewerComponent,
+      component: TutorAvailabilitySelectionModalComponent,
       componentProps: {
-        tutorId: this.selectedConversation.otherUser.id,
-        selectionMode: true // Emit event instead of navigating
+        tutors: tutorData,
+        title: 'Book a Lesson'
       },
-      cssClass: 'availability-modal'
+      cssClass: 'tutor-availability-selection-modal' // Match dimensions of "Tutor added availability" modal
     });
 
     await modal.present();
@@ -2927,17 +2943,11 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     // Listen for when modal is dismissed with data
     const { data } = await modal.onDidDismiss();
     
-    // If a slot was selected, navigate to checkout
-    if (data && data.selectedDate && data.selectedTime) {
-      this.router.navigate(['/checkout'], {
-        queryParams: {
-          tutorId: this.selectedConversation.otherUser.id,
-          date: data.selectedDate,
-          time: data.selectedTime,
-          duration: data.lessonMinutes || 25,
-          returnTo: 'messages'  // Return to messages after booking
-        }
-      });
+    // If booking was successful, the modal already handled the embedded checkout flow
+    // The modal shows embedded checkout when timeslot is selected, matching the "Tutor added availability" behavior
+    if (data && data.success && data.booked) {
+      // Optionally refresh conversations or show success message
+      // The modal already handled the embedded checkout, so no navigation needed
     }
   }
 

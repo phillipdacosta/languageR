@@ -19,6 +19,11 @@ if (!isStripeConfigured) {
 }
 
 class StripeService {
+  // Expose the raw stripe instance for advanced usage (e.g. paymentIntents with transfer_data)
+  get stripe() {
+    return stripe;
+  }
+
   /**
    * Create a PaymentIntent for direct payment or wallet top-up
    * @param {Object} params

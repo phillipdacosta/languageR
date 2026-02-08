@@ -58,6 +58,44 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   customTipAmount: number | null = null;
   tipSubmitted = false;
   submittingTip = false;
+  tipAmount: number = 0;
+
+  // Payment method selection for tips
+  savedCards: any[] = [];
+  selectedPaymentMethodId: string | null = null;
+  loadingCards = false;
+  hasLoadedCards = false;
+  showCardPicker = false;
+
+  // Wallet payment option for tips
+  walletBalance: number = 0;
+  selectedTipPaymentMethod: 'wallet' | 'card' = 'card'; // default to card
+
+  // Card fee calculation — matches wallet-topup-modal logic
+  // International cards: 4.4% + $0.30 | Domestic (US) cards: 2.9% + $0.30
+  get isInternationalCard(): boolean {
+    const card = this.savedCards.find(c => c.stripePaymentMethodId === this.selectedPaymentMethodId);
+    return card?.country ? card.country !== 'US' : false;
+  }
+
+  get cardFeeRate(): number {
+    return this.isInternationalCard ? 0.044 : 0.029;
+  }
+
+  get cardFeeLabel(): string {
+    return this.isInternationalCard ? '4.4% + $0.30 (international card)' : '2.9% + $0.30';
+  }
+
+  get cardProcessingFee(): number {
+    if (!this.tipAmount || this.tipAmount <= 0) return 0;
+    const amountCents = Math.round(this.tipAmount * 100);
+    const feeCents = Math.round(amountCents * this.cardFeeRate + 30);
+    return feeCents / 100;
+  }
+
+  get tutorReceivesAfterFee(): number {
+    return Math.max(0, this.tipAmount - this.cardProcessingFee);
+  }
   
   // Polling
   private pollingInterval: any = null;
@@ -226,23 +264,80 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   toggleTipSection() {
     this.showTipSection = !this.showTipSection;
+    // Load cards on first open
+    if (this.showTipSection && !this.hasLoadedCards) {
+      this.loadSavedCards();
+    }
+  }
+
+  async loadSavedCards() {
+    this.loadingCards = true;
+    try {
+      const headers = this.userService.getAuthHeadersSync();
+
+      // Load cards and wallet balance in parallel
+      const [cardsResponse, walletResponse]: any[] = await Promise.all([
+        firstValueFrom(this.http.get(`${environment.apiUrl}/payments/payment-methods`, { headers })),
+        firstValueFrom(this.http.get(`${environment.apiUrl}/wallet/balance`, { headers })).catch(() => null)
+      ]);
+
+      if (cardsResponse.success && cardsResponse.paymentMethods) {
+        this.savedCards = cardsResponse.paymentMethods.filter((pm: any) => pm.type === 'card');
+        // Auto-select default card
+        const defaultCard = this.savedCards.find((c: any) => c.isDefault);
+        if (defaultCard) {
+          this.selectedPaymentMethodId = defaultCard.stripePaymentMethodId;
+        } else if (this.savedCards.length > 0) {
+          this.selectedPaymentMethodId = this.savedCards[0].stripePaymentMethodId;
+        }
+      }
+
+      // Load wallet balance
+      if (walletResponse?.success) {
+        this.walletBalance = walletResponse.availableBalance || 0;
+      }
+
+      // Auto-select wallet if it has a balance, otherwise default to card
+      if (this.walletBalance > 0) {
+        this.selectedTipPaymentMethod = 'wallet';
+      } else {
+        this.selectedTipPaymentMethod = 'card';
+      }
+
+      this.hasLoadedCards = true;
+    } catch (error) {
+      console.error('Error loading saved cards:', error);
+    } finally {
+      this.loadingCards = false;
+    }
+  }
+
+  selectPaymentMethod(card: any) {
+    this.selectedPaymentMethodId = card.stripePaymentMethodId;
   }
 
   selectTipAmount(amount: number) {
     this.selectedTipAmount = amount;
     this.selectedTipPercentage = null;
     this.customTipAmount = null;
+    this.updateTipAmount();
   }
 
   selectTipPercentage(percentage: number) {
     this.selectedTipPercentage = percentage;
     this.selectedTipAmount = null;
     this.customTipAmount = null;
+    this.updateTipAmount();
   }
 
   onCustomTipInput() {
     this.selectedTipAmount = null;
     this.selectedTipPercentage = null;
+    this.updateTipAmount();
+  }
+
+  private updateTipAmount() {
+    this.tipAmount = this.getTipAmount();
   }
 
   calculatePercentageTip(percentage: number): number {
@@ -285,10 +380,15 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
     try {
       const headers = this.userService.getAuthHeadersSync();
+      const body: any = { amount: tipAmount };
+
+      if (this.selectedTipPaymentMethod === 'wallet') {
+        body.useWallet = true;
+      } else if (this.selectedPaymentMethodId) {
+        body.paymentMethodId = this.selectedPaymentMethodId;
+      }
       const response: any = await firstValueFrom(
-        this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/tip`, {
-          amount: tipAmount
-        }, { headers })
+        this.http.post(`${environment.apiUrl}/lessons/${this.lessonId}/tip`, body, { headers })
       );
 
       if (response.success) {
@@ -383,9 +483,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     await modal.present();
     
     const { data } = await modal.onDidDismiss();
-    if (data?.cardsUpdated || data?.selectedCard) {
+    // Always reload cards to stay in sync
+    await this.loadSavedCards();
+
+    // Only show toast if cards were actually added or deleted
+    if (data?.cardsUpdated) {
       const toast = await this.toastCtrl.create({
-        message: 'Card added! You can now send your tip.',
+        message: 'Card saved! You can now send your tip.',
         duration: 3000,
         color: 'success',
         position: 'top'

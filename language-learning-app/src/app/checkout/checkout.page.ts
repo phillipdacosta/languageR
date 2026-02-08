@@ -752,6 +752,31 @@ export class CheckoutPage implements OnInit, OnDestroy {
         return;
       }
       
+      if (errorCode === 'PENDING_FEEDBACK') {
+        // Tutor has pending feedback items
+        this.isBooking = false;
+        const alert = await this.alertController.create({
+          header: 'Tutor Unavailable',
+          message: 'Tutor not accepting bookings at this time. Please check back later or choose another tutor.',
+          buttons: [
+            {
+              text: 'OK',
+              handler: () => true
+            }
+          ]
+        });
+        await alert.present();
+        await alert.onDidDismiss();
+        
+        // Navigate back to tutor page
+        if (this.tutor?.id || this.tutorId) {
+          this.router.navigate(['/tutor', this.tutor?.id || this.tutorId], {
+            queryParams: { refreshAvailability: 'true' }
+          });
+        }
+        return;
+      }
+
       if (errorCode === 'TUTOR_NOT_APPROVED') {
         // Tutor not accepting bookings
         this.isBooking = false;

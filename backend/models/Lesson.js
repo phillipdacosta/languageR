@@ -250,28 +250,14 @@ const LessonSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  // Tip tracking
+  // Tip tracking — no defaults so subdocument stays undefined until a tip is sent
   tip: {
-    amount: {
-      type: Number,
-      default: null
-    },
-    stripeFee: {
-      type: Number,
-      default: null
-    },
-    tutorReceived: {
-      type: Number,
-      default: null
-    },
-    paymentIntentId: {
-      type: String,
-      default: null
-    },
-    paidAt: {
-      type: Date,
-      default: null
-    }
+    amount: Number,
+    stripeFee: Number,
+    tutorReceived: Number,
+    paymentIntentId: String,
+    paymentMethod: String,
+    paidAt: Date
   },
   // Track participant join/leave history for rejoin logic
   participants: {

@@ -431,7 +431,7 @@ async function finalizeLesson(lesson, endTime = new Date()) {
             console.warn('⚠️ [AutoFinalize] WebSocket notification failed:', wsError.message);
           }
           
-          // 📝 CHECK IF MANDATORY TUTOR FEEDBACK IS NEEDED (AI disabled)
+          // 📝 CREATE PENDING TUTOR FEEDBACK FOR ALL COMPLETED LESSONS
           // Skip for trial lessons
           if (!populatedLesson.isTrialLesson) {
             // Snapshot the student's AI setting at lesson completion time (immutable once set)
@@ -442,36 +442,32 @@ async function finalizeLesson(lesson, endTime = new Date()) {
               console.log(`📸 [AutoFinalize] Snapshotted aiAnalysisEnabledAtTime=${snapshotValue} for lesson ${lesson._id}`);
             }
             
-            // Use the snapshot (not the live profile)
-            const aiAnalysisEnabled = populatedLesson.aiAnalysisEnabledAtTime !== false;
-            
-            if (!aiAnalysisEnabled) {
-              console.log(`📝 [AutoFinalize] AI disabled for student ${student._id} — creating mandatory tutor feedback`);
+            // Create TutorFeedback record only when AI analysis is disabled (feedback is required)
+            const aiEnabledForLesson = populatedLesson.aiAnalysisEnabledAtTime !== false;
+            try {
+              const feedbackExists = await TutorFeedback.findOne({ lessonId: lesson._id });
               
-              try {
-                const feedbackExists = await TutorFeedback.findOne({ lessonId: lesson._id });
+              if (!feedbackExists && !aiEnabledForLesson) {
+                await TutorFeedback.create({
+                  lessonId: lesson._id,
+                  tutorId: tutor._id,
+                  studentId: student._id,
+                  status: 'pending',
+                  required: true
+                });
                 
-                if (!feedbackExists) {
-                  await TutorFeedback.create({
-                    lessonId: lesson._id,
-                    tutorId: tutor._id,
-                    studentId: student._id,
-                    status: 'pending'
-                  });
-                  
-                  // Mark lesson as requiring tutor feedback
-                  populatedLesson.requiresTutorFeedback = true;
-                  await populatedLesson.save();
-                  
-                  // Send feedback_required notification (stronger than feedback_reminder)
-                  const feedbackMessages = [
-                    { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${studentName} just ended — leave your feedback while it's fresh!` },
-                    { title: '✍️ Share Your Insights', message: `${studentName} is waiting for your feedback from today's lesson!` },
-                    { title: '💭 Time to Reflect', message: `Quick! Share what went well in your lesson with ${studentName}.` },
-                    { title: '📊 Feedback Time', message: `Help ${studentName} improve — leave feedback for today's lesson!` }
-                  ];
-                  const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
-                  
+                populatedLesson.requiresTutorFeedback = true;
+                await populatedLesson.save();
+                
+                const feedbackMessages = [
+                  { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${studentName} just ended — leave your feedback while it's fresh!` },
+                  { title: '✍️ Share Your Insights', message: `${studentName} is waiting for your feedback from today's lesson!` },
+                  { title: '💭 Time to Reflect', message: `Quick! Share what went well in your lesson with ${studentName}.` },
+                  { title: '📊 Feedback Time', message: `Help ${studentName} improve — leave feedback for today's lesson!` }
+                ];
+                const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
+                
+                try {
                   await Notification.create({
                     userId: tutor._id,
                     type: 'feedback_required',
@@ -485,29 +481,30 @@ async function finalizeLesson(lesson, endTime = new Date()) {
                       studentAuth0Id: student.auth0Id
                     }
                   });
-                  
-                  // Emit real-time WebSocket event
-                  try {
-                    const io = require('../server').getIO();
-                    if (io && tutor.auth0Id) {
-                      io.to(`user:${tutor.auth0Id}`).emit('feedback_required', {
-                        lessonId: lesson._id.toString(),
-                        studentName: studentName,
-                        title: randomMsg.title,
-                        message: randomMsg.message
-                      });
-                    }
-                  } catch (wsErr) {
-                    console.warn('⚠️ [AutoFinalize] feedback_required WebSocket failed:', wsErr.message);
-                  }
-                  
-                  console.log(`✅ [AutoFinalize] Created mandatory TutorFeedback for lesson ${lesson._id} (AI disabled)`);
-                } else {
-                  console.log(`ℹ️ [AutoFinalize] TutorFeedback already exists for lesson ${lesson._id}`);
+                } catch (notifErr) {
+                  console.warn('⚠️ [AutoFinalize] Notification creation failed:', notifErr.message);
                 }
-              } catch (fbError) {
-                console.error('⚠️ [AutoFinalize] Failed to create TutorFeedback:', fbError.message);
+                
+                try {
+                  const io = require('../server').getIO();
+                  if (io && tutor.auth0Id) {
+                    io.to(`user:${tutor.auth0Id}`).emit('feedback_required', {
+                      lessonId: lesson._id.toString(),
+                      studentName: studentName,
+                      title: randomMsg.title,
+                      message: randomMsg.message
+                    });
+                  }
+                } catch (wsErr) {
+                  console.warn('⚠️ [AutoFinalize] feedback_required WebSocket failed:', wsErr.message);
+                }
+                
+                console.log(`✅ [AutoFinalize] Created TutorFeedback for lesson ${lesson._id}`);
+              } else {
+                console.log(`ℹ️ [AutoFinalize] TutorFeedback already exists for lesson ${lesson._id}`);
               }
+            } catch (fbError) {
+              console.error('⚠️ [AutoFinalize] Failed to create TutorFeedback:', fbError.message);
             }
           }
         }

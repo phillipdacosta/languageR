@@ -20,42 +20,141 @@ const CRITERIA = {
 
 /**
  * Evaluate a single tutor for badge eligibility
+ * Always updates metrics even with few lessons so the progress page shows data.
  */
 async function evaluateTutorForBadge(tutor) {
   const feedbackService = new FeedbackQualityService();
+  const TutorFeedback = require('../models/TutorFeedback');
   
   try {
-    // Get last 30 completed lessons
+    // Get last 30 completed lessons (accept with or without actualCallEndTime)
     const recentLessons = await Lesson.find({
       tutorId: tutor._id,
-      status: 'completed',
-      actualCallEndTime: { $exists: true }
+      status: 'completed'
     })
-    .sort({ actualCallEndTime: -1 })
+    .sort({ updatedAt: -1 })
     .limit(CRITERIA.ROLLING_WINDOW)
     .lean();
     
-    if (recentLessons.length < CRITERIA.MIN_LESSONS) {
-      // Not enough lessons yet
-      return { earned: false, removed: false, reason: 'not enough lessons' };
+    // Always update metrics — even with 0 lessons — so the UI reflects real numbers
+    if (!tutor.stats) tutor.stats = {};
+    if (!tutor.stats.feedbackMetrics) tutor.stats.feedbackMetrics = {};
+    if (!tutor.stats.feedbackMetrics.coachingBadge) {
+      tutor.stats.feedbackMetrics.coachingBadge = {};
     }
     
-    // Check which lessons have feedback
+    if (recentLessons.length === 0) {
+      tutor.stats.feedbackMetrics.totalLessonsCompleted = 0;
+      tutor.stats.feedbackMetrics.totalFeedbackProvided = 0;
+      tutor.stats.feedbackMetrics.feedbackRate = 0;
+      tutor.stats.feedbackMetrics.averageFeedbackQuality = 0;
+      tutor.stats.feedbackMetrics.lastQualityUpdate = new Date();
+      tutor.stats.feedbackMetrics.coachingBadge.active = false;
+      tutor.stats.feedbackMetrics.coachingBadge.lastEvaluated = new Date();
+      tutor.stats.feedbackMetrics.coachingBadge.qualifyingStreak = 0;
+      await tutor.save();
+      return { earned: false, removed: false, reason: 'no completed lessons', metrics: { feedbackRate: 0, avgQuality: 0, streak: 0, lessons: 0 } };
+    }
+    
+    // Check which lessons have feedback from TWO sources:
+    // 1) LessonAnalysis with tutorNote.text (tutor-note endpoint)
+    // 2) LessonAnalysis with source: 'tutor' (TutorFeedback form)
+    // 3) Completed TutorFeedback records (fallback)
     const lessonIds = recentLessons.map(l => l._id);
-    const analyses = await LessonAnalysis.find({
+    
+    // Source 1: LessonAnalysis with tutorNote.text
+    const analysesWithNotes = await LessonAnalysis.find({
       lessonId: { $in: lessonIds },
       'tutorNote.text': { $exists: true, $ne: null }
     }).lean();
     
+    // Source 2: LessonAnalysis with source: 'tutor' (from TutorFeedback form)
+    const tutorSourceAnalyses = await LessonAnalysis.find({
+      lessonId: { $in: lessonIds },
+      source: 'tutor'
+    }).lean();
+    
+    // Source 3: Completed TutorFeedback records (as fallback)
+    const completedTutorFeedback = await TutorFeedback.find({
+      $or: [
+        { tutorId: tutor._id.toString() },
+        { tutorId: tutor.auth0Id }
+      ],
+      lessonId: { $in: lessonIds },
+      status: 'completed'
+    }).lean();
+    
+    // Build feedback map — deduplicate by lessonId
     const feedbackMap = new Map();
-    analyses.forEach(a => {
+    
+    // Add tutorNote-based feedback (highest quality data)
+    analysesWithNotes.forEach(a => {
       if (a.tutorNote && a.tutorNote.text) {
         const qualityScore = feedbackService.calculateQualityScore(a.tutorNote);
         feedbackMap.set(a.lessonId.toString(), {
           qualityScore,
           wordCount: a.tutorNote.text.split(/\s+/).filter(w => w.length > 0).length,
           hasHomework: !!a.tutorNote.homework,
-          hasQuickImpression: !!a.tutorNote.quickImpression
+          hasQuickImpression: !!a.tutorNote.quickImpression,
+          source: 'tutorNote'
+        });
+      }
+    });
+    
+    // Add tutor-source analyses (from TutorFeedback form) — don't overwrite tutorNote entries
+    tutorSourceAnalyses.forEach(a => {
+      const lid = a.lessonId.toString();
+      if (!feedbackMap.has(lid)) {
+        // Calculate quality from the structured data
+        const strengths = a.strengths || [];
+        const areas = a.areasForImprovement || [];
+        const summary = a.overallAssessment?.summary || a.studentSummary || '';
+        const wordCount = summary.split(/\s+/).filter(w => w.length > 0).length;
+        const hasHomework = a.homeworkSuggestions && a.homeworkSuggestions.length > 0;
+        
+        // Score: base 40 + 15 for strengths + 15 for areas + 15 for length + 15 for homework
+        let qualityScore = 40;
+        if (strengths.length > 0) qualityScore += Math.min(15, strengths.length * 5);
+        if (areas.length > 0) qualityScore += Math.min(15, areas.length * 5);
+        if (wordCount > 20) qualityScore += Math.min(15, Math.floor(wordCount / 10) * 3);
+        if (hasHomework) qualityScore += 15;
+        qualityScore = Math.min(100, qualityScore);
+        
+        feedbackMap.set(lid, {
+          qualityScore,
+          wordCount,
+          hasHomework,
+          hasQuickImpression: false,
+          source: 'tutorFeedbackForm'
+        });
+      }
+    });
+    
+    // Add completed TutorFeedback records (fallback for any missed by above)
+    completedTutorFeedback.forEach(tf => {
+      const lid = tf.lessonId.toString();
+      if (!feedbackMap.has(lid)) {
+        const strengths = tf.strengths || [];
+        const areas = tf.areasForImprovement || [];
+        const notes = tf.overallNotes || '';
+        const wordCount = notes.split(/\s+/).filter(w => w.length > 0).length + 
+                         strengths.join(' ').split(/\s+/).filter(w => w.length > 0).length +
+                         areas.join(' ').split(/\s+/).filter(w => w.length > 0).length;
+        const hasHomework = !!tf.homework;
+        
+        let qualityScore = 40;
+        if (strengths.length > 0) qualityScore += Math.min(15, strengths.length * 5);
+        if (areas.length > 0) qualityScore += Math.min(15, areas.length * 5);
+        if (wordCount > 20) qualityScore += Math.min(15, Math.floor(wordCount / 10) * 3);
+        if (hasHomework) qualityScore += 15;
+        qualityScore = Math.min(100, qualityScore);
+        
+        feedbackMap.set(lid, {
+          qualityScore,
+          wordCount,
+          hasHomework,
+          hasQuickImpression: false,
+          source: 'tutorFeedbackRecord'
         });
       }
     });
@@ -68,7 +167,7 @@ async function evaluateTutorForBadge(tutor) {
       ? qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length 
       : 0;
     
-    // Check for consecutive feedback streak
+    // Check for consecutive feedback streak (sorted most recent first)
     let currentStreak = 0;
     for (const lesson of recentLessons) {
       if (feedbackMap.has(lesson._id.toString())) {
@@ -78,27 +177,21 @@ async function evaluateTutorForBadge(tutor) {
       }
     }
     
-    // Eligibility check
+    // Badge eligibility requires minimum lessons
     const meetsRequirements = 
+      recentLessons.length >= CRITERIA.MIN_LESSONS &&
       feedbackRate >= CRITERIA.MIN_FEEDBACK_RATE &&
       avgQuality >= CRITERIA.MIN_QUALITY_SCORE &&
       currentStreak >= CRITERIA.MIN_STREAK;
     
     const hadBadge = tutor.stats?.feedbackMetrics?.coachingBadge?.active || false;
     
-    // Update tutor stats
-    if (!tutor.stats) tutor.stats = {};
-    if (!tutor.stats.feedbackMetrics) tutor.stats.feedbackMetrics = {};
-    
+    // Always update tutor stats (even with < 10 lessons)
     tutor.stats.feedbackMetrics.totalLessonsCompleted = recentLessons.length;
     tutor.stats.feedbackMetrics.totalFeedbackProvided = feedbackCount;
     tutor.stats.feedbackMetrics.feedbackRate = Math.round(feedbackRate);
     tutor.stats.feedbackMetrics.averageFeedbackQuality = Math.round(avgQuality);
     tutor.stats.feedbackMetrics.lastQualityUpdate = new Date();
-    
-    if (!tutor.stats.feedbackMetrics.coachingBadge) {
-      tutor.stats.feedbackMetrics.coachingBadge = {};
-    }
     
     tutor.stats.feedbackMetrics.coachingBadge.active = meetsRequirements;
     tutor.stats.feedbackMetrics.coachingBadge.lastEvaluated = new Date();
@@ -116,6 +209,8 @@ async function evaluateTutorForBadge(tutor) {
     }
     
     await tutor.save();
+    
+    console.log(`📊 [Eval] ${tutor.name}: ${feedbackCount}/${recentLessons.length} lessons with feedback (${Math.round(feedbackRate)}%), quality: ${Math.round(avgQuality)}, streak: ${currentStreak}`);
     
     return {
       earned: meetsRequirements && !hadBadge,

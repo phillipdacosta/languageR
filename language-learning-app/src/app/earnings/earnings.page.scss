@@ -1,3 +1,42 @@
+// =============================================================
+// EARNINGS PAGE — Airbnb-Clean Design
+// =============================================================
+
+// Airbnb color tokens
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border: #ebebeb;
+$bg-subtle: #f7f7f7;
+$bg-hover: #f7f7f7;
+$accent-green: #008A05;
+$accent-orange: #E07912;
+$accent-red: #C13515;
+$radius: 12px;
+
+// ----- Header -----
+ion-toolbar {
+  --background: white;
+  --border-width: 0;
+  --min-height: 56px;
+  
+  ion-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.2px;
+  }
+  
+  .back-btn {
+    --color: #{$text-primary};
+    
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+}
+
+// ----- Loading / Error -----
 .loading-container,
 .error-container {
   display: flex;
@@ -6,1191 +45,1007 @@
   justify-content: center;
   min-height: 300px;
   text-align: center;
+  padding: 40px 20px;
 
   ion-icon {
-    font-size: 64px;
-    margin-bottom: 20px;
+    font-size: 40px;
+    color: $text-tertiary;
+    margin-bottom: 16px;
+  }
+
+  ion-spinner {
+    margin-bottom: 16px;
+    --color: #{$text-secondary};
   }
 
   p {
-    color: var(--ion-color-medium);
-    font-size: 1.1em;
-    margin-bottom: 20px;
+    color: $text-secondary;
+    font-size: 15px;
+    margin: 0 0 16px;
   }
 }
 
+.retry-btn {
+  background: none;
+  border: 1px solid $text-primary;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  cursor: pointer;
+  transition: background 0.15s;
+  
+  &:hover {
+    background: $bg-subtle;
+  }
+}
+
+// ----- Content Wrapper -----
 .earnings-content {
-  max-width: 1200px; // Increased from 800px for wider table
+  max-width: 960px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding: 24px 20px 40px;
 }
 
-// ============================================================
-// NEW: WITHDRAWAL SYSTEM STYLES
-// ============================================================
-
-.balance-section {
-  margin-bottom: 40px;
+// =============================================================
+// BALANCE STRIP
+// =============================================================
+.balance-strip {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid $border;
+  border-radius: $radius;
+  background: white;
+  overflow: hidden;
   
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    
-    h2 {
-      margin: 0;
-      font-size: 1.3em;
-      font-weight: 700;
-      color: var(--ion-color-dark);
-    }
-    
-    .withdraw-button {
-      --background: linear-gradient(135deg, #10b981, #059669);
-      --background-hover: linear-gradient(135deg, #059669, #047857);
-      --border-radius: 12px;
-      --padding-start: 20px;
-      --padding-end: 20px;
-      height: 40px;
-      font-weight: 600;
-      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-      
-      ion-icon {
-        font-size: 20px;
-      }
-    }
-  }
-}
-
-.balance-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 30px;
-  
-  @media (max-width: 768px) {
-    display: flex;
-    flex-direction: row;
+  @media (max-width: 600px) {
+    // Horizontal scroll on small screens
     overflow-x: auto;
-    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x mandatory;
-    scroll-padding: 0;
-    gap: 12px;
-    margin-bottom: 24px;
-    padding-bottom: 4px; // Space for scrollbar
-    
-    // Hide scrollbar but keep functionality
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-    
-    &::-webkit-scrollbar {
-      height: 4px;
-    }
-    
-    &::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background-color: rgba(0, 0, 0, 0.2);
-      border-radius: 2px;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .balance-card {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border: none;
-    transition: all 0.3s ease;
-    flex-shrink: 0; // Prevent cards from shrinking
-    
-    @media (max-width: 768px) {
-      padding: 14px;
-      gap: 12px;
-      border-radius: 12px;
-      // Calculate width: (100vw - parent padding 24px - 2 gaps of 12px) / 3
-      // = (100vw - 48px) / 3
-      width: calc((100vw - 48px) / 3);
-      min-width: calc((100vw - 48px) / 3);
-      max-width: calc((100vw - 48px) / 3);
-      scroll-snap-align: start;
-    }
-    
-    @media (max-width: 480px) {
-      padding: 12px;
-      gap: 10px;
-      border-radius: 10px;
-      // For smaller screens: (100vw - 24px parent padding - 2 gaps of 10px) / 3
-      // = (100vw - 44px) / 3
-      width: calc((100vw - 44px) / 3);
-      min-width: calc((100vw - 44px) / 3);
-      max-width: calc((100vw - 44px) / 3);
-    }
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-      
-      @media (max-width: 768px) {
-        transform: none; // Disable hover effect on mobile
-      }
-    }
-
-    &.available {
-      
-      .card-content .card-label {
-        color: #10b981 !important;
-      }
-      
-      .card-value {
-        color: #636469;
-        
-        &.wallet-value {
-          position: relative;
-          cursor: pointer;
-          display: inline-block;
-          
-          .wallet-dots {
-            color: #9ca3af; // Grey color for dots only
-          }
-          
-          .wallet-amount {
-            display: inline-block;
-            font-variant-numeric: tabular-nums; // Use monospace numbers for consistent width
-            min-width: 65px; // Reserve space for the number
-            letter-spacing: 1.5px;
-            
-            @media (max-width: 768px) {
-              min-width: 55px;
-              letter-spacing: 1px;
-            }
-            
-            @media (max-width: 480px) {
-              min-width: 50px;
-              letter-spacing: 0.5px;
-            }
-          }
-          
-          &.wallet-hidden {
-            .wallet-amount {
-              transition: opacity 0.2s;
-            }
-            
-            .wallet-amount-hover {
-              position: absolute;
-              left: 0;
-              top: 0;
-              opacity: 0;
-              pointer-events: none;
-              transition: opacity 0.2s;
-            }
-            
-            @media (hover: hover) {
-              &:hover .wallet-amount {
-                opacity: 0;
-              }
-              
-              &:hover .wallet-amount-hover {
-                opacity: 1;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    &.pending {
-      
-      .card-content .card-label {
-        color: #f59e0b !important;
-      }
-      
-      .card-value {
-        color: #636469;
-        
-        &.wallet-value {
-          position: relative;
-          cursor: pointer;
-          display: inline-block;
-          
-          .wallet-dots {
-            color: #9ca3af; // Grey color for dots only
-          }
-          
-          .wallet-amount {
-            display: inline-block;
-            font-variant-numeric: tabular-nums; // Use monospace numbers for consistent width
-            min-width: 65px; // Reserve space for the number
-            letter-spacing: 1.5px;
-            
-            @media (max-width: 768px) {
-              min-width: 55px;
-              letter-spacing: 1px;
-            }
-            
-            @media (max-width: 480px) {
-              min-width: 50px;
-              letter-spacing: 0.5px;
-            }
-          }
-          
-          &.wallet-hidden {
-            .wallet-amount {
-              transition: opacity 0.2s;
-            }
-            
-            .wallet-amount-hover {
-              position: absolute;
-              left: 0;
-              top: 0;
-              opacity: 0;
-              pointer-events: none;
-              transition: opacity 0.2s;
-            }
-            
-            @media (hover: hover) {
-              &:hover .wallet-amount {
-                opacity: 0;
-              }
-              
-              &:hover .wallet-amount-hover {
-                opacity: 1;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    &.lifetime {
-      
-      .card-content .card-label {
-        color: #8b5cf6 !important;
-      }
-      
-      .card-value {
-        color: #636469;
-        
-        &.wallet-value {
-          position: relative;
-          cursor: pointer;
-          display: inline-block;
-          
-          .wallet-dots {
-            color: #9ca3af; // Grey color for dots only
-          }
-          
-          .wallet-amount {
-            display: inline-block;
-            font-variant-numeric: tabular-nums; // Use monospace numbers for consistent width
-            min-width: 65px; // Reserve space for the number
-            letter-spacing: 1.5px;
-            
-            @media (max-width: 768px) {
-              min-width: 55px;
-              letter-spacing: 1px;
-            }
-            
-            @media (max-width: 480px) {
-              min-width: 50px;
-              letter-spacing: 0.5px;
-            }
-          }
-          
-          &.wallet-hidden {
-            .wallet-amount {
-              transition: opacity 0.2s;
-            }
-            
-            .wallet-amount-hover {
-              position: absolute;
-              left: 0;
-              top: 0;
-              opacity: 0;
-              pointer-events: none;
-              transition: opacity 0.2s;
-            }
-            
-            @media (hover: hover) {
-              &:hover .wallet-amount {
-                opacity: 0;
-              }
-              
-              &:hover .wallet-amount-hover {
-                opacity: 1;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    .card-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      
-      @media (max-width: 768px) {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-      }
-      
-      @media (max-width: 480px) {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-      }
-
-      ion-icon {
-        font-size: 26px;
-        
-        @media (max-width: 768px) {
-          font-size: 20px;
-        }
-        
-        @media (max-width: 480px) {
-          font-size: 18px;
-        }
-      }
-    }
-
-    .card-content {
-      flex: 1;
-      min-width: 0; // Allow text to shrink
-
-      .card-label {
-        font-size: 0.85em;
-        color: var(--ion-color-medium);
-        margin-bottom: 4px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        
-        @media (max-width: 768px) {
-          font-size: 0.75em;
-          margin-bottom: 3px;
-          letter-spacing: 0.3px;
-        }
-        
-        @media (max-width: 480px) {
-          font-size: 0.7em;
-          margin-bottom: 2px;
-          letter-spacing: 0.2px;
-        }
-      }
-
-      .card-value {
-        font-size: 1.6em;
-        font-weight: 700;
-        margin-bottom: 2px;
-        
-        @media (max-width: 768px) {
-          font-size: 1.3em;
-          margin-bottom: 1px;
-        }
-        
-        @media (max-width: 480px) {
-          font-size: 1.15em;
-        }
-      }
-
-      .card-sublabel {
-        font-size: 0.75em;
-        color: var(--ion-color-medium);
-        
-        @media (max-width: 768px) {
-          font-size: 0.7em;
-        }
-        
-        @media (max-width: 480px) {
-          font-size: 0.65em;
-        }
-      }
-    }
   }
 }
 
-.withdrawal-history {
-  margin-bottom: 40px;
-  
-  h3 {
-    font-size: 1.1em;
-    font-weight: 700;
-    margin-bottom: 20px;
-    color: var(--ion-color-dark);
-  }
-  
-  .withdrawals-list {
-    background: transparent;
-    
-    .withdrawal-item {
-      --background: var(--ion-background-color);
-      --border-radius: 16px;
-      --padding-start: 0;
-      --padding-end: 0;
-      --inner-padding-end: 0;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      
-      &::part(native) {
-        border-radius: 16px;
-        padding: 20px;
-      }
-      
-      .withdrawal-info {
-        width: 100%;
-      }
-      
-      .withdrawal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        
-        .withdrawal-method {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-weight: 600;
-          color: var(--ion-color-dark);
-          
-          ion-icon {
-            font-size: 20px;
-            color: var(--ion-color-primary);
-          }
-        }
-        
-        .withdrawal-status {
-          ion-badge {
-            font-size: 0.85em;
-            padding: 6px 12px;
-            border-radius: 12px;
-          }
-        }
-      }
-      
-      .withdrawal-details {
-        .withdrawal-date {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          color: var(--ion-color-medium);
-          font-size: 0.9em;
-          margin-bottom: 12px;
-          
-          ion-icon {
-            font-size: 16px;
-          }
-        }
-        
-        .withdrawal-amounts {
-          background: var(--ion-color-light);
-          border-radius: 12px;
-          padding: 12px;
-          
-          .amount-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 0;
-            
-            .amount-label {
-              font-size: 0.9em;
-              color: var(--ion-color-medium);
-            }
-            
-            .amount-value {
-              font-weight: 600;
-              color: var(--ion-color-dark);
-            }
-            
-            &.total {
-              border-top: 1px solid var(--ion-color-medium-tint);
-              margin-top: 8px;
-              padding-top: 8px;
-              
-              .amount-label {
-                font-weight: 600;
-                color: var(--ion-color-dark);
-              }
-              
-              .amount-value {
-                font-weight: 700;
-                font-size: 1.1em;
-                color: var(--ion-color-success);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-// ============================================================
-// END NEW STYLES
-// ============================================================
-
-
-.filters-section {
-  background: var(--ion-color-light);
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 24px;
-  
-  .filters-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    
-    h4 {
-      margin: 0;
-      font-size: 1.1em;
-      font-weight: 600;
-    }
-  }
-  
-  .filters-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
-    
-    .filter-item {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      
-      &.full-width {
-        grid-column: 1 / -1;
-      }
-      
-      label {
-        font-size: 0.9em;
-        font-weight: 500;
-        color: var(--ion-color-medium);
-      }
-      
-      ion-select,
-      ion-datetime-button {
-        --background: white;
-        --border-radius: 8px;
-      }
-      
-      ion-searchbar {
-        padding: 0;
-        --background: white;
-        --border-radius: 8px;
-      }
-    }
-  }
-}
-
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
-  margin-bottom: 30px;
-
-  .summary-card {
-    background: linear-gradient(135deg, var(--ion-color-primary), var(--ion-color-primary-shade));
-    border-radius: 16px;
-    padding: 20px;
-    color: white;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-
-    &.pending {
-      background: linear-gradient(135deg, var(--ion-color-warning), var(--ion-color-warning-shade));
-    }
-
-    .card-icon {
-      ion-icon {
-        font-size: 36px; // Reduced from 48px
-        opacity: 0.9;
-      }
-    }
-
-    .card-content {
-      flex: 1;
-
-      .card-label {
-        font-size: 0.85em; // Slightly reduced
-        opacity: 0.9;
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      .card-value {
-        font-size: 1.5em; // Reduced from 2em
-        font-weight: 700;
-        margin-bottom: 4px;
-      }
-
-      .card-sublabel {
-        font-size: 0.75em; // Reduced from 0.85em
-        opacity: 0.8;
-      }
-    }
-  }
-}
-
-.total-earnings {
-  text-align: center;
-  margin-bottom: 40px;
-  padding: 30px;
-  background: var(--ion-color-light);
-  border-radius: 16px;
-
-  h2 {
-    font-size: 0.9em; // Reduced from 1.1em
-    color: var(--ion-color-medium);
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
-  }
-
-  .total-amount {
-    font-size: 2.2em; // Reduced from 3em
-    font-weight: 700;
-    color: var(--ion-color-dark);
-  }
-}
-
-.payment-breakdown {
-  h3 {
-    font-size: 1.3em;
-    font-weight: 700;
-    margin-bottom: 20px;
-    color: var(--ion-color-dark);
-  }
-
-  .section-header-with-filters {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-    gap: 12px;
-    min-height: 40px; // Prevent layout shift when button appears/disappears
-
-    h3 {
-      margin: 0;
-    }
-
-    .clear-filters-btn {
-      --color: var(--ion-color-medium);
-      font-size: 14px;
-      height: 32px;
-      margin: 0;
-      transition: opacity 0.2s ease, visibility 0.2s ease;
-
-      ion-icon {
-        font-size: 18px;
-      }
-
-      &.hidden {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
-    }
-  }
-}
-
-// Filters
-.filters-container {
+.balance-stat {
+  flex: 1;
+  padding: 20px 24px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-bottom: 24px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-
-  .filter-group {
-    flex: 1;
-    min-width: 180px;
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #4b5563;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  cursor: pointer;
+  min-width: 0;
+  
+  @media (max-width: 600px) {
+    min-width: 140px;
+    padding: 16px 18px;
+    scroll-snap-align: start;
+  }
+  
+  .stat-label {
+    font-size: 13px;
+    font-weight: 400;
+    color: $text-secondary;
+    line-height: 1.3;
+  }
+  
+  .stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+    
+    &.masked {
+      color: $text-tertiary;
+      letter-spacing: 1px;
     }
-
-    ion-select {
-      --background: white;
-      --border-radius: 8px;
-      --padding-start: 12px;
-      --padding-end: 12px;
-      --min-height: 44px;
-      border: 1px solid #e5e7eb;
-      font-size: 14px;
+    
+    @media (max-width: 600px) {
+      font-size: 18px;
     }
-
-    .date-input {
-      width: 100%;
-      height: 44px;
-      padding: 0 12px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      background: white;
-      font-size: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: #1d1d1f;
-      
-      &:focus {
-        outline: none;
-        border-color: #007aff;
-        box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  }
+  
+  .stat-value-hover {
+    position: absolute;
+    left: 24px;
+    top: 38px;
+    opacity: 0;
+    pointer-events: none;
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    transition: opacity 0.2s;
+    
+    @media (max-width: 600px) {
+      left: 18px;
+      top: 34px;
+      font-size: 18px;
+    }
+  }
+  
+  .stat-sub {
+    font-size: 12px;
+    color: $text-tertiary;
+    margin-top: 2px;
+  }
+  
+  // Hover reveal on desktop
+  &.wallet-hidden {
+    @media (hover: hover) {
+      &:hover .stat-value.masked {
+        opacity: 0;
+      }
+      &:hover .stat-value-hover {
+        opacity: 1;
       }
     }
-
-    &.custom-date-range {
-      min-width: 150px;
-    }
-  }
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 12px;
-
-    .filter-group {
-      min-width: 100%;
-    }
   }
 }
 
-.clear-filters-btn-inline {
-  margin-top: 16px;
-  --border-radius: 8px;
-  --padding-start: 16px;
-  --padding-end: 16px;
-  height: 36px;
+.stat-divider {
+  width: 1px;
+  background: $border;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+// Color accents for labels
+.pending-stat .stat-label { color: $accent-orange; }
+.available-stat .stat-label { color: $accent-green; }
+
+// ----- Withdraw Button -----
+.withdraw-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 16px 0 32px;
+}
+
+.withdraw-btn {
+  background: #000000;
+  border: 1px solid #222222;
+  border-radius: 8px;
+  padding: 10px 24px;
   font-size: 14px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  
+  &:hover:not(:disabled) {
+    background: $text-primary;
+    color: white;
+  }
+  
+  &:disabled {
+    border-color: $border;
+    color: $text-tertiary;
+    cursor: not-allowed;
+  }
 }
 
-.no-payments {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--ion-color-medium);
+// =============================================================
+// TRANSACTIONS SECTION
+// =============================================================
+.transactions-section {
+  .transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: $text-primary;
+      margin: 0;
+      letter-spacing: -0.3px;
+    }
+  }
+}
+
+.clear-link {
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  
+  &:hover {
+    color: $text-secondary;
+  }
+  
+  &.inline {
+    margin-top: 12px;
+  }
+}
+
+// =============================================================
+// AIRBNB-STYLE FILTERS TRIGGER
+// =============================================================
+.filters-trigger-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+
+  @media (max-width: 600px) {
+    gap: 10px;
+  }
+}
+
+.filters-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fff;
+  border: 2px solid $text-primary;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: $bg-subtle;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
 
   ion-icon {
-    font-size: 64px;
-    margin-bottom: 20px;
-    opacity: 0.5;
+    font-size: 18px;
   }
 
-  p {
-    font-size: 1.1em;
-    margin-bottom: 10px;
+  .filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    background: $text-primary;
+    color: #fff;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 600;
   }
+}
 
-  .sublabel {
-    font-size: 0.9em;
+.active-filters-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+
+  @media (max-width: 600px) {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+.filter-chip-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: $bg-subtle;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-primary;
+}
+
+.clear-all-inline {
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:hover {
     opacity: 0.7;
   }
 }
 
-// ============================================================
-// NEW: TABLE DESIGN (Admin-style)
-// ============================================================
+// =============================================================
+// EARNINGS FILTERS MODAL
+// =============================================================
+.ef-header {
+  ion-toolbar {
+    --background: #fff;
+    --border-width: 0;
+    padding: 8px 0;
 
-.payments-table-container {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    ion-title {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+  }
+
+  .ef-close-btn {
+    --color: #{$text-primary};
+    font-size: 22px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: $border;
+  }
 }
 
-.payments-table {
+.ef-content {
+  --background: #fff;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --padding-top: 16px;
+  --padding-bottom: 100px;
+}
+
+.ef-section {
+  padding: 4px 0;
+}
+
+// Selected Chips (top cap)
+.ef-selected-section {
+  .ef-selected-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+.ef-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #fff;
+  border: 1px solid $text-primary;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: $bg-subtle;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  ion-icon {
+    font-size: 14px;
+    color: $text-secondary;
+  }
+}
+
+.ef-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 16px;
+  letter-spacing: -0.3px;
+}
+
+.ef-divider {
+  height: 1px;
+  background: $border;
+  margin: 24px 0;
+}
+
+// Time period grid
+.ef-time-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+
+  @media (max-width: 400px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.ef-time-btn {
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #dddddd;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+
+  &:hover {
+    border-color: #b0b0b0;
+  }
+
+  &.active {
+    border-color: $text-primary;
+    border-width: 2px;
+    background: $bg-subtle;
+    font-weight: 600;
+  }
+}
+
+// Custom date inputs
+.ef-custom-dates {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+
+  @media (max-width: 400px) {
+    flex-direction: column;
+  }
+}
+
+.ef-date-field {
+  flex: 1;
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: $text-secondary;
+    margin-bottom: 6px;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #dddddd;
+    border-radius: 10px;
+    font-size: 15px;
+    background: #fff;
+    color: $text-primary;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: $text-primary;
+    }
+  }
+}
+
+// Student list
+.ef-student-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.ef-student-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+
+  &:hover {
+    background: $bg-subtle;
+  }
+
+  &.active {
+    background: #f0f0f0;
+  }
+
+  .ef-student-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  span {
+    font-size: 15px;
+    font-weight: 400;
+    color: $text-primary;
+  }
+
+  &.active span {
+    font-weight: 500;
+  }
+}
+
+.ef-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &.fallback {
+    background: $bg-subtle;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ion-icon {
+      font-size: 16px;
+      color: $text-tertiary;
+    }
+  }
+}
+
+.ef-check {
+  width: 24px;
+  height: 24px;
+  background: $text-primary;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 14px;
+    color: #fff;
+  }
+}
+
+// Status list
+.ef-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ef-status-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+
+  &:hover {
+    background: $bg-subtle;
+  }
+
+  &.active {
+    background: #f0f0f0;
+  }
+
+  .ef-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &.dot-all { background: $text-tertiary; }
+    &.dot-paid,
+    &.dot-succeeded { background: $accent-green; }
+    &.dot-in_progress { background: #007AFF; }
+    &.dot-processing { background: $accent-orange; }
+    &.dot-pending,
+    &.dot-scheduled,
+    &.dot-class_scheduled { background: $text-tertiary; }
+    &.dot-cancelled,
+    &.dot-refunded { background: $accent-red; }
+    &.dot-partially_refunded { background: $accent-orange; }
+  }
+
+  span:not(.ef-status-dot) {
+    font-size: 15px;
+    font-weight: 400;
+    color: $text-primary;
+    flex: 1;
+  }
+
+  &.active span:not(.ef-status-dot) {
+    font-weight: 500;
+  }
+}
+
+// Modal footer
+.ef-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid $border;
+  padding: 16px 24px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.ef-footer-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ef-clear-btn {
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: $text-primary;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.7;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.ef-apply-btn {
+  padding: 14px 24px;
+  background: $text-primary;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 160px;
+
+  &:hover {
+    background: #000;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// Scrollbar for student list
+.ef-student-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ef-student-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ef-student-list::-webkit-scrollbar-thumb {
+  background: #dddddd;
+  border-radius: 3px;
+
+  &:hover {
+    background: #b0b0b0;
+  }
+}
+
+// ----- Empty States -----
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  
+  ion-icon {
+    font-size: 40px;
+    color: $text-tertiary;
+    margin-bottom: 12px;
+  }
+  
+  .empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 4px;
+  }
+  
+  .empty-sub {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
+// =============================================================
+// TRANSACTION TABLE
+// =============================================================
+.table-wrap {
+  border: 1px solid $border;
+  border-radius: $radius;
+  overflow: hidden;
+  background: white;
+  
+  @media (max-width: 900px) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.txn-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9em; // Reduced from 0.95em
+  font-size: 14px;
   
-  thead {
-    background: var(--ion-color-light);
+  @media (max-width: 900px) {
+    min-width: 720px;
+  }
+  
+  // ----- Header -----
+  thead tr {
+    border-bottom: 1px solid $border;
     
-    tr {
-      th {
-        padding: 14px 16px; // Reduced from 16px 20px
-        text-align: left;
-        font-size: 0.8em; // Reduced from 0.85em
-        font-weight: 700;
-        color: var(--ion-color-medium);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        white-space: nowrap;
-        
-        &:first-child {
-          padding-left: 20px; // Reduced from 24px
-        }
-        
-        &:last-child {
-          padding-right: 20px; // Reduced from 24px
-        }
-        
-        // Right-align headers for amount columns (Gross, Platform Fee, Your Earnings)
-        &:nth-child(4) {
-          text-align: center;
-          width: 100px; // Match the amount-col width
-          padding-right: 16px; // Ensure consistent padding
-        }
-        
-        &:nth-child(5) {
-          text-align: center;
-          width: 100px; // Match the fee-col width
-          padding-right: 16px; // Ensure consistent padding
-        }
-        
-        &:nth-child(6) {
-          text-align: center;
-          width: 120px; // Match the earnings-col width
-          padding-right: 20px; // Match last-child padding
-        }
+    th {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: $text-secondary;
+      text-align: left;
+      white-space: nowrap;
+      background: transparent;
+      
+      &.right {
+        text-align: right;
       }
+      
+      &:first-child { padding-left: 20px; }
+      &:last-child { padding-right: 20px; }
     }
   }
   
+  // ----- Rows -----
   tbody {
-    tr.payment-row {
-      border-bottom: 1px solid #f3f4f6;
-      transition: background-color 0.2s ease;
+    .txn-row {
+      border-bottom: 1px solid #f5f5f5;
+      transition: background 0.12s;
+      
+      &:last-child { border-bottom: none; }
       
       &.clickable {
         cursor: pointer;
         
         &:hover {
-          background-color: #f9fafb;
+          background: $bg-hover;
         }
       }
       
-      &:last-child {
-        border-bottom: none;
+      &.refunded {
+        background: rgba($accent-red, 0.02);
+        
+        &:hover {
+          background: rgba($accent-red, 0.04);
+        }
       }
       
       td {
-        padding: 16px; // Reduced from 20px
+        padding: 14px 16px;
         vertical-align: middle;
-        color: var(--ion-color-dark);
+        color: $text-primary;
         
-        &:first-child {
-          padding-left: 20px; // Reduced from 24px
-        }
-        
-        &:last-child {
-          padding-right: 20px; // Reduced from 24px
-        }
+        &:first-child { padding-left: 20px; }
+        &:last-child { padding-right: 20px; }
       }
     }
   }
   
-  // Column-specific styles
-  .datetime-col {
-    width: 160px; // Fixed width for date & time
+  // ----- Date Column -----
+  .date-col {
+    width: 120px;
     
-    .datetime-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      
-      .date {
-        font-size: 0.9em;
-        color: var(--ion-color-dark);
-        font-weight: 500;
-      }
-      
-      .time {
-        font-size: 0.8em;
-        color: var(--ion-color-medium);
-      }
+    .date-primary {
+      display: block;
+      font-weight: 500;
+      font-size: 14px;
+      color: $text-primary;
+    }
+    
+    .date-secondary {
+      display: block;
+      font-size: 12px;
+      color: $text-secondary;
+      margin-top: 1px;
     }
   }
   
+  // ----- Student Column -----
   .student-col {
-    min-width: 200px; // Ensure enough space for avatar + name
+    min-width: 180px;
     
-    .student-info {
+    .student-row {
       display: flex;
       align-items: center;
       gap: 10px;
+    }
+    
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
       
-      .student-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        overflow: hidden;
-        flex-shrink: 0;
-        border: 2px solid #e5e7eb;
-        
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        
-        &.fallback {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          
-          ion-icon {
-            font-size: 20px;
-            color: white;
-          }
-        }
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
       
-      .student-details {
+      &.fallback {
+        background: $bg-subtle;
         display: flex;
-        flex-direction: column;
-        gap: 2px;
+        align-items: center;
+        justify-content: center;
         
-        .student-name {
-          font-weight: 500;
-          color: var(--ion-color-dark);
-          font-size: 0.95em;
-        }
-        
-        .class-name {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-size: 0.8em;
-          color: #667eea;
-          font-weight: 500;
-          
-          ion-icon {
-            font-size: 12px;
-          }
+        ion-icon {
+          font-size: 16px;
+          color: $text-tertiary;
         }
       }
-      
-      span {
-        font-weight: 500;
-        color: var(--ion-color-dark);
-        font-size: 0.95em;
-      }
     }
-  }
-  
-  .class-payment-row {
-    background-color: rgba(102, 126, 234, 0.03) !important;
     
-    &:hover {
-      background-color: rgba(102, 126, 234, 0.08) !important;
-    }
-  }
-  
-  .status-col {
-    min-width: 140px; // Reduced from auto
-    
-    .status-wrapper {
+    .student-meta {
       display: flex;
       flex-direction: column;
-      gap: 4px; // Reduced from 6px
+      gap: 1px;
       
-      ion-badge {
-        width: fit-content;
-        padding: 5px 10px; // Reduced from 6px 12px
-        border-radius: 10px; // Reduced from 12px
-        font-size: 0.8em; // Reduced from 0.85em
-        font-weight: 600;
+      .name {
+        font-weight: 500;
+        font-size: 14px;
+        color: $text-primary;
       }
       
-      .status-reason {
-        font-size: 0.75em; // Reduced from 0.8em
-        color: var(--ion-color-medium);
-        font-style: italic;
-        line-height: 1.3;
+      .type-label {
+        font-size: 12px;
+        
+        &.tip {
+          color: $text-secondary;
+          font-style: italic;
+          font-weight: 400;
+        }
+        
+        &.class-label {
+          color: $text-secondary;
+          font-weight: 400;
+        }
       }
     }
   }
   
-  .amount-col {
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.9em; // Reduced from 0.95em
-    white-space: nowrap;
-    width: 100px; // Fixed width for amount columns
+  // ----- Status Column -----
+  .status-col {
+    width: 160px;
     
-    &.fee-col {
-      color: var(--ion-color-medium);
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     
-    &.earnings-col {
-      color: #3b82f6; // Blue like in screenshot
-      font-weight: 700;
-      font-size: 1em; // Reduced from 1.05em
-      width: 120px; // Slightly wider for emphasis
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
       
-      .cancelled-earnings {
-        color: #f97316; // Orange like in screenshot
+      // Status dot colors
+      &.dot-paid,
+      &.dot-succeeded { background: $accent-green; }
+      &.dot-in_progress { background: #007AFF; }
+      &.dot-processing { background: $accent-orange; }
+      &.dot-pending,
+      &.dot-scheduled,
+      &.dot-class_scheduled { background: $text-tertiary; }
+      &.dot-cancelled,
+      &.dot-refunded { background: $accent-red; }
+      &.dot-partially_refunded { background: $accent-orange; }
+    }
+    
+    .status-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: $text-primary;
+    }
+    
+    .status-note {
+      display: block;
+      font-size: 11px;
+      color: $text-secondary;
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+  }
+  
+  // ----- Amount Columns -----
+  .amount-col {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    
+    &.right {
+      text-align: right;
+    }
+    
+    &.fee {
+      color: $text-secondary;
+    }
+    
+    &.earnings {
+      font-weight: 600;
+      color: $text-primary;
+      
+      .zero {
+        color: $text-tertiary;
+      }
+      
+      .reduced {
+        color: $accent-orange;
       }
       
       .tentative {
-        opacity: 0.6;
-        font-style: italic;
+        color: $text-secondary;
+        font-weight: 400;
       }
     }
     
-    .cancelled-amount {
-      color: #f97316; // Orange
+    .struck {
+      text-decoration: line-through;
+      color: $text-tertiary;
       
-      &.strikethrough {
-        text-decoration: line-through;
-        opacity: 0.5;
+      &.small {
+        font-size: 11px;
+        display: block;
       }
     }
   }
 }
 
-// Mobile responsiveness for table
-@media (max-width: 1024px) {
-  .earnings-content {
-    max-width: 100%; // Full width on tablets/mobile
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-  
-  .payments-table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .payments-table {
-    min-width: 900px; // Force horizontal scroll on smaller screens
-    font-size: 0.85em;
-    
-    thead tr th {
-      padding: 12px 14px;
-      font-size: 0.75em;
-      
-      &:first-child {
-        padding-left: 16px;
-      }
-    }
-    
-    tbody tr.payment-row td {
-      padding: 14px;
-      
-      &:first-child {
-        padding-left: 16px;
-      }
-    }
-  }
-}
-
-.help-text {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 20px;
-  background: var(--ion-color-light);
-  border-radius: 12px;
-  margin-top: 30px;
-
-  ion-icon {
-    font-size: 24px;
-    color: var(--ion-color-primary);
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  div {
-    flex: 1;
-  }
-
-  p {
-    color: var(--ion-color-medium);
-    font-size: 0.9em;
-    line-height: 1.6;
-    margin: 0 0 10px 0;
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
-    
-    strong {
-      color: var(--ion-color-dark);
-      font-weight: 600;
-    }
-  }
-}
-
-// Mobile responsiveness
-@media (max-width: 768px) {
-  .summary-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .total-earnings .total-amount {
-    font-size: 2em; // Reduced from 2.5em for mobile
-  }
-
-  .payment-item {
-    .payment-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-    }
-  }
-}
-
-// Highlight animation for scrolled-to payment
-.highlight-payment {
-  animation: highlightPulse 2s ease-in-out;
-}
-
-@keyframes highlightPulse {
-  0%, 100% {
-    background: var(--ion-background-color);
-    transform: scale(1);
-  }
-  50% {
-    background: rgba(var(--ion-color-primary-rgb), 0.1);
-    transform: scale(1.02);
-  }
-}
-
-// ============================================================
-// WITHDRAWAL MODAL STYLES
-// ============================================================
-
+// =============================================================
+// WITHDRAWAL MODAL
+// =============================================================
 .withdrawal-modal {
   ion-content {
-    --background: #f5f5f7;
+    --background: #{$bg-subtle};
   }
   
   .modal-content {
-    max-width: 1000px; // Increased for two-column layout
+    max-width: 880px;
     margin: 0 auto;
     padding: 40px 20px 20px;
     display: flex;
@@ -1199,7 +1054,57 @@
   }
 }
 
-// Two-Column Container
+.floating-close-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  --color: #{$text-secondary};
+  --padding-start: 8px;
+  --padding-end: 8px;
+  
+  ion-icon { font-size: 24px; }
+  
+  &:hover {
+    --color: #{$text-primary};
+  }
+}
+
+.modal-header {
+  text-align: center;
+  margin-bottom: 24px;
+  
+  .icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: $accent-green;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    
+    ion-icon {
+      font-size: 24px;
+      color: white;
+    }
+  }
+  
+  .modal-heading {
+    font-size: 22px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 4px;
+    letter-spacing: -0.3px;
+  }
+  
+  .modal-description {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
 .withdrawal-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1219,100 +1124,42 @@
   gap: 16px;
 }
 
-.floating-close-button {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-  --color: #8e8e93;
-  --padding-start: 8px;
-  --padding-end: 8px;
-  
-  ion-icon {
-    font-size: 24px;
-  }
-  
-  &:hover {
-    --color: #1d1d1f;
-  }
-}
-
-// Header
-.modal-header {
-  text-align: center;
-  margin-bottom: 20px;
-  
-  .icon-wrapper {
-    width: 56px;
-    height: 56px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 12px;
-    box-shadow: 0 6px 20px rgba(52, 199, 89, 0.3);
-    
-    ion-icon {
-      font-size: 28px;
-      color: white;
-    }
-  }
-  
-  .modal-heading {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1d1d1f;
-    margin: 0 0 6px 0;
-    letter-spacing: -0.5px;
-  }
-  
-  .modal-description {
-    font-size: 14px;
-    color: #86868b;
-    margin: 0;
-  }
-}
-
-// Balance Card
+// Balance Card (in modal)
 .balance-card {
-  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
-  border-radius: 14px;
-  padding: 18px;
+  background: $accent-green;
+  border-radius: $radius;
+  padding: 20px;
   text-align: center;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);
   
   .balance-label {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.85);
     font-weight: 500;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   
   .balance-amount {
-    font-size: 36px;
+    font-size: 32px;
     font-weight: 700;
     color: white;
-    margin-bottom: 6px;
     letter-spacing: -1px;
   }
   
   .balance-note {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
   }
 }
 
-// Fee Breakdown Card
+// Fee Breakdown
 .fee-breakdown-card {
   background: white;
-  border-radius: 12px;
+  border-radius: $radius;
   padding: 16px;
-  margin-bottom: 20px;
-  border: 1px solid #e5e5ea;
+  border: 1px solid $border;
   
   .breakdown-row {
     display: flex;
@@ -1322,7 +1169,7 @@
     
     .breakdown-label {
       font-size: 13px;
-      color: #86868b;
+      color: $text-secondary;
       flex: 1;
       display: flex;
       align-items: center;
@@ -1330,33 +1177,24 @@
       
       .fee-info-icon {
         font-size: 16px;
-        color: #007aff;
+        color: $text-secondary;
         cursor: pointer;
-        transition: transform 0.2s;
+        transition: color 0.15s;
         
-        &:hover {
-          transform: scale(1.1);
-          color: #0051d5;
-        }
+        &:hover { color: $text-primary; }
       }
     }
     
     .breakdown-value {
       font-size: 14px;
       font-weight: 600;
-      color: #1d1d1f;
+      color: $text-primary;
       text-align: right;
       
-      &.fee-value {
-        color: #ff3b30;
-      }
+      &.fee-value { color: $accent-red; }
     }
     
-    &.fee-row {
-      .breakdown-value {
-        color: #ff3b30;
-      }
-    }
+    &.fee-row .breakdown-value { color: $accent-red; }
     
     &.total-row {
       padding-top: 12px;
@@ -1364,13 +1202,13 @@
       .breakdown-label {
         font-size: 14px;
         font-weight: 600;
-        color: #1d1d1f;
+        color: $text-primary;
       }
       
       .breakdown-value.total {
         font-size: 18px;
         font-weight: 700;
-        color: #34c759;
+        color: $accent-green;
       }
     }
   }
@@ -1380,80 +1218,74 @@
     align-items: center;
     gap: 8px;
     padding: 10px;
-    background: #fff5e6;
+    background: #FFF8F0;
     border-radius: 8px;
     margin: 8px 0;
-    border: 1px solid #ffd699;
+    border: 1px solid #FFE0B2;
     
     ion-icon {
       font-size: 16px;
-      color: #ff9800;
+      color: $accent-orange;
       flex-shrink: 0;
     }
     
     span {
       font-size: 12px;
-      color: #b36200;
+      color: #8B5E00;
       line-height: 1.4;
     }
   }
   
-  // Placeholder when amount is invalid
   .breakdown-placeholder {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 32px 20px;
+    padding: 24px 16px;
     text-align: center;
-    min-height: 120px; // Match approximate height of actual breakdown
     
     ion-icon {
-      font-size: 32px;
-      color: #c7c7cc;
-      margin-bottom: 12px;
+      font-size: 28px;
+      color: $text-tertiary;
+      margin-bottom: 8px;
     }
     
     p {
       font-size: 13px;
-      color: #86868b;
+      color: $text-secondary;
       margin: 0;
-      line-height: 1.4;
     }
   }
   
   .breakdown-divider {
     height: 1px;
-    background: #e5e5ea;
+    background: $border;
     margin: 8px 0;
   }
   
-  // Stripe-specific styles
   &.stripe-card {
-    border: 2px solid #34c759;
-    background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+    border: 1px solid $accent-green;
     
     .no-fee-badge {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 12px;
-      background: #34c759;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      width: fit-content;
+      padding: 6px 12px;
+      background: $accent-green;
+      border-radius: 6px;
+      margin-bottom: 8px;
       
       ion-icon {
-        font-size: 18px;
+        font-size: 16px;
         color: white;
       }
       
       span {
-        font-size: 13px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 600;
         color: white;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
       }
     }
     
@@ -1462,33 +1294,33 @@
       align-items: center;
       gap: 6px;
       padding: 8px 12px;
-      background: rgba(52, 199, 89, 0.1);
+      background: rgba($accent-green, 0.06);
       border-radius: 8px;
-      margin-top: 12px;
+      margin-top: 8px;
       
       ion-icon {
         font-size: 16px;
-        color: #34c759;
+        color: $accent-green;
         flex-shrink: 0;
       }
       
       span {
         font-size: 12px;
-        color: #1d1d1f;
+        color: $text-primary;
       }
     }
   }
 }
 
-// Amount Section
+// Amount Section (modal)
 .amount-section {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   
   .section-label {
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: #1d1d1f;
+    color: $text-primary;
     margin-bottom: 8px;
   }
   
@@ -1497,21 +1329,20 @@
     display: flex;
     align-items: center;
     background: white;
-    border-radius: 10px;
-    border: 2px solid #e5e5ea;
+    border-radius: 8px;
+    border: 1px solid $border;
     overflow: hidden;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s;
     
     &:focus-within {
-      border-color: #34c759;
-      box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.1);
+      border-color: $text-primary;
     }
     
     .currency-symbol {
       padding-left: 14px;
       font-size: 18px;
       font-weight: 600;
-      color: #1d1d1f;
+      color: $text-primary;
     }
     
     .amount-input {
@@ -1521,14 +1352,11 @@
       padding: 12px 10px;
       font-size: 18px;
       font-weight: 600;
-      color: #1d1d1f;
+      color: $text-primary;
       background: transparent;
       
-      &::placeholder {
-        color: #c7c7cc;
-      }
+      &::placeholder { color: $text-tertiary; }
       
-      /* Remove spinner */
       &::-webkit-inner-spin-button,
       &::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -1538,68 +1366,58 @@
     }
     
     .max-button {
-      background: #34c759;
+      background: $text-primary;
       color: white;
       border: none;
       padding: 6px 14px;
       margin-right: 6px;
-      border-radius: 7px;
-      font-size: 12px;
+      border-radius: 6px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s ease;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
       
-      &:hover {
-        background: #30d158;
-        transform: scale(1.05);
-      }
-      
-      &:active {
-        transform: scale(0.98);
-      }
+      &:hover { background: #444; }
     }
   }
   
   .amount-error {
-    margin-top: 8px;
+    margin-top: 6px;
     font-size: 13px;
-    color: #ff3b30;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    color: $accent-red;
   }
 }
 
-// Method Section
+// Method Section (modal)
 .method-section {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   
   .section-label {
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: #1d1d1f;
+    color: $text-primary;
     margin-bottom: 8px;
   }
   
   .method-card {
     background: white;
-    border-radius: 10px;
-    border: 2px solid #e5e5ea;
+    border-radius: 8px;
+    border: 1px solid $border;
     padding: 12px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s;
     
     &:hover {
-      border-color: #34c759;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border-color: $text-secondary;
     }
     
     &.selected {
-      border-color: #34c759;
-      background: #f0fdf4;
-      box-shadow: 0 2px 8px rgba(52, 199, 89, 0.15);
+      border-color: $text-primary;
+      border-width: 2px;
+      padding: 11px; // compensate for wider border
     }
     
     .method-content {
@@ -1608,30 +1426,19 @@
       gap: 12px;
       
       .method-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 10px;
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        overflow: hidden;
         
-        &.stripe {
-          background: #635bff;
-          
-          ion-icon {
-            font-size: 22px;
-            color: white;
-          }
-        }
-        
-        &.paypal {
-          // background: #0070ba;
-          
-          ion-icon {
-            font-size: 24px;
-            color: white;
-          }
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
         }
       }
       
@@ -1641,45 +1448,45 @@
         .method-name {
           font-size: 15px;
           font-weight: 600;
-          color: #1d1d1f;
-          margin-bottom: 3px;
+          color: $text-primary;
+          margin-bottom: 2px;
         }
         
         .method-detail {
           font-size: 13px;
-          color: #86868b;
-          margin-bottom: 3px;
+          color: $text-secondary;
         }
         
         .method-timing {
           font-size: 12px;
-          color: #34c759;
+          color: $accent-green;
           font-weight: 500;
+          margin-top: 2px;
         }
       }
       
       .method-radio {
         .custom-radio {
-          width: 24px;
-          height: 24px;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
-          border: 2px solid #c7c7cc;
+          border: 2px solid $border;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.2s ease;
+          transition: border-color 0.15s;
           
           .radio-dot {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: #34c759;
+            background: $text-primary;
             transform: scale(0);
-            transition: transform 0.2s ease;
+            transition: transform 0.15s;
           }
           
           &.checked {
-            border-color: #34c759;
+            border-color: $text-primary;
             
             .radio-dot {
               transform: scale(1);
@@ -1691,28 +1498,29 @@
   }
   
   .no-method-message {
-    background: #fff3cd;
-    border-radius: 12px;
+    background: #FFF8F0;
+    border: 1px solid #FFE0B2;
+    border-radius: $radius;
     padding: 16px;
     display: flex;
     align-items: center;
     gap: 12px;
     
     ion-icon {
-      font-size: 24px;
-      color: #856404;
+      font-size: 22px;
+      color: $accent-orange;
       flex-shrink: 0;
     }
     
     p {
       margin: 0;
       font-size: 14px;
-      color: #856404;
+      color: #8B5E00;
     }
   }
 }
 
-// Button Container
+// Button Container (modal)
 .button-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1720,7 +1528,7 @@
   margin-bottom: 12px;
   
   ion-button {
-    --border-radius: 10px;
+    --border-radius: 8px;
     --padding-top: 12px;
     --padding-bottom: 12px;
     font-weight: 600;
@@ -1730,171 +1538,80 @@
     margin: 0;
     
     &[fill="outline"] {
-      --border-width: 2px;
-      --border-color: #e5e5ea;
-      --color: #1d1d1f;
+      --border-width: 1px;
+      --border-color: #{$border};
+      --color: #{$text-primary};
       
       &:hover {
-        --border-color: #c7c7cc;
+        --border-color: #{$text-secondary};
       }
     }
     
     &:not([fill="outline"]) {
-      --background: #34c759;
-      --background-hover: #30d158;
-      --background-activated: #28cd50;
+      --background: #{$text-primary};
+      --background-hover: #444;
       
       &:disabled {
-        opacity: 0.4;
+        opacity: 0.3;
       }
     }
   }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-// Info Note
+// Info Note (modal)
 .info-note {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   padding: 10px;
-  background: #f5f5f7;
+  background: $bg-subtle;
   border-radius: 8px;
   
   ion-icon {
     font-size: 16px;
-    color: #86868b;
+    color: $text-secondary;
     flex-shrink: 0;
     margin-top: 1px;
   }
   
   span {
     font-size: 12px;
-    color: #86868b;
+    color: $text-secondary;
     line-height: 1.4;
   }
 }
 
-// Mobile responsiveness
+// =============================================================
+// MOBILE OVERRIDES
+// =============================================================
 @media (max-width: 768px) {
+  .earnings-content {
+    padding: 16px 16px 32px;
+  }
+  
   .modal-content {
     padding: 40px 16px 16px;
   }
   
-  .modal-header {
-    .modal-heading {
-      font-size: 24px;
-    }
+  .modal-header .modal-heading {
+    font-size: 20px;
   }
   
-  .balance-card {
-    .balance-amount {
-      font-size: 36px;
-    }
-  }
-  
-  .button-container {
-    grid-template-columns: 1fr;
+  .balance-card .balance-amount {
+    font-size: 28px;
   }
 }
 
-
-// Refunded payment row styling
-.payment-row.refunded-row {
-  background: rgba(239, 68, 68, 0.03);
-  border-left: 3px solid #ef4444;
-  
-  &:hover {
-    background: rgba(239, 68, 68, 0.05);
-    cursor: default;
-  }
+// Highlight animation for scrolled-to payment
+.highlight-payment {
+  animation: highlightPulse 2s ease-in-out;
 }
 
-.cancelled-amount,
-.cancelled-earnings {
-  color: #ef4444;
-  font-weight: 600;
-}
-
-.strikethrough {
-  text-decoration: line-through;
-  opacity: 0.6;
-}
-
-.amount-with-original {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  
-  .original-strikethrough {
-    font-size: 11px;
-    text-decoration: line-through;
-    color: #9ca3af;
-  }
-}
-
-.amount-with-badge {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  
-  .reduced-amount {
-    color: #f59e0b;
-    font-weight: 600;
-  }
-  
-  .refund-badge-small {
-    font-size: 10px;
-    padding: 2px 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    
-    ion-icon {
-      font-size: 12px;
-    }
-  }
-}
-
-.status-reason {
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 4px;
-  line-height: 1.3;
-}
-
-.close-button-container {
-  position: fixed !important;
-  top: 70px !important;
-  right: 20px !important;
-  z-index: 99999 !important;
-  display: block !important;
-  visibility: visible !important;
-  
-  .close-button-top {
-    --color: #ffffff !important;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    margin: 0;
-    width: 52px;
-    height: 52px;
-    background: #1d1d1f !important;
-    border-radius: 26px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
-    border: 2px solid #ffffff !important;
-    
-    ion-icon {
-      font-size: 28px !important;
-      color: #ffffff !important;
-    }
-    
-    &:hover {
-      background: #007aff !important;
-      border-color: #007aff !important;
-      box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4) !important;
-      
-      ion-icon {
-        color: #ffffff !important;
-      }
-    }
-  }
+@keyframes highlightPulse {
+  0%, 100% { background: transparent; }
+  50% { background: rgba(0, 0, 0, 0.03); }
 }

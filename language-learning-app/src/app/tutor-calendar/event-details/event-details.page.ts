@@ -1,50 +1,203 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
+import { TutorFeedbackService, TutorFeedback } from '../../services/tutor-feedback.service';
 import { PlatformService } from '../../services/platform.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
+import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
+import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
+
+// ── Interfaces ──────────────────────────────────────────────────
+interface AnalysisData {
+  overallAssessment?: {
+    proficiencyLevel?: string;
+    confidence?: number;
+    summary?: string;
+    progressFromLastLesson?: string;
+  };
+  grammarAnalysis?: {
+    mistakeTypes?: { type: string; examples: string[]; frequency: number; severity: string }[];
+    suggestions?: string[];
+    accuracyScore?: number;
+  };
+  vocabularyAnalysis?: {
+    wordsUsed?: string[];
+    uniqueWordCount?: number;
+    vocabularyRange?: string;
+    suggestedWords?: string[];
+    advancedWordsUsed?: string[];
+  };
+  fluencyAnalysis?: {
+    speakingSpeed?: string;
+    pauseFrequency?: string;
+    fillerWords?: { count: number; examples: string[] };
+    overallFluencyScore?: number;
+  };
+  pronunciationAnalysis?: {
+    overallScore?: number;
+    accuracyScore?: number;
+    fluencyScore?: number;
+    prosodyScore?: number;
+  };
+  topicsDiscussed?: string[];
+  recommendedFocus?: string[];
+  suggestedExercises?: string[];
+  homeworkSuggestions?: string[];
+  studentSummary?: string;
+  tutorNote?: {
+    text?: string;
+    quickImpression?: string;
+    homework?: string;
+    addedAt?: string;
+  };
+  source?: string;
+  status?: string;
+}
+
+interface BillingData {
+  estimatedPrice?: number;
+  actualPrice?: number;
+  estimatedDuration?: number;
+  actualDuration?: number;
+  status?: string;
+  callStartTime?: string;
+  callEndTime?: string;
+  isOfficeHours?: boolean;
+}
 
 @Component({
   selector: 'app-event-details',
   templateUrl: './event-details.page.html',
   styleUrls: ['./event-details.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, CancelReasonModalComponent, ConfirmActionModalComponent]
 })
 export class EventDetailsPage implements OnInit, OnDestroy {
   eventId: string | null = null;
-  lesson: Lesson | null = null;
-  classData: any = null; // For class events
+  lesson: any = null;
+  classData: any = null;
   isClass = false;
   currentUser: User | null = null;
   loading = true;
   error: string | null = null;
-  countdownTick = Date.now();
   sanitizedDescription: SafeHtml = '';
+
+  // Role
+  userRole: 'tutor' | 'student' = 'student';
+  isTutorUser = false;
+  isStudentUser = false;
+
+  // Analysis & Feedback
+  analysisData: AnalysisData | null = null;
+  analysisLoading = false;
+  tutorFeedback: TutorFeedback | null = null;
+  feedbackLoading = false;
+  billingData: BillingData | null = null;
+
+  // Pre-computed template properties (no functions in template)
+  statusLabel = '';
+  statusColor = '';
+  statusClass = '';
+
+  canJoinLesson = false;
+  joinLabel = 'Join';
+  isLessonInProgress = false;
+  canCancelLesson = false;
+  showJoinButton = false;
+
+  // Formatted data
+  formattedDate = '';
+  formattedTimeRange = '';
+  formattedDuration = '';
+  formattedPrice = '';
+  formattedActualPrice = '';
+  formattedActualDuration = '';
+
+  // Participant info
+  participantName = '';
+  participantEmail = '';
+  participantPicture = '';
+  participantInitial = '';
+  participantRole = ''; // "Student" or "Tutor"
+
+  // Tip info
+  hasTip = false;
+  tipAmount = '';
+  tipDate = '';
+
+  // Cancellation info
+  isCancelled = false;
+  cancelledByLabel = '';
+  cancelReasonLabel = '';
+  cancelledAtLabel = '';
+
+  // Issue info
+  hasIssue = false;
+  issueTypeLabel = '';
+  issueDetailsText = '';
+  issueDate = '';
+  isUnderInvestigation = false;
+
+  // Reschedule info
+  hasReschedule = false;
+  rescheduleStatus = '';
+  proposedTimeRange = '';
+
+  // Analysis display
+  hasAnalysis = false;
+  hasTutorNote = false;
+  hasTutorFeedback = false;
+  hasHomework = false;
+
+  // Pre-computed score colors (no functions in template)
+  grammarScoreColor = '#6b7280';
+  fluencyScoreColor = '#6b7280';
+  pronunciationScoreColor = '#6b7280';
+
+  // Class-specific pre-computed
+  levelLabel = '';
+  classRevenue = '';
+
+  // Tutor feedback display
+  feedbackStrengths: string[] = [];
+  feedbackImprovements: string[] = [];
+  feedbackHomework = '';
+  feedbackNotes = '';
+  feedbackCefrLevel = '';
+  feedbackDate = '';
+  sanitizedTutorNote: SafeHtml = '';
+
+  // Countdown
   private countdownInterval: any;
   private returnUrl: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private http: HttpClient,
     private lessonService: LessonService,
     private classService: ClassService,
     private userService: UserService,
+    private tutorFeedbackService: TutorFeedbackService,
     private platformService: PlatformService,
-    private sanitizer: DomSanitizer
-  ) { }
+    private sanitizer: DomSanitizer,
+    private modalController: ModalController,
+    private toastController: ToastController,
+    private loadingController: LoadingController
+  ) {}
 
   ngOnInit() {
     this.eventId = this.route.snapshot.paramMap.get('id');
     const fromParam = this.route.snapshot.queryParamMap.get('from');
     const shouldReturnToNotifications = (this.platformService.isMobile() || this.platformService.isSmallScreen()) && fromParam === 'notifications';
     this.returnUrl = shouldReturnToNotifications ? '/tabs/notifications' : '/tabs/tutor-calendar';
-    
-    // Load current user first
+
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
@@ -56,7 +209,6 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         }
       },
       error: () => {
-        // Continue even if user load fails
         if (this.eventId) {
           this.loadEventDetails();
         } else {
@@ -67,26 +219,32 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     });
   }
 
+  ngOnDestroy() {
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+    }
+  }
+
+  // ── Data Loading ──────────────────────────────────────────────
+
   loadEventDetails() {
     if (!this.eventId) return;
-
     this.loading = true;
-    
-    // Try loading as a lesson first
+
     this.lessonService.getLesson(this.eventId).subscribe({
       next: (response) => {
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
           this.isClass = false;
           this.loading = false;
+          this.computeAllProperties();
+          this.loadAdditionalData();
           this.startCountdown();
         } else {
-          // If lesson not found, try as a class
           this.loadClassDetails();
         }
       },
       error: () => {
-        // If lesson fails, try loading as a class
         this.loadClassDetails();
       }
     });
@@ -96,41 +254,390 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (!this.eventId) return;
 
     this.classService.getClass(this.eventId).subscribe({
-      next: (response) => {
+      next: (response: any) => {
         if (response.success && response.class) {
           this.classData = response.class;
           this.isClass = true;
-          // Pre-sanitize description to avoid calling function in template
           if (this.classData?.description) {
             this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(this.classData.description);
           }
           this.loading = false;
+          this.computeClassProperties();
           this.startCountdown();
         } else {
           this.error = 'Event not found';
           this.loading = false;
         }
       },
-      error: (error) => {
-        console.error('Error loading event:', error);
+      error: () => {
         this.error = 'Failed to load event details';
         this.loading = false;
       }
     });
   }
 
-  startCountdown() {
-    // Update countdown every minute
+  private loadAdditionalData() {
+    if (!this.eventId || !this.lesson) return;
+
+    // Load analysis (only for students or completed lessons)
+    this.analysisLoading = true;
+    const headers = this.userService.getAuthHeadersSync();
+    this.http.get<any>(
+      `${environment.backendUrl}/api/transcription/lesson/${this.eventId}/analysis`,
+      { headers }
+    ).subscribe({
+      next: (res) => {
+        if (res.success && res.analysis) {
+          this.analysisData = res.analysis;
+          this.computeAnalysisProperties();
+        }
+        this.analysisLoading = false;
+      },
+      error: () => {
+        this.analysisLoading = false;
+      }
+    });
+
+    // Load tutor feedback
+    this.feedbackLoading = true;
+    this.tutorFeedbackService.getFeedbackForLesson(this.eventId).subscribe({
+      next: (res) => {
+        if (res.success && res.hasFeedback && res.feedback) {
+          this.tutorFeedback = res.feedback;
+          this.computeFeedbackProperties();
+        }
+        this.feedbackLoading = false;
+      },
+      error: () => {
+        this.feedbackLoading = false;
+      }
+    });
+
+    // Load billing
+    this.lessonService.getBillingSummary(this.eventId).subscribe({
+      next: (res: any) => {
+        if (res.success && res.billing) {
+          this.billingData = res.billing;
+          this.computeBillingProperties();
+        }
+      },
+      error: () => { /* billing data optional */ }
+    });
+  }
+
+  // ── Compute Properties (no functions in template) ─────────────
+
+  private computeAllProperties() {
+    if (!this.lesson) return;
+
+    this.computeRole();
+    this.computeStatus();
+    this.computeJoinButton();
+    this.computeCancelButton();
+    this.computeFormatted();
+    this.computeParticipant();
+    this.computeTip();
+    this.computeCancellation();
+    this.computeIssue();
+    this.computeReschedule();
+  }
+
+  private computeRole() {
+    if (!this.lesson || !this.currentUser) return;
+    const tutorId = String(this.lesson.tutorId?._id || this.lesson.tutorId);
+    const userId = String((this.currentUser as any)._id || this.currentUser.id);
+    this.isTutorUser = tutorId === userId;
+    this.isStudentUser = !this.isTutorUser;
+    this.userRole = this.isTutorUser ? 'tutor' : 'student';
+  }
+
+  private computeStatus() {
+    if (!this.lesson) return;
+
+    if (this.lesson.status === 'cancelled') {
+      this.statusLabel = 'Cancelled';
+      this.statusColor = '#ef4444';
+      this.statusClass = 'cancelled';
+      return;
+    }
+
+    const now = new Date();
+    const start = new Date(this.lesson.startTime);
+    const end = new Date(this.lesson.endTime);
+
+    if (now >= start && now <= end) {
+      this.statusLabel = 'In Progress';
+      this.statusColor = '#10b981';
+      this.statusClass = 'in-progress';
+      this.isLessonInProgress = true;
+    } else if (now > end) {
+      this.statusLabel = 'Completed';
+      this.statusColor = '#6b7280';
+      this.statusClass = 'completed';
+    } else if (this.lesson.status === 'pending_reschedule') {
+      this.statusLabel = 'Pending Reschedule';
+      this.statusColor = '#f59e0b';
+      this.statusClass = 'pending';
+    } else {
+      this.statusLabel = 'Upcoming';
+      this.statusColor = '#667eea';
+      this.statusClass = 'upcoming';
+    }
+  }
+
+  private computeJoinButton() {
+    if (!this.lesson) return;
+    const now = new Date();
+    const start = new Date(this.lesson.startTime);
+    const end = new Date(this.lesson.endTime);
+
+    this.showJoinButton = this.statusLabel === 'Upcoming' || this.statusLabel === 'In Progress';
+
+    if (now >= start && now <= end) {
+      this.canJoinLesson = true;
+      this.joinLabel = 'Join Now';
+    } else if (this.lessonService.canJoinLesson(this.lesson)) {
+      this.canJoinLesson = true;
+      this.joinLabel = 'Join';
+    } else if (this.showJoinButton) {
+      this.canJoinLesson = false;
+      const secs = this.lessonService.getTimeUntilJoin(this.lesson);
+      this.joinLabel = `Join in ${this.lessonService.formatTimeUntil(secs)}`;
+    }
+  }
+
+  private computeCancelButton() {
+    if (!this.lesson?.startTime || this.lesson.status === 'cancelled') {
+      this.canCancelLesson = false;
+      return;
+    }
+    const now = new Date();
+    const start = new Date(this.lesson.startTime);
+    this.canCancelLesson = start > now;
+  }
+
+  private computeFormatted() {
+    if (!this.lesson) return;
+
+    const start = new Date(this.lesson.startTime);
+    const end = new Date(this.lesson.endTime);
+
+    // Date
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (start.toDateString() === today.toDateString()) {
+      this.formattedDate = 'Today';
+    } else if (start.toDateString() === tomorrow.toDateString()) {
+      this.formattedDate = 'Tomorrow';
+    } else {
+      this.formattedDate = start.toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+    }
+
+    // Time range
+    const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    this.formattedTimeRange = `${fmt(start)} – ${fmt(end)}`;
+
+    // Duration
+    const mins = this.lesson.duration || 60;
+    if (mins < 60) {
+      this.formattedDuration = `${mins} minutes`;
+    } else {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      this.formattedDuration = m === 0 ? `${h} hour${h > 1 ? 's' : ''}` : `${h}h ${m}m`;
+    }
+
+    // Price
+    this.formattedPrice = this.lesson.price != null ? `$${this.lesson.price.toFixed(2)}` : '';
+  }
+
+  private computeParticipant() {
+    if (!this.lesson) return;
+
+    // Tutor sees student info, student sees tutor info
+    const p = this.isTutorUser ? this.lesson.studentId : this.lesson.tutorId;
+    if (p) {
+      const firstName = p.firstName || p.name?.split(' ')[0] || '';
+      const lastName = p.lastName || p.name?.split(' ').slice(1).join(' ') || '';
+      this.participantName = firstName && lastName
+        ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
+        : p.name || 'Participant';
+      this.participantEmail = p.email || '';
+      this.participantPicture = p.picture || '';
+      this.participantInitial = (p.name || p.firstName || 'P').charAt(0).toUpperCase();
+      this.participantRole = this.isTutorUser ? 'Student' : 'Tutor';
+    }
+  }
+
+  private computeTip() {
+    if (!this.lesson) return;
+    if (this.lesson.tip && this.lesson.tip.amount) {
+      this.hasTip = true;
+      this.tipAmount = `$${this.lesson.tip.amount.toFixed(2)}`;
+      this.tipDate = this.lesson.tip.paidAt
+        ? new Date(this.lesson.tip.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+    }
+  }
+
+  private computeCancellation() {
+    if (!this.lesson) return;
+    this.isCancelled = this.lesson.status === 'cancelled';
+    if (this.isCancelled) {
+      const cancelledByMap: Record<string, string> = {
+        tutor: 'Tutor', student: 'Student', system: 'System', admin: 'Admin'
+      };
+      this.cancelledByLabel = cancelledByMap[this.lesson.cancelledBy] || 'Unknown';
+      this.cancelReasonLabel = this.lesson.cancelReasonText || this.lesson.cancelReason || 'No reason provided';
+      this.cancelledAtLabel = this.lesson.cancelledAt
+        ? new Date(this.lesson.cancelledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : '';
+    }
+  }
+
+  private computeIssue() {
+    if (!this.lesson) return;
+    this.hasIssue = !!this.lesson.issueReported;
+    if (this.hasIssue) {
+      const issueMap: Record<string, string> = {
+        tutor_no_show: 'Tutor No-Show',
+        ended_early: 'Ended Early',
+        poor_quality: 'Poor Quality',
+        inappropriate: 'Inappropriate Behavior',
+        technical: 'Technical Issues',
+        other: 'Other'
+      };
+      this.issueTypeLabel = issueMap[this.lesson.issueType || ''] || 'Issue Reported';
+      this.issueDetailsText = this.lesson.issueDetails || '';
+      this.issueDate = this.lesson.issueReportedAt
+        ? new Date(this.lesson.issueReportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '';
+      this.isUnderInvestigation = !!this.lesson.underInvestigation;
+    }
+  }
+
+  private computeReschedule() {
+    if (!this.lesson?.rescheduleProposal) return;
+    const rp = this.lesson.rescheduleProposal;
+    if (rp.status) {
+      this.hasReschedule = true;
+      this.rescheduleStatus = rp.status.charAt(0).toUpperCase() + rp.status.slice(1);
+      if (rp.proposedStartTime && rp.proposedEndTime) {
+        const s = new Date(rp.proposedStartTime);
+        const e = new Date(rp.proposedEndTime);
+        const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        this.proposedTimeRange = `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${fmt(s)} – ${fmt(e)}`;
+      }
+    }
+  }
+
+  private computeAnalysisProperties() {
+    if (!this.analysisData) return;
+    this.hasAnalysis = this.analysisData.status === 'completed';
+
+    // Pre-compute score colors
+    this.grammarScoreColor = this.calcScoreColor(this.analysisData.grammarAnalysis?.accuracyScore);
+    this.fluencyScoreColor = this.calcScoreColor(this.analysisData.fluencyAnalysis?.overallFluencyScore);
+    this.pronunciationScoreColor = this.calcScoreColor(this.analysisData.pronunciationAnalysis?.overallScore);
+
+    // Tutor note
+    if (this.analysisData.tutorNote?.text) {
+      this.hasTutorNote = true;
+      this.sanitizedTutorNote = this.sanitizer.bypassSecurityTrustHtml(this.analysisData.tutorNote.text);
+    }
+
+    // Homework suggestions
+    this.hasHomework = !!(
+      this.analysisData.homeworkSuggestions?.length ||
+      this.analysisData.tutorNote?.homework
+    );
+  }
+
+  private calcScoreColor(score: number | undefined): string {
+    if (score == null) return '#6b7280';
+    if (score >= 80) return '#10b981';
+    if (score >= 60) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  private computeFeedbackProperties() {
+    if (!this.tutorFeedback || this.tutorFeedback.status !== 'completed') return;
+    this.hasTutorFeedback = true;
+    this.feedbackStrengths = this.tutorFeedback.strengths || [];
+    this.feedbackImprovements = this.tutorFeedback.areasForImprovement || [];
+    this.feedbackHomework = this.tutorFeedback.homework || '';
+    this.feedbackNotes = this.tutorFeedback.overallNotes || '';
+    this.feedbackCefrLevel = this.tutorFeedback.estimatedCefrLevel || '';
+    this.feedbackDate = this.tutorFeedback.providedAt
+      ? new Date(this.tutorFeedback.providedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : '';
+  }
+
+  private computeBillingProperties() {
+    if (!this.billingData) return;
+    this.formattedActualPrice = this.billingData.actualPrice != null
+      ? `$${this.billingData.actualPrice.toFixed(2)}`
+      : '';
+    this.formattedActualDuration = this.billingData.actualDuration != null
+      ? `${this.billingData.actualDuration} min`
+      : '';
+  }
+
+  private computeClassProperties() {
+    if (!this.classData) return;
+    // Compute status for class
+    const now = new Date();
+    const start = new Date(this.classData.startTime);
+    const end = new Date(this.classData.endTime);
+
+    if (now >= start && now <= end) {
+      this.statusLabel = 'In Progress';
+      this.statusColor = '#10b981';
+      this.statusClass = 'in-progress';
+    } else if (now > end) {
+      this.statusLabel = 'Completed';
+      this.statusColor = '#6b7280';
+      this.statusClass = 'completed';
+    } else {
+      this.statusLabel = 'Upcoming';
+      this.statusColor = '#667eea';
+      this.statusClass = 'upcoming';
+    }
+
+    // Formatted date/time for class
+    if (start.toDateString() === new Date().toDateString()) {
+      this.formattedDate = 'Today';
+    } else {
+      this.formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    this.formattedTimeRange = `${fmt(start)} – ${fmt(end)}`;
+    this.formattedDuration = `${this.classData.duration || 60} minutes`;
+    this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
+
+    // Pre-compute class-specific values
+    const levelMap: Record<string, string> = {
+      any: 'Any Level', beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced'
+    };
+    this.levelLabel = levelMap[this.classData.level] || 'Any Level';
+
+    if (this.classData.price && this.classData.studentIds?.length) {
+      this.classRevenue = `$${(this.classData.price * this.classData.studentIds.length).toFixed(2)}`;
+    }
+  }
+
+  // ── Countdown ─────────────────────────────────────────────────
+
+  private startCountdown() {
     this.countdownInterval = setInterval(() => {
-      this.countdownTick = Date.now();
+      this.computeJoinButton();
     }, 60000);
   }
 
-  ngOnDestroy() {
-    if (this.countdownInterval) {
-      clearInterval(this.countdownInterval);
-    }
-  }
+  // ── Actions ───────────────────────────────────────────────────
 
   goBack() {
     if (this.returnUrl) {
@@ -140,168 +647,114 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     }
   }
 
-  getStatusInfo(): { label: string; color: string } {
-    if (!this.lesson) {
-      return { label: 'Unknown', color: '#6b7280' };
-    }
-
-    // If lesson is cancelled, always show cancelled
-    if (this.lesson.status === 'cancelled') {
-      return { label: 'Cancelled', color: '#ef4444' };
-    }
-
-    // Determine status based on current time vs lesson time
-    const now = new Date();
-    const startTime = new Date(this.lesson.startTime);
-    const endTime = new Date(this.lesson.endTime);
-
-    // Check if lesson is happening now (within start and end time)
-    if (now >= startTime && now <= endTime) {
-      return { label: 'In Progress', color: '#10b981' };
-    }
-
-    // Check if lesson is in the past
-    if (now > endTime) {
-      return { label: 'Completed', color: '#6b7280' };
-    }
-
-    // Lesson is in the future
-    return { label: 'Upcoming', color: '#667eea' };
-  }
-
-  canJoinLesson(): boolean {
-    if (!this.lesson || !this.currentUser) return false;
-    
-    // Check if lesson is in progress or can be joined
-    const now = new Date();
-    const startTime = new Date(this.lesson.startTime);
-    const endTime = new Date(this.lesson.endTime);
-    
-    // Can join if lesson is happening now (within time window)
-    if (now >= startTime && now <= endTime) {
-      return true;
-    }
-    
-    // Also check using lesson service helper (includes 15 min early window)
-    return this.lessonService.canJoinLesson(this.lesson);
-  }
-
-  shouldShowJoinButton(): boolean {
-    if (!this.lesson || !this.currentUser) return false;
-    
-    // Show join button if lesson is upcoming or in progress
-    const status = this.getStatusInfo();
-    return status.label === 'Upcoming' || status.label === 'In Progress';
-  }
-
-  getJoinLabel(): string {
-    if (!this.lesson) return 'Join';
-    
-    // Reference countdownTick to trigger change detection
-    void this.countdownTick;
-    
-    // Check if lesson is in progress
-    const now = new Date();
-    const startTime = new Date(this.lesson.startTime);
-    const endTime = new Date(this.lesson.endTime);
-    
-    if (now >= startTime && now <= endTime) {
-      return 'Join';
-    }
-    
-    // Check if we can join now (within 15 min window)
-    if (this.lessonService.canJoinLesson(this.lesson)) {
-      return 'Join';
-    }
-    
-    // Otherwise show countdown
-    const secs = this.lessonService.getTimeUntilJoin(this.lesson);
-    const timeStr = this.lessonService.formatTimeUntil(secs);
-    
-    // If time is "Now" or <= 0 but we can't join, check if it's because of status
-    if (timeStr === 'Now' || secs <= 0) {
-      // If within the time window but status prevents joining, show appropriate message
-      const earliestJoin = new Date(startTime.getTime() - 15 * 60000);
-      const latestJoin = new Date(endTime.getTime() + 5 * 60000);
-      if (now >= earliestJoin && now <= latestJoin) {
-        // We're in the time window, so if canJoinLesson is false, it's a status issue
-        return 'Join'; // Show "Join" but button will be disabled due to status
-      }
-    }
-    
-    return `Join in ${timeStr}`;
-  }
-
-  async joinLesson() {
+  joinLesson() {
     if (!this.lesson || !this.currentUser) return;
-    
-    // Determine user role
-    const role = this.lesson.tutorId._id === this.currentUser.id ? 'tutor' : 'student';
-    
-    // Navigate to pre-call page
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: this.lesson._id,
-        role,
-        lessonMode: 'true'
+        role: this.userRole,
+        lessonMode: 'true',
+        isClass: 'false'
       }
     });
   }
 
-  getUserRole(): 'tutor' | 'student' {
-    if (!this.lesson || !this.currentUser) return 'student';
-    return this.lesson.tutorId._id === this.currentUser.id ? 'tutor' : 'student';
+  viewAnalysis() {
+    if (!this.eventId) return;
+    this.router.navigate(['/lesson-analysis', this.eventId]);
   }
 
-  formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    const month = date.toLocaleDateString('en-US', { month: 'long' });
-    const day = date.getDate();
-    const year = date.getFullYear();
-    
-    // Get ordinal suffix (st, nd, rd, th)
-    const getOrdinalSuffix = (d: number): string => {
-      if (d > 3 && d < 21) return 'th';
-      switch (d % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
+  async cancelLesson() {
+    if (!this.lesson || this.lesson.status === 'cancelled') return;
+
+    const currentUser = this.currentUser;
+    if (!currentUser) return;
+
+    const participantName = this.participantName;
+    const participantAvatar = this.participantPicture;
+    const lessonId = this.lesson._id;
+    const lessonStartTime = this.lesson.startTime;
+    const lessonSubject = this.lesson.subject;
+    const lessonDuration = this.lesson.duration;
+
+    // Step 1: Cancellation reason modal
+    const reasonModal = await this.modalController.create({
+      component: CancelReasonModalComponent,
+      componentProps: {
+        participantName,
+        participantAvatar: participantAvatar || undefined,
+        userRole: this.userRole,
+        lessonStartTime,
+        lessonSubject,
+        lessonDuration
+      },
+      cssClass: 'cancel-reason-modal'
+    });
+
+    await reasonModal.present();
+    const reasonResult = await reasonModal.onDidDismiss();
+    if (reasonResult.data?.cancelled || !reasonResult.data?.reason) return;
+
+    const selectedReason = reasonResult.data.reason;
+
+    // Step 2: Confirmation modal
+    const confirmModal = await this.modalController.create({
+      component: ConfirmActionModalComponent,
+      componentProps: {
+        title: 'Cancel Lesson',
+        message: `Reason: ${selectedReason.label}`,
+        notificationMessage: `${participantName || 'The other participant'} will be notified and this action cannot be undone.`,
+        confirmText: 'Cancel Lesson',
+        cancelText: 'Go Back',
+        confirmColor: 'danger',
+        icon: 'close-circle',
+        iconColor: 'danger',
+        participantName,
+        participantAvatar: participantAvatar || undefined
+      },
+      cssClass: 'confirm-action-modal'
+    });
+
+    await confirmModal.present();
+    const confirmResult = await confirmModal.onDidDismiss();
+    if (!confirmResult.data?.confirmed) return;
+
+    // Step 3: Proceed with cancellation
+    const loading = await this.loadingController.create({
+      message: 'Cancelling lesson...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const response = await this.lessonService.cancelLesson(lessonId, selectedReason.id, selectedReason.label).toPromise();
+      await loading.dismiss();
+
+      if (response?.success) {
+        const toast = await this.toastController.create({
+          message: 'Lesson cancelled successfully',
+          duration: 3000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+        window.dispatchEvent(new CustomEvent('lesson-cancelled', { detail: { lessonId } }));
+        // Reload data
+        this.loadEventDetails();
+      } else {
+        throw new Error(response?.message || 'Failed to cancel lesson');
       }
-    };
-    
-    return `${month} ${day}${getOrdinalSuffix(day)}, ${year}`;
+    } catch (error: any) {
+      await loading.dismiss();
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
   }
 
-  formatTime(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  formatTimeRange(startTime: string, endTime: string): string {
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const startStr = start.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    const endStr = end.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    return `${startStr} - ${endStr}`;
-  }
-
-  getLevelLabel(level: string): string {
-    const levelMap: { [key: string]: string } = {
-      'any': 'Any Level',
-      'beginner': 'Beginner',
-      'intermediate': 'Intermediate',
-      'advanced': 'Advanced'
-    };
-    return levelMap[level] || 'Any Level';
-  }
+  // getScoreColor / getLevelLabel are now pre-computed — see calcScoreColor / computeClassProperties
 }
-

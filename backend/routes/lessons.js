@@ -11,7 +11,7 @@ const TutorFeedback = require('../models/TutorFeedback');
 const walletService = require('../services/walletService');
 const stripeService = require('../services/stripeService');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
-const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 
@@ -148,17 +148,19 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if tutor has pending feedback (block new bookings)
+    // Check if tutor has REQUIRED pending feedback (block new bookings)
+    // Only count feedback where required !== false (true or undefined/legacy)
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       $or: [
         { tutorId: tutor._id },
         { tutorId: tutor.auth0Id }
       ],
-      status: 'pending'
+      status: 'pending',
+      required: { $ne: false }
     });
     
     if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback`);
       return res.status(403).json({
         success: false,
         message: `This tutor has ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before accepting new lessons.`,
@@ -677,17 +679,18 @@ router.post('/office-hours', verifyToken, async (req, res) => {
       });
     }
 
-    // Check if tutor has pending feedback (block new bookings)
+    // Check if tutor has REQUIRED pending feedback (block new bookings)
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       $or: [
         { tutorId: tutor._id },
         { tutorId: tutor.auth0Id }
       ],
-      status: 'pending'
+      status: 'pending',
+      required: { $ne: false }
     });
     
     if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback`);
       return res.status(403).json({
         success: false,
         message: `You have ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before starting new lessons.`,
@@ -962,8 +965,8 @@ router.get('/by-tutor/:tutorId', verifyToken, async (req, res) => {
 // Get lessons for a user (student or tutor)
 router.get('/my-lessons', verifyToken, async (req, res) => {
   try {
-    // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    // Get user ID from auth token (with email fallback)
+    const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ 
         success: false, 
@@ -985,31 +988,51 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
     .populate('studentId', 'name email picture firstName lastName')
     .sort({ startTime: 1 });
 
-    // Load LessonAnalysis for each completed lesson to check if analysis exists
+    // Load LessonAnalysis for each lesson to check if analysis exists
     const LessonAnalysis = require('../models/LessonAnalysis');
+    const TutorFeedback = require('../models/TutorFeedback');
     const lessonIds = lessons.map(l => l._id);
-    const analyses = await LessonAnalysis.find({ 
-      lessonId: { $in: lessonIds }
-    }).select('lessonId status tutorNote');
+
+    // Load analyses and tutor feedback in parallel
+    const [analyses, feedbacks] = await Promise.all([
+      LessonAnalysis.find({ lessonId: { $in: lessonIds } })
+        .select('lessonId status tutorNote source'),
+      TutorFeedback.find({ lessonId: { $in: lessonIds } })
+        .select('lessonId status providedAt required')
+    ]);
     
-    // Create a map of lessonId -> { status, tutorNote }
+    // Create maps for quick lookup
     const analysisMap = new Map();
     analyses.forEach(analysis => {
       analysisMap.set(analysis.lessonId.toString(), {
         status: analysis.status,
-        tutorNote: analysis.tutorNote
+        tutorNote: analysis.tutorNote,
+        source: analysis.source
+      });
+    });
+
+    const feedbackMap = new Map();
+    feedbacks.forEach(fb => {
+      feedbackMap.set(fb.lessonId.toString(), {
+        status: fb.status,
+        providedAt: fb.providedAt,
+        required: fb.required !== false // true or undefined → required
       });
     });
     
-    // Attach analysis status and tutorNote to each lesson
+    // Attach analysis status, tutorNote, and tutorFeedback to each lesson
     const lessonsWithAnalysis = lessons.map(lesson => {
       const lessonObj = lesson.toObject();
-      const analysisData = analysisMap.get(lesson._id.toString());
+      const lid = lesson._id.toString();
+      const analysisData = analysisMap.get(lid);
+      const feedbackData = feedbackMap.get(lid);
       
+      // AI Analysis
       if (analysisData) {
         lessonObj.aiAnalysis = {
           status: analysisData.status,
-          hasAnalysis: analysisData.status === 'completed'
+          hasAnalysis: analysisData.status === 'completed',
+          source: analysisData.source || null
         };
         // Include tutorNote if exists
         if (analysisData.tutorNote && analysisData.tutorNote.text) {
@@ -1019,6 +1042,15 @@ router.get('/my-lessons', verifyToken, async (req, res) => {
         lessonObj.aiAnalysis = {
           status: 'unavailable',
           hasAnalysis: false
+        };
+      }
+
+      // Tutor Feedback (structured form)
+      if (feedbackData) {
+        lessonObj.tutorFeedback = {
+          status: feedbackData.status,
+          providedAt: feedbackData.providedAt,
+          required: feedbackData.required
         };
       }
       
@@ -1164,7 +1196,7 @@ router.get('/:id/status', verifyToken, async (req, res) => {
     let userJoinedBefore = false;
     let userLeftAfterJoin = false;
     try {
-      const user = await User.findOne({ auth0Id: req.user.sub });
+      const user = await getUserFromRequest(req);
       if (user && lesson.participants) {
         const p = lesson.participants.get(user._id.toString());
         userJoinedBefore = !!(p && p.joinCount > 0);
@@ -1207,7 +1239,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
   
   try {
     // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ 
@@ -1470,7 +1502,7 @@ router.post('/:id/join', verifyToken, async (req, res) => {
 router.post('/:id/end', verifyToken, async (req, res) => {
   try {
     // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ 
         success: false, 
@@ -1559,7 +1591,7 @@ router.post('/:id/end', verifyToken, async (req, res) => {
 // Update lesson data (e.g., whiteboard room UUID)
 router.patch('/:id', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     
     if (!user) {
       return res.status(404).json({ 
@@ -1621,7 +1653,7 @@ router.patch('/:id', verifyToken, async (req, res) => {
 router.patch('/:id/status', verifyToken, async (req, res) => {
   try {
     const { status } = req.body;
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     
     if (!user) {
       return res.status(404).json({ 
@@ -1856,7 +1888,7 @@ router.post('/:id/leave', verifyToken, async (req, res) => {
   console.log('🚪 Request user:', req.user);
   
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -2100,7 +2132,7 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
     }
 
     // Get current user to determine who ended the lesson
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     const userId = user?._id;
     const userRole = userId && userId.toString() === lesson.tutorId._id.toString() ? 'tutor' : 'student';
 
@@ -2190,30 +2222,25 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
             return;
           }
           
-          // Use the snapshot (not the live profile) to decide feedback vs AI analysis
-          const aiAnalysisEnabled = lessonForAnalysis.aiAnalysisEnabledAtTime !== false; // true or null → AI on
-          
-          console.log(`🤖 AI Analysis Enabled (snapshot) for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
-          
-          if (!aiAnalysisEnabled) {
-            // AI disabled — require mandatory tutor feedback
-            console.log('📝 AI disabled - Creating tutor feedback requirement...');
-            
+          // ── Create TutorFeedback record ──
+          // Only REQUIRED when AI analysis is disabled; optional otherwise
+          const aiEnabledForLesson = lessonForAnalysis.aiAnalysisEnabledAtTime !== false;
+          try {
             const feedbackExists = await TutorFeedback.findOne({ lessonId: lessonForAnalysis._id });
             
-            if (!feedbackExists) {
+            if (!feedbackExists && !aiEnabledForLesson) {
               await TutorFeedback.create({
                 lessonId: lessonForAnalysis._id,
                 tutorId: lessonForAnalysis.tutorId._id,
                 studentId: lessonForAnalysis.studentId._id,
-                status: 'pending'
+                status: 'pending',
+                required: true
               });
               
-              // Mark lesson as requiring tutor feedback
               lessonForAnalysis.requiresTutorFeedback = true;
               await lessonForAnalysis.save();
               
-              // Dynamic feedback message
+              // Notify tutor about pending feedback
               const feedbackMessages = [
                 { title: '📝 Lesson Feedback Needed', message: `Your lesson with ${formatDisplayName(lessonForAnalysis.studentId)} just ended — leave your feedback while it's fresh!` },
                 { title: '✍️ Share Your Insights', message: `${formatDisplayName(lessonForAnalysis.studentId)} is waiting for your feedback from today's lesson!` },
@@ -2222,10 +2249,8 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
               ];
               const randomMsg = feedbackMessages[Math.floor(Math.random() * feedbackMessages.length)];
               
-              console.log('📝 Creating feedback_required notification for tutor:', lessonForAnalysis.tutorId.email);
-              
               try {
-                const notification = await Notification.create({
+                await Notification.create({
                   userId: lessonForAnalysis.tutorId._id,
                   type: 'feedback_required',
                   title: randomMsg.title,
@@ -2238,7 +2263,6 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
                     studentAuth0Id: lessonForAnalysis.studentId.auth0Id
                   }
                 });
-                console.log('✅ feedback_required notification created:', notification._id);
               } catch (notifError) {
                 console.error('❌ Error creating feedback_required notification:', notifError);
               }
@@ -2252,7 +2276,6 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
                     title: randomMsg.title,
                     message: randomMsg.message
                   });
-                  console.log('✅ feedback_required WebSocket event emitted to', socketRoom);
                 }
               } catch (socketError) {
                 console.error('❌ Error emitting feedback_required WebSocket:', socketError);
@@ -2260,7 +2283,16 @@ router.post('/:id/call-end', verifyToken, async (req, res) => {
               
               console.log(`📢 Tutor feedback requirement created for lesson ${lessonForAnalysis._id}`);
             }
-            
+          } catch (fbCreateError) {
+            console.error('⚠️ Error creating TutorFeedback record:', fbCreateError.message);
+          }
+          
+          // Use the snapshot (not the live profile) to decide AI analysis
+          const aiAnalysisEnabled = lessonForAnalysis.aiAnalysisEnabledAtTime !== false; // true or null → AI on
+          
+          console.log(`🤖 AI Analysis Enabled (snapshot) for lesson ${lessonForAnalysis._id}: ${aiAnalysisEnabled}`);
+          
+          if (!aiAnalysisEnabled) {
             return; // Skip AI analysis — tutor will provide manual feedback
           }
           
@@ -2379,7 +2411,7 @@ router.post('/:id/generate-analysis', verifyToken, async (req, res) => {
     }
 
     // Verify the requester is either the tutor or student
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
@@ -2482,7 +2514,7 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     const lessonId = req.params.id;
     
     // Verify user is a tutor
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user || user.userType !== 'tutor') {
       return res.status(403).json({ success: false, message: 'Only tutors can add notes' });
     }
@@ -2757,6 +2789,19 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
       // Don't fail the request if notification fails
     }
     
+    // ── Recalculate coaching metrics immediately ──────────────────
+    // So the tutor sees updated stats on /tabs/progress right away
+    try {
+      const { evaluateTutorForBadge } = require('../jobs/evaluateCoachingBadges');
+      const tutorUser = await User.findById(user._id);
+      if (tutorUser) {
+        const evalResult = await evaluateTutorForBadge(tutorUser);
+        console.log(`📊 Real-time coaching metrics updated for tutor ${user._id}:`, evalResult.metrics);
+      }
+    } catch (evalErr) {
+      console.error('⚠️ Error recalculating coaching metrics (non-critical):', evalErr.message);
+    }
+    
     res.json({ success: true, message: 'Note saved successfully' });
     
   } catch (error) {
@@ -2778,7 +2823,7 @@ router.get('/:id/analysis', verifyToken, async (req, res) => {
     }
 
     // Verify the requester is either the tutor or student
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user || (!user._id.equals(lesson.tutorId._id) && !user._id.equals(lesson.studentId._id))) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
@@ -2827,7 +2872,7 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
     
     console.log(`🔴 [LESSON-CANCEL] Received cancel request - lessonId: ${lessonId}, reasonId: "${reasonId}", reasonText: "${reasonText}"`);
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
     const lesson = await Lesson.findById(lessonId)
@@ -3314,11 +3359,11 @@ router.post('/:id/respond-reschedule', verifyToken, async (req, res) => {
 // Payment strategy: try wallet first, fall back to card on file
 router.post('/:id/tip', verifyToken, async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { amount, paymentMethodId: requestedPaymentMethodId, useWallet } = req.body;
     const lessonId = req.params.id;
     const studentAuth0Id = req.user.sub;
 
-    console.log('💰 Processing tip:', { lessonId, amount, studentAuth0Id });
+    console.log('💰 Processing tip:', { lessonId, amount, requestedPaymentMethodId, useWallet, studentAuth0Id });
 
     // Validate amount
     if (!amount || amount <= 0 || amount > 500) {
@@ -3342,30 +3387,31 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Only the student can tip' });
     }
 
-    // Check if already tipped
-    if (lesson.tip) {
+    // Check if already tipped (tip subdoc exists with null defaults, so check amount)
+    if (lesson.tip && lesson.tip.amount) {
       return res.status(400).json({ success: false, error: 'Tip already sent for this lesson' });
     }
 
-    // Get tutor's Stripe Connect account (required to receive tips)
-    if (!tutor.stripeConnectAccountId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Tutor cannot receive tips at this time' 
-      });
-    }
+    // Note: Tips are credited to tutor's in-app availableBalance (no direct Stripe transfer).
+    // Tutor only needs Stripe Connect when they request a withdrawal.
 
     // ---- Payment Strategy: Wallet first, then card ----
+    // Tips stay on the platform (no Stripe Transfer to tutor).
+    // Instead we credit tutorEarnings.availableBalance immediately (no hold).
     let paymentMethod = null; // 'wallet' or 'card'
     let paymentIntentId = null;
     let stripeFee = 0;
-    let tutorReceives = amount;
+    let tutorReceives = amount; // Tips have NO platform fee — 100% goes to tutor
 
     // 1. Check wallet balance
     const walletInfo = await walletService.getBalance(student._id);
-    const availableBalance = walletInfo.availableBalance || 0;
+    const studentWalletBalance = walletInfo.availableBalance || 0;
 
-    if (availableBalance >= amount) {
+    // Respect user's explicit payment method choice:
+    // - useWallet === true → use wallet (fail if insufficient)
+    // - paymentMethodId provided → use that card
+    // - Neither → auto-decide (wallet first if enough, else card)
+    if ((useWallet && studentWalletBalance >= amount) || (!useWallet && !requestedPaymentMethodId && studentWalletBalance >= amount)) {
       // Wallet has enough — deduct directly (no Stripe fees!)
       paymentMethod = 'wallet';
       stripeFee = 0;
@@ -3377,24 +3423,16 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
         amount: amount
       });
 
-      // Transfer to tutor via Stripe Connect (platform initiates transfer)
-      const amountInCents = Math.round(amount * 100);
-      const transfer = await stripeService.stripe.transfers.create({
-        amount: amountInCents,
-        currency: 'usd',
-        destination: tutor.stripeConnectAccountId,
-        metadata: {
-          type: 'tip',
-          lessonId: lessonId,
-          paymentMethod: 'wallet'
-        }
+      console.log(`💰 Tip paid from wallet: $${amount} (no fees, no Stripe transfer)`);
+
+    } else if (useWallet && studentWalletBalance < amount) {
+      // User explicitly chose wallet but doesn't have enough
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient wallet balance. You have $${studentWalletBalance.toFixed(2)} but the tip is $${amount.toFixed(2)}.`
       });
-      paymentIntentId = transfer.id;
-
-      console.log(`💰 Tip paid from wallet: $${amount} (no fees)`);
-
     } else {
-      // 2. Fall back to card on file
+      // 2. Fall back to card on file — charge the card, keep funds on platform
       if (!student.stripeCustomerId) {
         return res.status(400).json({ 
           success: false, 
@@ -3402,23 +3440,27 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
         });
       }
 
-      // Find the student's default/first payment method
-      let stripePaymentMethodId = student.stripePaymentMethodId;
+      // Find the payment method to charge
+      let stripePaymentMethodId = requestedPaymentMethodId || null;
 
-      if (!stripePaymentMethodId) {
-        // Try to get first payment method from Stripe
-        try {
-          const methods = await stripeService.stripe.paymentMethods.list({
-            customer: student.stripeCustomerId,
-            type: 'card',
-            limit: 1
-          });
-          if (methods.data.length > 0) {
-            stripePaymentMethodId = methods.data[0].id;
-          }
-        } catch (pmError) {
-          console.error('Error fetching payment methods:', pmError);
+      if (stripePaymentMethodId) {
+        const ownsCard = student.savedPaymentMethods &&
+          student.savedPaymentMethods.some(pm => pm.stripePaymentMethodId === stripePaymentMethodId);
+        if (!ownsCard) {
+          console.warn('💳 Tip: Requested card not found in student savedPaymentMethods, will verify via Stripe');
         }
+        console.log(`💳 Tip: Using user-selected card ${stripePaymentMethodId}`);
+      }
+
+      if (!stripePaymentMethodId && student.savedPaymentMethods && student.savedPaymentMethods.length > 0) {
+        const defaultCard = student.savedPaymentMethods.find(pm => pm.isDefault) || student.savedPaymentMethods[0];
+        stripePaymentMethodId = defaultCard.stripePaymentMethodId;
+        console.log(`💳 Tip: Auto-selected saved card ${defaultCard.brand} ****${defaultCard.last4}`);
+      }
+
+      if (!stripePaymentMethodId && student.stripePaymentMethodId) {
+        stripePaymentMethodId = student.stripePaymentMethodId;
+        console.log('💳 Tip: Using legacy stripePaymentMethodId');
       }
 
       if (!stripePaymentMethodId) {
@@ -3430,10 +3472,22 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
 
       paymentMethod = 'card';
       const amountInCents = Math.round(amount * 100);
-      stripeFee = Math.round(amountInCents * 0.029 + 30); // Stripe's processing fee
+
+      // Determine fee rate: international cards (4.4% + $0.30) vs domestic (2.9% + $0.30)
+      let cardCountry = null;
+      if (stripePaymentMethodId && student.savedPaymentMethods) {
+        const matchedCard = student.savedPaymentMethods.find(pm => pm.stripePaymentMethodId === stripePaymentMethodId);
+        cardCountry = matchedCard?.country || null;
+      }
+      const isInternational = cardCountry && cardCountry !== 'US';
+      const feeRate = isInternational ? 0.044 : 0.029;
+      stripeFee = Math.round(amountInCents * feeRate + 30);
       const tutorReceivesCents = amountInCents - stripeFee;
       tutorReceives = tutorReceivesCents / 100;
 
+      console.log(`💳 Card country: ${cardCountry || 'unknown'}, fee rate: ${(feeRate * 100).toFixed(1)}% + $0.30`);
+
+      // Charge the card — funds stay on the platform (NO transfer_data)
       const paymentIntent = await stripeService.stripe.paymentIntents.create({
         amount: amountInCents,
         currency: 'usd',
@@ -3442,10 +3496,6 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
         confirm: true,
         off_session: true,
         description: `Tip for lesson with ${tutor.name}`,
-        transfer_data: {
-          amount: tutorReceivesCents,
-          destination: tutor.stripeConnectAccountId
-        },
         metadata: {
           type: 'tip',
           lessonId: lessonId,
@@ -3458,8 +3508,57 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       paymentIntentId = paymentIntent.id;
       stripeFee = stripeFee / 100;
 
-      console.log(`💰 Tip paid by card: $${amount} (Stripe fee: $${stripeFee.toFixed(2)})`);
+      console.log(`💰 Tip paid by card: $${amount} (Stripe fee: $${stripeFee.toFixed(2)}, funds stay on platform)`);
     }
+
+    // ---- Credit tutor's in-app available balance immediately (no hold) ----
+    const freshTutor = await User.findById(tutor._id);
+    if (!freshTutor.tutorEarnings) {
+      freshTutor.tutorEarnings = {
+        availableBalance: 0,
+        pendingBalance: 0,
+        lifetimeEarnings: 0,
+        lastWithdrawal: null,
+        totalWithdrawn: 0
+      };
+    }
+    freshTutor.tutorEarnings.availableBalance += tutorReceives;
+    freshTutor.tutorEarnings.lifetimeEarnings += tutorReceives;
+    await freshTutor.save();
+
+    console.log(`💼 Tip credited to tutor balance (immediate, no hold):`);
+    console.log(`   Available: $${freshTutor.tutorEarnings.availableBalance.toFixed(2)}`);
+    console.log(`   Lifetime:  $${freshTutor.tutorEarnings.lifetimeEarnings.toFixed(2)}`);
+
+    // ---- Create a Payment record so the tip is tracked in the system ----
+    const tipPayment = new Payment({
+      userId: student._id,
+      studentId: student._id,
+      tutorId: tutor._id,
+      lessonId: lesson._id,
+      amount: amount,
+      currency: 'USD',
+      paymentMethod: paymentMethod === 'wallet' ? 'wallet' : 'card',
+      status: 'succeeded',
+      stripePaymentIntentId: paymentIntentId || undefined,
+      stripeFee: stripeFee,
+      platformFee: 0,            // No platform cut on tips
+      platformFeePercentage: 0,
+      tutorPayout: tutorReceives,
+      transferStatus: 'available', // Immediately available — no hold for tips
+      chargedAt: new Date(),
+      revenueRecognized: true,
+      revenueRecognizedAt: new Date(),
+      paymentType: 'tip',
+      metadata: {
+        type: 'tip',
+        lessonId: lessonId,
+        paidVia: paymentMethod
+      }
+    });
+    await tipPayment.save();
+
+    console.log(`📝 Tip Payment record created: ${tipPayment._id}`);
 
     // Update lesson with tip info
     lesson.tip = {
@@ -3814,6 +3913,18 @@ router.post('/:id/tutor-note', verifyToken, async (req, res) => {
     }
 
     console.log('✅ Tutor note added successfully');
+
+    // ── Recalculate coaching metrics immediately ──────────────────
+    try {
+      const { evaluateTutorForBadge } = require('../jobs/evaluateCoachingBadges');
+      const tutorForEval = await User.findById(lesson.tutor._id);
+      if (tutorForEval) {
+        const evalResult = await evaluateTutorForBadge(tutorForEval);
+        console.log(`📊 Real-time coaching metrics updated for tutor ${lesson.tutor._id}:`, evalResult.metrics);
+      }
+    } catch (evalErr) {
+      console.error('⚠️ Error recalculating coaching metrics (non-critical):', evalErr.message);
+    }
 
     res.json({ 
       success: true,

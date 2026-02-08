@@ -1031,11 +1031,53 @@ h2 {
 
 // Card Form Section
 .card-form-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; // Allow flex to shrink
+  overflow-y: auto; // Make section scrollable
+  overflow-x: hidden;
+  
+  // Custom scrollbar styling
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
+  
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky; // Keep title row visible when scrolling
+    top: 0;
+    background: #ffffff;
+    z-index: 1;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  
   .section-title {
     font-size: 15px;
     font-weight: 700;
     color: #1c1c1e;
-    margin: 0 0 12px 0;
+    margin: 0;
+    flex: 1;
   }
 }
 
@@ -1187,18 +1229,26 @@ h2 {
   background: none;
   border: none;
   color: #667eea;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  padding: 8px 0;
-  margin-top: 16px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
   
   ion-icon {
-    font-size: 18px;
+    font-size: 16px;
   }
   
   &:hover {
     color: #5a3ec8;
+    background: rgba(102, 126, 234, 0.08);
+  }
+  
+  &:active {
+    background: rgba(102, 126, 234, 0.12);
   }
 }
 
@@ -1207,6 +1257,8 @@ h2 {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0; // Allow flex to shrink
+  overflow: hidden; // Prevent overflow at section level
   
   .section-title {
     font-size: 14px;
@@ -1214,6 +1266,7 @@ h2 {
     color: #1c1c1e;
     margin: 0 0 14px 0;
     animation: fadeInUp 0.4s ease-out 0.2s both;
+    flex-shrink: 0; // Keep title visible
   }
 }
 
@@ -1223,6 +1276,29 @@ h2 {
   gap: 12px;
   margin-bottom: 16px;
   flex: 1;
+  min-height: 0; // Allow flex to shrink
+  overflow-y: auto; // Make list scrollable
+  overflow-x: hidden;
+  // Custom scrollbar styling for better UX
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+  }
 }
 
 .saved-card-item {
@@ -1400,6 +1476,8 @@ h2 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0; // Keep button visible, don't shrink
+  margin-top: auto; // Push to bottom of section
   
   ion-icon {
     font-size: 20px;
@@ -1846,7 +1924,7 @@ h2 {
             }
             
             .meta .name {
-              font-size: 13px !important;
+              font-size: 16px !important;
               margin-bottom: 4px !important;
             }
             
@@ -1856,32 +1934,32 @@ h2 {
               border-radius: 6px !important;
               
               .mon {
-                font-size: 8px !important;
+                font-size: 9px !important;
               }
               
               .day {
-                font-size: 14px !important;
+                font-size: 16px !important;
               }
             }
             
             .slot-text .when {
-              font-size: 11px !important;
+              font-size: 14px !important;
               margin-bottom: 2px !important;
             }
             
             .slot-text .tz-note {
-              font-size: 9px !important;
+              font-size: 11px !important;
             }
             
             .tutor-rate {
               margin-top: 4px !important;
               
               .rate-amount {
-                font-size: 16px !important;
+                font-size: 18px !important;
               }
               
               .rate-label {
-                font-size: 9px !important;
+                font-size: 11px !important;
               }
             }
           }
@@ -1893,12 +1971,12 @@ h2 {
             border-radius: 8px !important;
             
             .info-item {
-              font-size: 10px !important;
+              font-size: 13px !important;
               gap: 6px !important;
               margin: 0 !important;
               
               ion-icon {
-                font-size: 14px !important;
+                font-size: 16px !important;
               }
             }
           }
@@ -1909,7 +1987,7 @@ h2 {
             border-radius: 8px !important;
             
             .breakdown-title {
-              font-size: 11px !important;
+              font-size: 13px !important;
               margin-bottom: 6px !important;
               font-weight: 600;
             }
@@ -1917,7 +1995,21 @@ h2 {
             .breakdown-item {
               margin: 3px 0 !important;
               padding: 2px 0 !important;
-              font-size: 10px !important;
+              font-size: 13px !important;
+              
+              &.calculation {
+                .breakdown-label,
+                .breakdown-value {
+                  font-size: 12px !important;
+                }
+              }
+              
+              &.subtotal {
+                .breakdown-label,
+                .breakdown-value {
+                  font-size: 14px !important;
+                }
+              }
               
               &.total {
                 margin-top: 6px !important;
@@ -1926,10 +2018,11 @@ h2 {
                 
                 .breakdown-label {
                   font-weight: 600;
+                  font-size: 14px !important;
                 }
                 
                 .breakdown-value {
-                  font-size: 14px !important;
+                  font-size: 18px !important;
                   font-weight: 700;
                 }
               }
@@ -1937,22 +2030,22 @@ h2 {
             
             .breakdown-label,
             .breakdown-value {
-              font-size: 10px !important;
+              font-size: 13px !important;
             }
             
             .payment-breakdown {
               margin-top: 6px !important;
               padding-top: 6px !important;
               border-top: 1px solid #e8e8ed !important;
-              font-size: 9px !important;
+              font-size: 11px !important;
               
               .breakdown-header {
-                font-size: 10px !important;
+                font-size: 12px !important;
                 margin-bottom: 4px !important;
               }
               
               .breakdown-row {
-                font-size: 9px !important;
+                font-size: 11px !important;
                 margin: 3px 0 !important;
               }
             }
@@ -1961,6 +2054,47 @@ h2 {
         
         // Right Column Styles
         .embedded-right-column {
+          // Ensure payment-content is properly flexed
+          .payment-content {
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+          
+          // Make card-form-section scrollable in embedded mode
+          .card-form-section {
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            flex: 1 !important;
+            
+            .section-title-row {
+              position: sticky !important;
+              top: 0 !important;
+              background: #ffffff !important;
+              z-index: 1 !important;
+            }
+          }
+          
+          // Make saved-cards-section scrollable in embedded mode
+          .saved-cards-section {
+            min-height: 0 !important;
+            overflow: hidden !important;
+            flex: 1 !important;
+            
+            .saved-cards-list {
+              overflow-y: auto !important;
+              overflow-x: hidden !important;
+              min-height: 0 !important;
+              flex: 1 !important;
+              margin-bottom: 12px !important;
+            }
+            
+            .add-new-card-btn {
+              flex-shrink: 0 !important;
+              margin-top: 0 !important;
+            }
+          }
+          
           .wallet-balance-display.compact {
             margin-bottom: 8px !important;
             padding: 6px 8px !important;

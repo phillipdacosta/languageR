@@ -188,7 +188,7 @@ const paymentSchema = new mongoose.Schema({
   // Payment type indicator
   paymentType: {
     type: String,
-    enum: ['lesson_booking', 'class_booking', 'office_hours', 'wallet_top_up'],
+    enum: ['lesson_booking', 'class_booking', 'office_hours', 'wallet_top_up', 'tip'],
     required: true,
     index: true
   },

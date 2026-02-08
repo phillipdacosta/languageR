@@ -164,7 +164,8 @@ function startStuckTranscriptionCron() {
                 lessonId: transcript.lessonId,
                 tutorId: tutor ? tutor._id : transcript.tutorId,
                 studentId: studentData ? studentData._id : transcript.studentId,
-                status: 'pending'
+                status: 'pending',
+                required: true
               });
               
               const feedbackMsg = getRandomFeedbackMessage(transcript.lessonId.toString());

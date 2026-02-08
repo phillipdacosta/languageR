@@ -233,33 +233,20 @@ async function uploadVideoWithCompression(req, res) {
   }
 }
 
-// Helper function to get user from request
+// Helper function to get user from request (auth0Id first, email fallback, syncs auth0Id)
 async function getUserFromRequest(req) {
   const User = require('../models/User');
   
-  console.log('🔍 getUserFromRequest - Looking for user with:', {
-    auth0Id: req.user?.sub,
-    email: req.user?.email,
-    fullUserObject: req.user
-  });
-  
   let user = await User.findOne({ auth0Id: req.user.sub });
-  console.log('🔍 Search by auth0Id result:', user ? 'FOUND' : 'NOT FOUND');
   
-  if (!user) {
+  if (!user && req.user.email) {
     user = await User.findOne({ email: req.user.email });
-    console.log('🔍 Search by email result:', user ? 'FOUND' : 'NOT FOUND');
-  }
-  
-  if (user) {
-    console.log('✅ User found:', {
-      _id: user._id,
-      auth0Id: user.auth0Id,
-      email: user.email,
-      userType: user.userType
-    });
-  } else {
-    console.log('❌ User NOT found in database');
+    
+    // Sync auth0Id so future lookups work directly
+    if (user && user.auth0Id !== req.user.sub) {
+      user.auth0Id = req.user.sub;
+      await user.save();
+    }
   }
   
   return user;

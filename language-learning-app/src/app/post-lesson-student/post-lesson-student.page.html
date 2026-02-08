@@ -56,112 +56,195 @@
           <!-- Divider -->
           <div class="section-divider"></div>
           
-          <!-- Action Buttons -->
-          <div class="action-buttons">
-            <!-- Tip Button -->
-            <button 
-              class="action-btn primary"
-              (click)="toggleTipSection()"
-              *ngIf="!tipSubmitted && !isTrialLesson">
-              <ion-icon name="heart-outline"></ion-icon>
-              <span>Tip {{ tutorFirstName }}</span>
-            </button>
-            
-            <div class="tip-success" *ngIf="tipSubmitted">
-              <ion-icon name="checkmark-circle"></ion-icon>
-              <span>Tip sent — thank you!</span>
-            </div>
-            
-            <!-- Review Button -->
-            <button 
-              class="action-btn secondary"
-              (click)="leaveReview()"
-              *ngIf="!isTrialLesson">
-              <ion-icon name="star-outline"></ion-icon>
-              <span>Leave a review</span>
-            </button>
-            
-            <!-- See Profile Button -->
-            <button 
-              class="action-btn secondary"
-              (click)="bookAgain()">
-              <ion-icon name="person-outline"></ion-icon>
-              <span>See profile</span>
-            </button>
-          </div>
-          
-          <!-- Tip Selector (Collapsible) -->
-          <div class="tip-section" *ngIf="showTipSection && !tipSubmitted">
-            <h3>How much would you like to tip?</h3>
-            
-            <!-- Quick Amount Buttons -->
-            <div class="tip-options-grid">
+          <!-- Action Area: inline swap between buttons and tip UI -->
+          <div class="action-area">
+            <!-- Normal state: action buttons -->
+            <div class="action-buttons" [class.hidden]="showTipSection && !tipSubmitted">
+              <!-- Tip Button -->
               <button 
-                class="tip-pill"
-                [class.selected]="selectedTipAmount === 5"
-                (click)="selectTipAmount(5)">
-                $5
+                class="action-btn primary"
+                (click)="toggleTipSection()"
+                *ngIf="!tipSubmitted && !isTrialLesson">
+                <ion-icon name="heart-outline"></ion-icon>
+                <span>Tip {{ tutorFirstName }}</span>
               </button>
+              
+              <div class="tip-success" *ngIf="tipSubmitted">
+                <ion-icon name="checkmark-circle"></ion-icon>
+                <span>Tip sent — thank you!</span>
+              </div>
+              
+              <!-- Review Button -->
               <button 
-                class="tip-pill"
-                [class.selected]="selectedTipAmount === 10"
-                (click)="selectTipAmount(10)">
-                $10
+                class="action-btn secondary"
+                (click)="leaveReview()"
+                *ngIf="!isTrialLesson">
+                <ion-icon name="star-outline"></ion-icon>
+                <span>Leave a review</span>
               </button>
+              
+              <!-- See Profile Button -->
               <button 
-                class="tip-pill"
-                [class.selected]="selectedTipAmount === 15"
-                (click)="selectTipAmount(15)">
-                $15
+                class="action-btn secondary"
+                (click)="bookAgain()">
+                <ion-icon name="person-outline"></ion-icon>
+                <span>See profile</span>
               </button>
             </div>
-            
-            <!-- Percentage Buttons -->
-            <div class="tip-options-grid" *ngIf="lesson.price">
+
+            <!-- Tip state: replaces buttons in-place -->
+            <div class="tip-inline" [class.visible]="showTipSection && !tipSubmitted">
+              <div class="tip-header-row">
+                <h3>Tip {{ tutorFirstName }}</h3>
+                <button class="tip-close-btn" (click)="toggleTipSection()">
+                  <ion-icon name="close-outline"></ion-icon>
+                </button>
+              </div>
+
+              <!-- Quick Amounts -->
+              <div class="tip-chips">
+                <button 
+                  class="tip-chip"
+                  [class.selected]="selectedTipAmount === 5"
+                  (click)="selectTipAmount(5)">$5</button>
+                <button 
+                  class="tip-chip"
+                  [class.selected]="selectedTipAmount === 10"
+                  (click)="selectTipAmount(10)">$10</button>
+                <button 
+                  class="tip-chip"
+                  [class.selected]="selectedTipAmount === 15"
+                  (click)="selectTipAmount(15)">$15</button>
+              </div>
+
+              <!-- Custom Amount -->
+              <div class="tip-custom">
+                <span class="currency-prefix">$</span>
+                <ion-input 
+                  type="number" 
+                  placeholder="Other amount"
+                  [(ngModel)]="customTipAmount"
+                  (ionInput)="onCustomTipInput()"
+                  min="1"
+                  max="500">
+                </ion-input>
+              </div>
+
+              <!-- Payment Method Selector -->
+              <div class="tip-payment-method" *ngIf="!loadingCards">
+
+                <!-- Payment method tabs (only show if wallet has balance) -->
+                <div class="tip-pm-tabs" *ngIf="walletBalance > 0">
+                  <button 
+                    class="tip-pm-tab"
+                    [class.active]="selectedTipPaymentMethod === 'wallet'"
+                    (click)="selectedTipPaymentMethod = 'wallet'; showCardPicker = false">
+                    <ion-icon name="wallet-outline"></ion-icon>
+                    Wallet
+                  </button>
+                  <button 
+                    class="tip-pm-tab"
+                    [class.active]="selectedTipPaymentMethod === 'card'"
+                    (click)="selectedTipPaymentMethod = 'card'; showCardPicker = false">
+                    <ion-icon name="card-outline"></ion-icon>
+                    Card
+                  </button>
+                </div>
+
+                <!-- Wallet selected -->
+                <div class="tip-wallet-info" *ngIf="selectedTipPaymentMethod === 'wallet' && walletBalance > 0">
+                  <div class="tip-wallet-row">
+                    <ion-icon name="wallet" class="wallet-icon"></ion-icon>
+                    <span class="wallet-label">Balance</span>
+                    <span class="wallet-amount">${{ walletBalance.toFixed(2) }}</span>
+                  </div>
+                  <p class="wallet-note" *ngIf="tipAmount > 0 && walletBalance >= tipAmount">
+                    No processing fees when paying from wallet.
+                  </p>
+                  <p class="wallet-note insufficient" *ngIf="tipAmount > 0 && walletBalance < tipAmount">
+                    Insufficient balance. Switch to card or lower the amount.
+                  </p>
+                </div>
+
+                <!-- Card selected (or wallet has no balance) -->
+                <ng-container *ngIf="selectedTipPaymentMethod === 'card' || walletBalance <= 0">
+                  <!-- Selected card display (compact) -->
+                  <div class="tip-pm-selected" *ngIf="savedCards.length > 0" (click)="showCardPicker = !showCardPicker">
+                    <ng-container *ngFor="let card of savedCards">
+                      <ng-container *ngIf="selectedPaymentMethodId === card.stripePaymentMethodId">
+                        <div class="tip-pm-brand">
+                          <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
+                          <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
+                          <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
+                          <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
+                          <ion-icon name="card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover'].includes(card.brand?.toLowerCase())"></ion-icon>
+                        </div>
+                        <span class="tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
+                      </ng-container>
+                    </ng-container>
+                    <span class="tip-pm-change">Change</span>
+                    <ion-icon name="chevron-down-outline" class="tip-pm-chevron" [class.open]="showCardPicker"></ion-icon>
+                  </div>
+
+                  <!-- Dropdown card list -->
+                  <div class="tip-pm-dropdown" *ngIf="showCardPicker && savedCards.length > 0">
+                    <div 
+                      *ngFor="let card of savedCards"
+                      class="tip-pm-option"
+                      [class.selected]="selectedPaymentMethodId === card.stripePaymentMethodId"
+                      (click)="selectPaymentMethod(card); showCardPicker = false">
+                      <div class="tip-pm-brand">
+                        <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
+                        <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
+                        <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
+                        <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
+                        <ion-icon name="card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover'].includes(card.brand?.toLowerCase())"></ion-icon>
+                      </div>
+                      <span class="tip-pm-info">{{ card.brand | titlecase }} •••• {{ card.last4 }}</span>
+                      <ion-icon name="checkmark-circle" class="tip-pm-check" *ngIf="selectedPaymentMethodId === card.stripePaymentMethodId"></ion-icon>
+                    </div>
+                    <button class="tip-pm-add" (click)="openCardManagement(); showCardPicker = false">
+                      <ion-icon name="add-outline"></ion-icon>
+                      Add new card
+                    </button>
+                  </div>
+
+                  <!-- No cards -->
+                  <button class="tip-add-card-btn" *ngIf="savedCards.length === 0" (click)="openCardManagement()">
+                    <ion-icon name="add-circle-outline"></ion-icon>
+                    <span>Add a card to tip</span>
+                  </button>
+
+                  <!-- Card fee notice -->
+                  <p class="card-fee-note" *ngIf="tipAmount > 0 && savedCards.length > 0">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>${{ cardProcessingFee.toFixed(2) }} processing fee ({{ cardFeeLabel }}). {{ tutorFirstName }} receives ${{ tutorReceivesAfterFee.toFixed(2) }}.</span>
+                  </p>
+                  <p class="card-fee-note" *ngIf="tipAmount <= 0 && savedCards.length > 0">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>A {{ cardFeeLabel }} processing fee applies to card payments.</span>
+                  </p>
+                </ng-container>
+              </div>
+
+              <!-- Loading -->
+              <div class="tip-pm-loading" *ngIf="loadingCards">
+                <ion-spinner name="crescent" color="medium"></ion-spinner>
+              </div>
+
+              <!-- Submit -->
               <button 
-                class="tip-pill small"
-                [class.selected]="selectedTipPercentage === 10"
-                (click)="selectTipPercentage(10)">
-                10%
+                class="action-btn primary"
+                [disabled]="!tipAmount || submittingTip || 
+                  (selectedTipPaymentMethod === 'wallet' && walletBalance < tipAmount) || 
+                  (selectedTipPaymentMethod === 'card' && !selectedPaymentMethodId && savedCards.length > 0)"
+                (click)="submitTip()">
+                <ion-spinner *ngIf="submittingTip" name="crescent"></ion-spinner>
+                <span *ngIf="!submittingTip">Send ${{ tipAmount }} tip</span>
               </button>
-              <button 
-                class="tip-pill small"
-                [class.selected]="selectedTipPercentage === 15"
-                (click)="selectTipPercentage(15)">
-                15%
-              </button>
-              <button 
-                class="tip-pill small"
-                [class.selected]="selectedTipPercentage === 20"
-                (click)="selectTipPercentage(20)">
-                20%
-              </button>
+
+              <p class="tip-footnote">100% goes to your tutor</p>
             </div>
-            
-            <!-- Custom Amount -->
-            <div class="custom-tip-input">
-              <ion-input 
-                type="number" 
-                placeholder="Custom amount"
-                [(ngModel)]="customTipAmount"
-                (ionInput)="onCustomTipInput()"
-                min="1"
-                max="500">
-              </ion-input>
-            </div>
-            
-            <!-- Submit Tip Button -->
-            <button 
-              class="action-btn primary"
-              [disabled]="!getTipAmount() || submittingTip"
-              (click)="submitTip()">
-              <ion-spinner *ngIf="submittingTip" name="crescent"></ion-spinner>
-              <span *ngIf="!submittingTip">
-                Send ${{ getTipAmount() }} tip
-              </span>
-            </button>
-            
-            <p class="tip-note">100% goes to your tutor</p>
           </div>
         </div>
       </div>

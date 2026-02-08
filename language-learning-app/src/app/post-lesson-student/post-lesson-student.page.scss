@@ -102,6 +102,7 @@
   grid-template-columns: 380px 1fr;
   max-width: 960px;
   width: 100%;
+  height: 600px; // Fixed height to prevent layout shift when tip expands
   background: white;
   border-radius: 20px;
   overflow: hidden;
@@ -113,11 +114,13 @@
   &.single-column {
     grid-template-columns: 1fr;
     max-width: 460px;
+    height: 600px; // Same fixed height for single column
   }
 
   @media (max-width: 860px) {
     grid-template-columns: 1fr;
     max-width: 520px;
+    height: auto; // Allow natural height on mobile
   }
 }
 
@@ -125,7 +128,9 @@
 .left-panel {
   padding: 32px;
   overflow-y: auto;
-  max-height: 80vh;
+  height: 100%; // Fill the grid cell height
+  display: flex;
+  flex-direction: column;
 
   // Thin scrollbar
   &::-webkit-scrollbar { width: 4px; }
@@ -134,7 +139,7 @@
 
   @media (max-width: 860px) {
     padding: 24px;
-    max-height: none;
+    height: auto;
   }
 }
 
@@ -231,11 +236,27 @@
   margin-bottom: 24px;
 }
 
-// ---- Action Buttons (Airbnb style) ----
+// ---- Action Area (inline swap: buttons ↔ tip) ----
+.action-area {
+  position: relative;
+  min-height: 260px; // prevents layout shift on swap (tip section with card picker)
+}
+
 .action-buttons {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+
+  &.hidden {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
 }
 
 .action-btn {
@@ -318,29 +339,69 @@
   }
 }
 
-// ---- Tip Section ----
-.tip-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #ebebeb;
+// ---- Tip Inline Card (cross-fade swap) ----
+.tip-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transition: opacity 0.25s ease;
 
-  h3 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #222;
-    margin: 0 0 16px 0;
+  &.visible {
+    opacity: 1;
+    pointer-events: auto;
+    position: relative;
   }
 }
 
-.tip-options-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+.tip-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: #222;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
 }
 
-.tip-pill {
-  padding: 12px 8px;
+.tip-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #717171;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover {
+    border-color: #222;
+    color: #222;
+  }
+}
+
+.tip-chips {
+  display: flex;
+  gap: 10px;
+}
+
+.tip-chip {
+  flex: 1;
+  padding: 12px 0;
   background: white;
   border: 1.5px solid #ddd;
   border-radius: 12px;
@@ -348,8 +409,8 @@
   font-weight: 600;
   color: #222;
   cursor: pointer;
-  transition: all 0.2s ease;
   text-align: center;
+  transition: all 0.2s ease;
 
   &:hover {
     border-color: #222;
@@ -360,39 +421,313 @@
     background: #222;
     color: white;
   }
-
-  &.small {
-    font-size: 14px;
-    padding: 10px 8px;
-  }
 }
 
-.custom-tip-input {
-  margin-bottom: 16px;
+.tip-custom {
+  display: flex;
+  align-items: center;
+  background: #f7f7f7;
+  border: 1.5px solid #ddd;
+  border-radius: 12px;
+  padding-left: 14px;
+  transition: border-color 0.2s ease;
 
-  ion-input {
-    --background: #f7f7f7;
-    --border-radius: 12px;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    border: 1.5px solid #ddd;
-    border-radius: 12px;
+  &:focus-within {
+    border-color: #222;
+  }
+
+  .currency-prefix {
     font-size: 16px;
     font-weight: 500;
-    transition: border-color 0.2s ease;
+    color: #717171;
+  }
 
-    &:focus-within {
-      border-color: #222;
-    }
+  ion-input {
+    --background: transparent;
+    --padding-start: 6px;
+    --padding-end: 14px;
+    font-size: 16px;
+    font-weight: 500;
   }
 }
 
-.tip-note {
+.tip-footnote {
   font-size: 13px;
   color: #717171;
   text-align: center;
-  margin: 12px 0 0 0;
+  margin: 0;
   line-height: 1.4;
+}
+
+// ---- Tip Payment Method Selector ----
+.tip-payment-method {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tip-pm-loading {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0;
+
+  ion-spinner {
+    transform: scale(0.8);
+  }
+}
+
+// Wallet / Card toggle tabs
+.tip-pm-tabs {
+  display: flex;
+  gap: 0;
+  background: #f2f2f7;
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.tip-pm-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8e8e93;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  ion-icon {
+    font-size: 16px;
+  }
+
+  &.active {
+    background: #fff;
+    color: #222;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+}
+
+// Wallet info display
+.tip-wallet-info {
+  background: #f7f7f7;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.tip-wallet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .wallet-icon {
+    font-size: 20px;
+    color: #34c759;
+    flex-shrink: 0;
+  }
+
+  .wallet-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #8e8e93;
+    flex: 1;
+  }
+
+  .wallet-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: #222;
+    letter-spacing: -0.3px;
+  }
+}
+
+.wallet-note {
+  font-size: 12px;
+  color: #34c759;
+  margin: 6px 0 0;
+  line-height: 1.4;
+
+  &.insufficient {
+    color: #ff3b30;
+  }
+}
+
+// Card fee notice
+.card-fee-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #8e8e93;
+  line-height: 1.4;
+
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #aeaeb2;
+  }
+}
+
+// Selected card row (acts as trigger)
+.tip-pm-selected {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #f7f7f7;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #ccc;
+  }
+}
+
+.tip-pm-brand {
+  width: 34px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  img {
+    max-width: 34px;
+    max-height: 22px;
+    object-fit: contain;
+  }
+
+  ion-icon {
+    font-size: 20px;
+    color: #8e8e93;
+  }
+}
+
+.tip-pm-info {
+  font-size: 14px;
+  font-weight: 500;
+  color: #222;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tip-pm-change {
+  font-size: 13px;
+  font-weight: 600;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+.tip-pm-chevron {
+  font-size: 14px;
+  color: #8e8e93;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+// Dropdown list
+.tip-pm-dropdown {
+  margin-top: 6px;
+  border: 1.5px solid #e5e5ea;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: tipDropdownIn 0.15s ease;
+}
+
+@keyframes tipDropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tip-pm-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border-bottom: 1px solid #f2f2f7;
+
+  &:last-of-type {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f7f7f7;
+  }
+
+  &.selected {
+    background: #f0f4ff;
+  }
+}
+
+.tip-pm-check {
+  font-size: 18px;
+  color: #667eea;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tip-pm-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  border-top: 1px solid #f2f2f7;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover {
+    background: #f7f7f7;
+  }
+}
+
+.tip-add-card-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1.5px dashed #c7c7cc;
+  border-radius: 10px;
+  background: transparent;
+  color: #667eea;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:hover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.04);
+  }
 }
 
 // ---- Right Panel ----
@@ -400,7 +735,7 @@
   padding: 32px;
   border-left: 1px solid #ebebeb;
   overflow-y: auto;
-  max-height: 80vh;
+  height: 100%; // Fill the grid cell height
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -414,7 +749,7 @@
     border-left: none;
     border-top: 1px solid #ebebeb;
     padding: 24px;
-    max-height: none;
+    height: auto;
   }
 }
 

@@ -818,7 +818,8 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
           lessonId: transcript.lessonId,
           tutorId: tutor ? tutor._id : transcript.tutorId,
           studentId: studentData ? studentData._id : transcript.studentId,
-          status: 'pending'
+          status: 'pending',
+          required: true
         });
         
         // Get dynamic message

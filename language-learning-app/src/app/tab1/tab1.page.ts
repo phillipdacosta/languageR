@@ -4940,10 +4940,6 @@ navigateToLessons() {
           }
         }
 
-        // For students, also load their accepted/confirmed classes
-        console.log('🎓 [TAB1] Checking if should load student classes...');
-        console.log('  - isTutor():', this.isTutor());
-        console.log('  - !isTutor():', !this.isTutor());
         
         if (!this.isTutor()) {
           console.log('🎓 [TAB1] Loading accepted classes for student...');
@@ -4989,8 +4985,7 @@ navigateToLessons() {
           console.log('🎓 [TAB1] Skipping class load - user is a tutor');
         }
 
-        console.log('📋 [TAB1] Total lessons before filtering:', allLessons.length);
-        console.log('📋 [TAB1] Lessons with isClass flag:', allLessons.filter(l => (l as any).isClass).length);
+
 
         // Filter for upcoming lessons + lessons from today (even if completed)
         const today = this.startOfDay(new Date());
@@ -5222,7 +5217,6 @@ navigateToLessons() {
    * This moves the class from lessons to cancelledLessons array seamlessly
    */
   private async handleClassCancellation(classId: string, cancelReason?: string) {
-    console.log('🔄 [TAB1] Handling class cancellation via websocket:', classId);
     
     // Find the class in the lessons array
     const classIndex = this.lessons.findIndex(l => l._id === classId);
@@ -5259,7 +5253,6 @@ navigateToLessons() {
         this.loadStudentInsights();
       }
       
-      console.log('✅ [TAB1] Class moved to cancelled without reload');
     } else {
       // If not found in current lessons, do a background refresh to sync
       console.log('⚠️ [TAB1] Class not found in current lessons, doing background refresh');
@@ -5272,7 +5265,6 @@ navigateToLessons() {
    * This moves the lesson from lessons to cancelledLessons array seamlessly
    */
   private async handleLessonCancellation(lessonId: string) {
-    console.log('🔄 [TAB1] Handling lesson cancellation via websocket:', lessonId);
     
     // Find the lesson in the lessons array
     const lessonIndex = this.lessons.findIndex(l => l._id === lessonId);
@@ -5322,7 +5314,6 @@ navigateToLessons() {
     // First, check if there's a cached state from a recent save (instant update)
     const cachedHasAvailability = this.userService.getCachedHasAvailability();
     if (cachedHasAvailability !== null) {
-      console.log('📅 [TAB1] Using cached hasAvailability:', cachedHasAvailability);
       this.hasAvailability = cachedHasAvailability;
       this.availabilityBlocks = this.userService.getCachedAvailabilityBlocks();
       this.updateAvailabilitySummary();
@@ -5756,7 +5747,7 @@ navigateToLessons() {
       // Fallback to getUserRole method
       console.warn('⚠️ Could not determine role from lesson IDs, using getUserRole fallback');
       role = this.getUserRole(this.upcomingLesson) as 'tutor' | 'student';
-      console.log('⚠️ Fallback role:', role);
+
     }
     
     console.log('🎯 TAB1: Joining upcoming session:', {

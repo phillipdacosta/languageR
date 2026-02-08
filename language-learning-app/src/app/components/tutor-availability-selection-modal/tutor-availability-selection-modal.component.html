@@ -86,6 +86,7 @@
         [tutorName]="formatTutorName(selectedTutor)"
         [inline]="true"
         [selectionMode]="true"
+        [selectedDuration]="lessonDuration"
         (slotSelected)="onTimeSlotSelected($event)">
       </app-tutor-availability-viewer>
     </div>

@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, ToastController, AlertController } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -9,9 +9,45 @@ import { LessonService, Lesson } from '../services/lesson.service';
 import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
-import { Subject, interval, firstValueFrom } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, firstValueFrom } from 'rxjs';
+import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+
+// Pre-computed lesson display model (avoids function calls in template)
+interface ProcessedLesson {
+  id: string;
+  lesson: Lesson;
+  subject: string;
+  role: 'tutor' | 'student';
+  roleLabel: string;
+  otherName: string;
+  otherPicture: string;
+  otherInitials: string;
+  formattedMonth: string;
+  formattedDayNum: string;
+  formattedWeekday: string;
+  formattedDate: string;
+  formattedTimeRange: string;
+  duration: number;
+  price: number;
+  formattedPrice: string;
+  status: string;
+  statusLabel: string;
+  isTrial: boolean;
+  isUpcoming: boolean;
+  analysisStatus: 'available' | 'generating' | 'unavailable';
+  hasTutorFeedbackAvailable: boolean;
+  hasAIAnalysisAvailable: boolean;
+  hasTutorNoteAvailable: boolean;
+  canReportIssue: boolean;
+  isIssueReported: boolean;
+  showActions: boolean;
+  canJoin: boolean;
+  needsTutorFeedback: boolean;
+  canAddOptionalNote: boolean;
+  tipSent: boolean;
+  tipAmount: string;
+}
 
 @Component({
   selector: 'app-lessons',
@@ -20,31 +56,64 @@ import { environment } from '../../environments/environment';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class LessonsPage implements OnInit, OnDestroy {
-  allCompletedLessons: Lesson[] = []; // All completed lessons (before filtering)
-  completedLessons: Lesson[] = []; // Filtered completed lessons
-  displayedLessons: Lesson[] = [];
+export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
+  // Raw data
+  allLessons: Lesson[] = [];
   currentUser: any = null;
   isLoading = true;
   private destroy$ = new Subject<void>();
-  
-  // Lazy loading pagination
-  private pageSize = 10; // Load 10 lessons at a time
+  private hasInitiallyLoaded = false;
+
+  // Processed & filtered
+  filteredLessons: Lesson[] = [];
+  processedLessons: ProcessedLesson[] = [];
+  processedDisplayed: ProcessedLesson[] = [];
+
+  // Pagination
+  private pageSize = 15;
   private currentPage = 0;
-  
-  // Filtering
+  hasMoreLessonsAvailable = false;
+
+  // Filters
+  selectedStatusFilter: 'all' | 'upcoming' | 'completed' | 'cancelled' = 'all';
   selectedTimeFilter: 'all' | '7days' | '30days' | '3months' = 'all';
-  selectedTutorFilter: string = 'all'; // 'all' or tutorId (for students)
-  selectedStudentFilter: string = 'all'; // 'all' or studentId (for tutors)
+  selectedTutorFilter = 'all';
+  selectedStudentFilter = 'all';
   uniqueTutors: Array<{ id: string; name: string; picture: string }> = [];
   uniqueStudents: Array<{ id: string; name: string; picture: string }> = [];
-  
-  // Coaching metrics
-  coachingMetrics: any = null;
-  
+
+  // Pre-computed counts
+  totalCount = 0;
+  upcomingCount = 0;
+  completedCount = 0;
+  cancelledCount = 0;
+
+  // Pre-computed user type flags (no function calls in template)
+  isStudentUser = false;
+  isTutorUser = false;
+
+  // Filters modal
+  isFiltersModalOpen = false;
+  activeFilterCount = 0;
+  statusFilterLabel = '';
+  timeFilterLabel = '';
+  participantFilterLabel = '';
+
   // Note modal
   isNoteModalOpen = false;
   selectedNoteLesson: any = null;
+  selectedNoteLessonHasFeedback = false;
+
+  // Feedback modal
+  isFeedbackModalOpen = false;
+  private isOpeningFeedbackModal = false; // Prevent duplicate opens
+  selectedFeedbackStrengths: string[] = [];
+  selectedFeedbackAreas: string[] = [];
+  selectedFeedbackHomework = '';
+  selectedFeedbackNotes = '';
+
+  // Expanded lesson row (for actions)
+  expandedLessonId: string | null = null;
 
   constructor(
     private lessonService: LessonService,
@@ -57,81 +126,73 @@ export class LessonsPage implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef
   ) {}
 
-  async ngOnInit() {
-    await this.loadCurrentUser();
-    await this.loadLessons();
-    
-    // Load coaching metrics for tutors
-    if (this.isTutor()) {
-      await this.loadCoachingMetrics();
-    }
-    
+  ngOnInit() {
+    // Subscribe to currentUser$ – only load lessons once we have a valid user
+    // This avoids the race condition where Auth0 hasn't initialized yet
+    this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      takeUntil(this.destroy$)
+    ).subscribe(user => {
+      this.currentUser = user;
+      this.isStudentUser = user?.userType === 'student';
+      this.isTutorUser = user?.userType === 'tutor';
+      this.loadLessons();
+    });
+
+    // Trigger user load if not already cached
+    this.userService.getCurrentUser().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe();
+
     // Check for scrollToLesson query param
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(params => {
       const lessonId = params['scrollToLesson'];
       if (lessonId) {
-        // Wait a bit for the view to render
-        setTimeout(() => {
-          this.scrollToLesson(lessonId);
-        }, 800);
+        setTimeout(() => this.scrollToLesson(lessonId), 800);
       }
     });
   }
+
+  ionViewWillEnter() {
+    // On re-entry, reload lessons if we've already loaded once
+    if (this.hasInitiallyLoaded && this.currentUser) {
+      this.loadLessons();
+    }
+  }
+
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  private async loadCurrentUser() {
-    try {
-      this.currentUser = await firstValueFrom(this.userService.getCurrentUser());
-    } catch (error) {
-      console.error('Error loading current user:', error);
-    }
-  }
-
   async loadLessons() {
     this.isLoading = true;
+    this.cdr.detectChanges();
     try {
       const response = await firstValueFrom(this.lessonService.getMyLessons());
       if (response?.success) {
-        console.log('🔍 DEBUG: API Response received:', response.lessons.length, 'lessons');
-        
-        // Log lessons with analysis status
-        response.lessons.forEach((lesson: any) => {
-          if (lesson.aiAnalysis) {
-            console.log('  📊 Lesson', lesson._id, '- aiAnalysis:', lesson.aiAnalysis);
-          }
-        });
-        
-        const now = new Date();
-        // Show completed lessons: EITHER status='completed' OR (endTime in past AND not cancelled)
-        // This handles both properly completed lessons and lessons that ended but status wasn't updated
-        this.allCompletedLessons = response.lessons
-          .filter(lesson => {
-            // Explicitly completed
-            if (lesson.status === 'completed') return true;
-            
-            // Or ended naturally (fallback for lessons without status update)
-            const lessonEndTime = new Date(lesson.endTime);
-            return lessonEndTime < now && lesson.status !== 'cancelled';
-          })
-          .sort((a, b) => 
-            // Most recent first (sort by startTime descending)
-            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-          );
-        
-        console.log('📅 Loaded completed lessons:', this.allCompletedLessons.length);
-        console.log('📊 Lessons with analysis:', this.allCompletedLessons.filter(l => (l as any).aiAnalysis?.status === 'completed').length);
-        
-        // Extract unique tutors for filter (from all lessons)
-        this.extractUniqueTutors();
-        
-        // Apply filters and load first page
+        // Include ALL lessons, sorted by most recent first
+        this.allLessons = response.lessons.sort((a, b) =>
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        );
+
+        // Compute counts from all lessons
+        this.computeCounts();
+
+        // Extract unique tutors/students for filter
+        this.extractUniqueParticipants();
+
+        // Apply filters and process
         this.applyFilters();
+
+        this.hasInitiallyLoaded = true;
       }
     } catch (error) {
       console.error('Error loading lessons:', error);
@@ -143,150 +204,369 @@ export class LessonsPage implements OnInit, OnDestroy {
       await toast.present();
     } finally {
       this.isLoading = false;
+      this.cdr.detectChanges();
     }
   }
-  
-  private extractUniqueTutors() {
-    const tutorMap = new Map<string, { id: string; name: string; picture: string }>();
-    const studentMap = new Map<string, { id: string; name: string; picture: string }>();
-    
-    this.allCompletedLessons.forEach(lesson => {
-      const role = this.getUserRole(lesson);
-      
-      if (role === 'student') {
-        // Student sees tutors
-        const tutor = lesson.tutorId as any;
-        if (!tutor) return; // Skip if no tutor data
-        const tutorId = tutor._id || tutor.id || tutor;
-        
-        if (tutorId && !tutorMap.has(tutorId)) {
-          const participant = this.getOtherParticipant(lesson);
-          tutorMap.set(tutorId, {
-            id: tutorId,
-            name: participant.name,
-            picture: participant.picture
-          });
-        }
-      } else {
-        // Tutor sees students
-        const student = lesson.studentId as any;
-        if (!student) return; // Skip if no student data
-        const studentId = student._id || student.id || student;
-        
-        if (studentId && !studentMap.has(studentId)) {
-          const participant = this.getOtherParticipant(lesson);
-          studentMap.set(studentId, {
-            id: studentId,
-            name: participant.name,
-            picture: participant.picture
-          });
-        }
-      }
-    });
-    
-    this.uniqueTutors = Array.from(tutorMap.values());
-    this.uniqueStudents = Array.from(studentMap.values());
+
+  // ─── Counts ──────────────────────────────────────────
+  private computeCounts() {
+    const now = new Date();
+    this.totalCount = this.allLessons.length;
+    this.upcomingCount = this.allLessons.filter(l =>
+      (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
+      new Date(l.endTime) >= now
+    ).length;
+    this.completedCount = this.allLessons.filter(l => l.status === 'completed').length;
+    this.cancelledCount = this.allLessons.filter(l => l.status === 'cancelled').length;
   }
-  
-  applyFilters() {
-    let filtered = [...this.allCompletedLessons];
-    
-    // Apply time filter
-    if (this.selectedTimeFilter !== 'all') {
-      const now = new Date();
-      let cutoffDate = new Date();
-      
-      switch (this.selectedTimeFilter) {
-        case '7days':
-          cutoffDate.setDate(now.getDate() - 7);
-          break;
-        case '30days':
-          cutoffDate.setDate(now.getDate() - 30);
-          break;
-        case '3months':
-          cutoffDate.setMonth(now.getMonth() - 3);
-          break;
-      }
-      
-      filtered = filtered.filter(lesson => 
-        new Date(lesson.startTime) >= cutoffDate
-      );
-    }
-    
-    // Apply tutor filter (for students)
-    if (this.selectedTutorFilter !== 'all' && this.isStudent()) {
-      filtered = filtered.filter(lesson => {
-        const tutor = lesson.tutorId as any;
-        const tutorId = tutor._id || tutor.id;
-        return tutorId === this.selectedTutorFilter;
-      });
-    }
-    
-    // Apply student filter (for tutors)
-    if (this.selectedStudentFilter !== 'all' && this.isTutor()) {
-      filtered = filtered.filter(lesson => {
-        const student = lesson.studentId as any;
-        const studentId = student._id || student.id;
-        return studentId === this.selectedStudentFilter;
-      });
-    }
-    
-    // Update filtered completed lessons
-    this.completedLessons = filtered;
-    
-    // Reset pagination and load first page
-    this.currentPage = 0;
-    this.loadFirstPage();
+
+  // ─── Filters ─────────────────────────────────────────
+  setStatusFilter(status: 'all' | 'upcoming' | 'completed' | 'cancelled') {
+    this.selectedStatusFilter = status;
+    this.applyFilters();
   }
-  
+
   onTimeFilterChange(event: any) {
     this.selectedTimeFilter = event.detail.value;
     this.applyFilters();
   }
-  
+
   onTutorFilterChange(event: any) {
     this.selectedTutorFilter = event.detail.value;
     this.applyFilters();
   }
-  
+
   onStudentFilterChange(event: any) {
     this.selectedStudentFilter = event.detail.value;
     this.applyFilters();
   }
-  
-  isStudent(): boolean {
-    return this.currentUser?.userType === 'student';
+
+  // ─── Filters Modal ──────────────────────────────────
+  openFiltersModal() {
+    this.isFiltersModalOpen = true;
   }
-  
-  isTutor(): boolean {
-    return this.currentUser?.userType === 'tutor';
+
+  closeFiltersModal() {
+    this.isFiltersModalOpen = false;
   }
-  
+
+  clearSecondaryFilters() {
+    this.selectedStatusFilter = 'all';
+    this.selectedTutorFilter = 'all';
+    this.selectedStudentFilter = 'all';
+    this.selectedTimeFilter = 'all';
+    this.applyFilters();
+  }
+
+  hasSecondaryFilters(): boolean {
+    return this.selectedStatusFilter !== 'all' ||
+           this.selectedTutorFilter !== 'all' ||
+           this.selectedStudentFilter !== 'all' ||
+           this.selectedTimeFilter !== 'all';
+  }
+
+  private updateFilterState() {
+    let count = 0;
+    if (this.selectedStatusFilter !== 'all') count++;
+    if (this.selectedTimeFilter !== 'all') count++;
+    if (this.isStudentUser && this.selectedTutorFilter !== 'all') count++;
+    if (this.isTutorUser && this.selectedStudentFilter !== 'all') count++;
+    this.activeFilterCount = count;
+
+    // Status label
+    switch (this.selectedStatusFilter) {
+      case 'upcoming': this.statusFilterLabel = 'Upcoming'; break;
+      case 'completed': this.statusFilterLabel = 'Completed'; break;
+      case 'cancelled': this.statusFilterLabel = 'Cancelled'; break;
+      default: this.statusFilterLabel = ''; break;
+    }
+
+    // Time label
+    switch (this.selectedTimeFilter) {
+      case '7days': this.timeFilterLabel = 'Last 7 days'; break;
+      case '30days': this.timeFilterLabel = 'Last 30 days'; break;
+      case '3months': this.timeFilterLabel = 'Last 3 months'; break;
+      default: this.timeFilterLabel = ''; break;
+    }
+
+    // Participant label
+    if (this.isStudentUser && this.selectedTutorFilter !== 'all') {
+      const t = this.uniqueTutors.find(t => t.id === this.selectedTutorFilter);
+      this.participantFilterLabel = t?.name || this.selectedTutorFilter;
+    } else if (this.isTutorUser && this.selectedStudentFilter !== 'all') {
+      const s = this.uniqueStudents.find(s => s.id === this.selectedStudentFilter);
+      this.participantFilterLabel = s?.name || this.selectedStudentFilter;
+    } else {
+      this.participantFilterLabel = '';
+    }
+  }
+
+  applyFilters() {
+    const now = new Date();
+    let filtered = [...this.allLessons];
+
+    // Status filter
+    if (this.selectedStatusFilter === 'upcoming') {
+      filtered = filtered.filter(l =>
+        (l.status === 'scheduled' || l.status === 'in_progress' || l.status === 'pending_reschedule') &&
+        new Date(l.endTime) >= now
+      );
+    } else if (this.selectedStatusFilter === 'completed') {
+      filtered = filtered.filter(l => l.status === 'completed');
+    } else if (this.selectedStatusFilter === 'cancelled') {
+      filtered = filtered.filter(l => l.status === 'cancelled');
+    }
+
+    // Time filter
+    if (this.selectedTimeFilter !== 'all') {
+      let cutoffDate = new Date();
+      switch (this.selectedTimeFilter) {
+        case '7days': cutoffDate.setDate(now.getDate() - 7); break;
+        case '30days': cutoffDate.setDate(now.getDate() - 30); break;
+        case '3months': cutoffDate.setMonth(now.getMonth() - 3); break;
+      }
+      filtered = filtered.filter(l => new Date(l.startTime) >= cutoffDate);
+    }
+
+    // Tutor filter (for students)
+    if (this.selectedTutorFilter !== 'all' && this.isStudentUser) {
+      filtered = filtered.filter(l => {
+        const tutor = l.tutorId as any;
+        const id = String(tutor?._id || tutor?.id || tutor || '');
+        return id === this.selectedTutorFilter;
+      });
+    }
+
+    // Student filter (for tutors)
+    if (this.selectedStudentFilter !== 'all' && this.isTutorUser) {
+      filtered = filtered.filter(l => {
+        const student = l.studentId as any;
+        const id = String(student?._id || student?.id || student || '');
+        return id === this.selectedStudentFilter;
+      });
+    }
+
+    this.filteredLessons = filtered;
+
+    // Process lessons (pre-compute display data)
+    this.processedLessons = this.filteredLessons.map(l => this.processLesson(l));
+
+    // Reset pagination
+    this.currentPage = 0;
+    this.loadFirstPage();
+
+    // Update filter state for chips
+    this.updateFilterState();
+  }
+
+  // ─── Pre-compute lesson display data ─────────────────
+  private processLesson(lesson: Lesson): ProcessedLesson {
+    const role = this.getUserRole(lesson);
+    const other = this.getOtherParticipant(lesson);
+    const start = new Date(lesson.startTime);
+    const end = new Date(lesson.endTime);
+    const now = new Date();
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const timeOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
+    const startStr = start.toLocaleTimeString('en-US', timeOpts);
+    const endStr = end.toLocaleTimeString('en-US', timeOpts);
+
+    // Status
+    let status = lesson.status;
+    let statusLabel = this.getStatusText(lesson);
+    const isUpcoming = (status === 'scheduled' || status === 'in_progress' || status === 'pending_reschedule') && end >= now;
+
+    // Analysis status
+    let analysisStatus: 'available' | 'generating' | 'unavailable' = 'unavailable';
+    const aiAnalysis = (lesson as any).aiAnalysis;
+    const tutorFeedback = (lesson as any).tutorFeedback;
+    if (tutorFeedback?.status === 'completed') {
+      analysisStatus = 'available';
+    } else if (aiAnalysis?.status === 'generating') {
+      analysisStatus = 'generating';
+    } else if (aiAnalysis?.status === 'completed' || aiAnalysis?.hasAnalysis) {
+      analysisStatus = 'available';
+    }
+
+    // Tutor note
+    const tutorNote = (lesson as any).tutorNote;
+    const hasTutorNoteAvailable = !!(tutorNote && tutorNote.text);
+
+    // Can report issue (within 24h of end)
+    const hoursSinceEnd = lesson.endTime ? (now.getTime() - new Date(lesson.endTime).getTime()) / (1000 * 60 * 60) : Infinity;
+    const canReportIssue = role === 'student' && status === 'completed' && !lesson.issueReported && hoursSinceEnd <= 24;
+
+    // Can join (upcoming or in-progress, within 10 min before start to end)
+    const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
+    const canJoin = (status === 'scheduled' || status === 'in_progress') && minutesUntilStart <= 10 && end > now;
+
+    // Initials
+    const nameParts = other.name.split(' ');
+    const initials = nameParts.length > 1
+      ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
+      : nameParts[0].charAt(0);
+
+    // Tutor needs to leave feedback? Only when a TutorFeedback record exists, is pending, and is required
+    const hasTutorFeedbackAvailable = tutorFeedback?.status === 'completed';
+    const needsTutorFeedback = role === 'tutor'
+      && status === 'completed'
+      && !!tutorFeedback
+      && tutorFeedback.status === 'pending'
+      && tutorFeedback.required !== false;
+
+    // Tutor can optionally add a note to AI-analyzed lessons (no TutorFeedback record = AI handled it)
+    const canAddOptionalNote = role === 'tutor'
+      && status === 'completed'
+      && !hasTutorFeedbackAvailable
+      && !needsTutorFeedback;
+
+    // Show actions row? (completed, joinable, or needs feedback badge)
+    const showActions = status === 'completed' || canJoin;
+
+    return {
+      id: lesson._id,
+      lesson,
+      subject: lesson.subject || 'Lesson',
+      role,
+      roleLabel: role === 'student' ? 'Tutor' : 'Student',
+      otherName: other.name,
+      otherPicture: other.picture === '/assets/default-avatar.png' ? '' : other.picture,
+      otherInitials: initials.toUpperCase(),
+      formattedMonth: monthNames[start.getMonth()],
+      formattedDayNum: String(start.getDate()),
+      formattedWeekday: dayNames[start.getDay()],
+      formattedDate: `${dayNames[start.getDay()]}, ${monthNames[start.getMonth()]} ${start.getDate()}`,
+      formattedTimeRange: `${startStr} – ${endStr}`,
+      duration: lesson.duration,
+      price: lesson.price,
+      formattedPrice: (lesson.price || 0).toFixed(2),
+      status,
+      statusLabel,
+      isTrial: !!lesson.isTrialLesson,
+      isUpcoming,
+      analysisStatus,
+      hasTutorFeedbackAvailable,
+      hasAIAnalysisAvailable: aiAnalysis?.status === 'completed' || !!aiAnalysis?.hasAnalysis,
+      hasTutorNoteAvailable,
+      canReportIssue,
+      isIssueReported: !!lesson.issueReported,
+      showActions,
+      canJoin,
+      needsTutorFeedback,
+      canAddOptionalNote,
+      tipSent: !!(lesson as any).tip && !!(lesson as any).tip.amount,
+      tipAmount: (lesson as any).tip?.amount ? (lesson as any).tip.amount.toFixed(2) : '0.00'
+    };
+  }
+
+  // ─── Pagination ──────────────────────────────────────
   private loadFirstPage() {
-    const endIndex = Math.min(this.pageSize, this.completedLessons.length);
-    this.displayedLessons = this.completedLessons.slice(0, endIndex);
+    const endIndex = Math.min(this.pageSize, this.processedLessons.length);
+    this.processedDisplayed = this.processedLessons.slice(0, endIndex);
     this.currentPage = 1;
+    this.hasMoreLessonsAvailable = this.processedDisplayed.length < this.processedLessons.length;
   }
-  
+
   loadMoreLessons(event: any) {
     setTimeout(() => {
       const startIndex = this.currentPage * this.pageSize;
-      const endIndex = Math.min(startIndex + this.pageSize, this.completedLessons.length);
-      
-      if (startIndex < this.completedLessons.length) {
-        const newLessons = this.completedLessons.slice(startIndex, endIndex);
-        this.displayedLessons = [...this.displayedLessons, ...newLessons];
+      const endIndex = Math.min(startIndex + this.pageSize, this.processedLessons.length);
+
+      if (startIndex < this.processedLessons.length) {
+        const more = this.processedLessons.slice(startIndex, endIndex);
+        this.processedDisplayed = [...this.processedDisplayed, ...more];
         this.currentPage++;
       }
-      
+
+      this.hasMoreLessonsAvailable = this.processedDisplayed.length < this.processedLessons.length;
       event.target.complete();
-    }, 500); // Simulate network delay
+    }, 400);
   }
-  
-  hasMoreLessons(): boolean {
-    return this.displayedLessons.length < this.completedLessons.length;
+
+  // ─── Extract unique participants ─────────────────────
+  private extractUniqueParticipants() {
+    const tutorMap = new Map<string, { id: string; name: string; picture: string }>();
+    const studentMap = new Map<string, { id: string; name: string; picture: string }>();
+
+    this.allLessons.forEach(lesson => {
+      const role = this.getUserRole(lesson);
+
+      if (role === 'student') {
+        const tutor = lesson.tutorId as any;
+        if (!tutor) return;
+        const tutorId = String(tutor._id || tutor.id || tutor);
+        if (tutorId && !tutorMap.has(tutorId)) {
+          const p = this.getOtherParticipant(lesson);
+          tutorMap.set(tutorId, { id: tutorId, name: p.name, picture: p.picture });
+        }
+      } else {
+        const student = lesson.studentId as any;
+        if (!student) return;
+        const studentId = String(student._id || student.id || student);
+        if (studentId && !studentMap.has(studentId)) {
+          const p = this.getOtherParticipant(lesson);
+          studentMap.set(studentId, { id: studentId, name: p.name, picture: p.picture });
+        }
+      }
+    });
+
+    this.uniqueTutors = Array.from(tutorMap.values());
+    this.uniqueStudents = Array.from(studentMap.values());
   }
-  
+
+  // ─── Helper methods (called in TS only, NOT template) ─
+  private getUserRole(lesson: Lesson): 'tutor' | 'student' {
+    if (!this.currentUser) return 'student';
+    const tutorId = String((lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || lesson.tutorId || '');
+    const currentUserId = String(this.currentUser._id || this.currentUser.id || '');
+    return tutorId === currentUserId ? 'tutor' : 'student';
+  }
+
+  private getOtherParticipant(lesson: Lesson): { name: string; picture: string } {
+    const role = this.getUserRole(lesson);
+    const participant = role === 'tutor' ? lesson.studentId : lesson.tutorId;
+
+    if (!participant) {
+      return { name: 'Unknown', picture: '/assets/default-avatar.png' };
+    }
+
+    const p = participant as any;
+
+    let formattedName = '';
+    if (p.firstName && p.lastName) {
+      formattedName = `${p.firstName} ${p.lastName.charAt(0).toUpperCase()}.`;
+    } else if (p.firstName) {
+      formattedName = p.firstName;
+    } else if (p.name) {
+      const parts = p.name.trim().split(' ');
+      if (parts.length > 1) {
+        formattedName = `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+      } else {
+        formattedName = p.name;
+      }
+    } else {
+      formattedName = p.email || 'Unknown';
+    }
+
+    const picture = p.picture || p.profilePicture || '/assets/default-avatar.png';
+    return { name: formattedName, picture };
+  }
+
+  private getStatusText(lesson: Lesson): string {
+    switch (lesson.status) {
+      case 'scheduled': return 'Scheduled';
+      case 'in_progress': return 'In Progress';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
+      case 'pending_reschedule': return 'Pending';
+      default: return lesson.status;
+    }
+  }
+
+  // ─── Actions (called from template click handlers) ───
   goBack() {
     this.location.back();
   }
@@ -295,317 +575,116 @@ export class LessonsPage implements OnInit, OnDestroy {
     this.router.navigate(['/tabs/home']);
   }
 
-  // No longer needed for completed lessons only
-  // private async updateLessonStatuses() { ... }
-  // canJoinLesson() - removed
-  // getTimeUntilJoin() - removed
-  // joinLesson() - removed
-  // cancelLesson() - removed
-
-  getUserRole(lesson: Lesson): 'tutor' | 'student' {
-    if (!this.currentUser) return 'student';
-    const tutorId = (lesson.tutorId as any)?._id || (lesson.tutorId as any)?.id || lesson.tutorId;
-    return tutorId === this.currentUser.id ? 'tutor' : 'student';
-  }
-
-  getOtherParticipant(lesson: Lesson): { name: string; picture: string } {
-    const role = this.getUserRole(lesson);
-    const participant = role === 'tutor' ? lesson.studentId : lesson.tutorId;
-    
-    if (!participant) {
-      return { name: 'Unknown', picture: '/assets/default-avatar.png' };
-    }
-    
-    const participantData = participant as any;
-    
-    // Format name as "FirstName L."
-    let formattedName = '';
-    if (participantData.firstName && participantData.lastName) {
-      const lastInitial = participantData.lastName.charAt(0).toUpperCase();
-      formattedName = `${participantData.firstName} ${lastInitial}.`;
-    } else if (participantData.firstName) {
-      formattedName = participantData.firstName;
-    } else if (participantData.name) {
-      // If full name is in 'name' field, split it
-      const nameParts = participantData.name.trim().split(' ');
-      if (nameParts.length > 1) {
-        const firstName = nameParts[0];
-        const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
-        formattedName = `${firstName} ${lastInitial}.`;
-      } else {
-        formattedName = participantData.name;
-      }
-    } else {
-      formattedName = participantData.email || 'Unknown';
-    }
-    
-    const picture = participantData.picture || participantData.profilePicture || '/assets/default-avatar.png';
-    
-    return { name: formattedName, picture };
-  }
-
-  formatLessonTime(lesson: Lesson): string {
-    const start = new Date(lesson.startTime);
-    const end = new Date(lesson.endTime);
-    
-    const dateOptions: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      month: 'short', 
-      day: 'numeric' 
-    };
-    
-    const timeOptions: Intl.DateTimeFormatOptions = { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    };
-    
-    const dateStr = start.toLocaleDateString('en-US', dateOptions);
-    const timeStr = `${start.toLocaleTimeString('en-US', timeOptions)} - ${end.toLocaleTimeString('en-US', timeOptions)}`;
-    
-    return `${dateStr}, ${timeStr}`;
-  }
-
-  getStatusColor(lesson: Lesson): string {
-    switch (lesson.status) {
-      case 'scheduled': return 'primary';
-      case 'in_progress': return 'success';
-      case 'completed': return 'medium';
-      case 'cancelled': return 'danger';
-      default: return 'medium';
-    }
-  }
-
-  getStatusText(lesson: Lesson): string {
-    switch (lesson.status) {
-      case 'scheduled': return 'Scheduled';
-      case 'in_progress': return 'In Progress';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      default: return lesson.status;
-    }
-  }
-
   async doRefresh(event: any) {
     await this.loadLessons();
     event.target.complete();
   }
 
-  trackByLessonId(index: number, lesson: Lesson): string {
-    return lesson._id;
+  toggleExpand(pl: ProcessedLesson) {
+    this.expandedLessonId = this.expandedLessonId === pl.id ? null : pl.id;
   }
 
-  viewAnalysis(lesson: Lesson) {
-    this.router.navigate(['/lesson-analysis', lesson._id]);
-  }
-  
-  // Check analysis availability status
-  getAnalysisStatus(lesson: Lesson): 'available' | 'generating' | 'unavailable' {
-    // Check if lesson has AI analysis data
-    const aiAnalysis = (lesson as any).aiAnalysis;
-    
-    // Check if lesson has tutor feedback
-    const tutorFeedback = (lesson as any).tutorFeedback;
-    
-    // If tutor feedback is completed, show as available
-    if (tutorFeedback?.status === 'completed') {
-      return 'available';
+  onLessonClick(pl: ProcessedLesson) {
+    // Toggle the actions row for lessons that have actions
+    if (pl.showActions) {
+      this.toggleExpand(pl);
     }
-    
-    // If generating AI analysis
-    if (aiAnalysis?.status === 'generating') {
-      return 'generating';
+  }
+
+  viewFeedback(pl: ProcessedLesson) {
+    const lesson = pl.lesson;
+    if (pl.hasTutorFeedbackAvailable) {
+      this.showTutorFeedback(lesson);
+    } else if (pl.hasAIAnalysisAvailable) {
+      this.router.navigate(['/lesson-analysis', lesson._id]);
     }
-    
-    // If AI analysis is completed
-    if (aiAnalysis?.status === 'completed' || aiAnalysis?.summary) {
-      return 'available';
-    }
-    
-    // No analysis or feedback data yet
-    return 'unavailable';
   }
 
-  hasTutorFeedback(lesson: Lesson): boolean {
-    const tutorFeedback = (lesson as any).tutorFeedback;
-    return tutorFeedback?.status === 'completed';
-  }
-
-  hasAIAnalysis(lesson: Lesson): boolean {
-    const aiAnalysis = (lesson as any).aiAnalysis;
-    return aiAnalysis?.status === 'completed' || aiAnalysis?.summary;
-  }
-
-  async viewFeedback(lesson: Lesson) {
-    const lessonId = lesson._id;
-    
-    // Check if this lesson has tutor feedback
-    if (this.hasTutorFeedback(lesson)) {
-      // Navigate to a feedback view page or open modal
-      // For now, we'll just show it in an alert (you can enhance this later)
-      try {
-        const response = await firstValueFrom(this.tutorFeedbackService.getFeedbackForLesson(lessonId));
-        if (response.success && response.feedback) {
-          const feedback = response.feedback;
-          
-          let message = '';
-          if (feedback.strengths.length > 0) {
-            message += `<strong>Strengths:</strong><br>`;
-            feedback.strengths.forEach(s => message += `• ${s}<br>`);
-            message += '<br>';
-          }
-          if (feedback.areasForImprovement.length > 0) {
-            message += `<strong>Areas for Improvement:</strong><br>`;
-            feedback.areasForImprovement.forEach(a => message += `• ${a}<br>`);
-            message += '<br>';
-          }
-          if (feedback.homework) {
-            message += `<strong>Homework:</strong><br>${feedback.homework}<br><br>`;
-          }
-          if (feedback.overallNotes) {
-            message += `<strong>Notes:</strong><br>${feedback.overallNotes}`;
-          }
-          
-          const alert = await this.alertController.create({
-            header: 'Tutor Feedback',
-            message,
-            buttons: ['OK']
-          });
-          await alert.present();
-        }
-      } catch (error) {
-        console.error('Error loading feedback:', error);
-        const toast = await this.toastController.create({
-          message: 'Failed to load feedback',
-          duration: 3000,
-          color: 'danger'
-        });
-        await toast.present();
-      }
+  private async showTutorFeedback(lesson: Lesson) {
+    // Prevent duplicate modals
+    if (this.isFeedbackModalOpen || this.isOpeningFeedbackModal) {
       return;
     }
-    
-    // Otherwise, view AI analysis
-    if (this.hasAIAnalysis(lesson)) {
-      this.router.navigate(['/lesson-analysis', lessonId]);
+
+    this.isOpeningFeedbackModal = true;
+
+    // Close note modal if open
+    if (this.isNoteModalOpen) {
+      this.closeNoteModal();
     }
-  }
-  
-  // TODO: Implement payment status check when payment logic is added
-  // For now, all completed lessons are considered "Settled"
-  getPaymentStatus(lesson: Lesson): 'settled' | 'pending' | 'refunded' {
-    // Future: Check lesson.paymentStatus or call payment service
-    // For now, completed lessons = settled
-    return 'settled';
-  }
-  
-  // Load coaching badge metrics (for tutors)
-  async loadCoachingMetrics() {
-    if (!this.isTutor()) return;
-    
+
     try {
-      const response = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/users/coaching-metrics`, {
-          headers: this.userService.getAuthHeadersSync()
-        })
-      );
-      
-      if (response.success) {
-        this.coachingMetrics = response.data;
-        console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+      const response = await firstValueFrom(this.tutorFeedbackService.getFeedbackForLesson(lesson._id));
+      if (response.success && response.feedback) {
+        const fb = response.feedback;
+        this.selectedFeedbackStrengths = fb.strengths || [];
+        this.selectedFeedbackAreas = fb.areasForImprovement || [];
+        this.selectedFeedbackHomework = fb.homework || '';
+        this.selectedFeedbackNotes = fb.overallNotes || '';
+        this.isFeedbackModalOpen = true;
+        this.cdr.detectChanges();
       }
-    } catch (error: any) {
-      console.error('❌ Error loading coaching metrics:', error);
-      // Don't show error to user - just silently fail
+    } catch (error) {
+      console.error('Error loading feedback:', error);
+      await this.showToast('Failed to load feedback', 'danger');
+    } finally {
+      this.isOpeningFeedbackModal = false;
     }
   }
 
-  scrollToLesson(lessonId: string) {
-    console.log('📍 Attempting to scroll to lesson:', lessonId);
-    
-    // Find the lesson element by lesson ID
-    const element = document.getElementById(`lesson-${lessonId}`);
-    
-    if (element) {
-      // Scroll into view with smooth animation
-      element.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-      
-      // Add highlight animation
-      element.classList.add('highlight-lesson');
-      setTimeout(() => {
-        element.classList.remove('highlight-lesson');
-      }, 2000);
-      
-      console.log('✅ Scrolled to lesson:', lessonId);
-    } else {
-      console.log('⚠️ Lesson element not found for lesson:', lessonId);
+  closeFeedbackModal() {
+    this.isFeedbackModalOpen = false;
+    this.isOpeningFeedbackModal = false;
+    this.selectedFeedbackStrengths = [];
+    this.selectedFeedbackAreas = [];
+    this.selectedFeedbackHomework = '';
+    this.selectedFeedbackNotes = '';
+    this.cdr.detectChanges();
+  }
+
+  viewTutorNote(pl: ProcessedLesson) {
+    this.selectedNoteLesson = pl.lesson;
+    this.selectedNoteLessonHasFeedback = pl.hasTutorFeedbackAvailable;
+    this.isNoteModalOpen = true;
+  }
+
+  addTutorNote(pl: ProcessedLesson) {
+    this.router.navigate(['/post-lesson-tutor', pl.lesson._id]);
+  }
+
+  joinLesson(pl: ProcessedLesson) {
+    this.router.navigate(['/video-call', pl.lesson._id]);
+  }
+
+  closeNoteModal() {
+    this.isNoteModalOpen = false;
+    this.selectedNoteLesson = null;
+    this.selectedNoteLessonHasFeedback = false;
+  }
+
+  editNoteFromModal() {
+    if (this.selectedNoteLesson) {
+      const lesson = this.selectedNoteLesson;
+      this.closeNoteModal();
+      this.router.navigate(['/post-lesson-tutor', lesson._id]);
     }
   }
-  
-  /**
-   * Check if student can report an issue for this lesson
-   * Only allowed within 24 hours of lesson completion
-   */
-  canReportIssue(lesson: Lesson): boolean {
-    if (!lesson.endTime || lesson.issueReported) {
-      return false;
-    }
-    
-    const lessonEndTime = new Date(lesson.endTime).getTime();
-    const now = new Date().getTime();
-    const hoursSinceEnd = (now - lessonEndTime) / (1000 * 60 * 60);
-    
-    // Can report within 24 hours
-    return hoursSinceEnd <= 24;
-  }
-  
-  /**
-   * Report an issue with a lesson
-   */
-  async reportIssue(lesson: Lesson) {
+
+  async reportIssue(pl: ProcessedLesson) {
+    const lesson = pl.lesson;
     const alert = await this.alertController.create({
       header: 'Report Issue',
-      message: 'Please select the issue you experienced with this lesson:',
+      message: 'Please select the issue you experienced:',
       inputs: [
-        {
-          type: 'radio',
-          label: 'Tutor didn\'t show up',
-          value: 'tutor_no_show'
-        },
-        {
-          type: 'radio',
-          label: 'Lesson ended early without notice',
-          value: 'ended_early'
-        },
-        {
-          type: 'radio',
-          label: 'Poor lesson quality',
-          value: 'poor_quality'
-        },
-        {
-          type: 'radio',
-          label: 'Inappropriate behavior',
-          value: 'inappropriate'
-        },
-        {
-          type: 'radio',
-          label: 'Technical issues prevented lesson',
-          value: 'technical'
-        },
-        {
-          type: 'radio',
-          label: 'Other',
-          value: 'other'
-        }
+        { type: 'radio', label: "Tutor didn't show up", value: 'tutor_no_show' },
+        { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
+        { type: 'radio', label: 'Poor lesson quality', value: 'poor_quality' },
+        { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
+        { type: 'radio', label: 'Technical issues', value: 'technical' },
+        { type: 'radio', label: 'Other', value: 'other' }
       ],
       buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
+        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Next',
           handler: (issueType) => {
@@ -613,102 +692,78 @@ export class LessonsPage implements OnInit, OnDestroy {
               this.showToast('Please select an issue type', 'warning');
               return false;
             }
-            // Show details input
             this.showIssueDetailsInput(lesson, issueType);
             return true;
           }
         }
       ]
     });
-    
     await alert.present();
   }
-  
-  /**
-   * Show input for issue details
-   */
+
   private async showIssueDetailsInput(lesson: Lesson, issueType: string) {
     const alert = await this.alertController.create({
       header: 'Issue Details',
-      message: 'Please provide additional details about the issue:',
+      message: 'Please describe what happened:',
       inputs: [
-        {
-          name: 'details',
-          type: 'textarea',
-          placeholder: 'Describe what happened...',
-          attributes: {
-            minlength: 10,
-            maxlength: 500
-          }
-        }
+        { name: 'details', type: 'textarea', placeholder: 'Describe what happened...', attributes: { minlength: 10, maxlength: 500 } }
       ],
       buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel'
-        },
+        { text: 'Cancel', role: 'cancel' },
         {
           text: 'Submit Report',
           handler: async (data) => {
             if (!data.details || data.details.length < 10) {
-              this.showToast('Please provide at least 10 characters of details', 'warning');
+              this.showToast('Please provide at least 10 characters', 'warning');
               return false;
             }
-            
             await this.submitIssueReport(lesson, issueType, data.details);
             return true;
           }
         }
       ]
     });
-    
     await alert.present();
   }
-  
-  /**
-   * Submit issue report to backend
-   */
+
   private async submitIssueReport(lesson: Lesson, issueType: string, details: string) {
-    const loading = await this.loadingController.create({
-      message: 'Submitting report...'
-    });
+    const loading = await this.loadingController.create({ message: 'Submitting report...' });
     await loading.present();
-    
+
     try {
       const response = await firstValueFrom(
-        this.http.post<any>(
-          `${environment.apiUrl}/lessons/${lesson._id}/report-issue`,
-          {
-            issueType,
-            details
-          },
+        this.http.post<any>(`${environment.apiUrl}/lessons/${lesson._id}/report-issue`,
+          { issueType, details },
           { headers: this.userService.getAuthHeadersSync() }
         )
       );
-      
+
       if (response.success) {
-        // Update local lesson state
         lesson.issueReported = true;
-        
-        await this.showToast('Issue reported successfully. Our team will review it shortly.', 'success');
-        
-        // Reload lessons to get updated state
+        await this.showToast('Issue reported successfully.', 'success');
         await this.loadLessons();
       }
     } catch (error: any) {
       console.error('Error reporting issue:', error);
-      await this.showToast(
-        error?.error?.message || 'Failed to report issue. Please try again.',
-        'danger'
-      );
+      await this.showToast(error?.error?.message || 'Failed to report issue.', 'danger');
     } finally {
       await loading.dismiss();
     }
   }
-  
-  /**
-   * Show toast message
-   */
+
+  scrollToLesson(lessonId: string) {
+    const el = document.getElementById(`lesson-${lessonId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-lesson');
+      setTimeout(() => el.classList.remove('highlight-lesson'), 2000);
+    }
+  }
+
+  trackByProcessedId(index: number, pl: ProcessedLesson): string {
+    return pl.id;
+  }
+
   private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
     const toast = await this.toastController.create({
       message,
@@ -717,55 +772,5 @@ export class LessonsPage implements OnInit, OnDestroy {
       position: 'bottom'
     });
     await toast.present();
-  }
-
-  /**
-   * Check if tutor has already added a note for this lesson
-   */
-  hasTutorNote(lesson: Lesson): boolean {
-    const tutorNote = (lesson as any).tutorNote;
-    return !!(tutorNote && tutorNote.text);
-  }
-
-  /**
-   * Navigate to add/edit tutor note for a lesson
-   */
-  addTutorNote(lesson: Lesson) {
-    // Navigate to the post-lesson-tutor page to add a note
-    this.router.navigate(['/post-lesson-tutor', lesson._id]);
-  }
-
-  /**
-   * View the tutor's note for a lesson
-   */
-  async viewTutorNote(lesson: Lesson) {
-    const tutorNote = (lesson as any).tutorNote;
-    
-    if (!tutorNote || !tutorNote.text) {
-      await this.showToast('No note found for this lesson', 'warning');
-      return;
-    }
-
-    this.selectedNoteLesson = lesson;
-    this.isNoteModalOpen = true;
-  }
-
-  /**
-   * Close the note modal
-   */
-  closeNoteModal() {
-    this.isNoteModalOpen = false;
-    this.selectedNoteLesson = null;
-  }
-
-  /**
-   * Edit note from modal
-   */
-  editNoteFromModal() {
-    if (this.selectedNoteLesson) {
-      const lesson = this.selectedNoteLesson;
-      this.closeNoteModal();
-      this.addTutorNote(lesson);
-    }
   }
 }

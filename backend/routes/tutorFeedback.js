@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../middleware/videoUploadMiddleware');
+const { verifyToken, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const TutorFeedback = require('../models/TutorFeedback');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
@@ -15,7 +15,7 @@ const Notification = require('../models/Notification');
  */
 router.get('/pending', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -25,10 +25,9 @@ router.get('/pending', verifyToken, async (req, res) => {
     }
     
     // ── SELF-HEALING BACKFILL ──────────────────────────────────────
-    // Find completed lessons (last 30 days) for this tutor where AI was
-    // disabled *at lesson time*, that are missing a TutorFeedback record.
-    // Uses the immutable snapshot field; falls back to live profile for
-    // legacy lessons that pre-date the snapshot.
+    // Find completed lessons (last 30 days) where AI analysis was DISABLED
+    // that are missing a TutorFeedback record. For AI-analyzed lessons,
+    // tutor feedback is optional and no pending record is created.
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -37,38 +36,22 @@ router.get('/pending', verifyToken, async (req, res) => {
         tutorId: user._id,
         status: 'completed',
         isTrialLesson: { $ne: true },
+        aiAnalysisEnabledAtTime: false, // Only non-AI lessons require feedback
         startTime: { $gte: thirtyDaysAgo }
       })
-      .populate('studentId', 'profile')
+      .select('_id studentId')
       .lean();
       
+      // Batch-check which lessons already have feedback records
+      const lessonIds = completedLessons.map(l => l._id);
+      const existingFeedbacks = await TutorFeedback.find({
+        lessonId: { $in: lessonIds }
+      }).select('lessonId').lean();
+      const existingLessonIds = new Set(existingFeedbacks.map(f => f.lessonId.toString()));
+      
       for (const lesson of completedLessons) {
-        // Determine AI setting: prefer snapshot, fall back to live profile
-        let aiEnabledAtTime;
-        if (lesson.aiAnalysisEnabledAtTime !== null && lesson.aiAnalysisEnabledAtTime !== undefined) {
-          aiEnabledAtTime = lesson.aiAnalysisEnabledAtTime;
-        } else {
-          // Legacy lesson without snapshot — use live profile as best guess
-          const studentProfile = lesson.studentId?.profile;
-          aiEnabledAtTime = studentProfile?.aiAnalysisEnabled !== false; // Default true
-        }
+        if (existingLessonIds.has(lesson._id.toString())) continue; // Already tracked
         
-        if (aiEnabledAtTime) continue; // AI was on — skip, AI handles analysis
-        
-        // Check if TutorFeedback already exists for this lesson
-        const existingFeedback = await TutorFeedback.findOne({ lessonId: lesson._id });
-        if (existingFeedback) continue; // Already tracked
-        
-        // Check if tutor already submitted a note via the post-lesson page
-        const LessonAnalysis = require('../models/LessonAnalysis');
-        const existingAnalysis = await LessonAnalysis.findOne({
-          lessonId: lesson._id,
-          source: 'tutor',
-          status: 'completed'
-        });
-        if (existingAnalysis) continue; // Tutor already provided assessment via note
-        
-        // Missing! Create the TutorFeedback record now.
         const studentId = typeof lesson.studentId === 'object' ? lesson.studentId._id : lesson.studentId;
         
         console.log(`🔧 [Backfill] Creating missing TutorFeedback for lesson ${lesson._id} (tutor: ${user._id}, student: ${studentId})`);
@@ -77,7 +60,8 @@ router.get('/pending', verifyToken, async (req, res) => {
           lessonId: lesson._id,
           tutorId: user._id,
           studentId: studentId,
-          status: 'pending'
+          status: 'pending',
+          required: true
         });
       }
     } catch (backfillError) {
@@ -86,13 +70,15 @@ router.get('/pending', verifyToken, async (req, res) => {
     }
     // ── END BACKFILL ───────────────────────────────────────────────
     
-    // Find pending feedback (supports both _id and auth0Id storage)
+    // Find REQUIRED pending feedback only (supports both _id and auth0Id storage)
+    // required: { $ne: false } matches true and undefined (legacy records)
     const pendingFeedback = await TutorFeedback.find({
       $or: [
         { tutorId: user._id },
         { tutorId: user.auth0Id }
       ],
-      status: 'pending'
+      status: 'pending',
+      required: { $ne: false }
     })
     .sort({ createdAt: -1 })
     .lean();
@@ -180,7 +166,7 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
     const { feedbackId } = req.params;
     const { strengths, areasForImprovement, homework, overallNotes, estimatedCefrLevel } = req.body;
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -467,6 +453,22 @@ router.post('/:feedbackId/submit', verifyToken, async (req, res) => {
       console.error('⚠️ Error checking milestone after tutor feedback:', milestoneErr.message);
     }
     
+    // ── Recalculate coaching metrics immediately ──────────────────
+    // So the tutor sees updated stats on /tabs/progress right away
+    // instead of waiting for the daily 2 AM cron job.
+    try {
+      const { evaluateTutorForBadge } = require('../jobs/evaluateCoachingBadges');
+      // Re-fetch the tutor user (not lean) so it can be saved
+      const tutorUser = await User.findById(user._id);
+      if (tutorUser) {
+        const evalResult = await evaluateTutorForBadge(tutorUser);
+        console.log(`📊 Real-time coaching metrics updated for tutor ${user._id}:`, evalResult.metrics);
+      }
+    } catch (evalErr) {
+      // Non-critical — cron job will catch up
+      console.error('⚠️ Error recalculating coaching metrics (non-critical):', evalErr.message);
+    }
+    
     console.log(`✅ Tutor feedback submitted for lesson ${feedback.lessonId} — CEFR: ${estimatedCefrLevel}`);
     
     res.json({
@@ -489,7 +491,7 @@ router.get('/lesson/:lessonId', verifyToken, async (req, res) => {
   try {
     const { lessonId } = req.params;
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }

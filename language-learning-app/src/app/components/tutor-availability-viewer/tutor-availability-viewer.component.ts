@@ -82,6 +82,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   isTrialLesson = false;
   isCheckingTrial = false;
   
+  // Tutor blocked flag (has pending feedback, not accepting bookings)
+  tutorBlocked = false;
+  
   // Computed properties to avoid function calls in template
   currentUserIsTutor = false;
   weekRangeDisplay = '';
@@ -334,6 +337,14 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           next: async (response) => {
             this.availability = response.availability || [];
             this.timezone = response.timezone || 'America/New_York';
+            
+            // Check if tutor is accepting bookings
+            if (response.acceptingBookings === false) {
+              this.tutorBlocked = true;
+              console.log('⚠️ [AvailabilityViewer] Tutor is not accepting bookings (pending feedback)');
+            } else {
+              this.tutorBlocked = false;
+            }
             
             // Clear slot caches but NOT bookedSlots (that's managed separately)
             this.slotsCache.clear();
@@ -957,6 +968,11 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean; isPast?: boolean }) {
+    // Don't allow booking if tutor is blocked (pending feedback)
+    if (this.tutorBlocked) {
+      return;
+    }
+    
     // Don't allow booking if slot is already booked or in the past
     if (slot.booked || slot.isPast) {
       return;

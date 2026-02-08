@@ -155,11 +155,6 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
 
   ngOnInit() {
     this.loadCurrentUser();
-    
-    // Load coaching metrics for tutors
-    if (this.isTutor()) {
-      this.loadCoachingMetrics();
-    }
   }
   
   ngAfterViewInit() {
@@ -192,8 +187,13 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
     // Only reload data on subsequent visits (after initial load)
     // This prevents duplicate loading on first page load
     if (this.currentUser && this.hasInitiallyLoaded) {
-      console.log('🔄 [Progress] Reloading data on page re-enter...');
-      this.loadAnalyses();
+      if (this.isTutor()) {
+        console.log('🔄 [Progress] Reloading coaching metrics on page re-enter...');
+        this.loadCoachingMetrics();
+      } else {
+        console.log('🔄 [Progress] Reloading analyses on page re-enter...');
+        this.loadAnalyses();
+      }
     }
   }
 
@@ -206,9 +206,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
         console.log('📊 [Tab3] Loading analyses for student');
         this.loadAnalyses();
       } else if (user?.userType === 'tutor') {
-        console.log('🎓 [Tab3] User is tutor - stopping loading and loading coaching metrics');
-        // For tutors, just stop loading and show coaching metrics
+        console.log('🎓 [Tab3] User is tutor - loading coaching metrics');
         this.loading = false;
+        this.loadCoachingMetrics();
       }
     });
   }
@@ -1394,7 +1394,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       
       if (response.success) {
         this.coachingMetrics = response.data;
+        this.hasInitiallyLoaded = true;
         console.log('🎓 Loaded coaching metrics:', this.coachingMetrics);
+        this.cdr.detectChanges();
       }
     } catch (error: any) {
       console.error('❌ Error loading coaching metrics:', error);

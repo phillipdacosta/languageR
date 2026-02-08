@@ -56,7 +56,7 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
   selectedTime: string | null = null;
   selectedDateFormatted: string = '';
   selectedTimeFormatted: string = '';
-  lessonDuration: number = 25; // Default lesson duration in minutes
+  lessonDuration: 25 | 50 = 25; // Default lesson duration in minutes
   animationDirection: 'forward' | 'backward' = 'forward';
 
   constructor(

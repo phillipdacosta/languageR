@@ -29,6 +29,7 @@ interface PaymentBreakdown {
   classId?: string;
   className?: string;
   isClassPayment?: boolean;
+  paymentType?: string;
   cancelReason?: string;
 }
 
@@ -100,6 +101,13 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   paypalEmail: string = '';
   stripeConnectAccountId: string = '';
   
+  // Filters modal state
+  isFiltersModalOpen: boolean = false;
+  activeFilterCount: number = 0;
+  dateRangeLabel: string = '';
+  studentFilterLabel: string = '';
+  statusFilterLabel: string = '';
+
   // Withdrawal modal state
   isWithdrawalModalOpen: boolean = false;
   withdrawalAmount: number = 0;
@@ -255,6 +263,7 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
         
         // Apply filters
         this.applyFilters();
+        this.updateFilterState();
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
@@ -767,6 +776,54 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   onFilterChange() {
     this.applyFilters();
+    this.updateFilterState();
+  }
+
+  // Filters modal
+  openFiltersModal() {
+    this.isFiltersModalOpen = true;
+  }
+
+  closeFiltersModal() {
+    this.isFiltersModalOpen = false;
+  }
+
+  updateFilterState() {
+    // Count active filters
+    let count = 0;
+    if (this.selectedDateRange !== 'all') count++;
+    if (this.selectedStudent !== 'all') count++;
+    if (this.selectedStatus !== 'all') count++;
+    this.activeFilterCount = count;
+
+    // Compute date range label
+    switch (this.selectedDateRange) {
+      case 'today': this.dateRangeLabel = 'Today'; break;
+      case 'week': this.dateRangeLabel = 'Last 7 days'; break;
+      case 'month': this.dateRangeLabel = 'This month'; break;
+      case 'year': this.dateRangeLabel = 'This year'; break;
+      case 'custom':
+        if (this.customStartDate && this.customEndDate) {
+          this.dateRangeLabel = `${this.customStartDate} – ${this.customEndDate}`;
+        } else {
+          this.dateRangeLabel = 'Custom range';
+        }
+        break;
+      default: this.dateRangeLabel = ''; break;
+    }
+
+    // Student label
+    if (this.selectedStudent !== 'all') {
+      const s = this.uniqueStudents.find(s => s.name === this.selectedStudent);
+      this.studentFilterLabel = s?.name || this.selectedStudent;
+    } else {
+      this.studentFilterLabel = '';
+    }
+
+    // Status label
+    this.statusFilterLabel = this.selectedStatus !== 'all'
+      ? this.getStatusText(this.selectedStatus)
+      : '';
   }
 
   clearFilters() {
@@ -776,6 +833,7 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.customStartDate = '';
     this.customEndDate = '';
     this.applyFilters();
+    this.updateFilterState();
   }
 
   hasActiveFilters(): boolean {

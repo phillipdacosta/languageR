@@ -233,13 +233,15 @@ router.get('/coaching-metrics', verifyToken, async (req, res) => {
       success: true,
       data: {
         feedbackRate: metrics.feedbackRate || 0,
-        avgQuality: metrics.averageFeedbackQuality || 0,
-        currentStreak: metrics.coachingBadge?.qualifyingStreak || 0,
-        totalLessons: metrics.totalLessonsCompleted || 0,
-        totalFeedback: metrics.totalFeedbackProvided || 0,
-        badgeActive: metrics.coachingBadge?.active || false,
-        badgeEarnedAt: metrics.coachingBadge?.earnedAt || null,
-        lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+        averageFeedbackQuality: metrics.averageFeedbackQuality || 0,
+        totalLessonsCompleted: metrics.totalLessonsCompleted || 0,
+        totalFeedbackProvided: metrics.totalFeedbackProvided || 0,
+        coachingBadge: {
+          active: metrics.coachingBadge?.active || false,
+          qualifyingStreak: metrics.coachingBadge?.qualifyingStreak || 0,
+          earnedAt: metrics.coachingBadge?.earnedAt || null,
+          lastEvaluated: metrics.coachingBadge?.lastEvaluated || null
+        }
       }
     });
   } catch (error) {
@@ -1554,10 +1556,22 @@ router.get('/tutors-with-new-availability', verifyToken, async (req, res) => {
       'availability.0': { $exists: true }
     }).select('_id firstName lastName picture lastAvailabilityUpdate availability');
     
+    // Filter out tutors with pending feedback (not accepting bookings)
+    const TutorFeedback = require('../models/TutorFeedback');
+    const blockedTutorIds = [];
+    for (const tutor of tutorsWithNewAvailability) {
+      const pendingCount = await TutorFeedback.countDocuments({ tutorId: tutor._id, status: 'pending', required: { $ne: false } });
+      if (pendingCount > 0) {
+        blockedTutorIds.push(tutor._id.toString());
+        console.log(`⚠️ Tutor ${tutor.firstName} has ${pendingCount} pending feedback - excluding from availability`);
+      }
+    }
+    const availableTutors = tutorsWithNewAvailability.filter(t => !blockedTutorIds.includes(t._id.toString()));
+
     // Filter to only include tutors with FUTURE availability that has UNBOOKED slots
     const tutorData = [];
     
-    for (const tutor of tutorsWithNewAvailability) {
+    for (const tutor of availableTutors) {
       if (!tutor.availability || tutor.availability.length === 0) continue;
       
       // Check if any availability block is in the future
@@ -1742,13 +1756,27 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
     console.log('📅 Availability blocks (filtered, excluding classes and old blocks):', actualAvailability.length);
     console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
+    // Check if tutor has pending feedback (blocks new bookings)
+    const TutorFeedback = require('../models/TutorFeedback');
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
+      tutorId: tutor._id,
+      status: 'pending',
+      required: { $ne: false }
+    });
+    const acceptingBookings = pendingFeedbackCount === 0;
+
+    if (!acceptingBookings) {
+      console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} pending feedback - not accepting bookings`);
+    }
+
     const totalDuration = Date.now() - startTime;
     console.log(`⏱️ [Availability] Total request time: ${totalDuration}ms`);
 
     res.json({ 
       success: true, 
       availability: actualAvailability,
-      timezone: tutor.profile?.timezone || 'America/New_York'
+      timezone: tutor.profile?.timezone || 'America/New_York',
+      acceptingBookings
     });
 
   } catch (error) {

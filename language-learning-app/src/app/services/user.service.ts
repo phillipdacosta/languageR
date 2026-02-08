@@ -897,8 +897,8 @@ export class UserService {
   /**
    * Get tutor availability by tutor ID (public)
    */
-  getTutorAvailability(tutorId: string): Observable<{ success: boolean; availability: any[]; timezone?: string }> {
-    return this.http.get<{ success: boolean; availability: any[]; timezone?: string }>(
+  getTutorAvailability(tutorId: string): Observable<{ success: boolean; availability: any[]; timezone?: string; acceptingBookings?: boolean }> {
+    return this.http.get<{ success: boolean; availability: any[]; timezone?: string; acceptingBookings?: boolean }>(
       `${this.apiUrl}/users/${tutorId}/availability`
     ).pipe(
       tap(response => {

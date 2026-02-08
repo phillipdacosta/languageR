@@ -23,6 +23,7 @@ const Notification = require('../models/Notification');
 const Message = require('../models/Message');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
+const TutorFeedback = require('../models/TutorFeedback');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -145,6 +146,23 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     // ==========================================
     // VALIDATION CHECKS - Must all pass before creating lesson
     // ==========================================
+
+    // 0. CHECK: Tutor has no REQUIRED pending feedback (block new bookings)
+    const pendingFeedbackCount = await TutorFeedback.countDocuments({
+      tutorId: tutor._id,
+      status: 'pending',
+      required: { $ne: false }
+    });
+
+    if (pendingFeedbackCount > 0) {
+      console.log(`🚫 Blocking payment booking - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      return res.status(403).json({
+        success: false,
+        message: 'Tutor not accepting bookings at this time.',
+        code: 'PENDING_FEEDBACK',
+        pendingCount: pendingFeedbackCount
+      });
+    }
     
     const lessonStartTime = new Date(lessonData.startTime);
     const lessonEndTime = new Date(lessonData.endTime);
@@ -1266,6 +1284,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         classId: payment.classId?._id || null,
         className: payment.classId?.name || null,
         isClassPayment,
+        paymentType: payment.paymentType || 'lesson_booking',
         receiptUrl: payment.receiptUrl || null,
         stripeChargeId: payment.stripeChargeId || null,
         paypalTransactionId: payment.paypalTransactionId || null

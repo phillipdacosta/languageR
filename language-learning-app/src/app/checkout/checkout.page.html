@@ -155,7 +155,14 @@
           <div class="payment-content" *ngIf="selectedPaymentTab === 'card'">
             <!-- Show Add New Card Form -->
             <div class="card-form-section" *ngIf="isAddingNewCard || savedCards.length === 0">
-              <h3 class="section-title">Payment information</h3>
+              <div class="section-title-row">
+                <h3 class="section-title">Payment information</h3>
+                <!-- Back to saved cards link (only if has saved cards) -->
+                <button *ngIf="savedCards.length > 0" class="back-to-cards-link" (click)="cancelAddCard()">
+                  <ion-icon name="arrow-back-outline"></ion-icon>
+                  Back to saved cards
+                </button>
+              </div>
               
               <!-- Card Brand Icons -->
               <div class="card-brands">
@@ -237,12 +244,6 @@
                   Save this card for future purchases
                 </label>
               </div>
-
-              <!-- Back to saved cards link (only if has saved cards) -->
-              <button *ngIf="savedCards.length > 0" class="back-to-cards-link" (click)="cancelAddCard()">
-                <ion-icon name="arrow-back-outline"></ion-icon>
-                Back to saved cards
-              </button>
             </div>
 
             <!-- Saved Cards List -->

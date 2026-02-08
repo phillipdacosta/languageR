@@ -49,6 +49,12 @@ const tutorFeedbackSchema = new mongoose.Schema({
     default: null
   },
   
+  // Whether this feedback is required (AI analysis disabled) or optional (AI handles it)
+  required: {
+    type: Boolean,
+    default: true
+  },
+  
   // Metadata
   status: {
     type: String,

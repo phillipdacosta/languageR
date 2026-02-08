@@ -1,240 +1,152 @@
-<ion-header>
+<ion-header class="ion-no-border">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-button (click)="goBack()">
-        <ion-icon name="arrow-back"></ion-icon>
+      <ion-button (click)="goBack()" class="back-btn">
+        <ion-icon name="chevron-back"></ion-icon>
       </ion-button>
     </ion-buttons>
-    <ion-title>My Earnings</ion-title>
+    <ion-title>Earnings</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <!-- Close Button (Top Right) -->
-  <div class="close-button-container">
-    <ion-button (click)="goToHome()" fill="clear" class="close-button-top">
-      <ion-icon name="close"></ion-icon>
-    </ion-button>
-  </div>
-
+<ion-content>
   <!-- Loading State -->
   <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent"></ion-spinner>
+    <ion-spinner name="crescent" color="dark"></ion-spinner>
     <p>Loading earnings...</p>
   </div>
 
   <!-- Error State -->
   <div *ngIf="error && !loading" class="error-container">
-    <ion-icon name="alert-circle" color="danger"></ion-icon>
+    <ion-icon name="alert-circle-outline"></ion-icon>
     <p>{{ error }}</p>
-    <ion-button (click)="loadEarnings()" fill="outline">
-      <ion-icon name="refresh" slot="start"></ion-icon>
-      Retry
-    </ion-button>
+    <button class="retry-btn" (click)="loadEarnings()">Try again</button>
   </div>
 
-  <!-- Earnings Summary -->
+  <!-- Earnings Content -->
   <div *ngIf="!loading && !error" class="earnings-content">
     
-    <!-- NEW: Withdrawal System Balance Cards -->
-    <div class="balance-section">
-      <div class="section-header">
-        <h2>Your Balance</h2>
-        <ion-button 
-          (click)="requestWithdrawal()" 
-          [disabled]="withdrawing || balance.available <= 0"
-          size="small"
-          class="withdraw-button">
-          <ion-icon name="cash-outline" slot="start"></ion-icon>
-          Withdraw Funds
-        </ion-button>
+    <!-- Balance Strip -->
+    <div class="balance-strip">
+      <div class="balance-stat pending-stat"
+           [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+           (click)="toggleWalletVisibility($event, 'pending')">
+        <span class="stat-label">Pending</span>
+        <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+        <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+        <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
+        <span class="stat-sub">24hr hold</span>
       </div>
-
-      <div class="balance-cards">
-        <div class="balance-card pending">
-          <div class="card-content">
-            <div class="card-label">Pending</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'pending')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">24hr hold period</div>
-          </div>
-        </div>
-
-        <div class="balance-card available">
-          <div class="card-content">
-            <div class="card-label">Available</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'available')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">Ready to withdraw</div>
-          </div>
-        </div>
-
-        <div class="balance-card lifetime">
-          <div class="card-content">
-            <div class="card-label">Lifetime Earnings</div>
-            <div class="card-value wallet-value" 
-                 [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
-                 (click)="toggleWalletVisibility($event, 'lifetime')">
-              <span class="wallet-amount" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="wallet-dots">••••</span></span>
-              <span class="wallet-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
-              <span class="wallet-amount-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
-            </div>
-            <div class="card-sublabel">Total earned</div>
-          </div>
-        </div>
+      <div class="stat-divider"></div>
+      <div class="balance-stat available-stat"
+           [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+           (click)="toggleWalletVisibility($event, 'available')">
+        <span class="stat-label">Available</span>
+        <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+        <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+        <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.available.toFixed(2) }}</span>
+        <span class="stat-sub">Ready to withdraw</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="balance-stat lifetime-stat"
+           [class.wallet-hidden]="!showWalletBalance && !walletTemporarilyVisible"
+           (click)="toggleWalletVisibility($event, 'lifetime')">
+        <span class="stat-label">Lifetime</span>
+        <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+        <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
+        <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.lifetime.toFixed(2) }}</span>
+        <span class="stat-sub">Total earned</span>
       </div>
     </div>
 
-    <!-- Withdrawal History -->
-    <div class="payment-breakdown">
-      <div class="section-header-with-filters">
-        <h3>Recent Lessons</h3>
-        <ion-button 
-          fill="clear" 
-          size="small" 
-          (click)="clearFilters()"
-          class="clear-filters-btn"
-          [class.hidden]="!hasActiveFilters()">
-          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-          Clear Filters
-        </ion-button>
+    <!-- Withdraw Button -->
+    <div class="withdraw-row">
+      <button 
+        class="withdraw-btn"
+        (click)="requestWithdrawal()" 
+        [disabled]="withdrawing || balance.available <= 0">
+        Withdraw Funds
+      </button>
+    </div>
+
+    <!-- Transactions Section -->
+    <div class="transactions-section">
+      <div class="transactions-header">
+        <h2>Transactions</h2>
       </div>
 
-      <!-- Filters -->
-      <div class="filters-container">
-        <!-- Date Filter -->
-        <div class="filter-group">
-          <label>Date</label>
-          <ion-select 
-            [(ngModel)]="selectedDateRange" 
-            (ionChange)="onFilterChange()"
-            interface="popover"
-            placeholder="All dates">
-            <ion-select-option value="all">All dates</ion-select-option>
-            <ion-select-option value="today">Today</ion-select-option>
-            <ion-select-option value="week">Last 7 days</ion-select-option>
-            <ion-select-option value="month">This month</ion-select-option>
-            <ion-select-option value="year">This year</ion-select-option>
-            <ion-select-option value="custom">Custom range</ion-select-option>
-          </ion-select>
+      <!-- Airbnb-style Filters Trigger -->
+      <div class="filters-trigger-container">
+        <button class="filters-trigger-btn" (click)="openFiltersModal()">
+          <ion-icon name="options-outline"></ion-icon>
+          <span>Filters</span>
+          <span class="filter-count" *ngIf="activeFilterCount > 0">{{ activeFilterCount }}</span>
+        </button>
+        
+        <!-- Active Filter Chips -->
+        <div class="active-filters-preview" *ngIf="activeFilterCount > 0">
+          <span class="filter-chip-preview" *ngIf="selectedDateRange !== 'all'">
+            {{ dateRangeLabel }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="selectedStudent !== 'all'">
+            {{ selectedStudent }}
+          </span>
+          <span class="filter-chip-preview" *ngIf="selectedStatus !== 'all'">
+            {{ getStatusText(selectedStatus) }}
+          </span>
         </div>
-
-        <!-- Custom Date Range -->
-        <div class="filter-group custom-date-range" *ngIf="selectedDateRange === 'custom'">
-          <label>Start Date</label>
-          <input 
-            type="date" 
-            [(ngModel)]="customStartDate" 
-            (change)="onFilterChange()"
-            class="date-input"
-            [max]="customEndDate || undefined">
-        </div>
-
-        <div class="filter-group custom-date-range" *ngIf="selectedDateRange === 'custom'">
-          <label>End Date</label>
-          <input 
-            type="date" 
-            [(ngModel)]="customEndDate" 
-            (change)="onFilterChange()"
-            class="date-input"
-            [min]="customStartDate || undefined">
-        </div>
-
-        <!-- Student Filter -->
-        <div class="filter-group">
-          <label>Student</label>
-          <ion-select 
-            [(ngModel)]="selectedStudent" 
-            (ionChange)="onFilterChange()"
-            interface="popover"
-            placeholder="All students">
-            <ion-select-option value="all">All students</ion-select-option>
-            <ion-select-option *ngFor="let student of uniqueStudents" [value]="student.id">
-              {{ student.name }}
-            </ion-select-option>
-          </ion-select>
-        </div>
-
-        <!-- Status Filter -->
-        <div class="filter-group">
-          <label>Status</label>
-          <ion-select 
-            [(ngModel)]="selectedStatus" 
-            (ionChange)="onFilterChange()"
-            interface="popover"
-            placeholder="All statuses">
-            <ion-select-option value="all">All statuses</ion-select-option>
-            <ion-select-option *ngFor="let status of uniqueStatuses" [value]="status">
-              {{ getStatusText(status) }}
-            </ion-select-option>
-          </ion-select>
-        </div>
+        
+        <button class="clear-all-inline" *ngIf="activeFilterCount > 0" (click)="clearFilters()">
+          Clear all
+        </button>
       </div>
       
-      <div *ngIf="recentPayments.length === 0" class="no-payments">
-        <ion-icon name="document-text-outline"></ion-icon>
-        <p>No lessons yet</p>
-        <p class="sublabel">Earnings from lessons will appear here</p>
+      <!-- Empty States -->
+      <div *ngIf="recentPayments.length === 0" class="empty-state">
+        <ion-icon name="receipt-outline"></ion-icon>
+        <p class="empty-title">No transactions yet</p>
+        <p class="empty-sub">Earnings from lessons will appear here</p>
       </div>
 
-      <div *ngIf="recentPayments.length > 0 && filteredPayments.length === 0" class="no-payments">
+      <div *ngIf="recentPayments.length > 0 && filteredPayments.length === 0" class="empty-state">
         <ion-icon name="filter-outline"></ion-icon>
-        <p>No payments match your filters</p>
-        <p class="sublabel">Try adjusting your filter criteria</p>
-        <ion-button fill="outline" size="small" (click)="clearFilters()" class="clear-filters-btn-inline">
-          Clear Filters
-        </ion-button>
+        <p class="empty-title">No results</p>
+        <p class="empty-sub">Try adjusting your filters</p>
+        <button class="clear-link inline" (click)="clearFilters()">Clear filters</button>
       </div>
 
-      <!-- Table View -->
-      <div *ngIf="filteredPayments.length > 0" class="payments-table-container">
-        <table class="payments-table">
+      <!-- Transaction Table -->
+      <div *ngIf="filteredPayments.length > 0" class="table-wrap">
+        <table class="txn-table">
           <thead>
             <tr>
-              <th>Date & Time</th>
+              <th>Date</th>
               <th>Student</th>
               <th>Status</th>
-              <th>Gross</th>
-              <th>Platform Fee</th>
-              <th>Your Earnings</th>
+              <th class="right">Gross</th>
+              <th class="right">Fee</th>
+              <th class="right">Earnings</th>
             </tr>
           </thead>
           <tbody>
             <tr 
               *ngFor="let payment of filteredPayments" 
-              class="payment-row"
+              class="txn-row"
               [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
-              [class.refunded-row]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
-              [class.class-payment-row]="payment.isClassPayment"
+              [class.refunded]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
               (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.lessonId) && viewLesson(payment.lessonId)">
               
-              <!-- Date & Time -->
-              <td class="datetime-col">
-                <div class="datetime-info">
-                  <div class="date">{{ payment.date | date:'MMM d, y' }}</div>
-                  <div class="time" *ngIf="payment.startTime && payment.endTime">
-                    {{ payment.startTime | date:'h:mm a' }} - {{ payment.endTime | date:'h:mm a' }}
-                  </div>
-                  <div class="time" *ngIf="!payment.startTime || !payment.endTime">
-                    Time not set
-                  </div>
-                </div>
+              <!-- Date -->
+              <td class="date-col">
+                <span class="date-primary">{{ payment.date | date:'MMM d' }}</span>
+                <span class="date-secondary" *ngIf="payment.startTime">{{ payment.startTime | date:'h:mm a' }}</span>
+                <span class="date-secondary" *ngIf="!payment.startTime">—</span>
               </td>
               
               <!-- Student -->
               <td class="student-col">
-                <div class="student-info">
-                  <div class="student-avatar" *ngIf="payment.studentPicture">
+                <div class="student-row">
+                  <div class="avatar" *ngIf="payment.studentPicture">
                     <img 
                       [src]="payment.studentPicture" 
                       [alt]="payment.studentName"
@@ -242,68 +154,55 @@
                       loading="lazy"
                       (error)="onImageError($event)">
                   </div>
-                  <div class="student-avatar fallback" *ngIf="!payment.studentPicture">
+                  <div class="avatar fallback" *ngIf="!payment.studentPicture">
                     <ion-icon name="person"></ion-icon>
                   </div>
-                  <div class="student-details">
-                    <span class="student-name">{{ payment.studentName }}</span>
-                    <span class="class-name" *ngIf="payment.isClassPayment && payment.className">
-                      <ion-icon name="people-outline"></ion-icon>
-                      {{ payment.className }}
-                    </span>
+                  <div class="student-meta">
+                    <span class="name">{{ payment.studentName }}</span>
+                    <span class="type-label tip" *ngIf="payment.paymentType === 'tip'">(tip)</span>
+                    <span class="type-label class-label" *ngIf="payment.isClassPayment && payment.className">{{ payment.className }}</span>
                   </div>
                 </div>
               </td>
               
               <!-- Status -->
               <td class="status-col">
-                <div class="status-wrapper">
-                  <ion-badge [color]="getStatusColor(payment.status)">
-                    {{ getStatusText(payment.status) }}
-                  </ion-badge>
-                  <div class="status-reason" *ngIf="getStatusNote(payment)">
-                    {{ getStatusNote(payment) }}
-                  </div>
+                <div class="status-indicator">
+                  <span class="status-dot" [ngClass]="'dot-' + payment.status"></span>
+                  <span class="status-text">{{ getStatusText(payment.status) }}</span>
                 </div>
+                <span class="status-note" *ngIf="getStatusNote(payment)">{{ getStatusNote(payment) }}</span>
               </td>
               
               <!-- Gross -->
-              <td class="amount-col">
+              <td class="amount-col right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
-                  <span class="cancelled-amount strikethrough">${{ (payment.amount || payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
+                  <span class="struck">${{ (payment.amount || payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status === 'partially_refunded'">
-                  <div class="amount-with-original">
-                    <span class="original-strikethrough">${{ (payment.amount || 0).toFixed(2) }}</span>
-                    <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
-                  </div>
+                  <span class="struck small">${{ (payment.amount || 0).toFixed(2) }}</span>
+                  <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
                   ${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}
                 </ng-container>
               </td>
               
-              <!-- Platform Fee -->
-              <td class="amount-col fee-col">
+              <!-- Fee -->
+              <td class="amount-col fee right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">$0.00</ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded'">
                   ${{ payment.platformFee.toFixed(2) }}
                 </ng-container>
               </td>
               
-              <!-- Your Earnings -->
-              <td class="amount-col earnings-col">
+              <!-- Earnings -->
+              <td class="amount-col earnings right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">
-                  <span class="cancelled-earnings">$0.00</span>
+                  <span class="zero">$0.00</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status === 'partially_refunded'">
-                  <div class="amount-with-badge">
-                    <span class="reduced-amount">${{ payment.tutorPayout.toFixed(2) }}</span>
-                    <ion-badge color="warning" class="refund-badge-small">
-                      <ion-icon name="alert-circle"></ion-icon>
-                      Reduced
-                    </ion-badge>
-                  </div>
+                  <span class="reduced">${{ payment.tutorPayout.toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
                   <span [class.tentative]="payment.status === 'processing' || payment.status === 'scheduled'">
@@ -316,17 +215,190 @@
         </table>
       </div>
     </div>
-
-    <!-- Help Text -->
-    <!-- <div class="help-text">
-      <ion-icon name="information-circle-outline"></ion-icon>
-      <div>
-        <p><strong>New Withdrawal System:</strong> Earnings are held for 24 hours after lesson completion for dispute protection, then become available for withdrawal.</p>
-        <p>You can withdraw your available balance at any time. Withdrawals are processed within 1-2 business days.</p>
-      </div>
-    </div> -->
   </div>
 </ion-content>
+
+<!-- Earnings Filters Modal (Airbnb-style) -->
+<ion-modal 
+  [isOpen]="isFiltersModalOpen" 
+  (didDismiss)="closeFiltersModal()"
+  cssClass="earnings-filters-modal">
+  <ng-template>
+    <ion-header class="ef-header ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeFiltersModal()" class="ef-close-btn">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>Filters</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ef-content">
+      <!-- Selected Filters Cap -->
+      <section class="ef-selected-section" *ngIf="hasActiveFilters()">
+        <h3 class="ef-section-title">Selected</h3>
+        <div class="ef-selected-chips">
+          <button class="ef-filter-chip" *ngIf="selectedDateRange !== 'all'" (click)="selectedDateRange = 'all'; onFilterChange()">
+            <span>{{ dateRangeLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="ef-filter-chip" *ngIf="selectedStudent !== 'all'" (click)="selectedStudent = 'all'; onFilterChange()">
+            <span>{{ studentFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+          <button class="ef-filter-chip" *ngIf="selectedStatus !== 'all'" (click)="selectedStatus = 'all'; onFilterChange()">
+            <span>{{ statusFilterLabel }}</span>
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+      </section>
+
+      <div class="ef-divider" *ngIf="hasActiveFilters()"></div>
+
+      <!-- Time Period Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">Time period</h3>
+        <div class="ef-time-grid">
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'all'"
+            (click)="selectedDateRange = 'all'; onFilterChange()">
+            All time
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'today'"
+            (click)="selectedDateRange = 'today'; onFilterChange()">
+            Today
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'week'"
+            (click)="selectedDateRange = 'week'; onFilterChange()">
+            Last 7 days
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'month'"
+            (click)="selectedDateRange = 'month'; onFilterChange()">
+            This month
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'year'"
+            (click)="selectedDateRange = 'year'; onFilterChange()">
+            This year
+          </button>
+          <button 
+            class="ef-time-btn"
+            [class.active]="selectedDateRange === 'custom'"
+            (click)="selectedDateRange = 'custom'; onFilterChange()">
+            Custom
+          </button>
+        </div>
+
+        <!-- Custom Date Range -->
+        <div class="ef-custom-dates" *ngIf="selectedDateRange === 'custom'">
+          <div class="ef-date-field">
+            <label>Start date</label>
+            <input 
+              type="date" 
+              [(ngModel)]="customStartDate" 
+              (change)="onFilterChange()"
+              [max]="customEndDate || undefined">
+          </div>
+          <div class="ef-date-field">
+            <label>End date</label>
+            <input 
+              type="date" 
+              [(ngModel)]="customEndDate" 
+              (change)="onFilterChange()"
+              [min]="customStartDate || undefined">
+          </div>
+        </div>
+      </section>
+
+      <div class="ef-divider"></div>
+
+      <!-- Student Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">Student</h3>
+        <div class="ef-student-list">
+          <button 
+            class="ef-student-btn"
+            [class.active]="selectedStudent === 'all'"
+            (click)="selectedStudent = 'all'; onFilterChange()">
+            <span>All students</span>
+            <div class="ef-check" *ngIf="selectedStudent === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="ef-student-btn"
+            *ngFor="let student of uniqueStudents"
+            [class.active]="selectedStudent === student.id"
+            (click)="selectedStudent = student.id; onFilterChange()">
+            <div class="ef-student-info">
+              <div class="ef-avatar" *ngIf="student.picture">
+                <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer" (error)="onImageError($event)">
+              </div>
+              <div class="ef-avatar fallback" *ngIf="!student.picture">
+                <ion-icon name="person"></ion-icon>
+              </div>
+              <span>{{ student.name }}</span>
+            </div>
+            <div class="ef-check" *ngIf="selectedStudent === student.id">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="ef-divider"></div>
+
+      <!-- Status Section -->
+      <section class="ef-section">
+        <h3 class="ef-section-title">Status</h3>
+        <div class="ef-status-list">
+          <button 
+            class="ef-status-btn"
+            [class.active]="selectedStatus === 'all'"
+            (click)="selectedStatus = 'all'; onFilterChange()">
+            <span class="ef-status-dot dot-all"></span>
+            <span>All statuses</span>
+            <div class="ef-check" *ngIf="selectedStatus === 'all'">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+          <button 
+            class="ef-status-btn"
+            *ngFor="let status of uniqueStatuses"
+            [class.active]="selectedStatus === status"
+            (click)="selectedStatus = status; onFilterChange()">
+            <span class="ef-status-dot" [ngClass]="'dot-' + status"></span>
+            <span>{{ getStatusText(status) }}</span>
+            <div class="ef-check" *ngIf="selectedStatus === status">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+          </button>
+        </div>
+      </section>
+    </ion-content>
+
+    <ion-footer class="ef-footer ion-no-border">
+      <div class="ef-footer-content">
+        <button class="ef-clear-btn" (click)="clearFilters()" [disabled]="!hasActiveFilters()">
+          Clear all
+        </button>
+        <button class="ef-apply-btn" (click)="closeFiltersModal()">
+          Show {{ filteredPayments.length }} result{{ filteredPayments.length !== 1 ? 's' : '' }}
+        </button>
+      </div>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
 
 <!-- Inline Withdrawal Modal -->
 <ion-modal 

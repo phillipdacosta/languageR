@@ -1,114 +1,122 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Manage Cards</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="dismiss()">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
-<ion-content>
-  <div class="modal-content">
-    <!-- Add New Card Section -->
-    <div class="add-card-section" *ngIf="!isAddingNewCard">
-      <ion-button expand="block" fill="outline" class="add-card-btn" (click)="showAddCardForm()">
-        <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-        Add New Card
-      </ion-button>
+<div class="modal-backdrop">
+  <div class="modal-card">
+    <!-- Header -->
+    <div class="modal-header">
+      <h2>Payment method</h2>
+      <button class="close-btn" (click)="dismiss()">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
     </div>
 
-    <!-- New Card Form -->
-    <div class="new-card-form" *ngIf="isAddingNewCard">
-      <h3>Add New Card</h3>
-      
-      <div class="card-element-container">
-        <div id="modal-card-element"></div>
-      </div>
-
-      <ion-item lines="none" class="set-default-checkbox">
-        <ion-checkbox slot="start" [(ngModel)]="setAsDefault"></ion-checkbox>
-        <ion-label>Set as default card</ion-label>
-      </ion-item>
-
-      <div class="form-actions">
-        <ion-button fill="clear" (click)="cancelAddCard()" [disabled]="isSaving">
-          Cancel
-        </ion-button>
-        <ion-button (click)="saveNewCard()" [disabled]="isSaving">
-          <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
-          {{ isSaving ? 'Saving...' : 'Save Card' }}
-        </ion-button>
-      </div>
+    <!-- Loading -->
+    <div class="loading-state" *ngIf="isLoading">
+      <ion-spinner name="crescent" color="medium"></ion-spinner>
+      <p>Loading your cards…</p>
     </div>
 
-    <!-- Saved Cards List -->
-    <div class="saved-cards-section" *ngIf="savedCards.length > 0">
-      <h3 *ngIf="!isAddingNewCard">Your Cards</h3>
-      <h3 *ngIf="isAddingNewCard">Saved Cards</h3>
-      
-      <div class="cards-list">
-        <div 
-          *ngFor="let card of savedCards" 
-          class="card-item"
-          [class.default-card]="card.isDefault"
-          (click)="selectCard(card)">
-          
-          <div class="card-icon">
-            <ion-icon name="card"></ion-icon>
-          </div>
-          
-          <div class="card-info">
-            <div class="card-title">
-              {{ card.brand | titlecase }} •••• {{ card.last4 }}
+    <!-- Content -->
+    <div class="modal-body" *ngIf="!isLoading">
+
+      <!-- Saved Cards List -->
+      <div class="saved-cards-section" *ngIf="!isAddingNewCard && savedCards.length > 0">
+        <h3 class="section-title">Your saved cards</h3>
+
+        <div class="saved-cards-list">
+          <div
+            *ngFor="let card of savedCards"
+            class="saved-card-item"
+            [class.selected]="selectedCardId === card.stripePaymentMethodId"
+            [class.expired]="isCardExpired(card)"
+            (click)="selectCard(card)">
+
+            <!-- Card Brand Logo -->
+            <div class="card-brand-logo">
+              <img *ngIf="card.brand?.toLowerCase() === 'visa'" src="assets/card-brands/visa-logo.png" alt="Visa">
+              <img *ngIf="card.brand?.toLowerCase() === 'mastercard'" src="assets/card-brands/mastercard-logo.png" alt="Mastercard">
+              <img *ngIf="card.brand?.toLowerCase() === 'amex' || card.brand?.toLowerCase() === 'american express'" src="assets/card-brands/Amex_logo_color.png" alt="Amex">
+              <img *ngIf="card.brand?.toLowerCase() === 'discover'" src="assets/card-brands/discover-logo.png" alt="Discover">
+              <img *ngIf="card.brand?.toLowerCase() === 'unionpay'" src="assets/card-brands/unionpay.svg" alt="UnionPay">
+              <div class="generic-card" *ngIf="!['visa', 'mastercard', 'amex', 'american express', 'discover', 'unionpay'].includes(card.brand?.toLowerCase())">
+                <ion-icon name="card"></ion-icon>
+              </div>
             </div>
-            <div class="card-subtitle">
-              Expires {{ card.expiryMonth }}/{{ card.expiryYear }}
+
+            <!-- Card Details -->
+            <div class="card-details">
+              <div class="card-name">{{ card.brand | titlecase }} ending in {{ card.last4 }}</div>
+              <div class="card-expiry">Exp. date {{ card.expiryMonth | number:'2.0-0' }}/{{ card.expiryYear?.toString()?.slice(-2) }}</div>
             </div>
-          </div>
-          
-          <ion-badge *ngIf="card.isDefault" color="primary" class="default-badge">
-            Default
-          </ion-badge>
-          
-          <div class="card-actions" (click)="$event.stopPropagation()">
-            <ion-button 
-              *ngIf="!card.isDefault"
-              fill="clear" 
-              size="small"
-              class="set-default-btn"
-              (click)="setDefaultCard(card.stripePaymentMethodId)">
-              Set Default
-            </ion-button>
-            <ion-button 
-              fill="clear" 
-              size="small"
-              color="danger"
-              class="remove-btn"
-              (click)="removeCard(card.stripePaymentMethodId)">
-              <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-            </ion-button>
+
+            <!-- Card Actions -->
+            <div class="card-actions" (click)="$event.stopPropagation()">
+              <span class="default-badge" *ngIf="card.isDefault">Default</span>
+              <button class="set-default-btn" *ngIf="!card.isDefault && !isCardExpired(card)" (click)="setCardAsDefault(card, $event)">Set as Default</button>
+              <span class="expired-badge" *ngIf="isCardExpired(card)">Expired</span>
+              <button class="delete-card-btn" (click)="deleteCard(card, $event)" title="Delete card">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
           </div>
         </div>
+
+        <button class="add-new-card-btn" (click)="showAddCardForm()">
+          <ion-icon name="add-circle-outline"></ion-icon>
+          Add new card
+        </button>
+      </div>
+
+      <!-- Add New Card Form -->
+      <div class="card-form-section" *ngIf="isAddingNewCard || savedCards.length === 0">
+        <div class="section-title-row">
+          <h3 class="section-title">Payment information</h3>
+          <button *ngIf="savedCards.length > 0" class="back-to-cards-link" (click)="cancelAddCard()">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            Back to saved cards
+          </button>
+        </div>
+
+        <!-- Card Brand Icons -->
+        <div class="card-brands">
+          <img src="assets/card-brands/4-card-logo.png" alt="Accepted cards" onerror="this.style.display='none'">
+        </div>
+
+        <!-- Card Number Row -->
+        <div class="form-row card-number-row">
+          <div class="form-group card-number-group">
+            <label>Card number</label>
+            <div id="modal-card-number-element" class="stripe-element"></div>
+          </div>
+          <div class="form-group expiry-group">
+            <label>Expiry date</label>
+            <div id="modal-card-expiry-element" class="stripe-element"></div>
+          </div>
+          <div class="form-group cvc-group">
+            <label>CVC</label>
+            <div id="modal-card-cvc-element" class="stripe-element"></div>
+          </div>
+        </div>
+
+        <!-- Name on Card -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Name on card</label>
+            <input type="text" [(ngModel)]="cardholderName" placeholder="e.g. John Smith" class="form-input">
+          </div>
+        </div>
+
+        <!-- Save Card Button -->
+        <button class="save-card-btn" (click)="saveNewCard()" [disabled]="isSaving">
+          <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+          <span *ngIf="!isSaving">Save Card</span>
+        </button>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="savedCards.length === 0 && !isAddingNewCard && !isLoading">
+        <ion-icon name="card-outline"></ion-icon>
+        <p>No saved cards yet</p>
+        <p class="subtitle">Add a card to get started</p>
       </div>
     </div>
-
-    <!-- Empty State -->
-    <div class="empty-state" *ngIf="savedCards.length === 0 && !isAddingNewCard">
-      <ion-icon name="card-outline"></ion-icon>
-      <p>No saved cards yet</p>
-      <p class="subtitle">Add a card to get started</p>
-    </div>
   </div>
-</ion-content>
-
-
-
-
-
-
-
-
-
-
+</div>
