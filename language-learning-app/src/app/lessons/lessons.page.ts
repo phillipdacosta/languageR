@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { UserService } from '../services/user.service';
@@ -122,7 +121,6 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     private tutorFeedbackService: TutorFeedbackService,
     private router: Router,
     private route: ActivatedRoute,
-    private location: Location,
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController,
@@ -568,7 +566,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   // ─── Actions (called from template click handlers) ───
   goBack() {
-    this.location.back();
+    this.router.navigate(['/tabs/home']);
   }
 
   goToHome() {
