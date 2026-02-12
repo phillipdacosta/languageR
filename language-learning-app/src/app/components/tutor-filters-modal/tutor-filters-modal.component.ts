@@ -51,6 +51,10 @@ export class TutorFiltersModalComponent implements OnInit, OnDestroy {
   priceRange = { lower: 0, upper: 200 };
   resultCount: number | null = null;
   isLoadingCount = false;
+
+  // Pre-computed active filters (no function calls in template)
+  activeFiltersList: ActiveFilter[] = [];
+  hasActiveFiltersVisible = false;
   
   // Expanded sections
   expandedSections: Set<string> = new Set(['language']); // Language expanded by default
@@ -486,8 +490,15 @@ export class TutorFiltersModalComponent implements OnInit, OnDestroy {
     this.triggerCountUpdate();
   }
 
+  // Refresh the pre-computed active filters list (for template)
+  private refreshActiveFilters() {
+    this.activeFiltersList = this.getActiveFilters();
+    this.hasActiveFiltersVisible = this.activeFiltersList.length > 0;
+  }
+
   // Result count
   private triggerCountUpdate() {
+    this.refreshActiveFilters();
     this.countSubject$.next();
   }
 

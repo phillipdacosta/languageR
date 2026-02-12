@@ -39,6 +39,7 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   isVideoModalOpen = false;
   selectedTab: 'pending' | 'approved' | 'rejected' = 'pending';
   private videoUploadSubscription?: Subscription;
+  private credentialUploadSubscription?: Subscription;
   
   // Track which specific tutors have new videos (by tutor ID)
   tutorsWithUpdates = new Set<string>();
@@ -97,12 +98,28 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       // Optional: Show subtle toast
       this.showToast(`${data.tutorName} uploaded a new video`, 'primary');
     });
+
+    // Listen for new credential uploads from tutors
+    this.credentialUploadSubscription = this.webSocketService.tutorCredentialUploaded$.subscribe((data: any) => {
+      console.log('📄 Admin received credential upload notification:', data);
+      
+      this.tutorsWithUpdates.add(data.tutorId);
+      this.showNewVideosAlert = true;
+      this.newVideosCount++;
+      
+      const credLabel = data.credentialType === 'governmentId' ? 'government ID' : 
+                         data.credentialType === 'teachingCertification' ? 'teaching certification' : 'document';
+      this.showToast(`${data.tutorName} uploaded a ${credLabel}`, 'primary');
+    });
   }
 
   ngOnDestroy() {
-    // Clean up subscription
+    // Clean up subscriptions
     if (this.videoUploadSubscription) {
       this.videoUploadSubscription.unsubscribe();
+    }
+    if (this.credentialUploadSubscription) {
+      this.credentialUploadSubscription.unsubscribe();
     }
   }
 
@@ -254,6 +271,16 @@ export class TutorReviewPage implements OnInit, OnDestroy {
       tutor._isExternalVideo = tutor._videoUrl.includes('vimeo.com') || 
                                tutor._videoUrl.includes('youtube.com') || 
                                tutor._videoUrl.includes('youtu.be');
+
+      // Credential status enrichment
+      const creds = tutor.tutorCredentials;
+      tutor._hasGovernmentId = !!creds?.governmentId?.url;
+      tutor._governmentIdStatus = creds?.governmentId?.status || 'not_uploaded';
+      tutor._hasCertifications = (creds?.teachingCertifications?.length || 0) > 0;
+      tutor._hasAdditionalDocs = (creds?.additionalDocuments?.length || 0) > 0;
+      tutor._credentialsAllApproved = 
+        creds?.governmentId?.status === 'approved' && 
+        creds?.teachingCertifications?.some((c: any) => c.status === 'approved');
       
       return tutor;
     };
@@ -640,6 +667,142 @@ export class TutorReviewPage implements OnInit, OnDestroy {
     console.log('🎬 Closing video modal');
     this.isVideoModalOpen = false;
     this.selectedTutor = null;
+  }
+
+  // ============================================================
+  // CREDENTIAL REVIEW METHODS
+  // ============================================================
+
+  getCredentialBadgeColor(status: string): string {
+    if (status === 'approved') return 'success';
+    if (status === 'rejected') return 'danger';
+    return 'warning'; // pending
+  }
+
+  hasPendingCredentials(tutor: any): boolean {
+    const creds = tutor.tutorCredentials;
+    if (!creds) return false;
+    
+    if (creds.governmentId?.status === 'pending') return true;
+    if (creds.teachingCertifications?.some((c: any) => c.status === 'pending')) return true;
+    if (creds.additionalDocuments?.some((d: any) => d.status === 'pending')) return true;
+    return false;
+  }
+
+  hasAnyCredentials(tutor: any): boolean {
+    const creds = tutor.tutorCredentials;
+    if (!creds) return false;
+    
+    return !!(creds.governmentId?.url || 
+      creds.teachingCertifications?.length || 
+      creds.additionalDocuments?.length);
+  }
+
+  async reviewCredential(tutor: any, credentialType: string, credentialId: string | null, approved: boolean) {
+    if (!approved) {
+      // Ask for rejection reason
+      const alert = await this.alertController.create({
+        header: 'Reject Document',
+        message: 'Provide a reason for rejection:',
+        inputs: [
+          {
+            name: 'reason',
+            type: 'textarea',
+            placeholder: 'Rejection reason...'
+          }
+        ],
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          {
+            text: 'Reject',
+            handler: async (data) => {
+              if (data.reason) {
+                await this.submitCredentialReview(tutor._id, credentialType, credentialId, false, data.reason);
+              }
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
+    // Approve directly
+    const alert = await this.alertController.create({
+      header: 'Approve Document',
+      message: `Approve this ${credentialType === 'governmentId' ? 'government ID' : 'document'}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Approve',
+          handler: async () => {
+            await this.submitCredentialReview(tutor._id, credentialType, credentialId, true, null);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async submitCredentialReview(
+    tutorId: string, 
+    credentialType: string, 
+    credentialId: string | null, 
+    approved: boolean, 
+    rejectionReason: string | null
+  ) {
+    const loading = await this.loadingController.create({
+      message: approved ? 'Approving...' : 'Rejecting...'
+    });
+    await loading.present();
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<any>(
+          `${environment.apiUrl}/admin/review-credential/${tutorId}`,
+          { credentialType, credentialId, approved, rejectionReason },
+          { headers: this.userService.getAuthHeadersSync() }
+        )
+      );
+
+      await loading.dismiss();
+
+      if (response.success) {
+        this.showToast(
+          approved ? 'Credential approved!' : 'Credential rejected',
+          approved ? 'success' : 'warning'
+        );
+        // Refresh tutor list
+        await this.loadAllTutors();
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      this.showToast(error.error?.message || 'Failed to review credential', 'danger');
+    }
+  }
+
+  async viewCredential(tutorId: string, credentialType: string, credentialId?: string) {
+    try {
+      // Build the URL path based on credential type
+      let urlPath = `${environment.backendUrl}/api/admin/credential-url/${tutorId}/${credentialType}`;
+      if (credentialId) {
+        urlPath += `/${credentialId}`;
+      }
+
+      const headers = this.userService.getAuthHeadersSync();
+      const response = await firstValueFrom(
+        this.http.get<{ success: boolean; url: string }>(urlPath, { headers })
+      );
+
+      if (response?.url) {
+        window.open(response.url, '_blank');
+      } else {
+        this.showToast('Could not load document', 'danger');
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching credential URL:', error);
+      this.showToast('Failed to load document', 'danger');
+    }
   }
 }
 

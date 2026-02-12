@@ -78,7 +78,6 @@
       <!-- Skip Option -->
       <ion-button 
         [fill]="allStepsComplete ? 'solid' : 'clear'"
-        [color]="allStepsComplete ? 'success' : 'medium'"
         size="small"
         class="skip-button"
         [class.done-button]="allStepsComplete"
@@ -183,6 +182,191 @@
             </app-video-upload>
             
 
+          </div>
+
+          <!-- Credentials Step -->
+          <div *ngIf="currentStep.id === 'credentials'" class="credentials-step">
+            
+            <!-- Hidden file inputs -->
+            <input type="file" id="gov-id-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onCredentialSelected($event, 'governmentId')">
+            <input type="file" id="cert-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onCertificationSelected($event)">
+            <input type="file" id="additional-doc-input" accept="image/*,.pdf" style="display: none;"
+              (change)="onAdditionalDocSelected($event)">
+
+            <!-- Government ID Section -->
+            <div class="credential-section">
+              <div class="section-header">
+                <ion-icon name="id-card-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Government-Issued ID</h3>
+                  <p>Passport, driver's license, or national ID card</p>
+                </div>
+                <div class="status-pill" [ngClass]="governmentIdStatus">
+                  {{ governmentIdStatusLabel }}
+                </div>
+              </div>
+              
+              <!-- Upload zone (no document yet or rejected) -->
+              <div class="upload-zone" 
+                *ngIf="!currentUser?.tutorCredentials?.governmentId?.url || currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
+                <div class="drop-area" (click)="triggerCredentialUpload('governmentId')">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                  <p>Tap to upload your ID</p>
+                  <span class="file-types">JPG, PNG, or PDF · Max 10MB</span>
+                </div>
+              </div>
+              
+              <!-- Uploaded document preview -->
+              <div class="uploaded-doc" *ngIf="currentUser?.tutorCredentials?.governmentId?.url && currentUser?.tutorCredentials?.governmentId?.status !== 'rejected'">
+                <div class="doc-preview">
+                  <ion-icon name="document-text" color="primary"></ion-icon>
+                  <div class="doc-info">
+                    <span class="doc-name">{{ currentUser.tutorCredentials.governmentId.fileName }}</span>
+                    <span class="doc-status" [ngClass]="currentUser.tutorCredentials.governmentId.status">
+                      {{ currentUser.tutorCredentials.governmentId.status === 'approved' ? '✓ Approved' : currentUser.tutorCredentials.governmentId.status === 'pending' ? '⏳ Pending Review' : '' }}
+                    </span>
+                  </div>
+                </div>
+                <ion-button fill="clear" size="small" color="danger" 
+                  *ngIf="currentUser.tutorCredentials.governmentId.status === 'pending'"
+                  (click)="removeCredential('governmentId')">
+                  <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+              
+              <!-- Rejection reason -->
+              <div class="rejection-notice" *ngIf="currentUser?.tutorCredentials?.governmentId?.status === 'rejected'">
+                <ion-icon name="alert-circle" color="danger"></ion-icon>
+                <span>{{ currentUser.tutorCredentials.governmentId.rejectionReason || 'Please re-upload your ID' }}</span>
+              </div>
+            </div>
+
+            <!-- Teaching Certifications Section -->
+            <div class="credential-section">
+              <div class="section-header">
+                <ion-icon name="ribbon-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Teaching Certifications</h3>
+                  <p>TEFL, CELTA, TESOL, or equivalent</p>
+                </div>
+              </div>
+              
+              <!-- Certification name input -->
+              <div class="cert-name-input" *ngIf="uploadedCertifications.length > 0 || true">
+                <ion-item lines="none" class="cert-name-item">
+                  <ion-input
+                    label="Certification name (optional)"
+                    labelPlacement="stacked"
+                    placeholder="e.g., TEFL, CELTA, Bachelor's in Education"
+                    [(ngModel)]="certificationNameInput">
+                  </ion-input>
+                </ion-item>
+              </div>
+              
+              <!-- List of uploaded certs -->
+              <div class="cert-list" *ngIf="uploadedCertifications.length > 0">
+                <div class="cert-item" *ngFor="let cert of uploadedCertifications; let i = index">
+                  <div class="cert-info">
+                    <ion-icon name="document-text" color="primary"></ion-icon>
+                    <div class="cert-details">
+                      <span class="cert-name">{{ cert.certificationName || cert.fileName }}</span>
+                      <span class="cert-file" *ngIf="cert.certificationName">{{ cert.fileName }}</span>
+                    </div>
+                  </div>
+                  <div class="cert-status-row">
+                    <div class="status-pill small" [ngClass]="cert.status">
+                      {{ cert.status === 'approved' ? 'Approved' : cert.status === 'rejected' ? 'Rejected' : 'Pending' }}
+                    </div>
+                    <ion-button fill="clear" size="small" color="danger" 
+                      *ngIf="cert.status === 'pending'"
+                      (click)="removeCertification(i)">
+                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                    </ion-button>
+                  </div>
+                  <!-- Rejection reason for this cert -->
+                  <div class="rejection-notice small" *ngIf="cert.status === 'rejected'">
+                    <ion-icon name="alert-circle" color="danger"></ion-icon>
+                    <span>{{ cert.rejectionReason || 'Please re-upload' }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Add cert button -->
+              <ion-button fill="outline" expand="block" class="add-cert-btn"
+                (click)="triggerCredentialUpload('certification')"
+                [disabled]="isUploadingCredential">
+                <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+                {{ uploadedCertifications.length > 0 ? 'Add Another Certification' : 'Upload Certification' }}
+              </ion-button>
+            </div>
+
+            <!-- Additional Documents (Optional) -->
+            <div class="credential-section optional-section">
+              <div class="section-header">
+                <ion-icon name="folder-open-outline" class="section-icon"></ion-icon>
+                <div class="section-text">
+                  <h3>Additional Documents <span class="optional-tag">Optional</span></h3>
+                  <p>Degree, resume, reference letters, etc.</p>
+                </div>
+              </div>
+              
+              <!-- List of uploaded docs -->
+              <div class="cert-list" *ngIf="uploadedAdditionalDocs.length > 0">
+                <div class="cert-item" *ngFor="let doc of uploadedAdditionalDocs; let i = index">
+                  <div class="cert-info">
+                    <ion-icon name="document-attach" color="medium"></ion-icon>
+                    <div class="cert-details">
+                      <span class="cert-name">{{ doc.label || doc.fileName }}</span>
+                      <span class="cert-file" *ngIf="doc.label">{{ doc.fileName }}</span>
+                    </div>
+                  </div>
+                  <div class="cert-status-row">
+                    <div class="status-pill small" [ngClass]="doc.status">
+                      {{ doc.status === 'approved' ? 'Approved' : doc.status === 'rejected' ? 'Rejected' : 'Pending' }}
+                    </div>
+                    <ion-button fill="clear" size="small" color="danger" 
+                      *ngIf="doc.status === 'pending'"
+                      (click)="removeAdditionalDoc(i)">
+                      <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                    </ion-button>
+                  </div>
+                </div>
+              </div>
+              
+              <ion-button fill="outline" expand="block" class="add-cert-btn" color="medium"
+                (click)="triggerCredentialUpload('additionalDocument')"
+                [disabled]="isUploadingCredential">
+                <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+                Add Document
+              </ion-button>
+            </div>
+
+            <!-- Info cards -->
+            <div class="info-cards">
+              <div class="info-card">
+                <ion-icon name="lock-closed-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Secure & Private</h4>
+                  <p>Documents are encrypted and only visible to our review team</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="time-outline" color="primary"></ion-icon>
+                <div class="info-text">
+                  <h4>Quick Review</h4>
+                  <p>Typically reviewed within 24-48 hours</p>
+                </div>
+              </div>
+              <div class="info-card">
+                <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                <div class="info-text">
+                  <h4>Required for Verification</h4>
+                  <p>Government ID and at least one teaching certification are required</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Payment Setup Step -->
@@ -397,11 +581,10 @@
           </div>
         </div>
 
-        <!-- Primary Action Button (Photo & Video steps) -->
+        <!-- Primary Action Button (Photo & Video steps only) -->
         <ion-button 
-          *ngIf="currentStep.id !== 'stripe'"
+          *ngIf="currentStep.id === 'photo' || currentStep.id === 'video'"
           expand="block" 
-          color="primary" 
           size="large"
           class="primary-action"
           [disabled]="currentStep.completed"
@@ -418,13 +601,12 @@
             {{ currentStep.completed ? 'Completed' : currentStep.title }}
           </span>
         </ion-button>
-        <p>You can change your photo later in the settings but it must always be a professional photo.</p>
+        <p *ngIf="currentStep.id === 'photo'">You can change your photo later in the settings but it must always be a professional photo.</p>
 
         <!-- Primary Action Button (Payment step - only shown on setup-method sub-step) -->
         <ion-button 
           *ngIf="currentStep.id === 'stripe' && paymentSetupStep === 'setup-method' && !approvalStatus?.stripeComplete"
           expand="block" 
-          color="primary" 
           size="large"
           class="primary-action"
           [disabled]="!canSetupPayment()"

@@ -64,6 +64,26 @@
   &:hover { opacity: 0.8; }
 }
 
+.go-back-link {
+  background: none;
+  border: none;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 8px 0;
+  flex-shrink: 0;
+  position: relative;
+  left: 170px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
 /* ── Main Wrapper ─────────────────────────────────────── */
 .ed {
   max-width: var(--ed-page-max);
@@ -89,12 +109,18 @@
   padding: 32px 0 24px;
 }
 
+.ed-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
 .ed-status-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
 }
 
 .ed-status {
@@ -659,6 +685,12 @@ ion-header {
     --border-width: 0;
     --padding-start: 8px;
     --padding-end: 8px;
+    
+    .go-back-link {
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
   }
 }
 

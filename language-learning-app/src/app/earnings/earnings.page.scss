@@ -29,10 +29,11 @@ ion-toolbar {
   
   .back-btn {
     --color: #{$text-primary};
-    
-    ion-icon {
-      font-size: 22px;
-    }
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    text-decoration: underline;
   }
 }
 
@@ -81,6 +82,34 @@ ion-toolbar {
   }
 }
 
+// ----- Inline Wrapper (when embedded in another page) -----
+.earnings-inline-wrapper {
+  .earnings-content {
+    padding-top: 8px; // Less top padding when inline (parent already has padding)
+  }
+}
+
+// ----- Inline Chrome (always visible, not behind loading) -----
+.inline-earnings-chrome {
+  padding-bottom: 0; // No bottom padding, content continues below
+}
+
+// ----- Inline Header -----
+.inline-earnings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  .inline-earnings-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    margin: 0;
+  }
+}
+
 // ----- Content Wrapper -----
 .earnings-content {
   max-width: 960px;
@@ -89,9 +118,38 @@ ion-toolbar {
 }
 
 // =============================================================
+// BALANCE STRIP ROW (strip + go back link)
+// =============================================================
+.balance-strip-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.go-back-link {
+  background: none;
+  border: none;
+  color: #222222;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 8px 0;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+// =============================================================
 // BALANCE STRIP
 // =============================================================
 .balance-strip {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: stretch;
   border: 1px solid $border;

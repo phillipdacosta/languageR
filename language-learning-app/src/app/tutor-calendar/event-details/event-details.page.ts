@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -8,6 +9,7 @@ import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
 import { TutorFeedbackService, TutorFeedback } from '../../services/tutor-feedback.service';
 import { PlatformService } from '../../services/platform.service';
+import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
@@ -131,6 +133,10 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   tipAmount = '';
   tipDate = '';
 
+  // Payment method info (student only)
+  paymentMethodLabel = '';
+  paymentMethodIcon = '';
+
   // Cancellation info
   isCancelled = false;
   cancelledByLabel = '';
@@ -175,7 +181,6 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   // Countdown
   private countdownInterval: any;
-  private returnUrl: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -186,17 +191,16 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private userService: UserService,
     private tutorFeedbackService: TutorFeedbackService,
     private platformService: PlatformService,
+    private walletService: WalletService,
     private sanitizer: DomSanitizer,
     private modalController: ModalController,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private location: Location
   ) {}
 
   ngOnInit() {
     this.eventId = this.route.snapshot.paramMap.get('id');
-    const fromParam = this.route.snapshot.queryParamMap.get('from');
-    const shouldReturnToNotifications = (this.platformService.isMobile() || this.platformService.isSmallScreen()) && fromParam === 'notifications';
-    this.returnUrl = shouldReturnToNotifications ? '/tabs/notifications' : '/tabs/tutor-calendar';
 
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
@@ -323,6 +327,23 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       },
       error: () => { /* billing data optional */ }
     });
+
+    // Load payment method (student only)
+    if (this.isStudentUser) {
+      this.walletService.getPaymentHistory(100).subscribe({
+        next: (res) => {
+          if (res.success && res.payments) {
+            const payment = res.payments.find(
+              (p: any) => p.lessonId?._id === this.eventId && p.status !== 'cancelled' && p.status !== 'failed'
+            );
+            if (payment) {
+              this.computePaymentMethodLabel(payment.paymentMethod);
+            }
+          }
+        },
+        error: () => { /* payment method info optional */ }
+      });
+    }
   }
 
   // ── Compute Properties (no functions in template) ─────────────
@@ -522,9 +543,10 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   private computeReschedule() {
     if (!this.lesson?.rescheduleProposal) return;
     const rp = this.lesson.rescheduleProposal;
-    if (rp.status) {
+    // Only show for pending reschedule proposals — accepted/rejected are historical
+    if (rp.status && rp.status === 'pending') {
       this.hasReschedule = true;
-      this.rescheduleStatus = rp.status.charAt(0).toUpperCase() + rp.status.slice(1);
+      this.rescheduleStatus = 'Pending';
       if (rp.proposedStartTime && rp.proposedEndTime) {
         const s = new Date(rp.proposedStartTime);
         const e = new Date(rp.proposedEndTime);
@@ -586,6 +608,31 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       : '';
   }
 
+  private computePaymentMethodLabel(method: string) {
+    switch (method) {
+      case 'wallet':
+        this.paymentMethodLabel = 'Wallet';
+        this.paymentMethodIcon = 'wallet-outline';
+        break;
+      case 'card':
+        this.paymentMethodLabel = 'Credit / Debit card';
+        this.paymentMethodIcon = 'card-outline';
+        break;
+      case 'apple_pay':
+        this.paymentMethodLabel = 'Apple Pay';
+        this.paymentMethodIcon = 'logo-apple';
+        break;
+      case 'google_pay':
+        this.paymentMethodLabel = 'Google Pay';
+        this.paymentMethodIcon = 'logo-google';
+        break;
+      default:
+        this.paymentMethodLabel = method ? method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, ' ') : '';
+        this.paymentMethodIcon = 'card-outline';
+        break;
+    }
+  }
+
   private computeClassProperties() {
     if (!this.classData) return;
     // Compute status for class
@@ -640,11 +687,9 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   // ── Actions ───────────────────────────────────────────────────
 
   goBack() {
-    if (this.returnUrl) {
-      this.router.navigateByUrl(this.returnUrl);
-    } else {
-      this.router.navigate(['/tabs/tutor-calendar']);
-    }
+    // Use browser history to return to wherever the user came from
+    // (lessons page, tutor calendar, home, notifications, etc.)
+    this.location.back();
   }
 
   joinLesson() {

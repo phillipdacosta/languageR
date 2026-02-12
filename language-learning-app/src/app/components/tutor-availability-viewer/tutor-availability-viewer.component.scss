@@ -145,14 +145,14 @@
 
 .day-header {
   background: #fbfbfb;
-  padding: 12px 8px;
+  padding: 20px 8px 12px 8px;
   text-align: center;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
   border-right: 1px solid rgba(0, 0, 0, 0.04);
   
   @media (max-width: 768px) {
-    padding: 10px 5px;
+    padding: 18px 5px 10px 5px;
   }
   
   .day-name {
@@ -652,7 +652,7 @@
   }
   
   .day-header {
-    padding: 14px 6px;
+    padding: 20px 6px 14px 6px;
   }
   
   .time-slot-row { display: none; }

@@ -139,14 +139,11 @@
   }
 }
 
-.input-group {
-  display: flex;
-  gap: 8px;
+.link-input-wrapper {
   max-width: 100%;
   margin: 0 auto 16px;
   
   ion-input {
-    flex: 1;
     --background: white;
     --border-radius: 8px;
     --padding-start: 12px;
@@ -154,15 +151,64 @@
     border: 1px solid #ddd;
     border-radius: 8px;
   }
-  
-  ion-button {
-    --border-radius: 8px;
-    height: 40px;
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: -0.2px;
+}
+
+// Prominent Add Video CTA
+.add-video-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 24px;
+  margin-top: 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #e0e0e0;
+  color: #999;
+  letter-spacing: -0.1px;
+
+  ion-icon {
+    font-size: 22px;
   }
+
+  &.enabled {
+    background: #222222;
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+
+    &:hover {
+      background: #000000;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    &:active {
+      transform: scale(0.98);
+      box-shadow: none;
+    }
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.add-video-hint {
+  font-size: 13px;
+  color: #FF385C;
+  font-weight: 500;
+  margin: 10px 0 0 0;
+  animation: fadeInHint 0.3s ease;
+}
+
+@keyframes fadeInHint {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 // Thumbnail Upload Sections
@@ -498,11 +544,9 @@
     height: 200px;
   }
   
-  .input-group {
-    flex-direction: column;
-    
-    ion-button {
-      width: 100%;
-    }
+  .add-video-cta {
+    padding: 14px 20px;
+    font-size: 15px;
+    border-radius: 10px;
   }
 }

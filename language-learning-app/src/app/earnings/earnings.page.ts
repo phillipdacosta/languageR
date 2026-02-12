@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule, AlertController, ToastController, ModalController, ViewWillEnter } from '@ionic/angular';
+import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
@@ -65,6 +65,10 @@ interface WithdrawalHistory {
   imports: [CommonModule, IonicModule, RouterModule, FormsModule]
 })
 export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
+  // Inline mode: when embedded inside another page (e.g., home page)
+  @Input() inline: boolean = false;
+  @Output() goBackEvent = new EventEmitter<void>();
+
   loading: boolean = true;
   
   // NEW: Withdrawal system balance
@@ -129,7 +133,8 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     private websocketService: WebSocketService,
     private alertController: AlertController,
     private toastController: ToastController,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private navCtrl: NavController
   ) {
     // Subscribe to currentUser$ observable to get updates automatically when profile changes
     this.userService.currentUser$
@@ -291,7 +296,11 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   goBack() {
-    this.location.back();
+    if (this.inline) {
+      this.goBackEvent.emit();
+    } else {
+      this.navCtrl.back();
+    }
   }
 
   viewLesson(lessonId: string) {

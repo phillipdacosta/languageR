@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
 import { OnboardingGuard } from '../guards/onboarding.guard';
@@ -14,10 +15,16 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./tutor-onboarding.page.scss'],
   standalone: false,
 })
-export class TutorOnboardingPage implements OnInit {
+export class TutorOnboardingPage implements OnInit, AfterViewChecked {
   user$: Observable<User | null>;
   currentStep = 1;
-  totalSteps = 6; // Name + Native Language + Languages + Experience + Schedule + Profile
+  totalSteps = 9; // Name + Residence + Native Language + Languages + Experience + Schedule + Bio + Rate + Video
+
+  // Preview & Welcome state
+  showPreview = false;
+  showWelcome = false;
+  isSubmitting = false;
+  hasReachedPreview = false; // True once the user has visited the preview page at least once
 
   // Tutor onboarding data
   firstName = '';
@@ -39,16 +46,129 @@ export class TutorOnboardingPage implements OnInit {
       .join(' ')
       .trim();
   }
+
+  /**
+   * Formats text to ensure proper capitalization on a per-word basis:
+   * - Normalizes each word that has abnormal capitalization
+   * - Preserves legitimate acronyms (CERF, TEFL, CELTA, TESOL, etc.)
+   * - Preserves normal words (all lowercase or proper title case)
+   * - Ensures first letter of the entire text is uppercase
+   * 
+   * Examples:
+   * "THE BEST language tutor in the WOrLD!" -> "The best language tutor in the world!"
+   * "i have a cerf certificate" -> "I have a CERF certificate"
+   * "MY BIO IS IN CAPS" -> "My bio is in caps"
+   * "MMfsjkg kfjdgn" -> "Mmfsjkg kfjdgn"
+   */
+  private formatText(text: string): string {
+    if (!text) return '';
+    
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+
+    // Map of legitimate acronyms: lookup key (uppercase) -> display form
+    const acronymMap: Record<string, string> = {
+      'CERF': 'CERF', 'TEFL': 'TEFL', 'CELTA': 'CELTA', 'TESOL': 'TESOL',
+      'TOEFL': 'TOEFL', 'IELTS': 'IELTS', 'ESL': 'ESL', 'EFL': 'EFL',
+      'BA': 'BA', 'BS': 'BS', 'MA': 'MA', 'MS': 'MS', 'PHD': 'PhD',
+      'MBA': 'MBA', 'USA': 'USA', 'UK': 'UK', 'EU': 'EU', 'UN': 'UN',
+      'NATO': 'NATO', 'NASA': 'NASA', 'DELF': 'DELF', 'DALF': 'DALF',
+      'HSK': 'HSK', 'JLPT': 'JLPT', 'DELE': 'DELE', 'CILS': 'CILS',
+      'TEF': 'TEF', 'TCF': 'TCF', 'CPE': 'CPE', 'CAE': 'CAE', 'FCE': 'FCE'
+    };
+
+    // Process each alphabetical word, preserving all non-alpha characters in place
+    const result = trimmed.replace(/[a-zA-Z]+/g, (word) => {
+      // Check if word is a known acronym (case-insensitive)
+      const upperWord = word.toUpperCase();
+      if (acronymMap[upperWord]) {
+        return acronymMap[upperWord];
+      }
+
+      // Single letter: keep as-is (handles "I", "a", etc.)
+      if (word.length === 1) {
+        return word;
+      }
+
+      // Check if word already has "normal" capitalization
+      const isAllLower = word === word.toLowerCase();
+      const isTitleCase = word[0] === word[0].toUpperCase() && word.slice(1) === word.slice(1).toLowerCase();
+
+      if (isAllLower || isTitleCase) {
+        return word; // Normal casing — leave it alone
+      }
+
+      // Abnormal casing detected (ALL CAPS, rAnDoM caps, MMfsjkg, WOrLD, etc.)
+      // Normalize to lowercase — first-letter capitalization handled below
+      return word.toLowerCase();
+    });
+
+    // Ensure first letter of the entire text is uppercase
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  }
+
+  /**
+   * Format first name on blur (title case)
+   */
+  formatFirstNameOnBlur() {
+    if (this.firstName) {
+      this.firstName = this.formatName(this.firstName);
+    }
+  }
+
+  /**
+   * Format last name on blur (title case)
+   */
+  formatLastNameOnBlur() {
+    if (this.lastName) {
+      this.lastName = this.formatName(this.lastName);
+    }
+  }
+
+  /**
+   * Format summary text on blur
+   */
+  formatSummaryOnBlur() {
+    if (this.profileSummary) {
+      this.profileSummary = this.formatText(this.profileSummary);
+    }
+  }
+
+  /**
+   * Format bio text on blur
+   */
+  formatBioOnBlur() {
+    if (this.profileBio) {
+      this.profileBio = this.formatText(this.profileBio);
+    }
+  }
   residenceCountry = ''; // Where do you currently reside? (for payout purposes)
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
+  profileSummary = '';
   profileBio = '';
   hourlyRate = 25;
   introductionVideo = ''; // Introduction video URL
   thumbnailUrl = ''; // Custom thumbnail URL for the video
   videoType: 'upload' | 'youtube' | 'vimeo' = 'upload'; // Video type
+  hasVideoLinkPending = false; // True when user has entered a link but not clicked "Add Video"
+
+  // Video player modal state
+  isVideoPlayerModalOpen = false;
+  videoPlayerData: {
+    videoUrl: string;
+    safeVideoUrl?: SafeResourceUrl;
+    videoType: 'upload' | 'youtube' | 'vimeo';
+  } | null = null;
+
+  // ViewChild references for autofocus
+  @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('summaryInput') summaryInput?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('bioInput') bioInput?: ElementRef<HTMLTextAreaElement>;
+  
+  private previousStep = 0;
 
   // Available options
   availableLanguages = [
@@ -222,11 +342,13 @@ export class TutorOnboardingPage implements OnInit {
     private authService: AuthService,
     private userService: UserService,
     private router: Router,
+    private sanitizer: DomSanitizer,
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
     private toastController: ToastController,
-    private onboardingGuard: OnboardingGuard
+    private onboardingGuard: OnboardingGuard,
+    private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
   }
@@ -265,6 +387,35 @@ export class TutorOnboardingPage implements OnInit {
         });
       });
     });
+  }
+
+  ngAfterViewChecked() {
+    // Focus first input and scroll sidebar when step changes
+    if (this.currentStep !== this.previousStep) {
+      this.previousStep = this.currentStep;
+      setTimeout(() => {
+        this.focusFirstInput();
+        this.scrollCurrentStepIntoView();
+      }, 100);
+    }
+  }
+
+  private scrollCurrentStepIntoView() {
+    const currentStepEl = document.querySelector('.step-item.current');
+    if (currentStepEl) {
+      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  private focusFirstInput() {
+    // Focus the first input/textarea based on current step
+    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
+      this.firstNameInput.nativeElement.focus();
+    } else if (this.currentStep === 7 && this.summaryInput?.nativeElement) {
+      this.summaryInput.nativeElement.focus();
+    } else if (this.currentStep === 7 && this.bioInput?.nativeElement && !this.summaryInput?.nativeElement) {
+      this.bioInput.nativeElement.focus();
+    }
   }
 
   nextStep() {
@@ -325,10 +476,6 @@ export class TutorOnboardingPage implements OnInit {
     const { data } = await modal.onWillDismiss();
     if (data && data.selectedCountry) {
       this.country = data.selectedCountry;
-      // Default residence to same as nationality if not yet set
-      if (!this.residenceCountry) {
-        this.residenceCountry = data.selectedCountry;
-      }
     }
   }
 
@@ -375,17 +522,66 @@ export class TutorOnboardingPage implements OnInit {
     this.videoType = 'upload';
   }
 
+  onVideoPendingStateChanged(isPending: boolean) {
+    this.hasVideoLinkPending = isPending;
+  }
+
+  openVideoPlayerModal() {
+    if (!this.introductionVideo) return;
+    
+    let videoUrl = this.introductionVideo;
+    
+    // Add autoplay parameter for external videos
+    if (this.videoType === 'youtube' || this.videoType === 'vimeo') {
+      const separator = videoUrl.includes('?') ? '&' : '?';
+      if (!videoUrl.includes('autoplay=')) {
+        videoUrl = videoUrl + separator + 'autoplay=1';
+      }
+    }
+    
+    this.videoPlayerData = {
+      videoUrl: videoUrl,
+      safeVideoUrl: this.sanitizer.bypassSecurityTrustResourceUrl(videoUrl),
+      videoType: this.videoType
+    };
+    this.isVideoPlayerModalOpen = true;
+  }
+
+  onVideoPlayerModalDismiss() {
+    this.isVideoPlayerModalOpen = false;
+    this.videoPlayerData = null;
+  }
+
+  showPreviewPage() {
+    this.showPreview = true;
+    this.hasReachedPreview = true;
+    // Scroll to top when preview page is shown
+    setTimeout(() => {
+      const previewContainer = document.querySelector('.preview-container');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }, 0);
+  }
+
+  goBackToEdit(step?: number) {
+    this.showPreview = false;
+    if (step) {
+      this.currentStep = step;
+    }
+  }
+
+  getNativeLanguageName(): string {
+    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    return lang ? lang.name : this.nativeLanguage;
+  }
+
   async completeOnboarding() {
-    const loading = await this.loadingController.create({
-      message: 'Completing setup...',
-      spinner: 'crescent'
-    });
-    await loading.present();
+    this.isSubmitting = true;
 
     try {
-      // First, ensure user exists in database
       console.log('🔍 Creating/updating tutor in database...');
-      console.log('🔍 localStorage selectedUserType:', localStorage.getItem('selectedUserType'));
       const auth0User = await this.authService.getUserProfile().pipe(take(1)).toPromise();
       
       if (!auth0User) {
@@ -410,7 +606,8 @@ export class TutorOnboardingPage implements OnInit {
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
-        bio: this.profileBio,
+        summary: this.formatText(this.profileSummary),
+        bio: this.formatText(this.profileBio),
         hourlyRate: this.hourlyRate,
         introductionVideo: this.introductionVideo, // Include introduction video
         videoThumbnail: this.thumbnailUrl, // Include custom thumbnail
@@ -450,21 +647,18 @@ export class TutorOnboardingPage implements OnInit {
       console.log('🔄 Force refreshing user in UserService');
       await this.userService.getCurrentUser(true).pipe(take(1)).toPromise();
 
-      await loading.dismiss();
+      this.isSubmitting = false;
 
-      // Check for return URL (for users who clicked a shared link before signing up)
-      const returnUrl = localStorage.getItem('returnUrl');
-      if (returnUrl) {
-        console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
-        localStorage.removeItem('returnUrl');
-        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
-      } else {
-        // Default: Navigate to main app
-        this.router.navigate(['/tabs/home'], { replaceUrl: true });
-      }
+      // Show the welcome/congrats page
+      this.showWelcome = true;
+
+      // Auto-redirect after 4 seconds
+      setTimeout(() => {
+        this.navigateToHome();
+      }, 4000);
     } catch (error) {
       console.error('Error completing tutor onboarding:', error);
-      await loading.dismiss();
+      this.isSubmitting = false;
       
       const alert = await this.alertController.create({
         header: 'Error',
@@ -475,6 +669,17 @@ export class TutorOnboardingPage implements OnInit {
     }
   }
 
+  navigateToHome() {
+    const returnUrl = localStorage.getItem('returnUrl');
+    if (returnUrl) {
+      console.log('🔄 Tutor onboarding complete, returning to saved URL:', returnUrl);
+      localStorage.removeItem('returnUrl');
+      this.router.navigateByUrl(returnUrl, { replaceUrl: true });
+    } else {
+      this.router.navigate(['/tabs/home'], { replaceUrl: true });
+    }
+  }
+
   getProgressPercentage(): number {
     return (this.currentStep / this.totalSteps) * 100;
   }
@@ -482,17 +687,23 @@ export class TutorOnboardingPage implements OnInit {
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1:
-        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '' && this.residenceCountry !== '';
+        return this.firstName.trim() !== '' && this.lastName.trim() !== '' && this.country !== '';
       case 2:
-        return this.nativeLanguage !== ''; // Native language step
+        return this.residenceCountry !== ''; // Residence country step
       case 3:
-        return this.selectedLanguages.length > 0;
+        return this.nativeLanguage !== ''; // Native language step
       case 4:
-        return this.selectedExperience !== '';
+        return this.selectedLanguages.length > 0;
       case 5:
-        return this.selectedSchedule !== '';
+        return this.selectedExperience !== '';
       case 6:
-        return this.profileBio.length > 0 && this.hourlyRate > 0; // Bio and rate are not optional
+        return this.selectedSchedule !== '';
+      case 7:
+        return this.profileBio.length > 0; // Bio step
+      case 8:
+        return this.hourlyRate > 0; // Hourly rate step
+      case 9:
+        return !this.hasVideoLinkPending; // Video is optional, but block if user has an unsubmitted link
       default:
         return false;
     }
@@ -506,5 +717,25 @@ export class TutorOnboardingPage implements OnInit {
       color
     });
     await toast.present();
+  }
+
+  async handleLogout() {
+    const alert = await this.alertController.create({
+      header: 'Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Logout',
+          handler: async () => {
+            await this.authService.logout();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 }

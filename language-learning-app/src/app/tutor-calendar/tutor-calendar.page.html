@@ -524,7 +524,7 @@
                           <span *ngIf="currentUser?.tutorOnboarding?.videoApproved && currentUser?.tutorOnboarding?.stripeConnected && currentUser?.stripeConnectOnboarded">Your profile is being reviewed</span>
                         </p>
                       </div>
-                      <ion-button fill="solid" color="primary" (click)="router.navigate(['/tutor-approval'])">
+                      <ion-button fill="solid" (click)="router.navigate(['/tutor-approval'])">
                         <ion-icon name="arrow-forward" slot="end"></ion-icon>
                         Continue Setup
                       </ion-button>

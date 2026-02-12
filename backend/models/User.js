@@ -108,6 +108,58 @@ const userSchema = new mongoose.Schema({
       default: null
     }
   },
+  // Tutor credential verification documents
+  tutorCredentials: {
+    governmentId: {
+      url: { type: String, default: null },
+      fileName: { type: String, default: null },
+      fileType: { type: String, default: null },
+      uploadedAt: { type: Date, default: null },
+      status: {
+        type: String,
+        enum: ['not_uploaded', 'pending', 'approved', 'rejected'],
+        default: 'not_uploaded'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    },
+    teachingCertifications: [{
+      url: { type: String, required: true },
+      fileName: { type: String, required: true },
+      fileType: { type: String, default: null },
+      certificationName: { type: String, default: '' },
+      uploadedAt: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    }],
+    additionalDocuments: [{
+      url: { type: String, required: true },
+      fileName: { type: String, required: true },
+      fileType: { type: String, default: null },
+      documentType: {
+        type: String,
+        enum: ['degree', 'resume', 'reference_letter', 'other'],
+        default: 'other'
+      },
+      label: { type: String, default: '' },
+      uploadedAt: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
+      },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      reviewedAt: { type: Date, default: null },
+      rejectionReason: { type: String, default: null }
+    }]
+  },
   // Whether tutor is approved and can show up in searches
   tutorApproved: {
     type: Boolean,
@@ -140,6 +192,12 @@ const userSchema = new mongoose.Schema({
     schedule: {
       type: String,
       trim: true
+    },
+    summary: {
+      type: String,
+      maxlength: 150,
+      trim: true,
+      default: ''
     },
     bio: {
       type: String,

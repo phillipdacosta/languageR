@@ -18,6 +18,7 @@ import { InvitationsListModalComponent } from '../components/invitations-list-mo
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
 import { SmartIslandComponent } from '../components/smart-island/smart-island.component';
+import { EarningsPage } from '../earnings/earnings.page';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -41,7 +42,8 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     InvitationsListModalComponent,
     TutorAvailabilityViewerComponent,
     TutorNoteModalComponent,
-    SmartIslandComponent
+    SmartIslandComponent,
+    EarningsPage
   ],
   declarations: [Tab1Page]
 })

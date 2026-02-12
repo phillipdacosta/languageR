@@ -453,9 +453,36 @@ async function uploadImageToGCS(req, res) {
   }
 }
 
+// Configure multer for document uploads (credentials, certifications)
+const uploadDocument = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit for documents
+  },
+  fileFilter: (req, file, cb) => {
+    console.log('📄 Document file details:', {
+      fieldname: file.fieldname,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      encoding: file.encoding,
+      size: file.size
+    });
+    
+    // Accept images and PDFs
+    if (file.mimetype.startsWith('image/') || 
+        file.mimetype === 'application/pdf' ||
+        file.originalname.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|pdf)$/)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPG, PNG) and PDF documents are allowed'), false);
+    }
+  },
+});
+
 module.exports = {
   upload,
   uploadImage,
+  uploadDocument,
   uploadVideoWithCompression,
   uploadImageToGCS,
   verifyToken,

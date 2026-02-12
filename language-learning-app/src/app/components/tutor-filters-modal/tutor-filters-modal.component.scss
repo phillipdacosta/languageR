@@ -62,8 +62,22 @@
   margin: 24px 0;
 }
 
-// Selected Chips Section
+// Selected Chips Section — smooth reveal/collapse
 .selected-section {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-bottom: 0;
+
+  &.visible {
+    max-height: 300px;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+
   .selected-chips {
     display: flex;
     flex-wrap: wrap;
@@ -82,20 +96,49 @@
     font-weight: 500;
     color: #222;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease;
+    animation: tfChipEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
     
     &:hover {
       background: #f7f7f7;
     }
     
     &:active {
-      transform: scale(0.98);
+      transform: scale(0.96);
     }
     
     ion-icon {
       font-size: 14px;
       color: #717171;
     }
+  }
+}
+
+// Divider that accompanies selected section
+.divider-selected {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.visible {
+    max-height: 1px;
+    opacity: 1;
+    margin: 24px 0;
+  }
+}
+
+@keyframes tfChipEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -120,7 +163,7 @@
     border: 1px solid #dddddd;
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease;
     
     &:hover {
       border-color: #222;
@@ -293,11 +336,12 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    transition: all 0.15s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
     
     &.checked {
       background: #222;
       border-color: #222;
+      transform: scale(1.05);
       
       ion-icon {
         color: #fff;
@@ -389,6 +433,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: tfCheckPop 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
     
     ion-icon {
       font-size: 12px;
@@ -412,7 +457,7 @@
   font-size: 15px;
   color: #222;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, font-weight 0.25s ease, transform 0.15s ease;
   text-align: left;
   
   &:hover {
@@ -495,7 +540,7 @@
       font-size: 15px;
       color: #222;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, transform 0.15s ease;
       
       &:hover {
         border-color: #b0b0b0;
@@ -616,4 +661,16 @@
   }
 }
 
-
+@keyframes tfCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

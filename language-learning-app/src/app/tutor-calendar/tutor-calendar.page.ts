@@ -1016,21 +1016,6 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
           
           // Refresh calendar to show the cancelled lesson
           this.refreshCalendar();
-          
-          // Show toast notification
-          const toast = await this.toastController.create({
-            message: notification.message || 'A lesson has been cancelled',
-            duration: 5000,
-            position: 'top',
-            color: 'warning',
-            buttons: [
-              {
-                text: 'OK',
-                role: 'cancel'
-              }
-            ]
-          });
-          await toast.present();
         }
       });
     

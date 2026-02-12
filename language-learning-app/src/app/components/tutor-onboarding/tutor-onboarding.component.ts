@@ -56,6 +56,14 @@ export class TutorOnboardingComponent implements OnInit {
       action: 'upload-video'
     },
     {
+      id: 'credentials',
+      title: 'Upload Credentials',
+      description: 'Verify your identity and teaching qualifications',
+      completed: false,
+      icon: 'shield-checkmark',
+      action: 'upload-credentials'
+    },
+    {
       id: 'stripe',
       title: 'Connect Bank Account',
       description: 'Set up payments to receive earnings',
@@ -64,6 +72,14 @@ export class TutorOnboardingComponent implements OnInit {
       action: 'stripe-onboard'
     }
   ];
+
+  // Credential upload state
+  uploadedCertifications: any[] = [];
+  uploadedAdditionalDocs: any[] = [];
+  governmentIdStatus: string = 'not_uploaded';
+  governmentIdStatusLabel: string = 'Not Uploaded';
+  certificationNameInput: string = '';
+  isUploadingCredential: boolean = false;
 
   // Video player modal
   isVideoPlayerModalOpen = false;
@@ -98,6 +114,17 @@ export class TutorOnboardingComponent implements OnInit {
         this.updateStepsFromStatus(status);
       }
     });
+
+    // Subscribe to user data changes (e.g. from WebSocket-triggered refreshes)
+    // This keeps credential lists in sync when admin approves/rejects
+    this.userService.currentUser$.subscribe(user => {
+      if (user && this.currentUser) {
+        this.currentUser = user;
+        const creds = user.tutorCredentials;
+        this.uploadedCertifications = creds?.teachingCertifications || [];
+        this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+      }
+    });
     
     await this.loadOnboardingStatus();
   }
@@ -111,16 +138,28 @@ export class TutorOnboardingComponent implements OnInit {
   private updateStepsFromStatus(status: any) {
     this.steps[0].completed = status.photoComplete;
     this.steps[1].completed = status.videoApproved;
-    this.steps[2].completed = status.stripeComplete;
+    this.steps[2].completed = status.credentialsApproved;
+    this.steps[3].completed = status.stripeComplete;
+    
+    // Update credential display state
+    this.governmentIdStatus = status.governmentIdApproved ? 'approved' 
+      : status.governmentIdRejected ? 'rejected'
+      : status.governmentIdUploaded ? 'pending' 
+      : 'not_uploaded';
+    this.governmentIdStatusLabel = this.governmentIdStatus === 'approved' ? 'Approved'
+      : this.governmentIdStatus === 'rejected' ? 'Rejected'
+      : this.governmentIdStatus === 'pending' ? 'Pending Review'
+      : 'Not Uploaded';
     
     console.log('📊 [TUTOR-APPROVAL] Updated steps from status:', {
       photo: status.photoComplete,
       video: status.videoApproved,
+      credentials: status.credentialsApproved,
       stripe: status.stripeComplete
     });
   }
 
-  async loadOnboardingStatus() {
+  async loadOnboardingStatus(autoAdvanceStep = true) {
     this.loading = true;
     try {
       // Force refresh from server, not cache
@@ -170,19 +209,30 @@ export class TutorOnboardingComponent implements OnInit {
         }
       }
 
-      // Update step 3 title/description based on payout provider
+      // Load credential data
+      const creds = user.tutorCredentials;
+      this.uploadedCertifications = creds?.teachingCertifications || [];
+      this.uploadedAdditionalDocs = creds?.additionalDocuments || [];
+      
+      console.log('📄 [TUTOR-APPROVAL] Credentials loaded:', {
+        governmentId: creds?.governmentId?.status,
+        certifications: this.uploadedCertifications.length,
+        additionalDocs: this.uploadedAdditionalDocs.length
+      });
+
+      // Update step 4 title/description based on payout provider
       if (user.payoutProvider === 'paypal') {
-        this.steps[2].title = 'PayPal Connected';
-        this.steps[2].description = 'Receive earnings via PayPal';
+        this.steps[3].title = 'PayPal Connected';
+        this.steps[3].description = 'Receive earnings via PayPal';
       } else if (user.payoutProvider === 'manual') {
-        this.steps[2].title = 'Manual Payout Setup';
-        this.steps[2].description = 'Earnings will be processed manually';
+        this.steps[3].title = 'Manual Payout Setup';
+        this.steps[3].description = 'Earnings will be processed manually';
       } else if (user.stripeConnectOnboarded) {
-        this.steps[2].title = 'Stripe Connected';
-        this.steps[2].description = 'Receive earnings via Stripe';
+        this.steps[3].title = 'Stripe Connected';
+        this.steps[3].description = 'Receive earnings via Stripe';
       } else {
-        this.steps[2].title = 'Connect Bank Account';
-        this.steps[2].description = 'Set up payments to receive earnings';
+        this.steps[3].title = 'Connect Bank Account';
+        this.steps[3].description = 'Set up payments to receive earnings';
       }
 
       // Auto-fetch Vimeo thumbnail if missing
@@ -196,10 +246,13 @@ export class TutorOnboardingComponent implements OnInit {
       // The UserService will automatically update tutorApprovalStatus$
       // which we're subscribed to in ngOnInit, so no need to manually set steps here
 
-      // Set current step to first incomplete step
-      this.currentStepIndex = this.steps.findIndex(step => !step.completed);
-      if (this.currentStepIndex === -1) {
-        this.currentStepIndex = this.steps.length - 1; // All complete
+      // Only auto-advance to first incomplete step on initial load
+      // Don't change step when refreshing after an upload (user should stay on current step)
+      if (autoAdvanceStep) {
+        this.currentStepIndex = this.steps.findIndex(step => !step.completed);
+        if (this.currentStepIndex === -1) {
+          this.currentStepIndex = this.steps.length - 1; // All complete
+        }
       }
 
       console.log('📋 [TUTOR-APPROVAL] Current step index:', this.currentStepIndex);
@@ -460,6 +513,125 @@ export class TutorOnboardingComponent implements OnInit {
       await loading.dismiss();
       // Reset file input
       event.target.value = '';
+    }
+  }
+
+  // ============================================================
+  // CREDENTIAL UPLOAD METHODS
+  // ============================================================
+
+  triggerCredentialUpload(type: 'governmentId' | 'certification' | 'additionalDocument') {
+    const inputId = type === 'governmentId' ? 'gov-id-input' 
+      : type === 'certification' ? 'cert-input'
+      : 'additional-doc-input';
+    const fileInput = document.getElementById(inputId) as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  async onCredentialSelected(event: any, credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument') {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this.showToast('File is too large. Maximum size is 10MB.', 'danger');
+      event.target.value = '';
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      this.showToast('Invalid file type. Please upload a JPG, PNG, or PDF.', 'danger');
+      event.target.value = '';
+      return;
+    }
+
+    this.isUploadingCredential = true;
+    const loading = await this.loadingController.create({
+      message: 'Uploading document...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const metadata: any = {};
+      if (credentialType === 'teachingCertification') {
+        metadata.certificationName = this.certificationNameInput || '';
+      }
+
+      const result = await firstValueFrom(
+        this.userService.uploadCredential(file, credentialType, metadata)
+      );
+
+      if (result?.success) {
+        this.showToast('Document uploaded successfully!', 'success');
+        this.certificationNameInput = ''; // Reset
+        // Refresh data but stay on credentials step (don't auto-advance)
+        await this.loadOnboardingStatus(false);
+      } else {
+        this.showToast('Failed to upload document', 'danger');
+      }
+    } catch (error: any) {
+      console.error('❌ Error uploading credential:', error);
+      this.showToast(error.error?.message || 'Failed to upload document', 'danger');
+    } finally {
+      this.isUploadingCredential = false;
+      await loading.dismiss();
+      event.target.value = '';
+    }
+  }
+
+  async onCertificationSelected(event: any) {
+    await this.onCredentialSelected(event, 'teachingCertification');
+  }
+
+  async onAdditionalDocSelected(event: any) {
+    await this.onCredentialSelected(event, 'additionalDocument');
+  }
+
+  async removeCredential(credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument', credentialId?: string) {
+    const alert = await this.alertController.create({
+      header: 'Remove Document',
+      message: 'Are you sure you want to remove this document?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              const result = await firstValueFrom(
+                this.userService.deleteCredential(credentialType, credentialId)
+              );
+              if (result?.success) {
+                this.showToast('Document removed', 'medium');
+                await this.loadOnboardingStatus();
+              }
+            } catch (error: any) {
+              console.error('❌ Error removing credential:', error);
+              this.showToast(error.error?.message || 'Failed to remove document', 'danger');
+            }
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async removeCertification(index: number) {
+    const cert = this.uploadedCertifications[index];
+    if (cert?._id) {
+      await this.removeCredential('teachingCertification', cert._id);
+    }
+  }
+
+  async removeAdditionalDoc(index: number) {
+    const doc = this.uploadedAdditionalDocs[index];
+    if (doc?._id) {
+      await this.removeCredential('additionalDocument', doc._id);
     }
   }
 

@@ -170,6 +170,13 @@
               </div>
             </div>
             
+            <!-- Summary Section (Bold, above bio) -->
+            <div class="summary-section-inline" *ngIf="tutor.summary">
+              <p class="summary-text">
+                <strong>{{ tutor.summary }}</strong>
+              </p>
+            </div>
+            
             <!-- Bio Section -->
             <div class="bio-section-inline" *ngIf="tutor.bio">
               <p class="bio-text" 

@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { ModalController, LoadingController, ToastController } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, AlertController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
@@ -71,6 +71,7 @@ export class RescheduleLessonModalComponent implements OnInit {
     private modalController: ModalController,
     private loadingController: LoadingController,
     private toastController: ToastController,
+    private alertController: AlertController,
     private userService: UserService,
     private lessonService: LessonService
   ) {}
@@ -377,7 +378,7 @@ export class RescheduleLessonModalComponent implements OnInit {
     this.selectedDate = event.selectedDate;
     this.selectedTime = event.selectedTime;
     
-    // Format for display
+    // Format for display - Airbnb style (e.g. "Thursday, February 12, 2026")
     this.selectedDateFormatted = selectedDateTime.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -404,6 +405,29 @@ export class RescheduleLessonModalComponent implements OnInit {
       this.selectedDate = null;
       this.selectedTime = null;
     }, 350); // Wait for animation to complete
+  }
+
+  async onRescheduleClick() {
+    const alert = await this.alertController.create({
+      header: 'Reschedule Lesson',
+      message: `Are you sure you want to reschedule this lesson to ${this.selectedDateFormatted} at ${this.selectedTimeFormatted}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'alert-cancel-button'
+        },
+        {
+          text: 'Reschedule',
+          role: 'confirm',
+          cssClass: 'alert-confirm-button',
+          handler: () => {
+            this.confirmReschedule();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   async confirmReschedule() {

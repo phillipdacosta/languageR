@@ -1,16 +1,15 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>Why are you cancelling?</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="dismiss()">
-        <ion-icon name="close"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+<ion-content class="ion-padding cancel-modal-content">
+  <!-- Floating close button (matches reschedule modal) -->
+  <button class="floating-close-button" (click)="dismiss()">
+    <ion-icon name="close"></ion-icon>
+  </button>
 
-<ion-content class="ion-padding">
   <div class="cancel-reason-content">
+    <!-- Header Section -->
+    <div class="modal-header-section">
+      <h1 class="modal-title">Why are you cancelling?</h1>
+    </div>
+
     <!-- Lesson Info Card -->
     <div class="lesson-info-card">
       <div class="lesson-avatar">
@@ -48,7 +47,7 @@
 
     <!-- Reason Selection -->
     <div class="reasons-list">
-      <p class="select-reason-label">Please select a reason:</p>
+      <p class="select-reason-label">Please select a reason</p>
       
       <button 
         *ngFor="let reason of reasons"
@@ -97,8 +96,8 @@
         Keep Lesson
       </ion-button>
       <ion-button 
-        expand="block" 
-        color="danger"
+        expand="block"
+        class="btn-continue"
         [disabled]="!canConfirm()"
         (click)="confirm()">
         Continue
@@ -106,4 +105,3 @@
     </div>
   </ion-toolbar>
 </ion-footer>
-

@@ -89,10 +89,10 @@ $transition-fast: 0.15s ease;
 
 // ─── Page Container ────────────────────────
 .lessons-page {
-  max-width: 720px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 20px 40px;
-  animation: fadeIn 0.35s ease-out;
+  padding: 90px 20px 40px;
+  animation: _ngcontent-ng-c592785858_fadeIn 0.35s ease-out;
 
   @media (max-width: 600px) {
     padding: 16px 16px 32px;
@@ -1171,7 +1171,7 @@ $transition-fast: 0.15s ease;
   font-weight: 500;
   color: $text-primary;
   cursor: pointer;
-  transition: all $transition-fast;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, font-weight 0.25s ease, transform 0.15s ease;
   text-align: center;
 
   &:hover {
@@ -1205,7 +1205,7 @@ $transition-fast: 0.15s ease;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background 0.25s ease;
   text-align: left;
 
   &:hover {
@@ -1268,6 +1268,7 @@ $transition-fast: 0.15s ease;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  animation: lfCheckPop 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
 
   ion-icon {
     font-size: 14px;
@@ -1275,12 +1276,68 @@ $transition-fast: 0.15s ease;
   }
 }
 
-// Selected Chips (top cap)
+@keyframes lfCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Selected Chips (top cap) — smooth reveal/collapse
 .lf-selected-section {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-bottom: 0;
+
+  &.visible {
+    max-height: 200px;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+
   .lf-selected-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+}
+
+// Divider that accompanies selected section
+.lf-divider-selected {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+  &.visible {
+    max-height: 1px;
+    opacity: 1;
+    margin: 24px 0;
+  }
+}
+
+@keyframes lfChipEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -1296,14 +1353,15 @@ $transition-fast: 0.15s ease;
   font-weight: 500;
   color: $text-primary;
   cursor: pointer;
-  transition: all $transition-fast;
+  transition: background 0.15s ease, transform 0.15s ease;
+  animation: lfChipEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
 
   &:hover {
     background: $bg-hover;
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
   }
 
   ion-icon {
@@ -1329,7 +1387,7 @@ $transition-fast: 0.15s ease;
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background 0.25s ease;
   text-align: left;
 
   &:hover {

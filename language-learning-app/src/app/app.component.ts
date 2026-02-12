@@ -307,6 +307,38 @@ export class AppComponent implements OnInit, OnDestroy {
             // Refresh user data to update approval status across the app
             this.userService.getCurrentUser(true).subscribe();
           });
+
+          // Listen for credential approval notifications (global - works on all pages)
+          this.websocketService.credentialApproved$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('✅ [APP] Credential approved notification:', data);
+            
+            const toast = await this.toastController.create({
+              message: data.message || 'Your credential has been verified and approved.',
+              duration: 5000,
+              color: 'success',
+              position: 'top',
+              icon: 'shield-checkmark'
+            });
+            await toast.present();
+          });
+
+          // Listen for credential rejection notifications (global - works on all pages)
+          this.websocketService.credentialRejected$.pipe(
+            takeUntil(this.destroy$)
+          ).subscribe(async (data: any) => {
+            console.log('❌ [APP] Credential rejected notification:', data);
+            
+            const toast = await this.toastController.create({
+              message: data.message || 'A credential was not accepted. Please re-upload.',
+              duration: 7000,
+              color: 'danger',
+              position: 'top',
+              icon: 'shield'
+            });
+            await toast.present();
+          });
         }
       }
     });

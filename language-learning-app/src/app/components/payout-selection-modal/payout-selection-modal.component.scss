@@ -1,4 +1,17 @@
-// Modern Apple-style Payout Selection Modal - Two Column Layout
+// Airbnb-Inspired Payout Selection Modal
+// Matches the app's Airbnb design language
+
+// Design tokens (same as onboarding)
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border: #dddddd;
+$border-light: #ebebeb;
+$bg-hover: #f7f7f7;
+$bg-subtle: #f7f7f7;
+$accent: #222222;
+$ease-airbnb: cubic-bezier(0.32, 0.72, 0, 1);
+
 :host {
   display: flex;
   flex-direction: column;
@@ -7,186 +20,46 @@
 
 ion-content {
   flex: 1;
-  --background: white;
-  background: white;
+  --background: #ffffff;
+  background: #ffffff;
   height: 100%;
   overflow: hidden;
 }
 
-// Floating close button
-.floating-close-button {
+// ─── Close Button (Airbnb circle) ───
+.close-button {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  --background: rgba(255, 255, 255, 0.95);
-  --background-hover: rgba(245, 245, 247, 0.95);
-  --border-radius: 50%;
-  --color: #1d1d1f;
-  --padding-start: 0;
-  --padding-end: 0;
-  --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  width: 40px;
-  height: 40px;
-  margin: 0;
-
-  ion-icon {
-    font-size: 24px;
-  }
-}
-
-.modal-content {
-  display: grid;
-  grid-template-columns: 380px 1fr;
-  gap: 40px;
-  padding: 40px;
-  height: 100%;
-  background: white;
-  position: relative;
-  overflow: hidden;
-  
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    padding: 70px 20px 24px 20px;
-    overflow-y: auto;
-  }
-}
-
-// Left Column
-.left-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 8px 0;
-  justify-content: flex-start;
-  
-  @media (max-width: 900px) {
-    padding: 0 0 20px 0;
-  }
-}
-
-.icon-wrapper {
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 20px;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid $border;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(102, 126, 234, 0.1);
-  flex-shrink: 0;
-  
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+  padding: 0;
+
+  &:hover {
+    background: $bg-hover;
+    border-color: #bdbdbd;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
   ion-icon {
-    font-size: 40px;
-    color: #667eea;
+    font-size: 16px;
+    color: $text-primary;
   }
 }
 
-.modal-heading {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0 0 10px 0;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
-}
-
-.modal-description {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #6b7280;
-  margin: 0 0 24px 0;
-  font-weight: 400;
-}
-
-.info-banner {
-  display: flex;
-  gap: 14px;
-  padding: 16px 18px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 14px;
-  color: white;
-  text-align: left;
-  width: 100%;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
-  margin-top: auto;
-  
-  ion-icon {
-    font-size: 22px;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-  
-  .banner-title {
-    font-weight: 600;
-    font-size: 14px;
-    margin: 0 0 6px 0;
-    
-    strong {
-      font-weight: 700;
-      font-size: 15px;
-      display: inline-block;
-      padding: 0 2px;
-    }
-  }
-  
-  .banner-text {
-    font-size: 13px;
-    margin: 0;
-    opacity: 0.95;
-    line-height: 1.5;
-  }
-  
-  p {
-    font-size: 13px;
-    margin: 0;
-    line-height: 1.5;
-  }
-}
-
-// Right Column
-.right-column {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding-right: 4px;
-  padding-top: 0;
-  justify-content: flex-start;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: #c7c7cc;
-    border-radius: 3px;
-    
-    &:hover {
-      background: #b0b0b5;
-    }
-  }
-  
-  @media (max-width: 900px) {
-    overflow-y: visible;
-    padding-right: 0;
-    padding-top: 0;
-  }
-}
-
-.options-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1;
-  position: relative;
-  top: 0;
-}
-
+// ─── Loading State ───
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -194,512 +67,886 @@ ion-content {
   justify-content: center;
   height: 100%;
   width: 100%;
-  
+  gap: 16px;
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   p {
-    margin-top: 16px;
-    color: #8e8e93;
+    margin: 0;
+    color: $text-secondary;
+    font-size: 14px;
   }
 }
 
-.option-card {
+// ─── Wizard Container ───
+.wizard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 0;
-  border: 2px solid #e5e5ea;
-  border-radius: 12px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// ─── Progress Bar ───
+.progress-bar-container {
+  padding: 20px 64px 0 24px; // right padding avoids close button
+  flex-shrink: 0;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 3px;
+  background: $border-light;
+  border-radius: 2px;
   overflow: hidden;
-  
-  &.selected {
-    border-color: #667eea;
-    background: linear-gradient(135deg, #f7f8ff 0%, #faf7ff 100%);
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
-    transform: translateY(-2px);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: $accent;
+  border-radius: 2px;
+  transition: width 0.5s $ease-airbnb;
+}
+
+// ─── Step Wrapper (animation container) ───
+.step-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.step-content {
+  width: 100%;
+  height: 100%;
+  padding: 32px 40px 40px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 6px;
   }
-  
-  &.recommended {
-    border-color: #34c759;
-    
-    &:not(.selected):hover {
-      box-shadow: 0 8px 24px rgba(52, 199, 89, 0.15);
-    }
+  &::-webkit-scrollbar-track {
+    background: transparent;
   }
-  
-  &.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #f2f2f7;
+  &::-webkit-scrollbar-thumb {
+    background: $border;
+    border-radius: 3px;
+    &:hover { background: $text-tertiary; }
   }
-  
-  &:not(.disabled):not(.selected):hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
+
+  @media (max-width: 768px) {
+    padding: 24px 20px 32px;
   }
 }
 
-.option-header {
+// ─── Step Layout (two-column) ───
+.step-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 48px;
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100%;
+  align-content: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+// ─── Left Column ───
+.left-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 8px;
+
+  @media (max-width: 900px) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.step-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 30px;
+    color: white;
+  }
+
+  &.tax {
+    background: $accent;
+  }
+
+  &.bank {
+    background: $accent;
+  }
+
+  &.wallet {
+    background: $accent;
+  }
 }
 
-.icon-circle {
+.step-heading {
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-primary;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.step-subtext {
+  font-size: 14px;
+  line-height: 1.6;
+  color: $text-secondary;
+  margin: 0 0 24px 0;
+  max-width: 280px;
+}
+
+// ─── Info Cards ───
+.info-card {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: left;
+  width: 100%;
+  margin-top: auto;
+
+  ion-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    font-size: 13px;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .info-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin: 0 0 4px 0;
+  }
+
+  .info-card-text {
+    font-size: 13px;
+    opacity: 0.9;
+  }
+
+  &.warning {
+    background: #FFF8ED;
+    border: 1px solid #F5D99A;
+    color: #92610B;
+
+    ion-icon {
+      color: #D4900C;
+    }
+  }
+
+  &.recommended {
+    background: #F0F5FF;
+    border: 1px solid #C7D7FE;
+    color: #1E40AF;
+
+    ion-icon {
+      color: #3B82F6;
+    }
+
+    .info-card-title {
+      color: #1E40AF;
+    }
+
+    .info-card-text {
+      color: #3B5FA4;
+      opacity: 1;
+    }
+  }
+}
+
+
+// ─── Right Column ───
+.right-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.question-heading {
+  font-size: 22px;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.3px;
+}
+
+.question-subtext {
+  font-size: 15px;
+  color: $text-secondary;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+// ─── Selection Cards ───
+.selection-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.selection-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid $border;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #ffffff;
+  transition: border-color 0.25s ease,
+              background 0.25s ease,
+              box-shadow 0.25s ease,
+              transform 0.15s ease;
+
+  &:hover {
+    border-color: $text-primary;
+    background: $bg-hover;
+  }
+
+  &:active {
+    transform: scale(0.99);
+  }
+
+  &.selected {
+    border-color: $text-primary;
+    border-width: 2px;
+    padding: 17px 19px; // compensate for thicker border
+    background: $bg-subtle;
+
+    .card-label {
+      color: $text-primary;
+    }
+  }
+}
+
+.card-icon {
   width: 44px;
   height: 44px;
-  border-radius: 11px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.3s ease;
-  
-  &.stripe-icon {
-    background: linear-gradient(135deg, #635bff 0%, #7c4dff 100%);
-    
-    ion-icon {
-      font-size: 24px;
-      color: white;
-    }
-  }
-  
-  &.paypal-icon {
-    background: white; // White background to show PayPal logo properly
-    border: 2px solid #e5e5ea;
-    
-    .paypal-logo {
-      width: 44px;
-      height: 44px;
-      object-fit: cover;
-    }
-  }
-  
-  &.manual-icon {
-    background: linear-gradient(135deg, #8e8e93 0%, #636366 100%);
-    
-    ion-icon {
-      font-size: 24px;
-      color: white;
-    }
-  }
-}
 
-.option-content {
-  flex: 1;
-  min-width: 0; // Allow text truncation
-}
-
-.option-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-  
-  h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #1c1c1e;
-    line-height: 1.2;
-  }
-}
-
-.radio-wrapper {
-  flex-shrink: 0;
-  padding-top: 0;
-}
-
-.option-description {
-  margin: 0;
-  font-size: 14px;
-  color: #8e8e93;
-  line-height: 1.5;
-}
-
-.custom-radio {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #c7c7cc;
-  border-radius: 50%;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: white;
-  position: relative;
-  
-  &.selected {
-    border-color: #667eea;
-    border-width: 7px;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  }
-}
-
-.badge-recommended {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #34c759;
-  color: white;
-  border-radius: 6px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  line-height: 1;
-}
-
-.badge-unavailable {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #ff3b30;
-  color: white;
-  border-radius: 6px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  line-height: 1;
-}
-
-.unavailable-note,
-.manual-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 12px 16px;
-  background: #fff9e6;
-  border-top: 1px solid #e5e5ea;
-  font-size: 13px;
-  color: #856404;
-  
   ion-icon {
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-}
-
-.manual-note {
-  background: #e3f2fd;
-  color: #0d47a1;
-}
-
-.info-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 20px 16px 20px;
-  padding: 10px 14px;
-  background: #e3f2fd;
-  border-radius: 10px;
-  font-size: 13px;
-  color: #0d47a1;
-  
-  ion-icon {
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-}
-
-.error-message {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 20px 0 20px;
-  padding: 10px 14px;
-  background: #fee;
-  border-radius: 10px;
-  font-size: 13px;
-  color: #d32f2f;
-  
-  ion-icon {
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-}
-
-.paypal-email-input {
-  margin: 0;
-  padding: 16px 20px 20px 20px;
-  background: #f9f9fb;
-  border-top: 1px solid #e5e5ea;
-  
-  ion-item {
-    --background: white;
-    --border-radius: 10px;
-    --padding-start: 14px;
-    --padding-end: 14px;
-    --min-height: 48px;
-    border: 1px solid #e5e5ea;
-    border-radius: 10px;
-  }
-  
-  ion-input {
-    --padding-top: 10px;
-    --padding-bottom: 10px;
-    font-size: 15px;
-  }
-}
-
-.button-container {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e5ea;
-  flex-shrink: 0;
-  
-  ion-button {
-    --border-radius: 12px;
-    --box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    font-weight: 600;
-    font-size: 15px;
-    text-transform: none;
-    letter-spacing: 0;
-    height: 44px;
-  }
-}
-
-// Mobile - single column
-@media (max-width: 900px) {
-  .modal-heading {
     font-size: 22px;
-  }
-  
-  .modal-description {
-    font-size: 14px;
-  }
-  
-  .icon-wrapper {
-    width: 70px;
-    height: 70px;
-    margin-bottom: 16px;
-    
-    ion-icon {
-      font-size: 40px;
-    }
-  }
-}
-
-// Step-based wizard styles - removed, using two-column layout for all steps
-
-.icon-wrapper.tax-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  
-  ion-icon {
     color: white;
   }
-}
 
-.icon-wrapper.bank-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  
-  ion-icon {
-    color: white;
+  &.green {
+    background: #34C759;
+  }
+
+  &.blue {
+    background: #007AFF;
   }
 }
 
-.question-card {
-  max-width: 100%;
-  margin: 0;
-  width: 100%;
+.card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.question-title {
-  font-size: 20px;
+.card-label {
+  font-size: 16px;
   font-weight: 600;
-  color: #1d1d1f;
-  margin: 0 0 10px 0;
-  text-align: left;
+  color: $text-primary;
+  letter-spacing: -0.2px;
 }
 
-.question-help {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 24px 0;
-  text-align: left;
-  line-height: 1.5;
+.card-note {
+  font-size: 13px;
+  color: $text-secondary;
 }
 
-.answer-options {
+// ─── Radio Circle ───
+.radio-circle {
+  width: 22px;
+  height: 22px;
+  border: 2px solid $border;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: border-color 0.25s ease, border-width 0.2s ease, box-shadow 0.25s ease;
+  background: #ffffff;
+
+  &.selected {
+    border-color: $text-primary;
+    border-width: 7px;
+  }
+}
+
+// ─── Payment Centered Layout (Step 3) ───
+.payment-centered-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+.payment-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.payment-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: $text-primary;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+
+.payment-subtitle {
+  font-size: 15px;
+  line-height: 1.6;
+  color: $text-secondary;
+  margin: 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.payment-method-area {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
-.answer-option {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px;
-  border: 2px solid #e5e5ea;
+// ─── Payment Method Card ───
+.payment-method-card {
+  border: 1px solid $border;
   border-radius: 14px;
+  background: #ffffff;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background: white;
-  
+  overflow: hidden;
+  transition: border-color 0.25s ease,
+              background 0.25s ease,
+              box-shadow 0.25s ease,
+              transform 0.15s ease;
+
   &:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
+    border-color: #bdbdbd;
+    background: $bg-hover;
   }
-  
+
+  &:active {
+    transform: scale(0.995);
+  }
+
   &.selected {
-    border-color: #667eea;
-    background: linear-gradient(135deg, #f7f8ff 0%, #faf7ff 100%);
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+    border-color: $text-primary;
+    border-width: 2px;
+    background: #ffffff;
   }
-  
-  .option-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    
-    ion-icon {
-      font-size: 24px;
-    }
-    
-    &.yes-icon {
-      background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
-      
-      ion-icon {
-        color: white;
-      }
-    }
-    
-    &.no-icon {
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      
-      ion-icon {
-        color: white;
-      }
-    }
-  }
-  
-  .option-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    
-    .option-label {
-      font-size: 16px;
-      font-weight: 600;
-      color: #1d1d1f;
-    }
-    
-    .option-note {
-      font-size: 13px;
-      color: #8e8e93;
-    }
+
+  &.recommended:not(.selected) {
+    border-color: #34C759;
   }
 }
 
-.info-banner.warning {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  margin-bottom: 0;
-  
-  p {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-}
-
-.button-container.two-buttons {
+.pmc-header {
   display: flex;
-  gap: 12px;
-  
-  ion-button {
-    flex: 1;
-    
-    &[fill="outline"] {
-      --box-shadow: none;
-      --background: transparent;
-      --border-color: #e5e5ea;
-      --color: #6b7280;
-      
-      &:hover {
-        --background: #f5f5f7;
-      }
-    }
-  }
-}
-
-// Tax summary in payment step
-.tax-summary {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: #f5f5f7;
-  border-radius: 10px;
-  margin-top: 12px;
-  
-  .summary-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #1d1d1f;
-    
-    ion-icon {
-      font-size: 16px;
-      color: #667eea;
-    }
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.pmc-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 24px;
+    color: white;
   }
-  
-  ion-button {
-    margin-left: auto;
-    --color: #667eea;
-    font-size: 12px;
-    height: 28px;
-    
-    ion-icon {
-      font-size: 14px;
+
+  &.stripe {
+    background: #635BFF;
+  }
+
+  &.paypal {
+    background: white;
+    border: 1px solid $border;
+
+    .paypal-logo {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 13px;
     }
   }
 }
 
-// PayPal Confirmation Alert Styling
+.pmc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pmc-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+
+  h4 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: -0.2px;
+  }
+}
+
+.pmc-desc {
+  margin: 0;
+  font-size: 14px;
+  color: $text-secondary;
+  line-height: 1.5;
+}
+
+.pmc-features {
+  display: flex;
+  gap: 24px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid $border-light;
+  background: $bg-subtle;
+
+  @media (max-width: 520px) {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+.pmc-feature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: $text-secondary;
+
+  ion-icon {
+    font-size: 16px;
+    color: #34C759;
+    flex-shrink: 0;
+  }
+}
+
+.recommended-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #34C759;
+  color: white;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+// ─── Tax Summary Pill ───
+.payment-tax-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: $bg-subtle;
+  border-radius: 100px;
+  margin-bottom: 28px;
+  width: auto;
+}
+
+.tax-pill-items {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tax-pill-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-primary;
+
+  ion-icon {
+    font-size: 15px;
+    color: $text-secondary;
+  }
+}
+
+.tax-pill-divider {
+  color: $text-tertiary;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.tax-pill-edit {
+  background: none;
+  border: none;
+  color: $text-primary;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-decoration: underline;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+  }
+}
+
+// ─── Payment Action Buttons ───
+.payment-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid $border-light;
+
+  .secondary-btn {
+    flex: 0 0 auto;
+    min-width: 100px;
+  }
+
+  .primary-btn {
+    flex: 1;
+  }
+}
+
+// ─── PayPal Input Section ───
+.paypal-input-section {
+  padding: 16px 20px 20px;
+  background: $bg-subtle;
+  border-top: 1px solid $border-light;
+}
+
+.input-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: 8px;
+}
+
+.airbnb-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid $border;
+  border-radius: 12px;
+  font-size: 16px;
+  color: $text-primary;
+  background: #ffffff;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  outline: none;
+  box-sizing: border-box;
+
+  &:focus {
+    border-color: $accent;
+    box-shadow: 0 0 0 1px $accent;
+  }
+
+  &::placeholder {
+    color: $text-tertiary;
+  }
+}
+
+.field-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #D32F2F;
+
+  ion-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+}
+
+.field-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: $text-secondary;
+
+  ion-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    color: $text-tertiary;
+  }
+}
+
+// ─── Action Bar ───
+.action-bar {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid $border-light;
+  flex-shrink: 0;
+
+  &.two-buttons {
+    display: flex;
+    gap: 12px;
+  }
+}
+
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  background: $accent;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.25s ease, transform 0.15s ease, opacity 0.25s ease;
+  letter-spacing: -0.2px;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: #000000;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    background: $border;
+    color: #ffffff;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .two-buttons & {
+    flex: 1;
+  }
+}
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 24px;
+  background: transparent;
+  color: $text-primary;
+  border: 1px solid $border;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: $bg-hover;
+    border-color: #bdbdbd;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  .two-buttons & {
+    flex: 0 0 auto;
+    min-width: 100px;
+  }
+}
+
+// ─── PayPal Confirmation Alert ───
 :host ::ng-deep .paypal-confirm-alert {
   .alert-message {
     text-align: center;
     white-space: pre-line;
     font-size: 15px;
     line-height: 1.6;
-    color: #1d1d1f;
+    color: $text-primary;
     padding: 20px 16px;
   }
-  
+
   .alert-head {
     h2 {
       font-size: 20px;
       font-weight: 600;
-      color: #1d1d1f;
+      color: $text-primary;
     }
   }
-  
+
   .alert-button-group {
     button {
       font-size: 16px;
       font-weight: 500;
-      
+
       &.alert-button-role-cancel {
-        color: #8e8e93;
+        color: $text-secondary;
       }
-      
+
       &:not(.alert-button-role-cancel) {
-        color: #667eea;
+        color: $text-primary;
         font-weight: 600;
       }
     }
   }
 }
+
+// ─── Responsive ───
+@media (max-width: 768px) {
+  .step-content {
+    padding: 24px 16px 32px;
+  }
+
+  .step-heading {
+    font-size: 20px;
+  }
+
+  .question-heading {
+    font-size: 18px;
+  }
+
+  .payment-title {
+    font-size: 22px;
+  }
+
+  .step-icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+
+    ion-icon {
+      font-size: 26px;
+    }
+  }
+
+  .selection-card {
+    padding: 14px 16px;
+  }
+
+  .card-icon {
+    width: 38px;
+    height: 38px;
+
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+
+  .pmc-header {
+    padding: 16px 18px;
+  }
+
+  .pmc-icon {
+    width: 42px;
+    height: 42px;
+
+    &.paypal .paypal-logo {
+      width: 42px;
+      height: 42px;
+    }
+  }
+
+  .pmc-features {
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px 16px;
+  }
+
+  .payment-tax-pill {
+    flex-direction: column;
+    gap: 8px;
+    border-radius: 14px;
+    padding: 12px 16px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

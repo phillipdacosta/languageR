@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
-import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
@@ -54,12 +54,35 @@ import { SmartIslandService, DynamicCard } from '../services/smart-island.servic
         style({ opacity: 0 }),
         animate('300ms ease-in-out', style({ opacity: 1 }))
       ])
+    ]),
+    trigger('earningsSlide', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateX(60px)' }),
+        animate('380ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateX(0)' }))
+      ]),
+      transition(':leave', [
+        animate('280ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 0, transform: 'translateX(60px)' }))
+      ])
+    ]),
+    trigger('lessonRowEnter', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(8px) scale(0.98)' }),
+        animate('300ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0) scale(1)' }))
+      ])
+    ]),
+    trigger('dateSectionEnter', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-4px)' }),
+        animate('250ms cubic-bezier(0.32, 0.72, 0, 1)', style({ opacity: 1, transform: 'translateY(0)' }))
+      ])
     ])
   ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave {
   // Smart Island reference
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
+  // Earnings component reference
+  @ViewChild('earningsComponent') earningsComponent: any;
   
   // Platform detection properties
   private destroy$ = new Subject<void>();
@@ -94,6 +117,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor earnings
   tutorTotalEarnings = 0;
   tutorPendingEarnings = 0;
+
+  // Inline earnings view toggle
+  showEarningsView = false;
+  returningFromEarnings = false;
 
   // Getter for active (non-cancelled) invitations
   get activeInvitationsCount(): number {
@@ -142,6 +169,16 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   upcomingLesson: Lesson | null = null;
   private countdownInterval: any;
   countdownTick = Date.now();
+  nextLessonTimeLabel = ''; // Cached next lesson time label for template (avoids function calls in template)
+  hadLessonsToday = false; // Cached flag: did the user already have lessons earlier today?
+  hadOnlyCancelledLessonsToday = false; // Cached flag: were today's lessons only cancelled (no completed)?
+  
+  // Message rotation system - cached on init, changes on page refresh
+  private greetingIndex = Math.floor(Math.random() * 6);
+  private welcomeMessageIndex = Math.floor(Math.random() * 6);
+  private emptyStateTitleIndex = Math.floor(Math.random() * 6);
+  private emptyStateMessageIndex = Math.floor(Math.random() * 6);
+  
   private statusInterval: any;
   private lastLabelUpdateTime = 0; // Track last time labels were updated
   
@@ -325,7 +362,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     public flagService: FlagService,
     private tutorFeedbackService: TutorFeedbackService,
     private http: HttpClient,
-    private smartIslandService: SmartIslandService
+    private smartIslandService: SmartIslandService,
+    private navCtrl: NavController
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -655,21 +693,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           
           // Manually trigger change detection to update the UI
           this.cdr.detectChanges();
-          
-          // Show toast notification
-          const toast = await this.toastController.create({
-            message: notification.message || 'A lesson has been cancelled',
-            duration: 5000,
-            position: 'top',
-            color: 'warning',
-            buttons: [
-              {
-                text: 'OK',
-                role: 'cancel'
-              }
-            ]
-          });
-          await toast.present();
         }
         
         // Handle class invitations specially
@@ -824,6 +847,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         
         // Update join labels for all displayed students
         this.updateStudentJoinLabels();
+        // Update cached next lesson time label for template use
+        this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
+        // Update cached "had lessons today" flag
+        this.hadLessonsToday = this.hadLessonsEarlierToday();
+        this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
         // Update countdownTick after labels are updated to trigger single change detection
         // This also triggers the isNextClassInProgress() check for the badge
         this.countdownTick = now;
@@ -1994,7 +2022,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Navigate to completed lessons page
   navigateToCompletedLessons() {
-    this.router.navigate(['/tabs/home/lessons']);
+    this.router.navigate(['/tabs/lessons']);
   }
   
   // Navigate to explore public classes page
@@ -3030,7 +3058,21 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return;
     }
     
-    this.tutorOnboardingStatus = user.tutorOnboarding || {};
+    // Compute credential status for banner
+    const creds = user.tutorCredentials;
+    const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const governmentIdApproved = creds?.governmentId?.status === 'approved';
+    const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const certificationsApproved = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
+    const credentialsApproved = governmentIdApproved && certificationsApproved;
+
+    this.tutorOnboardingStatus = {
+      ...(user.tutorOnboarding || {}),
+      credentialsComplete,
+      credentialsApproved,
+      stripeComplete: user.stripeConnectOnboarded || user.payoutProvider === 'paypal' || user.payoutProvider === 'manual'
+    };
     
     // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
     this.hasCustomProfilePhoto = !!(user.picture && (
@@ -3094,14 +3136,24 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     );
     this.totalStudents = uniqueStudents.size;
 
-    // Count lessons this week
+    // Count completed lessons and classes this week
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7));
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - currentDay);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
     
     this.lessonsThisWeek = this.lessons.filter(l => {
-      const lessonDate = new Date(l.startTime);
-      return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+      // Exclude cancelled lessons/classes
+      if (l.status === 'cancelled') return false;
+      
+      // Check if lesson/class ended this week (completed this week)
+      const lessonEndTime = new Date(l.endTime);
+      return lessonEndTime >= startOfWeek && lessonEndTime < endOfWeek && lessonEndTime < now;
     }).length;
     
     // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
@@ -3136,14 +3188,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     );
     this.totalTutors = uniqueTutors.size;
 
-    // Count lessons this week (same as tutor)
+    // Count lessons this week (for students, count both regular lessons and classes they're attending)
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 7));
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - currentDay);
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
+    endOfWeek.setHours(23, 59, 59, 999);
     
     this.lessonsThisWeek = this.lessons.filter(l => {
+      // Exclude cancelled lessons/classes
+      if (l.status === 'cancelled') return false;
+      
       const lessonDate = new Date(l.startTime);
-      return lessonDate >= startOfWeek && lessonDate <= endOfWeek;
+      return lessonDate >= startOfWeek && lessonDate < endOfWeek;
     }).length;
 
     // Count completed lessons (lessons in the past with 'completed' status or just past lessons)
@@ -3805,7 +3866,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       return false;
     }
     
-    // Check both current lessons and past lessons for today
+    // Check current lessons, past lessons, AND cancelled lessons for today
     // (since this.lessons now only includes in-progress/upcoming, we need to check pastLessons too)
     const allLessonsToday = [
       ...this.lessons.filter(lesson => {
@@ -3817,16 +3878,28 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const lessonDate = new Date(lesson.startTime);
         const lessonDay = this.startOfDay(lessonDate);
         return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      // Include cancelled lessons that were scheduled for today
+      ...this.cancelledLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
       })
     ];
     
-    // Check if any lessons happened earlier today
+    // Check if any lessons happened earlier today or were scheduled for today
     // A lesson counts as "earlier today" if:
     // 1. Status is 'completed', OR
-    // 2. Its end time was in the past
+    // 2. Status is 'cancelled', OR
+    // 3. Its end time was in the past
     const completedLessonsToday = allLessonsToday.filter(l => {
       // Check if status is explicitly 'completed'
       if (l.status === 'completed') {
+        return true;
+      }
+      
+      // Check if status is 'cancelled' (counts as having had a lesson scheduled)
+      if (l.status === 'cancelled') {
         return true;
       }
       
@@ -3843,6 +3916,299 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     });
     
     return completedLessonsToday.length > 0;
+  }
+
+  // Check if today's lessons were only cancelled (no completed lessons)
+  checkHadOnlyCancelledLessonsToday(): boolean {
+    if (!this.selectedDate) {
+      return false;
+    }
+    
+    const now = new Date();
+    const today = this.startOfDay(new Date());
+    const selectedDay = this.startOfDay(this.selectedDate);
+    const isToday = selectedDay.getTime() === today.getTime();
+    
+    // Only check for today
+    if (!isToday) {
+      return false;
+    }
+    
+    // Get all lessons for today (same logic as hadLessonsEarlierToday)
+    const allLessonsToday = [
+      ...this.lessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      ...this.pastLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      }),
+      ...this.cancelledLessons.filter(lesson => {
+        const lessonDate = new Date(lesson.startTime);
+        const lessonDay = this.startOfDay(lessonDate);
+        return lessonDay.getTime() === selectedDay.getTime();
+      })
+    ];
+    
+    // Check if there are any completed lessons (not cancelled)
+    const completedLessons = allLessonsToday.filter(l => {
+      if (l.status === 'completed') {
+        return true;
+      }
+      // Check if lesson time has passed (completed but status not updated)
+      const startTime = new Date(l.startTime);
+      const endTime = l.endTime ? new Date(l.endTime) : new Date(startTime.getTime() + 60 * 60 * 1000);
+      const graceMinutes = 10;
+      const gracePeriodAgo = new Date(now.getTime() - graceMinutes * 60 * 1000);
+      return endTime < gracePeriodAgo && l.status !== 'cancelled';
+    });
+    
+    // Check if there are any cancelled lessons
+    const cancelledLessons = allLessonsToday.filter(l => l.status === 'cancelled');
+    
+    // Return true if there are cancelled lessons but no completed lessons
+    return cancelledLessons.length > 0 && completedLessons.length === 0;
+  }
+
+  // Time-aware greeting with variations
+  getGreeting(): string {
+    const now = new Date();
+    const hour = now.getHours();
+    const firstName = this.currentUser?.firstName || '';
+    
+    // Determine time of day
+    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    if (hour >= 5 && hour < 12) {
+      timeOfDay = 'morning';
+    } else if (hour >= 12 && hour < 17) {
+      timeOfDay = 'afternoon';
+    } else if (hour >= 17 && hour < 22) {
+      timeOfDay = 'evening';
+    } else {
+      timeOfDay = 'night';
+    }
+    
+    const greetings: Record<string, string[]> = {
+      morning: [
+        `Good morning, ${firstName}!`,
+        `Morning, ${firstName}!`,
+        `Hi, ${firstName}!`,
+        `Hey, ${firstName}!`,
+        `Hello, ${firstName}!`,
+        `Hi there, ${firstName}!`
+      ],
+      afternoon: [
+        `Good afternoon, ${firstName}!`,
+        `Afternoon, ${firstName}!`,
+        `Hi, ${firstName}!`,
+        `Hey, ${firstName}!`,
+        `Hello, ${firstName}!`,
+        `Hi there, ${firstName}!`
+      ],
+      evening: [
+        `Good evening, ${firstName}!`,
+        `Evening, ${firstName}!`,
+        `Hi, ${firstName}!`,
+        `Hey, ${firstName}!`,
+        `Hello, ${firstName}!`,
+        `Hi there, ${firstName}!`
+      ],
+      night: [
+        `Hi, ${firstName}!`,
+        `Hey, ${firstName}!`,
+        `Evening, ${firstName}!`,
+        `Hi there, ${firstName}!`,
+        `Hello, ${firstName}!`,
+        `Hey there, ${firstName}!`
+      ]
+    };
+    
+    return greetings[timeOfDay][this.greetingIndex % 6];
+  }
+
+  // Message rotation system - 6 variations per scenario
+  getWelcomeMessage(): string {
+    // Scenario 1: No lessons today, has availability
+    if (!this.nextLesson && this.hasAvailability && !this.hadLessonsToday) {
+      const messages = [
+        'Your schedule is open — ready for new opportunities!',
+        'A fresh day ahead — perfect for new bookings!',
+        'Your calendar is clear and ready for students.',
+        'Great day to connect with new students!',
+        'Your availability is open — let\'s fill your schedule!',
+        'Ready to make a difference in someone\'s learning journey!'
+      ];
+      return messages[this.welcomeMessageIndex % 6];
+    }
+    
+    // Scenario 2: Had completed lessons today
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
+      const messages = [
+        'You made a positive impact today — well done!',
+        'Great teaching today — your students appreciate you!',
+        'You\'ve done amazing work today — keep it up!',
+        'Your dedication shows — excellent work today!',
+        'You\'ve helped students grow today — that\'s what matters!',
+        'Another successful day of teaching — you\'re making a difference!'
+      ];
+      return messages[this.welcomeMessageIndex % 6];
+    }
+    
+    // Scenario 3: Had only cancelled lessons today
+    if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
+      const messages = [
+        'Your schedule opened up today — new opportunities await!',
+        'Flexibility is key — your calendar is ready for new bookings.',
+        'Sometimes plans change — you\'re ready for what\'s next!',
+        'Your availability is open — perfect time for new connections!',
+        'A fresh start — your calendar is ready for students.',
+        'New opportunities ahead — your schedule is open!'
+      ];
+      return messages[this.welcomeMessageIndex % 6];
+    }
+    
+    // Scenario 4: No availability set
+    if (!this.nextLesson && !this.hasAvailability) {
+      const messages = [
+        'Set your availability to start getting bookings.',
+        'Open your calendar to connect with students.',
+        'Share your availability to begin teaching.',
+        'Let students know when you\'re available.',
+        'Set your schedule to start receiving bookings.',
+        'Update your availability to grow your student base.'
+      ];
+      return messages[this.welcomeMessageIndex % 6];
+    }
+    
+    return '';
+  }
+
+  getEmptyStateTitle(): string {
+    if (!this.hadLessonsToday) {
+      const titles = [
+        'Your schedule is clear',
+        'Ready for new bookings',
+        'Open availability',
+        'Calendar is open',
+        'Ready to teach',
+        'Schedule is available'
+      ];
+      return titles[this.emptyStateTitleIndex % 6];
+    } else {
+      const titles = [
+        'No more lessons today',
+        'All caught up',
+        'Calendar is open',
+        'Nothing else lined up',
+        'All set for today',
+        'Schedule is clear'
+      ];
+      return titles[this.emptyStateTitleIndex % 6];
+    }
+  }
+
+  getEmptyStateMessage(): string {
+    if (!this.hasAvailability) {
+      const messages = [
+        'Set your availability so students can discover and book you.',
+        'Share your schedule to start connecting with learners.',
+        'Let students know when you\'re available to teach.',
+        'Open your calendar to begin receiving bookings.',
+        'Update your availability to grow your student base.',
+        'Set your schedule to start your teaching journey.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    if (!this.hadLessonsToday) {
+      const messages = [
+        'Check your calendar or update your availability to get more bookings.',
+        'Your schedule is open — perfect time for new students.',
+        'Ready for bookings — keep your availability updated.',
+        'Great opportunity to connect with new learners.',
+        'Your calendar is ready — students are looking for tutors like you.',
+        'Stay active — update your availability to attract more bookings.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    if (this.hadOnlyCancelledLessonsToday) {
+      const messages = [
+        'Check your calendar for upcoming lessons.',
+        'Your schedule opened up — new opportunities await.',
+        'Stay ready — more bookings could come your way.',
+        'Keep your availability updated for future bookings.',
+        'Your calendar is open — perfect for new connections.',
+        'Flexibility is key — you\'re ready for what\'s next.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    // Had completed lessons
+    const messages = [
+      'Check your calendar for upcoming lessons.',
+      'Keep your availability updated for future bookings.',
+      'See what\'s coming up next on your calendar.',
+      'Your schedule will update with new bookings.',
+      'Stay ready — more lessons could come your way.',
+      'Check your calendar for what\'s ahead.'
+    ];
+    return messages[this.emptyStateMessageIndex % 6];
+  }
+
+  getComingUpEmptyMessage(): string {
+    // If there's a next lesson, show message about no additional lessons
+    if (this.nextLesson) {
+      const messages = [
+        'No additional lessons scheduled.',
+        'That\'s your next lesson — nothing else lined up.',
+        'Just one lesson coming up — you\'re all set.',
+        'Your next lesson is scheduled — no others yet.',
+        'One lesson ahead — your schedule is clear after that.',
+        'Next lesson is set — no additional bookings yet.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    // If had lessons today (completed)
+    if (this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
+      const messages = [
+        'No more lessons on the schedule.',
+        'Your next lessons will appear here.',
+        'Nothing else coming up — check your calendar.',
+        'No additional lessons scheduled.',
+        'Your calendar will update with new bookings.',
+        'Check back later for upcoming lessons.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    // If only cancelled lessons today
+    if (this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
+      const messages = [
+        'No upcoming lessons scheduled.',
+        'Your schedule is open — ready for new bookings.',
+        'No lessons on the calendar yet.',
+        'Calendar is clear — perfect for new opportunities.',
+        'No upcoming lessons — stay ready for bookings.',
+        'Schedule is open — new lessons could come anytime.'
+      ];
+      return messages[this.emptyStateMessageIndex % 6];
+    }
+    
+    // No lessons today at all
+    const messages = [
+      'No upcoming lessons.',
+      'Your schedule is open and ready.',
+      'No lessons scheduled yet.',
+      'Calendar is clear — ready for bookings.',
+      'No upcoming lessons — stay available!',
+      'Schedule is open — perfect time for new students.'
+    ];
+    return messages[this.emptyStateMessageIndex % 6];
   }
 
   // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
@@ -4223,9 +4589,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Internal method to compute timeline events (called by cached getter)
   private computeTimelineEvents(): any[] {
-    // Show upcoming lessons (includes cancelled lessons with badges in timeline)
-    // Combine upcoming lessons and cancelled lessons, then sort by start time
-    const allLessonsForTimeline = [...this.lessons, ...this.cancelledLessons];
+    // Show only active upcoming lessons (cancelled lessons excluded — they're not "coming up")
+    const allLessonsForTimeline = [...this.lessons];
     const now = new Date();
     
     // Get the next class being shown in the "Up Next" card (for both tutors and students)
@@ -4247,18 +4612,6 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .filter(lesson => {
         const startTime = new Date(lesson.startTime);
         const endTime = new Date(lesson.endTime);
-        
-        // For cancelled lessons: only show if START time hasn't passed yet
-        // Once start time passes, cancelled lessons should disappear completely
-        if (lesson.status === 'cancelled') {
-          // Exclude if the lesson's START time has passed
-          if (startTime <= now) return false;
-          // Exclude if it's the next class being shown in the "Up Next" card
-          if (nextClassLessonId && String(lesson._id) === String(nextClassLessonId)) return false;
-          // Exclude if there's a scheduled lesson at the same time (user rebooked)
-          if (scheduledLessonTimes.has(startTime.getTime())) return false;
-          return true;
-        }
         
         // For non-cancelled lessons:
         // Exclude if it's in the past (start time passed)
@@ -4295,6 +4648,17 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         const isStudentView = this.isStudent();
         const participantToShow = isStudentView ? tutorObj : student;
         
+        // Precompute status label and class for table display
+        const statusLabel = isCancelled ? 'CANCELLED'
+          : lesson.status === 'in_progress' ? 'IN PROGRESS'
+          : lesson.status === 'pending_reschedule' ? 'PENDING'
+          : lesson.status === 'scheduled' ? 'CONFIRMED'
+          : 'SCHEDULED';
+        const statusClass = isCancelled ? 'cancelled'
+          : lesson.status === 'in_progress' ? 'in-progress'
+          : lesson.status === 'pending_reschedule' ? 'pending'
+          : 'confirmed';
+        
         return {
           time: this.formatTimeOnly(startTime),
           endTime: endTime ? this.formatTimeOnly(endTime) : null,
@@ -4314,7 +4678,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           isCancelled: isCancelled,
           cancelReason: isCancelled ? lesson.cancelReason : null,
           isRescheduleProposer: isRescheduleProposer,
-          rescheduleAccepted: rescheduleAccepted
+          rescheduleAccepted: rescheduleAccepted,
+          duration: (lesson as any).duration || 25,
+          statusLabel: statusLabel,
+          statusClass: statusClass
         };
       });
   }
@@ -4365,8 +4732,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.selectedFilterYear = null;
     this.selectedDateForPicker = new Date().toISOString();
     
-    // Get all future lessons
-    const allLessons = [...this.lessons, ...this.cancelledLessons];
+    // Get all future lessons (exclude cancelled — they're not "upcoming")
+    const allLessons = [...this.lessons];
     const now = new Date();
     
     this.allLessonsForModal = allLessons
@@ -4426,6 +4793,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     const now = new Date();
     return `${months[now.getMonth()]} ${now.getFullYear()}`;
+  }
+
+  // Pre-computed flag for smooth animations
+  get hasMonthFilter(): boolean {
+    return this.selectedFilterMonth !== null;
   }
 
   openDatePickerView() {
@@ -4526,7 +4898,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   }
   
 navigateToLessons() {
-    this.router.navigate(['/tabs/home/lessons']);
+    this.router.navigate(['/tabs/lessons']);
   }
 
   // Format time only (e.g., "2:00 PM")
@@ -5207,6 +5579,9 @@ navigateToLessons() {
       this._isLoadingInProgress = false; // Reset flag
       if (showSkeleton) {
         this.isLoadingLessons = false;
+        this.nextLessonTimeLabel = this.getNextLessonTimeLabel();
+        this.hadLessonsToday = this.hadLessonsEarlierToday();
+        this.hadOnlyCancelledLessonsToday = this.checkHadOnlyCancelledLessonsToday();
         console.log('✅ [TAB1] Skeleton hidden');
       }
     }
@@ -6027,8 +6402,434 @@ navigateToLessons() {
     this.router.navigate(['/tabs/home/wallet']);
   }
 
+  async openWithdrawModal() {
+    // Earnings component is always in DOM (hidden) for modal access
+    // No need to navigate - component already exists
+    this.cdr.detectChanges();
+
+    // Wait for earnings component to be ready AND data to be loaded
+    const waitForEarningsReady = (): Promise<void> => {
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max wait (50 * 100ms)
+        
+        const checkComponent = () => {
+          attempts++;
+          
+          if (this.earningsComponent) {
+            // Wait for component to finish loading data (ngOnInit completes)
+            // Check if loading is false, which means loadBalance() and loadEarnings() have completed
+            if (this.earningsComponent.loading === false) {
+              // Give it one more frame to ensure all properties are set
+              requestAnimationFrame(() => {
+                if (typeof this.earningsComponent.requestWithdrawal === 'function') {
+                  this.earningsComponent.requestWithdrawal();
+                  resolve();
+                } else {
+                  if (attempts < maxAttempts) {
+                    setTimeout(checkComponent, 100);
+                  } else {
+                    console.error('❌ Earnings component requestWithdrawal method not available');
+                    resolve();
+                  }
+                }
+              });
+            } else {
+              // Still loading, wait a bit more
+              if (attempts < maxAttempts) {
+                setTimeout(checkComponent, 100);
+              } else {
+                console.error('❌ Earnings component took too long to load');
+                resolve();
+              }
+            }
+          } else {
+            // Component not created yet, wait
+            if (attempts < maxAttempts) {
+              setTimeout(checkComponent, 50);
+            } else {
+              console.error('❌ Earnings component not found');
+              resolve();
+            }
+          }
+        };
+        // Start checking immediately since component should already be in DOM
+        checkComponent();
+      });
+    };
+
+    await waitForEarningsReady();
+  }
+
   navigateToEarnings() {
-    this.router.navigate(['/tabs/home/earnings']);
+    // === FLIP Animation: Home → Earnings ===
+
+    // Step 1: Capture source button rects from the home earnings card
+    const srcWithdraw = document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
+    const srcViewDetails = document.querySelector('.grid-cell-earnings .view-details-link') as HTMLElement;
+    const srcWithdrawRect = srcWithdraw?.getBoundingClientRect();
+    const srcViewDetailsRect = srcViewDetails?.getBoundingClientRect();
+
+    // Step 2: Create styled clones at source positions
+    const withdrawClone: HTMLElement | null = srcWithdrawRect ? document.createElement('div') : null;
+    const viewDetailsClone: HTMLElement | null = srcViewDetailsRect ? document.createElement('div') : null;
+
+    if (withdrawClone && srcWithdrawRect) {
+      withdrawClone.textContent = 'Withdraw Funds';
+      Object.assign(withdrawClone.style, {
+        position: 'fixed',
+        left: `${srcWithdrawRect.left}px`,
+        top: `${srcWithdrawRect.top}px`,
+        width: `${srcWithdrawRect.width}px`,
+        height: `${srcWithdrawRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '15px',
+        fontWeight: '600',
+        color: '#222222',
+        backgroundColor: 'transparent',
+        border: '1px solid #222222',
+        borderRadius: '12px',
+        // Stagger: position moves with spring curve, color/font morphs with a slight delay
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s, opacity 0.2s ease',
+      });
+      document.body.appendChild(withdrawClone);
+    }
+
+    if (viewDetailsClone && srcViewDetailsRect) {
+      // Arrow span matches ion-icon box: 16×16px, centered
+      viewDetailsClone.innerHTML = '<span style="text-decoration:underline">View Details</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>';
+      Object.assign(viewDetailsClone.style, {
+        position: 'fixed',
+        left: `${srcViewDetailsRect.left}px`,
+        top: `${srcViewDetailsRect.top}px`,
+        width: `${srcViewDetailsRect.width}px`,
+        height: `${srcViewDetailsRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px', // Match real .view-details-link gap
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#222222',
+        backgroundColor: 'transparent',
+        border: 'none',
+        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+      });
+      document.body.appendChild(viewDetailsClone);
+    }
+
+    // Step 3: Switch to earnings view
+    this.showEarningsView = true;
+    this.cdr.detectChanges();
+
+    // Step 4a: View Details → Go back (destination always available in inline chrome)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
+
+        if (viewDetailsClone && destGoBack) {
+          // Disable CSS transition before hiding to prevent fade-flash
+          destGoBack.style.transition = 'none';
+          destGoBack.style.opacity = '0';
+          const destRect = destGoBack.getBoundingClientRect();
+          viewDetailsClone.innerHTML = '<span style="text-decoration:underline">Go back</span>';
+          viewDetailsClone.style.left = `${destRect.left}px`;
+          viewDetailsClone.style.top = `${destRect.top}px`;
+          viewDetailsClone.style.width = `${destRect.width}px`;
+          viewDetailsClone.style.height = `${destRect.height}px`;
+
+          // On landing: snap dest visible (still no transition), then remove clone next frame
+          setTimeout(() => {
+            destGoBack.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (viewDetailsClone.parentNode) viewDetailsClone.remove();
+              // Restore default transition and clear inline opacity
+              setTimeout(() => { destGoBack.style.transition = ''; destGoBack.style.opacity = ''; }, 50);
+            });
+          }, 450);
+        } else if (viewDetailsClone) {
+          viewDetailsClone.style.opacity = '0';
+          viewDetailsClone.style.transform = 'translateY(-20px)';
+          setTimeout(() => { if (viewDetailsClone.parentNode) viewDetailsClone.remove(); }, 420);
+        }
+      });
+    });
+
+    // Step 4b: Withdraw Funds — MutationObserver for instant detection (before paint)
+    if (withdrawClone && srcWithdrawRect) {
+      let landed = false;
+      let pulseAnim: Animation | null = null;
+
+      // Immediate visual feedback: float up slightly & morph to black
+      requestAnimationFrame(() => {
+        if (landed || !withdrawClone.parentNode) return;
+        withdrawClone.style.top = `${srcWithdrawRect.top - 15}px`;
+        withdrawClone.style.backgroundColor = '#000000';
+        withdrawClone.style.color = 'white';
+        withdrawClone.style.borderColor = '#000000';
+        withdrawClone.style.borderRadius = '8px';
+      });
+
+      // Fly clone to the real button once it's found
+      const flyToDestination = (dest: HTMLElement) => {
+        if (landed) return;
+        landed = true;
+        // Stop any pulse animation before flying
+        if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+        // Disable CSS transition before hiding to prevent fade-flash
+        dest.style.transition = 'none';
+        dest.style.opacity = '0';
+        const destRect = dest.getBoundingClientRect();
+        // Shorten transition for remaining flight to destination
+        withdrawClone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease';
+        requestAnimationFrame(() => {
+          withdrawClone.style.left = `${destRect.left}px`;
+          withdrawClone.style.top = `${destRect.top}px`;
+          withdrawClone.style.width = `${destRect.width}px`;
+          withdrawClone.style.height = `${destRect.height}px`;
+          withdrawClone.style.fontSize = '14px'; // Match earnings page button size
+        });
+        // On landing: snap dest visible (still no transition), then remove clone
+        setTimeout(() => {
+          dest.style.opacity = '1';
+          requestAnimationFrame(() => {
+            if (withdrawClone.parentNode) withdrawClone.remove();
+            // Restore default transition and clear inline opacity
+            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+          });
+        }, 400);
+      };
+
+      // Check if button is already in DOM (unlikely but possible with cached data)
+      const existingDest = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+      if (existingDest) {
+        flyToDestination(existingDest);
+      } else {
+        // Watch for the button to appear (fires before browser paints — no flash)
+        const panelEl = document.querySelector('.earnings-inline-panel');
+        if (panelEl) {
+          const observer = new MutationObserver(() => {
+            const dest = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+            if (dest) {
+              observer.disconnect();
+              flyToDestination(dest);
+            }
+          });
+          observer.observe(panelEl, { childList: true, subtree: true });
+
+          // On slow connections: add a gentle breathing pulse after 1s so the clone feels "alive"
+          setTimeout(() => {
+            if (!landed && withdrawClone.parentNode) {
+              pulseAnim = withdrawClone.animate([
+                { transform: 'scale(1)', opacity: 1 },
+                { transform: 'scale(1.04)', opacity: 0.8 },
+                { transform: 'scale(1)', opacity: 1 }
+              ], { duration: 1600, iterations: Infinity, easing: 'ease-in-out' });
+            }
+          }, 1000);
+
+          // Safety fallback: generous timeout for very slow connections (15s)
+          setTimeout(() => {
+            if (!landed) {
+              observer.disconnect();
+              if (pulseAnim) { pulseAnim.cancel(); pulseAnim = null; }
+              withdrawClone.style.opacity = '0';
+              withdrawClone.style.transition = 'opacity 0.3s ease';
+              setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 350);
+            }
+          }, 15000);
+        } else {
+          // Panel not found — fade out
+          withdrawClone.style.opacity = '0';
+          setTimeout(() => { if (withdrawClone.parentNode) withdrawClone.remove(); }, 250);
+        }
+      }
+    }
+  }
+
+  onEarningsGoBack() {
+    // === FLIP Animation: Earnings → Home ===
+
+    // Step 1: Capture source button rects from earnings view
+    const srcWithdraw = document.querySelector('.earnings-inline-panel .withdraw-btn') as HTMLElement;
+    const srcGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
+    const srcWithdrawRect = srcWithdraw?.getBoundingClientRect();
+    const srcGoBackRect = srcGoBack?.getBoundingClientRect();
+
+    // Step 2: Create styled clones at earnings positions
+    let withdrawClone: HTMLElement | null = null;
+    let goBackClone: HTMLElement | null = null;
+
+    if (srcWithdrawRect) {
+      withdrawClone = document.createElement('div');
+      withdrawClone.textContent = 'Withdraw Funds';
+      Object.assign(withdrawClone.style, {
+        position: 'fixed',
+        left: `${srcWithdrawRect.left}px`,
+        top: `${srcWithdrawRect.top}px`,
+        width: `${srcWithdrawRect.width}px`,
+        height: `${srcWithdrawRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: 'white',
+        backgroundColor: '#000000',
+        border: '1px solid #000000',
+        borderRadius: '8px',
+        // Stagger: position moves with spring curve, color/font morphs with a slight delay
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(withdrawClone);
+    }
+
+    if (srcGoBackRect) {
+      goBackClone = document.createElement('div');
+      goBackClone.innerHTML = '<span style="text-decoration:underline">Go back</span>';
+      Object.assign(goBackClone.style, {
+        position: 'fixed',
+        left: `${srcGoBackRect.left}px`,
+        top: `${srcGoBackRect.top}px`,
+        width: `${srcGoBackRect.width}px`,
+        height: `${srcGoBackRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px', // Match real .view-details-link gap
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#222222',
+        backgroundColor: 'transparent',
+        border: 'none',
+        transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
+      });
+      document.body.appendChild(goBackClone);
+    }
+
+    // Step 3: Suppress fadeInUp on home earnings card (FLIP clones handle the transition)
+    this.returningFromEarnings = true;
+
+    // Step 4: Switch back to home view
+    this.showEarningsView = false;
+    this.cdr.detectChanges();
+
+    // Step 5: Force-hide the earnings card via inline style BEFORE the browser paints.
+    // This is synchronous after detectChanges(), so the card never appears at opacity 1.
+    // CSS animations have timing gaps; inline JS does not.
+    const cardWidget = document.querySelector('.grid-cell-earnings .earnings-card-widget') as HTMLElement;
+    if (cardWidget) {
+      cardWidget.style.opacity = '0';
+    }
+
+    // Step 6: After render, find home destinations and animate clones
+    // Buttons start invisible via CSS (.skip-entry-animation .withdraw-btn/.view-details-link { opacity: 0 })
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destWithdraw = document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
+        const destViewDetails = document.querySelector('.grid-cell-earnings .view-details-link') as HTMLElement;
+
+        // Fade the card in smoothly via JS transition (no CSS animation involved)
+        if (cardWidget) {
+          cardWidget.style.transition = 'opacity 0.32s ease-out';
+          cardWidget.style.opacity = '1';
+        }
+
+        // Animate Withdraw Funds clone back to home card
+        if (withdrawClone && destWithdraw) {
+          const destRect = destWithdraw.getBoundingClientRect();
+          withdrawClone.style.left = `${destRect.left}px`;
+          withdrawClone.style.top = `${destRect.top}px`;
+          withdrawClone.style.width = `${destRect.width}px`;
+          withdrawClone.style.height = `${destRect.height}px`;
+          // Morph: solid black → outlined card style (color/font delayed by 100ms via transition)
+          withdrawClone.style.backgroundColor = 'transparent';
+          withdrawClone.style.color = '#222222';
+          withdrawClone.style.borderColor = '#222222';
+          withdrawClone.style.borderRadius = '12px';
+          withdrawClone.style.fontSize = '15px'; // Match home card button size
+
+          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
+          setTimeout(() => {
+            destWithdraw.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (withdrawClone?.parentNode) withdrawClone.remove();
+            });
+          }, 480);
+        } else if (withdrawClone) {
+          withdrawClone.style.opacity = '0';
+          setTimeout(() => { if (withdrawClone?.parentNode) withdrawClone.remove(); }, 350);
+        }
+
+        // Animate Go back → View Details clone back to home card
+        if (goBackClone && destViewDetails) {
+          const destRect = destViewDetails.getBoundingClientRect();
+          // Arrow span matches ion-icon box: 16×16px, centered
+          goBackClone.innerHTML = '<span style="text-decoration:underline">View Details</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>';
+          goBackClone.style.left = `${destRect.left}px`;
+          goBackClone.style.top = `${destRect.top}px`;
+          goBackClone.style.width = `${destRect.width}px`;
+          goBackClone.style.height = `${destRect.height}px`;
+
+          // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
+          setTimeout(() => {
+            destViewDetails.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (goBackClone?.parentNode) goBackClone.remove();
+            });
+          }, 450);
+        } else if (goBackClone) {
+          goBackClone.style.opacity = '0';
+          setTimeout(() => { if (goBackClone?.parentNode) goBackClone.remove(); }, 420);
+        }
+
+        // Reset flag and clean inline styles.
+        // CRITICAL: Before removing .skip-entry-animation, lock animation:none as an
+        // inline style. Otherwise removing the class re-enables the CSS fadeInUp animation
+        // which starts from opacity:0 → causing the flash.
+        setTimeout(() => {
+          // Lock inline animation:none BEFORE the class is removed
+          if (cardWidget) {
+            cardWidget.style.animation = 'none';
+          }
+          this.returningFromEarnings = false;
+          this.cdr.detectChanges();
+          // Clean inline overrides (keep animation:none for now)
+          requestAnimationFrame(() => {
+            if (destWithdraw) destWithdraw.style.opacity = '';
+            if (destViewDetails) destViewDetails.style.opacity = '';
+            if (cardWidget) {
+              cardWidget.style.transition = '';
+              cardWidget.style.opacity = '';
+            }
+          });
+          // NOTE: We intentionally keep inline animation:none permanently.
+          // Removing it would re-expose CSS fadeInUp which re-triggers from 0%.
+          // This is safe because the element is destroyed/recreated on next earnings navigation.
+        }, 550);
+      });
+    });
+
+    // Refresh earnings summary data when returning to home view
+    this.loadTutorEarnings();
   }
 
   // Check Stripe Connect status for tutors
@@ -6498,31 +7299,11 @@ navigateToLessons() {
       const isTutor = lesson.tutorId?._id === this.currentUser?.id;
       const otherParticipant = isTutor ? lesson.studentId : lesson.tutorId;
       
-      // Format participant name using the participant object directly (not the .name string)
-      // This ensures we use firstName/lastName for proper formatting
-      const participantName = this.formatStudentDisplayName(otherParticipant);
-      
       // Get participant avatar
       const participantAvatar = this.getOtherParticipantAvatar(lesson);
       
-      // Set confirm modal data and open inline modal (no programmatic creation = no freeze)
-      this.confirmRescheduleModalData = {
-        title: 'Reschedule Lesson',
-        message: 'Do you want to reschedule your lesson?',
-        notificationMessage: `${participantName} will be notified of this change.`,
-        confirmText: 'Reschedule',
-        cancelText: 'Cancel',
-        confirmColor: 'primary',
-        icon: 'calendar',
-        iconColor: 'primary',
-        participantName: participantName,
-        participantAvatar: participantAvatar || undefined,
-        lessonId: lessonId,
-        lesson: lesson,
-        otherParticipant: otherParticipant
-      };
-      
-      this.isConfirmRescheduleModalOpen = true;
+      // Directly open the full reschedule modal with calendar
+      await this.openRescheduleModal(lessonId, lesson, otherParticipant, participantAvatar, false);
     } catch (error) {
       console.error('❌ Error opening reschedule lesson modal:', error);
     }
@@ -6778,89 +7559,88 @@ navigateToLessons() {
       const selectedReasonLabel = this.selectedCancelReason?.label || 'Not specified';
       console.log('🔴 Selected cancellation reason:', this.selectedCancelReason);
       
-      // STEP 2: Show confirmation modal with the selected reason
-      this.confirmCancelModalData = {
-        title: 'Cancel Lesson',
-        message: `Reason: ${selectedReasonLabel}`,
-        notificationMessage: `${participantName} will be notified and this action cannot be undone.`,
-        confirmText: 'Cancel Lesson',
-        cancelText: 'Go Back',
-        confirmColor: 'danger',
-        icon: 'close-circle',
-        iconColor: 'danger',
-        participantName: participantName,
-        participantAvatar: participantAvatar || undefined,
-        lessonId: lessonId,
-        lesson: lesson
-      };
-      
-      this.isConfirmCancelModalOpen = true;
+      // STEP 2: Show confirmation alert popup (matches reschedule confirmation style)
+      const alert = await this.alertController.create({
+        header: 'Cancel Lesson',
+        message: `Are you sure you want to cancel this lesson? ${participantName} will be notified and this action cannot be undone.`,
+        buttons: [
+          {
+            text: 'Go Back',
+            role: 'cancel',
+            cssClass: 'alert-cancel-button'
+          },
+          {
+            text: 'Cancel Lesson',
+            role: 'confirm',
+            cssClass: 'alert-confirm-button',
+            handler: () => {
+              this.executeCancelLesson(lessonId);
+            }
+          }
+        ]
+      });
+      await alert.present();
     } catch (error) {
       console.error('❌ Error opening cancel lesson modal:', error);
     }
   }
   
-  // Handle confirm cancel modal dismissal
+  // Execute the actual cancel lesson API call (called from alert confirmation)
+  private async executeCancelLesson(lessonId: string) {
+    const loading = await this.loadingController.create({
+      message: 'Cancelling lesson...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      // Call the backend to cancel the lesson with the reason
+      const response = await this.lessonService.cancelLesson(
+        lessonId, 
+        this.selectedCancelReason?.id,
+        this.selectedCancelReason?.label
+      ).toPromise();
+      
+      await loading.dismiss();
+      
+      // Clear the selected reason
+      this.selectedCancelReason = null;
+
+      if (response?.success) {
+        // Show success toast
+        const toast = await this.toastController.create({
+          message: 'Lesson cancelled successfully',
+          duration: 3000,
+          position: 'bottom',
+          color: 'success'
+        });
+        await toast.present();
+
+        // Reload lessons to reflect the change (no skeleton)
+        await this.loadLessons(false);
+      } else {
+        throw new Error(response?.message || 'Failed to cancel lesson');
+      }
+    } catch (error: any) {
+      await loading.dismiss();
+      this.selectedCancelReason = null;
+      console.error('❌ Error cancelling lesson:', error);
+      
+      const toast = await this.toastController.create({
+        message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
+        duration: 3000,
+        position: 'bottom',
+        color: 'danger'
+      });
+      await toast.present();
+    }
+  }
+
+  // Handle confirm cancel modal dismissal (kept for backward compatibility)
   async onConfirmCancelModalDismiss(event: any) {
     console.log('🔴 Confirm cancel modal dismissed:', event);
     this.isConfirmCancelModalOpen = false;
-    
-    const data = event.detail?.data;
-    if (data && data.confirmed && this.confirmCancelModalData) {
-      const lessonId = this.confirmCancelModalData.lessonId;
-      
-      // Show loading
-      const loading = await this.loadingController.create({
-        message: 'Cancelling lesson...',
-        spinner: 'crescent'
-      });
-      await loading.present();
-
-      try {
-        // Call the backend to cancel the lesson with the reason
-        const response = await this.lessonService.cancelLesson(
-          lessonId, 
-          this.selectedCancelReason?.id,
-          this.selectedCancelReason?.label
-        ).toPromise();
-        
-        await loading.dismiss();
-        
-        // Clear the selected reason
-        this.selectedCancelReason = null;
-
-        if (response?.success) {
-          // Show success toast
-          const toast = await this.toastController.create({
-            message: 'Lesson cancelled successfully',
-            duration: 3000,
-            position: 'bottom',
-            color: 'success'
-          });
-          await toast.present();
-
-          // Reload lessons to reflect the change (no skeleton)
-          await this.loadLessons(false);
-        } else {
-          throw new Error(response?.message || 'Failed to cancel lesson');
-        }
-      } catch (error: any) {
-        await loading.dismiss();
-        this.selectedCancelReason = null;
-        console.error('❌ Error cancelling lesson:', error);
-        
-        const toast = await this.toastController.create({
-          message: error?.error?.message || 'Failed to cancel lesson. Please try again.',
-          duration: 3000,
-          position: 'bottom',
-          color: 'danger'
-        });
-        await toast.present();
-      }
-    } else {
-      // User cancelled the confirmation, clear the reason
-      this.selectedCancelReason = null;
-    }
+    this.selectedCancelReason = null;
   }
 
   // Open reschedule modal with embedded availability calendar

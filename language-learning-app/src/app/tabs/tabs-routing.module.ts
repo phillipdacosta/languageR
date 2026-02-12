@@ -44,6 +44,10 @@ const routes: Routes = [
         loadChildren: () => import('../notifications/notifications.module').then(m => m.NotificationsPageModule)
       },
       {
+        path: 'lessons',
+        loadComponent: () => import('../lessons/lessons.page').then(m => m.LessonsPage)
+      },
+      {
         path: 'home/wallet',
         loadChildren: () => import('../wallet/wallet.module').then(m => m.WalletPageModule)
       },

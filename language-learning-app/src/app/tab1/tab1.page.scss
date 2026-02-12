@@ -29,6 +29,28 @@ $green: #22c55e;
   }
 }
 
+// Life-giving micro-animations
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 // Animation utility classes with staggered delays
 .animate-fade-in {
   animation: fadeIn 0.35s ease-out both;
@@ -378,8 +400,27 @@ ion-content {
 // On desktop, the global toolbar is fixed; add top offset so content isn't hidden
 @media (min-width: 769px) {
   .content-wrapper {
+    padding-top: 120px; // compensate for fixed desktop toolbar height
+  }
+}
+
+// Inline Earnings Panel (embedded earnings view)
+.earnings-inline-panel {
+  padding: 20px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+  // Delayed fade-in: stay invisible while FLIP clones fly, then fade in
+  animation: earningsPanelReveal 0.5s ease-out forwards;
+
+  @media (min-width: 769px) {
     padding-top: 87px; // compensate for fixed desktop toolbar height
   }
+}
+
+@keyframes earningsPanelReveal {
+  0%   { opacity: 0; }
+  40%  { opacity: 0; }   // Invisible during first ~200ms (clones in flight)
+  100% { opacity: 1; }
 }
 
 // Student Search Container
@@ -398,7 +439,7 @@ ion-content {
   position: relative;
   margin-bottom: 0;
   padding-bottom: 6px;
-  animation: fadeIn 0.3s ease-out both;
+  animation: fadeInUp 0.5s ease-out both;
   
   .welcome-header {
     display: flex;
@@ -413,6 +454,7 @@ ion-content {
   
   .welcome-content {
     flex: 1 1 auto;
+    padding-bottom: 20px;
   }
   
   .welcome-title {
@@ -444,6 +486,87 @@ ion-content {
     
     @media (max-width: 600px) {
       font-size: 14px;
+    }
+  }
+}
+
+// Earnings chip — sits in the tutor greeting header, right-aligned
+.earnings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid $border-color;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  align-self: center;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  animation: fadeInUp 0.5s ease-out 0.1s both;
+  
+  &:hover {
+    background: #ffffff;
+    border-color: $border-color-dark;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+  
+  .earnings-chip-amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.3px;
+    cursor: pointer;
+    
+    .earnings-dots {
+      color: $text-tertiary;
+      letter-spacing: 1px;
+    }
+  }
+  
+  .earnings-chip-chevron {
+    font-size: 14px;
+    color: $text-tertiary;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 8px 12px;
+    
+    .earnings-chip-amount {
+      font-size: 15px;
+    }
+  }
+}
+
+// Dark mode for earnings chip
+:host-context(html.ion-palette-dark) {
+  .earnings-chip {
+    background: #2a2a2a;
+    border-color: #3a3a3a;
+    
+    &:hover {
+      background: #333333;
+      border-color: #444444;
+    }
+    
+    .earnings-chip-amount {
+      color: var(--ion-text-color, #ffffff);
+      
+      .earnings-dots {
+        color: #666666;
+      }
+    }
+    
+    .earnings-chip-chevron {
+      color: #666666;
     }
   }
 }
@@ -1311,10 +1434,833 @@ ion-content {
   }
 }
 
-// Coming Up Next Timeline Section
-.timeline-section {
+// =============================================
+// INSIGHTS PANEL V2 — Clean Apple-style metrics
+// =============================================
+.insights-panel-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0 12px;
+  margin-bottom: 8px;
+  animation: fadeInUp 0.4s ease-out both;
+  
+  @media (max-width: 600px) {
+    padding: 16px 0 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .metric-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    text-align: center;
+    padding: 0 20px;
+    transition: opacity 0.2s ease;
+    min-width: 0;
+    
+    @media (max-width: 600px) {
+      padding: 0 16px;
+      flex: 0 0 auto;
+      min-width: 80px;
+    }
+    
+    &.clickable {
+      cursor: pointer;
+      
+      &:hover {
+        opacity: 0.65;
+      }
+      
+      @media (max-width: 600px) {
+        &:hover {
+          opacity: 1;
+        }
+        &:active {
+          opacity: 0.65;
+        }
+      }
+    }
+  }
+
+  .metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    
+    @media (max-width: 600px) {
+      font-size: 24px;
+    }
+    
+    @media (max-width: 400px) {
+      font-size: 22px;
+    }
+    
+    // Earnings hidden state
+    &.earnings-value {
+      cursor: pointer;
+      
+      .dots {
+        color: #b0b0b0;
+        letter-spacing: 1px;
+      }
+    }
+  }
+
+  .metric-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-secondary;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    
+    @media (max-width: 600px) {
+      font-size: 12px;
+    }
+    
+    .metric-label-icon {
+      font-size: 13px;
+      
+      &.star {
+        color: #fbbf24;
+      }
+    }
+  }
+
+  .metric-divider {
+    width: 1px;
+    height: 36px;
+    background: $border-color;
+    flex-shrink: 0;
+    
+    @media (max-width: 600px) {
+      height: 32px;
+    }
+  }
+}
+
+// =============================================
+// EMPTY STATE CLEAN — Goal-oriented CTA
+// =============================================
+.empty-state-clean {
+  animation: fadeInUp 0.4s ease-out 0.05s both;
   margin-bottom: 24px;
-  animation: fadeInUp 0.4s ease-out 0.15s both;
+}
+
+.empty-state-clean-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 65px 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.3s ease;
+  
+  &:hover {
+    box-shadow: 
+      0 2px 4px rgba(0, 0, 0, 0.04),
+      0 8px 24px rgba(0, 0, 0, 0.07);
+  }
+  
+  @media (max-width: 600px) {
+    padding: 40px 24px;
+    border-radius: 16px;
+  }
+}
+
+.empty-state-clean-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f0f4ff, #e8ecf4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  animation: float 3s ease-in-out infinite;
+  
+  ion-icon {
+    font-size: 28px;
+    color: #6b7280;
+  }
+  
+  @media (max-width: 600px) {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    
+    ion-icon {
+      font-size: 24px;
+    }
+  }
+  
+  // Respect reduced-motion preference
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.empty-state-clean-text {
+  margin-bottom: 24px;
+  
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 8px 0;
+    letter-spacing: -0.3px;
+    
+    @media (max-width: 600px) {
+      font-size: 20px;
+    }
+  }
+  
+  p {
+    font-size: 15px;
+    color: $text-secondary;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 340px;
+    
+    @media (max-width: 600px) {
+      font-size: 14px;
+    }
+  }
+}
+
+// =============================================
+// EXPERIMENTAL: Filled Up Next (mirrors empty state)
+// =============================================
+.upnext-filled {
+  position: relative;
+  
+  // "Up Next" label — top left corner, matches "Coming Up" h2 style
+  .upnext-filled-label {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #222222;
+    letter-spacing: -0.5px;
+    margin: 0;
+    
+    @media (max-width: 600px) {
+      top: 20px;
+      left: 20px;
+      font-size: 20px;
+    }
+  }
+  
+  // Badges row above avatar
+  .upnext-filled-badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 16px;
+    min-height: 0;
+    
+    &:empty {
+      display: none;
+    }
+  }
+}
+
+// Avatar — replaces the calendar icon, same position & sizing
+.upnext-filled-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .avatar-placeholder {
+    font-size: 32px;
+    color: #b0b0b0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f0f4ff, #e8ecf4);
+  }
+  
+  @media (max-width: 600px) {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+  }
+}
+
+// Text section — replaces "Calendar is open" + subtitle
+.upnext-filled-text {
+  margin-bottom: 24px;
+  
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #222222;
+    margin: 0 0 6px 0;
+    letter-spacing: -0.3px;
+    
+    @media (max-width: 600px) {
+      font-size: 20px;
+    }
+  }
+}
+
+// Meta line — subject · date · time
+.upnext-filled-meta {
+  font-size: 15px;
+  color: #717171;
+  margin: 0 0 6px 0;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  
+  .flag-icon-inline {
+    width: 18px;
+    height: 13px;
+    object-fit: cover;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+    vertical-align: middle;
+  }
+  
+  .meta-dot {
+    color: #dddddd;
+    font-weight: 700;
+  }
+  
+  .meta-today {
+    color: #008489;
+    font-weight: 600;
+  }
+  
+  @media (max-width: 600px) {
+    font-size: 14px;
+    
+    .flag-icon-inline {
+      width: 16px;
+      height: 12px;
+    }
+  }
+}
+
+// Countdown — subtle, below meta
+.upnext-filled-countdown {
+  font-size: 13px;
+  font-weight: 500;
+  color: #b0b0b0;
+  margin: 0;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  
+  @media (max-width: 600px) {
+    font-size: 12px;
+  }
+}
+
+// Actions — wraps the join button
+.upnext-filled-actions {
+  margin-top: 0;
+  width: 50%;
+  
+  .empty-state-clean-btn {
+    &.active {
+      --background: #222222 !important;
+      --color: #ffffff !important;
+      --border-color: #222222 !important;
+      animation: pulse-join 2s ease-in-out infinite;
+    }
+  }
+}
+
+// Three-dot menu — top right corner
+.upnext-filled-menu {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  margin: 0;
+  height: auto;
+  min-height: auto;
+  
+  ion-icon {
+    font-size: 20px;
+    color: #b0b0b0;
+  }
+  
+  &:hover ion-icon {
+    color: #222222;
+  }
+}
+
+.empty-state-clean-btn {
+  --border-radius: 12px;
+  --background: #222222;
+  --background-hover: #333333;
+  --background-activated: #000000;
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: none;
+  letter-spacing: 0;
+  height: 48px;
+  margin: 0;
+  position: relative;
+  transition: all 0.2s ease;
+
+  // Outline variant (Join Class button) — matches withdraw-btn dimensions
+  &[fill="outline"] {
+    --border-color: #222222;
+    --color: #222222;
+    --border-width: 1px;
+    --background: transparent;
+    
+    &:hover {
+      --background: #222222;
+      --color: #ffffff;
+    }
+  }
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  // Subtle shimmer overlay that draws the eye
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.08),
+      transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  
+  &:hover:not([disabled]) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  }
+  
+  &:active:not([disabled]) {
+    transform: translateY(0);
+  }
+  
+  &[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    
+    &::after {
+      display: none;
+    }
+  }
+  
+  ion-icon {
+    font-size: 18px;
+    margin-left: 4px;
+  }
+  
+  .button-text-animated {
+    display: inline-block;
+    min-width: 110px;
+    text-align: center;
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      animation: none;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    --padding-start: 24px;
+    --padding-end: 24px;
+    font-size: 14px;
+  }
+}
+
+// =============================================
+// COMING UP — Single Column Clean List
+// =============================================
+.coming-up-single {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.coming-up-list {
+  background: transparent;
+  overflow: hidden;
+}
+
+.coming-up-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid $border-color;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:last-of-type {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: $background-hover;
+  }
+  
+  &.cancelled {
+    opacity: 0.6;
+    
+    .coming-up-day {
+      text-decoration: line-through;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    padding: 14px 16px;
+  }
+}
+
+.coming-up-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.coming-up-day {
+  font-size: 15px;
+  font-weight: 600;
+  color: $text-primary;
+  letter-spacing: -0.2px;
+  
+  @media (max-width: 600px) {
+    font-size: 14px;
+  }
+}
+
+.coming-up-time {
+  font-size: 13px;
+  font-weight: 400;
+  color: $text-secondary;
+  
+  @media (max-width: 600px) {
+    font-size: 12px;
+  }
+}
+
+.coming-up-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-left: 16px;
+}
+
+.coming-up-person {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.coming-up-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: $text-primary;
+  white-space: nowrap;
+}
+
+.coming-up-cancelled {
+  font-size: 12px;
+  font-weight: 500;
+  color: #ff3b30;
+}
+
+.coming-up-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f5f5f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  ion-icon {
+    font-size: 20px;
+    color: #b0b0b0;
+  }
+}
+
+.coming-up-show-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 0;
+  background: none;
+  border: none;
+  border-top: 1px solid $border-color;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  
+  &:hover {
+    color: #000000;
+  }
+  
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
+.coming-up-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 0;
+  text-align: center;
+  
+  p {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0 0 16px 0;
+  }
+  
+  .coming-up-show-all {
+    border-top: none;
+    padding: 0;
+    font-size: 14px;
+    
+    &:hover {
+      color: $blue;
+    }
+  }
+}
+
+// Contextual feedback action prompt
+.coming-up-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  margin-top: 12px;
+  background: rgba(255, 59, 48, 0.04);
+  border: 1px solid rgba(255, 59, 48, 0.1);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:hover {
+    background: rgba(255, 59, 48, 0.08);
+  }
+  
+  .action-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .action-count {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #FF6B6B, #ee5a24);
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .action-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .action-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+  
+  .action-subtitle {
+    font-size: 13px;
+    color: #ff3b30;
+    font-weight: 500;
+  }
+  
+  .action-cta {
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-primary;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    padding: 14px 16px;
+  }
+}
+
+// =============================================
+// EXPLORE PILLS — Clean minimal category pills
+// =============================================
+.explore-pills {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+  animation: fadeInUp 0.45s ease-out 0.35s both;
+  
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  
+  @media (min-width: 1024px) {
+    justify-content: flex-start;
+  }
+  
+  @media (max-width: 600px) {
+    gap: 8px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding: 4px 2px;
+  }
+}
+
+.explore-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #ffffff;
+  border: 1px solid $border-color;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-primary;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  
+  ion-icon {
+    font-size: 18px;
+    color: $text-secondary;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  &:hover {
+    background: #ffffff;
+    border-color: $text-primary;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+    
+    ion-icon {
+      transform: scale(1.15);
+    }
+  }
+  
+  &:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+  
+  @media (max-width: 600px) {
+    padding: 10px 16px;
+    font-size: 13px;
+    gap: 6px;
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+// Coming Up Next Timeline Section — Card container
+.timeline-section {
+  margin-bottom: 28px;
+  animation: fadeInUp 0.45s ease-out 0.2s both;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  
+  // Section header inside card — no extra margin
+  .section-header-new {
+    margin-bottom: 16px;
+  }
+  
+  @media (max-width: 600px) {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
 }
 
 // =============================================
@@ -1816,16 +2762,21 @@ ion-content {
   border: 1px solid #DDDDDD;
   border-radius: 50%;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
   
   &:hover {
     background: #F7F7F7;
     border-color: #BDBDBD;
   }
   
+  &:active {
+    transform: scale(0.95);
+  }
+  
   ion-icon {
     font-size: 16px;
     color: #222222;
+    transition: color 0.25s ease;
   }
 }
 
@@ -1865,6 +2816,22 @@ ion-content {
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.95);
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              transform 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-top: 0;
+  
+  &.visible {
+    max-height: 30px;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    margin-top: 4px;
+  }
   
   &:hover {
     color: #C21852;
@@ -1881,16 +2848,21 @@ ion-content {
   border: 1px solid #DDDDDD;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease;
   
   &:hover {
     background: #F7F7F7;
     border-color: #BDBDBD;
   }
   
+  &:active {
+    transform: scale(0.95);
+  }
+  
   ion-icon {
     font-size: 20px;
     color: #222222;
+    transition: color 0.25s ease;
   }
 }
 
@@ -1922,7 +2894,7 @@ ion-content {
   padding: 16px 0;
   border-bottom: 1px solid #F0F0F0;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.25s ease, transform 0.15s ease, padding 0.25s ease, margin 0.25s ease;
   
   &:last-child {
     border-bottom: none;
@@ -1931,6 +2903,7 @@ ion-content {
   &:hover {
     background: #F7F7F7;
     margin: 0 -8px;
+    padding: 16px 8px;
     padding-left: 8px;
     padding-right: 8px;
   }
@@ -2054,10 +3027,15 @@ ion-content {
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease;
   
   &:hover {
     background: #000000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: scale(0.98);
   }
 }
 
@@ -4231,6 +5209,851 @@ ion-content {
   }
 }
 
+// =============================================
+// TUTOR DASHBOARD GRID — 2x2 layout
+// =============================================
+.tutor-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "upnext    earnings"
+    "comingup  stats";
+  gap: 24px;
+  align-items: stretch; // Cards in the same row match heights
+  margin-bottom: 28px;
+  
+  @media (max-width: 968px) {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "upnext"
+      "earnings"
+      "comingup"
+      "stats";
+    gap: 20px;
+  }
+}
+
+.grid-cell-upnext {
+  grid-area: upnext;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  
+  // Remove ionic card default margins so card fills the cell
+  .next-class-card {
+    margin: 0;
+    margin-bottom: 0;
+    flex: 1; // Fill grid cell height
+  }
+  
+  .empty-state-clean {
+    margin-bottom: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; // Allow flex shrinking
+  }
+  
+  // Make inner content fill the parent height to match earnings widget
+  .empty-state-clean-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; // Center content vertically when it doesn't fill
+    min-height: 0; // Allow flex shrinking
+    padding: 24px; // Match earnings widget padding instead of default 65px 32px
+    
+    // When filled with lesson content, ensure it fills height
+    &.upnext-filled {
+      flex: 1;
+      justify-content: space-between; // Distribute content evenly
+      padding: 24px; // Match earnings widget padding
+    }
+  }
+
+  // Skeleton must fill grid cell height to match earnings widget
+  .loading-skeleton-state .empty-state-clean-inner {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  // Ensure Up Next card wrapper fills grid cell height to match earnings widget
+  .up-next-card-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+}
+
+.grid-cell-earnings {
+  grid-area: earnings;
+  display: flex;
+  flex-direction: column;
+}
+
+.grid-cell-comingup {
+  grid-area: comingup;
+  min-width: 0;
+  
+  .timeline-section {
+    margin-bottom: 0;
+  }
+}
+
+.grid-cell-stats {
+  grid-area: stats;
+}
+
+// =============================================
+// EARNINGS CARD WIDGET — Sidebar
+// =============================================
+.earnings-card-widget {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  animation: fadeInUp 0.4s ease-out 0.15s both;
+  flex: 1; // Fill grid cell height to match sibling (Up Next card)
+  display: flex;
+  flex-direction: column;
+  
+  // When returning from earnings view: suppress all CSS animations.
+  // Card visibility is controlled entirely by inline JS (no CSS animation timing gaps).
+  // Buttons stay hidden until their FLIP clones land and snap-reveal them.
+  &.skip-entry-animation {
+    animation: none !important; // Kill fadeInUp — JS handles the reveal
+    
+    .withdraw-btn,
+    .view-details-link {
+      opacity: 0;
+      transition: none !important; // Override "transition: all" to prevent fade-flash
+    }
+  }
+  
+  .earnings-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    
+    h3 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #222222;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    
+    .earnings-menu-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      color: #9ca3af;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+      
+      ion-icon {
+        font-size: 20px;
+      }
+      
+      &:hover {
+        color: #1f2937;
+        background: #f3f4f6;
+      }
+    }
+  }
+  
+  .earnings-card-body {
+    margin-bottom: 20px;
+    flex: 1; // Push withdraw button to bottom when Pending is hidden
+    
+    .earnings-label {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .earnings-balance {
+      font-size: 36px;
+      font-weight: 800;
+      color: #1f2937;
+      letter-spacing: -1px;
+      cursor: pointer;
+      margin-bottom: 16px;
+      line-height: 1.1;
+      
+      .earnings-dots-display {
+        color: #d1d5db;
+        letter-spacing: 2px;
+      }
+      
+      @media (max-width: 600px) {
+        font-size: 32px;
+      }
+    }
+    
+    .earnings-pending {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-top: 1px solid #f3f4f6;
+      
+      .pending-label {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+      }
+      
+      .pending-amount {
+        font-size: 16px;
+        font-weight: 600;
+        color: #FF385C;
+      }
+    }
+  }
+  
+  .withdraw-btn {
+    --border-radius: 12px;
+    --border-color: #222222;
+    --color: #222222;
+    --border-width: 1px;
+    font-weight: 600;
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0;
+    margin: 0 0 12px 0;
+    height: 48px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      --background: #222222;
+      --color: #ffffff;
+    }
+  }
+  
+  .view-details-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    width: 100%;
+    padding: 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222222;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+    
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+// =============================================
+// SIDEBAR STAT CARDS — Classes + Rating
+// =============================================
+.sidebar-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sidebar-stat-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .stat-card-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #717171;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  
+  .stat-card-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #222222;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    .star-icon {
+      font-size: 18px;
+      color: #fbbf24;
+    }
+  }
+  
+  .stat-card-sub {
+    font-size: 13px;
+    color: #9ca3af;
+    font-weight: 400;
+  }
+}
+
+// =============================================
+// CARD TOP ROW — "Up Next" left, countdown right
+// =============================================
+// =============================================
+// AIRBNB-STYLE CARD HEADER
+// =============================================
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  gap: 12px;
+  
+  @media (max-width: 600px) {
+    padding: 16px 20px 12px;
+    gap: 8px;
+  }
+}
+
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  
+  .card-top-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    
+    @media (max-width: 600px) {
+      font-size: 18px;
+    }
+  }
+}
+
+// Inline badges — sit right next to the title
+.badge-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  flex-shrink: 0;
+  
+  ion-icon {
+    font-size: 11px;
+  }
+  
+  &.badge-trial {
+    background: linear-gradient(135deg, #ff9500 0%, #ff6b35 100%);
+    color: #ffffff;
+    
+    ion-icon {
+      font-size: 10px;
+      color: #ffffff;
+    }
+  }
+  
+  &.badge-cancelled {
+    background: #ff3b30;
+    color: #ffffff;
+  }
+  
+  &.badge-reschedule-accepted {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+  }
+  
+  &.badge-reschedule-sent {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #ffffff;
+  }
+  
+  &.badge-reschedule-proposal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    cursor: pointer;
+    animation: pulse 2s infinite;
+    
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}
+
+// Countdown pill — subtle right-aligned
+.countdown-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: #717171;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  
+  @media (max-width: 600px) {
+    font-size: 10px;
+  }
+}
+
+// Subtle divider between header and body
+.card-divider {
+  height: 1px;
+  background: #ebebeb;
+  margin: 0 24px;
+  
+  @media (max-width: 600px) {
+    margin: 0 20px;
+  }
+}
+
+// =============================================
+// AIRBNB-STYLE CARD BODY
+// =============================================
+.card-body-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+  
+  @media (max-width: 600px) {
+    padding: 16px 20px;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+}
+
+.card-avatar {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  
+  @media (max-width: 600px) {
+    width: 64px;
+    height: 64px;
+    border-radius: 14px;
+  }
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .avatar-placeholder {
+    font-size: 36px;
+    color: #b0b0b0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f5f7 0%, #e8e8ed 100%);
+    
+    @media (max-width: 600px) {
+      font-size: 28px;
+    }
+  }
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  
+  @media (max-width: 600px) {
+    font-size: 17px;
+  }
+}
+
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #717171;
+  
+  ion-icon {
+    font-size: 15px;
+    color: #b0b0b0;
+  }
+  
+  .flag-icon {
+    width: 18px;
+    height: 13px;
+    object-fit: cover;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+  
+  &.is-today {
+    color: #008489;
+    font-weight: 600;
+    
+    ion-icon {
+      color: #008489;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    font-size: 13px;
+    
+    ion-icon {
+      font-size: 14px;
+    }
+    
+    .flag-icon {
+      width: 16px;
+      height: 12px;
+    }
+  }
+}
+
+// Separate meta items with a middle dot
+.card-meta .meta-item + .meta-item::before {
+  content: '·';
+  margin-right: 6px;
+  color: #dddddd;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  
+  @media (max-width: 600px) {
+    width: 100%;
+  }
+}
+
+// Keep backward compat for old card-top-row references
+.card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  
+  .card-top-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #222222;
+    margin: 0;
+    letter-spacing: -0.3px;
+  }
+  
+  .countdown-label-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #717171;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+}
+
+// Keep standalone countdown for backward compat
+.countdown-label-top {
+  text-align: center;
+  padding: 12px 20px 0;
+  
+  .countdown-label-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #3b82f6;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+}
+
+// =============================================
+// HERO JOIN BUTTON — Large, prominent
+// =============================================
+.join-button-area {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  
+  @media (max-width: 600px) {
+    width: 100%;
+  }
+}
+
+.join-button-hero {
+  --background: #222222;
+  --background-hover: #000000;
+  --background-activated: #000000;
+  --border-radius: 10px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  --box-shadow: none;
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: none;
+  letter-spacing: -0.1px;
+  height: auto;
+  min-height: 48px;
+  transition: all 0.15s ease;
+  
+  ion-icon {
+    font-size: 16px;
+    margin-right: 4px;
+  }
+  
+  &.active {
+    --background: #222222;
+    --background-hover: #000000;
+    --box-shadow: none;
+    animation: pulse-join 2s ease-in-out infinite;
+  }
+  
+  &:hover:not([disabled]) {
+    transform: scale(1.02);
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+  
+  &[disabled] {
+    opacity: 0.35;
+    --box-shadow: none;
+  }
+  
+  @media (max-width: 600px) {
+    width: 100%;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    min-height: 44px;
+    font-size: 14px;
+    --border-radius: 10px;
+  }
+}
+
+@keyframes pulse-join {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+// =============================================
+// COMING UP — Table Column Headers
+// =============================================
+.coming-up-headers {
+  display: grid;
+  grid-template-columns: 110px 1fr 120px;
+  padding: 8px 20px;
+  margin-bottom: 4px;
+  
+  .cu-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: #717171;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  
+  .cu-h-status {
+    text-align: right;
+  }
+  
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+// =============================================
+// COMING UP — Table Row V2
+// =============================================
+.coming-up-row-v2 {
+  display: grid;
+  grid-template-columns: 110px 1fr 120px;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid $border-color;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  
+  &:last-of-type {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: $background-hover;
+  }
+  
+  &.cancelled {
+    opacity: 0.55;
+  }
+  
+  @media (max-width: 768px) {
+    grid-template-columns: auto 1fr auto;
+    gap: 8px 12px;
+    
+    .cu-type-col {
+      display: none;
+    }
+  }
+  
+  @media (max-width: 600px) {
+    padding: 14px 16px;
+  }
+}
+
+.cu-time-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  
+  .cu-time-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.2px;
+  }
+  
+  .cu-duration {
+    font-size: 12px;
+    color: $text-secondary;
+    font-weight: 400;
+  }
+}
+
+.cu-person-col {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  
+  .cu-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f5f5f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    ion-icon {
+      font-size: 18px;
+      color: #b0b0b0;
+    }
+  }
+  
+  .cu-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: $text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.cu-type-col {
+  .cu-subject {
+    font-size: 14px;
+    color: $text-secondary;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.cu-status-col {
+  text-align: right;
+  
+  @media (max-width: 768px) {
+    text-align: right;
+  }
+  
+  .cu-status-badge {
+    display: inline-block;
+    padding: 4px 0;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: capitalize;
+    background: none;
+    
+    &.confirmed {
+      color: #008A05;
+    }
+    
+    &.in-progress {
+      color: #1d4ed8;
+    }
+    
+    &.pending {
+      color: #b45309;
+    }
+    
+    &.cancelled {
+      color: #dc2626;
+      text-decoration: line-through;
+    }
+  }
+}
+
 // Section Header
 .section-header-new {
   display: flex;
@@ -4243,27 +6066,34 @@ ion-content {
   h2 {
     font-size: 22px;
     font-weight: 800;
-    color: var(--ion-text-color, #1f2937);
+    color: #222222;
     margin: 0;
+    letter-spacing: -0.5px;
   }
 }
 
 .see-all-btn {
-  --color: #3b82f6;
+  --color: #222222;
   font-weight: 600;
   font-size: 15px;
   text-transform: none;
+  text-decoration: underline;
 }
 
 // Next Class Text Section (No Card)
 // Next Class Card - Ultra Compact Design
 .next-class-card {
-  margin-bottom: 24px;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(50, 50, 50, 0.04), 0 1px 4px rgba(50, 50, 50, 0.03);
-  overflow: visible;
+  margin-bottom: 28px;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 6px 24px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(0, 0, 0, 0.1);
+  }
 
   // Disabled state when tutor has outstanding feedback
   &.card-disabled {
@@ -4279,7 +6109,7 @@ ion-content {
   
   @media (max-width: 600px) {
     margin-bottom: 20px;
-    border-radius: 14px;
+    border-radius: 16px;
   }
   
   ion-card-content {
@@ -4425,23 +6255,21 @@ ion-content {
 }
 
 .card-inner {
-  padding: 20px 24px;
-  
-  @media (max-width: 600px) {
-    padding: 18px 20px;
-  }
+  padding: 0;
 }
 
-// Modern Spacious Layout (First Screenshot Style)
+// Modern Spacious Layout — Horizontal row: avatar/info + join button
 .next-class-layout-modern {
   display: flex;
   justify-content: space-between;
-  align-items: stretch;
-  gap: 32px;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
   
   @media (max-width: 768px) {
     flex-direction: column;
-    gap: 24px;
+    align-items: stretch;
+    gap: 20px;
   }
 }
 
@@ -4456,44 +6284,31 @@ ion-content {
   }
 }
 
-// Next Class Card - Modern Layout
+// Next Class Card - Modern Layout (legacy compat)
 .next-class-layout-modern {
   position: relative;
   display: flex;
-  align-items: cenlter;
+  align-items: center;
   gap: 20px;
   padding: 20px;
-  padding-top: 30px; // Extra space at top for badges
   
   @media (max-width: 600px) {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
-    padding: 20px 16px;
-    padding-top: 65px;
+    padding: 16px;
   }
 }
 
-// Badge container at the top left of the card, above avatar
+// Badge container — legacy support (no longer absolute)
 .badge-container-card-top {
-  position: absolute;
-  top: 16px;
-  left: 24px; // Align with card padding
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  justify-content: flex-start; // Left align
-  max-width: calc(100% - 48px); // Account for padding
-  z-index: 10;
-  
-  @media (max-width: 600px) {
-    top: 12px;
-    left: 16px;
-    gap: 6px;
-    max-width: calc(100% - 32px);
-  }
+  justify-content: flex-start;
+  margin-bottom: 8px;
 }
 
 .left-section-modern {
@@ -4535,15 +6350,15 @@ ion-content {
 }
 
 .class-avatar-modern {
-  width: 100px;
-  height: 100px;
+  width: 120px;
+  height: 120px;
   flex-shrink: 0;
   border: 3px solid #f5f5f7;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   
   @media (max-width: 600px) {
-    width: 90px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
     border-width: 2.5px;
   }
   
@@ -4705,6 +6520,14 @@ ion-content {
     
     ion-icon {
       color: #007aff;
+    }
+  }
+  
+  &.video-call-label {
+    color: #3b82f6;
+    
+    ion-icon {
+      color: #3b82f6;
     }
   }
   
@@ -5327,224 +7150,67 @@ ion-content {
   }
 }
 
-// Loading Skeleton for Next Class Card
-.loading-card {
-  // Match the actual card structure exactly
-  .card-inner {
-    padding: 20px 24px; // Match actual card-inner padding
+// Loading Skeleton — uses same .empty-state-clean-inner wrapper for identical sizing
+.loading-skeleton-state {
+  .skeleton-icon-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    margin-bottom: 20px;
     
     @media (max-width: 600px) {
-      padding: 18px 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      margin-bottom: 16px;
     }
   }
-  
-  .loading-skeleton {
-    // Match next-class-layout-modern exactly
-    position: relative; // For absolutely positioned badge
+
+  .skeleton-text-group {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 32px; // Match next-class-layout-modern gap
-    padding: 20px;
-    padding-top: 44px; // Space for badge (16px top + 24px badge height + 4px gap)
-    
-    @media (max-width: 768px) {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 24px;
-    }
-    
-    @media (max-width: 600px) {
-      gap: 16px;
-      padding: 16px;
-      padding-top: 50px;
-    }
+    gap: 10px;
+    margin-bottom: 24px;
   }
-  
-  .skeleton-badge {
-    // Match badge-container-card-top positioning exactly
-    position: absolute;
-    top: 16px;
-    left: 24px;
-    width: 110px;
-    height: 26px;
+
+  .skeleton-line {
     background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
     background-size: 200% 100%;
     border-radius: 6px;
     animation: shimmer 1.5s ease-in-out infinite;
-    
-    @media (max-width: 600px) {
-      top: 12px;
-      left: 16px;
-      width: 100px;
+
+    &.skeleton-heading {
+      width: 180px;
       height: 24px;
     }
-  }
-  
-  // skeleton-content matches left-section-modern structure
-  .skeleton-content {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex: 1;
-    min-width: 0;
-    
-    @media (max-width: 768px) {
-      width: 100%;
-    }
-    
-    @media (max-width: 600px) {
-      gap: 16px;
-    }
-  }
-  
-  // Avatar - rounded square to match class-avatar-modern with icon
-  .skeleton-avatar {
-    width: 100px;
-    height: 100px;
-    border-radius: 20px; // Rounded square like the actual avatar
-    background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-    background-size: 200% 100%;
-    flex-shrink: 0;
-    animation: shimmer 1.5s ease-in-out infinite;
-    border: 3px solid #f5f5f7;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    
-    @media (max-width: 600px) {
-      width: 90px;
-      height: 90px;
-      border-radius: 18px;
-      border-width: 2.5px;
-    }
-  }
-  
-  // Details - matches info-section-modern
-  .skeleton-details {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 0;
-    
-    @media (max-width: 600px) {
-      gap: 8px;
-    }
-  }
-  
-  .skeleton-line {
-    background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-    background-size: 200% 100%;
-    border-radius: 4px;
-    animation: shimmer 1.5s ease-in-out infinite;
-    
-    &.skeleton-name {
-      width: 120px;
-      height: 25px; // Match class-name-modern font-size 21px
-      border-radius: 6px;
-      
-      @media (max-width: 600px) {
-        width: 100px;
-        height: 23px;
-      }
-    }
-    
-    &.skeleton-datetime {
-      width: 280px;
-      height: 18px;
-      
-      @media (max-width: 600px) {
-        width: 200px;
-        height: 16px;
-      }
-    }
-  }
-  
-  // GOING row skeleton
-  .skeleton-going-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 2px;
-    
-    .skeleton-going-label {
-      width: 50px;
-      height: 14px;
-      background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-      background-size: 200% 100%;
-      border-radius: 3px;
-      animation: shimmer 1.5s ease-in-out infinite;
-    }
-    
-    .skeleton-going-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s ease-in-out infinite;
-      border: 2px solid #ffffff;
-    }
-    
-    .skeleton-going-count {
-      width: 24px;
-      height: 14px;
-      background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-      background-size: 200% 100%;
-      border-radius: 3px;
-      animation: shimmer 1.5s ease-in-out infinite;
-    }
-  }
-  
-  // Starts-in-card skeleton
-  .skeleton-button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 36px;
-    min-width: 200px;
-    background: #f9fafb; // Match starts-in-card background
-    border-radius: 16px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    flex-shrink: 0;
-    gap: 12px;
-    
-    .skeleton-button-label {
-      width: 70px;
-      height: 11px;
-      background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-      background-size: 200% 100%;
-      border-radius: 3px;
-      animation: shimmer 1.5s ease-in-out infinite;
-    }
-    
-    .skeleton-button-time {
-      width: 100px;
-      height: 21px;
-      background: linear-gradient(90deg, #e8e8ed 0%, #d1d1d6 50%, #e8e8ed 100%);
-      background-size: 200% 100%;
+    &.skeleton-subtext {
+      width: 260px;
+      height: 16px;
       border-radius: 4px;
-      animation: shimmer 1.5s ease-in-out infinite;
+      
+      @media (max-width: 600px) {
+        width: 220px;
+      }
     }
-    
-    .skeleton-button-cta {
-      width: 100%;
-      height: 44px;
-      background: linear-gradient(90deg, #c7d2fe 0%, #a5b4fc 50%, #c7d2fe 100%);
+    &.skeleton-subtext-short {
+      width: 180px;
+      height: 16px;
+      border-radius: 4px;
+      
+      @media (max-width: 600px) {
+        width: 150px;
+      }
+    }
+    &.skeleton-cta-btn {
+      width: 160px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(90deg, #d1d1d6 0%, #c7c7cc 50%, #d1d1d6 100%);
       background-size: 200% 100%;
-      border-radius: 10px;
-      animation: shimmer 1.5s ease-in-out infinite;
-      min-width: 120px;
-    }
-    
-    @media (max-width: 768px) {
-      width: 100%;
-      padding: 24px 32px;
-      min-width: auto;
-    }
-    
-    @media (max-width: 600px) {
-      padding: 20px 24px;
     }
   }
 }
@@ -6756,6 +8422,9 @@ ion-content {
   flex: 1;
   position: relative;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; // Allow flex shrinking
 }
 
 // Up Next Card (Left - Upcoming Lesson)
@@ -6770,10 +8439,11 @@ ion-content {
   cursor: pointer;
   transition: all 0.3s ease;
   margin: 0;
-  height: 300px; // FIXED height to match dynamic card
+  height: 100%; // Fill wrapper height to match earnings widget
   position: relative;
   width: 100%;
-  min-height: 320px;
+  display: flex;
+  flex-direction: column;
   
   // Mobile: Clean design
   @media (max-width: 600px) {
@@ -6814,11 +8484,12 @@ ion-content {
   
   ion-card-content {
     padding: 24px;
-    height: 252px; // FIXED height (300px - 48px padding)
+    flex: 1; // Fill card height
+    display: flex;
+    flex-direction: column;
     
     @media (max-width: 600px) {
       padding: 20px;
-      height: auto;
     }
   }
 }
@@ -7789,6 +9460,177 @@ ion-content {
 :host-context(html.ion-palette-dark) {
   .section-header-new h2 {
     color: var(--ion-text-color, #ffffff) !important;
+  }
+  
+  // Earnings card dark mode
+  .earnings-card-widget {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    
+    .earnings-card-header h3 { color: var(--ion-text-color, #fff) !important; }
+    .earnings-card-header .earnings-menu-btn {
+      color: #666 !important;
+      &:hover { color: #fff !important; background: #333 !important; }
+    }
+    .earnings-label { color: #999 !important; }
+    .earnings-balance {
+      color: var(--ion-text-color, #fff) !important;
+      .earnings-dots-display { color: #555 !important; }
+    }
+    .earnings-pending {
+      border-top-color: #3a3a3a !important;
+      .pending-label { color: #999 !important; }
+    }
+    .withdraw-btn {
+      --border-color: #fff !important;
+      --color: #fff !important;
+      &:hover { --background: #fff !important; --color: #1a1a1a !important; }
+    }
+    .view-details-link { color: #60a5fa !important; }
+  }
+  
+  // Sidebar stat cards dark mode
+  .sidebar-stat-card {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+    
+    .stat-card-label { color: #666 !important; }
+    .stat-card-value { color: var(--ion-text-color, #fff) !important; }
+    .stat-card-sub { color: #888 !important; }
+  }
+  
+  // Timeline section card dark mode
+  .timeline-section {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  // Next class card dark mode
+  .next-class-card {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  
+  // Card header dark mode
+  .card-header-row {
+    .card-top-title { color: var(--ion-text-color, #fff) !important; }
+    .countdown-pill { color: #888 !important; }
+  }
+  .card-divider { background: rgba(255, 255, 255, 0.08) !important; }
+  .card-name { color: var(--ion-text-color, #fff) !important; }
+  .meta-item { color: #999 !important; }
+  .meta-item ion-icon { color: #666 !important; }
+  
+  // Card top row dark mode (legacy)
+  .card-top-row {
+    .card-top-title { color: var(--ion-text-color, #fff) !important; }
+    .countdown-label-text { color: #60a5fa !important; }
+  }
+  
+  // Countdown label dark mode
+  .countdown-label-top .countdown-label-text {
+    color: #60a5fa !important;
+  }
+  
+  // Coming up table dark mode
+  .coming-up-headers .cu-header {
+    color: #666 !important;
+  }
+  .coming-up-row-v2 {
+    border-bottom-color: #3a3a3a !important;
+    &:hover { background: #333 !important; }
+  }
+  .cu-time-text { color: var(--ion-text-color, #fff) !important; }
+  .cu-duration { color: #888 !important; }
+  .cu-name { color: var(--ion-text-color, #fff) !important; }
+  .cu-subject { color: #888 !important; }
+  .cu-avatar { background: #333 !important; }
+  .cu-status-badge {
+    &.confirmed { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
+    &.in-progress { background: rgba(59, 130, 246, 0.15) !important; color: #60a5fa !important; }
+    &.pending { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
+    &.cancelled { background: rgba(220, 38, 38, 0.15) !important; color: #f87171 !important; }
+  }
+  
+  // V2 insights panel dark mode
+  .insights-panel-v2 {
+    .metric-value {
+      color: var(--ion-text-color, #ffffff) !important;
+    }
+    .metric-label {
+      color: var(--ion-text-color-step-400, #aaa) !important;
+    }
+    .metric-divider {
+      background: #3a3a3a !important;
+    }
+  }
+  
+  // Clean empty state dark mode
+  .empty-state-clean-inner {
+    background: linear-gradient(180deg, #2a2a2a 0%, #252525 100%) !important;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  .empty-state-clean-icon {
+    background: linear-gradient(135deg, #333333, #3a3a3a) !important;
+    ion-icon { color: #aaa !important; }
+  }
+  .empty-state-clean-text {
+    h3 { color: var(--ion-text-color, #ffffff) !important; }
+    p { color: var(--ion-text-color-step-400, #aaa) !important; }
+  }
+  .empty-state-clean-btn {
+    --background: transparent !important;
+    --color: #ffffff !important;
+    --border-color: #ffffff !important;
+    &:hover {
+      --background: #ffffff !important;
+      --color: #1d1d1f !important;
+    }
+    &.active {
+      --background: #ffffff !important;
+      --color: #1d1d1f !important;
+      --border-color: #ffffff !important;
+    }
+  }
+  
+  // Coming up list dark mode
+  .coming-up-list {
+    background: #2a2a2a !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  .coming-up-row {
+    border-bottom-color: #3a3a3a !important;
+    &:hover { background: #333333 !important; }
+  }
+  .coming-up-day { color: var(--ion-text-color, #fff) !important; }
+  .coming-up-name { color: var(--ion-text-color, #fff) !important; }
+  .coming-up-avatar { background: #333333 !important; }
+  .coming-up-show-all {
+    border-top-color: #3a3a3a !important;
+    color: var(--ion-text-color, #fff) !important;
+  }
+  .coming-up-action {
+    background: rgba(255, 59, 48, 0.08) !important;
+    border-color: rgba(255, 59, 48, 0.15) !important;
+    .action-title { color: var(--ion-text-color, #fff) !important; }
+    .action-cta { color: var(--ion-text-color, #fff) !important; }
+  }
+  
+  // Explore pills dark mode
+  .explore-pill {
+    background: #2a2a2a !important;
+    border-color: #3a3a3a !important;
+    color: var(--ion-text-color, #fff) !important;
+    ion-icon { color: var(--ion-text-color-step-400, #aaa) !important; }
+    &:hover {
+      background: #333333 !important;
+      border-color: #444444 !important;
+    }
   }
   
   .insights-panel {
@@ -9172,7 +11014,8 @@ ion-modal.reschedule-proposal-modal {
     --max-width: 560px !important;
   }
 
-  ion-modal.reschedule-lesson-modal {
+  ion-modal.reschedule-lesson-modal,
+  ion-modal.cancel-reason-modal {
     --width: 900px !important;
     --max-width: 1000px !important;
     --height: 90% !important;
@@ -9201,7 +11044,8 @@ ion-modal.reschedule-proposal-modal {
     --max-width: 500px !important;
   }
 
-  ion-modal.reschedule-lesson-modal {
+  ion-modal.reschedule-lesson-modal,
+  ion-modal.cancel-reason-modal {
     --width: 92% !important;
     --max-width: 700px !important;
     --height: 90% !important;
@@ -9502,17 +11346,15 @@ ion-modal.reschedule-proposal-modal {
 
 // Tutor Onboarding Banner
 .onboarding-banner-container {
-  margin: 16px 0;
-  animation: slideIn 0.4s ease-out;
   margin: 8px 0;
   position: relative;
-  animation: _ngcontent-ng-c895072638_slideIn 0.4s ease-out;
   bottom: 14px;
+  animation: bannerSlideIn 0.4s ease-out;
   
-  @keyframes slideIn {
+  @keyframes bannerSlideIn {
     from {
       opacity: 0;
-      transform: translateY(-20px);
+      transform: translateY(-12px);
     }
     to {
       opacity: 1;
@@ -9521,34 +11363,35 @@ ion-modal.reschedule-proposal-modal {
   }
 
   .onboarding-banner {
-    background: #fff;
+    background: #fff7ea;
     border-radius: 16px;
-    border: 1px solid $border-color;
-    box-shadow: none;
+    border: 1px solid #FFB74D;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12);
     margin: 0;
 
     ion-card-content {
-      padding: 20px;
+      padding: 18px 20px;
     }
 
     .banner-content {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 14px;
 
       .banner-icon {
-        width: 48px;
-        height: 48px;
+        width: 44px;
+        height: 44px;
         border-radius: 12px;
-        background: $background-hover;
+        background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3);
 
         ion-icon {
-          font-size: 24px;
-          color: $text-primary;
+          font-size: 22px;
+          color: #ffffff;
         }
       }
 
@@ -9556,32 +11399,40 @@ ion-modal.reschedule-proposal-modal {
         flex: 1;
 
         h3 {
-          margin: 0 0 6px 0;
-          font-size: 17px;
-          font-weight: 600;
-          color: $text-primary;
+          margin: 0 0 4px 0;
+          font-size: 16px;
+          font-weight: 700;
+          color: #1a1a1a;
           letter-spacing: -0.3px;
         }
 
         p, .banner-items {
           margin: 0;
-          font-size: 14px;
-          font-weight: 400;
-          color: $text-secondary;
-          line-height: 1.4;
+          font-size: 13px;
+          font-weight: 500;
+          color: #5D4037;
+          line-height: 1.5;
+
+          .separator {
+            color: #BF8040;
+            margin: 0 2px;
+          }
         }
       }
 
       ion-button {
-        --background: #{$text-primary};
-        --background-hover: #000;
+        --background: #222222;
+        --background-hover: #000000;
+        --background-activated: #000000;
         --border-radius: 10px;
-        --padding-start: 16px;
-        --padding-end: 16px;
+        --padding-start: 18px;
+        --padding-end: 18px;
+        --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         height: 40px;
         font-size: 14px;
         font-weight: 600;
         text-transform: none;
+        letter-spacing: -0.1px;
         flex-shrink: 0;
       }
 

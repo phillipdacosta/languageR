@@ -94,6 +94,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   // Filters modal
   isFiltersModalOpen = false;
   activeFilterCount = 0;
+  hasActiveSecondaryFilters = false;
   statusFilterLabel = '';
   timeFilterLabel = '';
   participantFilterLabel = '';
@@ -270,6 +271,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (this.isStudentUser && this.selectedTutorFilter !== 'all') count++;
     if (this.isTutorUser && this.selectedStudentFilter !== 'all') count++;
     this.activeFilterCount = count;
+    this.hasActiveSecondaryFilters = count > 0;
 
     // Status label
     switch (this.selectedStatusFilter) {
@@ -583,10 +585,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   onLessonClick(pl: ProcessedLesson) {
-    // Toggle the actions row for lessons that have actions
-    if (pl.showActions) {
-      this.toggleExpand(pl);
-    }
+    this.router.navigate(['/tabs/tutor-calendar/event', pl.id]);
   }
 
   viewFeedback(pl: ProcessedLesson) {

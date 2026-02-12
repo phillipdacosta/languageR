@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
@@ -14,11 +14,22 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./onboarding.page.scss'],
   standalone: false,
 })
-export class OnboardingPage implements OnInit {
+export class OnboardingPage implements OnInit, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
   totalSteps = 5; // Students: Name + Native Language + Languages + Goals + Experience/Schedule
   currentUser: User | null = null;
+
+  // Preview & Welcome state
+  showPreview = false;
+  showWelcome = false;
+  isSubmitting = false;
+  hasReachedPreview = false; // True once the user has visited the preview page at least once
+
+  // ViewChild references for autofocus
+  @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
+  
+  private lastFocusedStep = 0;
 
   // Onboarding data
   firstName = '';
@@ -39,6 +50,25 @@ export class OnboardingPage implements OnInit {
       .join(' ')
       .trim();
   }
+
+  /**
+   * Format first name on blur (title case)
+   */
+  formatFirstNameOnBlur() {
+    if (this.firstName) {
+      this.firstName = this.formatName(this.firstName);
+    }
+  }
+
+  /**
+   * Format last name on blur (title case)
+   */
+  formatLastNameOnBlur() {
+    if (this.lastName) {
+      this.lastName = this.formatName(this.lastName);
+    }
+  }
+
   nativeLanguage = 'en'; // Default to English
   selectedLanguages: string[] = [];
   learningGoals: string[] = [];
@@ -244,7 +274,8 @@ export class OnboardingPage implements OnInit {
     private loadingController: LoadingController,
     private alertController: AlertController,
     private modalController: ModalController,
-    private onboardingGuard: OnboardingGuard
+    private onboardingGuard: OnboardingGuard,
+    private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
   }
@@ -301,6 +332,31 @@ export class OnboardingPage implements OnInit {
     }
   }
 
+  ngAfterViewChecked() {
+    // Focus first input and scroll sidebar when step changes
+    if (this.currentStep !== this.lastFocusedStep) {
+      this.lastFocusedStep = this.currentStep;
+      setTimeout(() => {
+        this.focusFirstInput();
+        this.scrollCurrentStepIntoView();
+      }, 100);
+    }
+  }
+
+  private scrollCurrentStepIntoView() {
+    const currentStepEl = document.querySelector('.step-item.current');
+    if (currentStepEl) {
+      currentStepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  private focusFirstInput() {
+    // Focus the first input based on current step
+    if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
+      this.firstNameInput.nativeElement.focus();
+    }
+  }
+
   nextStep() {
     // Validate current step before proceeding
     if (this.currentStep === 1) {
@@ -312,8 +368,6 @@ export class OnboardingPage implements OnInit {
     
     if (this.currentStep < this.totalSteps) {
       this.currentStep++;
-    } else {
-      this.completeOnboarding();
     }
   }
 
@@ -400,12 +454,33 @@ export class OnboardingPage implements OnInit {
     return localStorage.getItem('selectedUserType') === 'tutor';
   }
 
+  showPreviewPage() {
+    this.showPreview = true;
+    this.hasReachedPreview = true;
+    // Scroll to top when preview page is shown
+    setTimeout(() => {
+      const previewContainer = document.querySelector('.preview-container');
+      if (previewContainer) {
+        previewContainer.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }, 0);
+  }
+
+  goBackToEdit(step?: number) {
+    this.showPreview = false;
+    if (step) {
+      this.currentStep = step;
+    }
+  }
+
+  getNativeLanguageName(): string {
+    const lang = this.nativeLanguageOptions.find(l => l.code === this.nativeLanguage);
+    return lang ? lang.name : this.nativeLanguage;
+  }
+
   async completeOnboarding() {
-    const loading = await this.loadingController.create({
-      message: 'Completing setup...',
-      spinner: 'crescent'
-    });
-    await loading.present();
+    this.isSubmitting = true;
 
     try {
       // Get userType from localStorage (set during user type selection)
@@ -515,26 +590,18 @@ export class OnboardingPage implements OnInit {
       
       localStorage.setItem('onboarding_data', JSON.stringify(backupData));
 
-      await loading.dismiss();
+      this.isSubmitting = false;
 
-      // Check for return URL (for users who clicked a shared link before signing up)
-      const returnUrl = localStorage.getItem('returnUrl');
-      if (returnUrl) {
-        console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);
-        localStorage.removeItem('returnUrl');
-        
-        // Set flag so the destination page knows to override back button
-        localStorage.setItem('justCompletedLogin', returnUrl);
-        console.log('🔄 Onboarding: Set justCompletedLogin flag to:', returnUrl);
-        
-        this.router.navigateByUrl(returnUrl, { replaceUrl: true });
-      } else {
-        // Default: Navigate to main app
-        this.router.navigate(['/tabs/home'], { replaceUrl: true });
-      }
+      // Show the welcome/congrats page
+      this.showWelcome = true;
+
+      // Auto-redirect after 4 seconds
+      setTimeout(() => {
+        this.navigateToHome();
+      }, 4000);
     } catch (error: any) {
       console.error('❌ Error completing onboarding:', error);
-      await loading.dismiss();
+      this.isSubmitting = false;
       
       // Determine error message
       let errorMessage = 'Failed to complete setup. Please try again.';
@@ -630,5 +697,37 @@ export class OnboardingPage implements OnInit {
       default:
         return false;
     }
+  }
+
+  navigateToHome() {
+    const returnUrl = localStorage.getItem('returnUrl');
+    if (returnUrl) {
+      console.log('🔄 Onboarding complete, returning to saved URL:', returnUrl);
+      localStorage.removeItem('returnUrl');
+      localStorage.setItem('justCompletedLogin', returnUrl);
+      this.router.navigateByUrl(returnUrl, { replaceUrl: true });
+    } else {
+      this.router.navigate(['/tabs/home'], { replaceUrl: true });
+    }
+  }
+
+  async handleLogout() {
+    const alert = await this.alertController.create({
+      header: 'Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Logout',
+          handler: async () => {
+            await this.authService.logout();
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 }

@@ -376,14 +376,21 @@ export class ProfilePage implements OnInit {
       missingItems.push('Complete onboarding');
     }
     
-    // Check 2: Video approved (tutorApproved is set when video is approved)
+    // Check 2: Tutor fully approved (video + credentials all approved by admin)
     const tutorApproved = user.tutorApproved === true;
     if (!tutorApproved) {
-      missingItems.push('Video approval');
+      // Give more specific missing item details
+      const creds = user.tutorCredentials;
+      const govIdOk = creds?.governmentId?.status === 'approved';
+      const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
+      const videoOk = user.tutorOnboarding?.videoApproved === true;
+      
+      if (!videoOk) missingItems.push('Video approval');
+      if (!govIdOk) missingItems.push('Government ID verification');
+      if (!certsOk) missingItems.push('Teaching certification verification');
     }
     
     // Check 3: Has payout setup (Stripe, PayPal, or Manual)
-    // Use hasPayoutSetup which is already loaded
     const hasPayoutMethod = this.hasPayoutSetup === true;
     if (!hasPayoutMethod) {
       missingItems.push('Payout setup');
@@ -1046,14 +1053,39 @@ export class ProfilePage implements OnInit {
   // Handle return from Stripe Connect onboarding
   async handleStripeConnectReturn(success: boolean) {
     if (success) {
-      // Show success message
-      const toast = await this.toastController.create({
-        message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
-        duration: 5000,
-        color: 'success',
-        position: 'top'
-      });
-      await toast.present();
+      // Verify with backend that Stripe Connect is actually complete
+      // (user may have pressed back without finishing)
+      try {
+        const statusResponse = await firstValueFrom(
+          this.http.get<any>(`${environment.apiUrl}/payments/stripe-connect/status`, {
+            headers: this.userService.getAuthHeadersSync()
+          })
+        );
+        
+        if (statusResponse?.success && statusResponse.onboarded) {
+          // Stripe is actually onboarded — show success toast
+          const toast = await this.toastController.create({
+            message: '✅ Payout setup complete! Your earnings will be transferred to your bank.',
+            duration: 5000,
+            color: 'success',
+            position: 'top'
+          });
+          await toast.present();
+        } else {
+          // User returned but didn't finish Stripe setup
+          console.log('⚠️ Returned from Stripe but onboarding not complete:', statusResponse);
+          const toast = await this.toastController.create({
+            message: 'Stripe setup not completed. Please try again to finish connecting your bank account.',
+            duration: 5000,
+            color: 'warning',
+            position: 'top'
+          });
+          await toast.present();
+        }
+      } catch (error) {
+        console.error('❌ Error verifying Stripe status:', error);
+        // Don't show any toast if we can't verify
+      }
     }
     
     // Refresh payout status in UserService (will update profile via subscription)

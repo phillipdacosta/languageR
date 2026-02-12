@@ -355,7 +355,7 @@ export class PostLessonTutorPage implements OnInit {
             role: 'cancel',
             cssClass: 'secondary',
             handler: () => {
-              this.router.navigate(['/tabs/home/lessons']);
+              this.router.navigate(['/tabs/lessons']);
             }
           },
           {
@@ -370,7 +370,7 @@ export class PostLessonTutorPage implements OnInit {
       return;
     }
     
-    await this.router.navigate(['/tabs/home/lessons']);
+    await this.router.navigate(['/tabs/lessons']);
   }
 
   formatDate(date: Date): string {

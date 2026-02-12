@@ -59,9 +59,9 @@
           <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/progress')" (click)="navigateTo('/tabs/progress')">
-          <ion-icon [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
-          <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
+        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/lessons')" (click)="navigateTo('/tabs/lessons')">
+          <ion-icon name="book-outline"></ion-icon>
+          <ion-label>Lessons</ion-label>
         </button>
         
         <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
@@ -88,10 +88,6 @@
           </ion-avatar>
         </div>
         
-        <button class="nav-button logout-button" (click)="logout()">
-          <ion-icon name="log-out"></ion-icon>
-          <span>{{'TABS.LOGOUT' | translate}}</span>
-        </button>
       </div>
     </ion-toolbar>
   </ion-header>
@@ -365,13 +361,16 @@
             style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
     </ion-tab-button>
 
-    <ion-tab-button tab="progress" [routerLink]="['/tabs/progress']" routerDirection="root">
-      <ion-icon aria-hidden="true" [name]="currentUser?.userType === 'tutor' ? 'bar-chart' : 'trending-up'"></ion-icon>
-      <ion-label>{{ currentUser?.userType === 'tutor' ? ('TABS.ANALYTICS' | translate) : ('TABS.PROGRESS' | translate) }}</ion-label>
+    <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root">
+      <ion-icon aria-hidden="true" name="book-outline"></ion-icon>
+      <ion-label>Lessons</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root">
-      <ion-icon aria-hidden="true" name="person"></ion-icon>
+    <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root" class="profile-avatar-tab">
+      <div class="tab-avatar" *ngIf="currentUser?.picture">
+        <img [src]="currentUser!.picture" alt="" referrerpolicy="no-referrer">
+      </div>
+      <ion-icon aria-hidden="true" name="person-circle-outline" *ngIf="!currentUser?.picture"></ion-icon>
       <ion-label>Profile</ion-label>
     </ion-tab-button>
   </ion-tab-bar>
@@ -379,7 +378,7 @@
   <!-- Tab Content is loaded automatically by ion-tabs -->
 
   <!-- Platform Debug Info (only in development) -->
-  <div class="platform-debug" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
+  <!-- <div class="platform-debug" style="position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; font-size: 12px; z-index: 9999;">
     Platform: {{ currentPlatform }}<br>
     Screen: {{ platformService.getScreenSize() }}<br>
     Touch: {{ platformService.isTouchDevice() ? 'Yes' : 'No' }}<br>
@@ -387,6 +386,6 @@
     Mobile Viewport: {{ isMobileViewport() ? 'Yes' : 'No' }}<br>
     isWeb(): {{ isWeb() ? 'Yes' : 'No' }}<br>
     Window Width: {{ platformService.getScreenSize() }}
-  </div>
+  </div> -->
 
 </ion-tabs>

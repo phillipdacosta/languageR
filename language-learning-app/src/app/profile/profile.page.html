@@ -233,6 +233,10 @@
             </div>
           </div>
         </div>
+        <ion-button fill="clear" size="small" class="view-progress-link" routerLink="/tabs/progress">
+          {{ isTutor() ? 'View Coaching Performance' : 'View Detailed Progress' }}
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
       </ion-card-content>
     </ion-card>
 

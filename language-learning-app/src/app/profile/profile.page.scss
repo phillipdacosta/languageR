@@ -498,6 +498,20 @@
   }
 }
 
+// View Progress link inside stats card
+.view-progress-link {
+  --color: #717171;
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+  
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
 // Content cards (About, Experience, Schedule)
 .content-card {
   margin-bottom: 24px;

@@ -169,28 +169,26 @@
     <!-- Week Navigation (shown in both week and day mode) -->
     <div class="week-navigation">
       <div class="nav-controls">
-        <div class="nav-left">
-          <ion-button fill="solid" size="small" (click)="navigateWeek('prev')" [disabled]="isSingleDayMode">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="solid" size="small" (click)="navigateWeek('next')" [disabled]="isSingleDayMode">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </ion-button>
-          <ion-button fill="solid" size="small" (click)="goToToday()" class="today-btn" [disabled]="isSingleDayMode">
-            Today
-          </ion-button>
+        <div class="toolbar-left">
+          <button class="nav-btn" (click)="navigateWeek('prev')" [disabled]="isSingleDayMode">
+            <ion-icon name="chevron-back"></ion-icon>
+          </button>
+          <button class="nav-btn" (click)="navigateWeek('next')" [disabled]="isSingleDayMode">
+            <ion-icon name="chevron-forward"></ion-icon>
+          </button>
+          <button class="today-btn" (click)="goToToday()" [disabled]="isSingleDayMode">Today</button>
         </div>
-        <div class="week-display">
-          <span class="week-range">{{ getWeekRange() }}</span>
+        <div class="toolbar-center">
+          <h2 class="calendar-title">{{ getWeekRange() }}</h2>
         </div>
-        <div class="nav-right">
+        <div class="toolbar-right">
           <p class="timezone-info" *ngIf="tutorTimezone">
             <ion-icon name="globe-outline"></ion-icon>
             {{ getTimezoneLabel(tutorTimezone) }}
           </p>
-          <div class="view-toggle">
-            <ion-button fill="solid" class="view-btn" [class.active]="!isSingleDayMode" (click)="switchToWeekView()">Week</ion-button>
-            <ion-button fill="solid" class="view-btn" [class.active]="isSingleDayMode" (click)="switchToDayView()">Day</ion-button>
+          <div class="view-switcher">
+            <button [class.active]="!isSingleDayMode" (click)="switchToWeekView()">Week</button>
+            <button [class.active]="isSingleDayMode" (click)="switchToDayView()">Day</button>
           </div>
         </div>
       </div>

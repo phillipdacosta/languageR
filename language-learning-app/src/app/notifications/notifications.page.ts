@@ -208,7 +208,7 @@ export class NotificationsPage implements OnDestroy {
 
     if (notification.type === 'lesson_created' && notification.data?.lessonId) {
       // Navigate to lessons page with lesson ID to scroll to
-      this.router.navigate(['/tabs/home/lessons'], { 
+      this.router.navigate(['/tabs/lessons'], { 
         queryParams: { 
           scrollToLesson: notification.data.lessonId 
         } 
@@ -295,7 +295,9 @@ export class NotificationsPage implements OnDestroy {
       'office_hours_starting': 'videocam',
       'payment_received': 'cash',
       'tutor_video_approved': 'checkmark-circle',
-      'tutor_video_rejected': 'close-circle'
+      'tutor_video_rejected': 'close-circle',
+      'credential_approved': 'shield-checkmark',
+      'credential_rejected': 'shield'
     };
     return iconMap[type] || 'notifications';
   }
@@ -318,7 +320,9 @@ export class NotificationsPage implements OnDestroy {
     const systemTypes = [
       'tutor_video_approved',
       'tutor_video_rejected',
-      'lesson_analysis_ready'
+      'lesson_analysis_ready',
+      'credential_approved',
+      'credential_rejected'
     ];
     return systemTypes.includes(type);
   }

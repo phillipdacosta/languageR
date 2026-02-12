@@ -1375,6 +1375,34 @@
   }
 }
 
+// Summary Section - Inline (Bold, above bio)
+.summary-section-inline {
+  margin-top: 2px;
+  margin-bottom: 6px;
+  
+  @media (max-width: 768px) {
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+}
+
+.summary-text {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #222;
+  margin: 0;
+  font-weight: 600;
+  
+  @media (min-width: 1025px) {
+    font-size: 16px;
+  }
+  
+  strong {
+    font-weight: 600;
+    color: #222;
+  }
+}
+
 // Bio Section - Inline
 .bio-section-inline {
   margin-top: 2px;

@@ -1092,21 +1092,21 @@ ion-modal.confirm-action-modal {
   }
 }
 
-// Cancel Reason Modal Styling
+// Cancel Reason Modal Styling (same dimensions as reschedule modal)
 ion-modal.cancel-reason-modal {
-  --width: 95%;
-  --max-width: 560px;
-  --height: 90vh;
-  --max-height: 800px;
+  --width: 96%;
+  --max-width: 900px;
+  --height: 94%;
+  --max-height: 900px;
   --border-radius: 24px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   
   @media (max-width: 768px) {
-    --width: 95%;
+    --width: 96%;
     --max-width: none;
-    --border-radius: 20px;
-    --height: 92vh;
-    --max-height: none;
+    --border-radius: 24px;
+    --height: 94%;
+    --max-height: 900px;
   }
   
   .ion-page {
@@ -1120,13 +1120,9 @@ ion-modal.cancel-reason-modal {
     flex-direction: column;
     height: 100%;
     
-    ion-header {
-      flex-shrink: 0;
-    }
-    
     ion-content {
       flex: 1;
-      --background: #f9fafb;
+      --background: #ffffff;
     }
     
     ion-footer {
@@ -1222,19 +1218,18 @@ ion-modal.earnings-filters-modal {
   }
 }
 
-// All Lessons Modal (Airbnb-style)
+// All Lessons Modal (Airbnb-style - matches tutor-filters-modal)
 ion-modal.all-lessons-modal {
   --width: 100%;
-  --max-width: 620px;
+  --max-width: 700px;
   --height: 100%;
   --border-radius: 0;
   --box-shadow: none;
   
   @media (min-width: 769px) {
     --width: 95%;
-    --max-width: 620px;
-    --height: 85vh;
-    --max-height: 850px;
+    --height: 90vh;
+    --max-height: 800px;
     --border-radius: 45px;
     --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   }
@@ -1298,22 +1293,29 @@ div[class*="avatar"] {
 
 // Modern Modal Styling (Apple-inspired)
 ion-modal.modern-modal {
-  --width: 95%;
-  --max-width: 800px;
-  --height: 90vh;
-  --max-height: 900px;
-  --border-radius: 24px;
-  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  --width: 100%;
+  --max-width: 700px;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
   
-  @media (max-width: 768px) {
-    --width: 98%;
-    --max-width: none;
-    --border-radius: 20px;
-    --height: 85vh;
+  @media (min-width: 769px) {
+    --width: 95%;
+    --height: 90vh;
+    --max-height: 800px;
+    --border-radius: 45px;
+    --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+  
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
   }
   
   ion-content {
     --background: #ffffff;
+    flex: 1;
   }
   
   // Ensure proper layout for inline modals
@@ -1470,22 +1472,31 @@ ion-modal.video-player-modal {
   }
 }
 
-// Payout Selection Modal Styling  
+// Payout Selection Modal Styling — Airbnb-inspired
 .payout-selection-modal {
   --width: 90%;
-  --max-width: 1000px; // Increased from 800px
-  --height: 85%;
-  --max-height: 90vh;
-  --border-radius: 24px;
-  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  
+  --max-width: 920px;
+  --height: 80%;
+  --max-height: 85vh;
+  --border-radius: 16px;
+  --box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18);
+  --background: #ffffff;
+
   ion-backdrop {
-    --backdrop-opacity: 0.6;
+    --backdrop-opacity: 0.5;
   }
-  
+
+  .ion-page {
+    position: relative;
+    contain: layout style;
+    overflow: hidden;
+  }
+
   @media (max-width: 768px) {
-    --width: 95%;
-    --height: 90%;
+    --width: 100%;
+    --height: 100%;
+    --max-height: 100vh;
+    --border-radius: 0;
   }
 }
 
@@ -1545,7 +1556,7 @@ ion-modal.video-player-modal {
 
 // ==========================================
 // TUTOR ONBOARDING BANNER - Global Styles
-// Purple gradient design (used on home page and calendar)
+// Warm orange/amber Airbnb design (used on home page and calendar)
 // ==========================================
 .onboarding-banner-container {
   margin: 8px 0;
@@ -1553,36 +1564,37 @@ ion-modal.video-player-modal {
   max-width: 100%;
   
   .onboarding-banner {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: #fff7ea !important;
+    --background: #fff7ea !important;
     border-radius: 16px !important;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3) !important;
+    border: 1px solid #FFB74D !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12) !important;
     margin: 0 !important;
     width: 100% !important;
 
     ion-card-content {
-      padding: 20px !important;
-      width: 1100px !important;
+      padding: 18px 20px !important;
     }
 
     .banner-content {
       display: flex !important;
       align-items: center !important;
-      gap: 16px !important;
+      gap: 14px !important;
 
       .banner-icon {
-        width: 48px !important;
-        height: 48px !important;
-        border-radius: 50% !important;
-        background: rgba(255, 255, 255, 0.2) !important;
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%) !important;
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
         flex-shrink: 0 !important;
+        box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3) !important;
 
         ion-icon {
-          font-size: 24px !important;
-          color: white !important;
+          font-size: 22px !important;
+          color: #ffffff !important;
         }
       }
 
@@ -1591,32 +1603,39 @@ ion-modal.video-player-modal {
 
         h3 {
           margin: 0 0 4px 0 !important;
-          font-size: 17px !important;
+          font-size: 16px !important;
           font-weight: 700 !important;
-          color: white !important;
+          color: #1a1a1a !important;
           letter-spacing: -0.3px !important;
         }
 
         p {
           margin: 0 !important;
-          font-size: 14px !important;
-          color: rgba(255, 255, 255, 0.9) !important;
+          font-size: 13px !important;
+          font-weight: 500 !important;
+          color: #5D4037 !important;
+          line-height: 1.5 !important;
         }
         
         .separator {
-          color: rgba(255, 255, 255, 0.5) !important;
-          margin: 0 4px !important;
+          color: #BF8040 !important;
+          margin: 0 2px !important;
         }
       }
 
       ion-button {
+        --background: #222222 !important;
+        --background-hover: #000000 !important;
+        --background-activated: #000000 !important;
         --border-radius: 10px !important;
-        --padding-start: 16px !important;
-        --padding-end: 16px !important;
+        --padding-start: 18px !important;
+        --padding-end: 18px !important;
+        --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
         height: 40px !important;
         font-size: 14px !important;
         font-weight: 600 !important;
         text-transform: none !important;
+        letter-spacing: -0.1px !important;
         flex-shrink: 0 !important;
       }
 
@@ -1737,3 +1756,11 @@ ion-modal.video-player-modal {
     }
   }
 }
+
+// =============================================================
+// SHARED ELEMENT TRANSITIONS — Airbnb-style FLIP morphing
+// =============================================================
+// Individual elements (title, balance, links) morph between
+// the home earnings card and the full earnings page.
+// Clones are created as fixed-position text elements on document.body
+// and animated via CSS transitions. All styles are inline.

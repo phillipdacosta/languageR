@@ -369,15 +369,26 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     // END VALIDATION CHECKS
     // ==========================================
 
-    // Check if this is a trial lesson (first lesson between student and tutor)
-    const previousLessons = await Lesson.countDocuments({
+    // Check if student ever COMPLETED a trial with this tutor
+    // (A cancelled/no-show trial doesn't count — student never received the benefit)
+    const completedTrial = await Lesson.countDocuments({
       tutorId: tutor._id,
       studentId: user._id,
-      isOfficeHours: { $ne: true }, // Exclude office hours
-      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: { $in: ['completed', 'in_progress'] }
     });
-    
-    const isTrialLesson = previousLessons === 0;
+
+    // Check if student already has a SCHEDULED trial with this tutor
+    const scheduledTrial = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: user._id,
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: 'scheduled'
+    });
+
+    const isTrialLesson = completedTrial === 0 && scheduledTrial === 0;
     
     // Calculate expected price with trial discount (30% off for first lesson)
     const TRIAL_DISCOUNT_PERCENT = 30;
@@ -396,13 +407,15 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     console.log('🎓 Trial lesson check during booking:', {
       tutorId: tutor._id,
       studentId: user._id,
-      previousScheduledLessons: previousLessons,
+      completedTrials: completedTrial,
+      scheduledTrials: scheduledTrial,
       isTrialLesson,
       tutorHourlyRate,
       basePrice,
       discountAmount,
       expectedPrice,
-      clientPrice: lessonData.price
+      clientPrice: lessonData.price,
+      note: 'Cancelled/no-show trials do not count against eligibility'
     });
     
     // Validate client price matches expected price (with small tolerance for rounding)

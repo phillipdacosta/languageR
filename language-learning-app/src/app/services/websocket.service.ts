@@ -77,6 +77,24 @@ export class WebSocketService {
   }>();
   public tutorVideoUploaded$ = this.tutorVideoUploadedSubject.asObservable();
 
+  // Tutor credential upload subject (for admin notifications)
+  private tutorCredentialUploadedSubject = new Subject<{
+    tutorId: string;
+    tutorName: string;
+    tutorEmail: string;
+    credentialType: string;
+    fileName: string;
+    timestamp: Date;
+  }>();
+  public tutorCredentialUploaded$ = this.tutorCredentialUploadedSubject.asObservable();
+
+  // Tutor credential approval/rejection subjects (for tutor notifications)
+  private credentialApprovedSubject = new Subject<any>();
+  public credentialApproved$ = this.credentialApprovedSubject.asObservable();
+
+  private credentialRejectedSubject = new Subject<any>();
+  public credentialRejected$ = this.credentialRejectedSubject.asObservable();
+
   private reactionUpdatedSubject = new Subject<{ 
     messageId: string; 
     message: Message; 
@@ -131,6 +149,9 @@ export class WebSocketService {
     this.socket.off('tutor_video_approved');
     this.socket.off('tutor_video_rejected');
     this.socket.off('tutor_video_uploaded');
+    this.socket.off('tutor_credential_uploaded');
+    this.socket.off('credential_approved');
+    this.socket.off('credential_rejected');
     this.socket.off('lesson_status_changed');
     this.socket.off('payment_status_changed');
 
@@ -259,6 +280,35 @@ export class WebSocketService {
     }) => {
       console.log('📹 Tutor video uploaded (admin notification):', data);
       this.tutorVideoUploadedSubject.next(data);
+    });
+
+    // Listen for tutor credential uploads (for admins)
+    this.socket.on('tutor_credential_uploaded', (data: {
+      tutorId: string;
+      tutorName: string;
+      tutorEmail: string;
+      credentialType: string;
+      fileName: string;
+      timestamp: Date;
+    }) => {
+      console.log('📄 Tutor credential uploaded (admin notification):', data);
+      this.tutorCredentialUploadedSubject.next(data);
+    });
+
+    // Listen for credential approval (for tutors)
+    this.socket.on('credential_approved', (data: any) => {
+      console.log('✅ Credential approved:', data);
+      this.credentialApprovedSubject.next(data);
+      // Refresh user data to update onboarding status
+      this.userService.getCurrentUser(true).subscribe();
+    });
+
+    // Listen for credential rejection (for tutors)
+    this.socket.on('credential_rejected', (data: any) => {
+      console.log('❌ Credential rejected:', data);
+      this.credentialRejectedSubject.next(data);
+      // Refresh user data to update onboarding status
+      this.userService.getCurrentUser(true).subscribe();
     });
 
     // Listen for lesson status changes

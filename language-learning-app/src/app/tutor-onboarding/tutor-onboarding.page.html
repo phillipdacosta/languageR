@@ -1,4 +1,19 @@
-<div class="onboarding-container">
+<ion-header *ngIf="!showWelcome">
+  <ion-toolbar class="onboarding-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<div class="onboarding-container" *ngIf="!showPreview && !showWelcome">
   <!-- Two Column Layout -->
   <div class="onboarding-content">
     
@@ -31,7 +46,7 @@
           </div>
           <div class="step-info">
             <h3>About You</h3>
-            <p>Name and location</p>
+            <p>Name and origin</p>
           </div>
         </div>
 
@@ -45,8 +60,8 @@
             <span *ngIf="currentStep <= 2" class="step-number">2</span>
           </div>
           <div class="step-info">
-            <h3>Native Language</h3>
-            <p>Your primary language</p>
+            <h3>Residence</h3>
+            <p>Where you currently reside</p>
           </div>
         </div>
 
@@ -60,8 +75,8 @@
             <span *ngIf="currentStep <= 3" class="step-number">3</span>
           </div>
           <div class="step-info">
-            <h3>Language</h3>
-            <p>What you teach</p>
+            <h3>Native Language</h3>
+            <p>Your primary language</p>
           </div>
         </div>
 
@@ -75,8 +90,8 @@
             <span *ngIf="currentStep <= 4" class="step-number">4</span>
           </div>
           <div class="step-info">
-            <h3>Experience</h3>
-            <p>Your background</p>
+            <h3>Language</h3>
+            <p>What you teach</p>
           </div>
         </div>
 
@@ -90,8 +105,8 @@
             <span *ngIf="currentStep <= 5" class="step-number">5</span>
           </div>
           <div class="step-info">
-            <h3>Availability</h3>
-            <p>Your schedule</p>
+            <h3>Experience</h3>
+            <p>Your background</p>
           </div>
         </div>
 
@@ -105,8 +120,68 @@
             <span *ngIf="currentStep <= 6" class="step-number">6</span>
           </div>
           <div class="step-info">
-            <h3>Profile Details</h3>
-            <p>Bio, rate & video</p>
+            <h3>Availability</h3>
+            <p>Your schedule</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 7"
+          [class.current]="currentStep === 7"
+          (click)="currentStep > 6 ? currentStep = 7 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 7" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 7" class="step-number">7</span>
+          </div>
+          <div class="step-info">
+            <h3>Bio</h3>
+            <p>Tell students about yourself</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 8"
+          [class.current]="currentStep === 8"
+          (click)="currentStep > 7 ? currentStep = 8 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 8" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 8" class="step-number">8</span>
+          </div>
+          <div class="step-info">
+            <h3>Hourly Rate</h3>
+            <p>Set your teaching rate</p>
+          </div>
+        </div>
+
+        <div 
+          class="step-item"
+          [class.completed]="currentStep > 9"
+          [class.current]="currentStep === 9"
+          (click)="currentStep > 8 ? currentStep = 9 : null">
+          <div class="step-indicator">
+            <ion-icon *ngIf="currentStep > 9" name="checkmark-circle"></ion-icon>
+            <span *ngIf="currentStep <= 9" class="step-number">9</span>
+          </div>
+          <div class="step-info">
+            <h3>Introduction Video</h3>
+            <p>Optional for now</p>
+          </div>
+        </div>
+
+        <!-- Review Step - only visible after user has reached preview -->
+        <div 
+          class="step-item review-step"
+          *ngIf="hasReachedPreview"
+          [class.current]="false"
+          (click)="showPreviewPage()">
+          <div class="step-indicator review-indicator">
+            <ion-icon name="document-text"></ion-icon>
+          </div>
+          <div class="step-info">
+            <h3>Review</h3>
+            <p>Review & submit</p>
           </div>
         </div>
       </div>
@@ -137,7 +212,7 @@
 
     <!-- Right Column: Current Step Content -->
     <div class="right-column">
-      <div class="step-content-scrollable">
+      <div class="step-content-scrollable" [class.no-scroll]="currentStep === 5 || currentStep === 6 || currentStep === 8">
         <div class="step-content-card">
         
         <!-- Step 1: Name & Country -->
@@ -152,8 +227,10 @@
             <div class="form-field">
               <label>First Name *</label>
               <input 
+                #firstNameInput
                 type="text"
                 [(ngModel)]="firstName"
+                (blur)="formatFirstNameOnBlur()"
                 placeholder="Enter your first name"
                 class="modern-input">
             </div>
@@ -163,6 +240,7 @@
               <input 
                 type="text"
                 [(ngModel)]="lastName"
+                (blur)="formatLastNameOnBlur()"
                 placeholder="Enter your last name"
                 class="modern-input">
             </div>
@@ -182,9 +260,20 @@
                 <ion-icon name="chevron-down"></ion-icon>
               </button>
             </div>
+          </div>
+        </div>
 
+        <!-- Step 2: Residence Country -->
+        <div *ngIf="currentStep === 2">
+          <div class="step-icon-circle">
+            <ion-icon name="location"></ion-icon>
+          </div>
+          <h2 class="step-title">Where do you currently reside?</h2>
+          <p class="step-description">This determines your available payout methods</p>
+
+          <div class="form-fields">
             <div class="form-field">
-              <label>Where do you currently reside? *</label>
+              <label>Country of Residence *</label>
               <p class="field-hint">This determines your available payout methods</p>
               <button 
                 class="country-select-button"
@@ -202,8 +291,8 @@
           </div>
         </div>
 
-        <!-- Step 2: Native Language -->
-        <div *ngIf="currentStep === 2">
+        <!-- Step 3: Native Language -->
+        <div *ngIf="currentStep === 3">
           <div class="step-icon-circle">
             <ion-icon name="language"></ion-icon>
           </div>
@@ -222,8 +311,8 @@
           </div>
         </div>
 
-        <!-- Step 3: Languages -->
-        <div *ngIf="currentStep === 3">
+        <!-- Step 4: Languages -->
+        <div *ngIf="currentStep === 4">
           <div class="step-icon-circle">
             <ion-icon name="globe"></ion-icon>
           </div>
@@ -241,15 +330,15 @@
           </div>
         </div>
 
-        <!-- Step 4: Experience -->
-        <div *ngIf="currentStep === 4">
+        <!-- Step 5: Experience -->
+        <div *ngIf="currentStep === 5" class="experience-step">
           <div class="step-icon-circle">
             <ion-icon name="school"></ion-icon>
           </div>
           <h2 class="step-title">What's your teaching experience?</h2>
           <p class="step-description">Help students understand your background</p>
 
-          <div class="options-list">
+          <div class="options-list experience-options">
             <button 
               *ngFor="let experience of experienceLevels"
               class="option-button-block"
@@ -260,15 +349,15 @@
           </div>
         </div>
 
-        <!-- Step 5: Availability -->
-        <div *ngIf="currentStep === 5">
+        <!-- Step 6: Availability -->
+        <div *ngIf="currentStep === 6" class="availability-step">
           <div class="step-icon-circle">
             <ion-icon name="calendar"></ion-icon>
           </div>
           <h2 class="step-title">When are you available?</h2>
           <p class="step-description">Let students know your teaching schedule</p>
 
-          <div class="options-list">
+          <div class="options-list availability-options">
             <button 
               *ngFor="let schedule of scheduleOptions"
               class="option-button-block"
@@ -279,43 +368,101 @@
           </div>
         </div>
 
-        <!-- Step 6: Profile Setup -->
-        <div *ngIf="currentStep === 6">
+        <!-- Step 7: Bio -->
+        <div *ngIf="currentStep === 7">
           <div class="step-icon-circle">
             <ion-icon name="create"></ion-icon>
           </div>
-          <h2 class="step-title">Complete your profile</h2>
-          <p class="step-description">Add some final details</p>
+          <h2 class="step-title">Tell students about yourself</h2>
+          <p class="step-description">Write a short bio that will be displayed on your profile page</p>
 
           <div class="form-fields">
             <div class="form-field">
-              <label>Bio</label>
-              <p class="field-note">This will be displayed on your profile page. Max 200 characters.</p>
+              <label>Summary <span class="optional-label">(optional)</span></label>
+              <p class="field-note">A short summary highlighting your certifications, achievements, or key qualifications. This will be featured prominently on your profile.</p>
               <textarea 
+                #summaryInput
+                [(ngModel)]="profileSummary"
+                (blur)="formatSummaryOnBlur()"
+                placeholder="e.g., Certified ESL teacher with 5+ years of experience..."
+                rows="2"
+                maxlength="150"
+                class="modern-textarea summary-textarea"></textarea>
+              <div class="char-count">{{ profileSummary.length }}/150</div>
+            </div>
+            
+            <div class="form-field">
+              <label>Bio</label>
+              <p class="field-note">Max 200 characters. You can update this later if needed.</p>
+              <textarea 
+                #bioInput
                 [(ngModel)]="profileBio"
+                (blur)="formatBioOnBlur()"
                 placeholder="Tell students about yourself..."
                 rows="4"
+                maxlength="200"
                 class="modern-textarea"></textarea>
+              <div class="char-count">{{ profileBio.length }}/200</div>
             </div>
+            
+            <p class="update-note">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              You can update both your summary and bio later from your profile settings.
+            </p>
+          </div>
+        </div>
 
-            <div class="form-field">
+        <!-- Step 8: Hourly Rate -->
+        <div *ngIf="currentStep === 8" class="rate-step">
+          <div class="step-icon-circle">
+            <ion-icon name="cash"></ion-icon>
+          </div>
+          <h2 class="step-title">Set your hourly rate</h2>
+          <p class="step-description">Choose your rate for 50-minute lessons</p>
+
+          <div class="form-fields">
+            <div class="form-field rate-field">
               <label>Hourly Rate (USD) *</label>
-              <input 
-                type="number"
-                [(ngModel)]="hourlyRate"
-                placeholder="25"
-                class="modern-input">
+              <div class="rate-slider-container">
+                <ion-range
+                  [(ngModel)]="hourlyRate"
+                  [min]="10"
+                  [max]="200"
+                  [step]="5"
+                  [snaps]="true"
+                  [pin]="true"
+                  class="rate-slider">
+                </ion-range>
+                <div class="rate-display">
+                  <span class="rate-value">${{ hourlyRate }}</span>
+                  <span class="rate-note">per hour</span>
+                </div>
+              </div>
               <p class="field-note">For 50-minute lessons. 25-min lessons are 50% of this rate.</p>
             </div>
+          </div>
+        </div>
 
-            <div class="video-section">
-              <h4>Introduction Video (optional for now)</h4>
-              <p class="video-description">Record a short video introducing yourself. Your profile will be hidden until your video is approved.</p>
+        <!-- Step 9: Introduction Video -->
+        <div *ngIf="currentStep === 9">
+          <div class="step-icon-circle">
+            <ion-icon name="videocam"></ion-icon>
+          </div>
+          <h2 class="step-title">Introduction Video</h2>
+          <p class="step-description">Record a short video introducing yourself (optional for now)</p>
+
+          <div class="form-fields">
+            <div class="form-field">
+              <p class="video-description">Your profile will be hidden until your video is approved.</p>
               <app-video-upload
                 [videoUrl]="introductionVideo"
                 [thumbnailUrl]="thumbnailUrl"
+                [videoType]="videoType"
+                [enableModalPlayer]="true"
+                (thumbnailClick)="openVideoPlayerModal()"
                 (videoUploaded)="onVideoUploaded($event)"
-                (videoRemoved)="onVideoRemoved()">
+                (videoRemoved)="onVideoRemoved()"
+                (pendingStateChanged)="onVideoPendingStateChanged($event)">
               </app-video-upload>
             </div>
           </div>
@@ -324,29 +471,250 @@
       </div>
 
       <!-- Action Button - Outside scrollable container -->
-      <ion-button 
-        *ngIf="currentStep < totalSteps"
-        expand="block"
-        size="large"
-        class="primary-action"
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        Continue
-        <ion-icon name="arrow-forward" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep < totalSteps"
+          size="large"
+          class="primary-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
 
-      <ion-button 
-        *ngIf="currentStep === totalSteps"
-        expand="block"
-        size="large"
-        color="success"
-        class="submit-action"
-        [disabled]="!canProceed()"
-        (click)="completeOnboarding()">
-        Complete Setup
-        <ion-icon name="checkmark" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep === totalSteps"
+          size="large"
+          class="submit-action"
+          [disabled]="!canProceed()"
+          (click)="showPreviewPage()">
+          Done
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-button>
+      </div>
     </div>
 
   </div>
 </div>
+
+<!-- Preview Page -->
+<div class="preview-container" *ngIf="showPreview && !showWelcome">
+  <div class="preview-card">
+    <div class="preview-header">
+      <div class="preview-icon-circle">
+        <ion-icon name="document-text"></ion-icon>
+      </div>
+      <h1 class="preview-title">Review Your Profile</h1>
+      <p class="preview-subtitle">Make sure everything looks good before we get you started</p>
+    </div>
+
+    <div class="preview-sections">
+      <!-- Personal Info -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="person"></ion-icon>
+          <h3>Personal Info</h3>
+          <button class="edit-link" (click)="goBackToEdit(1)">Edit</button>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Name</span>
+          <span class="preview-value">{{ firstName }} {{ lastName }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">From</span>
+          <span class="preview-value">{{ country }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Resides in</span>
+          <span class="preview-value">{{ residenceCountry }}</span>
+        </div>
+      </div>
+
+      <!-- Teaching Info -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="school"></ion-icon>
+          <h3>Teaching Info</h3>
+          <button class="edit-link" (click)="goBackToEdit(3)">Edit</button>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Native Language</span>
+          <span class="preview-value">{{ getNativeLanguageName() }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Teaches</span>
+          <span class="preview-value">{{ selectedLanguages.join(', ') }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Experience</span>
+          <span class="preview-value">{{ selectedExperience }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Availability</span>
+          <span class="preview-value">{{ selectedSchedule }}</span>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="create"></ion-icon>
+          <h3>Profile</h3>
+          <button class="edit-link" (click)="goBackToEdit(7)">Edit</button>
+        </div>
+        <div class="preview-row" *ngIf="profileSummary">
+          <span class="preview-label">Summary</span>
+          <span class="preview-value">{{ profileSummary }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Bio</span>
+          <span class="preview-value">{{ profileBio }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Hourly Rate</span>
+          <span class="preview-value">${{ hourlyRate }}/hr</span>
+        </div>
+        <div class="preview-row" *ngIf="introductionVideo">
+          <span class="preview-label">Video</span>
+          <span class="preview-value video-badge">Uploaded</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-actions">
+      <button class="preview-back-btn" (click)="goBackToEdit()">
+        <ion-icon name="chevron-back"></ion-icon>
+        Go Back
+      </button>
+      <ion-button 
+        size="large"
+        class="submit-action"
+        [disabled]="isSubmitting"
+        (click)="completeOnboarding()">
+        <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
+        <span *ngIf="!isSubmitting">Complete Setup</span>
+        <ion-icon *ngIf="!isSubmitting" name="checkmark-circle" slot="end"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome / Congrats Page -->
+<div class="success-page" *ngIf="showWelcome">
+  <!-- Confetti Dots (decorative) -->
+  <div class="confetti-container" aria-hidden="true">
+    <span class="dot dot-1"></span>
+    <span class="dot dot-2"></span>
+    <span class="dot dot-3"></span>
+    <span class="dot dot-4"></span>
+    <span class="dot dot-5"></span>
+    <span class="dot dot-6"></span>
+    <span class="dot dot-7"></span>
+    <span class="dot dot-8"></span>
+  </div>
+
+  <div class="success-inner">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-check">
+        <ion-icon name="checkmark-sharp"></ion-icon>
+      </div>
+      <h1 class="hero-title">Welcome aboard, {{ firstName }}!</h1>
+      <p class="hero-subtitle">Your teaching profile is all set. Students are already looking for tutors like you.</p>
+    </div>
+
+    <!-- Highlights Card -->
+    <div class="highlights-card">
+      <div class="detail-rows">
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">Profile created</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">Ready to receive bookings</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">You're part of the community</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Note -->
+    <div class="info-note">
+      <ion-icon name="sparkles-outline"></ion-icon>
+      <span>Students can now discover your profile and book lessons with you.</span>
+    </div>
+
+    <!-- CTA -->
+    <button class="done-btn" (click)="navigateToHome()">
+      Go to Dashboard
+    </button>
+  </div>
+</div>
+
+<!-- Video Player Modal -->
+<ion-modal 
+  [isOpen]="isVideoPlayerModalOpen" 
+  (didDismiss)="onVideoPlayerModalDismiss()"
+  cssClass="video-player-modal">
+  <ng-template>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Introduction Video</ion-title>
+        <ion-buttons slot="end">
+          <ion-button (click)="isVideoPlayerModalOpen = false">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-header>
+    <ion-content class="video-player-content">
+      <div class="video-player-container" *ngIf="videoPlayerData">
+        <!-- YouTube Video -->
+        <iframe 
+          *ngIf="videoPlayerData.videoType === 'youtube'"
+          [src]="videoPlayerData.safeVideoUrl"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          class="video-iframe">
+        </iframe>
+        
+        <!-- Vimeo Video -->
+        <iframe 
+          *ngIf="videoPlayerData.videoType === 'vimeo'"
+          [src]="videoPlayerData.safeVideoUrl"
+          frameborder="0"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowfullscreen
+          class="video-iframe">
+        </iframe>
+        
+        <!-- Uploaded Video -->
+        <video 
+          *ngIf="videoPlayerData.videoType === 'upload'"
+          [src]="videoPlayerData.videoUrl"
+          controls
+          autoplay
+          class="video-player">
+        </video>
+      </div>
+    </ion-content>
+  </ng-template>
+</ion-modal>

@@ -12,6 +12,7 @@ const walletService = require('../services/walletService');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const { triggerManualRelease } = require('../jobs/releaseEarnings'); // Added manual trigger
 const autoReleaseClassPayments = require('../jobs/autoReleaseClassPayments'); // Manual finalize classes
+const { initializeGCS } = require('../config/gcs');
 
 // Admin middleware - check if user is admin
 async function requireAdmin(req, res, next) {
@@ -63,7 +64,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
         userType: 'tutor',
         'tutorOnboarding.videoApproved': true,
         'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' }
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
       
       // Filter out tutors with pending videos (do this in JavaScript for clarity)
       tutors = tutors.filter(tutor => {
@@ -79,7 +80,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
           { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
           { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
         ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt');
     } else {
       // Get ALL tutors with videos
       const allTutors = await User.find({
@@ -88,7 +89,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
           { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
           { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
         ]
-      }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt createdAt');
+      }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry isUSPersonForTax hasUSBankAccount taxInfoCompletedAt createdAt');
       
       console.log('📋 Sample tutor data from query:', allTutors[0] ? {
         email: allTutors[0].email,
@@ -135,12 +136,16 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
       
       if (!tutor.tutorOnboarding?.videoUploadedAt) {
         console.log(`⏰ Setting videoUploadedAt for tutor ${tutor.email} (was missing)`);
+        const fallbackDate = tutor.createdAt || new Date();
+        // Use updateOne instead of save() to avoid validation issues with partial select
+        await User.updateOne(
+          { _id: tutor._id },
+          { $set: { 'tutorOnboarding.videoUploadedAt': fallbackDate } }
+        );
         if (!tutor.tutorOnboarding) {
           tutor.tutorOnboarding = {};
         }
-        // Use createdAt as fallback, or current time
-        tutor.tutorOnboarding.videoUploadedAt = tutor.createdAt || new Date();
-        await tutor.save();
+        tutor.tutorOnboarding.videoUploadedAt = fallbackDate;
         tutorsToUpdate.push(tutor._id);
         migrationCount++;
         console.log(`✅ Set videoUploadedAt to:`, tutor.tutorOnboarding.videoUploadedAt);
@@ -157,7 +162,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
           userType: 'tutor',
           'tutorOnboarding.videoApproved': true,
           'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' }
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
+        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
         
         tutors = tutors.filter(tutor => {
           const pendingVideo = tutor.onboardingData?.pendingVideo;
@@ -171,7 +176,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
             { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
             { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
           ]
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
+        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
       } else {
         // Pending status - re-fetch all and filter
         const allTutors = await User.find({
@@ -180,7 +185,7 @@ router.get('/pending-tutors', verifyToken, requireAdmin, async (req, res) => {
             { 'onboardingData.introductionVideo': { $exists: true, $ne: null, $ne: '' } },
             { 'onboardingData.pendingVideo': { $exists: true, $ne: null, $ne: '' } }
           ]
-        }).select('name firstName lastName email picture onboardingData tutorOnboarding stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
+        }).select('name firstName lastName email picture onboardingData tutorOnboarding tutorCredentials tutorApproved stripeConnectOnboarded payoutProvider payoutDetails residenceCountry createdAt');
         
         tutors = allTutors.filter(tutor => {
           const videoApproved = tutor.tutorOnboarding?.videoApproved === true;
@@ -265,18 +270,23 @@ router.post('/approve-video/:userId', verifyToken, requireAdmin, async (req, res
       tutor.tutorOnboarding.videoApproved = true;
       tutor.tutorOnboarding.videoApprovedAt = new Date();
 
-      // Check if all onboarding steps are complete
+      // Check if all onboarding steps are complete (including credentials)
       const photoComplete = !!tutor.picture;
       const videoApproved = true; // We just approved it
       const hasStripe = tutor.stripeConnectOnboarded === true;
       const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
       const hasManual = tutor.payoutProvider === 'manual';
       const payoutComplete = hasStripe || hasPayPal || hasManual;
+      const credentialsApproved = checkAllCredentialsApproved(tutor);
 
-      if (photoComplete && videoApproved && payoutComplete) {
+      if (photoComplete && videoApproved && payoutComplete && credentialsApproved) {
         tutor.tutorApproved = true;
         tutor.tutorOnboarding.completedAt = new Date();
         console.log(`🎉 Tutor ${tutor.email} is now FULLY APPROVED (video approved by admin)`);
+      } else {
+        console.log(`📋 Tutor ${tutor.email} video approved but not fully approved yet:`, {
+          photoComplete, videoApproved, payoutComplete, credentialsApproved
+        });
       }
 
     await tutor.save();
@@ -453,14 +463,15 @@ router.post('/approve-tutor/:userId', verifyToken, requireAdmin, async (req, res
     tutor.tutorOnboarding.rejectionReason = null;
     tutor.tutorOnboarding.videoApprovedAt = new Date();
 
-    // Check if fully approved
+    // Check if fully approved (including credentials)
     const photoComplete = !!tutor.picture;
     const hasStripe = tutor.stripeConnectOnboarded === true;
     const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
     const hasManual = tutor.payoutProvider === 'manual';
     const payoutComplete = hasStripe || hasPayPal || hasManual;
+    const credentialsApproved = checkAllCredentialsApproved(tutor);
 
-    if (photoComplete && payoutComplete) {
+    if (photoComplete && payoutComplete && credentialsApproved) {
       tutor.tutorApproved = true;
       tutor.tutorOnboarding.completedAt = new Date();
     }
@@ -1775,5 +1786,255 @@ router.post('/finalize-classes', verifyToken, requireAdmin, async (req, res) => 
     });
   }
 });
+
+// ============================================================
+// CREDENTIAL REVIEW ROUTES
+// ============================================================
+
+/**
+ * Helper: Check if all required credentials are approved
+ */
+function checkAllCredentialsApproved(tutor) {
+  const creds = tutor.tutorCredentials;
+  if (!creds) return false;
+  
+  // Government ID must be approved
+  if (creds.governmentId?.status !== 'approved') return false;
+  
+  // At least one teaching certification must be approved
+  if (!creds.teachingCertifications?.length || 
+      !creds.teachingCertifications.some(c => c.status === 'approved')) return false;
+  
+  // Additional documents are optional — no requirement
+  return true;
+}
+
+/**
+ * POST /api/admin/review-credential/:userId
+ * Review (approve/reject) a specific credential for a tutor
+ * Body: { credentialType, credentialId (for arrays), approved, rejectionReason }
+ */
+router.post('/review-credential/:userId', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { credentialType, credentialId, approved, rejectionReason } = req.body;
+
+    if (!credentialType || !['governmentId', 'teachingCertification', 'additionalDocument'].includes(credentialType)) {
+      return res.status(400).json({ success: false, message: 'Invalid credential type' });
+    }
+
+    const tutor = await User.findById(userId);
+    if (!tutor || tutor.userType !== 'tutor') {
+      return res.status(404).json({ success: false, message: 'Tutor not found' });
+    }
+
+    if (!tutor.tutorCredentials) {
+      return res.status(404).json({ success: false, message: 'No credentials found for this tutor' });
+    }
+
+    // Get admin user for reviewedBy
+    const adminUser = await User.findOne({ 
+      $or: [
+        { auth0Id: req.user.sub },
+        { email: req.user.email }
+      ]
+    });
+
+    const newStatus = approved ? 'approved' : 'rejected';
+    let credentialName = '';
+
+    if (credentialType === 'governmentId') {
+      if (!tutor.tutorCredentials.governmentId?.url) {
+        return res.status(404).json({ success: false, message: 'No government ID uploaded' });
+      }
+      tutor.tutorCredentials.governmentId.status = newStatus;
+      tutor.tutorCredentials.governmentId.reviewedBy = adminUser?._id || null;
+      tutor.tutorCredentials.governmentId.reviewedAt = new Date();
+      tutor.tutorCredentials.governmentId.rejectionReason = approved ? null : (rejectionReason || 'Please re-upload');
+      credentialName = 'Government ID';
+    } else if (credentialType === 'teachingCertification') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for certifications' });
+      }
+      const cert = tutor.tutorCredentials.teachingCertifications.id(credentialId);
+      if (!cert) {
+        return res.status(404).json({ success: false, message: 'Certification not found' });
+      }
+      cert.status = newStatus;
+      cert.reviewedBy = adminUser?._id || null;
+      cert.reviewedAt = new Date();
+      cert.rejectionReason = approved ? null : (rejectionReason || 'Please re-upload');
+      credentialName = cert.certificationName || 'Teaching Certification';
+    } else if (credentialType === 'additionalDocument') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for documents' });
+      }
+      const doc = tutor.tutorCredentials.additionalDocuments.id(credentialId);
+      if (!doc) {
+        return res.status(404).json({ success: false, message: 'Document not found' });
+      }
+      doc.status = newStatus;
+      doc.reviewedBy = adminUser?._id || null;
+      doc.reviewedAt = new Date();
+      doc.rejectionReason = approved ? null : (rejectionReason || 'Please re-upload');
+      credentialName = doc.label || doc.documentType || 'Document';
+    }
+
+    // Check if ALL approval conditions are now met
+    const photoComplete = !!tutor.picture;
+    const videoApproved = tutor.tutorOnboarding?.videoApproved === true;
+    const hasStripe = tutor.stripeConnectOnboarded === true;
+    const hasPayPal = tutor.payoutProvider === 'paypal' && !!tutor.payoutDetails?.paypalEmail;
+    const hasManual = tutor.payoutProvider === 'manual';
+    const payoutComplete = hasStripe || hasPayPal || hasManual;
+    const credentialsApproved = checkAllCredentialsApproved(tutor);
+
+    const wasApproved = tutor.tutorApproved;
+
+    if (photoComplete && videoApproved && payoutComplete && credentialsApproved) {
+      tutor.tutorApproved = true;
+      if (!tutor.tutorOnboarding) tutor.tutorOnboarding = {};
+      tutor.tutorOnboarding.completedAt = new Date();
+      console.log(`🎉 Tutor ${tutor.email} is now FULLY APPROVED (all credentials + video + photo + payout approved)`);
+    }
+
+    await tutor.save();
+
+    // Build notification content
+    const notifTitle = approved 
+      ? `✅ ${credentialName} Approved!`
+      : `❌ ${credentialName} Needs Attention`;
+    const notifMessage = approved
+      ? `Your ${credentialName.toLowerCase()} has been verified and approved.${tutor.tutorApproved && !wasApproved ? ' All requirements are met — your profile is now live!' : ''}`
+      : `Your ${credentialName.toLowerCase()} was not accepted. Reason: ${rejectionReason || 'Please re-upload'}. Please upload a new document.`;
+
+    // Save notification to database
+    try {
+      const notification = new Notification({
+        userId: tutor._id,
+        type: approved ? 'credential_approved' : 'credential_rejected',
+        title: notifTitle,
+        message: notifMessage,
+        data: {
+          credentialType,
+          credentialId,
+          approved,
+          rejectionReason: approved ? null : rejectionReason,
+          tutorApproved: tutor.tutorApproved
+        },
+        read: false
+      });
+      await notification.save();
+      console.log(`📝 Credential review notification created for tutor ${tutor._id}`);
+    } catch (notifError) {
+      console.error('⚠️ Failed to create credential notification:', notifError);
+    }
+
+    // Send real-time WebSocket notification to tutor (separate try/catch so it fires even if DB notification fails)
+    try {
+      if (req.io) {
+        const eventName = approved ? 'credential_approved' : 'credential_rejected';
+        const socketPayload = {
+          type: eventName,
+          title: notifTitle,
+          message: notifMessage,
+          credentialType,
+          credentialId,
+          approved,
+          tutorApproved: tutor.tutorApproved,
+          timestamp: new Date()
+        };
+
+        // Method 1: Room-based notification (using auth0Id)
+        req.io.to(`user:${tutor.auth0Id}`).emit(eventName, socketPayload);
+        req.io.to(`user:${tutor.auth0Id}`).emit('new_notification', {
+          ...socketPayload,
+          urgent: false,
+          data: { credentialType, credentialId, approved, tutorApproved: tutor.tutorApproved }
+        });
+        console.log(`📬 Real-time credential review notification sent to tutor room: user:${tutor.auth0Id}`);
+
+        // Method 2: Also check MongoDB ID in global userSockets
+        if (global.userSockets && global.userSockets[tutor._id.toString()]) {
+          const socketId = global.userSockets[tutor._id.toString()];
+          req.io.to(socketId).emit(eventName, socketPayload);
+          console.log(`📬 Also sent credential review to socket ${socketId} via MongoDB ID`);
+        }
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification:', socketError.message);
+    }
+
+    console.log(`📋 [ADMIN] Credential reviewed for ${tutor.email}:`, {
+      credentialType,
+      credentialId,
+      status: newStatus,
+      tutorFullyApproved: tutor.tutorApproved
+    });
+
+    res.json({
+      success: true,
+      message: `${credentialName} ${approved ? 'approved' : 'rejected'}`,
+      tutorCredentials: tutor.tutorCredentials,
+      tutorApproved: tutor.tutorApproved
+    });
+
+  } catch (error) {
+    console.error('❌ Error reviewing credential:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to review credential' });
+  }
+});
+
+/**
+ * GET /api/admin/credential-url/:userId/:credentialType/:credentialId
+ * GET /api/admin/credential-url/:userId/:credentialType
+ * Admin gets a signed URL to view a private credential document
+ */
+const handleAdminCredentialUrl = async (req, res) => {
+  try {
+    const { userId, credentialType, credentialId } = req.params;
+    const tutor = await User.findById(userId);
+    
+    if (!tutor) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    let credentialUrl = null;
+
+    if (credentialType === 'governmentId') {
+      credentialUrl = tutor.tutorCredentials?.governmentId?.url;
+    } else if (credentialType === 'teachingCertification' && credentialId) {
+      const cert = tutor.tutorCredentials?.teachingCertifications?.id(credentialId);
+      credentialUrl = cert?.url;
+    } else if (credentialType === 'additionalDocument' && credentialId) {
+      const doc = tutor.tutorCredentials?.additionalDocuments?.id(credentialId);
+      credentialUrl = doc?.url;
+    }
+
+    if (!credentialUrl) {
+      return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    // Generate a signed URL since credentials are stored as private files
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'Storage not configured' });
+    }
+
+    const gcsPath = credentialUrl.replace(`https://storage.googleapis.com/${bucket.name}/`, '');
+    const [signedUrl] = await bucket.file(gcsPath).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000 // 1 hour
+    });
+
+    res.json({ success: true, url: signedUrl });
+
+  } catch (error) {
+    console.error('❌ Error getting admin credential URL:', error);
+    res.status(500).json({ success: false, message: 'Failed to get credential URL' });
+  }
+};
+router.get('/credential-url/:userId/:credentialType/:credentialId', verifyToken, requireAdmin, handleAdminCredentialUrl);
+router.get('/credential-url/:userId/:credentialType', verifyToken, requireAdmin, handleAdminCredentialUrl);
 
 module.exports = router;

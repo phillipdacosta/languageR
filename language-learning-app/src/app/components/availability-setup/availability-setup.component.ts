@@ -73,6 +73,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   initialSelectedSlots = new Set<string>(); // Track which slots were initially selected
   isLoading = true; // Loading state for data fetch
   loadError = false; // Error state for data fetch
+  private bookedSlotsLoaded = false; // Track if booked slots have been loaded
+  private availabilityLoaded = false; // Track if availability data has been loaded
 
   // Getter for new slots count (only newly selected, not already saved)
   get newSlotsCount(): number {
@@ -407,6 +409,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     console.log('🔄 Force refreshing availability data...');
     this.isLoading = true;
     this.loadError = false;
+    this.bookedSlotsLoaded = false;
+    this.availabilityLoaded = false;
     this.selectedSlots.clear();
     this.bookedSlots.clear();
     this.initialSelectedSlots.clear();
@@ -838,20 +842,9 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         }
         // Loaded selections reflect saved state; reset dirty flag
         this.hasUnsavedChanges = false;
-        this.isLoading = false;
+        this.availabilityLoaded = true;
         this.loadError = false;
-        // Clear loading timeout
-        if ((this as any)._loadingTimeout) {
-          clearTimeout((this as any)._loadingTimeout);
-        }
-        // Trigger change detection to ensure view updates
-        this.cdr.detectChanges();
-        
-        // Scroll to current time after grid is rendered
-        // Use setTimeout to allow DOM to update after change detection
-        setTimeout(() => {
-          this.scrollToCurrentTime();
-        }, 100);
+        this.checkAllDataLoaded();
       },
       error: (error) => {
         console.error('❌ Error loading existing availability:', error);
@@ -878,10 +871,24 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const currentUser = this.userService.getCurrentUserValue();
     if (!currentUser?.id) {
       console.error('No current user found');
+      this.bookedSlotsLoaded = true;
       return;
     }
     
     console.log('📅 Loading booked lessons and classes...');
+    
+    // Track how many async calls are pending
+    const isTutor = currentUser.userType === 'tutor';
+    let pendingCalls = isTutor ? 2 : 1; // lessons + classes (if tutor)
+    
+    const onCallComplete = () => {
+      pendingCalls--;
+      if (pendingCalls <= 0) {
+        this.bookedSlotsLoaded = true;
+        console.log('✅ All booked slots loaded:', this.bookedSlots.size, 'slots');
+        this.checkAllDataLoaded();
+      }
+    };
     
     // Load lessons
     this.lessonService.getMyLessons(currentUser.id).subscribe({
@@ -890,20 +897,22 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
         
         if (response && response.success && response.lessons) {
           response.lessons.forEach((lesson: any) => {
-            // Only count non-cancelled lessons
+            // Only count non-cancelled, future lessons
             if (lesson.status !== 'cancelled') {
               this.addBookedSlot(lesson.startTime, lesson.endTime);
             }
           });
         }
+        onCallComplete();
       },
       error: (error) => {
         console.error('❌ Error loading lessons:', error);
+        onCallComplete();
       }
     });
     
     // Load classes (if user is a tutor)
-    if (currentUser.userType === 'tutor') {
+    if (isTutor) {
       this.classService.getClassesForTutor(currentUser.id).subscribe({
         next: (response: any) => {
           console.log('✅ Classes loaded:', response?.classes?.length || 0);
@@ -917,9 +926,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
               }
             });
           }
+          onCallComplete();
         },
         error: (error) => {
           console.error('❌ Error loading classes:', error);
+          onCallComplete();
         }
       });
     }
@@ -933,16 +944,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     // Get the date key
     const dateStr = this.formatDateKey(start);
     
-    // Calculate slot indices
-    const startHour = start.getHours();
-    const startMinute = start.getMinutes();
-    const endHour = end.getHours();
-    const endMinute = end.getMinutes();
+    // Calculate slot indices using floor for start (which 30-min slot does it land in?)
+    // and ceil for end (any partial use of a slot means it's occupied)
+    const startMinutes = start.getHours() * 60 + start.getMinutes();
+    const endMinutes = end.getHours() * 60 + end.getMinutes();
     
-    const startIndex = startHour * 2 + (startMinute >= 30 ? 1 : 0);
-    const endIndex = endHour * 2 + (endMinute >= 30 ? 1 : 0);
+    const startIndex = Math.floor(startMinutes / 30);
+    const endIndex = Math.ceil(endMinutes / 30);
     
-    console.log(`📅 Marking booked: ${dateStr} from ${startHour}:${startMinute} to ${endHour}:${endMinute} (indices ${startIndex}-${endIndex})`);
+    console.log(`📅 Marking booked: ${dateStr} from ${start.getHours()}:${String(start.getMinutes()).padStart(2, '0')} to ${end.getHours()}:${String(end.getMinutes()).padStart(2, '0')} (indices ${startIndex}-${endIndex})`);
     
     // Mark all slots in this time range as booked
     for (let idx = startIndex; idx < endIndex; idx++) {
@@ -960,6 +970,37 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     
     const dateStr = this.formatDateKey(day.date);
     return this.bookedSlots.has(`${dateStr}-${slotIndex}`);
+  }
+  
+  // Show feedback when user tries to remove a slot that has a scheduled lesson/class
+  private async showBookedSlotToast() {
+    const toast = await this.toastController.create({
+      message: 'This time slot has a scheduled lesson and cannot be removed.',
+      duration: 2500,
+      position: 'bottom',
+      color: 'dark',
+      icon: 'lock-closed'
+    });
+    await toast.present();
+  }
+  
+  // Called when either availability or booked slots finish loading
+  // Only hides the loading spinner when BOTH have completed
+  private checkAllDataLoaded() {
+    if (this.availabilityLoaded && this.bookedSlotsLoaded) {
+      this.isLoading = false;
+      // Clear loading timeout
+      if ((this as any)._loadingTimeout) {
+        clearTimeout((this as any)._loadingTimeout);
+      }
+      // Trigger change detection to ensure view updates
+      this.cdr.detectChanges();
+      
+      // Scroll to current time after grid is rendered
+      setTimeout(() => {
+        this.scrollToCurrentTime();
+      }, 100);
+    }
   }
   
   private dayNameToIndex(dayName: string): number {
@@ -1136,7 +1177,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   // Selection logic
   startSelection(dayIndex: number, slotIndex: number, event: MouseEvent) {
     event.preventDefault();
-    if (this.isPastSlot(dayIndex, slotIndex) || this.isSlotBooked(dayIndex, slotIndex)) return;
+    if (this.isPastSlot(dayIndex, slotIndex)) return;
+    if (this.isSlotBooked(dayIndex, slotIndex)) {
+      this.showBookedSlotToast();
+      return;
+    }
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
@@ -1483,6 +1528,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     await loading.present();
 
     try {
+      // Safety net: re-add any booked slots that may have been removed
+      // This ensures availability is never deleted for time slots with scheduled lessons/classes
+      this.bookedSlots.forEach(bookedSlotKey => {
+        if (!this.selectedSlots.has(bookedSlotKey)) {
+          console.log(`🔒 Re-adding booked slot to preserve availability: ${bookedSlotKey}`);
+          this.selectedSlots.add(bookedSlotKey);
+        }
+      });
+      
       // Convert selected slots to availability blocks
       const availabilityBlocks = this.convertSlotsToBlocks();
       

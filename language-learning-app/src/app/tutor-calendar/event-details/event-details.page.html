@@ -5,6 +5,9 @@
         <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
+    <div slot="end" style="padding-right: 16px;">
+      <button class="go-back-link" (click)="goBack()">Go back</button>
+    </div>
   </ion-toolbar>
 </ion-header>
 
@@ -30,10 +33,13 @@
 
     <!-- ── Top: Status + Title ──────────────────────────────── -->
     <header class="ed-header">
-      <div class="ed-status-row">
-        <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-        <span class="ed-type-label" *ngIf="lesson.isTrialLesson">Trial lesson</span>
-        <span class="ed-type-label" *ngIf="lesson.isOfficeHours">Office hours</span>
+      <div class="ed-header-top">
+        <div class="ed-status-row">
+          <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
+          <span class="ed-type-label" *ngIf="lesson.isTrialLesson">Trial lesson</span>
+          <span class="ed-type-label" *ngIf="lesson.isOfficeHours">Office hours</span>
+        </div>
+        <button class="go-back-link" (click)="goBack()">Go back</button>
       </div>
       <h1 class="ed-title">{{ lesson.subject || 'Language Lesson' }}</h1>
     </header>
@@ -84,6 +90,14 @@
           <span class="ed-detail-primary">{{ formattedPrice }}</span>
         </div>
       </div>
+
+      <div class="ed-detail" *ngIf="isStudentUser && paymentMethodLabel">
+        <ion-icon [name]="paymentMethodIcon"></ion-icon>
+        <div>
+          <span class="ed-detail-primary">{{ paymentMethodLabel }}</span>
+          <span class="ed-detail-secondary">Payment method</span>
+        </div>
+      </div>
     </section>
 
     <!-- ── Call Summary (completed) ─────────────────────────── -->
@@ -123,7 +137,7 @@
     <ng-container *ngIf="hasTip">
       <div class="ed-divider"></div>
       <section class="ed-row">
-        <h2 class="ed-section-label">Tip received</h2>
+        <h2 class="ed-section-label">{{ isTutorUser ? 'Tip received' : 'Tip sent' }}</h2>
         <div class="ed-highlight-row">
           <span class="ed-highlight-value">{{ tipAmount }}</span>
           <span class="ed-highlight-meta" *ngIf="tipDate">{{ tipDate }}</span>
@@ -137,12 +151,12 @@
       <section class="ed-row">
         <h2 class="ed-section-label">AI Analysis</h2>
 
-        <!-- Level + Summary -->
+        <!-- Level + Summary (hide summary text when tutor feedback covers it) -->
         <div class="ed-analysis-top" *ngIf="analysisData?.overallAssessment">
-          <div class="ed-cefr">
+          <div class="ed-cefr" *ngIf="!hasTutorFeedback">
             <span class="ed-cefr-level">{{ analysisData?.overallAssessment?.proficiencyLevel }}</span>
           </div>
-          <div class="ed-analysis-text">
+          <div class="ed-analysis-text" *ngIf="!hasTutorFeedback">
             <p class="ed-body">{{ analysisData?.overallAssessment?.summary }}</p>
             <span class="ed-progress" *ngIf="analysisData?.overallAssessment?.progressFromLastLesson">
               {{ analysisData?.overallAssessment?.progressFromLastLesson }}
@@ -170,30 +184,30 @@
           </div>
         </div>
 
-        <!-- Student Summary -->
-        <p class="ed-body" *ngIf="analysisData?.studentSummary">{{ analysisData?.studentSummary }}</p>
+        <!-- Student Summary (hide when tutor feedback covers it) -->
+        <p class="ed-body" *ngIf="analysisData?.studentSummary && !hasTutorFeedback">{{ analysisData?.studentSummary }}</p>
 
         <!-- Topics -->
         <div class="ed-topics" *ngIf="analysisData?.topicsDiscussed?.length">
           <span class="ed-topic" *ngFor="let t of analysisData?.topicsDiscussed">{{ t }}</span>
         </div>
 
-        <!-- Suggestions / Homework -->
-        <div class="ed-bullets" *ngIf="analysisData?.grammarAnalysis?.suggestions?.length">
+        <!-- Suggestions / Homework (hide when tutor feedback covers it) -->
+        <div class="ed-bullets" *ngIf="analysisData?.grammarAnalysis?.suggestions?.length && !hasTutorFeedback">
           <h3 class="ed-sub-label">Grammar suggestions</h3>
           <ul>
             <li *ngFor="let s of analysisData?.grammarAnalysis?.suggestions">{{ s }}</li>
           </ul>
         </div>
 
-        <div class="ed-bullets" *ngIf="analysisData?.recommendedFocus?.length">
+        <div class="ed-bullets" *ngIf="analysisData?.recommendedFocus?.length && !hasTutorFeedback">
           <h3 class="ed-sub-label">Recommended focus</h3>
           <ul>
             <li *ngFor="let f of analysisData?.recommendedFocus">{{ f }}</li>
           </ul>
         </div>
 
-        <div class="ed-bullets" *ngIf="analysisData?.homeworkSuggestions?.length">
+        <div class="ed-bullets" *ngIf="analysisData?.homeworkSuggestions?.length && !hasTutorFeedback">
           <h3 class="ed-sub-label">Homework</h3>
           <ul>
             <li *ngFor="let hw of analysisData?.homeworkSuggestions">{{ hw }}</li>

@@ -1,11 +1,5 @@
 <ion-header class="ion-no-border">
   <ion-toolbar class="lessons-toolbar">
-    <ion-buttons slot="start">
-      <ion-button (click)="goToHome()" class="nav-back-btn">
-        <ion-icon name="chevron-back" slot="start"></ion-icon>
-        <span class="nav-back-label">Home</span>
-      </ion-button>
-    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -245,7 +239,7 @@
 
     <ion-content class="lf-content">
       <!-- Selected Filters Cap -->
-      <section class="lf-selected-section" *ngIf="hasSecondaryFilters()">
+      <section class="lf-selected-section" [class.visible]="hasActiveSecondaryFilters">
         <h3 class="lf-section-title">Selected</h3>
         <div class="lf-selected-chips">
           <button class="lf-filter-chip" *ngIf="selectedStatusFilter !== 'all'" (click)="selectedStatusFilter = 'all'; applyFilters()">
@@ -267,7 +261,7 @@
         </div>
       </section>
 
-      <div class="lf-divider" *ngIf="hasSecondaryFilters()"></div>
+      <div class="lf-divider lf-divider-selected" [class.visible]="hasActiveSecondaryFilters"></div>
 
       <!-- Time Period Section -->
       <section class="lf-section">
@@ -421,7 +415,7 @@
 
     <ion-footer class="lf-footer ion-no-border">
       <div class="lf-footer-content">
-        <button class="lf-clear-btn" (click)="clearSecondaryFilters()" [disabled]="!hasSecondaryFilters()">
+        <button class="lf-clear-btn" (click)="clearSecondaryFilters()" [disabled]="!hasActiveSecondaryFilters">
           Clear all
         </button>
         <button class="lf-apply-btn" (click)="closeFiltersModal()">

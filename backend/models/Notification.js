@@ -44,7 +44,10 @@ const NotificationSchema = new mongoose.Schema({
       'lesson_completed',
       'feedback_reminder',
       'feedback_received',
-      'progress_milestone'
+      'progress_milestone',
+      'credential_approved',
+      'credential_rejected',
+      'tutor_note_saved'
     ],
     required: true
   },

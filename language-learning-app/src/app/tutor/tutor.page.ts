@@ -578,29 +578,46 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
       
-      // Get the student's lessons and check if any were with this tutor
+      // Get the student's lessons and check if any COMPLETED or SCHEDULED trials were with this tutor
+      // A cancelled/no-show trial doesn't count — student never received the benefit
       this.lessonService.getMyLessons().subscribe({
         next: (response: any) => {
           const lessons = response.lessons || response || [];
-          // Check if any completed or in-progress lesson was with this tutor
-          this.studentHadPreviousLesson = lessons.some((lesson: any) => {
-            const tutorAuth0Id = this.tutor?.auth0Id;
-            const tutorUserId = this.tutor?._id || this.tutorId;
+          const tutorAuth0Id = this.tutor?.auth0Id;
+          const tutorUserId = this.tutor?._id || this.tutorId;
+
+          // Helper to check if a lesson is with this tutor
+          const isSameTutor = (lesson: any) => {
             const lessonTutorId = lesson.tutorId?._id || lesson.tutorId?.auth0Id || lesson.tutorId;
-            
-            // Match by either _id or auth0Id
-            const isSameTutor = lessonTutorId === tutorUserId || 
-                               lessonTutorId === tutorAuth0Id ||
-                               lesson.tutorId?.auth0Id === tutorAuth0Id;
-            
-            // Consider completed, confirmed, in-progress, OR scheduled lessons
-            // Including 'scheduled' prevents showing trial discount for a second booking before first lesson happens
-            const isValidStatus = ['completed', 'confirmed', 'in_progress', 'scheduled'].includes(lesson.status);
-            
-            return isSameTutor && isValidStatus;
-          });
+            return lessonTutorId === tutorUserId || 
+                   lessonTutorId === tutorAuth0Id ||
+                   lesson.tutorId?.auth0Id === tutorAuth0Id;
+          };
+
+          // Check if student has a COMPLETED trial with this tutor
+          const hasCompletedTrial = lessons.some((lesson: any) => 
+            isSameTutor(lesson) && 
+            lesson.isTrialLesson && 
+            ['completed', 'in_progress'].includes(lesson.status)
+          );
+
+          // Check if student has a SCHEDULED trial with this tutor
+          const hasScheduledTrial = lessons.some((lesson: any) => 
+            isSameTutor(lesson) && 
+            lesson.isTrialLesson && 
+            lesson.status === 'scheduled'
+          );
+
+          // Student had a "previous lesson" (not eligible for trial) only if 
+          // they completed a trial or currently have one scheduled
+          this.studentHadPreviousLesson = hasCompletedTrial || hasScheduledTrial;
           
-          console.log('📚 Student had previous lesson with tutor:', this.studentHadPreviousLesson);
+          console.log('📚 Trial eligibility check:', {
+            hasCompletedTrial,
+            hasScheduledTrial,
+            studentHadPreviousLesson: this.studentHadPreviousLesson,
+            note: 'Cancelled/no-show trials do not count against eligibility'
+          });
         },
         error: (err) => {
           console.error('Error checking previous lessons:', err);

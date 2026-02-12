@@ -11,12 +11,12 @@
 
 <ion-content class="modal-content">
   <!-- Selected Filters Chips -->
-  <section class="selected-section" *ngIf="getActiveFilters().length > 0">
+  <section class="selected-section" [class.visible]="hasActiveFiltersVisible">
     <h3 class="section-title">Selected</h3>
     <div class="selected-chips">
       <button 
         class="filter-chip" 
-        *ngFor="let filter of getActiveFilters()" 
+        *ngFor="let filter of activeFiltersList" 
         (click)="removeFilter(filter)">
         <app-flag-icon 
           *ngIf="filter.type === 'country'" 
@@ -34,7 +34,7 @@
     </div>
   </section>
 
-  <div class="divider" *ngIf="getActiveFilters().length > 0"></div>
+  <div class="divider divider-selected" [class.visible]="hasActiveFiltersVisible"></div>
 
   <!-- Quick Picks -->
   <section class="quick-picks-section">
@@ -285,7 +285,7 @@
 
 <ion-footer class="modal-footer">
   <div class="footer-content">
-    <button class="clear-all-btn" (click)="clearAllFilters()" [disabled]="!hasActiveFilters()">
+    <button class="clear-all-btn" (click)="clearAllFilters()" [disabled]="!hasActiveFiltersVisible">
       Clear all
     </button>
     <button class="show-results-btn" (click)="applyFilters()">

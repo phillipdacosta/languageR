@@ -49,7 +49,7 @@
         <div class="selector-header">
           <ion-icon name="hourglass-outline"></ion-icon>
           <span>Lesson Duration</span>
-          <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span>
+          <!-- <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span> -->
         </div>
         <div class="segmented-control">
           <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">
@@ -158,7 +158,7 @@
       <div class="selector-header">
         <ion-icon name="hourglass-outline"></ion-icon>
         <span>Lesson Duration</span>
-        <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span>
+        <!-- <span class="trial-badge" *ngIf="isTrialLesson">First Lesson - Trial</span> -->
       </div>
       <div class="segmented-control">
         <button class="segment" [class.active]="selectedDuration === 25" (click)="onDurationChange(25)">

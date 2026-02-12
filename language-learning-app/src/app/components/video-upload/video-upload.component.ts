@@ -27,6 +27,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
   @Output() videoUploaded = new EventEmitter<VideoUploadData>();
   @Output() videoRemoved = new EventEmitter<void>();
   @Output() thumbnailClick = new EventEmitter<void>(); // New output for thumbnail clicks
+  @Output() pendingStateChanged = new EventEmitter<boolean>(); // Emits true when user has an unsubmitted link
   @ViewChild('videoElement') videoElement?: ElementRef<HTMLVideoElement>;
   @ViewChild('iframeElement') iframeElement?: ElementRef<HTMLIFrameElement>;
   @ViewChild('videoPreview') videoPreviewElement?: ElementRef<HTMLVideoElement>;
@@ -242,6 +243,12 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.customThumbnail = null;
     this.thumbnailPreview = '';
     this.videoLinkInput = '';
+    this.pendingStateChanged.emit(false);
+  }
+
+  // Called when user types in the link input
+  onLinkInputChange() {
+    this.pendingStateChanged.emit(!!this.videoLinkInput.trim());
   }
 
   // Handle thumbnail file selection
@@ -360,6 +367,7 @@ export class VideoUploadComponent implements OnInit, OnChanges, OnDestroy {
     this.videoLinkInput = '';
     this.isUploading = false;
     this.errorMessage = '';
+    this.pendingStateChanged.emit(false);
   }
 
   // Validate and convert YouTube/Vimeo URLs

@@ -1,4 +1,19 @@
-<div class="onboarding-container">
+<ion-header *ngIf="!showWelcome">
+  <ion-toolbar class="onboarding-toolbar">
+    <ion-buttons slot="start">
+      <div class="app-icon-container">
+        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+      </div>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<div class="onboarding-container" *ngIf="!showPreview && !showWelcome">
   <!-- Two Column Layout -->
   <div class="onboarding-content">
     
@@ -94,6 +109,21 @@
             <p>Your level & schedule</p>
           </div>
         </div>
+
+        <!-- Review Step - only visible after user has reached preview -->
+        <div 
+          class="step-item review-step"
+          *ngIf="hasReachedPreview"
+          [class.current]="false"
+          (click)="showPreviewPage()">
+          <div class="step-indicator review-indicator">
+            <ion-icon name="document-text"></ion-icon>
+          </div>
+          <div class="step-info">
+            <h3>Review</h3>
+            <p>Review & submit</p>
+          </div>
+        </div>
       </div>
 
       <!-- Navigation Buttons -->
@@ -137,8 +167,10 @@
             <div class="form-field">
               <label>First Name *</label>
               <input 
+                #firstNameInput
                 type="text"
                 [(ngModel)]="firstName"
+                (blur)="formatFirstNameOnBlur()"
                 placeholder="Enter your first name"
                 class="modern-input">
             </div>
@@ -148,6 +180,7 @@
               <input 
                 type="text"
                 [(ngModel)]="lastName"
+                (blur)="formatLastNameOnBlur()"
                 placeholder="Enter your last name"
                 class="modern-input">
             </div>
@@ -256,29 +289,179 @@
       </div>
 
       <!-- Action Button - Outside scrollable container -->
-      <ion-button 
-        *ngIf="currentStep < totalSteps"
-        expand="block"
-        size="large"
-        class="primary-action"
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        Continue
-        <ion-icon name="arrow-forward" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep < totalSteps"
+          size="large"
+          class="primary-action"
+          [disabled]="!canProceed()"
+          (click)="nextStep()">
+          Continue
+          <ion-icon name="arrow-forward" slot="end"></ion-icon>
+        </ion-button>
+      </div>
 
-      <ion-button 
-        *ngIf="currentStep === totalSteps"
-        expand="block"
-        size="large"
-        color="success"
-        class="submit-action"
-        [disabled]="!canProceed()"
-        (click)="nextStep()">
-        Complete Setup
-        <ion-icon name="checkmark" slot="end"></ion-icon>
-      </ion-button>
+      <div class="action-button-wrapper">
+        <ion-button 
+          *ngIf="currentStep === totalSteps"
+          size="large"
+          class="submit-action"
+          [disabled]="!canProceed()"
+          (click)="showPreviewPage()">
+          Done
+          <ion-icon name="checkmark" slot="end"></ion-icon>
+        </ion-button>
+      </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Preview Page -->
+<div class="preview-container" *ngIf="showPreview && !showWelcome">
+  <div class="preview-card">
+    <div class="preview-header">
+      <div class="preview-icon-circle">
+        <ion-icon name="document-text"></ion-icon>
+      </div>
+      <h1 class="preview-title">Review Your Info</h1>
+      <p class="preview-subtitle">Make sure everything looks good before we get you started</p>
+    </div>
+
+    <div class="preview-sections">
+      <!-- Personal Info -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="person"></ion-icon>
+          <h3>About You</h3>
+          <button class="edit-link" (click)="goBackToEdit(1)">Edit</button>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Name</span>
+          <span class="preview-value">{{ firstName }} {{ lastName }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Native Language</span>
+          <span class="preview-value">{{ getNativeLanguageName() }}</span>
+        </div>
+      </div>
+
+      <!-- Learning Preferences -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="globe"></ion-icon>
+          <h3>Learning Preferences</h3>
+          <button class="edit-link" (click)="goBackToEdit(3)">Edit</button>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Learning</span>
+          <span class="preview-value">{{ selectedLanguages.join(', ') }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Goals</span>
+          <span class="preview-value">{{ learningGoals.join(', ') }}</span>
+        </div>
+      </div>
+
+      <!-- Experience -->
+      <div class="preview-section">
+        <div class="preview-section-header">
+          <ion-icon name="school"></ion-icon>
+          <h3>Experience</h3>
+          <button class="edit-link" (click)="goBackToEdit(5)">Edit</button>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Level</span>
+          <span class="preview-value">{{ experienceLevel }}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Schedule</span>
+          <span class="preview-value">{{ preferredSchedule }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-actions">
+      <button class="preview-back-btn" (click)="goBackToEdit()">
+        <ion-icon name="chevron-back"></ion-icon>
+        Go Back
+      </button>
+      <ion-button 
+        size="large"
+        class="submit-action"
+        [disabled]="isSubmitting"
+        (click)="completeOnboarding()">
+        <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
+        <span *ngIf="!isSubmitting">Complete Setup</span>
+        <ion-icon *ngIf="!isSubmitting" name="checkmark-circle" slot="end"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome / Congrats Page -->
+<div class="success-page" *ngIf="showWelcome">
+  <!-- Confetti Dots (decorative) -->
+  <div class="confetti-container" aria-hidden="true">
+    <span class="dot dot-1"></span>
+    <span class="dot dot-2"></span>
+    <span class="dot dot-3"></span>
+    <span class="dot dot-4"></span>
+    <span class="dot dot-5"></span>
+    <span class="dot dot-6"></span>
+    <span class="dot dot-7"></span>
+    <span class="dot dot-8"></span>
+  </div>
+
+  <div class="success-inner">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-check">
+        <ion-icon name="checkmark-sharp"></ion-icon>
+      </div>
+      <h1 class="hero-title">You're all set, {{ firstName }}!</h1>
+      <p class="hero-subtitle">Your learning journey starts now. We've matched you with the best resources to help you reach your goals.</p>
+    </div>
+
+    <!-- Highlights Card -->
+    <div class="highlights-card">
+      <div class="detail-rows">
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">Profile created</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">Ready to book lessons</span>
+          </div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-icon-wrap success-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-value">Personalized experience awaits</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Note -->
+    <div class="info-note">
+      <ion-icon name="sparkles-outline"></ion-icon>
+      <span>We'll personalize your experience based on your preferences.</span>
+    </div>
+
+    <!-- CTA -->
+    <button class="done-btn" (click)="navigateToHome()">
+      Start Learning
+    </button>
   </div>
 </div>

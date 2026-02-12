@@ -18,11 +18,11 @@
 .mobile-global-header {
   ion-toolbar {
     --background: #ffffff;
-    --color: #2c3e50;
-    --border-color: #e0e0e0;
-    --min-height: 60px;
-    border-bottom: 1px solid #e5e7eb;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --color: #222222;
+    --border-color: transparent;
+    --min-height: 56px;
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: none;
   }
 
   .app-icon-container {
@@ -46,25 +46,25 @@
     --padding-end: 12px;
     
     ion-icon {
-      font-size: 28px;
-      color: #1f2937; // Dark gray for visibility
+      font-size: 24px;
+      color: #222222;
     }
     
     .notification-dot {
       position: absolute;
-      top: -1px;
-      right: 1px;
-      width: 10px;
-      height: 10px;
-      background-color: #ef4444;
+      top: 0;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      background-color: #FF385C;
       border-radius: 50%;
-      border: 2px solid #ffffff;
+      border: 1.5px solid #ffffff;
     }
   }
 
   .header-avatar {
-    width: 42px;
-    height: 42px;
+    width: 36px;
+    height: 36px;
     margin-right: 12px;
     cursor: pointer;
     
@@ -80,10 +80,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #222222;
       color: #ffffff;
       font-weight: 600;
-      font-size: 18px;
+      font-size: 15px;
     }
   }
 }
@@ -93,8 +93,8 @@
   --background: #ffffff;
   --color: #2c3e50;
   --border-color: #e0e0e0;
-  border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -102,6 +102,11 @@
   z-index: 1000;
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
+  
+  // // Adjust toolbar for Airbnb-style active indicator line on desktop
+  // @media (min-width: 992px) {
+  //   --min-height: 80px;
+  // }
   
   ion-title {
     font-weight: 600;
@@ -174,105 +179,215 @@
   .desktop-nav-buttons {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 32px;
     margin-right: 16px;
     
-    .nav-button {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 12px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      color: #6c757d;
-      text-decoration: none;
-      min-width: 65px;
-      position: relative;
-      gap: 3px;
-      
-      ion-icon {
-        font-size: 20px;
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      
-      ion-label {
-        font-size: 11px;
-        font-weight: 500;
-        letter-spacing: 0.1px;
-        transition: color 0.25s ease;
-      }
-      
-      &:hover {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        color: #007bff;
-        border-color: #dee2e6;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+    // Only apply Airbnb-style tabs on desktop (min-width: 992px)
+    @media (min-width: 992px) {
+      .nav-button {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        background: transparent;
+        border: none;
+        // border-bottom: 2px solid transparent; // Underline — commented out for now
+        border-radius: 0;
+        cursor: pointer;
+        transition: color 0.2s ease; // border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #717171;
+        text-decoration: none;
+        position: relative;
+        gap: 8px;
+        height: auto;
+        min-width: auto;
+        // margin-bottom: -1px; // Overlap the toolbar bottom border — commented out for now
         
         ion-icon {
-          transform: scale(1.1);
-        }
-      }
-      
-      &.active {
-        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-        color: white;
-        border-color: #007bff;
-        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
-        transform: translateY(-1px);
-        
-        ion-icon {
-          color: white;
-          transform: scale(1.05);
+          font-size: 18px;
+          color: inherit;
+          transition: color 0.2s ease;
         }
         
         ion-label {
-          color: white;
-          font-weight: 600;
+          font-size: 14px;
+          font-weight: 400;
+          letter-spacing: -0.01em;
+          transition: color 0.2s ease, font-weight 0.2s ease;
+          color: inherit;
+        }
+        
+        &:hover {
+          background: transparent;
+          color: #222222;
+          // border-bottom-color: transparent;
+          transform: none;
+          box-shadow: none;
+          
+          ion-icon {
+            transform: none;
+          }
+        }
+        
+        &.active {
+          background: transparent;
+          color: #222222;
+          // border-bottom-color: #222222; // Silky smooth underline — commented out for now
+          box-shadow: none;
+          transform: none;
+          
+          ion-icon {
+            color: #222222;
+            transform: none;
+          }
+          
+          ion-label {
+            color: #222222;
+            font-weight: 600;
+          }
+        }
+        
+        &.notification-btn {
+          position: relative;
+          
+          ion-icon {
+            color: inherit; // Inherit from parent (will be #717171 or #222222)
+          }
+          
+          .notification-dot {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            top: -5px;
+            right: -3px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+            z-index: 999;
+          }
+        }
+        
+        // Messages button notification dot - positioned closer to icon
+        .message-notification-dot {
+          position: absolute !important;
+          width: 10px !important;
+          height: 10px !important;
+          background-color: #ff3b30 !important;
+          border-radius: 50% !important;
+          top: -2px !important;
+          right: 74px !important;
+          border: 2px solid white !important;
+          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+          z-index: 9999 !important;
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: none !important;
         }
       }
-      
-      &.notification-btn {
+    }
+    
+    // Fallback for smaller screens (keep original style)
+    @media (max-width: 991px) {
+      .nav-button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        color: #6c757d;
+        text-decoration: none;
+        min-width: 65px;
         position: relative;
+        gap: 3px;
         
         ion-icon {
-          color: #1f2937; // Dark gray for visibility
+          font-size: 20px;
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        .notification-dot {
-          position: absolute;
-          width: 11px;
-          height: 11px;
-          background-color: #ff3b30;
-          border-radius: 50%;
-          top: 0px;
-          right: 15px;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
-          z-index: 999;
+        ion-label {
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.1px;
+          transition: color 0.25s ease;
         }
-      }
-      
-      // Messages button notification dot - positioned closer to icon
-      .message-notification-dot {
-        position: absolute !important;
-        width: 10px !important;
-        height: 10px !important;
-        background-color: #ff3b30 !important;
-        border-radius: 50% !important;
-        top: 4px !important;
-        right: 28px !important;
-        border: 2px solid white !important;
-        box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
-        z-index: 9999 !important;
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: none !important;
+        
+        &:hover {
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          color: #007bff;
+          border-color: #dee2e6;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+          
+          ion-icon {
+            transform: scale(1.1);
+          }
+        }
+        
+        &.active {
+          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          color: white;
+          border-color: #007bff;
+          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+          transform: translateY(-1px);
+          
+          ion-icon {
+            color: white;
+            transform: scale(1.05);
+          }
+          
+          ion-label {
+            color: white;
+            font-weight: 600;
+          }
+        }
+        
+        &.notification-btn {
+          position: relative;
+          
+          ion-icon {
+            color: #1f2937; // Dark gray for visibility
+          }
+          
+          .notification-dot {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            top: 0px;
+            right: 15px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5);
+            z-index: 999;
+          }
+        }
+        
+        // Messages button notification dot - positioned closer to icon
+        .message-notification-dot {
+          position: absolute !important;
+          width: 10px !important;
+          height: 10px !important;
+          background-color: #ff3b30 !important;
+          border-radius: 50% !important;
+          top: 4px !important;
+          right: 28px !important;
+          border: 2px solid white !important;
+          box-shadow: 0 2px 4px rgba(255, 59, 48, 0.5) !important;
+          z-index: 9999 !important;
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          pointer-events: none !important;
+        }
       }
     }
     
@@ -587,28 +702,36 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
+            gap: 6px;
             width: fit-content;
-            height: 24px;
-            padding: 0 10px;
-            margin: 6px 0 2px 0;
-            font-size: 11px;
-            font-weight: 500;
+            height: 28px;
+            padding: 0 12px;
+            margin: 8px 0 4px 0;
+            font-size: 13px;
+            font-weight: 600;
             color: white;
-            background: #4f46e5;
+            background: #222222;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background 0.2s ease;
+            transition: all 0.2s ease;
             white-space: nowrap;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
             
             ion-icon {
-              font-size: 12px;
+              font-size: 14px;
               flex-shrink: 0;
             }
             
             &:hover {
-              background: #4338ca;
+              background: #333333;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+            
+            &:active {
+              background: #000000;
+              transform: translateY(0);
             }
             
             &.milestone-btn {
@@ -616,6 +739,7 @@
               
               &:hover {
                 background: linear-gradient(135deg, #d97706, #b45309);
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
               }
             }
           }
@@ -1112,74 +1236,86 @@
   }
 }
 
-// Mobile-specific styling
+// Mobile-specific styling — Airbnb-clean tab bar
 .platform-ios,
 .platform-android {
   ion-tab-bar {
-    --ion-tab-bar-height: 58px;
+    --ion-tab-bar-height: 52px;
     --ion-tab-bar-background: #ffffff;
-    --ion-tab-bar-border-color: #e5e7eb;
-    border-top: 1px solid #e5e7eb;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
-    padding-top: 2px;
+    --ion-tab-bar-border-color: transparent;
+    border-top: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: none;
+    padding-top: 4px;
     padding-bottom: 2px;
     max-width: 100vw;
     overflow: hidden;
     
     ion-tab-button {
-      --color: #8e8e93;
-      --color-selected: #007aff;
+      --color: #717171;
+      --color-selected: #222222;
       position: relative !important;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: color 0.15s ease;
       flex: 1;
       min-width: 0;
       
       &::part(native) {
         position: relative !important;
         padding: 4px 6px;
-        border-radius: 10px;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 0;
+        transition: color 0.15s ease;
         max-width: 100%;
+        background: transparent;
       }
       
-      // Custom selected state for calendar tab on availability-setup routes
-      // This needs to override Ionic's internal .tab-selected class
+      // Custom selected state — Airbnb just darkens the icon + label, no background
       &.tab-selected,
       &.tab-selected.ion-activatable {
-        --color: var(--ion-color-primary, #007aff) !important;
-        --color-selected: var(--ion-color-primary, #007aff) !important;
+        --color: #222222 !important;
+        --color-selected: #222222 !important;
         --background: transparent !important;
         --background-focused: transparent !important;
         --background-focused-opacity: 0 !important;
         --ripple-color: transparent !important;
         
         &::part(native) {
-          color: var(--ion-color-primary, #007aff) !important;
-          background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(0, 86, 179, 0.1) 100%) !important;
+          color: #222222 !important;
+          background: transparent !important;
         }
         
         ion-icon {
-          color: var(--ion-color-primary, #007aff) !important;
+          color: #222222 !important;
           opacity: 1 !important;
-          transform: scale(1.08);
         }
         
         ion-label {
-          color: var(--ion-color-primary, #007aff) !important;
+          color: #222222 !important;
           opacity: 1 !important;
           font-weight: 600 !important;
         }
       }
       
+      // Profile avatar tab — selected ring
+      &.profile-avatar-tab {
+        .tab-avatar {
+          transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #222222;
+          box-shadow: 0 0 0 1.5px #222222;
+        }
+      }
+      
       ion-icon {
         font-size: 22px;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: color 0.15s ease;
       }
       
       ion-label {
         font-size: 10px;
         font-weight: 500;
-        letter-spacing: 0.1px;
+        letter-spacing: 0;
         margin-top: 2px;
         white-space: nowrap;
         overflow: hidden;
@@ -1235,6 +1371,23 @@
         pointer-events: none !important;
       }
     }
+  }
+}
+
+// Tab avatar (Profile tab with user photo) — Airbnb style
+.tab-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 }
 
@@ -1397,12 +1550,41 @@ ion-tab-button {
   
   .platform-ios,
   .platform-android {
-    --ion-tab-bar-background: #1c1c1e;
-    --ion-tab-bar-border-color: #38383a;
+    ion-tab-bar {
+      --ion-tab-bar-background: #1c1c1e;
+      --ion-tab-bar-border-color: transparent;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
     
     ion-tab-button {
       --color: #8e8e93;
-      --color-selected: #0a84ff;
+      --color-selected: #ffffff;
+      
+      &.tab-selected,
+      &.tab-selected.ion-activatable {
+        --color: #ffffff !important;
+        --color-selected: #ffffff !important;
+        
+        &::part(native) {
+          color: #ffffff !important;
+        }
+        
+        ion-icon {
+          color: #ffffff !important;
+        }
+        
+        ion-label {
+          color: #ffffff !important;
+        }
+      }
+      
+      &.profile-avatar-tab {
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #ffffff;
+          box-shadow: 0 0 0 1.5px #ffffff;
+        }
+      }
     }
   }
   

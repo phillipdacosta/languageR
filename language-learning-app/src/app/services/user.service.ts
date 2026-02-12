@@ -34,6 +34,38 @@ export interface User {
     approvedBy?: string;
     approvedAt?: string;
   };
+  // Tutor credential verification
+  tutorCredentials?: {
+    governmentId?: {
+      url?: string;
+      fileName?: string;
+      fileType?: string;
+      uploadedAt?: string;
+      status: 'not_uploaded' | 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    };
+    teachingCertifications?: Array<{
+      _id?: string;
+      url: string;
+      fileName: string;
+      fileType?: string;
+      certificationName?: string;
+      uploadedAt?: string;
+      status: 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    }>;
+    additionalDocuments?: Array<{
+      _id?: string;
+      url: string;
+      fileName: string;
+      fileType?: string;
+      documentType?: string;
+      label?: string;
+      uploadedAt?: string;
+      status: 'pending' | 'approved' | 'rejected';
+      rejectionReason?: string;
+    }>;
+  };
   tutorApproved?: boolean;
   stripeConnectOnboarded?: boolean;
   stripeConnectAccountId?: string;
@@ -101,6 +133,7 @@ export interface TutorOnboardingData {
   languages: string[];
   experience: string;
   schedule: string;
+  summary?: string;
   bio: string;
   hourlyRate: number;
   introductionVideo?: string;
@@ -120,6 +153,7 @@ export interface Tutor {
   hourlyRate: number;
   experience: string;
   schedule: string;
+  summary?: string;
   bio: string;
   introductionVideo?: string;
   videoThumbnail?: string;
@@ -187,8 +221,16 @@ export class UserService {
     videoComplete: boolean;
     videoApproved: boolean;
     videoRejected: boolean;
-    hasApprovedVideo: boolean;  // NEW: indicates if they have at least one approved video
+    hasApprovedVideo: boolean;
     stripeComplete: boolean;
+    // Credential status
+    governmentIdUploaded: boolean;
+    governmentIdApproved: boolean;
+    governmentIdRejected: boolean;
+    certificationsUploaded: boolean;
+    certificationsApproved: boolean;
+    credentialsComplete: boolean; // All required credentials uploaded
+    credentialsApproved: boolean; // All required credentials approved
     fullyApproved: boolean;
     needsApproval: boolean;
   } | null>(null);
@@ -382,6 +424,26 @@ export class UserService {
       stripeComplete
     });
     
+    // Credential checks
+    const creds = user.tutorCredentials;
+    const governmentIdUploaded = !!(creds?.governmentId?.url && creds.governmentId.status !== 'not_uploaded');
+    const governmentIdApproved = creds?.governmentId?.status === 'approved';
+    const governmentIdRejected = creds?.governmentId?.status === 'rejected';
+    const certificationsUploaded = !!(creds?.teachingCertifications && creds.teachingCertifications.length > 0);
+    const certificationsApproved = !!(creds?.teachingCertifications?.some(c => c.status === 'approved'));
+    const credentialsComplete = governmentIdUploaded && certificationsUploaded;
+    const credentialsApproved = governmentIdApproved && certificationsApproved;
+
+    console.log('📄 [UserService] Credential check details:', {
+      governmentIdUploaded,
+      governmentIdApproved,
+      governmentIdRejected,
+      certificationsUploaded,
+      certificationsApproved,
+      credentialsComplete,
+      credentialsApproved
+    });
+
     const fullyApproved = user.tutorApproved === true;
     
     // Needs approval if onboarding is complete but not fully approved
@@ -392,8 +454,15 @@ export class UserService {
       videoComplete,
       videoApproved,
       videoRejected,
-      hasApprovedVideo,  // NEW: indicates if they have at least one approved video
+      hasApprovedVideo,
       stripeComplete,
+      governmentIdUploaded,
+      governmentIdApproved,
+      governmentIdRejected,
+      certificationsUploaded,
+      certificationsApproved,
+      credentialsComplete,
+      credentialsApproved,
       fullyApproved,
       needsApproval
     };
@@ -786,6 +855,78 @@ export class UserService {
       }),
       catchError(error => {
         console.error('📹 Error updating tutor video:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Upload a tutor credential document (government ID, teaching certification, additional doc)
+   */
+  uploadCredential(
+    file: File,
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument',
+    metadata?: { certificationName?: string; documentType?: string; label?: string }
+  ): Observable<any> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        
+        const formData = new FormData();
+        formData.append('document', file);
+        formData.append('credentialType', credentialType);
+        if (metadata?.certificationName) formData.append('certificationName', metadata.certificationName);
+        if (metadata?.documentType) formData.append('documentType', metadata.documentType);
+        if (metadata?.label) formData.append('label', metadata.label);
+        
+        // Use only Authorization header — do NOT set Content-Type
+        // Browser must set multipart/form-data with boundary automatically for FormData
+        const authHeaders = this.getAuthHeaders(userEmail);
+        const uploadHeaders = new HttpHeaders({
+          'Authorization': authHeaders.get('Authorization') || ''
+        });
+        
+        return this.http.post<any>(
+          `${this.apiUrl}/users/tutor/upload-credential`,
+          formData,
+          { headers: uploadHeaders }
+        );
+      }),
+      tap(response => {
+        console.log('📄 Credential uploaded:', response);
+      }),
+      catchError(error => {
+        console.error('📄 Error uploading credential:', error);
+        throw error;
+      })
+    );
+  }
+
+  /**
+   * Delete a tutor credential document
+   */
+  deleteCredential(
+    credentialType: 'governmentId' | 'teachingCertification' | 'additionalDocument',
+    credentialId?: string
+  ): Observable<any> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        
+        let url = `${this.apiUrl}/users/tutor/credential/${credentialType}`;
+        if (credentialId) url += `/${credentialId}`;
+        
+        return this.http.delete<any>(url, { 
+          headers: this.getAuthHeaders(userEmail) 
+        });
+      }),
+      tap(response => {
+        console.log('🗑️ Credential deleted:', response);
+      }),
+      catchError(error => {
+        console.error('🗑️ Error deleting credential:', error);
         throw error;
       })
     );

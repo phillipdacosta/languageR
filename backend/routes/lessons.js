@@ -44,28 +44,41 @@ router.get('/check-trial/:tutorId', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Tutor not found' });
     }
     
-    // Check if there are any previous SCHEDULED lessons between this student and tutor
-    // (Exclude office hours from trial eligibility)
-    const previousLessons = await Lesson.countDocuments({
+    // Check if student ever COMPLETED a trial with this tutor
+    // (A cancelled/no-show trial doesn't count — student never received the benefit)
+    const completedTrial = await Lesson.countDocuments({
       tutorId: tutor._id,
       studentId: student._id,
-      isOfficeHours: { $ne: true }, // Exclude office hours
-      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: { $in: ['completed', 'in_progress'] }
     });
-    
-    const isTrialLesson = previousLessons === 0;
+
+    // Check if student already has a SCHEDULED trial with this tutor
+    // (Prevents booking two trials simultaneously)
+    const scheduledTrial = await Lesson.countDocuments({
+      tutorId: tutor._id,
+      studentId: student._id,
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: 'scheduled'
+    });
+
+    const isTrialLesson = completedTrial === 0 && scheduledTrial === 0;
     
     console.log('🔍 Trial lesson check:', {
       tutorId: tutor._id,
       studentId: student._id,
-      previousScheduledLessons: previousLessons,
-      isTrialLesson
+      completedTrials: completedTrial,
+      scheduledTrials: scheduledTrial,
+      isTrialLesson,
+      note: 'Cancelled/no-show trials do not count against eligibility'
     });
     
     res.json({
       success: true,
       isTrialLesson,
-      previousLessons
+      previousLessons: completedTrial + scheduledTrial
     });
   } catch (error) {
     console.error('Error checking trial lesson status:', error);
@@ -366,23 +379,34 @@ router.post('/', verifyToken, async (req, res) => {
       });
     }
     
-    // Check if this is the first SCHEDULED lesson between this student and tutor
-    // (Exclude office hours from trial eligibility - they're a different product)
-    const previousLessons = await Lesson.countDocuments({
+    // Check if student ever COMPLETED a trial with this tutor
+    // (A cancelled/no-show trial doesn't count — student never received the benefit)
+    const completedTrial = await Lesson.countDocuments({
       tutorId: tutorId,
       studentId: studentId,
-      isOfficeHours: { $ne: true }, // Exclude office hours
-      status: { $in: ['scheduled', 'in_progress', 'completed'] }
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: { $in: ['completed', 'in_progress'] }
     });
-    
-    const isTrialLesson = previousLessons === 0;
+
+    // Check if student already has a SCHEDULED trial with this tutor
+    const scheduledTrial = await Lesson.countDocuments({
+      tutorId: tutorId,
+      studentId: studentId,
+      isTrialLesson: true,
+      isOfficeHours: { $ne: true },
+      status: 'scheduled'
+    });
+
+    const isTrialLesson = completedTrial === 0 && scheduledTrial === 0;
     
     console.log('🎓 Trial lesson check:', {
       tutorId,
       studentId,
-      previousScheduledLessons: previousLessons,
+      completedTrials: completedTrial,
+      scheduledTrials: scheduledTrial,
       isTrialLesson,
-      note: 'Office hours sessions excluded from trial eligibility'
+      note: 'Cancelled/no-show trials do not count against eligibility'
     });
 
     const lesson = await Lesson.create({

@@ -337,6 +337,110 @@ ion-segment {
     }
   }
 
+  // Credentials Review Section
+  .credentials-review-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+
+    .credentials-section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0 0 14px;
+
+      ion-icon {
+        font-size: 18px;
+        color: var(--ion-color-primary);
+      }
+
+      .pending-badge {
+        font-size: 10px;
+        margin-left: auto;
+      }
+    }
+
+    .credential-review-item {
+      background: white;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 12px;
+      margin-bottom: 10px;
+      transition: box-shadow 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .cred-info-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        ion-icon {
+          font-size: 20px;
+          flex-shrink: 0;
+        }
+
+        .cred-details {
+          flex: 1;
+          min-width: 0;
+
+          strong {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1f2937;
+          }
+
+          .cred-filename {
+            display: block;
+            font-size: 11px;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+
+        ion-badge {
+          font-size: 10px;
+          flex-shrink: 0;
+        }
+      }
+
+      .cred-actions-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #f3f4f6;
+
+        .cred-review-btns {
+          display: flex;
+          gap: 6px;
+
+          ion-button {
+            --padding-start: 10px;
+            --padding-end: 10px;
+            font-size: 12px;
+            font-weight: 500;
+          }
+        }
+      }
+    }
+  }
+
   .actions {
     display: flex;
     flex-direction: column;

@@ -2,7 +2,7 @@
   display: flex;
   height: 100vh;
   background: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -28,15 +28,15 @@
   transform: translateY(0);
 }
 
-// Left Sidebar - Apple style matching tutor-calendar
+// Left Sidebar - Airbnb style matching tutor-calendar
 .settings-sidebar {
   width: 260px;
-  background: #fafafa;
+  background: #ffffff;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  border-right: 1px solid #EBEBEB;
   overflow-y: auto;
   
   // Smooth scrolling
@@ -62,14 +62,14 @@
   padding: 20px 24px 16px;
   display: block !important;
   width: 100%;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid #EBEBEB;
   
   .back-button {
-    --color: #007AFF;
+    --color: #222222;
     --padding-start: 0;
     --padding-end: 0;
     font-size: 15px;
-    font-weight: 400;
+    font-weight: 500;
     letter-spacing: -0.01em;
     width: 100%;
     justify-content: flex-start !important;
@@ -77,8 +77,8 @@
     margin: 0;
     display: flex;
     align-items: center;
-    transition: opacity 0.15s ease;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    transition: opacity 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
     
     ion-icon {
       font-size: 18px;
@@ -109,7 +109,7 @@
     padding: 12px 24px 20px;
     margin-bottom: 0;
     margin-top: 60px; // Push down from top to match calendar
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid #EBEBEB;
     
     .back-button {
       font-size: 15px;
@@ -184,11 +184,11 @@
   padding: 24px;
   
   h3 {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
-    color: #86868b;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
+    color: #222222;
+    text-transform: none;
+    letter-spacing: -0.2px;
     margin: 0 0 12px 0;
   }
 
@@ -200,36 +200,36 @@
     .nav-item {
       display: flex;
       align-items: center;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 12px 12px;
+      border-radius: 12px;
       text-decoration: none;
-      color: #000000;
-      font-size: 13px;
+      color: #222222;
+      font-size: 15px;
       font-weight: 400;
       letter-spacing: -0.01em;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
 
       ion-icon {
-        margin-right: 10px;
-        font-size: 18px;
-        color: #86868b;
+        margin-right: 12px;
+        font-size: 20px;
+        color: #717171;
         transition: color 0.2s ease;
       }
 
       &.active {
-        background: #ffffff;
-        color: #007AFF;
-        font-weight: 500;
+        background: #F7F7F7;
+        color: #222222;
+        font-weight: 600;
         
         ion-icon {
-          color: #007AFF;
+          color: #222222;
         }
       }
 
       &:hover:not(.active) {
-        background: rgba(0, 0, 0, 0.04);
+        background: #F7F7F7;
       }
       
       &:active {
@@ -243,40 +243,42 @@
   padding: 0 24px 24px;
   
   h3 {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
-    color: #86868b;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
+    color: #222222;
+    text-transform: none;
+    letter-spacing: -0.2px;
     margin: 0 0 12px 0;
+    padding-top: 16px;
+    border-top: 1px solid #EBEBEB;
   }
 
   .option-item {
     display: flex;
     align-items: center;
-    padding: 8px 0;
+    padding: 12px 0;
 
     ion-checkbox {
-      margin-right: 10px;
+      margin-right: 12px;
       --size: 20px;
       --border-radius: 6px;
       --checkmark-color: white;
-      --background-checked: #007AFF;
-      --border-color-checked: #007AFF;
+      --background-checked: #222222;
+      --border-color-checked: #222222;
     }
 
     label {
       flex: 1;
-      font-size: 13px;
-      color: #000000;
+      font-size: 15px;
+      color: #222222;
       font-weight: 400;
       letter-spacing: -0.01em;
       cursor: pointer;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
     }
 
     .info-button {
-      --color: #86868b;
+      --color: #717171;
       --padding-start: 4px;
       --padding-end: 4px;
       width: 24px;
@@ -298,12 +300,14 @@
   padding: 0 24px 24px;
   
   h3 {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
-    color: #86868b;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
+    color: #222222;
+    text-transform: none;
+    letter-spacing: -0.2px;
     margin: 0 0 12px 0;
+    padding-top: 16px;
+    border-top: 1px solid #EBEBEB;
   }
 
   .action-buttons {
@@ -312,27 +316,28 @@
     gap: 8px;
 
     .action-btn {
-      --background: #ffffff;
-      --border-color: rgba(0, 0, 0, 0.1);
-      --color: #000000;
-      --border-radius: 8px;
-      height: 36px;
-      font-size: 13px;
-      font-weight: 400;
+      --background: transparent;
+      --border-color: #DDDDDD;
+      --color: #222222;
+      --border-radius: 12px;
+      height: 44px;
+      font-size: 15px;
+      font-weight: 500;
       letter-spacing: -0.01em;
       justify-content: flex-start;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
 
       ion-icon {
-        margin-right: 8px;
-        font-size: 18px;
-        color: #86868b;
+        margin-right: 10px;
+        font-size: 20px;
+        color: #717171;
         transition: color 0.2s ease;
       }
 
       &:hover {
-        --background: rgba(0, 0, 0, 0.04);
+        --background: #F7F7F7;
+        --border-color: #B0B0B0;
       }
       
       &:active {
@@ -345,21 +350,22 @@
 .google-integration {
   margin-top: auto;
   padding: 24px;
+  border-top: 1px solid #EBEBEB;
 
   .google-btn {
-    --background: #007AFF;
-    --background-hover: #0051D5;
-    --background-activated: #004DB8;
+    --background: #222222;
+    --background-hover: #333333;
+    --background-activated: #000000;
     --color: white;
-    --border-radius: 8px;
+    --border-radius: 12px;
     height: 48px;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 15px;
     letter-spacing: -0.01em;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     text-transform: none;
     box-shadow: none;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
 
     ion-icon {
       margin-right: 8px;
@@ -367,7 +373,9 @@
     }
 
     &:hover {
-      --background: #0051D5;
+      --background: #333333;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
     }
     
     &:active {
@@ -401,12 +409,12 @@
   ion-spinner {
     width: 40px;
     height: 40px;
-    --color: #007AFF;
+    --color: #222222;
   }
   
   p {
     font-size: 15px;
-    color: #86868b;
+    color: #717171;
     margin: 0;
     font-weight: 400;
   }
@@ -424,20 +432,20 @@
   
   ion-icon {
     font-size: 48px;
-    color: #FF3B30;
+    color: #FF385C;
   }
   
   p {
     font-size: 15px;
-    color: #86868b;
+    color: #717171;
     margin: 0;
     font-weight: 400;
   }
   
   ion-button {
     --background: transparent;
-    --color: #007AFF;
-    --border-color: #007AFF;
+    --color: #222222;
+    --border-color: #222222;
     margin-top: 8px;
     font-weight: 500;
   }
@@ -448,9 +456,9 @@
 }
 
 .week-navigation {
-  padding: 20px 48px;
+  padding: 20px 32px;
   margin-bottom: 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
   position: relative;
   top: 55px;
@@ -463,113 +471,102 @@
     justify-content: space-between;
     width: 100%;
     margin: 0 auto;
-    gap: 16px;
+    gap: 12px;
 
-    // Left side navigation (prev, next, today)
-    .nav-left {
+    .toolbar-left, .toolbar-right {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex: 0 0 auto;
+      gap: 12px;
+      flex-shrink: 0;
+    }
 
-      ion-button {
-        --background: #ffffff !important;
-        --background-activated: rgba(0, 0, 0, 0.06) !important;
-        --background-hover: rgba(0, 0, 0, 0.04) !important;
-        --color: #000000 !important;
-        --box-shadow: none !important;
-        background: #ffffff;
-        color: #000000;
-        font-size: 13px;
-        font-weight: 400;
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        text-transform: none;
-        letter-spacing: -0.01em;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-        margin: 0;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 6px;
-        padding: 4px 12px;
-        height: auto;
-        min-height: auto;
-        line-height: normal;
-
-        &::part(native) {
-          background: #ffffff !important;
-          color: #000000 !important;
-          padding: 4px 12px;
-        }
-
-        &:hover:not([disabled]) {
-          background: rgba(0, 0, 0, 0.04);
-          border-color: rgba(0, 0, 0, 0.15);
-        }
-        
-        &:active:not([disabled]) {
-          background: rgba(0, 0, 0, 0.06);
-          transform: scale(0.98);
-        }
-        
-        &[disabled] {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-        
-        ion-icon {
-          font-size: 15px;
-        }
+    .nav-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid #DDDDDD;
+      border-radius: 50%;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+      
+      ion-icon {
+        font-size: 16px;
+        color: #222222;
       }
       
-      // Arrow buttons should be icon-only
-      ion-button:not(.today-btn) {
-        padding: 4px 8px;
-        
-        &::part(native) {
-          padding: 4px 8px;
-        }
+      &:hover {
+        background: #F7F7F7;
+        border-color: #BDBDBD;
       }
       
-      .today-btn {
-        padding: 4px 12px;
-        
-        &::part(native) {
-          padding: 4px 12px;
-        }
+      &:active {
+        transform: scale(0.95);
+      }
+      
+      &[disabled] {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
       }
     }
 
-    // Week display container - centered
-    .week-display {
+    .today-btn {
+      padding: 8px 16px;
+      border: 1px solid #DDDDDD;
+      border-radius: 20px;
+      background: #ffffff;
+      font-size: 14px;
+      font-weight: 500;
+      color: #222222;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.01em;
+      
+      &:hover {
+        background: #F7F7F7;
+        border-color: #BDBDBD;
+      }
+      
+      &:active {
+        transform: scale(0.97);
+      }
+      
+      &[disabled] {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+    }
+
+    .toolbar-center {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
+    }
 
-      .week-range {
-        font-size: 22px;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        color: #000000;
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-      }
+    .calendar-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #222222;
+      margin: 0;
+      letter-spacing: -0.3px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
     }
     
-    // Right side (timezone + week/day toggle)
-    .nav-right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex: 0 0 auto;
-      
+    .toolbar-right {
       .timezone-info {
         font-size: 13px;
-        color: #6b7280;
+        color: #717171;
         display: flex;
         align-items: center;
         gap: 4px;
         letter-spacing: -0.01em;
-        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
         margin: 0;
         
         ion-icon {
@@ -577,70 +574,37 @@
         }
       }
       
-      // Week/Day toggle buttons
-      .view-toggle {
+      .view-switcher {
         display: flex;
-        gap: 0;
+        border: 1px solid #DDDDDD;
+        border-radius: 20px;
+        overflow: hidden;
         
-        .view-btn {
-          --background: #ffffff !important;
-          --background-activated: rgba(0, 0, 0, 0.06) !important;
-          --background-hover: rgba(0, 0, 0, 0.04) !important;
-          --color: #000000 !important;
-          --box-shadow: none !important;
+        button {
+          padding: 8px 18px;
           background: #ffffff;
-          color: #000000;
+          border: none;
           font-size: 13px;
-          font-weight: 400;
-          text-transform: none;
+          font-weight: 500;
+          color: #717171;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
           letter-spacing: -0.01em;
-          font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
-          margin: 0;
-          border: 1px solid rgba(0, 0, 0, 0.1);
-          border-radius: 0;
-          padding: 4px 12px;
-          height: auto;
-          min-height: auto;
-          line-height: normal;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           
-          &::part(native) {
-            background: #ffffff !important;
-            color: #000000 !important;
-            padding: 4px 12px;
-          }
-          
-          &:first-child {
-            border-radius: 6px 0 0 6px;
-            border-right: none;
-          }
-          
-          &:last-child {
-            border-radius: 0 6px 6px 0;
+          &:not(:last-child) {
+            border-right: 1px solid #DDDDDD;
           }
           
           &.active {
-            --background: #000000 !important;
-            --color: #ffffff !important;
-            background: #000000 !important;
-            color: #ffffff !important;
-            font-weight: 500;
-            border-color: #000000;
-            
-            &::part(native) {
-              background: #000000 !important;
-              color: #ffffff !important;
-            }
+            background: #222222;
+            color: #ffffff;
+            font-weight: 600;
           }
           
           &:not(.active):hover {
-            background: rgba(0, 0, 0, 0.04);
-            border-color: rgba(0, 0, 0, 0.15);
-          }
-          
-          &:active {
-            background: rgba(0, 0, 0, 0.06);
-            transform: scale(0.98);
+            background: #F7F7F7;
+            color: #222222;
           }
         }
       }
@@ -780,9 +744,9 @@
   background: #ffffff;
   padding-top: 0;
   padding-bottom: 0;
-  align-items: stretch; // Ensure headers stretch to full height
-  min-height: 68px; // Set minimum height
-  border-bottom: 2px solid #e5e7eb;
+  align-items: stretch;
+  min-height: 68px;
+  border-bottom: 1px solid #EBEBEB;
 
   .time-column-header {
     width: 60px;
@@ -793,7 +757,7 @@
     display: flex;
     align-items: flex-start;
     position: relative;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid #F0F0F0;
     
     &::after {
       display: none;
@@ -812,7 +776,7 @@
     gap: 4px;
     margin-bottom: 0;
     position: relative;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid #F0F0F0;
     border-left: none;
     border-top: none;
     border-bottom: none;
@@ -820,15 +784,15 @@
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     
     &:last-child {
-      border-right: none; // Remove border from last day (Saturday)
+      border-right: none;
     }
 
     &:hover {
-      background: #f9fafb;
+      background: #F7F7F7;
     }
 
     &:active {
-      background: #f3f4f6;
+      background: #EBEBEB;
     }
     
     &::after {
@@ -836,9 +800,9 @@
     }
 
     .day-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: #6b7280;
+      font-size: 12px;
+      font-weight: 500;
+      color: #717171;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -851,8 +815,8 @@
 
       .day-number {
         font-size: 18px;
-        font-weight: 400;
-        color: #111827;
+        font-weight: 500;
+        color: #222222;
         letter-spacing: 0;
       }
 
@@ -862,17 +826,17 @@
     }
 
     &.today {
-      background: #ffffff;
-      border-color: #e5e7eb;
+      background: transparent;
+      border-color: #F0F0F0;
       
       .day-name {
-        color: #3b82f6;
+        color: #222222;
         font-weight: 600;
       }
       
       .day-date {
         .day-number {
-          background: #3b82f6;
+          background: #222222;
           color: #ffffff;
           width: 32px;
           height: 32px;
@@ -894,11 +858,11 @@
       }
 
       &:hover {
-        background: #f9fafb;
+        background: #F7F7F7;
       }
       
       &:active {
-        background: #f3f4f6;
+        background: #EBEBEB;
       }
     }
   }
@@ -955,13 +919,13 @@
   
   .time-label {
     width: 100%;
-    font-size: 10px;
-    color: #86868b;
+    font-size: 11px;
+    color: #717171;
     font-weight: 500;
     letter-spacing: -0.01em;
     text-align: right;
     padding-right: 10px;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
 }
 
@@ -982,13 +946,13 @@
 
 .day-time-slot {
   height: 24px;
-  margin-bottom: 2px; // Match the original time-slot-row spacing
-  background: #fafafa;
+  margin-bottom: 2px;
+  background: #F7F7F7;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid #F0F0F0;
   overflow: hidden;
   
   &:last-child {
@@ -996,19 +960,19 @@
   }
   
   &:hover {
-    background: #e8f0fe;
-    border-color: rgba(0, 122, 255, 0.2);
+    background: #EBEBEB;
+    border-color: #DDDDDD;
     transform: scale(1.01);
-    box-shadow: 0 1px 4px rgba(0, 122, 255, 0.1);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   }
 
   &.selected {
-    background: #007aff;
-    border-color: #007aff;
+    background: #08a0e8;
+    border-color: #222222;
     
     &:hover {
-      background: #0051d5;
-      border-color: #0051d5;
+      background: #22b9ff;
+      border-color: #333333;
     }
   }
 
@@ -1022,7 +986,7 @@
   }
 
   &.night {
-    background: #f5f5f5;
+    background: #F7F7F7;
   }
 
   &.past {
@@ -1073,13 +1037,13 @@
   .time-label {
     width: 60px;
     flex-shrink: 0;
-    font-size: 10px;
-    color: #86868b;
+    font-size: 11px;
+    color: #717171;
     font-weight: 500;
     letter-spacing: -0.01em;
     text-align: right;
     padding-right: 10px;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
   }
 
   .day-columns {
@@ -1090,12 +1054,12 @@
     .day-column {
       flex: 1;
       height: 24px;
-      background: #fafafa;
+      background: #F7F7F7;
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      border: 1px solid rgba(0, 0, 0, 0.06);
+      border: 1px solid #F0F0F0;
       overflow: hidden;
       
       .single-day-mode & {
@@ -1104,17 +1068,17 @@
       }
 
       &:hover {
-        background: #e8f0fe;
-        border-color: rgba(0, 122, 255, 0.2);
+        background: #EBEBEB;
+        border-color: #DDDDDD;
         transform: scale(1.01);
-        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.1);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
       }
 
       &.selected {
-        background: #007AFF;
-        border-color: #007AFF;
+        background: #222222;
+        border-color: #222222;
         transform: scale(1.01);
-        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.25);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 
         .slot-indicator {
           position: absolute;
@@ -1129,15 +1093,15 @@
         }
         
         &:hover {
-          background: #0051D5;
-          border-color: #0051D5;
+          background: #333333;
+          border-color: #333333;
         }
       }
 
       &.existing {
-        background: #34C759;
-        border-color: #34C759;
-        box-shadow: 0 1px 3px rgba(52, 199, 89, 0.2);
+        background: #00A699;
+        border-color: #00A699;
+        box-shadow: 0 1px 3px rgba(0, 166, 153, 0.2);
 
         .slot-indicator {
           position: absolute;
@@ -1152,8 +1116,8 @@
         }
         
         &:hover {
-          background: #28A745;
-          border-color: #28A745;
+          background: #008F84;
+          border-color: #008F84;
         }
       }
 
@@ -1167,22 +1131,22 @@
         }
 
         &.selected {
-          background: #007AFF;
-          border-color: #007AFF;
+          background: #222222;
+          border-color: #222222;
         }
       }
 
       &.night {
         background: #FFF9E6;
-        border-color: rgba(0, 0, 0, 0.06);
+        border-color: #F0F0F0;
 
         &:hover {
           background: #FFF4D1;
         }
 
         &.selected {
-          background: #007AFF;
-          border-color: #007AFF;
+          background: #222222;
+          border-color: #222222;
         }
       }
     }
@@ -1216,31 +1180,31 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 48px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid #EBEBEB;
   background: #ffffff;
   position: fixed;
   bottom: 0;
   left: 260px;
   right: 0;
   z-index: 100;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
 
   .selected-info {
     display: flex;
     align-items: center;
     gap: 16px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 400;
     letter-spacing: -0.01em;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
 
     .new-hours {
-      color: #007AFF;
+      color: #222222;
       font-weight: 600;
       padding: 6px 12px;
-      background: rgba(0, 122, 255, 0.1);
+      background: rgba(0, 166, 153, 0.1);
       border-radius: 12px;
-      font-size: 13px;
+      font-size: 14px;
       letter-spacing: -0.01em;
       min-width: 90px;
       text-align: center;
@@ -1253,8 +1217,8 @@
     }
 
     .total-weekly-hours {
-      color: #000000;
-      font-size: 13px;
+      color: #222222;
+      font-size: 14px;
       letter-spacing: -0.01em;
       min-width: 180px;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1263,7 +1227,7 @@
       &::before {
         content: '•';
         margin-right: 8px;
-        color: #d1d1d6;
+        color: #DDDDDD;
       }
     }
   }
@@ -1273,23 +1237,24 @@
     gap: 12px;
 
     ion-button {
-      --border-radius: 8px;
-      height: 40px;
-      font-weight: 500;
-      font-size: 14px;
+      --border-radius: 12px;
+      height: 44px;
+      font-weight: 600;
+      font-size: 15px;
       letter-spacing: -0.01em;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       text-transform: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
 
       &[fill="outline"] {
         --background: #ffffff;
-        --border-color: rgba(0, 0, 0, 0.1);
-        --color: #000000;
+        --border-color: #DDDDDD;
+        --color: #222222;
         --border-width: 1px;
 
         &:hover {
-          --background: rgba(0, 0, 0, 0.04);
+          --background: #F7F7F7;
+          --border-color: #B0B0B0;
         }
         
         &:active {
@@ -1298,12 +1263,14 @@
       }
 
       &:not([fill="outline"]) {
-        --background: #007AFF;
+        --background: #222222;
         --color: white;
         box-shadow: none;
 
         &:hover {
-          --background: #0051D5;
+          --background: #333333;
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
         }
         
         &:active {
@@ -1311,8 +1278,8 @@
         }
 
         &[disabled] {
-          --background: #d1d1d6;
-          --color: #86868b;
+          --background: #DDDDDD;
+          --color: #B0B0B0;
           box-shadow: none;
           opacity: 0.6;
         }
@@ -1328,7 +1295,7 @@
   }
 
   .settings-sidebar {
-    width: 260px;
+    width: 254px;
     padding: 0;
   }
 
@@ -1346,13 +1313,13 @@
   }
 
   .week-navigation {
-    padding: 20px 48px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 20px 32px;
+    border-bottom: 1px solid #EBEBEB;
     background: #ffffff;
     flex-shrink: 0;
     position: relative;
 
-    .week-display {
+    .toolbar-center {
       margin: 0;
     }
   }
@@ -1397,10 +1364,10 @@
 
   .day-headers {
     min-height: auto;
-    padding-top: 0;
+    padding-top: 10px;
     padding-bottom: 0;
     top: 35px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 1px solid #EBEBEB;
 
     .time-column-header {
       width: 60px;
@@ -1439,7 +1406,7 @@
   .action-bar {
     padding: 8px 32px;
     flex-shrink: 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    border-top: 1px solid #EBEBEB;
     background: #ffffff;
     left: 260px;
 
@@ -1474,7 +1441,7 @@
     padding: 16px;
     gap: 20px;
     border-right: none;
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid #EBEBEB;
     flex-shrink: 0;
     align-items: flex-start;
   }
@@ -1577,17 +1544,17 @@
     padding: 0 16px 16px;
 
     .panel-section {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 20px;
       margin-top: 12px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
 
       h3 {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
-        color: #86868b;
-        letter-spacing: 0.8px;
+        color: #717171;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
         margin-bottom: 12px;
       }
@@ -1597,11 +1564,12 @@
         --inner-padding-end: 0;
         --min-height: 44px;
         font-size: 15px;
+        --color: #222222;
         letter-spacing: -0.3px;
 
         ion-icon {
           margin-right: 12px;
-          color: #86868b;
+          color: #717171;
         }
       }
 
@@ -1612,14 +1580,31 @@
 
         label {
           font-size: 15px;
-          color: #1d1d1f;
+          color: #222222;
           font-weight: 400;
           letter-spacing: -0.3px;
         }
       }
 
+      ion-checkbox {
+        --background-checked: #222222;
+        --border-color-checked: #222222;
+      }
+
       ion-button {
         margin-top: 8px;
+        margin-bottom: 12px;
+      }
+
+      .google-btn {
+        --background: #222222;
+        --background-hover: #333333;
+        --background-activated: #000000;
+        --color: white;
+        --border-radius: 12px;
+        height: 48px;
+        font-size: 15px;
+        font-weight: 600;
       }
     }
   }
@@ -1679,12 +1664,12 @@
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
     padding: 12px 16px;
-    border-top: 0.5px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid #EBEBEB;
     border-bottom: none;
     flex-direction: row;
     align-items: center;
@@ -1764,12 +1749,12 @@
   }
 
   .day-headers {
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+    box-shadow: none;
+    border-bottom: 1px solid #EBEBEB;
     position: sticky;
     top: 0;
     z-index: 110;
-    background: #f5f5f7;
+    background: #ffffff;
     margin-left: -12px;
     margin-right: -12px;
     padding: 12px 0px 12px;
@@ -1777,7 +1762,7 @@
     .time-column-header {
       width: 56px;
       padding-right: 8px;
-      background: #f5f5f7;
+      background: #ffffff;
     }
 
     .day-header {
@@ -1806,19 +1791,36 @@
 
     .nav-controls {
       gap: 6px;
+      flex-wrap: wrap;
 
-      ion-button {
-        min-width: 40px;
-        height: 40px;
+      .nav-btn {
+        width: 32px;
+        height: 32px;
+        
+        ion-icon {
+          font-size: 14px;
+        }
+      }
+      
+      .today-btn {
+        padding: 6px 12px;
+        font-size: 13px;
       }
 
-      .week-display {
+      .toolbar-center {
         gap: 12px;
-        margin: 0 12px;
+        margin: 0;
 
-        .week-range {
+        .calendar-title {
           font-size: 15px;
           letter-spacing: -0.3px;
+        }
+      }
+      
+      .toolbar-right {
+        .view-switcher button {
+          padding: 6px 12px;
+          font-size: 12px;
         }
       }
     }
@@ -1881,7 +1883,7 @@ html {
     margin-bottom: 0 !important;
     flex-shrink: 0 !important;
     background: #fff !important;
-    border-bottom: 1px solid #e5e5ea !important;
+    border-bottom: 1px solid #EBEBEB !important;
     
     @media (max-width: 768px) {
       padding: 10px 12px !important;
@@ -1895,7 +1897,7 @@ html {
         gap: 6px;
       }
       
-      .nav-left {
+      .toolbar-left {
         order: 1;
         
         @media (max-width: 768px) {
@@ -1903,7 +1905,7 @@ html {
         }
       }
       
-      .week-display {
+      .toolbar-center {
         order: 2;
         flex: 1;
         min-width: 0;
@@ -1917,7 +1919,7 @@ html {
         }
       }
       
-      .nav-right {
+      .toolbar-right {
         order: 3;
         
         @media (max-width: 600px) {
@@ -1955,7 +1957,7 @@ html {
     margin: 0 !important;
     border-radius: 0 !important;
     background: #ffffff !important;
-    border-top: 1px solid #e5e5ea !important;
+    border-top: 1px solid #EBEBEB !important;
     padding: 16px 24px !important;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
     flex-shrink: 0 !important;
@@ -1987,17 +1989,17 @@ html {
       
       .new-hours {
         font-size: 14px !important;
-        color: #007AFF !important;
+        color: #222222 !important;
         font-weight: 600 !important;
         padding: 6px 12px !important;
-        background: rgba(0, 122, 255, 0.1) !important;
+        background: rgba(0, 166, 153, 0.1) !important;
         border-radius: 8px !important;
         white-space: nowrap !important;
       }
       
       .total-weekly-hours {
         font-size: 14px !important;
-        color: #666 !important;
+        color: #717171 !important;
         white-space: nowrap !important;
       }
     }
