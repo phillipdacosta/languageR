@@ -3,7 +3,8 @@ const router = express.Router();
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const TutorFeedback = require('../models/TutorFeedback');
-const { upload, uploadImage, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
 
 /**
@@ -20,6 +21,66 @@ function formatName(name) {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
     .trim();
+}
+
+/**
+ * Formats text to ensure proper capitalization on a per-word basis:
+ * - Normalizes each word that has abnormal capitalization
+ * - Preserves legitimate acronyms (CERF, TEFL, CELTA, TESOL, etc.)
+ * - Preserves normal words (all lowercase or proper title case)
+ * - Ensures first letter of the entire text is uppercase
+ * 
+ * Examples:
+ * "THE BEST language tutor in the WOrLD!" -> "The best language tutor in the world!"
+ * "i have a cerf certificate" -> "I have a CERF certificate"
+ * "MY BIO IS IN CAPS" -> "My bio is in caps"
+ * "MMfsjkg kfjdgn" -> "Mmfsjkg kfjdgn"
+ */
+function formatText(text) {
+  if (!text || typeof text !== 'string') return '';
+  
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  // Map of legitimate acronyms: lookup key (uppercase) -> display form
+  const acronymMap = {
+    'CERF': 'CERF', 'TEFL': 'TEFL', 'CELTA': 'CELTA', 'TESOL': 'TESOL',
+    'TOEFL': 'TOEFL', 'IELTS': 'IELTS', 'ESL': 'ESL', 'EFL': 'EFL',
+    'BA': 'BA', 'BS': 'BS', 'MA': 'MA', 'MS': 'MS', 'PHD': 'PhD',
+    'MBA': 'MBA', 'USA': 'USA', 'UK': 'UK', 'EU': 'EU', 'UN': 'UN',
+    'NATO': 'NATO', 'NASA': 'NASA', 'DELF': 'DELF', 'DALF': 'DALF',
+    'HSK': 'HSK', 'JLPT': 'JLPT', 'DELE': 'DELE', 'CILS': 'CILS',
+    'TEF': 'TEF', 'TCF': 'TCF', 'CPE': 'CPE', 'CAE': 'CAE', 'FCE': 'FCE'
+  };
+
+  // Process each alphabetical word, preserving all non-alpha characters in place
+  const result = trimmed.replace(/[a-zA-Z]+/g, (word) => {
+    // Check if word is a known acronym (case-insensitive)
+    const upperWord = word.toUpperCase();
+    if (acronymMap[upperWord]) {
+      return acronymMap[upperWord];
+    }
+
+    // Single letter: keep as-is (handles "I", "a", etc.)
+    if (word.length === 1) {
+      return word;
+    }
+
+    // Check if word already has "normal" capitalization
+    const isAllLower = word === word.toLowerCase();
+    const isTitleCase = word[0] === word[0].toUpperCase() && word.slice(1) === word.slice(1).toLowerCase();
+
+    if (isAllLower || isTitleCase) {
+      return word; // Normal casing — leave it alone
+    }
+
+    // Abnormal casing detected (ALL CAPS, rAnDoM caps, MMfsjkg, WOrLD, etc.)
+    // Normalize to lowercase — first-letter capitalization handled below
+    return word.toLowerCase();
+  });
+
+  // Ensure first letter of the entire text is uppercase
+  return result.charAt(0).toUpperCase() + result.slice(1);
 }
 
 // Rate limiters for public endpoints
@@ -195,6 +256,7 @@ router.get('/me', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         tutorOnboarding: user.tutorOnboarding,
+        tutorCredentials: user.tutorCredentials,
         tutorApproved: user.tutorApproved,
         stripeConnectOnboarded: user.stripeConnectOnboarded,
         stripeCustomerId: user.stripeCustomerId, // ADD THIS - Critical for saved card payments!
@@ -357,6 +419,12 @@ router.post('/', verifyToken, async (req, res) => {
         userType: user.userType,
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
+        tutorOnboarding: user.tutorOnboarding,
+        tutorCredentials: user.tutorCredentials,
+        tutorApproved: user.tutorApproved,
+        stripeConnectOnboarded: user.stripeConnectOnboarded,
+        payoutProvider: user.payoutProvider,
+        payoutDetails: user.payoutDetails,
         profile: user.profile,
         nativeLanguage: user.nativeLanguage,
         interfaceLanguage: user.interfaceLanguage,
@@ -480,7 +548,7 @@ router.put('/onboarding', verifyToken, async (req, res) => {
     
     if (user.userType === 'tutor') {
       // Handle tutor onboarding data
-      const { languages, experience, schedule, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
+      const { languages, experience, schedule, summary, bio, hourlyRate, introductionVideo, videoThumbnail, videoType, nativeLanguage, firstName, lastName, country, residenceCountry } = req.body;
       user.onboardingData = {
         firstName: formatName(firstName || user.firstName || ''),
         lastName: formatName(lastName || user.lastName || ''),
@@ -489,7 +557,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         languages: languages || [],
         experience: experience || '',
         schedule: schedule || '',
-        bio: bio || '',
+        summary: formatText(summary || ''),
+        bio: formatText(bio || ''),
         hourlyRate: hourlyRate || 25,
         introductionVideo: introductionVideo || '',
         videoThumbnail: videoThumbnail || '',
@@ -1049,6 +1118,7 @@ router.get('/tutors', verifyToken, async (req, res) => {
         hourlyRate: tutor.onboardingData?.hourlyRate || 25,
         experience: tutor.onboardingData?.experience || 'Beginner',
         schedule: tutor.onboardingData?.schedule || 'Flexible',
+        summary: tutor.onboardingData?.summary || '',
         bio: tutor.onboardingData?.bio || '',
         introductionVideo: tutor.onboardingData?.introductionVideo || '',
         videoThumbnail: tutor.onboardingData?.videoThumbnail || '',
@@ -1459,9 +1529,24 @@ router.put('/availability', verifyToken, async (req, res) => {
     console.log('New blocks to add:', availabilityBlocks.length);
     
     // Merge: kept blocks + new blocks
-    user.availability = [...blocksToKeep, ...availabilityBlocks];
-    user.lastAvailabilityUpdate = new Date(); // Track when availability was last updated
-    await user.save();
+    const mergedAvailability = [...blocksToKeep, ...availabilityBlocks];
+    
+    // Use findOneAndUpdate with $set to only update availability fields
+    // This avoids triggering validation on unrelated fields (e.g. bio length)
+    await User.findOneAndUpdate(
+      { _id: user._id },
+      { 
+        $set: { 
+          availability: mergedAvailability,
+          lastAvailabilityUpdate: new Date()
+        }
+      },
+      { runValidators: false }
+    );
+    
+    // Update the local user object for the response
+    user.availability = mergedAvailability;
+    user.lastAvailabilityUpdate = new Date();
 
     console.log('Final availability count:', user.availability.length);
     
@@ -2008,5 +2093,330 @@ router.post('/tutor/submit-for-review', verifyToken, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// ============================================================
+// TUTOR CREDENTIAL UPLOAD / DELETE ROUTES
+// ============================================================
+
+/**
+ * POST /api/users/tutor/upload-credential
+ * Upload a credential document (government ID, teaching cert, additional doc)
+ * Body (multipart): document file + credentialType + optional metadata
+ */
+router.post('/tutor/upload-credential', verifyToken, uploadDocument.single('document'), async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can upload credentials' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No document file provided' });
+    }
+
+    const { credentialType, certificationName, documentType, label } = req.body;
+
+    if (!credentialType || !['governmentId', 'teachingCertification', 'additionalDocument'].includes(credentialType)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid credentialType. Must be: governmentId, teachingCertification, or additionalDocument' 
+      });
+    }
+
+    // Initialize GCS
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'File storage not configured' });
+    }
+
+    // Generate unique filename - credentials are PRIVATE (not public)
+    const timestamp = Date.now();
+    const sanitizedFilename = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const subFolder = credentialType === 'governmentId' ? 'government-id' 
+      : credentialType === 'teachingCertification' ? 'certifications' 
+      : 'additional';
+    const gcsFilename = `credentials/${req.user.sub}/${subFolder}/${timestamp}_${sanitizedFilename}`;
+
+    console.log('📄 Uploading credential to GCS:', gcsFilename);
+
+    // Upload to GCS (private - not public)
+    const file = bucket.file(gcsFilename);
+    await file.save(req.file.buffer, {
+      metadata: {
+        contentType: req.file.mimetype,
+        metadata: {
+          uploadedBy: req.user.sub,
+          credentialType,
+          uploadedAt: new Date().toISOString()
+        }
+      },
+      public: false // Credentials are private — use signed URLs to view
+    });
+
+    // Generate a signed URL for immediate preview (valid 1 hour)
+    const [signedUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000
+    });
+
+    // Store the GCS path (gs://) for permanent reference, signed URL for temp access
+    const gcsPath = `gs://${bucket.name}/${gcsFilename}`;
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${gcsFilename}`;
+
+    console.log('✅ Credential uploaded:', gcsPath);
+
+    // Initialize tutorCredentials if not exists
+    if (!user.tutorCredentials) {
+      user.tutorCredentials = {
+        governmentId: { status: 'not_uploaded' },
+        teachingCertifications: [],
+        additionalDocuments: []
+      };
+    }
+
+    let savedCredential;
+
+    if (credentialType === 'governmentId') {
+      user.tutorCredentials.governmentId = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      savedCredential = user.tutorCredentials.governmentId;
+    } else if (credentialType === 'teachingCertification') {
+      const newCert = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        certificationName: certificationName || '',
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      user.tutorCredentials.teachingCertifications.push(newCert);
+      savedCredential = user.tutorCredentials.teachingCertifications[
+        user.tutorCredentials.teachingCertifications.length - 1
+      ];
+    } else if (credentialType === 'additionalDocument') {
+      const newDoc = {
+        url: publicUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype,
+        documentType: documentType || 'other',
+        label: label || '',
+        uploadedAt: new Date(),
+        status: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+      user.tutorCredentials.additionalDocuments.push(newDoc);
+      savedCredential = user.tutorCredentials.additionalDocuments[
+        user.tutorCredentials.additionalDocuments.length - 1
+      ];
+    }
+
+    await user.save();
+
+    console.log(`✅ Credential saved for tutor ${user.email}:`, {
+      type: credentialType,
+      fileName: req.file.originalname,
+      status: 'pending'
+    });
+
+    res.json({
+      success: true,
+      message: 'Credential uploaded successfully',
+      credential: savedCredential,
+      signedUrl
+    });
+
+    // Notify admins via WebSocket that a new credential is pending review
+    try {
+      if (req.io) {
+        req.io.emit('tutor_credential_uploaded', {
+          tutorId: user._id,
+          tutorName: user.name || user.email,
+          tutorEmail: user.email,
+          credentialType,
+          fileName: req.file.originalname,
+          timestamp: new Date()
+        });
+        console.log('📬 Notified admins of new credential upload from:', user.email);
+      }
+    } catch (socketError) {
+      console.warn('⚠️ Could not send WebSocket notification to admins:', socketError.message);
+    }
+
+  } catch (error) {
+    console.error('❌ Error uploading credential:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to upload credential' });
+  }
+});
+
+/**
+ * DELETE /api/users/tutor/credential/:credentialType/:credentialId
+ * DELETE /api/users/tutor/credential/:credentialType
+ * Remove a credential. For governmentId, credentialId is not needed.
+ * For teachingCertification/additionalDocument, credentialId is the array element _id.
+ */
+const handleDeleteCredential = async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Only tutors can manage credentials' });
+    }
+
+    const { credentialType, credentialId } = req.params;
+
+    if (!user.tutorCredentials) {
+      return res.status(404).json({ success: false, message: 'No credentials found' });
+    }
+
+    let removedUrl = null;
+
+    if (credentialType === 'governmentId') {
+      // Only allow deletion if pending (not approved)
+      if (user.tutorCredentials.governmentId?.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved credential' });
+      }
+      removedUrl = user.tutorCredentials.governmentId?.url;
+      user.tutorCredentials.governmentId = {
+        url: null,
+        fileName: null,
+        fileType: null,
+        uploadedAt: null,
+        status: 'not_uploaded',
+        reviewedBy: null,
+        reviewedAt: null,
+        rejectionReason: null
+      };
+    } else if (credentialType === 'teachingCertification') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for certifications' });
+      }
+      const certIndex = user.tutorCredentials.teachingCertifications.findIndex(
+        c => c._id.toString() === credentialId
+      );
+      if (certIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Certification not found' });
+      }
+      const cert = user.tutorCredentials.teachingCertifications[certIndex];
+      if (cert.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved certification' });
+      }
+      removedUrl = cert.url;
+      user.tutorCredentials.teachingCertifications.splice(certIndex, 1);
+    } else if (credentialType === 'additionalDocument') {
+      if (!credentialId) {
+        return res.status(400).json({ success: false, message: 'credentialId required for additional documents' });
+      }
+      const docIndex = user.tutorCredentials.additionalDocuments.findIndex(
+        d => d._id.toString() === credentialId
+      );
+      if (docIndex === -1) {
+        return res.status(404).json({ success: false, message: 'Document not found' });
+      }
+      const doc = user.tutorCredentials.additionalDocuments[docIndex];
+      if (doc.status === 'approved') {
+        return res.status(400).json({ success: false, message: 'Cannot delete an approved document' });
+      }
+      removedUrl = doc.url;
+      user.tutorCredentials.additionalDocuments.splice(docIndex, 1);
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid credential type' });
+    }
+
+    // Try to delete from GCS (best-effort)
+    if (removedUrl && removedUrl.includes('storage.googleapis.com')) {
+      try {
+        const { bucket } = initializeGCS();
+        if (bucket) {
+          const gcsPath = removedUrl.replace(`https://storage.googleapis.com/${bucket.name}/`, '');
+          await bucket.file(gcsPath).delete();
+          console.log('🗑️ Deleted credential file from GCS:', gcsPath);
+        }
+      } catch (gcsError) {
+        console.warn('⚠️ Failed to delete credential from GCS:', gcsError.message);
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Credential removed',
+      tutorCredentials: user.tutorCredentials
+    });
+
+  } catch (error) {
+    console.error('❌ Error deleting credential:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete credential' });
+  }
+};
+router.delete('/tutor/credential/:credentialType/:credentialId', verifyToken, handleDeleteCredential);
+router.delete('/tutor/credential/:credentialType', verifyToken, handleDeleteCredential);
+
+/**
+ * GET /api/users/tutor/credential-url/:credentialType/:credentialId
+ * GET /api/users/tutor/credential-url/:credentialType
+ * Get a signed URL for viewing a private credential document
+ */
+const handleGetCredentialUrl = async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || user.userType !== 'tutor') {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const { credentialType, credentialId } = req.params;
+    let credentialUrl = null;
+
+    if (credentialType === 'governmentId') {
+      credentialUrl = user.tutorCredentials?.governmentId?.url;
+    } else if (credentialType === 'teachingCertification' && credentialId) {
+      const cert = user.tutorCredentials?.teachingCertifications?.find(
+        c => c._id.toString() === credentialId
+      );
+      credentialUrl = cert?.url;
+    } else if (credentialType === 'additionalDocument' && credentialId) {
+      const doc = user.tutorCredentials?.additionalDocuments?.find(
+        d => d._id.toString() === credentialId
+      );
+      credentialUrl = doc?.url;
+    }
+
+    if (!credentialUrl) {
+      return res.status(404).json({ success: false, message: 'Credential not found' });
+    }
+
+    // Generate signed URL
+    const { bucket } = initializeGCS();
+    if (!bucket) {
+      return res.status(500).json({ success: false, message: 'Storage not configured' });
+    }
+
+    const gcsPath = credentialUrl.replace(`https://storage.googleapis.com/${bucket.name}/`, '');
+    const [signedUrl] = await bucket.file(gcsPath).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000 // 1 hour
+    });
+
+    res.json({ success: true, signedUrl });
+
+  } catch (error) {
+    console.error('❌ Error getting credential URL:', error);
+    res.status(500).json({ success: false, message: 'Failed to get credential URL' });
+  }
+};
+router.get('/tutor/credential-url/:credentialType/:credentialId', verifyToken, handleGetCredentialUrl);
+router.get('/tutor/credential-url/:credentialType', verifyToken, handleGetCredentialUrl);
 
 module.exports = router;
