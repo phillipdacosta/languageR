@@ -489,13 +489,13 @@
           <!-- Calendar Toolbar -->
           <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete || pendingFeedbackCount > 0">
             <div class="toolbar-left" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
-              <button class="nav-btn" (click)="navigatePrevious()">
+              <button class="nav-btn" type="button" (click)="navigatePrevious()">
                 <ion-icon name="chevron-back"></ion-icon>
               </button>
-              <button class="nav-btn" (click)="navigateNext()">
+              <button class="nav-btn" type="button" (click)="navigateNext()">
                 <ion-icon name="chevron-forward"></ion-icon>
               </button>
-              <button class="today-btn" (click)="navigateToday()">Today</button>
+              <button class="today-btn" type="button" (click)="navigateToday()">Today</button>
             </div>
             <div class="toolbar-center">
               <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>

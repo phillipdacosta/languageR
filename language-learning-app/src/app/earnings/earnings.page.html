@@ -88,6 +88,50 @@
       </button>
     </div>
 
+    <!-- Earnings Over Time Chart -->
+    <div class="earnings-chart-card" *ngIf="recentPayments.length > 0">
+      <div class="chart-card-header">
+        <div class="chart-card-title-group">
+          <h2 class="chart-card-title">Earnings Over Time</h2>
+          <p class="chart-card-subtitle">{{ chartPeriodLabel }}</p>
+        </div>
+        <div class="chart-period-toggle">
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === '1m'"
+            (click)="setChartPeriod('1m')">
+            1 Month
+          </button>
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === '6m'"
+            (click)="setChartPeriod('6m')">
+            6 Months
+          </button>
+          <button 
+            class="period-btn" 
+            [class.active]="chartPeriod === 'all'"
+            (click)="setChartPeriod('all')">
+            All Time
+          </button>
+        </div>
+      </div>
+
+      <div class="chart-total-row" *ngIf="chartHasData">
+        <span class="chart-total-amount">{{ chartTotal }}</span>
+        <span class="chart-total-label">Total earned</span>
+      </div>
+
+      <div class="chart-canvas-container">
+        <canvas #earningsChartCanvas></canvas>
+      </div>
+
+      <div class="chart-empty-state" *ngIf="!chartHasData">
+        <ion-icon name="bar-chart-outline"></ion-icon>
+        <p>No earnings data for this period</p>
+      </div>
+    </div>
+
     <!-- Transactions Section -->
     <div class="transactions-section">
       <div class="transactions-header">

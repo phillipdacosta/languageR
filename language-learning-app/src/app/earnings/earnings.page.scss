@@ -286,11 +286,160 @@ ion-toolbar {
 }
 
 // =============================================================
+// EARNINGS CHART CARD
+// =============================================================
+.earnings-chart-card {
+  background: #ffffff;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 28px 24px 20px;
+  margin-top: 115px;
+  margin-bottom: 32px;
+  
+  @media (max-width: 600px) {
+    padding: 20px 16px 16px;
+    margin-bottom: 24px;
+  }
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.chart-card-title-group {
+  .chart-card-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 2px;
+    letter-spacing: -0.3px;
+  }
+  
+  .chart-card-subtitle {
+    font-size: 13px;
+    color: $text-secondary;
+    margin: 0;
+    font-weight: 400;
+  }
+}
+
+.chart-period-toggle {
+  display: flex;
+  background: $bg-subtle;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+  
+  .period-btn {
+    padding: 7px 16px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    
+    &:hover:not(.active) {
+      color: $text-primary;
+      background: rgba(0, 0, 0, 0.03);
+    }
+    
+    &.active {
+      background: #ffffff;
+      color: #3478f7;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+    
+    @media (max-width: 400px) {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+  }
+}
+
+.chart-total-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 16px 0 4px;
+  
+  .chart-total-amount {
+    font-size: 28px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+    
+    @media (max-width: 600px) {
+      font-size: 24px;
+    }
+  }
+  
+  .chart-total-label {
+    font-size: 13px;
+    color: $text-secondary;
+    font-weight: 400;
+  }
+}
+
+.chart-canvas-container {
+  width: 100%;
+  height: 220px;
+  position: relative;
+  margin-top: 12px;
+  
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  @media (max-width: 600px) {
+    height: 180px;
+  }
+}
+
+.chart-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  
+  ion-icon {
+    font-size: 32px;
+    color: $text-tertiary;
+    margin-bottom: 8px;
+  }
+  
+  p {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+  }
+}
+
+// =============================================================
 // TRANSACTIONS SECTION
 // =============================================================
 .transactions-section {
   .transactions-header {
     display: flex;
+    margin-top: 115px;
     justify-content: space-between;
     align-items: baseline;
     margin-bottom: 16px;

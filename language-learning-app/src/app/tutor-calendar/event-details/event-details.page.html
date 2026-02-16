@@ -13,12 +13,6 @@
 
 <ion-content [fullscreen]="true">
 
-  <!-- Loading -->
-  <div class="state-container" *ngIf="loading">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading details…</p>
-  </div>
-
   <!-- Error -->
   <div class="state-container" *ngIf="error && !loading">
     <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
@@ -29,20 +23,64 @@
   <!-- ═══════════════════════════════════════════════════════════ -->
   <!-- LESSON                                                     -->
   <!-- ═══════════════════════════════════════════════════════════ -->
-  <div class="ed" *ngIf="lesson && !loading && !isClass">
+  <div class="ed" [class.loading]="loading" [class.loaded]="!loading && lesson && !isClass" *ngIf="!error || !loading">
 
-    <!-- ── Top: Status + Title ──────────────────────────────── -->
-    <header class="ed-header">
-      <div class="ed-header-top">
-        <div class="ed-status-row">
-          <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
-          <span class="ed-type-label" *ngIf="lesson.isTrialLesson">Trial lesson</span>
-          <span class="ed-type-label" *ngIf="lesson.isOfficeHours">Office hours</span>
+    <!-- Skeleton Loader -->
+    <div class="ed-skeleton" *ngIf="loading">
+      <header class="ed-header">
+        <div class="ed-header-top">
+          <div class="ed-status-row">
+            <div class="skeleton-badge"></div>
+            <div class="skeleton-badge"></div>
+          </div>
+          <div class="skeleton-button"></div>
         </div>
-        <button class="go-back-link" (click)="goBack()">Go back</button>
-      </div>
-      <h1 class="ed-title">{{ lesson.subject || 'Language Lesson' }}</h1>
-    </header>
+        <div class="skeleton-title"></div>
+      </header>
+      <div class="ed-divider"></div>
+      <section class="ed-row">
+        <div class="ed-host">
+          <div class="ed-host-avatar skeleton-avatar"></div>
+          <div class="ed-host-text">
+            <div class="skeleton-text short"></div>
+            <div class="skeleton-text"></div>
+          </div>
+        </div>
+      </section>
+      <div class="ed-divider"></div>
+      <section class="ed-row">
+        <div class="skeleton-section-label"></div>
+        <div class="skeleton-detail">
+          <div class="skeleton-icon"></div>
+          <div class="skeleton-text-group">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+          </div>
+        </div>
+        <div class="skeleton-detail">
+          <div class="skeleton-icon"></div>
+          <div class="skeleton-text-group">
+            <div class="skeleton-text"></div>
+            <div class="skeleton-text short"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Actual Content (enters DOM only after ALL data loads) -->
+    <div class="ed-content" *ngIf="!loading && lesson && !isClass">
+      <!-- ── Top: Status + Title ──────────────────────────────── -->
+      <header class="ed-header">
+        <div class="ed-header-top">
+          <div class="ed-status-row">
+            <span class="ed-status" [ngClass]="statusClass">{{ statusLabel }}</span>
+            <span class="ed-type-label" *ngIf="lesson?.isTrialLesson">Trial lesson</span>
+            <span class="ed-type-label" *ngIf="lesson?.isOfficeHours">Office hours</span>
+          </div>
+          <button class="go-back-link" (click)="goBack()">Go back</button>
+        </div>
+        <h1 class="ed-title">{{ lesson?.subject || 'Language Lesson' }}</h1>
+      </header>
 
     <div class="ed-divider"></div>
 
@@ -99,7 +137,7 @@
         <ion-icon name="time-outline"></ion-icon>
         <div>
           <span class="ed-detail-primary">{{ formattedDuration }}</span>
-          <span class="ed-detail-secondary" *ngIf="lesson.bookingType && lesson.bookingType !== 'scheduled'">{{ lesson.bookingType === 'office_hours' ? 'Office Hours' : 'Instant booking' }}</span>
+          <span class="ed-detail-secondary" *ngIf="lesson?.bookingType && lesson?.bookingType !== 'scheduled'">{{ lesson?.bookingType === 'office_hours' ? 'Office Hours' : 'Instant booking' }}</span>
         </div>
       </div>
 
@@ -211,7 +249,7 @@
     </ng-container>
 
     <!-- ── Notes ────────────────────────────────────────────── -->
-    <ng-container *ngIf="lesson.notes">
+    <ng-container *ngIf="lesson?.notes">
       <div class="ed-divider"></div>
       <section class="ed-row">
         <h2 class="ed-section-label">Notes</h2>
@@ -457,7 +495,7 @@
           <span class="ed-kv-key">Date</span>
           <span class="ed-kv-val">{{ cancelledAtLabel }}</span>
         </div>
-        <span class="ed-late-tag" *ngIf="lesson.isLateCancellation">Late cancellation — fee may apply</span>
+        <span class="ed-late-tag" *ngIf="lesson?.isLateCancellation">Late cancellation — fee may apply</span>
       </section>
     </ng-container>
 
@@ -593,6 +631,7 @@
       </section>
     </ng-container>
 
+    </div>
   </div>
 
 </ion-content>

@@ -170,13 +170,13 @@
     <div class="week-navigation">
       <div class="nav-controls">
         <div class="toolbar-left">
-          <button class="nav-btn" (click)="navigateWeek('prev')" [disabled]="isSingleDayMode">
+          <button class="nav-btn" (click)="navigateWeek('prev')">
             <ion-icon name="chevron-back"></ion-icon>
           </button>
-          <button class="nav-btn" (click)="navigateWeek('next')" [disabled]="isSingleDayMode">
+          <button class="nav-btn" (click)="navigateWeek('next')">
             <ion-icon name="chevron-forward"></ion-icon>
           </button>
-          <button class="today-btn" (click)="goToToday()" [disabled]="isSingleDayMode">Today</button>
+          <button class="today-btn" (click)="goToToday()">Today</button>
         </div>
         <div class="toolbar-center">
           <h2 class="calendar-title">{{ getWeekRange() }}</h2>

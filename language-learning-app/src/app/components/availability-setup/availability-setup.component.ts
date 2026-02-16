@@ -630,8 +630,18 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   navigateWeek(direction: 'prev' | 'next') {
-    // Don't allow navigation in single day mode
-    if (this.isSingleDayMode) return;
+    if (this.isSingleDayMode) {
+      // In single day mode, navigate to previous/next day
+      if (this.displayedWeekDays.length === 0) return;
+      const currentDate = new Date(this.displayedWeekDays[0].date);
+      const days = direction === 'prev' ? -1 : 1;
+      currentDate.setDate(currentDate.getDate() + days);
+      this.updateWeekDaysForSingleDay(currentDate);
+      this.updateCurrentTimePosition();
+      // Reload availability for the new day
+      this.forceRefreshAvailability();
+      return;
+    }
     
     const step = this.isMobileView ? this.mobileDaysToShow : 7;
     const days = direction === 'prev' ? -step : step;
@@ -659,6 +669,16 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   goToToday() {
+    if (this.isSingleDayMode) {
+      // In single day mode, go to today
+      const today = new Date();
+      this.updateWeekDaysForSingleDay(today);
+      this.updateCurrentTimePosition();
+      // Reload availability for today
+      this.forceRefreshAvailability();
+      return;
+    }
+    
     this.initializeCurrentWeek();
     this.mobileStartIndex = 0;
     this.updateWeekDays(new Date());

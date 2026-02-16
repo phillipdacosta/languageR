@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
@@ -9,6 +9,10 @@ import { environment } from '../../environments/environment';
 import { firstValueFrom, filter, takeUntil } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { Chart, ChartConfiguration, registerables } from 'chart.js';
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 interface PaymentBreakdown {
   id: string;
@@ -65,10 +69,19 @@ interface WithdrawalHistory {
   standalone: true,
   imports: [CommonModule, IonicModule, RouterModule, FormsModule]
 })
-export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
+export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
   // Inline mode: when embedded inside another page (e.g., home page)
   @Input() inline: boolean = false;
   @Output() goBackEvent = new EventEmitter<void>();
+
+  // Earnings chart
+  @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
+  private earningsChart: Chart | null = null;
+  chartPeriod: '1m' | '6m' | 'all' = '1m';
+  chartPeriodLabel: string = 'Weekly earnings since you joined';
+  chartTotal: string = '$0.00';
+  chartHasData: boolean = false;
+  private userJoinDate: Date = new Date();
 
   loading: boolean = true;
   
@@ -154,6 +167,16 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   async ngOnInit() {
     // Load wallet visibility setting from user profile
     await this.loadWalletVisibilitySetting();
+
+    // Load user join date for earnings chart
+    try {
+      const user = await firstValueFrom(this.userService.getCurrentUser(true));
+      if (user?.createdAt) {
+        this.userJoinDate = new Date(user.createdAt);
+      }
+    } catch (e) {
+      // fallback: userJoinDate stays as now
+    }
     
     await Promise.all([
       this.loadBalance(),
@@ -161,6 +184,11 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.loadWithdrawalHistory()
     ]);
     this.setupWebSocketListeners();
+  }
+
+  ngAfterViewInit() {
+    // Chart will be created after data loads
+    setTimeout(() => this.createEarningsChart(), 100);
   }
 
   /**
@@ -203,7 +231,6 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     
     if (!this.showWalletBalance) {
       this.walletTemporarilyVisible = !this.walletTemporarilyVisible;
-      
       // Auto-hide after 3 seconds
       if (this.walletTemporarilyVisible) {
         setTimeout(() => {
@@ -217,6 +244,10 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.destroy$.next();
     this.destroy$.complete();
+    if (this.earningsChart) {
+      this.earningsChart.destroy();
+      this.earningsChart = null;
+    }
   }
 
   onImageError(event: any) {
@@ -270,6 +301,9 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
         // Apply filters
         this.applyFilters();
         this.updateFilterState();
+
+        // Update earnings chart
+        setTimeout(() => this.createEarningsChart(), 50);
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
@@ -410,6 +444,245 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
       return `Card processing fee: $${payment.stripeFee.toFixed(2)}`;
     }
     return null;
+  }
+
+  // ============================================================
+  // EARNINGS CHART METHODS
+  // ============================================================
+
+  setChartPeriod(period: '1m' | '6m' | 'all') {
+    this.chartPeriod = period;
+    this.createEarningsChart();
+  }
+
+  /**
+   * Builds weekly earnings data starting from the user's join date.
+   * Each bucket represents one week (Mon-Sun).
+   */
+  private getChartData(): { labels: string[]; data: number[]; total: number } {
+    const now = new Date();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+    // Determine the effective start date based on period
+    let periodStart: Date;
+    switch (this.chartPeriod) {
+      case '1m':
+        periodStart = new Date(now.getTime() - 4 * weekMs);
+        this.chartPeriodLabel = 'Weekly earnings · Last month';
+        break;
+      case '6m':
+        periodStart = new Date(now.getTime() - 26 * weekMs);
+        this.chartPeriodLabel = 'Weekly earnings · Last 6 months';
+        break;
+      case 'all':
+      default:
+        periodStart = new Date(this.userJoinDate);
+        this.chartPeriodLabel = 'Weekly earnings since you joined';
+        break;
+    }
+
+    // For fixed-range periods (1m, 6m), always show the full range so there are
+    // enough data points for smooth curves. Only "All Time" starts from the join date.
+    const chartStart = this.chartPeriod === 'all'
+      ? new Date(Math.max(this.userJoinDate.getTime(), periodStart.getTime()))
+      : periodStart;
+
+    // Align to the Monday of the starting week
+    const startDay = chartStart.getDay(); // 0=Sun, 1=Mon, ...
+    const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
+    const firstMonday = new Date(chartStart);
+    firstMonday.setDate(chartStart.getDate() + mondayOffset);
+    firstMonday.setHours(0, 0, 0, 0);
+
+    // Build weekly buckets from firstMonday to now
+    const buckets: { start: Date; end: Date; key: string; label: string; value: number }[] = [];
+    let current = new Date(firstMonday);
+
+    while (current <= now) {
+      const weekEnd = new Date(current.getTime() + weekMs - 1);
+      const label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      buckets.push({
+        start: new Date(current),
+        end: weekEnd,
+        key: current.toISOString(),
+        label: label.toUpperCase(),
+        value: 0
+      });
+      current = new Date(current.getTime() + weekMs);
+    }
+
+    // Filter valid payments
+    const validPayments = this.recentPayments.filter(p => {
+      return p.status !== 'cancelled' && p.status !== 'refunded';
+    });
+
+    // Fill buckets
+    let total = 0;
+    validPayments.forEach(p => {
+      const paymentDate = new Date(p.date);
+      const earned = p.tutorPayout || 0;
+
+      // Find which week this payment belongs to
+      for (const bucket of buckets) {
+        if (paymentDate >= bucket.start && paymentDate <= bucket.end) {
+          bucket.value += earned;
+          break;
+        }
+      }
+      // Always count toward total if within chart range
+      if (paymentDate >= firstMonday && paymentDate <= now) {
+        total += earned;
+      }
+    });
+
+    const labels = buckets.map(b => b.label);
+    const data = buckets.map(b => b.value);
+    return { labels, data, total };
+  }
+
+  createEarningsChart() {
+    if (!this.earningsChartCanvas) return;
+
+    const ctx = this.earningsChartCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    // Cleanup existing chart
+    if (this.earningsChart) {
+      this.earningsChart.destroy();
+    }
+
+    const { labels, data, total } = this.getChartData();
+    this.chartTotal = `$${total.toFixed(2)}`;
+    this.chartHasData = data.some(v => v > 0);
+
+    // Uppercase labels like the reference design (OCT 01, OCT 08, etc.)
+    const upperLabels = labels.map(l => l.toUpperCase());
+
+    // Create gradient fill (light blue fading to transparent)
+    const fillGradient = ctx.createLinearGradient(0, 0, 0, 280);
+    fillGradient.addColorStop(0, 'rgba(52, 120, 247, 0.18)');
+    fillGradient.addColorStop(0.6, 'rgba(52, 120, 247, 0.06)');
+    fillGradient.addColorStop(1, 'rgba(52, 120, 247, 0.0)');
+
+    // Determine how many labels to show based on data length
+    const maxLabels = data.length <= 6 ? data.length : this.chartPeriod === '1m' ? 5 : this.chartPeriod === '6m' ? 8 : 10;
+
+    // Find indices of peak values (top 3) for showing point dots
+    const sortedIndices = data
+      .map((val, idx) => ({ val, idx }))
+      .sort((a, b) => b.val - a.val)
+      .slice(0, 3)
+      .map(item => item.idx);
+
+    const pointRadii = data.map((_, idx) => sortedIndices.includes(idx) ? 5 : 0);
+    const pointHoverRadii = data.map(() => 6);
+
+    const config: ChartConfiguration<'line'> = {
+      type: 'line',
+      data: {
+        labels: upperLabels,
+        datasets: [{
+          label: 'Earnings',
+          data: data,
+          borderColor: '#3478f7',
+          backgroundColor: fillGradient,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.4,  // Smooth flowing curves
+          pointRadius: pointRadii,
+          pointHoverRadius: pointHoverRadii,
+          pointBackgroundColor: '#3478f7',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2.5,
+          pointHoverBackgroundColor: '#2563eb',
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 1000,
+          easing: 'easeOutQuart',
+        },
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(34, 34, 34, 0.95)',
+            padding: { top: 10, bottom: 10, left: 14, right: 14 },
+            cornerRadius: 10,
+            titleFont: {
+              size: 12,
+              weight: 'normal',
+              family: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif'
+            },
+            titleColor: 'rgba(255, 255, 255, 0.7)',
+            bodyFont: {
+              size: 16,
+              weight: 'bold',
+              family: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif'
+            },
+            bodyColor: '#ffffff',
+            displayColors: false,
+            callbacks: {
+              label: (context) => {
+                return `$${(context.raw as number).toFixed(2)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            display: false,  // Hidden Y axis like the reference design
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.03)',
+              drawTicks: false
+            },
+            border: {
+              display: false
+            }
+          },
+          x: {
+            ticks: {
+              font: {
+                size: 11,
+                weight: 'normal',
+                family: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif'
+              },
+              color: '#b0b0b0',
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: maxLabels,
+              padding: 8
+            },
+            grid: {
+              display: false
+            },
+            border: {
+              display: false
+            }
+          }
+        },
+        layout: {
+          padding: {
+            top: 12,
+            right: 8,
+            bottom: 0,
+            left: 8
+          }
+        }
+      }
+    };
+
+    this.earningsChart = new Chart(ctx, config);
   }
 
   // ============================================================

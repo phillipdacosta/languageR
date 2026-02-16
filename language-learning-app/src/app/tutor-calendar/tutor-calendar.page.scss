@@ -977,6 +977,9 @@ ion-content {
   padding: 20px 32px;
   border-bottom: 1px solid #EBEBEB;
   background: #ffffff;
+  position: relative;
+  z-index: 1001; // Higher than loading overlay (1000) to ensure it's always clickable
+  pointer-events: auto; // Ensure clicks work
   
   // When onboarding incomplete, center the banner
   &.onboarding-incomplete {
@@ -988,6 +991,9 @@ ion-content {
     align-items: center;
     gap: 12px;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1002; // Even higher to ensure buttons are clickable
+    pointer-events: auto;
   }
   
   .nav-btn {
@@ -1001,19 +1007,26 @@ ion-content {
     justify-content: center;
     cursor: pointer;
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    pointer-events: auto;
     
     ion-icon {
       font-size: 16px;
       color: #222222;
     }
     
-    &:hover {
+    &:hover:not(:disabled) {
       background: #F7F7F7;
       border-color: #BDBDBD;
     }
     
-    &:active {
+    &:active:not(:disabled) {
       transform: scale(0.95);
+    }
+    
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
   }
   
@@ -1029,14 +1042,21 @@ ion-content {
     transition: all 0.2s ease;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
     letter-spacing: -0.01em;
+    pointer-events: auto;
     
-    &:hover {
+    &:hover:not(:disabled) {
       background: #F7F7F7;
       border-color: #BDBDBD;
     }
     
-    &:active {
+    &:active:not(:disabled) {
       transform: scale(0.97);
+    }
+    
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
     }
   }
   

@@ -195,6 +195,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   // Countdown
   private countdownInterval: any;
+  private pendingRequests = 0;
 
   constructor(
     private route: ActivatedRoute,
@@ -254,7 +255,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         if (response.success && response.lesson) {
           this.lesson = response.lesson;
           this.isClass = false;
-          this.loading = false;
+          // loading stays true — skeleton visible until all additional data loads
           this.computeAllProperties();
           this.loadAdditionalData();
           this.startCountdown();
@@ -295,9 +296,18 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   }
 
   private loadAdditionalData() {
-    if (!this.eventId || !this.lesson) return;
+    if (!this.eventId || !this.lesson) {
+      this.loading = false;
+      return;
+    }
 
-    // Load analysis (only for students or completed lessons)
+    // Track all pending requests — skeleton stays until everything resolves
+    this.pendingRequests = 3; // analysis + feedback + billing
+    if (this.isStudentUser) {
+      this.pendingRequests++; // + payment method
+    }
+
+    // Load analysis
     this.analysisLoading = true;
     const headers = this.userService.getAuthHeadersSync();
     this.http.get<any>(
@@ -310,13 +320,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.computeAnalysisProperties();
         }
         this.analysisLoading = false;
-        // Re-compute feedback status now that we know the actual analysis state
-        // (fixes race condition where feedback loaded before analysis)
-        this.computeFeedbackStatus();
+        this.onRequestComplete();
       },
       error: () => {
         this.analysisLoading = false;
-        this.computeFeedbackStatus();
+        this.onRequestComplete();
       }
     });
 
@@ -329,11 +337,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.computeFeedbackProperties();
         }
         this.feedbackLoading = false;
-        this.computeFeedbackStatus();
+        this.onRequestComplete();
       },
       error: () => {
         this.feedbackLoading = false;
-        this.computeFeedbackStatus();
+        this.onRequestComplete();
       }
     });
 
@@ -344,8 +352,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.billingData = res.billing;
           this.computeBillingProperties();
         }
+        this.onRequestComplete();
       },
-      error: () => { /* billing data optional */ }
+      error: () => {
+        this.onRequestComplete();
+      }
     });
 
     // Load payment method (student only)
@@ -360,9 +371,21 @@ export class EventDetailsPage implements OnInit, OnDestroy {
               this.computePaymentMethodLabel(payment.paymentMethod);
             }
           }
+          this.onRequestComplete();
         },
-        error: () => { /* payment method info optional */ }
+        error: () => {
+          this.onRequestComplete();
+        }
       });
+    }
+  }
+
+  /** Called when each async request finishes — reveals content when all done */
+  private onRequestComplete() {
+    this.pendingRequests--;
+    if (this.pendingRequests <= 0) {
+      this.computeFeedbackStatus();
+      this.loading = false;
     }
   }
 
