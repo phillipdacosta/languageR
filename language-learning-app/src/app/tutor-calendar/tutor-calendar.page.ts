@@ -149,6 +149,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   pendingFeedbackCount = 0;
   pendingFeedbackItems: any[] = [];
   isFeedbackModalOpen = false;
+  feedbackBannerSubtitle: string = 'Your profile is hidden until complete';
+  feedbackGraceExpired: boolean = false;
+  private feedbackGraceInterval: any = null;
+  private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
   
   private calendar?: Calendar;
   events: EventInput[] = [];
@@ -875,6 +879,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         this.pendingFeedbackCount = response.count || 0;
         this.pendingFeedbackItems = response.pendingFeedback || [];
 
+        // Update grace period countdown for feedback banner
+        this.updateFeedbackGraceCountdown();
+
         // Auto-reopen the feedback modal after submitting one item
         if (this.tutorFeedbackService.consumeReopenFlag() && this.pendingFeedbackCount > 0) {
           setTimeout(() => { this.isFeedbackModalOpen = true; }, 400);
@@ -1046,10 +1053,66 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     */
   }
 
+  // ── Feedback Grace Period Countdown ──────────────────────
+  private updateFeedbackGraceCountdown() {
+    // Clear existing interval
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+      this.feedbackGraceInterval = null;
+    }
+
+    if (this.pendingFeedbackItems.length === 0) {
+      this.feedbackBannerSubtitle = '';
+      this.feedbackGraceExpired = false;
+      return;
+    }
+
+    // Find the oldest pending feedback's createdAt
+    const oldestCreatedAt = Math.min(
+      ...this.pendingFeedbackItems.map((f: any) => new Date(f.createdAt).getTime())
+    );
+    const deadline = oldestCreatedAt + TutorCalendarPage.FEEDBACK_GRACE_MS;
+
+    // Helper to compute display
+    const tick = () => {
+      const now = Date.now();
+      const remainingMs = deadline - now;
+
+      if (remainingMs <= 0) {
+        this.feedbackGraceExpired = true;
+        this.feedbackBannerSubtitle = 'Your profile is hidden until complete';
+        if (this.feedbackGraceInterval) {
+          clearInterval(this.feedbackGraceInterval);
+          this.feedbackGraceInterval = null;
+        }
+        return;
+      }
+
+      this.feedbackGraceExpired = false;
+      const totalSec = Math.floor(remainingMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+
+      if (h > 0) {
+        this.feedbackBannerSubtitle = `Complete within ${h}h ${m.toString().padStart(2, '0')}m to stay visible`;
+      } else {
+        this.feedbackBannerSubtitle = `Complete within ${m}m to stay visible`;
+      }
+    };
+
+    // Run immediately, then every 30 seconds
+    tick();
+    this.feedbackGraceInterval = setInterval(tick, 30000);
+  }
+
   ngOnDestroy() {
     // Clean up subscriptions
     this.destroy$.next();
     this.destroy$.complete();
+    
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+    }
     
     if (this.approvalStatusSubscription) {
       this.approvalStatusSubscription.unsubscribe();
@@ -2471,9 +2534,9 @@ When enabled:
                 // For office hours, we navigate without a specific lessonId
                 // The pre-call page will handle office hours mode differently
                 setTimeout(() => {
+                  // SECURITY: role is determined from lesson data + auth, not passed in URL
                   this.router.navigate(['/pre-call'], {
                     queryParams: {
-                      role: 'tutor',
                       officeHours: 'true'
                     }
                   });
@@ -3464,6 +3527,7 @@ When enabled:
       const cached = this.tutorFeedbackService.getCachedPendingFeedback();
       this.pendingFeedbackCount = cached.count || 0;
       this.pendingFeedbackItems = cached.pendingFeedback || [];
+      this.updateFeedbackGraceCountdown();
     }
     this.tutorFeedbackService.refreshPendingFeedback();
   }
@@ -3477,9 +3541,11 @@ When enabled:
     this.isFeedbackModalOpen = false;
   }
 
-  navigateToFeedback(feedbackId: string): void {
+  navigateToFeedback(lessonId: string, feedbackId: string): void {
     this.closeFeedbackModal();
-    this.router.navigate(['/tutor-feedback', feedbackId]);
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
+    });
   }
 
   formatFeedbackDate(dateStr: any): string {

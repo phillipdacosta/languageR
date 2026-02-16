@@ -9,6 +9,7 @@ import { MessagingService, Message } from '../services/messaging.service';
 import { WebSocketService } from '../services/websocket.service';
 import { AuthService } from '../services/auth.service';
 import { EarlyExitService } from '../services/early-exit.service';
+import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom, Subject, Subscription } from 'rxjs';
 import { takeUntil, take } from 'rxjs/operators';
 import { WhiteboardService } from '../services/whiteboard.service';
@@ -27,6 +28,7 @@ import { environment } from '../../environments/environment';
 export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private initializationComplete = false;
+  private hasEndedCall = false; // Tracks whether endCall() already ran to prevent double cleanup in ngOnDestroy
 
   @ViewChild('whiteboardContainer', { static: false }) whiteboardContainerRef!: ElementRef<HTMLDivElement>;
   @ViewChild('localVideo', { static: false }) localVideoRef!: ElementRef<HTMLDivElement>;
@@ -84,6 +86,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   userRole: 'tutor' | 'student' = 'student'; // Track user role for proper labeling
   remoteUserStates: Map<any, { isMuted?: boolean; isVideoOff?: boolean }> = new Map(); // Track remote user states
   remoteUserIdentities: Map<any, { userId: string; isTutor: boolean; name: string; profilePicture?: string }> = new Map(); // Track who each remote user actually is
+  
+  // Pre-computed properties for template binding (avoid function calls in templates)
+  isRemoteUserMuted = false;
+  isRemoteUserVideoOff = false;
+  remoteParticipantLabel = '';
   
   // Class support (multi-participant)
   isClass = false; // Track if this is a class vs 1:1 lesson
@@ -259,6 +266,25 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   showOverageWarning: boolean = false;
   private timerInterval: any = null;
 
+  // Real-time talk time tracking
+  private speakingTimeAccumulator: Map<any, number> = new Map(); // uid → total seconds
+  private speakingStartTime: Map<any, number> = new Map(); // uid → timestamp when current speaking started
+  showTalkTimePopup: boolean = false;
+  private talkTimePopupShown: boolean = false; // prevent showing twice
+  private talkTimeCheckInterval: any = null;
+  talkTimePopupDismissed: boolean = false; // user dismissed the popup
+  private scheduledLessonStartTime: number = 0; // Scheduled start time timestamp — talk time only tracked after this
+  isWaitingForLessonStart: boolean = false; // True if user joined early, before scheduled start
+  // Pre-calculated display properties (no functions in template)
+  localSpeakingPercent: number = 0;
+  remoteSpeakingPercent: number = 0;
+  localSpeakingPercentFormatted: string = '0%';
+  remoteSpeakingPercentFormatted: string = '0%';
+  localSpeakerName: string = 'You';
+  remoteSpeakerName: string = 'Participant';
+  // Synced remote speaking time — received from the other participant's self-measurement
+  private syncedRemoteSpeakingSeconds: number = 0;
+
   constructor(
     private router: Router,
     private route: ActivatedRoute,
@@ -278,7 +304,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private transcriptionService: TranscriptionService,
     private deepgramAudioService: DeepgramAudioService,
     private earlyExitService: EarlyExitService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private reminderService: ReminderService
   ) { }
 
   async ngOnInit() {
@@ -305,6 +332,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.handleVolumeIndicator(volumes);
     };
     
+    // Receive remote participant's self-reported speaking time for synchronized display
+    this.agoraService.onRemoteTalkTimeUpdate = (speakingSeconds: number) => {
+      this.syncedRemoteSpeakingSeconds = speakingSeconds;
+    };
+
     this.agoraService.onParticipantIdentity = (uid, identity) => {
       console.log('👤 ===== RECEIVED PARTICIPANT IDENTITY =====');
       console.log('👤 UID:', uid);
@@ -353,6 +385,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.lessonId = qp.lessonId;
       console.log('📚 VideoCall: Stored lessonId:', this.lessonId);
       
+      // Suppress the lesson reminder for this lesson while we're in the call
+      this.reminderService.suppressForLesson(this.lessonId!);
+      
       // Check for existing transcription session and auto-resume if valid
       await this.checkAndResumeTranscription();
     }
@@ -366,10 +401,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Set up WebSocket for messaging
     this.setupMessaging();
     
-    // Start checking for next event warnings (tutors only)
-    if (qp?.role === 'tutor') {
-      this.startNextEventCheck();
-    }
+    // Note: next event check for tutors is started after role is determined
+    // in initializeVideoCallViaLessonParams (from lesson data, not URL params)
   }
 
   private queryParams: any;
@@ -411,39 +444,31 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         throw new Error('Camera and microphone permissions are required for video calls');
       }
 
-      // Initialize client if needed
-      if (!this.agoraService.getClient()) {
-        loading.message = 'Connecting to video call...';
-        await this.agoraService.initializeClient();
-      }
+      // CRITICAL: Always start with a completely fresh Agora client.
+      // Pre-call creates a client + tracks for virtual background preview, but reusing that
+      // client can cause subtle issues where remote users aren't detected on rejoin.
+      // Resetting guarantees the same clean state as a page refresh (which always works).
+      loading.message = 'Connecting to video call...';
+      await this.agoraService.resetForVideoCall();
+      await this.agoraService.initializeClient();
 
-      // Load current user id (for backend join)
+      // SECURITY: Get identity from authenticated user (never trust URL params for identity/role)
       const me = await firstValueFrom(this.userService.getCurrentUser());
-      const role = (qp.role === 'tutor' || qp.role === 'student') ? qp.role : 'student';
-      this.userRole = role; // Store user role for participant labeling
       this.currentUserId = me?.id || ''; // Store current user's MongoDB ID
+      this.myAgoraUid = me?.id || ''; // Use MongoDB ID as Agora UID
+      this.myName = (me as any)?.firstName || me?.name?.split(' ')[0] || 'User';
+      const myUserId = me?.id || '';
       
-      // SIMPLE SOLUTION: Use query params for immediate identification
-      this.myAgoraUid = qp.agoraUid || '';
-      this.myName = qp.userName || (role === 'tutor' ? 'Tutor' : 'Student');
-      const myUserId = qp.userId || me?.id || '';
-      const iAmTutor = role === 'tutor';
+      // Role will be determined from lesson data below (not from URL)
+      // Default to 'student' — will be corrected after lesson data loads
+      let role: 'tutor' | 'student' = 'student';
       
-      console.log('🆔 ===== MY IDENTITY FROM QUERY PARAMS =====');
-      console.log('🆔 Role:', role);
-      console.log('🆔 Name:', this.myName);
-      console.log('🆔 Database ID:', myUserId);
-      console.log('🆔 Agora UID:', this.myAgoraUid);
-      console.log('🆔 =========================================');
-      
-      // Store my own identity in registry (will broadcast to others when connected)
-      this.participantRegistry.set(this.myAgoraUid, {
-        userId: myUserId,
-        name: this.myName,
-        isTutor: iAmTutor,
-        agoraUid: this.myAgoraUid,
-        profilePicture: this.myProfilePicture
-      });
+      console.log('🔐 ===== MY IDENTITY FROM AUTH =====');
+      console.log('🔐 Name:', this.myName);
+      console.log('🔐 Database ID:', myUserId);
+      console.log('🔐 Agora UID:', this.myAgoraUid);
+      console.log('🔐 Initial role (will be confirmed from lesson data):', role);
+      console.log('🔐 ===================================');
 
       // Load lesson/class data to get participant names and IDs
       if (qp.lessonId) {
@@ -516,42 +541,57 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               console.log(`📊 Standard lesson duration set: ${this.bookedDuration} minutes`);
             }
             
+            // Store scheduled lesson start time for talk time gating
+            // Talk time is only tracked after the lesson officially starts
+            if (lesson.startTime) {
+              this.scheduledLessonStartTime = new Date(lesson.startTime).getTime();
+              console.log(`⏰ Scheduled lesson start time: ${new Date(this.scheduledLessonStartTime).toLocaleTimeString()}`);
+            }
+            
             // Store tutor and student user IDs for proper role identification
             this.tutorUserId = lesson.tutorId?._id || '';
             this.studentUserId = lesson.studentId?._id || '';
             
-            // CRITICAL FIX: Verify role matches lesson data (override query param if wrong)
-            // This fixes stale cache issues where userType might be incorrect
-            const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
-            const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
-            const meResponse = await firstValueFrom(this.userService.getCurrentUser());
-            const myAuth0Id = (meResponse as any)?.auth0Id;
+            // SECURITY: Determine role from authenticated user + lesson data (never trust URL)
+            // Primary: Compare MongoDB _id (always available from populated lesson data)
+            const tutorMongoId = lesson.tutorId?._id?.toString() || '';
+            const studentMongoId = lesson.studentId?._id?.toString() || '';
+            const myMongoId = (me?.id || '').toString();
             
-            const correctRole = (myAuth0Id === tutorAuth0Id) ? 'tutor' : 
-                               (myAuth0Id === studentAuth0Id) ? 'student' : 
-                               this.userRole; // fallback to query param
-            
-            if (correctRole !== this.userRole) {
-              console.warn('⚠️ ROLE MISMATCH DETECTED! Correcting...', {
-                queryParamRole: this.userRole,
-                correctRole: correctRole,
-                myAuth0Id,
-                tutorAuth0Id,
-                studentAuth0Id
-              });
-              this.userRole = correctRole; // OVERRIDE with correct role
+            if (myMongoId && myMongoId === tutorMongoId) {
+              role = 'tutor';
+            } else if (myMongoId && myMongoId === studentMongoId) {
+              role = 'student';
             } else {
-              console.log('✅ Role verification passed:', this.userRole);
+              // Fallback: Compare auth0Id if available
+              const tutorAuth0Id = (lesson.tutorId as any)?.auth0Id;
+              const studentAuth0Id = (lesson.studentId as any)?.auth0Id;
+              const myAuth0Id = (me as any)?.auth0Id;
+              
+              if (myAuth0Id && myAuth0Id === tutorAuth0Id) {
+                role = 'tutor';
+              } else if (myAuth0Id && myAuth0Id === studentAuth0Id) {
+                role = 'student';
+              }
+              // else keep default 'student'
             }
+            
+            this.userRole = role;
+            console.log('🔐 Role determined from lesson data:', {
+              role: this.userRole,
+              myMongoId,
+              tutorMongoId,
+              studentMongoId
+            });
             
             // Store profile pictures
             this.tutorProfilePicture = (lesson.tutorId as any)?.profilePicture || lesson.tutorId?.picture || '';
             
             // For classes, studentId doesn't exist - use confirmedStudents or current user's picture
             if (this.isClass) {
-              // For classes, get the current user's picture from meResponse
+              // For classes, get the current user's picture from authenticated user
               // This ensures the student has their own picture for broadcasting
-              const myPicture = (meResponse as any)?.picture || '';
+              const myPicture = (me as any)?.picture || '';
               this.studentProfilePicture = myPicture;
               
               console.log('🖼️ CLASS: Using current user picture for student:', myPicture);
@@ -565,7 +605,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               this.myProfilePicture = this.tutorProfilePicture;
             } else {
               // For students: use current user's picture directly (works for both lessons and classes)
-              this.myProfilePicture = (meResponse as any)?.picture || this.studentProfilePicture || '';
+              this.myProfilePicture = (me as any)?.picture || this.studentProfilePicture || '';
             }
             
             console.log('🎓 VIDEO-CALL: Session loaded', {
@@ -591,7 +631,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               studentHasPicture: !this.isClass && !!lesson.studentId?.picture,
               tutorHasProfilePicture: !!(lesson.tutorId as any)?.profilePicture,
               studentHasProfilePicture: !this.isClass && !!(lesson.studentId as any)?.profilePicture,
-              myPictureFromUser: (meResponse as any)?.picture
+              myPictureFromUser: (me as any)?.picture
             });
             
             // Get the other participant's email to look up their auth0Id
@@ -625,6 +665,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           this.tutorName = 'Tutor';
           this.studentName = 'Student';
         }
+      }
+
+      // Now that role is determined from lesson data, set up identity
+      const iAmTutor = this.userRole === 'tutor';
+      this.participantRegistry.set(this.myAgoraUid, {
+        userId: myUserId,
+        name: this.myName,
+        isTutor: iAmTutor,
+        agoraUid: this.myAgoraUid,
+        profilePicture: this.myProfilePicture
+      });
+      
+      // Start checking for next event warnings (tutors only)
+      if (this.userRole === 'tutor') {
+        this.startNextEventCheck();
       }
 
       // Secure join using backend-provided token/appId/uid (with connection state checking)
@@ -775,6 +830,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           });
         }, 150); // Minimal delay - tracks are already published with correct muted state
         
+        // Start periodic state re-broadcasting to ensure remote users stay in sync
+        this.agoraService.startStateRebroadcast();
+        
         // Update participants list
         this.updateParticipantsList();
         
@@ -819,6 +877,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔵 About to call startLessonTranscription() [VIA LESSON PARAMS]...');
       await this.startLessonTranscription();
       console.log('🔵 Finished calling startLessonTranscription() [VIA LESSON PARAMS]');
+      
+      // Start real-time talk time tracking & popup (both tutor and student see this)
+      this.startTalkTimeTracking();
       
       console.log('✅ Successfully connected to lesson video call');
       console.log('📊 Participant box state:', {
@@ -920,6 +981,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🔵 About to call startLessonTranscription()...');
       await this.startLessonTranscription();
       console.log('🔵 Finished calling startLessonTranscription()');
+
+      // Start real-time talk time tracking & popup timer
+      this.startTalkTimeTracking();
 
       console.log('Successfully connected to video call');
 
@@ -1167,6 +1231,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       const remoteUsers = this.agoraService.getRemoteUsers();
       const previousCount = this.remoteUserCount;
       this.remoteUserCount = remoteUsers.size;
+      
+      // Keep template-bound remote user properties in sync
+      this.updateRemoteUserProperties();
 
       // Check for remote screen sharing
       this.checkRemoteScreenSharing();
@@ -4504,8 +4571,37 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     
+    // Recompute template-bound properties for 1:1 view
+    this.updateRemoteUserProperties();
+    
     // Force change detection to update UI immediately
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Recompute pre-calculated remote user properties for 1:1 template bindings.
+   * Called whenever remote user states or participants change.
+   */
+  private updateRemoteUserProperties(): void {
+    const remoteUsers = this.agoraService.getRemoteUsers();
+    if (remoteUsers.size > 0) {
+      const firstRemoteUid = Array.from(remoteUsers.keys())[0];
+      const firstRemoteUser = Array.from(remoteUsers.values())[0];
+      const state = this.remoteUserStates.get(firstRemoteUid);
+      
+      this.isRemoteUserMuted = state?.isMuted || false;
+      this.isRemoteUserVideoOff = state?.isVideoOff || !firstRemoteUser.videoTrack || false;
+    } else {
+      this.isRemoteUserMuted = false;
+      this.isRemoteUserVideoOff = false;
+    }
+    
+    // Update remote participant label
+    if (this.userRole === 'tutor') {
+      this.remoteParticipantLabel = this.studentName || 'Student';
+    } else {
+      this.remoteParticipantLabel = this.tutorName || 'Tutor';
+    }
   }
 
   handleVolumeIndicator(volumes: { uid: any; level: number }[]) {
@@ -4522,26 +4618,85 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       clearTimeout(this.speakingTimeout);
     }
 
-    // Reset speaking states
-    this.isLocalUserSpeaking = false;
-    this.isRemoteUserSpeaking = false;
+    const now = Date.now();
+
+    const lessonStarted = this.hasLessonStarted();
 
     // Process volume levels
     volumes.forEach(({ uid, level }) => {
       // Level is from 0-100, consider speaking if > 30
       const isSpeaking = level > 30;
+      const trackingUid = (uid === 0 || uid === this.agoraService.getClient()?.uid) ? 'local' : uid;
       
-      if (uid === 0 || uid === this.agoraService.getClient()?.uid) {
-        // Local user (uid is 0 in volume indicator for local user)
+      if (trackingUid === 'local') {
+        const wasSpeaking = this.isLocalUserSpeaking;
         this.isLocalUserSpeaking = isSpeaking;
+        
+        // Only accumulate speaking time after lesson officially starts
+        if (lessonStarted) {
+          if (isSpeaking && !wasSpeaking) {
+            this.speakingStartTime.set('local', now);
+          } else if (!isSpeaking && wasSpeaking) {
+            const startTime = this.speakingStartTime.get('local');
+            if (startTime) {
+              const dur = (now - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get('local') || 0;
+              this.speakingTimeAccumulator.set('local', existing + dur);
+              this.speakingStartTime.delete('local');
+            }
+          } else if (isSpeaking && wasSpeaking && !this.speakingStartTime.has('local')) {
+            // Lesson just started while user was already speaking — begin tracking now
+            this.speakingStartTime.set('local', now);
+          }
+        }
       } else {
-        // Remote user
+        const wasSpeaking = this.isRemoteUserSpeaking;
         this.isRemoteUserSpeaking = isSpeaking;
+        
+        // Only accumulate speaking time after lesson officially starts
+        if (lessonStarted) {
+          if (isSpeaking && !wasSpeaking) {
+            this.speakingStartTime.set('remote', now);
+          } else if (!isSpeaking && wasSpeaking) {
+            const startTime = this.speakingStartTime.get('remote');
+            if (startTime) {
+              const dur = (now - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get('remote') || 0;
+              this.speakingTimeAccumulator.set('remote', existing + dur);
+              this.speakingStartTime.delete('remote');
+            }
+          } else if (isSpeaking && wasSpeaking && !this.speakingStartTime.has('remote')) {
+            // Lesson just started while user was already speaking — begin tracking now
+            this.speakingStartTime.set('remote', now);
+          }
+        }
       }
     });
 
     // Set timeout to reset speaking state after 500ms of silence
     this.speakingTimeout = setTimeout(() => {
+      // Flush any in-progress speaking time (only if lesson has started)
+      if (this.hasLessonStarted()) {
+        const flushTime = Date.now();
+        if (this.isLocalUserSpeaking) {
+          const startTime = this.speakingStartTime.get('local');
+          if (startTime) {
+            const dur = (flushTime - startTime) / 1000;
+            const existing = this.speakingTimeAccumulator.get('local') || 0;
+            this.speakingTimeAccumulator.set('local', existing + dur);
+            this.speakingStartTime.delete('local');
+          }
+        }
+        if (this.isRemoteUserSpeaking) {
+          const startTime = this.speakingStartTime.get('remote');
+          if (startTime) {
+            const dur = (flushTime - startTime) / 1000;
+            const existing = this.speakingTimeAccumulator.get('remote') || 0;
+            this.speakingTimeAccumulator.set('remote', existing + dur);
+            this.speakingStartTime.delete('remote');
+          }
+        }
+      }
       this.isLocalUserSpeaking = false;
       this.isRemoteUserSpeaking = false;
       this.cdr.detectChanges();
@@ -4642,7 +4797,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (!wasAlreadySpeaking) {
             this.participantSpeakingStates.set(uid, true);
             
-            // Update participant in the list
+            // Only track speaking time for accumulation AFTER the lesson has officially started
+            if (this.hasLessonStarted()) {
+              this.speakingStartTime.set(uid, currentTime);
+            }
+            
+            // Update participant in the list (visual indicator always works, even pre-lesson)
             // For 'local' uid, find the local participant in the list
             const participant = uid === 'local' 
               ? this.allParticipants.find(p => p.isLocal)
@@ -4669,6 +4829,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Trigger change detection only on state change
             this.cdr.detectChanges();
+          } else if (this.hasLessonStarted() && !this.speakingStartTime.has(uid)) {
+            // Edge case: participant was speaking before lesson started and is still speaking.
+            // Now that the lesson has started, begin tracking from this moment.
+            this.speakingStartTime.set(uid, currentTime);
           }
         } else {
           // Not currently speaking, but check if we should keep the indicator on
@@ -4679,6 +4843,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           if (wasAlreadySpeaking && !shouldStillShowSpeaking) {
             // Mark as not speaking after grace period
             this.participantSpeakingStates.set(uid, false);
+            
+            // Accumulate speaking time only if lesson has started
+            const startTime = this.speakingStartTime.get(uid);
+            if (startTime && this.hasLessonStarted()) {
+              const durationSeconds = (currentTime - startTime) / 1000;
+              const existing = this.speakingTimeAccumulator.get(uid) || 0;
+              this.speakingTimeAccumulator.set(uid, existing + durationSeconds);
+            }
+            this.speakingStartTime.delete(uid);
             
             // Update participant in the list
             // For 'local' uid, find the local participant in the list
@@ -4781,6 +4954,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   async endCall(otherParticipantEnded: boolean = false) {
     try {
+      this.hasEndedCall = true; // Prevent ngOnDestroy from doing redundant cleanup
       console.log('🚪 VideoCall: Ending video call...', { otherParticipantEnded });
       
       // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
@@ -4855,6 +5029,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 VideoCall: Query params were:', this.queryParams);
       }
       
+      // Final persist of talk time before cleanup (captures any in-progress speaking)
+      const flushNow = Date.now();
+      let flushLocalSeconds = this.speakingTimeAccumulator.get('local') || 0;
+      const flushLocalStart = this.speakingStartTime.get('local');
+      if (flushLocalStart) flushLocalSeconds += (flushNow - flushLocalStart) / 1000;
+      this.persistTalkTimeToStorage(flushLocalSeconds, this.syncedRemoteSpeakingSeconds);
+      console.log(`💾 Final talk time persisted: local=${Math.round(flushLocalSeconds)}s, remote=${Math.round(this.syncedRemoteSpeakingSeconds)}s`);
+
+      // Clear persisted talk time when the lesson is permanently ending
+      if (isPermanentEnd || otherParticipantEnded) {
+        this.clearTalkTimeStorage();
+      }
+
       // Stop audio monitoring BEFORE leaving channel
       console.log('🚪 VideoCall: Stopping audio monitoring...');
       this.stopAllAudioMonitoring();
@@ -4893,7 +5080,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               lessonId: this.lessonId!,
               scheduledEndTime,
               currentTime: now,
-              minutesRemaining: Math.max(0, minutesRemaining)
+              minutesRemaining: Math.max(0, minutesRemaining),
+              isClass: this.isClass
             });
           }, 300);
         }
@@ -4910,9 +5098,15 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             if (this.userRole === 'student') {
               console.log('📊 Navigating student to post-lesson page');
               await this.router.navigate(['/post-lesson-student', this.lessonId]);
+            } else if (this.isTrialLesson) {
+              // Trial lessons: skip post-lesson feedback — go straight to lessons
+              console.log('⏭️ Trial lesson — skipping post-lesson page for tutor');
+              await this.router.navigate(['/tabs/lessons']);
             } else {
               console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId], {
+                queryParams: { fromPostCall: 'true' }
+              });
             }
           } catch (err) {
             console.error('❌ Error finalizing lesson:', err);
@@ -4927,10 +5121,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
               // Students see the post-lesson page
               console.log('📊 Navigating student to post-lesson page');
               await this.router.navigate(['/post-lesson-student', this.lessonId]);
+            } else if (this.isTrialLesson) {
+              // Trial lessons: skip post-lesson feedback — go straight to lessons
+              console.log('⏭️ Trial lesson — skipping post-lesson page for tutor');
+              await this.router.navigate(['/tabs/lessons']);
             } else {
               // Tutors see post-lesson page
               console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId]);
+              await this.router.navigate(['/post-lesson-tutor', this.lessonId], {
+                queryParams: { fromPostCall: 'true' }
+              });
             }
           } catch (err) {
             console.error('❌ Error navigating after other participant ended:', err);
@@ -5187,6 +5387,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async ngOnDestroy() {
     console.log('🚪 VideoCall: ngOnDestroy called');
     
+    // Unsuppress the lesson reminder now that we're leaving the call
+    if (this.lessonId) {
+      this.reminderService.unsuppressForLesson(this.lessonId);
+    }
+    
     // CRITICAL: Always stop audio recording when page is destroyed
     // This prevents orphaned MediaRecorder from continuing to record/upload
     if (this.transcriptionRecorder || this.transcriptionUploadInterval || this.samplingCheckInterval) {
@@ -5203,6 +5408,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    
+    // Stop talk time tracking
+    if (this.talkTimeCheckInterval) {
+      clearInterval(this.talkTimeCheckInterval);
+      this.talkTimeCheckInterval = null;
     }
     
     // Stop remote user monitoring
@@ -5259,7 +5470,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Clear pending voice note
     this.clearPendingVoiceNote();
     
-    if (this.isConnected) {
+    if (this.hasEndedCall) {
+      // endCall() already handled all cleanup (leaveLesson, leaveChannel, track cleanup).
+      // Only clean up remaining DOM elements as a safety net.
+      console.log('🚪 VideoCall: endCall already ran, skipping redundant cleanup in ngOnDestroy');
+      this.cleanupAllMediaElements();
+    } else if (this.isConnected) {
       console.log('🚪 VideoCall: Still connected, calling endCall from ngOnDestroy');
       try {
         await this.endCall();
@@ -5274,7 +5490,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     } else if (this.lessonId) {
-      // Even if not connected to Agora, still call leave endpoint
+      // Not connected and endCall didn't run — user navigated away without ending call
       console.log('🚪 VideoCall: Not connected but have lessonId, calling leave endpoint');
       try {
         const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
@@ -5397,6 +5613,14 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
   private handleBeforeUnload(event: BeforeUnloadEvent) {
     console.log('🚪 VideoCall: Browser beforeunload event');
+
+    // Final persist of talk time (synchronous — survives browser close)
+    const now = Date.now();
+    let localSeconds = this.speakingTimeAccumulator.get('local') || 0;
+    const localStart = this.speakingStartTime.get('local');
+    if (localStart) localSeconds += (now - localStart) / 1000;
+    this.persistTalkTimeToStorage(localSeconds, this.syncedRemoteSpeakingSeconds);
+
     // Call leave endpoint synchronously (best effort)
     if (this.lessonId) {
       // Get auth headers for the request
@@ -5473,9 +5697,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
           handler: () => {
             if (this.userRole === 'tutor') {
               // Tutor: Return to pre-call waiting room with office hours enabled
+              // SECURITY: role is determined from lesson data + auth, not passed in URL
               this.router.navigate(['/pre-call'], {
                 queryParams: {
-                  role: 'tutor',
                   officeHours: 'true'
                 }
               });
@@ -5644,6 +5868,209 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    */
   isInOverage(): boolean {
     return this.elapsedMinutes > this.bookedDuration;
+  }
+
+  // ========================================
+  // REAL-TIME TALK TIME TRACKING & POPUP
+  // ========================================
+
+  /**
+   * Returns true if the scheduled lesson start time has arrived (or if no start time is known).
+   * Talk time is only accumulated after the lesson officially starts.
+   */
+  private hasLessonStarted(): boolean {
+    // If no scheduled start time is known, default to "started" (e.g. ad-hoc calls)
+    if (!this.scheduledLessonStartTime) return true;
+    return Date.now() >= this.scheduledLessonStartTime;
+  }
+
+  /**
+   * Start tracking talk time and show the popup immediately (always visible).
+   * Both tutor and student see this. Updates live every 2 seconds.
+   */
+  private startTalkTimeTracking(): void {
+    console.log('🗣️ startTalkTimeTracking called', {
+      isOfficeHours: this.isOfficeHours,
+      isClass: this.isClass,
+      userRole: this.userRole,
+      tutorName: this.tutorName,
+      studentName: this.studentName,
+      bookedDuration: this.bookedDuration,
+      scheduledLessonStartTime: this.scheduledLessonStartTime 
+        ? new Date(this.scheduledLessonStartTime).toLocaleTimeString() 
+        : 'N/A',
+      hasLessonStarted: this.hasLessonStarted()
+    });
+
+    // Set speaker names
+    this.localSpeakerName = 'You';
+    this.remoteSpeakerName = this.userRole === 'tutor' 
+      ? (this.studentName || 'Student') 
+      : (this.tutorName || 'Tutor');
+
+    // Show the popup immediately for ALL 1:1 lessons (including office hours)
+    // Skip only for classes (multi-participant)
+    if (this.isClass) {
+      console.log('⏭️ Talk time tracking skipped (class — multi-participant)');
+      return;
+    }
+
+    // Restore persisted talk time data if user refreshed / rejoined mid-lesson
+    this.restoreTalkTimeFromStorage();
+
+    // Check if we joined early (before scheduled start)
+    this.isWaitingForLessonStart = !this.hasLessonStarted();
+    if (this.isWaitingForLessonStart) {
+      console.log('⏳ User joined before lesson start time — talk time tracking paused until lesson begins');
+    }
+
+    this.showTalkTimePopup = true;
+    this.talkTimePopupShown = true;
+    this.computeTalkTimeDisplay();
+    this.cdr.detectChanges();
+    console.log('🗣️ Talk time popup shown immediately (always visible for both users)');
+
+    // Update display live every 2 seconds
+    this.talkTimeCheckInterval = setInterval(() => {
+      if (this.showTalkTimePopup && !this.talkTimePopupDismissed) {
+        // Re-sync remote speaker name in case it loaded late
+        const updatedRemoteName = this.userRole === 'tutor' 
+          ? (this.studentName || 'Student') 
+          : (this.tutorName || 'Tutor');
+        if (updatedRemoteName !== this.remoteSpeakerName) {
+          this.remoteSpeakerName = updatedRemoteName;
+        }
+        
+        // Update waiting state — once lesson starts, flip this flag
+        if (this.isWaitingForLessonStart && this.hasLessonStarted()) {
+          this.isWaitingForLessonStart = false;
+          console.log('🎬 Lesson has officially started — talk time tracking activated');
+        }
+        
+        this.computeTalkTimeDisplay();
+        this.cdr.detectChanges();
+      }
+    }, 2000);
+  }
+
+  // ── Talk Time Persistence (survives page refresh) ────────────────
+
+  private getTalkTimeStorageKey(): string | null {
+    return this.lessonId ? `talkTime_${this.lessonId}` : null;
+  }
+
+  private persistTalkTimeToStorage(localSeconds: number, remoteSeconds: number): void {
+    const key = this.getTalkTimeStorageKey();
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        localSeconds,
+        remoteSeconds,
+        timestamp: Date.now()
+      }));
+    } catch (_) { /* quota exceeded — non-critical */ }
+  }
+
+  private restoreTalkTimeFromStorage(): void {
+    const key = this.getTalkTimeStorageKey();
+    if (!key) return;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+
+      // If the lesson's scheduled end time has passed, discard stale data
+      if (this.scheduledLessonStartTime && this.bookedDuration) {
+        const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+        // Add 30-min grace period (users can stay a bit past end time)
+        if (Date.now() > scheduledEndMs + 30 * 60 * 1000) {
+          console.log('🗑️ Lesson has ended — discarding stale talk time data');
+          localStorage.removeItem(key);
+          return;
+        }
+      }
+
+      // Fallback: discard if data is more than 4 hours old
+      if (Date.now() - data.timestamp > 4 * 60 * 60 * 1000) {
+        localStorage.removeItem(key);
+        return;
+      }
+
+      // Seed the accumulators with the persisted values
+      const existingLocal = this.speakingTimeAccumulator.get('local') || 0;
+      const existingRemote = this.syncedRemoteSpeakingSeconds;
+      if (data.localSeconds > existingLocal) {
+        this.speakingTimeAccumulator.set('local', data.localSeconds);
+        console.log(`🔄 Restored local talk time from storage: ${Math.round(data.localSeconds)}s`);
+      }
+      if (data.remoteSeconds > existingRemote) {
+        this.syncedRemoteSpeakingSeconds = data.remoteSeconds;
+        console.log(`🔄 Restored remote talk time from storage: ${Math.round(data.remoteSeconds)}s`);
+      }
+    } catch (_) { /* corrupt data — ignore */ }
+  }
+
+  private clearTalkTimeStorage(): void {
+    const key = this.getTalkTimeStorageKey();
+    if (key) {
+      localStorage.removeItem(key);
+      console.log('🗑️ Cleared persisted talk time data');
+    }
+  }
+
+  /**
+   * Compute the display values for talk time (runs once when popup triggers)
+   */
+  private computeTalkTimeDisplay(): void {
+    // Get current accumulated LOCAL speaking time (self-measured, most accurate)
+    const now = Date.now();
+    let localSeconds = this.speakingTimeAccumulator.get('local') || 0;
+    const localStart = this.speakingStartTime.get('local');
+    if (localStart) {
+      localSeconds += (now - localStart) / 1000;
+    }
+
+    // REMOTE speaking time — use the SYNCED value from the other participant
+    // They measure their own mic, which is far more accurate than our decoded audio
+    const remoteSeconds = this.syncedRemoteSpeakingSeconds;
+
+    // Broadcast our local speaking time to the other participant
+    this.agoraService.sendTalkTimeUpdate(localSeconds);
+
+    // Persist to localStorage so data survives page refreshes
+    this.persistTalkTimeToStorage(localSeconds, remoteSeconds);
+
+    // Calculate percentages
+    const total = localSeconds + remoteSeconds;
+    if (total > 0) {
+      this.localSpeakingPercent = Math.round((localSeconds / total) * 100);
+      this.remoteSpeakingPercent = Math.round((remoteSeconds / total) * 100);
+    } else {
+      this.localSpeakingPercent = 0;
+      this.remoteSpeakingPercent = 0;
+    }
+
+    // Format as percentages for display
+    this.localSpeakingPercentFormatted = `${this.localSpeakingPercent}%`;
+    this.remoteSpeakingPercentFormatted = `${this.remoteSpeakingPercent}%`;
+
+    console.log('🗣️ Talk time computed (synced):', {
+      localSeconds: Math.round(localSeconds),
+      remoteSeconds: Math.round(remoteSeconds),
+      localPercent: this.localSpeakingPercent,
+      remotePercent: this.remoteSpeakingPercent
+    });
+  }
+
+  // formatSpeakingTime removed — now displaying percentages only
+
+  /**
+   * Dismiss the talk time popup
+   */
+  dismissTalkTimePopup(): void {
+    this.showTalkTimePopup = false;
+    this.talkTimePopupDismissed = true;
+    this.cdr.detectChanges();
   }
 
   // ========================================

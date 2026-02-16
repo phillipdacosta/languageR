@@ -32,6 +32,7 @@ export class AppComponent implements OnInit, OnDestroy {
   earlyExitLessonId: string = '';
   earlyExitMinutesRemaining: number = 0;
   earlyExitUserRole: 'tutor' | 'student' = 'student';
+  earlyExitIsClass: boolean = false;
 
   constructor(
     private loadingService: LoadingService,
@@ -125,6 +126,7 @@ export class AppComponent implements OnInit, OnDestroy {
       this.earlyExitLessonId = data.lessonId;
       this.earlyExitMinutesRemaining = data.minutesRemaining;
       this.earlyExitUserRole = userRole;
+      this.earlyExitIsClass = data.isClass || false;
       this.isEarlyExitModalOpen = true;
     });
   }

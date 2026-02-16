@@ -534,12 +534,12 @@
               </div>
 
               <!-- Outstanding Feedback Banner (Airbnb style) -->
-              <div class="feedback-banner-airbnb" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount > 0" (click)="openFeedbackModal()">
+              <div class="feedback-banner-airbnb" [class.grace-expired]="feedbackGraceExpired" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount > 0" (click)="openFeedbackModal()">
                 <div class="feedback-banner-left">
                   <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
                   <div class="feedback-banner-copy">
                     <span class="feedback-banner-title">Feedback needed</span>
-                    <span class="feedback-banner-subtitle">Your profile is hidden until complete</span>
+                    <span class="feedback-banner-subtitle">{{ feedbackBannerSubtitle }}</span>
                   </div>
                 </div>
                 <button class="feedback-banner-cta">
@@ -796,7 +796,7 @@
     <ion-content class="airbnb-modal-ion-content">
       <div class="airbnb-modal-body">
         <ng-container *ngFor="let fb of pendingFeedbackItems">
-          <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb._id)">
+          <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb.lessonId, fb._id)">
             <div class="airbnb-lesson-left">
               <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
               <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>

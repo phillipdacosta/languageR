@@ -8,6 +8,9 @@ import { ModalController, ViewWillEnter, AnimationController, AlertController, P
 import { Router, ActivatedRoute, NavigationEnd } from '@angular/router';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { MessagingService } from '../services/messaging.service';
+import { LessonService } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
+import { firstValueFrom } from 'rxjs';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
@@ -299,7 +302,9 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     private messagingService: MessagingService,
     private animationCtrl: AnimationController,
     private cdr: ChangeDetectorRef,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private lessonService: LessonService,
+    private classService: ClassService
   ) {}
 
   ngOnInit() {
@@ -1903,7 +1908,55 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
       const dayAfterTomorrow = new Date(tomorrow);
       dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
 
+      // Fetch booked lessons and classes to exclude occupied slots
+      const bookedRanges: { start: Date; end: Date }[] = [];
+      try {
+        const startDate = now.toISOString();
+        const endDate = dayAfterTomorrow.toISOString();
+        
+        const [lessonsRes, classesRes] = await Promise.all([
+          firstValueFrom(this.lessonService.getLessonsByTutor(tutor.id, false, startDate, endDate))
+            .catch(() => ({ success: false, lessons: [] as any[] })),
+          firstValueFrom(this.classService.getClassesForTutor(tutor.id, startDate, endDate))
+            .catch(() => ({ success: false, classes: [] as any[] }))
+        ]);
+        
+        // Collect booked time ranges from lessons
+        if (lessonsRes.success && lessonsRes.lessons) {
+          for (const lesson of lessonsRes.lessons) {
+            if (lesson.status === 'scheduled' || lesson.status === 'in_progress' || lesson.status === 'pending_reschedule') {
+              const lessonStart = new Date(lesson.startTime);
+              const lessonEnd = new Date(lesson.endTime);
+              // Add buffer (5 min for 25-min lessons, 10 min for others)
+              const bufferMin = (lesson.duration === 25) ? 5 : 10;
+              lessonEnd.setMinutes(lessonEnd.getMinutes() + bufferMin);
+              bookedRanges.push({ start: lessonStart, end: lessonEnd });
+            }
+          }
+        }
+        
+        // Collect booked time ranges from classes
+        if ((classesRes as any).success && (classesRes as any).classes) {
+          for (const cls of (classesRes as any).classes) {
+            if (cls.status !== 'cancelled') {
+              const clsStart = new Date(cls.startTime);
+              const clsEnd = new Date(cls.endTime);
+              clsEnd.setMinutes(clsEnd.getMinutes() + 10);
+              bookedRanges.push({ start: clsStart, end: clsEnd });
+            }
+          }
+        }
+      } catch (e) {
+        // If fetching booked data fails, continue without it (slots may show as available)
+        console.warn('Could not fetch booked lessons for tutor:', tutor.id, e);
+      }
+
       const availableSlots: { date: Date; time: string }[] = [];
+
+      // Helper: check if a slot overlaps with any booked range
+      const isSlotBooked = (slotStart: Date, slotEnd: Date): boolean => {
+        return bookedRanges.some(range => slotStart < range.end && slotEnd > range.start);
+      };
 
       // Process availability blocks to find available slots for today/tomorrow
       for (const block of response.availability) {
@@ -1964,7 +2017,7 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
         
         while (slotStart < blockEnd && slotStart < dayAfterTomorrow && slotCount < maxSlots) {
           const slotEnd = new Date(slotStart.getTime() + 25 * 60 * 1000);
-          if (slotEnd <= blockEnd && slotStart >= now) {
+          if (slotEnd <= blockEnd && slotStart >= now && !isSlotBooked(slotStart, slotEnd)) {
             availableSlots.push({
               date: new Date(slotStart),
               time: slotStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })

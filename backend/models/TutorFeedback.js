@@ -79,6 +79,15 @@ const tutorFeedbackSchema = new mongoose.Schema({
   lastReminderAt: {
     type: Date,
     default: null
+  },
+  
+  // Grace period tracking
+  // Marked true once this feedback exceeds the 2-hour grace window while still pending.
+  // Used to increment the tutor's violation counter exactly once per feedback item.
+  gracePeriodExpired: {
+    type: Boolean,
+    default: false,
+    index: true
   }
 });
 

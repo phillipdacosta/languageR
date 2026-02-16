@@ -55,6 +55,7 @@ export class AgoraService {
   public onRemoteUserStateChange?: (uid: UID, state: { isMuted?: boolean; isVideoOff?: boolean }) => void;
   public onVolumeIndicator?: (volumes: { uid: UID; level: number }[]) => void;
   public onParticipantIdentity?: (uid: UID, identity: { userId: string; isTutor: boolean; name: string; profilePicture?: string }) => void;
+  public onRemoteTalkTimeUpdate?: (speakingSeconds: number) => void;
 
   private readonly APP_ID = environment.agora.appId;
   private readonly TOKEN = environment.agora.token;
@@ -127,6 +128,85 @@ export class AgoraService {
     return this.client?.connectionState === 'CONNECTING';
   }
 
+  /**
+   * Reset the Agora service to a clean state before a video call.
+   * 
+   * CRITICAL for rejoin flow: Pre-call creates a client + tracks for virtual background preview,
+   * but that client can carry subtle stale state (lingering event-handler context, internal SDK
+   * bookkeeping from createMicrophoneAndCameraTracks, etc.) that prevents proper
+   * subscribe/publish after joining a channel.
+   * 
+   * Calling this before initializeClient() in the video-call page ensures we always start with
+   * a brand-new Agora client — exactly what happens on a page refresh (which works).
+   */
+  async resetForVideoCall(): Promise<void> {
+    console.log('🔄 AgoraService: resetForVideoCall() - ensuring clean state...');
+
+    // 1. If the client is currently connected, leave first
+    if (this.client && (this.client.connectionState === 'CONNECTED' || this.client.connectionState === 'CONNECTING')) {
+      console.log('🔄 Client is still connected/connecting, leaving channel first...');
+      try {
+        await this.client.leave();
+      } catch (e) {
+        console.warn('⚠️ Error leaving channel during reset:', e);
+      }
+    }
+
+    // 2. Clean up processor BEFORE closing tracks (processor pipeline depends on the track)
+    if (this.processor) {
+      console.log('🔄 Unpiping and nulling processor...');
+      try { this.processor.unpipe(); } catch (_) {}
+      try { this.processor.disable(); } catch (_) {}
+      this.processor = null;
+    }
+
+    // 3. Null the extension so it gets re-created and re-registered with the new client
+    //    Agora requires registerExtensions() before createClient().
+    this.extension = null;
+    this.virtualBackgroundEnabled = false;
+    this.virtualBackgroundState = { enabled: false, type: null };
+
+    // 4. Clean up any existing local tracks (from pre-call or previous session)
+    if (this.localAudioTrack) {
+      try {
+        this.localAudioTrack.stop();
+        this.localAudioTrack.close();
+      } catch (_) {}
+      this.localAudioTrack = null;
+    }
+    if (this.localVideoTrack) {
+      try {
+        this.localVideoTrack.stop();
+        this.localVideoTrack.close();
+      } catch (_) {}
+      this.localVideoTrack = null;
+    }
+
+    // 5. Remove all listeners and null the client so initializeClient() creates a fresh one
+    if (this.client) {
+      try {
+        this.client.removeAllListeners();
+      } catch (_) {}
+      this.client = null;
+    }
+
+    // 6. Clear remote users
+    this.remoteUsers.clear();
+
+    // 7. Stop any active polling
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    // 8. Reset messaging state
+    this.channelName = 'default';
+    this.currentLessonId = null;
+    this.lastMessageTime = new Date().toISOString();
+
+    console.log('✅ AgoraService: resetForVideoCall() complete - ready for fresh initialization');
+  }
+
   isBrowserSupported(): boolean {
     // Check if getUserMedia is supported
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -181,14 +261,15 @@ export class AgoraService {
       return this.client;
     }
 
+    // IMPORTANT: Agora requires registerExtensions() BEFORE createClient().
+    // Initialize virtual background extension first.
+    await this.initializeVirtualBackgroundExtension();
+
     // Create Agora client
     this.client = AgoraRTC.createClient({ 
       mode: "rtc", 
       codec: "vp9" // Using vp9 as in the example
     });
-
-    // Initialize virtual background extension
-    await this.initializeVirtualBackgroundExtension();
 
     // Set up event listeners
     this.setupEventListeners();
@@ -627,6 +708,12 @@ export class AgoraService {
         const remoteUser = this.remoteUsers.get(user.uid);
         if (remoteUser) {
           remoteUser.audioTrack = undefined;
+          remoteUser.isMuted = true;
+          
+          // Notify the UI that user is muted (audio unpublished)
+          if (this.onRemoteUserStateChange) {
+            this.onRemoteUserStateChange(user.uid, { isMuted: true });
+          }
         }
       }
     });
@@ -857,6 +944,26 @@ export class AgoraService {
       // Store virtual background state before creating new tracks
       const savedVBState = { ...this.virtualBackgroundState };
       console.log('🔍 DEBUG: Saving virtual background state before creating new tracks:', JSON.stringify(savedVBState, null, 2));
+
+      // CRITICAL: Close any existing tracks before creating new ones.
+      // Pre-call may have created tracks for camera preview that weren't cleaned up.
+      // Leaving them orphaned can lock the camera/mic and prevent new track creation.
+      if (this.localAudioTrack) {
+        try {
+          console.log('🧹 Closing orphaned audio track before creating new ones...');
+          this.localAudioTrack.stop();
+          this.localAudioTrack.close();
+        } catch (_) {}
+        this.localAudioTrack = null;
+      }
+      if (this.localVideoTrack) {
+        try {
+          console.log('🧹 Closing orphaned video track before creating new ones...');
+          this.localVideoTrack.stop();
+          this.localVideoTrack.close();
+        } catch (_) {}
+        this.localVideoTrack = null;
+      }
 
       // Always create both tracks so we can toggle them later
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
@@ -1093,6 +1200,11 @@ export class AgoraService {
             profilePicture: message.payload.profilePicture || ''
           });
         }
+      } else if (message.type === 'talkTime') {
+        // Received remote participant's self-reported speaking time
+        if (this.onRemoteTalkTimeUpdate) {
+          this.onRemoteTalkTimeUpdate(message.payload.speakingSeconds);
+        }
       } else {
         console.log('⚠️ Unknown message type:', message.type);
       }
@@ -1126,18 +1238,17 @@ export class AgoraService {
     if (!this.client) return;
 
     try {
-      // Notify backend we left the lesson (for rejoin tracking)
+      // NOTE: leaveLesson() is NOT called here to avoid race conditions.
+      // The caller (endCall / ngOnDestroy) is responsible for calling leaveLesson() on the backend.
+      // Emit event so other views can update immediately
       try {
         if (this.currentLessonId) {
-          this.lessonService.leaveLesson(this.currentLessonId).subscribe({ next: () => {}, error: () => {} });
-          // Emit event so other views can update immediately
-          try {
-            window.dispatchEvent(new CustomEvent('lesson-left' as any, { detail: { lessonId: this.currentLessonId } }));
-          } catch (_) {}
+          window.dispatchEvent(new CustomEvent('lesson-left' as any, { detail: { lessonId: this.currentLessonId } }));
         }
       } catch (_) {}
 
-      // Stop message polling
+      // Stop state re-broadcasting and message polling
+      this.stopStateRebroadcast();
       if (this.pollingInterval) {
         clearInterval(this.pollingInterval);
         this.pollingInterval = null;
@@ -1210,15 +1321,31 @@ export class AgoraService {
       await this.client.leave();
       console.log("Successfully left channel");
 
+      // CRITICAL: Remove all listeners and null the client so a fresh one is created on rejoin
+      // Reusing a client after leave() can cause subtle state issues with event handlers
+      try {
+        this.client.removeAllListeners();
+      } catch (_) {}
+      this.client = null;
+
       // Clear remote users
       this.remoteUsers.clear();
       
       // Clean up messaging
       this.channelName = 'default';
       this.currentLessonId = null;
+      // CRITICAL: Reset message timestamp so rejoin doesn't replay stale messages
+      this.lastMessageTime = new Date().toISOString();
 
     } catch (error) {
       console.error("Error leaving channel:", error);
+      // Even on error, try to null the client to prevent stale state
+      try {
+        if (this.client) {
+          this.client.removeAllListeners();
+          this.client = null;
+        }
+      } catch (_) {}
       throw error;
     }
   }
@@ -1409,20 +1536,44 @@ export class AgoraService {
     }
   }
 
+  /**
+   * Find a remote user by UID, handling type mismatches (number vs string)
+   * that can occur when UIDs pass through JSON serialization via HTTP messaging.
+   */
+  private findRemoteUserByUID(uid: UID): { key: UID; user: { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean } } | null {
+    // Direct lookup first (most common case)
+    const directMatch = this.remoteUsers.get(uid);
+    if (directMatch) {
+      return { key: uid, user: directMatch };
+    }
+    
+    // Try type-converted lookup (handles number vs string mismatch from JSON)
+    const numericUid = typeof uid === 'string' ? Number(uid) : uid;
+    const stringUid = String(uid);
+    
+    for (const [key, user] of this.remoteUsers.entries()) {
+      if (key === numericUid || String(key) === stringUid) {
+        console.log(`🔧 UID type mismatch resolved: received ${typeof uid}(${uid}), matched to ${typeof key}(${key})`);
+        return { key, user };
+      }
+    }
+    
+    return null;
+  }
+
   private handleRemoteMuteStateUpdate(payload: { uid: UID; isMuted: boolean; timestamp: string }): void {
     console.log('🎤 Received remote mute state update:', payload);
-    console.log('🎤 Current remote users UIDs:', Array.from(this.remoteUsers.keys()));
     
-    // Try to find the remote user by UID
-    const remoteUser = this.remoteUsers.get(payload.uid);
+    // Find remote user with robust UID matching (handles type mismatches)
+    const match = this.findRemoteUserByUID(payload.uid);
     
-    if (remoteUser) {
-      remoteUser.isMuted = payload.isMuted;
-      console.log(`✅ Updated remote user ${payload.uid} mute state to: ${payload.isMuted ? 'muted' : 'unmuted'}`);
+    if (match) {
+      match.user.isMuted = payload.isMuted;
+      console.log(`✅ Updated remote user ${match.key} mute state to: ${payload.isMuted ? 'muted' : 'unmuted'}`);
       
-      // Notify the video call component if callback is set
+      // Notify the video call component using the ACTUAL map key (not the payload UID)
       if (this.onRemoteUserStateChange) {
-        this.onRemoteUserStateChange(payload.uid, { isMuted: payload.isMuted });
+        this.onRemoteUserStateChange(match.key, { isMuted: payload.isMuted });
       }
     } else {
       console.warn(`⚠️ Remote user with UID ${payload.uid} not found in remoteUsers map`);
@@ -1433,18 +1584,17 @@ export class AgoraService {
 
   private handleRemoteVideoStateUpdate(payload: { uid: UID; isVideoOff: boolean; timestamp: string }): void {
     console.log('📹 Received remote video state update:', payload);
-    console.log('📹 Current remote users UIDs:', Array.from(this.remoteUsers.keys()));
     
-    // Try to find the remote user by UID
-    const remoteUser = this.remoteUsers.get(payload.uid);
+    // Find remote user with robust UID matching (handles type mismatches)
+    const match = this.findRemoteUserByUID(payload.uid);
     
-    if (remoteUser) {
-      remoteUser.isVideoOff = payload.isVideoOff;
-      console.log(`✅ Updated remote user ${payload.uid} video state to: ${payload.isVideoOff ? 'off' : 'on'}`);
+    if (match) {
+      match.user.isVideoOff = payload.isVideoOff;
+      console.log(`✅ Updated remote user ${match.key} video state to: ${payload.isVideoOff ? 'off' : 'on'}`);
       
-      // Notify the video call component if callback is set
+      // Notify the video call component using the ACTUAL map key (not the payload UID)
       if (this.onRemoteUserStateChange) {
-        this.onRemoteUserStateChange(payload.uid, { isVideoOff: payload.isVideoOff });
+        this.onRemoteUserStateChange(match.key, { isVideoOff: payload.isVideoOff });
       }
     } else {
       console.warn(`⚠️ Remote user with UID ${payload.uid} not found in remoteUsers map`);
@@ -1507,15 +1657,50 @@ export class AgoraService {
     }
   }
 
-  // Send mute state update to other users
+  // Track current local state for periodic re-broadcasting
+  private currentLocalMuteState: boolean = false;
+  private currentLocalVideoOffState: boolean = false;
+  private stateRebroadcastInterval: any = null;
+
+  /**
+   * Send a message with automatic retry on failure (up to 3 attempts).
+   */
+  private async sendMessageWithRetry(payload: any, maxRetries: number = 3): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+          return true;
+        } else {
+          console.warn(`⚠️ Message send attempt ${attempt}/${maxRetries} failed:`, response.status);
+        }
+      } catch (error) {
+        console.warn(`⚠️ Message send attempt ${attempt}/${maxRetries} error:`, error);
+      }
+      
+      // Wait before retrying (200ms, 400ms)
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 200));
+      }
+    }
+    
+    console.error('❌ All message send attempts failed');
+    return false;
+  }
+
+  // Send mute state update to other users (with retry)
   async sendMuteStateUpdate(isMuted: boolean): Promise<void> {
     const actualUID = this.getLocalUID();
     
     console.log('📤 Attempting to send mute state update:', { 
       isMuted, 
       channelName: this.channelName, 
-      actualUID: actualUID,
-      configUID: this.UID
+      actualUID: actualUID
     });
 
     if (!this.channelName || this.channelName === 'default') {
@@ -1528,47 +1713,32 @@ export class AgoraService {
       return;
     }
 
-    try {
-      const payload = {
-        type: 'muteState',
-        payload: {
-          uid: actualUID,
-          isMuted: isMuted,
-          timestamp: new Date().toISOString()
-        }
-      };
+    // Track current local state for re-broadcasting
+    this.currentLocalMuteState = isMuted;
 
-      console.log('📤 Sending mute state payload:', payload);
-
-      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(payload)
-      });
-
-      console.log('📤 Mute state response status:', response.status);
-
-      if (response.ok) {
-        const responseData = await response.text();
-        console.log("✅ Mute state sent successfully:", { isMuted, response: responseData });
-      } else {
-        const errorText = await response.text();
-        console.error("❌ Failed to send mute state:", response.status, response.statusText, errorText);
+    const payload = {
+      type: 'muteState',
+      payload: {
+        uid: actualUID,
+        isMuted: isMuted,
+        timestamp: new Date().toISOString()
       }
-    } catch (error) {
-      console.error("❌ Error sending mute state:", error);
+    };
+
+    const success = await this.sendMessageWithRetry(payload);
+    if (success) {
+      console.log(`✅ Mute state sent successfully: ${isMuted ? 'muted' : 'unmuted'}`);
     }
   }
 
-  // Send video state update to other users
+  // Send video state update to other users (with retry)
   async sendVideoStateUpdate(isVideoOff: boolean): Promise<void> {
     const actualUID = this.getLocalUID();
     
     console.log('📤 Attempting to send video state update:', {
       isVideoOff,
       channelName: this.channelName,
-      actualUID: actualUID,
-      configUID: this.UID
+      actualUID: actualUID
     });
     
     if (!this.channelName || this.channelName === 'default') {
@@ -1581,27 +1751,97 @@ export class AgoraService {
       return;
     }
 
+    // Track current local state for re-broadcasting
+    this.currentLocalVideoOffState = isVideoOff;
+
+    const payload = {
+      type: 'videoState',
+      payload: {
+        uid: actualUID,
+        isVideoOff: isVideoOff,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    const success = await this.sendMessageWithRetry(payload);
+    if (success) {
+      console.log(`✅ Video state sent successfully: ${isVideoOff ? 'camera off' : 'camera on'}`);
+    }
+  }
+
+  /**
+   * Start periodic re-broadcasting of local mute/video state every 5 seconds.
+   * This ensures remote users eventually get the correct state even if a message was missed.
+   */
+  startStateRebroadcast(): void {
+    this.stopStateRebroadcast();
+    
+    this.stateRebroadcastInterval = setInterval(async () => {
+      const actualUID = this.getLocalUID();
+      if (!actualUID || !this.channelName || this.channelName === 'default') return;
+      
+      try {
+        // Re-send current mute state
+        await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            type: 'muteState',
+            payload: {
+              uid: actualUID,
+              isMuted: this.currentLocalMuteState,
+              timestamp: new Date().toISOString()
+            }
+          })
+        });
+        
+        // Re-send current video state
+        await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            type: 'videoState',
+            payload: {
+              uid: actualUID,
+              isVideoOff: this.currentLocalVideoOffState,
+              timestamp: new Date().toISOString()
+            }
+          })
+        });
+      } catch (error) {
+        // Silent fail for periodic re-broadcast — not critical
+      }
+    }, 5000);
+  }
+
+  stopStateRebroadcast(): void {
+    if (this.stateRebroadcastInterval) {
+      clearInterval(this.stateRebroadcastInterval);
+      this.stateRebroadcastInterval = null;
+    }
+  }
+
+  // Send local talk time to remote participant (for synchronized display)
+  async sendTalkTimeUpdate(localSpeakingSeconds: number): Promise<void> {
+    const actualUID = this.getLocalUID();
+    if (!this.channelName || this.channelName === 'default' || !actualUID) return;
+
+    // Fire and forget — no retry needed, we send every 2s anyway
     try {
-      const response = await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
+      await fetch(`${environment.backendUrl}/api/messaging/channels/${this.channelName}/messages`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({
-          type: 'videoState',
+          type: 'talkTime',
           payload: {
             uid: actualUID,
-            isVideoOff: isVideoOff,
+            speakingSeconds: localSpeakingSeconds,
             timestamp: new Date().toISOString()
           }
         })
       });
-
-      if (response.ok) {
-        console.log("Video state sent successfully:", { isVideoOff });
-      } else {
-        console.error("Failed to send video state:", response.statusText);
-      }
     } catch (error) {
-      console.error("Error sending video state:", error);
+      // Silent — not critical, next broadcast will correct
     }
   }
 

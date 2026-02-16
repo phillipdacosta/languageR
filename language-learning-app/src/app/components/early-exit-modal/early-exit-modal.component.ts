@@ -18,6 +18,7 @@ export class EarlyExitModalComponent {
   @Input() lessonId!: string;
   @Input() minutesRemaining!: number;
   @Input() userRole!: 'tutor' | 'student';
+  @Input() isClass: boolean = false;
   @Output() modalDismissed = new EventEmitter<{ action: string }>();
 
   constructor(
@@ -67,12 +68,13 @@ export class EarlyExitModalComponent {
       // Lesson is still active, proceed with rejoin
       this.modalDismissed.emit({ action: 'rejoin' });
 
-      // Navigate to pre-call page
+      // Navigate to pre-call page with minimal params
+      // SECURITY: role is determined from lesson data + auth, not passed in URL
       await this.router.navigate(['/pre-call'], {
         queryParams: {
           lessonId: this.lessonId,
-          role: this.userRole,
-          lessonMode: 'true'
+          lessonMode: 'true',
+          isClass: this.isClass ? 'true' : 'false'
         }
       });
     } catch (error) {

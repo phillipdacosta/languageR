@@ -1062,6 +1062,10 @@ ion-toolbar {
     
     &.fee {
       color: $text-secondary;
+      
+      .fee-stripe {
+        color: $text-secondary;
+      }
     }
     
     &.earnings {

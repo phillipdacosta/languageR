@@ -23,6 +23,7 @@ export class ReminderService {
   private reminders$ = new BehaviorSubject<ReminderEvent[]>([]);
   private trackedEvents: Map<string, ReminderEvent> = new Map();
   private dismissedReminders: Set<string> = new Set(); // Track dismissed reminder IDs
+  private suppressedLessonIds: Set<string> = new Set(); // Lessons currently in a video call (hidden but not dismissed)
   private reminderMinutes = 15; // Default 15 minutes before
   private checkInterval: any;
   private destroy$ = new Subject<void>();
@@ -93,9 +94,13 @@ export class ReminderService {
 
       console.log('🔔 [REMINDER-SERVICE] Event:', event.title, 'in', minutesUntil, 'mins', 'dismissed:', this.dismissedReminders.has(event.id));
 
-      // Show reminder if event is within reminder window AND not dismissed
+      // Skip reminders for lessons the user is currently in (suppressed)
+      const isSuppressed = (event.lessonId && this.suppressedLessonIds.has(event.lessonId)) ||
+                           (event.classId && this.suppressedLessonIds.has(event.classId));
+
+      // Show reminder if event is within reminder window AND not dismissed AND not suppressed
       // The reminder stays visible until manually dismissed, even if lesson has started
-      if (minutesUntil <= this.reminderMinutes && !this.dismissedReminders.has(event.id)) {
+      if (minutesUntil <= this.reminderMinutes && !this.dismissedReminders.has(event.id) && !isSuppressed) {
         console.log('✅ [REMINDER-SERVICE] SHOWING REMINDER for:', event.title);
         remindersToShow.push(event);
       }
@@ -123,6 +128,20 @@ export class ReminderService {
     });
     this.saveDismissedReminders();
     this.reminders$.next([]);
+  }
+
+  // Suppress reminders for a specific lesson (user is currently in this call)
+  suppressForLesson(lessonId: string) {
+    console.log('🔔 [REMINDER-SERVICE] Suppressing reminder for active lesson:', lessonId);
+    this.suppressedLessonIds.add(lessonId);
+    this.checkForReminders();
+  }
+
+  // Unsuppress reminders for a lesson (user left the call)
+  unsuppressForLesson(lessonId: string) {
+    console.log('🔔 [REMINDER-SERVICE] Unsuppressing reminder for lesson:', lessonId);
+    this.suppressedLessonIds.delete(lessonId);
+    this.checkForReminders();
   }
 
   // Un-dismiss a reminder (used when a lesson is rescheduled)

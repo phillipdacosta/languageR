@@ -148,8 +148,14 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       console.log('✅ Analysis loaded:', !!this.analysis);
       console.log('✅ Lesson loaded:', !!this.lesson);
       
+      // If analysis was marked as insufficient data, show a user-friendly message
+      if (this.analysis?.status === 'insufficient_data') {
+        this.analysis = null;
+        this.error = 'Not enough speech was detected during this lesson to generate an analysis. This can happen when there is minimal conversation or background noise.';
+        this.stopPolling();
+      }
       // If analysis is still processing, start polling
-      if (this.analysis?.status === 'processing' || this.analysis?.status === 'pending') {
+      else if (this.analysis?.status === 'processing' || this.analysis?.status === 'pending') {
         this.startPolling();
       } else {
         // Stop polling if analysis is complete or failed
@@ -205,10 +211,16 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
           this.lesson = response.lesson;
           this.error = null;
           
-          // Stop polling if analysis is complete or failed
-          if (response.analysis.status === 'completed' || response.analysis.status === 'failed') {
+          // Stop polling if analysis is complete, failed, or insufficient
+          if (response.analysis.status === 'completed' || response.analysis.status === 'failed' || response.analysis.status === 'insufficient_data') {
             console.log('✅ Analysis ready!');
             this.stopPolling();
+            
+            // Handle insufficient data in polling too
+            if (response.analysis.status === 'insufficient_data') {
+              this.analysis = null;
+              this.error = 'Not enough speech was detected during this lesson to generate an analysis. This can happen when there is minimal conversation or background noise.';
+            }
           }
         }
       } catch (err: any) {

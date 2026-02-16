@@ -43,9 +43,11 @@ interface ProcessedLesson {
   showActions: boolean;
   canJoin: boolean;
   needsTutorFeedback: boolean;
+  feedbackPendingForStudent: boolean;
   canAddOptionalNote: boolean;
   tipSent: boolean;
   tipAmount: string;
+  canTip: boolean;
 }
 
 @Component({
@@ -104,13 +106,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   selectedNoteLesson: any = null;
   selectedNoteLessonHasFeedback = false;
 
-  // Feedback modal
-  isFeedbackModalOpen = false;
-  private isOpeningFeedbackModal = false; // Prevent duplicate opens
-  selectedFeedbackStrengths: string[] = [];
-  selectedFeedbackAreas: string[] = [];
-  selectedFeedbackHomework = '';
-  selectedFeedbackNotes = '';
+  // (Feedback modal removed — navigates to /lesson-analysis instead)
 
   // Expanded lesson row (for actions)
   expandedLessonId: string | null = null;
@@ -410,12 +406,31 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       : nameParts[0].charAt(0);
 
     // Tutor needs to leave feedback? Only when a TutorFeedback record exists, is pending, and is required
+    // Trial lessons are excluded — no feedback expected
+    const isTrial = !!lesson.isTrialLesson;
     const hasTutorFeedbackAvailable = tutorFeedback?.status === 'completed';
     const needsTutorFeedback = role === 'tutor'
       && status === 'completed'
+      && !isTrial
       && !!tutorFeedback
       && tutorFeedback.status === 'pending'
       && tutorFeedback.required !== false;
+
+    // Student sees "awaiting feedback" only when AI analysis is NOT available AND
+    // the lesson actually requires tutor feedback (AI wasn't supposed to handle it).
+    // If AI was enabled, tutor feedback is optional — never show a pending badge.
+    // Trial lessons are excluded — no feedback expected.
+    const hasAiAnalysis = aiAnalysis?.status === 'completed' || !!aiAnalysis?.hasAnalysis;
+    const aiWasEnabled = (lesson as any).aiAnalysisEnabledAtTime === true;
+    const requiresTutorFeedback = !!(lesson as any).requiresTutorFeedback;
+    const hasPendingFeedbackRecord = !!tutorFeedback && tutorFeedback.status === 'pending';
+    const feedbackPendingForStudent = role === 'student'
+      && status === 'completed'
+      && !isTrial
+      && !hasTutorFeedbackAvailable
+      && !hasTutorNoteAvailable
+      && !hasAiAnalysis
+      && (requiresTutorFeedback || hasPendingFeedbackRecord || !aiWasEnabled);
 
     // Tutor can optionally add a note to AI-analyzed lessons (no TutorFeedback record = AI handled it)
     const canAddOptionalNote = role === 'tutor'
@@ -456,9 +471,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       showActions,
       canJoin,
       needsTutorFeedback,
+      feedbackPendingForStudent,
       canAddOptionalNote,
       tipSent: !!(lesson as any).tip && !!(lesson as any).tip.amount,
-      tipAmount: (lesson as any).tip?.amount ? (lesson as any).tip.amount.toFixed(2) : '0.00'
+      tipAmount: (lesson as any).tip?.amount ? (lesson as any).tip.amount.toFixed(2) : '0.00',
+      canTip: role === 'student' && status === 'completed' && !isTrial
+        && !((lesson as any).tip && (lesson as any).tip.amount)
     };
   }
 
@@ -589,54 +607,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   viewFeedback(pl: ProcessedLesson) {
-    const lesson = pl.lesson;
-    if (pl.hasTutorFeedbackAvailable) {
-      this.showTutorFeedback(lesson);
-    } else if (pl.hasAIAnalysisAvailable) {
-      this.router.navigate(['/lesson-analysis', lesson._id]);
-    }
-  }
-
-  private async showTutorFeedback(lesson: Lesson) {
-    // Prevent duplicate modals
-    if (this.isFeedbackModalOpen || this.isOpeningFeedbackModal) {
-      return;
-    }
-
-    this.isOpeningFeedbackModal = true;
-
-    // Close note modal if open
-    if (this.isNoteModalOpen) {
-      this.closeNoteModal();
-    }
-
-    try {
-      const response = await firstValueFrom(this.tutorFeedbackService.getFeedbackForLesson(lesson._id));
-      if (response.success && response.feedback) {
-        const fb = response.feedback;
-        this.selectedFeedbackStrengths = fb.strengths || [];
-        this.selectedFeedbackAreas = fb.areasForImprovement || [];
-        this.selectedFeedbackHomework = fb.homework || '';
-        this.selectedFeedbackNotes = fb.overallNotes || '';
-        this.isFeedbackModalOpen = true;
-        this.cdr.detectChanges();
-      }
-    } catch (error) {
-      console.error('Error loading feedback:', error);
-      await this.showToast('Failed to load feedback', 'danger');
-    } finally {
-      this.isOpeningFeedbackModal = false;
-    }
-  }
-
-  closeFeedbackModal() {
-    this.isFeedbackModalOpen = false;
-    this.isOpeningFeedbackModal = false;
-    this.selectedFeedbackStrengths = [];
-    this.selectedFeedbackAreas = [];
-    this.selectedFeedbackHomework = '';
-    this.selectedFeedbackNotes = '';
-    this.cdr.detectChanges();
+    // Navigate straight to the analysis page for both AI and tutor-sourced analyses
+    this.router.navigate(['/lesson-analysis', pl.lesson._id]);
   }
 
   viewTutorNote(pl: ProcessedLesson) {
@@ -649,8 +621,30 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.router.navigate(['/post-lesson-tutor', pl.lesson._id]);
   }
 
+  tipTutor(pl: ProcessedLesson) {
+    this.router.navigate(['/post-lesson-student', pl.lesson._id]);
+  }
+
   joinLesson(pl: ProcessedLesson) {
-    this.router.navigate(['/video-call', pl.lesson._id]);
+    if (!pl.lesson || !this.currentUser) return;
+    
+    const lesson = pl.lesson;
+    const isClass = (lesson as any).isClass || false;
+    
+    console.log('🎯 LESSONS: joinLesson navigating to pre-call:', {
+      lessonId: lesson._id,
+      isClass
+    });
+    
+    // Navigate to pre-call page with proper query parameters
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
+    this.router.navigate(['/pre-call'], {
+      queryParams: {
+        lessonId: lesson._id,
+        lessonMode: 'true',
+        isClass: isClass ? 'true' : 'false'
+      }
+    });
   }
 
   closeNoteModal() {

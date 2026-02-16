@@ -204,6 +204,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
   pendingFeedbackCount = 0;
+  feedbackBannerSubtitle: string = 'Your profile is hidden until complete';
+  feedbackGraceExpired: boolean = false;
+  private feedbackGraceInterval: any = null;
+  private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
   
   // All tutors modal state
   isAllTutorsModalOpen = false;
@@ -492,6 +496,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
         if (this.isTutorUser) {
           this.pendingFeedback = response.pendingFeedback || [];
           this.pendingFeedbackCount = response.count || 0;
+
+          // Update grace period countdown for feedback banner
+          this.updateFeedbackGraceCountdown();
 
           // Auto-reopen the feedback modal after submitting one item
           // so the tutor can continue working through remaining feedback.
@@ -1564,12 +1571,67 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.stopDynamicCardRefreshInterval();
   }
 
+  // ── Feedback Grace Period Countdown ──────────────────────
+  private updateFeedbackGraceCountdown() {
+    // Clear existing interval
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
+      this.feedbackGraceInterval = null;
+    }
+
+    if (this.pendingFeedback.length === 0) {
+      this.feedbackBannerSubtitle = '';
+      this.feedbackGraceExpired = false;
+      return;
+    }
+
+    // Find the oldest pending feedback's createdAt
+    const oldestCreatedAt = Math.min(
+      ...this.pendingFeedback.map(f => new Date(f.createdAt).getTime())
+    );
+    const deadline = oldestCreatedAt + Tab1Page.FEEDBACK_GRACE_MS;
+
+    // Helper to compute display
+    const tick = () => {
+      const now = Date.now();
+      const remainingMs = deadline - now;
+
+      if (remainingMs <= 0) {
+        this.feedbackGraceExpired = true;
+        this.feedbackBannerSubtitle = 'Your profile is hidden until complete';
+        if (this.feedbackGraceInterval) {
+          clearInterval(this.feedbackGraceInterval);
+          this.feedbackGraceInterval = null;
+        }
+        return;
+      }
+
+      this.feedbackGraceExpired = false;
+      const totalSec = Math.floor(remainingMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+
+      if (h > 0) {
+        this.feedbackBannerSubtitle = `Complete within ${h}h ${m.toString().padStart(2, '0')}m to stay visible`;
+      } else {
+        this.feedbackBannerSubtitle = `Complete within ${m}m to stay visible`;
+      }
+    };
+
+    // Run immediately, then every 30 seconds (no need for per-second here)
+    tick();
+    this.feedbackGraceInterval = setInterval(tick, 30000);
+  }
+
   ngOnDestroy() {
     if (this.resizeListener) {
       window.removeEventListener('resize', this.resizeListener);
     }
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
+    }
+    if (this.feedbackGraceInterval) {
+      clearInterval(this.feedbackGraceInterval);
     }
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
@@ -4071,7 +4133,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     }
     
     // Scenario 4: No availability set
-    if (!this.nextLesson && !this.hasAvailability) {
+    if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount === 0) {
       const messages = [
         'Set your availability to start getting bookings.',
         'Open your calendar to connect with students.',
@@ -4082,6 +4144,56 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       ];
       return messages[this.welcomeMessageIndex % 6];
     }
+
+        // Scenario 5: Feedback needed
+        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
+          const messages = [
+            'You have feedback waiting for you.',
+            'Your students are waiting for your feedback.',
+            'Your feedback is needed to continue teaching.',
+            'Your feedback is needed to continue receiving bookings.',
+            'Your feedback is needed to continue growing your student base.',
+            'Your feedback is needed to continue receiving bookings.'
+          ];
+          return messages[this.welcomeMessageIndex % 6];
+        }
+                // Scenario 5: Feedback needed
+        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
+          const messages = [
+            'You have feedback waiting for you.',
+            'Your students are waiting for your feedback.',
+            'Your feedback is needed to continue teaching.',
+            'Your feedback is needed to continue receiving bookings.',
+            'Your feedback is needed to continue growing your student base.',
+            'Your feedback is needed to continue receiving bookings.'
+          ];
+          return messages[this.welcomeMessageIndex % 6];
+        }
+
+        // Scenario 6: No availability set and feedback needed
+        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
+          const messages = [
+            'You have feedback waiting for you.',
+            'Your students are waiting for your feedback.',
+            'Your feedback is needed to continue teaching.',
+            'Your feedback is needed to continue receiving bookings.',
+            'Your feedback is needed to continue growing your student base.',
+            'Your feedback is needed to continue receiving bookings.'
+          ];
+          return messages[this.welcomeMessageIndex % 6];
+        }  
+        // Scenario 7: Lessons today and feedback needed
+        if (this.hadLessonsToday && this.pendingFeedbackCount > 0) {
+          const messages = [
+            'You have feedback waiting for you.',
+            'Your students are waiting for your feedback.',
+            'Your feedback is needed to continue teaching.',
+            'Your feedback is needed to continue receiving bookings.',
+            'Your feedback is needed to continue growing your student base.',
+            'Your feedback is needed to continue receiving bookings.'
+          ];
+          return messages[this.welcomeMessageIndex % 6];
+        }
     
     return '';
   }
@@ -4100,10 +4212,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else {
       const titles = [
         'No more lessons today',
-        'All caught up',
         'Calendar is open',
         'Nothing else lined up',
-        'All set for today',
         'Schedule is clear'
       ];
       return titles[this.emptyStateTitleIndex % 6];
@@ -4932,74 +5042,39 @@ navigateToLessons() {
 
   // Navigate to lesson details or join
   navigateToLesson(lesson: Lesson) {
-    // Navigate to pre-call page - let pre-call handle the join logic
-    const now = new Date();
-    const startTime = new Date(lesson.startTime);
-    const canJoin = this.canJoinLessonByTime(startTime);
-    
-    if (canJoin) {
-      this.joinLessonById(lesson);
+    // Navigate to event details page (same route for lessons and classes)
+    if (lesson?._id) {
+      this.router.navigate(['/tabs/tutor-calendar/event', lesson._id]);
     }
+  }
+
+  /**
+   * Navigate to lesson from modal - closes modal first, then navigates
+   */
+  navigateToLessonFromModal(lesson: Lesson) {
+    // Close modal first
+    this.closeAllLessonsModal();
+    
+    // Small delay to ensure modal closes before navigation
+    setTimeout(() => {
+      this.navigateToLesson(lesson);
+    }, 100);
   }
 
   // Helper to navigate to pre-call for lesson or class
   async joinLessonById(lesson: Lesson) {
     const isClass = (lesson as any).isClass;
     
-    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
-    // This prevents stale cache issues where userType might be wrong
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = lesson.tutorId ? (typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId) : null;
-    const studentId = lesson.studentId ? (typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId) : null;
-    
-    console.log('🔍 DEBUG: Role determination:', {
-      currentUserId,
-      currentUserType: typeof lesson.tutorId,
-      tutorId,
-      studentId,
-      tutorIdRaw: lesson.tutorId,
-      studentIdRaw: lesson.studentId,
-      isClass,
-      idsMatch: {
-        matchesTutor: currentUserId === tutorId,
-        matchesStudent: studentId ? currentUserId === studentId : 'N/A (class)'
-      }
-    });
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-      console.log('✅ Determined role: TUTOR (ID match)');
-    } else if (studentId && currentUserId === studentId) {
-      role = 'student';
-      console.log('✅ Determined role: STUDENT (ID match)');
-    } else if (isClass) {
-      // For classes, studentId may be null - determine role by user type
-      role = this.isTutor() ? 'tutor' : 'student';
-      console.log('✅ Determined role for CLASS:', role);
-    } else {
-      // Fallback to currentUser if IDs don't match (shouldn't happen)
-      console.warn('⚠️ Could not determine role from lesson IDs, using currentUser.userType');
-      role = this.isTutor() ? 'tutor' : 'student';
-      console.log('⚠️ Fallback role from currentUser.userType:', role);
-    }
-    
     console.log('🎯 TAB1: Navigating to pre-call:', {
       sessionId: lesson._id,
-      isClass: isClass,
-      role: role,
-      currentUserId,
-      tutorId,
-      studentId,
-      determinedBy: (currentUserId === tutorId || currentUserId === studentId) ? 'lesson IDs' : 'currentUser.userType'
+      isClass: isClass
     });
     
     // Navigate directly to pre-call - don't call backend join yet
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
-        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -6091,54 +6166,16 @@ navigateToLessons() {
     
     const isClass = (this.upcomingLesson as any).isClass || false;
     
-    // CRITICAL FIX: Determine role from the LESSON, not from cached currentUser
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = typeof this.upcomingLesson.tutorId === 'object' ? (this.upcomingLesson.tutorId as any)._id : this.upcomingLesson.tutorId;
-    const studentId = typeof this.upcomingLesson.studentId === 'object' ? (this.upcomingLesson.studentId as any)._id : this.upcomingLesson.studentId;
-    
-    console.log('🔍 DEBUG: Role determination (upcoming lesson):', {
-      currentUserId,
-      tutorIdType: typeof this.upcomingLesson.tutorId,
-      studentIdType: typeof this.upcomingLesson.studentId,
-      tutorId,
-      studentId,
-      tutorIdRaw: this.upcomingLesson.tutorId,
-      studentIdRaw: this.upcomingLesson.studentId,
-      idsMatch: {
-        matchesTutor: currentUserId === tutorId,
-        matchesStudent: currentUserId === studentId
-      }
-    });
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-      console.log('✅ Determined role: TUTOR (ID match)');
-    } else if (currentUserId === studentId) {
-      role = 'student';
-      console.log('✅ Determined role: STUDENT (ID match)');
-    } else {
-      // Fallback to getUserRole method
-      console.warn('⚠️ Could not determine role from lesson IDs, using getUserRole fallback');
-      role = this.getUserRole(this.upcomingLesson) as 'tutor' | 'student';
-
-    }
-    
     console.log('🎯 TAB1: Joining upcoming session:', {
       sessionId: this.upcomingLesson._id,
-      isClass: isClass,
-      role: role,
-      currentUserId,
-      tutorId,
-      studentId
+      isClass: isClass
     });
     
     // Navigate to pre-call page first
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: this.upcomingLesson._id,
-        role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -6996,39 +7033,16 @@ navigateToLessons() {
     const lesson = student.lesson as Lesson;
     const isClass = (lesson as any).isClass || false;
     
-    // CRITICAL FIX: Determine role from the LESSON, not hardcoded
-    const currentUserId = (this.currentUser as any)?._id || (this.currentUser as any)?.id;
-    const tutorId = lesson.tutorId ? (typeof lesson.tutorId === 'object' ? (lesson.tutorId as any)._id : lesson.tutorId) : null;
-    const studentId = lesson.studentId ? (typeof lesson.studentId === 'object' ? (lesson.studentId as any)._id : lesson.studentId) : null;
-    
-    // Determine role by comparing IDs
-    let role: 'tutor' | 'student';
-    if (currentUserId === tutorId) {
-      role = 'tutor';
-    } else if (studentId && currentUserId === studentId) {
-      role = 'student';
-    } else if (isClass) {
-      // For classes, check if current user is in the students array or is the tutor
-      role = this.isTutor() ? 'tutor' : 'student';
-    } else {
-      // Fallback - this method is typically called from tutor view, but check to be sure
-      role = this.isTutor() ? 'tutor' : 'student';
-    }
-    
     console.log('🎯 TAB1: joinStudentLesson navigating to pre-call:', {
       lessonId: lesson._id,
-      role,
-      currentUserId,
-      tutorId,
-      studentId,
       isClass
     });
     
     // Navigate to pre-call page first
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lesson._id,
-        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }
@@ -7804,6 +7818,7 @@ navigateToLessons() {
       const cached = this.tutorFeedbackService.getCachedPendingFeedback();
       this.pendingFeedback = cached.pendingFeedback || [];
       this.pendingFeedbackCount = cached.count || 0;
+      this.updateFeedbackGraceCountdown();
       console.log(`📝 [TAB1] Using cached feedback count: ${this.pendingFeedbackCount}`);
     }
     
@@ -7812,6 +7827,7 @@ navigateToLessons() {
       const response = await firstValueFrom(this.tutorFeedbackService.getPendingFeedback());
       this.pendingFeedback = response.pendingFeedback || [];
       this.pendingFeedbackCount = response.count || 0;
+      this.updateFeedbackGraceCountdown();
       console.log(`📝 [TAB1] Loaded ${this.pendingFeedbackCount} pending feedback requests`);
     } catch (error) {
       console.error('❌ [TAB1] Error loading pending feedback:', error);
@@ -7819,10 +7835,12 @@ navigateToLessons() {
   }
 
   /**
-   * Navigate to feedback form
+   * Navigate to feedback form (post-lesson-tutor page)
    */
-  async openFeedbackForm(feedbackId: string) {
-    this.router.navigate(['/tutor-feedback', feedbackId]);
+  async openFeedbackForm(lessonId: string, feedbackId: string) {
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
+    });
   }
 
   /**
@@ -7861,7 +7879,7 @@ navigateToLessons() {
         text: `${fb.studentName || 'Student'} — ${date}`,
         icon: 'clipboard-outline',
         handler: () => {
-          this.openFeedbackForm(fb._id);
+          this.openFeedbackForm(fb.lessonId, fb._id);
         }
       };
     });
@@ -7879,8 +7897,8 @@ navigateToLessons() {
    * TEST: Open feedback form with a mock ID for testing UI
    */
   async openTestFeedbackForm() {
-    // Use 'test' as the feedback ID to trigger test mode in the feedback form
-    this.router.navigate(['/tutor-feedback', 'test']);
+    // Use 'test' as the lesson ID to trigger test mode in the feedback form
+    this.router.navigate(['/post-lesson-tutor', 'test']);
   }
 
   /**

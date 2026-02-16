@@ -1052,6 +1052,10 @@ router.get('/tutors', verifyToken, async (req, res) => {
     
     // Get tutors with pending feedback (hidden from search)
     // TutorFeedback.tutorId can be either MongoDB _id or auth0Id, so check both
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately hiding their profile from search.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
     const allTutorMongoIds = allMatchingTutorIds.map(t => t._id);
     const allTutorAuth0Ids = allMatchingTutorIds.map(t => t.auth0Id).filter(Boolean);
     const feedbackBlocked = await TutorFeedback.distinct('tutorId', {
@@ -1059,9 +1063,70 @@ router.get('/tutors', verifyToken, async (req, res) => {
         { tutorId: { $in: allTutorMongoIds } },
         { tutorId: { $in: allTutorAuth0Ids } }
       ],
-      status: 'pending'
+      status: 'pending',
+      createdAt: { $lt: graceDeadline }
     });
     const blockedIdSet = new Set(feedbackBlocked.map(id => id.toString()));
+
+    // ── Record grace-period violations (lazy, at-query-time) ──
+    // Find expired feedback items that haven't been flagged yet and mark them.
+    // This avoids needing a cron job — violations are detected whenever search runs.
+    if (blockedIdSet.size > 0) {
+      try {
+        const newlyExpired = await TutorFeedback.find({
+          $or: [
+            { tutorId: { $in: allTutorMongoIds } },
+            { tutorId: { $in: allTutorAuth0Ids } }
+          ],
+          status: 'pending',
+          createdAt: { $lt: graceDeadline },
+          gracePeriodExpired: { $ne: true }  // Not yet flagged
+        }).select('_id tutorId').lean();
+
+        if (newlyExpired.length > 0) {
+          // Flag these feedback items so we don't double-count
+          const expiredIds = newlyExpired.map(f => f._id);
+          await TutorFeedback.updateMany(
+            { _id: { $in: expiredIds } },
+            { $set: { gracePeriodExpired: true } }
+          );
+
+          // Group violations by tutorId and increment each tutor's counter
+          const violationsByTutor = {};
+          for (const fb of newlyExpired) {
+            const tid = fb.tutorId.toString();
+            violationsByTutor[tid] = (violationsByTutor[tid] || 0) + 1;
+          }
+
+          // Build a map from tutorId (auth0Id or _id string) → User _id
+          const tutorIdToMongoId = {};
+          for (const t of allMatchingTutorIds) {
+            tutorIdToMongoId[t._id.toString()] = t._id;
+            if (t.auth0Id) tutorIdToMongoId[t.auth0Id] = t._id;
+          }
+
+          const bulkOps = [];
+          for (const [tid, count] of Object.entries(violationsByTutor)) {
+            const mongoId = tutorIdToMongoId[tid];
+            if (mongoId) {
+              bulkOps.push({
+                updateOne: {
+                  filter: { _id: mongoId },
+                  update: { $inc: { 'stats.feedbackMetrics.feedbackGraceViolations': count } }
+                }
+              });
+            }
+          }
+          if (bulkOps.length > 0) {
+            await User.bulkWrite(bulkOps);
+            console.log(`⚠️ Recorded ${newlyExpired.length} new grace-period violation(s) for ${bulkOps.length} tutor(s)`);
+          }
+        }
+      } catch (violationErr) {
+        // Non-critical — log and continue serving search results
+        console.error('⚠️ Error recording grace-period violations:', violationErr);
+      }
+    }
     
     // Calculate accurate totalCount by excluding blocked tutors
     const totalCount = allMatchingTutorIds.filter(t => 
@@ -1089,6 +1154,16 @@ router.get('/tutors', verifyToken, async (req, res) => {
       );
       console.log(`🚫 Hiding ${beforeCount - tutors.length} tutor(s) with pending feedback from search results`);
     }
+
+    // ── Deprioritize tutors with grace-period violations ──
+    // Tutors who repeatedly let feedback expire get pushed to the end of results.
+    // This is a stable sort: tutors with 0 violations keep their original order,
+    // while violators sink proportionally to their violation count.
+    tutors.sort((a, b) => {
+      const aViolations = a.stats?.feedbackMetrics?.feedbackGraceViolations || 0;
+      const bViolations = b.stats?.feedbackMetrics?.feedbackGraceViolations || 0;
+      return aViolations - bViolations; // Lower violations = higher priority
+    });
     
     const formattedTutors = tutors.map(tutor => {
       const lastActive = tutor.profile?.officeHoursLastActive;
@@ -1842,16 +1917,44 @@ router.get('/:userId/availability', publicProfileLimiter, async (req, res) => {
     console.log('📅 Filtered from', withoutClasses.length, 'to', actualAvailability.length, 'blocks');
 
     // Check if tutor has pending feedback (blocks new bookings)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking their availability calendar.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
+    const graceDeadline = new Date(Date.now() - FEEDBACK_GRACE_MS);
     const TutorFeedback = require('../models/TutorFeedback');
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       tutorId: tutor._id,
       status: 'pending',
-      required: { $ne: false }
+      required: { $ne: false },
+      createdAt: { $lt: graceDeadline }
     });
     const acceptingBookings = pendingFeedbackCount === 0;
 
     if (!acceptingBookings) {
-      console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} pending feedback - not accepting bookings`);
+      console.log(`⚠️ Tutor ${tutor._id} has ${pendingFeedbackCount} pending feedback (older than 2h) - not accepting bookings`);
+
+      // ── Record grace-period violations (lazy detection) ──
+      try {
+        const newlyExpired = await TutorFeedback.updateMany(
+          {
+            tutorId: tutor._id,
+            status: 'pending',
+            required: { $ne: false },
+            createdAt: { $lt: graceDeadline },
+            gracePeriodExpired: { $ne: true }
+          },
+          { $set: { gracePeriodExpired: true } }
+        );
+        if (newlyExpired.modifiedCount > 0) {
+          await User.updateOne(
+            { _id: tutor._id },
+            { $inc: { 'stats.feedbackMetrics.feedbackGraceViolations': newlyExpired.modifiedCount } }
+          );
+          console.log(`⚠️ Recorded ${newlyExpired.modifiedCount} new grace-period violation(s) for tutor ${tutor._id}`);
+        }
+      } catch (violationErr) {
+        console.error('⚠️ Error recording grace-period violations:', violationErr);
+      }
     }
 
     const totalDuration = Date.now() - startTime;

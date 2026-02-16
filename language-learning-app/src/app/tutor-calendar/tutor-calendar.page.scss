@@ -4844,6 +4844,28 @@ ion-content {
   }
 }
 
+// Grace-expired state: banner shifts to red/urgent
+.feedback-banner-airbnb.grace-expired {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.12);
+
+  &:hover {
+    background: #FEE2E2;
+    border-color: #F87171;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.18);
+  }
+
+  .feedback-banner-subtitle {
+    color: #B91C1C;
+    font-weight: 500;
+  }
+
+  .feedback-banner-count {
+    background: #DC2626;
+  }
+}
+
 @keyframes feedbackBannerIn {
   from {
     opacity: 0;

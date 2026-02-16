@@ -20,6 +20,7 @@ interface PaymentBreakdown {
   amount?: number;
   tutorPayout: number;
   platformFee: number;
+  stripeFee: number;
   refundAmount?: number;
   refundReason?: string;
   status: 'paid' | 'pending' | 'in_progress' | 'processing' | 'scheduled' | 'cancelled' | 'refunded' | 'partially_refunded' | 'class_scheduled' | 'succeeded';
@@ -307,6 +308,15 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.router.navigate(['/lesson-analysis', lessonId]);
   }
 
+  viewEvent(lessonId?: string, classId?: string) {
+    // The event-details page handles both lessons and classes via the same route
+    // It will try to load a lesson first, then fall back to class if not found
+    const eventId = lessonId || classId;
+    if (eventId) {
+      this.router.navigate(['/tabs/tutor-calendar/event', eventId]);
+    }
+  }
+
   getStatusColor(status: string): string {
     switch(status) {
       case 'paid':
@@ -395,6 +405,9 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     }
     if (payment.status === 'scheduled' || payment.status === 'class_scheduled') {
       return '';
+    }
+    if (payment.paymentType === 'tip' && payment.stripeFee > 0) {
+      return `Card processing fee: $${payment.stripeFee.toFixed(2)}`;
     }
     return null;
   }
@@ -507,6 +520,27 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.withdrawalAmount = this.balance.available;
   }
 
+  // Getter/setter for formatted withdrawal amount input
+  get formattedWithdrawalAmount(): string {
+    return this.formatCurrency(this.withdrawalAmount);
+  }
+
+  set formattedWithdrawalAmount(value: string) {
+    // Remove any non-numeric characters except decimal point
+    const cleaned = value.replace(/[^0-9.]/g, '');
+    const numValue = parseFloat(cleaned);
+    if (!isNaN(numValue)) {
+      this.withdrawalAmount = numValue;
+    } else if (cleaned === '' || cleaned === '.') {
+      this.withdrawalAmount = 0;
+    }
+  }
+
+  onWithdrawalAmountBlur() {
+    // Format to 2 decimal places when user leaves the field
+    this.withdrawalAmount = parseFloat(this.formatCurrency(this.withdrawalAmount));
+  }
+
   canWithdraw(): boolean {
     if (!this.selectedWithdrawalMethod) {
       return false;
@@ -546,6 +580,16 @@ export class EarningsPage implements OnInit, OnDestroy, ViewWillEnter {
   getNetAmount(): number {
     const fee = this.getWithdrawalFee();
     return this.withdrawalAmount - fee;
+  }
+
+  /**
+   * Format amount to always show 2 decimal places (e.g., 0 -> "0.00", 10 -> "10.00")
+   */
+  formatCurrency(amount: number | null | undefined): string {
+    if (amount == null || isNaN(amount)) {
+      return '0.00';
+    }
+    return amount.toFixed(2);
   }
 
   async showPayPalFeeInfo() {

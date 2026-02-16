@@ -115,7 +115,7 @@
                 <span class="meta-sep" *ngIf="pl.isTrial">·</span>
                 <span class="trial-badge" *ngIf="pl.isTrial">Trial</span>
                 <span class="meta-sep" *ngIf="pl.tipSent">·</span>
-                <span class="tip-sent-badge" *ngIf="pl.tipSent">Tip sent!</span>
+                <span class="tip-sent-badge" *ngIf="pl.tipSent">{{ pl.role === 'tutor' ? 'Tip received!' : 'Tip sent!' }}</span>
               </div>
             </div>
 
@@ -154,6 +154,14 @@
                   <ion-spinner name="dots" color="primary"></ion-spinner>
                   <span>Generating analysis…</span>
                 </div>
+                <span *ngIf="pl.feedbackPendingForStudent && pl.analysisStatus !== 'generating'" class="student-feedback-awaiting">
+                  <ion-icon name="time-outline"></ion-icon>
+                  Awaiting tutor feedback
+                </span>
+                <button *ngIf="pl.canTip" class="action-btn subtle" (click)="tipTutor(pl); $event.stopPropagation()">
+                  <ion-icon name="heart-outline"></ion-icon>
+                  Tip
+                </button>
                 <button *ngIf="pl.canReportIssue" class="action-btn subtle" (click)="reportIssue(pl); $event.stopPropagation()">
                   <ion-icon name="flag-outline"></ion-icon>
                   Report Issue
@@ -469,64 +477,3 @@
   </ng-template>
 </ion-modal>
 
-<!-- Tutor Feedback Modal -->
-<ion-modal [isOpen]="isFeedbackModalOpen" [canDismiss]="true" (didDismiss)="closeFeedbackModal()" class="tutor-feedback-modal">
-  <ng-template>
-    <div class="feedback-modal-container">
-      <div class="feedback-modal-header">
-        <h2>Tutor Feedback</h2>
-        <button class="feedback-modal-close" (click)="closeFeedbackModal()">
-          <ion-icon name="close"></ion-icon>
-        </button>
-      </div>
-
-      <div class="feedback-modal-body">
-        <!-- Strengths -->
-        <div class="feedback-section" *ngIf="selectedFeedbackStrengths.length > 0">
-          <div class="feedback-section-header">
-            <ion-icon name="star-outline" class="section-icon strengths-icon"></ion-icon>
-            <span class="feedback-label">Strengths</span>
-          </div>
-          <ul class="feedback-list">
-            <li *ngFor="let item of selectedFeedbackStrengths">{{ item }}</li>
-          </ul>
-        </div>
-
-        <!-- Areas for Improvement -->
-        <div class="feedback-section" *ngIf="selectedFeedbackAreas.length > 0">
-          <div class="feedback-section-header">
-            <ion-icon name="trending-up-outline" class="section-icon areas-icon"></ion-icon>
-            <span class="feedback-label">Areas for Improvement</span>
-          </div>
-          <ul class="feedback-list">
-            <li *ngFor="let item of selectedFeedbackAreas">{{ item }}</li>
-          </ul>
-        </div>
-
-        <!-- Homework -->
-        <div class="feedback-section" *ngIf="selectedFeedbackHomework">
-          <div class="feedback-section-header">
-            <ion-icon name="book-outline" class="section-icon homework-icon"></ion-icon>
-            <span class="feedback-label">Homework</span>
-          </div>
-          <p class="feedback-text">{{ selectedFeedbackHomework }}</p>
-        </div>
-
-        <!-- Overall Notes -->
-        <div class="feedback-section" *ngIf="selectedFeedbackNotes">
-          <div class="feedback-section-header">
-            <ion-icon name="chatbubble-outline" class="section-icon notes-icon"></ion-icon>
-            <span class="feedback-label">Notes</span>
-          </div>
-          <p class="feedback-text">{{ selectedFeedbackNotes }}</p>
-        </div>
-      </div>
-
-      <div class="feedback-modal-actions">
-        <button class="feedback-action-btn" (click)="closeFeedbackModal()">
-          Done
-        </button>
-      </div>
-    </div>
-  </ng-template>
-</ion-modal>

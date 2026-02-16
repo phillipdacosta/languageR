@@ -196,6 +196,22 @@
   display: flex;
   align-items: center;
   gap: 16px;
+
+  &.clickable {
+    cursor: pointer;
+    padding: 8px 12px;
+    margin: -8px -12px;
+    border-radius: 12px;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: #f7f7f7;
+    }
+
+    &:active {
+      background: #ebebeb;
+    }
+  }
 }
 
 .ed-host-avatar {
@@ -237,6 +253,13 @@
   font-size: 17px;
   font-weight: 600;
   color: var(--ed-text-primary);
+}
+
+.ed-host-chevron {
+  font-size: 18px;
+  color: var(--ed-text-tertiary);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* ── Details (icon + text) ────────────────────────────── */
@@ -317,6 +340,22 @@
 .ed-highlight-meta {
   font-size: 14px;
   color: var(--ed-text-secondary);
+}
+
+.ed-tip-message {
+  font-size: 15px;
+  color: var(--ed-text-secondary);
+  margin: 4px 0 8px;
+}
+
+.ed-tip-fee-note {
+  margin-top: 6px;
+  
+  .ed-tip-fee-detail {
+    font-size: 13px;
+    color: var(--ed-text-secondary);
+    letter-spacing: -0.1px;
+  }
 }
 
 /* ── Analysis ─────────────────────────────────────────── */
@@ -450,6 +489,44 @@
   margin-bottom: 16px;
 
   .ed-section-label { margin: 0; }
+
+  &.collapsible {
+    cursor: pointer;
+    user-select: none;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+
+  .ed-feedback-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ed-feedback-toggle-icon {
+    font-size: 18px;
+    color: var(--ed-text-secondary);
+    transition: transform 0.2s ease;
+  }
+}
+
+.ed-feedback-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+
+  &.collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+  }
+
+  &:not(.collapsed) {
+    max-height: 2000px; // Large enough for content
+    opacity: 1;
+  }
 }
 
 .ed-cefr-sm {
@@ -467,6 +544,11 @@
 
 .ed-fb-block {
   margin-bottom: 16px;
+
+  // Add top margin when not the first element in collapsible content
+  &:not(:first-child) {
+    margin-top: 16px;
+  }
 }
 
 .ed-fb-list {
@@ -702,6 +784,128 @@ ion-header {
   ion-icon { font-size: 22px; }
 }
 
+/* ── Feedback Status Banner ───────────────────────────── */
+.ed-feedback-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+
+  &.pending {
+    background: #FFF7ED;
+    border: 1px solid #FED7AA;
+  }
+
+  &.provided {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+  }
+
+  &.awaiting {
+    background: #F0F4FF;
+    border: 1px solid #C7D2FE;
+  }
+}
+
+.ed-fb-status-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ed-fb-status-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &.pending {
+    background: #FFEDD5;
+    color: #C2410C;
+  }
+
+  &.provided {
+    background: #DCFCE7;
+    color: #16A34A;
+  }
+
+  &.awaiting {
+    background: #E0E7FF;
+    color: #4B5EAA;
+  }
+}
+
+.ed-fb-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ed-fb-status-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ed-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.ed-fb-status-sub {
+  font-size: 13px;
+  color: var(--ed-text-secondary);
+}
+
+.ed-fb-action-btn {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  border: none;
+
+  &.primary {
+    background: var(--ed-accent);
+    color: var(--ed-cta-text);
+
+    &:hover {
+      background: #000;
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+
+  &.subtle {
+    background: transparent;
+    color: var(--ed-text-primary);
+    border: 1.5px solid var(--ed-divider);
+
+    &:hover {
+      background: #f7f7f7;
+      border-color: #ccc;
+    }
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+}
+
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 600px) {
   :host {
@@ -722,5 +926,16 @@ ion-header {
 
   .ed-btn-primary {
     flex: 1;
+  }
+
+  .ed-feedback-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .ed-fb-action-btn {
+    width: 100%;
+    text-align: center;
   }
 }

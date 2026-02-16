@@ -1,11 +1,13 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { LoadingController, AlertController, ToastController } from '@ionic/angular';
 import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { firstValueFrom } from 'rxjs';
 
 interface LessonInfo {
@@ -36,8 +38,11 @@ interface LessonInfo {
   styleUrls: ['./post-lesson-tutor.page.scss'],
   standalone: false
 })
-export class PostLessonTutorPage implements OnInit {
+export class PostLessonTutorPage implements OnInit, OnDestroy {
   lessonId: string = '';
+  feedbackId: string = ''; // From TutorFeedback system (if navigated from pending feedback)
+  isPostCall: boolean = false; // True when arriving directly after a video call
+  backButtonLabel: string = 'Go back';
   lesson: LessonInfo | null = null;
   student: any = null;
   analysis: LessonAnalysis | null = null;
@@ -46,6 +51,18 @@ export class PostLessonTutorPage implements OnInit {
   // AI-enabled flag for this student
   studentAiEnabled: boolean = true;
   
+  // Computed display properties (avoid function calls in template)
+  studentDisplayName: string = 'Student';
+  lessonDateTime: string = '';
+  
+  // Countdown timer (2-hour grace period before profile is hidden)
+  countdownDisplay: string = '';
+  countdownExpired: boolean = false;
+  showCountdown: boolean = false;
+  private countdownInterval: any = null;
+  private graceDeadline: Date | null = null;
+  private static readonly GRACE_PERIOD_MS = 2 * 60 * 60 * 1000; // 2 hours
+
   // Note form
   noteText: string = '';
   quickImpression: string = '';
@@ -105,19 +122,35 @@ export class PostLessonTutorPage implements OnInit {
     'Idiomatic expressions'
   ];
 
+  /** Disable submit button when form is incomplete */
+  get isSubmitDisabled(): boolean {
+    if (this.submittingNote) return true;
+    if (!this.noteText.trim()) return true;
+    if (!this.studentAiEnabled) {
+      return !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
+        this.selectedStrengths.length > 0 && this.selectedAreasToImprove.length > 0);
+    }
+    return false;
+  }
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
+    private location: Location,
     private http: HttpClient,
     private userService: UserService,
     private lessonService: LessonService,
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private tutorFeedbackService: TutorFeedbackService
   ) {}
 
   async ngOnInit() {
     this.lessonId = this.route.snapshot.paramMap.get('id') || '';
+    this.feedbackId = this.route.snapshot.queryParamMap.get('feedbackId') || '';
+    this.isPostCall = this.route.snapshot.queryParamMap.get('fromPostCall') === 'true';
+    this.backButtonLabel = this.isPostCall ? 'Home' : 'Go back';
     
     // Wait for user to be loaded first
     await this.ensureUserLoaded();
@@ -125,6 +158,13 @@ export class PostLessonTutorPage implements OnInit {
     if (this.lessonId) {
       this.loadLessonInfo();
       this.loadAnalysis();
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
     }
   }
 
@@ -160,6 +200,15 @@ export class PostLessonTutorPage implements OnInit {
           this.studentAiEnabled = true; // Default to enabled
         }
         
+        // Compute display properties once (avoid function calls in template)
+        this.studentDisplayName = this.computeStudentDisplayName();
+        this.lessonDateTime = this.computeLessonDateTime();
+
+        // Start countdown timer if student has AI disabled (feedback is required)
+        if (!this.studentAiEnabled) {
+          this.startCountdownTimer();
+        }
+
         console.log('✅ POST-LESSON-TUTOR: Lesson info loaded:', this.lesson);
         console.log('✅ POST-LESSON-TUTOR: Student info:', this.student);
         console.log('🤖 POST-LESSON-TUTOR: Student AI enabled:', this.studentAiEnabled);
@@ -232,13 +281,6 @@ export class PostLessonTutorPage implements OnInit {
     this.fluencyRating = rating;
   }
 
-  isEnhancedFormValid(): boolean {
-    if (this.studentAiEnabled) return true; // Standard form only needs noteText
-    return !!(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 && 
-              this.noteText.trim() && this.selectedStrengths.length > 0 && 
-              this.selectedAreasToImprove.length > 0);
-  }
-
   async submitNote() {
     if (!this.noteText.trim()) {
       const alert = await this.alertCtrl.create({
@@ -251,7 +293,8 @@ export class PostLessonTutorPage implements OnInit {
     }
 
     // Validate enhanced form when AI is off
-    if (!this.studentAiEnabled && !this.isEnhancedFormValid()) {
+    if (!this.studentAiEnabled && !(this.cefrLevel && this.grammarRating > 0 && this.fluencyRating > 0 &&
+        this.selectedStrengths.length > 0 && this.selectedAreasToImprove.length > 0)) {
       const alert = await this.alertCtrl.create({
         header: 'Assessment Required',
         message: 'Please complete the CEFR level, grammar rating, fluency rating, strengths, and areas to improve.',
@@ -295,6 +338,34 @@ export class PostLessonTutorPage implements OnInit {
 
       if (response.success) {
         this.noteSubmitted = true;
+        
+        // If this was opened from a pending TutorFeedback request, mark it as completed too
+        if (this.feedbackId) {
+          try {
+            await firstValueFrom(this.tutorFeedbackService.submitFeedback(this.feedbackId, {
+              strengths: this.selectedStrengths.length > 0 
+                ? this.selectedStrengths 
+                : [this.noteText.trim()],
+              areasForImprovement: this.selectedAreasToImprove.length > 0 
+                ? this.selectedAreasToImprove 
+                : [],
+              homework: this.homework || '',
+              overallNotes: this.noteText || '',
+              estimatedCefrLevel: this.cefrLevel || ''
+            }));
+            console.log('✅ POST-LESSON-TUTOR: TutorFeedback record also marked as completed');
+          } catch (fbError) {
+            console.warn('⚠️ POST-LESSON-TUTOR: Could not mark TutorFeedback as completed:', fbError);
+            // Non-blocking — the tutor note was already saved successfully
+          }
+        }
+
+        // Always refresh the pending feedback cache so banners update everywhere instantly.
+        // submitFeedback() above already triggers a refresh when feedbackId exists,
+        // but this covers the post-call flow where there's no feedbackId.
+        if (!this.feedbackId) {
+          this.tutorFeedbackService.refreshPendingFeedback();
+        }
         
         const toast = await this.toastCtrl.create({
           message: '✅ Note sent to student!',
@@ -348,14 +419,16 @@ export class PostLessonTutorPage implements OnInit {
     if (!this.studentAiEnabled && !this.noteSubmitted) {
       const alert = await this.alertCtrl.create({
         header: 'Feedback Required',
-        message: 'Your student has AI analysis disabled, so your feedback is mandatory. Your profile will be hidden from students until feedback is completed.',
+        message: this.countdownExpired
+          ? 'Your student has AI analysis disabled, so your feedback is mandatory. Your profile is currently hidden from students — submit feedback to restore it.'
+          : 'Your student has AI analysis disabled, so your feedback is mandatory. Your profile will be hidden from students if not submitted within the time shown.',
         buttons: [
           {
             text: 'Leave Anyway',
             role: 'cancel',
             cssClass: 'secondary',
             handler: () => {
-              this.router.navigate(['/tabs/lessons']);
+              this.navigateBack();
             }
           },
           {
@@ -370,7 +443,62 @@ export class PostLessonTutorPage implements OnInit {
       return;
     }
     
-    await this.router.navigate(['/tabs/lessons']);
+    this.navigateBack();
+  }
+
+  private navigateBack() {
+    if (this.isPostCall) {
+      // Came directly from video call — go to lessons home
+      this.router.navigate(['/tabs/lessons']);
+    } else {
+      // Came from calendar, home, lessons list, notifications, etc. — go back
+      this.location.back();
+    }
+  }
+
+  // ── Countdown Timer ──────────────────────────────────────
+  private startCountdownTimer() {
+    if (!this.lesson) return;
+
+    // Use lesson end time as the reference for the 2-hour grace period
+    const lessonEndTime = this.lesson.endTime
+      ? new Date(this.lesson.endTime)
+      : new Date(this.lesson.startTime);
+    
+    this.graceDeadline = new Date(lessonEndTime.getTime() + PostLessonTutorPage.GRACE_PERIOD_MS);
+    this.showCountdown = true;
+
+    // Update immediately, then every second
+    this.updateCountdown();
+    this.countdownInterval = setInterval(() => this.updateCountdown(), 1000);
+  }
+
+  private updateCountdown() {
+    if (!this.graceDeadline) return;
+
+    const now = new Date();
+    const remainingMs = this.graceDeadline.getTime() - now.getTime();
+
+    if (remainingMs <= 0) {
+      this.countdownExpired = true;
+      this.countdownDisplay = 'Expired';
+      if (this.countdownInterval) {
+        clearInterval(this.countdownInterval);
+        this.countdownInterval = null;
+      }
+      return;
+    }
+
+    const totalSeconds = Math.floor(remainingMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      this.countdownDisplay = `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+    } else {
+      this.countdownDisplay = `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+    }
   }
 
   formatDate(date: Date): string {
@@ -403,19 +531,7 @@ export class PostLessonTutorPage implements OnInit {
     });
   }
 
-  formatLessonDateTime(): string {
-    if (!this.lesson?.startTime) return '';
-    const date = this.formatDate(this.lesson.startTime);
-    const startTime = this.formatTime(this.lesson.startTime);
-    const endTime = this.lesson.endTime ? this.formatTime(this.lesson.endTime) : '';
-    
-    if (endTime) {
-      return `${date} · ${startTime} - ${endTime}`;
-    }
-    return `${date} · ${startTime}`;
-  }
-
-  getStudentDisplayName(): string {
+  private computeStudentDisplayName(): string {
     if (!this.student) return 'Student';
     
     const firstName = this.student.firstName;
@@ -446,12 +562,16 @@ export class PostLessonTutorPage implements OnInit {
     return name || 'Student';
   }
 
-  getEarningsAmount(): number {
-    // Platform takes 20% fee, tutor gets 80%
-    if (this.lesson?.price) {
-      return Math.round(this.lesson.price * 0.80 * 100) / 100;
+  private computeLessonDateTime(): string {
+    if (!this.lesson?.startTime) return '';
+    const date = this.formatDate(this.lesson.startTime);
+    const startTime = this.formatTime(this.lesson.startTime);
+    const endTime = this.lesson.endTime ? this.formatTime(this.lesson.endTime) : '';
+
+    if (endTime) {
+      return `${date} · ${startTime} - ${endTime}`;
     }
-    return 0;
+    return `${date} · ${startTime}`;
   }
 }
 

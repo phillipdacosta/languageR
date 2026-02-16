@@ -24,6 +24,11 @@ const transcriptSegmentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // Duration of this segment in seconds (from Whisper seg.end - seg.start)
+  duration: {
+    type: Number,
+    default: 0
+  },
   // Audio data for GPT-4 pronunciation assessment
   audioBase64: {
     type: String,

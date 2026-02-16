@@ -151,11 +151,7 @@ const routes: Routes = [
     loadChildren: () => import('./post-lesson-tutor/post-lesson-tutor.page.module').then(m => m.PostLessonTutorPageModule),
     canActivate: [AuthGuard]
   },
-  {
-    path: 'tutor-feedback/:feedbackId',
-    loadComponent: () => import('./tutor-feedback/tutor-feedback.page').then( m => m.TutorFeedbackPage),
-    canActivate: [AuthGuard]
-  },
+  // tutor-feedback route removed — consolidated into /post-lesson-tutor/:id
   {
     path: 'wallet',
     loadChildren: () => import('./wallet/wallet.module').then( m => m.WalletPageModule)

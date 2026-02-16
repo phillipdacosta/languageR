@@ -137,10 +137,10 @@ export class OfficeHoursBookingComponent implements OnInit {
         if (this.bookingType === 'instant') {
           // Wait a moment for modal to close
           setTimeout(() => {
+            // SECURITY: role is determined from lesson data + auth, not passed in URL
             this.router.navigate(['/pre-call'], {
               queryParams: {
                 lessonId: response.lesson._id,
-                role: 'student',
                 lessonMode: 'true',
                 officeHours: 'true',
                 waitingForTutor: 'true' // Flag to show waiting state

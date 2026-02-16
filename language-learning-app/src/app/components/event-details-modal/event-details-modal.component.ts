@@ -318,18 +318,15 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     const currentUserId = (currentUser as any)?._id || (currentUser as any)?.id;
     const isClass = this.event.isClass || false;
     
-    // Determine role - for tutor calendar, user is always the tutor
-    const role = 'tutor';
-    
     const lessonId = this.event.lessonId || this.event.classId;
     
     this.close();
     
     // Navigate to pre-call page
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lessonId,
-        role: role,
         lessonMode: 'true',
         isClass: isClass ? 'true' : 'false'
       }

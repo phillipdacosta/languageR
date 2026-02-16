@@ -148,14 +148,18 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     // ==========================================
 
     // 0. CHECK: Tutor has no REQUIRED pending feedback (block new bookings)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking new bookings.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       tutorId: tutor._id,
       status: 'pending',
-      required: { $ne: false }
+      required: { $ne: false },
+      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS) }
     });
 
     if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking payment booking - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback`);
+      console.log(`🚫 Blocking payment booking - tutor ${tutor.email} has ${pendingFeedbackCount} pending feedback (older than 2h)`);
       return res.status(403).json({
         success: false,
         message: 'Tutor not accepting bookings at this time.',
@@ -1177,6 +1181,32 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (page ${page})`);
 
+    // ─── Fetch any missing hybrid payment partners ────────────────────
+    // If a hybrid payment's partner landed on a different page, fetch it so we can merge
+    const hybridPaymentLessonIds = payments
+      .filter(p => p.metadata?.isHybridPayment && p.lessonId?._id)
+      .map(p => p.lessonId._id.toString());
+
+    if (hybridPaymentLessonIds.length > 0) {
+      const currentPaymentIds = new Set(payments.map(p => p._id.toString()));
+      const missingPartners = await Payment.find({
+        tutorId: user._id,
+        lessonId: { $in: hybridPaymentLessonIds },
+        _id: { $nin: [...currentPaymentIds] },
+        'metadata.isHybridPayment': true,
+        transferStatus: { $ne: 'acknowledged' }
+      })
+        .populate('lessonId', 'startTime endTime duration status cancelReason')
+        .populate('classId', 'startTime endTime name status')
+        .populate('studentId', 'name firstName lastName picture');
+
+      if (missingPartners.length > 0) {
+        console.log(`🔀 Found ${missingPartners.length} missing hybrid partner payment(s), adding for merge`);
+        payments = [...payments, ...missingPartners];
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────
+
     // Calculate totals (always calculate from ALL payments, not just current page)
     const allPayments = await Payment.find({
       tutorId: user._id,
@@ -1222,7 +1252,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       }
     });
 
-    const recentPayments = payments.map(payment => {
+    const rawPayments = payments.map(payment => {
       const tutorPayout = payment.tutorPayout || 0;
       const lessonStatus = payment.lessonId?.status || 'unknown';
       const classStatus = payment.classId?.status;
@@ -1287,6 +1317,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         amount: payment.amount || 0,
         tutorPayout,
         platformFee: payment.platformFee || 0,
+        stripeFee: payment.stripeFee || 0,
         refundAmount: payment.refundAmount || 0,
         refundReason: payment.refundReason || null,
         status: paymentStatus,
@@ -1300,9 +1331,54 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         paymentType: payment.paymentType || 'lesson_booking',
         receiptUrl: payment.receiptUrl || null,
         stripeChargeId: payment.stripeChargeId || null,
-        paypalTransactionId: payment.paypalTransactionId || null
+        paypalTransactionId: payment.paypalTransactionId || null,
+        _isHybrid: payment.metadata?.isHybridPayment || false // internal flag for merging
       };
     });
+
+    // ─── Merge hybrid payment rows ───────────────────────────────────
+    // When a student pays with wallet + card, two Payment records are created
+    // for the same lesson. The tutor should only see ONE row with combined totals.
+    const recentPayments = [];
+    const hybridMergeMap = new Map(); // lessonId string → merged row
+
+    for (const row of rawPayments) {
+      const lessonKey = row.lessonId ? row.lessonId.toString() : null;
+
+      if (row._isHybrid && lessonKey) {
+        if (hybridMergeMap.has(lessonKey)) {
+          // Merge into existing row
+          const existing = hybridMergeMap.get(lessonKey);
+          existing.amount += row.amount;
+          existing.tutorPayout += row.tutorPayout;
+          existing.platformFee += row.platformFee;
+          existing.refundAmount += row.refundAmount;
+          // Keep the more "complete" status (card payment usually has receipt/charge)
+          if (row.receiptUrl && !existing.receiptUrl) existing.receiptUrl = row.receiptUrl;
+          if (row.stripeChargeId && !existing.stripeChargeId) existing.stripeChargeId = row.stripeChargeId;
+          console.log(`🔀 Merged hybrid payment rows for lesson ${lessonKey}: combined $${existing.amount.toFixed(2)}`);
+        } else {
+          // First hybrid row for this lesson — store for potential merge
+          hybridMergeMap.set(lessonKey, { ...row });
+        }
+      } else {
+        // Non-hybrid payment — pass through directly
+        recentPayments.push(row);
+      }
+    }
+
+    // Add all merged hybrid rows to the results
+    for (const mergedRow of hybridMergeMap.values()) {
+      delete mergedRow._isHybrid; // Remove internal flag before sending to frontend
+      recentPayments.push(mergedRow);
+    }
+
+    // Also clean up non-hybrid rows
+    recentPayments.forEach(row => delete row._isHybrid);
+
+    // Re-sort by date (merging may have disrupted order)
+    recentPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // ─────────────────────────────────────────────────────────────────
     
     // Apply filters
     let filteredPayments = recentPayments;

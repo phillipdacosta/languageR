@@ -894,10 +894,28 @@ async function analyzeLessonTranscript({
       throw new Error('CRITICAL ERROR: No student segments provided to GPT-4. Cannot analyze empty transcript.');
     }
     
-    // Calculate lesson duration estimate (segments typically ~5-10 seconds each)
-    const estimatedMinutes = Math.ceil(studentSegments.length * 0.15); // rough estimate
-    const speakingTimeMinutes = estimatedMinutes; // Use for prompt variable
-    console.log(`📊 Estimated lesson duration: ~${estimatedMinutes} minutes`);
+    // Calculate lesson duration from actual segment durations if available
+    // Falls back to word-count estimation for older transcripts without duration data
+    const segmentsWithDuration = studentSegments.filter(s => s.duration && s.duration > 0);
+    let speakingTimeMinutes;
+    
+    if (segmentsWithDuration.length > 0) {
+      // Use actual Whisper duration data
+      let totalSeconds = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+      // If only some segments have duration, estimate the rest proportionally
+      if (segmentsWithDuration.length < studentSegments.length) {
+        const avgDuration = totalSeconds / segmentsWithDuration.length;
+        totalSeconds += (studentSegments.length - segmentsWithDuration.length) * avgDuration;
+      }
+      speakingTimeMinutes = Math.ceil(totalSeconds / 60);
+      console.log(`📊 Speaking time (from Whisper durations): ${speakingTimeMinutes} min (${Math.round(totalSeconds)}s)`);
+    } else {
+      // Fallback: estimate from word count (~150 words/minute)
+      const totalStudentWordsForEstimate = studentSegments.reduce((sum, s) => sum + s.text.split(/\s+/).length, 0);
+      speakingTimeMinutes = Math.ceil(totalStudentWordsForEstimate / 150) || 1;
+      console.log(`📊 Speaking time (estimated from ${totalStudentWordsForEstimate} words): ~${speakingTimeMinutes} min`);
+    }
+    
     console.log(`📊 Student segments: ${studentSegments.length}`);
     console.log(`📊 Tutor segments: ${tutorSegments.length}`);
     

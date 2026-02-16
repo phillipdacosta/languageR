@@ -224,7 +224,7 @@ const lessonAnalysisSchema = new mongoose.Schema({
   processingTime: Number, // milliseconds
   status: {
     type: String,
-    enum: ['pending', 'processing', 'completed', 'failed'],
+    enum: ['pending', 'processing', 'completed', 'failed', 'insufficient_data'],
     default: 'pending'
   },
   error: String,

@@ -6,6 +6,7 @@ export interface EarlyExitData {
   scheduledEndTime: Date;
   currentTime: Date;
   minutesRemaining: number;
+  isClass?: boolean;
 }
 
 @Injectable({

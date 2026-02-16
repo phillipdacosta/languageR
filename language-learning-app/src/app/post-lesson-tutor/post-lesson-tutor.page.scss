@@ -1,36 +1,45 @@
+// ==========================================================
+// POST-LESSON TUTOR — Apple / Airbnb Clean Design
+// ==========================================================
+
 .post-lesson-tutor-content {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --background: #F7F7F7;
+  
+  // Remove Ionic's default green focus underline
+  --highlight-color: transparent;
+  --highlight-color-focused: transparent;
 }
 
 .content-wrapper {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px;
   position: relative;
 }
 
-// =============================================
-// TOP HOME BUTTON
-// =============================================
-.top-home-btn {
+// ==========================================================
+// BACK BUTTON
+// ==========================================================
+.back-btn {
   position: absolute;
-  top: 24px;
+  top: 20px;
   left: 24px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 20px;
+  gap: 4px;
+  background: white;
+  border: 1px solid #DDDDDD;
+  border-radius: 24px;
   padding: 8px 16px;
-  color: white;
+  color: #222222;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   z-index: 10;
 
   ion-icon {
@@ -38,308 +47,378 @@
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-color: #B0B0B0;
   }
 }
 
-// =============================================
-// MAIN CONTAINER
-// =============================================
-.congratulations-container {
-  max-width: 900px;
+// ==========================================================
+// MAIN CARD
+// ==========================================================
+.lesson-card {
+  max-width: 640px;
   width: 100%;
   background: white;
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  border-radius: 16px;
+  padding: 36px 32px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06),
+              0 4px 16px rgba(0, 0, 0, 0.04);
 
-  @media (max-width: 768px) {
-    padding: 24px 20px;
-    border-radius: 20px;
+  @media (max-width: 680px) {
+    padding: 28px 20px;
+    border-radius: 14px;
   }
 }
 
-// =============================================
-// COMPACT HEADER
-// =============================================
-.congrats-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #EBEBEB;
+// ==========================================================
+// CARD HEADER
+// ==========================================================
+.card-header {
+  text-align: center;
+  margin-bottom: 28px;
 
-  @media (max-width: 600px) {
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
-  }
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-
-  .congrats-icon {
-    font-size: 48px;
-    animation: bounce 1s ease-in-out;
+  .header-emoji {
+    font-size: 44px;
+    display: block;
+    margin-bottom: 8px;
+    animation: pop 0.4s ease;
   }
 
-  .header-text {
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      color: #1c1c1e;
-      margin: 0;
-      letter-spacing: -0.5px;
-    }
-
-    p {
-      font-size: 14px;
-      color: #8e8e93;
-      margin: 4px 0 0 0;
-    }
-  }
-}
-
-.earnings-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  
-  .earnings-label {
-    font-size: 12px;
-    color: #717171;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .earnings-amount {
-    font-size: 28px;
+  h1 {
+    font-size: 26px;
     font-weight: 700;
-    color: #10b981;
-    letter-spacing: -0.5px;
+    color: #1A1A1A;
+    margin: 0;
+    letter-spacing: -0.4px;
   }
 
-  @media (max-width: 600px) {
-    align-items: center;
-  }
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-// =============================================
-// MAIN LAYOUT - HORIZONTAL
-// =============================================
-.main-layout {
-  display: flex;
-  gap: 32px;
-  align-items: flex-start;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 24px;
+  .header-subtitle {
+    font-size: 15px;
+    color: #717171;
+    margin: 6px 0 0 0;
   }
 }
 
-// =============================================
-// LEFT PANEL - STUDENT INFO
-// =============================================
-.left-panel {
-  flex: 0 0 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  @media (max-width: 768px) {
-    flex: 1;
-    width: 100%;
-  }
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-.student-card {
+// ==========================================================
+// STUDENT ROW
+// ==========================================================
+.student-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px;
+  padding: 16px 18px;
   background: #F7F7F7;
   border-radius: 14px;
+  margin-bottom: 20px;
 
-  .student-avatar {
+  .avatar {
     width: 52px;
     height: 52px;
     border-radius: 50%;
     object-fit: cover;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
   }
 
-  .student-info {
-    h3 {
-      font-size: 17px;
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .name {
+      font-size: 16px;
       font-weight: 600;
-      color: #222;
-      margin: 0 0 4px 0;
-      letter-spacing: -0.2px;
+      color: #222222;
     }
 
-    .lesson-datetime {
+    .datetime {
       font-size: 13px;
-      color: #222;
-      margin: 0 0 2px 0;
       font-weight: 500;
+      color: #484848;
     }
 
-    .lesson-duration {
+    .duration {
       font-size: 12px;
       color: #717171;
-      margin: 0;
     }
   }
 }
 
-.metrics-row {
+// ==========================================================
+// PERFORMANCE METRICS
+// ==========================================================
+.metrics {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.metric-item {
+.metric {
   flex: 1;
-  background: #F7F7F7;
-  padding: 12px 8px;
-  border-radius: 12px;
   text-align: center;
+  background: #F7F7F7;
+  border-radius: 12px;
+  padding: 14px 8px;
 
-  .metric-value {
+  .metric-val {
     display: block;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
-    color: #222;
+    color: #222222;
   }
 
-  .metric-label {
+  .metric-lbl {
     display: block;
     font-size: 10px;
     color: #717171;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-top: 2px;
+    letter-spacing: 0.5px;
+    margin-top: 3px;
   }
 }
 
-// =============================================
-// RIGHT PANEL - NOTE FORM
-// =============================================
-.right-panel {
-  flex: 1;
-  background: #FAFAFA;
-  border-radius: 16px;
-  padding: 24px;
-  border: 1px solid #EBEBEB;
-
-  @media (max-width: 768px) {
-    width: 100%;
-  }
+// ==========================================================
+// DIVIDER
+// ==========================================================
+.divider {
+  height: 1px;
+  background: #EBEBEB;
+  margin: 4px 0 24px 0;
 }
 
-.form-header {
+// ==========================================================
+// COUNTDOWN TIMER BANNER
+// ==========================================================
+.countdown-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 14px;
   margin-bottom: 16px;
+  transition: all 0.3s ease;
+
+  &.expired {
+    background: #FEF2F2;
+    border-color: #FECACA;
+  }
+}
+
+.countdown-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  background: #F59E0B;
+  transition: background 0.3s ease;
 
-  h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #222;
-    margin: 0;
-  }
-}
-
-// =============================================
-// IMPRESSION CHIPS - INLINE
-// =============================================
-.impression-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.impression-chip {
-  padding: 8px 14px;
-  background: white;
-  border: 1.5px solid #DDD;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #222;
-  cursor: pointer;
-  transition: all 0.15s ease;
-
-  &:hover {
-    border-color: #222;
-  }
-
-  &.selected {
-    border-color: #222;
-    background: #222;
+  ion-icon {
+    font-size: 20px;
     color: white;
   }
 
-  &[data-color="success"].selected {
-    border-color: #10b981;
-    background: #10b981;
-  }
-
-  &[data-color="warning"].selected {
-    border-color: #f59e0b;
-    background: #f59e0b;
+  .expired & {
+    background: #EF4444;
   }
 }
 
-// =============================================
+.countdown-body {
+  flex-grow: 1;
+}
+
+.countdown-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+}
+
+.countdown-sub {
+  font-size: 13px;
+  color: #717171;
+  margin: 0;
+  line-height: 1.45;
+
+  .expired & {
+    color: #991B1B;
+  }
+}
+
+// ==========================================================
+// FEEDBACK ENCOURAGEMENT TIP
+// ==========================================================
+.feedback-tip {
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #FAFAFA;
+  border: 1px solid #EBEBEB;
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+
+.feedback-tip-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.feedback-tip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feedback-tip-lead {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.feedback-tip-detail {
+  font-size: 13px;
+  color: #717171;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.feedback-tip-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #EBEBEB;
+
+  ion-icon {
+    font-size: 16px;
+    color: #7C3AED;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    font-size: 12px;
+    color: #555555;
+    line-height: 1.45;
+
+    strong {
+      color: #7C3AED;
+      font-weight: 600;
+    }
+  }
+}
+
+// ==========================================================
+// SECTION TITLE
+// ==========================================================
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222222;
+  margin: 0 0 6px 0;
+}
+
+// ==========================================================
 // ASSESSMENT BADGE
-// =============================================
+// ==========================================================
 .assessment-badge {
-  background: #FFF3CD;
-  color: #856404;
+  display: inline-block;
+  background: #FFF7ED;
+  color: #9A3412;
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  margin-bottom: 16px;
 }
 
-// =============================================
-// ENHANCED ASSESSMENT (when AI is off)
-// =============================================
-.enhanced-assessment {
-  margin-bottom: 16px;
-  padding-bottom: 16px;
+// ==========================================================
+// IMPRESSION CHIPS
+// ==========================================================
+.impressions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 20px 0;
+}
+
+.chip {
+  padding: 8px 16px;
+  background: white;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #222222;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    border-color: #222222;
+  }
+
+  &.selected {
+    border-color: #222222;
+    background: #222222;
+    color: white;
+  }
+
+  &[data-color="success"].selected {
+    border-color: #059669;
+    background: #059669;
+  }
+
+  &[data-color="warning"].selected {
+    border-color: #D97706;
+    background: #D97706;
+  }
+}
+
+// ==========================================================
+// ENHANCED ASSESSMENT FORM (when AI is off)
+// ==========================================================
+.assessment-form {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
   border-bottom: 1px solid #EBEBEB;
 }
 
-.assessment-section {
-  margin-bottom: 14px;
+.form-group {
+  margin-bottom: 16px;
 
   label {
     display: block;
     font-size: 13px;
     font-weight: 600;
-    color: #222;
+    color: #222222;
     margin-bottom: 8px;
 
-    .required {
-      color: #FF385C;
+    .req {
+      color: #E11D48;
     }
 
-    .optional {
+    .opt {
       font-weight: 400;
       color: #717171;
       font-size: 12px;
@@ -348,262 +427,282 @@
 }
 
 // CEFR Level Chips
-.cefr-row {
+.cefr-chips {
   display: flex;
-  gap: 6px;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
 .cefr-chip {
-  padding: 8px 16px;
+  padding: 8px 18px;
   background: white;
-  border: 1.5px solid #DDD;
-  border-radius: 20px;
+  border: 1.5px solid #DDDDDD;
+  border-radius: 24px;
   font-size: 14px;
   font-weight: 600;
-  color: #222;
+  color: #222222;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-width: 48px;
-  text-align: center;
 
   &:hover {
-    border-color: #222;
+    border-color: #222222;
   }
 
   &.selected {
-    border-color: #222;
-    background: #222;
+    border-color: #222222;
+    background: #222222;
     color: white;
   }
 }
 
-// Rating Row
-.ratings-row {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 14px;
+// Ratings Grid
+.ratings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
 
-  @media (max-width: 600px) {
-    flex-direction: column;
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 }
 
-.rating-group {
-  flex: 1;
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #222;
-    margin-bottom: 8px;
-
-    .required {
-      color: #FF385C;
-    }
-  }
-}
-
-.star-row {
+.dots-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.rating-dot {
+.dot {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  border: 2px solid #DDD;
+  border: 2px solid #DDDDDD;
   background: white;
   cursor: pointer;
-  transition: all 0.15s ease;
   padding: 0;
+  transition: all 0.15s ease;
 
   &:hover {
-    border-color: #222;
+    border-color: #222222;
   }
 
   &.active {
-    background: #222;
-    border-color: #222;
+    background: #222222;
+    border-color: #222222;
   }
 }
 
-.rating-value {
+.dot-val {
   margin-left: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #222;
+  color: #222222;
 }
 
-// Chip Grid
-.chip-grid {
+// Tag Chips (Error Areas, Strengths, Areas to Improve)
+.chip-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.select-chip {
+.tag {
   padding: 6px 14px;
   background: white;
-  border: 1.5px solid #DDD;
+  border: 1.5px solid #DDDDDD;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
-  color: #555;
+  color: #555555;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    border-color: #222;
-    color: #222;
+    border-color: #222222;
+    color: #222222;
   }
 
   &.selected {
-    border-color: #222;
+    border-color: #222222;
     background: #F5F5F5;
-    color: #222;
+    color: #222222;
     font-weight: 600;
   }
 
-  &.chip-green.selected {
-    border-color: #10b981;
-    background: #ecfdf5;
-    color: #065f46;
+  &.tag-green.selected {
+    border-color: #059669;
+    background: #ECFDF5;
+    color: #065F46;
   }
 
-  &.chip-orange.selected {
-    border-color: #f59e0b;
-    background: #fffbeb;
-    color: #92400e;
+  &.tag-amber.selected {
+    border-color: #D97706;
+    background: #FFFBEB;
+    color: #92400E;
   }
 }
 
-// =============================================
-// FIELDS ROW - SIDE BY SIDE
-// =============================================
-.fields-row {
-  display: flex;
+// ==========================================================
+// TEXTAREA GRID
+// ==========================================================
+.textarea-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
+  margin-bottom: 24px;
 
-  @media (max-width: 600px) {
-    flex-direction: column;
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
     gap: 12px;
-  }
-}
-
-.field-group {
-  flex: 1;
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: #222;
-    margin-bottom: 6px;
-
-    .required {
-      color: #FF385C;
-    }
-
-    .optional {
-      font-weight: 400;
-      color: #717171;
-      font-size: 12px;
-    }
   }
 
   ion-textarea {
-    --background: white;
-    --border-radius: 10px;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --padding-top: 10px;
-    --padding-bottom: 10px;
-    border: 1.5px solid #DDD;
-    border-radius: 10px;
+    --background: #F7F7F7;
+    --border-radius: 12px;
+    --padding-start: 14px;
+    --padding-end: 14px;
+    --padding-top: 12px;
+    --padding-bottom: 12px;
+    --highlight-color: transparent;
+    --highlight-color-focused: transparent;
+    border: 1.5px solid #DDDDDD;
+    border-radius: 12px;
     font-size: 14px;
     transition: border-color 0.15s ease;
 
     &:focus-within {
-      border-color: #222;
+      border-color: #222222;
+    }
+
+    // Remove Ionic's default focus underline (green line)
+    &::part(native) {
+      &::after {
+        display: none !important;
+      }
+    }
+
+    .textarea-wrapper {
+      &::after {
+        display: none !important;
+        background: transparent !important;
+      }
+    }
+
+    textarea {
+      &:focus {
+        outline: none;
+        border: none;
+      }
+
+      &::after {
+        display: none !important;
+      }
     }
   }
 }
 
-// =============================================
-// FORM ACTIONS - INLINE
-// =============================================
-.form-actions {
+// ==========================================================
+// ACTIONS
+// ==========================================================
+.actions {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 20px;
+}
 
-  ion-button {
-    margin: 0;
-    --border-radius: 10px;
-    font-weight: 600;
-    height: 44px;
-    font-size: 14px;
-    --padding-start: 24px;
-    --padding-end: 24px;
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #222222;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 48px;
+
+  &:hover:not(:disabled) {
+    background: #000000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background: #E0E0E0;
+    color: #A0A0A0;
+    cursor: not-allowed;
+  }
+
+  ion-spinner {
+    --color: white;
+    width: 20px;
+    height: 20px;
   }
 }
 
-.skip-link {
+.btn-text {
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #717171;
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
 
   &:hover {
-    color: #222;
+    color: #222222;
   }
 }
 
-// =============================================
-// SUCCESS MESSAGE
-// =============================================
-.success-container {
-  max-width: 400px;
+// ==========================================================
+// SUCCESS CARD
+// ==========================================================
+.success-card {
+  max-width: 420px;
   width: 100%;
   background: white;
-  border-radius: 24px;
+  border-radius: 16px;
   padding: 48px 32px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06),
+              0 4px 16px rgba(0, 0, 0, 0.04);
   text-align: center;
-}
 
-.success-content {
-  ion-icon {
-    font-size: 64px;
+  .success-icon-wrap {
     margin-bottom: 16px;
+
+    ion-icon {
+      font-size: 56px;
+      color: #059669;
+    }
   }
 
   h2 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 600;
-    color: #222;
+    color: #222222;
     margin: 0 0 8px 0;
   }
 
   p {
     font-size: 15px;
     color: #717171;
-    margin: 0 0 24px 0;
+    margin: 0 0 28px 0;
   }
 
-  ion-button {
-    --border-radius: 10px;
-    font-weight: 600;
-    height: 48px;
+  .btn-primary {
+    width: 100%;
   }
 }

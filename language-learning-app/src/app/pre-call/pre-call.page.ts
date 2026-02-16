@@ -8,6 +8,7 @@ import { ClassService } from '../services/class.service';
 import { AgoraService } from '../services/agora.service';
 import { WebSocketService } from '../services/websocket.service';
 import { TranscriptionService, LessonAnalysis } from '../services/transcription.service';
+import { ReminderService } from '../services/reminder.service';
 import { firstValueFrom } from 'rxjs';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -71,6 +72,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Error recovery
   showRetryButton = false;
   
+  // Flag to prevent ngOnDestroy from calling leaveLesson when navigating to video-call
+  private isEnteringClassroom = false;
+  
   // Audio level monitoring
   audioLevel: number = 0;
   private audioContext: AudioContext | null = null;
@@ -91,7 +95,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     private toastController: ToastController,
     private transcriptionService: TranscriptionService,
     private websocketService: WebSocketService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private reminderService: ReminderService
   ) {}
 
   async ngOnInit() {
@@ -99,20 +104,24 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.lessonId = params['lessonId'] || '';
     this.isClass = params['isClass'] === 'true';
     const isOfficeHours = params['officeHours'] === 'true';
+    
+    // Suppress the lesson reminder for this lesson while on pre-call
+    if (this.lessonId) {
+      this.reminderService.suppressForLesson(this.lessonId);
+    }
     const waitingForTutor = params['waitingForTutor'] === 'true';
-    const role = params['role'];
     
     console.log('🚀 PRE-CALL ngOnInit() - Query Params:', {
       lessonId: this.lessonId,
       isClass: this.isClass,
       isOfficeHours,
-      waitingForTutor,
-      role
+      waitingForTutor
     });
 
     
     // Handle student waiting for tutor to accept office hours request
-    if (isOfficeHours && role === 'student' && waitingForTutor && this.lessonId) {
+    // (waitingForTutor flag means this is always a student)
+    if (isOfficeHours && waitingForTutor && this.lessonId) {
       console.log('⏳ Student waiting for tutor acceptance');
       console.log('⏳ Lesson ID:', this.lessonId);
       this.isTutor = false;
@@ -217,7 +226,8 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     // Handle office hours waiting room (tutor waiting for students)
-    if (isOfficeHours && role === 'tutor' && !this.lessonId) {
+    // No lessonId + officeHours = tutor entering waiting room
+    if (isOfficeHours && !this.lessonId) {
       console.log('⚡ Office Hours Waiting Room Mode');
       this.isTutor = true;
       this.isOfficeHoursWaitingRoom = true;
@@ -357,17 +367,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         isOfficeHoursWaitingRoom: this.isOfficeHoursWaitingRoom
       });
       
-      // Get current user to determine role
+      // Get current user to determine role from lesson data (not query params)
       const currentUser = await firstValueFrom(this.userService.getCurrentUser());
-      const params = this.route.snapshot.queryParams;
-      const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
-      this.isTutor = role === 'tutor';
+      const currentUserId = (currentUser as any)?._id || (currentUser as any)?.id;
       
       console.log('🎓 PRE-CALL: Loading session details', { 
         sessionId: this.lessonId, 
         isClass: this.isClass,
-        role, 
-        isTutor: this.isTutor 
+        currentUserId
       });
       
       // Load lesson or class details based on isClass flag
@@ -412,11 +419,20 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Cache tutor id for later use (e.g., after cancellations)
         this.lessonTutorId = lesson.tutorId?._id?.toString() || (lesson.tutorId as any)?.id?.toString() || null;
         
+        // SECURITY: Determine role from authenticated user + lesson data (never trust URL params)
+        const tutorId = lesson.tutorId?._id?.toString() || (typeof lesson.tutorId === 'string' ? lesson.tutorId : '');
+        this.isTutor = (currentUserId === tutorId);
+        
+        console.log('🔐 PRE-CALL: Role determined from lesson data', {
+          currentUserId,
+          tutorId,
+          isTutor: this.isTutor
+        });
+        
         console.log('🎓 PRE-CALL: Lesson loaded', {
           lessonId: lesson._id,
           isTrialLesson: lesson.isTrialLesson,
           isTrialLessonComponent: this.isTrialLesson,
-          role,
           isTutor: this.isTutor,
           tutorName: this.tutorName,
           studentName: this.studentName
@@ -624,6 +640,9 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   async enterClassroom() {
+    // Mark that we're entering the classroom so ngOnDestroy doesn't call leaveLesson
+    this.isEnteringClassroom = true;
+    
     // Clear student entry countdown since they're entering
     if (this.studentEntryTimeout) {
       clearTimeout(this.studentEntryTimeout);
@@ -660,35 +679,23 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // This prevents track/DOM attachment issues when navigating
       console.log('🎯 Navigating to video-call - video-call will handle Agora join');
 
-      // Get current user for navigation params
-      const currentUser = await firstValueFrom(this.userService.getCurrentUser());
-      const params = this.route.snapshot.queryParams;
-      const role = (params['role'] === 'tutor' || params['role'] === 'student') ? params['role'] : 'student';
-      
       console.log('🎯 PRE-CALL: Navigating to video-call:', {
         sessionId: this.lessonId,
         isClass: this.isClass,
-        role: role
+        isTutor: this.isTutor
       });
 
       await loading.dismiss();
-
-      // Get user's first name for display
-      const firstName = currentUser?.firstName || currentUser?.name?.split(' ')[0] || 'User';
       
-      // Navigate to video-call with lesson info - video-call will handle Agora join
+      // Navigate to video-call with minimal params
+      // SECURITY: role, userId, userName, agoraUid are derived server-side from the auth token
       this.router.navigate(['/video-call'], {
         queryParams: {
           lessonId: this.lessonId,
-          channelName: 'languageRoom', // Fixed channel name
-          role,
           lessonMode: 'true',
           micOn: !this.isMuted,
           videoOn: !this.isVideoOff,
-          isClass: this.isClass ? 'true' : 'false',
-          userId: currentUser?.id,
-          userName: firstName,
-          agoraUid: currentUser?.id // Use MongoDB ID as Agora UID
+          isClass: this.isClass ? 'true' : 'false'
         }
       });
     } catch (error: any) {
@@ -903,6 +910,11 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy() {
     console.log('🚪 PreCall: ngOnDestroy() called - cleaning up resources...');
     
+    // Unsuppress the lesson reminder (unless entering classroom — video-call will suppress it)
+    if (this.lessonId && !this.isEnteringClassroom) {
+      this.reminderService.unsuppressForLesson(this.lessonId);
+    }
+    
     // If in office hours waiting mode, disable office hours
     // (tutor is navigating away without accepting a booking)
     if (this.isOfficeHoursWaitingRoom) {
@@ -957,34 +969,42 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.localStream = null;
     }
     
-    // Clean up Agora tracks if they were created for virtual background
-    // Note: We can't use async/await in ngOnDestroy, so we fire and forget
-    const videoTrack = this.agoraService.getLocalVideoTrack();
-    const audioTrack = this.agoraService.getLocalAudioTrack();
-    if (videoTrack || audioTrack) {
-      console.log('🧹 Cleaning up Agora tracks in ngOnDestroy (fire and forget)...');
-      this.agoraService.cleanupLocalTracks()
-        .then(() => {
-          console.log('✅ Agora tracks cleaned up successfully in ngOnDestroy');
-        })
-        .catch((error) => {
-          console.error('❌ Error cleaning up Agora tracks in ngOnDestroy:', error);
-        });
-    }
-    
-    // Call leave endpoint when leaving the pre-call page (if not already called via goBack)
-    // Note: We can't use async/await in ngOnDestroy, so we fire and forget
-    if (this.lessonId) {
-      const leaveObservable = this.isClass 
-        ? this.classService.leaveClass(this.lessonId)
-        : this.lessonService.leaveLesson(this.lessonId);
+    // Only clean up Agora tracks and call leave endpoint if NOT entering the classroom
+    // When entering classroom, the video-call page will handle Agora lifecycle
+    // Calling leaveLesson here would race with the video-call's joinLesson and mark the user as "left"
+    if (!this.isEnteringClassroom) {
+      // Clean up Agora tracks if they were created for virtual background
+      // Note: We can't use async/await in ngOnDestroy, so we fire and forget
+      const videoTrack = this.agoraService.getLocalVideoTrack();
+      const audioTrack = this.agoraService.getLocalAudioTrack();
+      if (videoTrack || audioTrack) {
+        console.log('🧹 Cleaning up Agora tracks in ngOnDestroy (fire and forget)...');
+        this.agoraService.cleanupLocalTracks()
+          .then(() => {
+            console.log('✅ Agora tracks cleaned up successfully in ngOnDestroy');
+          })
+          .catch((error) => {
+            console.error('❌ Error cleaning up Agora tracks in ngOnDestroy:', error);
+          });
+      }
       
-      firstValueFrom(leaveObservable)
-        .then(() => {
-        })
-        .catch((error) => {
-          console.error('🚪 PreCall: Error calling leave endpoint in ngOnDestroy:', error);
-        });
+      // Call leave endpoint when leaving the pre-call page (going back, not entering classroom)
+      // Note: We can't use async/await in ngOnDestroy, so we fire and forget
+      if (this.lessonId) {
+        console.log('🚪 PreCall: Calling leave endpoint (user went back, not entering classroom)');
+        const leaveObservable = this.isClass 
+          ? this.classService.leaveClass(this.lessonId)
+          : this.lessonService.leaveLesson(this.lessonId);
+        
+        firstValueFrom(leaveObservable)
+          .then(() => {
+          })
+          .catch((error) => {
+            console.error('🚪 PreCall: Error calling leave endpoint in ngOnDestroy:', error);
+          });
+      }
+    } else {
+      console.log('🚪 PreCall: Skipping leaveLesson/cleanupTracks - entering classroom');
     }
   }
 
@@ -1693,10 +1713,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔄 Transitioning from waiting room to lesson session, lessonId:', lessonId);
     
     // Update query params using replaceUrl to avoid navigation history issues
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     await this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: lessonId,
-        role: 'tutor',
         lessonMode: 'true',
         officeHours: 'true'
       },

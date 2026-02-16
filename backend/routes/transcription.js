@@ -16,6 +16,39 @@ const { getWordAudio } = require('../services/audioSlicingService');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const audioBackupService = require('../services/audioBackupService');
 
+/**
+ * Calculate total speaking time from transcript segments (in seconds).
+ * Uses segment.duration if available (from Whisper seg.end - seg.start).
+ * Falls back to estimating from word count (~150 words/minute) for older segments.
+ * @param {Array} segments - Array of transcript segments
+ * @returns {number} Speaking time in seconds
+ */
+function calculateSpeakingTime(segments) {
+  if (!segments || segments.length === 0) return 0;
+  
+  // Check if segments have duration data
+  const segmentsWithDuration = segments.filter(s => s.duration && s.duration > 0);
+  
+  if (segmentsWithDuration.length > 0) {
+    // Use actual duration data from Whisper timestamps
+    const totalFromDurations = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+    
+    // If only some segments have duration, estimate the rest proportionally
+    if (segmentsWithDuration.length < segments.length) {
+      const avgDuration = totalFromDurations / segmentsWithDuration.length;
+      const estimatedRest = (segments.length - segmentsWithDuration.length) * avgDuration;
+      return totalFromDurations + estimatedRest;
+    }
+    
+    return totalFromDurations;
+  }
+  
+  // Fallback for older segments without duration: estimate from word count
+  // Average speaking rate is ~150 words per minute (2.5 words/second)
+  const totalWords = segments.reduce((sum, s) => sum + (s.text ? s.text.split(/\s+/).length : 0), 0);
+  return totalWords / 2.5; // words / (words per second) = seconds
+}
+
 // Configure multer for audio upload
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -664,7 +697,8 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
         speaker: speaker || 'student',
         text: seg.text,
         confidence: seg.confidence || 1,
-        language: transcript.language
+        language: transcript.language,
+        duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0 // Duration in seconds from Whisper
       };
       
       // Note: Audio will be uploaded to GCS in a separate batch after all segments are processed
@@ -760,10 +794,17 @@ router.post('/:transcriptId/complete', verifyToken, async (req, res) => {
     const studentSegments = transcript.segments.filter(s => s.speaker === 'student');
     const tutorSegments = transcript.segments.filter(s => s.speaker === 'tutor');
     
+    // Calculate actual speaking time from segment durations (in seconds)
+    // Falls back to timestamp-based estimation for older segments without duration field
+    const studentSpeakingSeconds = calculateSpeakingTime(studentSegments);
+    const tutorSpeakingSeconds = calculateSpeakingTime(tutorSegments);
+    
+    console.log(`⏱️ Speaking time calculated — Student: ${Math.round(studentSpeakingSeconds)}s, Tutor: ${Math.round(tutorSpeakingSeconds)}s`);
+    
     transcript.metadata = {
       totalDuration: (transcript.endTime - transcript.startTime) / 1000, // seconds
-      studentSpeakingTime: studentSegments.length,
-      tutorSpeakingTime: tutorSegments.length,
+      studentSpeakingTime: Math.round(studentSpeakingSeconds), // in seconds
+      tutorSpeakingTime: Math.round(tutorSpeakingSeconds), // in seconds
       wordCount: transcript.segments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0)
     };
     
@@ -1422,9 +1463,102 @@ async function analyzeLesson(transcriptId) {
     console.log(`   Student words: ${totalStudentWords}`);
     console.log(`   Tutor words: ${totalTutorWords}`);
     
-    if (totalStudentWords < 50) {
-      console.warn(`⚠️ WARNING: Very short student transcript (${totalStudentWords} words). This may not be enough for accurate analysis.`);
+    // ========================================================================
+    // TRANSCRIPT QUALITY GATE — Prevent GPT-4 from analyzing garbage/hallucinated data
+    // ========================================================================
+    const qualityIssues = [];
+    
+    // CHECK 1: Minimum word threshold (hard skip)
+    // For a 25+ minute lesson, fewer than 30 words means no meaningful speech occurred
+    if (totalStudentWords < 30) {
+      qualityIssues.push(`Insufficient speech: only ${totalStudentWords} student words detected (minimum 30 required for a ${lesson.duration}-min lesson)`);
     }
+    
+    // CHECK 2: Script mismatch detection (Whisper hallucination pattern)
+    // If the lesson is for a Latin-script language but transcript contains CJK/Arabic/etc. characters,
+    // Whisper was hallucinating from background noise or silence
+    const LATIN_BASED_LANGS = ['en', 'es', 'fr', 'de', 'pt', 'it', 'nl', 'pl', 'ro', 'sv', 'da', 'no', 'fi', 'cs', 'hr', 'hu', 'tr', 'vi', 'id', 'ms', 'tl'];
+    const CJK_LANGS = ['ja', 'zh', 'ko'];
+    const ARABIC_LANGS = ['ar', 'fa', 'ur'];
+    const targetLang = transcript.language;
+    const allStudentText = studentSegments.map(s => s.text).join(' ');
+    
+    // Detect non-Latin characters (CJK, Arabic, Devanagari, Cyrillic, etc.)
+    const nonLatinMatches = allStudentText.match(/[\u3000-\u9FFF\u30A0-\u30FF\u3040-\u309F\uAC00-\uD7AF\u0600-\u06FF\u0900-\u097F]/g);
+    const nonLatinCount = nonLatinMatches ? nonLatinMatches.length : 0;
+    
+    if (LATIN_BASED_LANGS.includes(targetLang) && nonLatinCount > 5) {
+      qualityIssues.push(`Script mismatch: ${nonLatinCount} non-Latin characters found in ${targetLang} lesson transcript (likely Whisper hallucination)`);
+    }
+    
+    // Reverse check: CJK lesson but mostly Latin text
+    if (CJK_LANGS.includes(targetLang)) {
+      const cjkMatches = allStudentText.match(/[\u3000-\u9FFF\u30A0-\u30FF\u3040-\u309F\uAC00-\uD7AF]/g);
+      const cjkCount = cjkMatches ? cjkMatches.length : 0;
+      const totalChars = allStudentText.replace(/\s/g, '').length;
+      if (totalChars > 20 && cjkCount < totalChars * 0.1) {
+        qualityIssues.push(`Script mismatch: ${targetLang} lesson but only ${cjkCount}/${totalChars} CJK characters (likely Whisper hallucination)`);
+      }
+    }
+    
+    // CHECK 3: Repetitive content detection (Whisper hallucination pattern)
+    // Whisper often repeats the same phrase/sentence when hallucinating from noise
+    if (studentSegments.length > 5) {
+      const segTexts = studentSegments.map(s => s.text.trim().toLowerCase());
+      const uniqueTexts = new Set(segTexts);
+      const repetitionRatio = uniqueTexts.size / segTexts.length;
+      
+      if (repetitionRatio < 0.3) {
+        qualityIssues.push(`Repetitive content: only ${uniqueTexts.size}/${segTexts.length} unique segments (${Math.round(repetitionRatio * 100)}% unique, likely Whisper hallucination)`);
+      }
+    }
+    
+    // CHECK 4: Known Whisper hallucination phrases
+    const HALLUCINATION_PHRASES = [
+      'thank you for watching', 'thanks for watching', 'subscribe', 'like and subscribe',
+      'please subscribe', 'don\'t forget to subscribe', 'click the bell',
+      'see you next time', 'see you in the next', 'bye bye', 'thank you so much',
+      'music', '♪', '♫', '[music]', '[Music]',
+      'Amara.org', 'subtitles by', 'captions by'
+    ];
+    const textLower = allStudentText.toLowerCase();
+    const hallucinationHits = HALLUCINATION_PHRASES.filter(phrase => textLower.includes(phrase));
+    
+    if (hallucinationHits.length >= 2) {
+      qualityIssues.push(`Known hallucination phrases detected: "${hallucinationHits.join('", "')}"`);
+    }
+    
+    // If ANY quality issues found, skip analysis and save as insufficient_data
+    if (qualityIssues.length > 0) {
+      console.warn(`\n🚫 ========================================`);
+      console.warn(`🚫 TRANSCRIPT QUALITY GATE FAILED — Skipping analysis`);
+      console.warn(`🚫 ========================================`);
+      qualityIssues.forEach((issue, i) => {
+        console.warn(`   ${i + 1}. ${issue}`);
+      });
+      console.warn(`🚫 Lesson ${transcript.lessonId} will be marked as insufficient_data`);
+      console.warn(`🚫 ========================================\n`);
+      
+      // Save as insufficient_data so the student doesn't see hallucinated content
+      await LessonAnalysis.findOneAndUpdate(
+        { lessonId: transcript.lessonId },
+        {
+          lessonId: transcript.lessonId,
+          transcriptId: transcript._id,
+          studentId: transcript.studentId,
+          tutorId: transcript.tutorId,
+          language: transcript.language,
+          lessonDate: transcript.startTime,
+          status: 'insufficient_data',
+          error: `Transcript quality check failed: ${qualityIssues.join('; ')}`
+        },
+        { upsert: true, new: true }
+      );
+      
+      return null;
+    }
+    
+    console.log(`✅ Transcript quality gate passed — proceeding with analysis`);
     
     // Analyze with GPT-4
     console.log(`🤖 Calling GPT-4 for analysis...`);

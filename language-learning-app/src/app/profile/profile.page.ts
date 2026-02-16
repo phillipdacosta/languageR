@@ -473,9 +473,11 @@ export class ProfilePage implements OnInit {
     this.isFeedbackModalOpen = false;
   }
 
-  navigateToFeedback(feedbackId: string): void {
+  navigateToFeedback(lessonId: string, feedbackId: string): void {
     this.closeFeedbackModal();
-    this.router.navigate(['/tutor-feedback', feedbackId]);
+    this.router.navigate(['/post-lesson-tutor', lessonId], {
+      queryParams: { feedbackId }
+    });
   }
 
   formatFeedbackDate(dateStr: any): string {

@@ -415,7 +415,11 @@ const userSchema = new mongoose.Schema({
         earnedAt: { type: Date, default: null },
         lastEvaluated: { type: Date, default: null },
         qualifyingStreak: { type: Number, default: 0 }
-      }
+      },
+      // How many times this tutor's profile was hidden because feedback
+      // exceeded the 2-hour grace window. Used as a negative ranking
+      // signal in tutor search (higher = deprioritized).
+      feedbackGraceViolations: { type: Number, default: 0 }
     }
   },
   // Tutor earnings tracking (internal balance system)

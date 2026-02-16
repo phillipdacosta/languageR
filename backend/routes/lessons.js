@@ -163,17 +163,21 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Check if tutor has REQUIRED pending feedback (block new bookings)
     // Only count feedback where required !== false (true or undefined/legacy)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking new bookings.
+    const FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       $or: [
         { tutorId: tutor._id },
         { tutorId: tutor.auth0Id }
       ],
       status: 'pending',
-      required: { $ne: false }
+      required: { $ne: false },
+      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS) }
     });
     
     if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback`);
+      console.log(`🚫 Blocking lesson creation - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback (older than 2h)`);
       return res.status(403).json({
         success: false,
         message: `This tutor has ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before accepting new lessons.`,
@@ -704,17 +708,21 @@ router.post('/office-hours', verifyToken, async (req, res) => {
     }
 
     // Check if tutor has REQUIRED pending feedback (block new bookings)
+    // GRACE PERIOD: Only count feedback older than 2 hours — gives tutors time to submit
+    // after a lesson ends without immediately blocking office hours.
+    const FEEDBACK_GRACE_MS_OH = 2 * 60 * 60 * 1000; // 2 hours
     const pendingFeedbackCount = await TutorFeedback.countDocuments({
       $or: [
         { tutorId: tutor._id },
         { tutorId: tutor.auth0Id }
       ],
       status: 'pending',
-      required: { $ne: false }
+      required: { $ne: false },
+      createdAt: { $lt: new Date(Date.now() - FEEDBACK_GRACE_MS_OH) }
     });
     
     if (pendingFeedbackCount > 0) {
-      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback`);
+      console.log(`🚫 Blocking office hours - tutor ${tutor.email} has ${pendingFeedbackCount} required pending feedback (older than 2h)`);
       return res.status(403).json({
         success: false,
         message: `You have ${pendingFeedbackCount} outstanding feedback item${pendingFeedbackCount > 1 ? 's' : ''} to complete before starting new lessons.`,
@@ -1153,8 +1161,8 @@ router.get('/student/:studentId', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
-      .populate('tutorId', 'name email picture firstName lastName profile')
-      .populate('studentId', 'name email picture firstName lastName profile');
+      .populate('tutorId', 'name email picture firstName lastName profile auth0Id profilePicture')
+      .populate('studentId', 'name email picture firstName lastName profile auth0Id profilePicture');
 
     if (!lesson) {
       return res.status(404).json({ 
@@ -3607,14 +3615,19 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
     const lessonDatetime = `${lessonDate} at ${lessonTime}`;
 
     // 1. Notification for tutor — "You received a tip"
+    const tipMessage = stripeFee > 0
+      ? `You received a $${tutorReceives.toFixed(2)} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}. ($${amount.toFixed(2)} tip − $${stripeFee.toFixed(2)} processing fee)`
+      : `You received a $${amount.toFixed(2)} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}.`;
     const tutorNotification = new Notification({
       userId: tutor._id,
       type: 'tip_received',
       title: '🎉 You received a tip!',
-      message: `You received a $${amount} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}.`,
+      message: tipMessage,
       data: {
         lessonId: lessonId,
         amount: amount,
+        tutorReceived: tutorReceives,
+        stripeFee: stripeFee,
         from: studentDisplayName
       },
       relatedUserId: student._id,
@@ -3652,6 +3665,8 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
         req.io.to(tutorSocketId).emit('tip_received', {
           lessonId: lessonId,
           amount: amount,
+          tutorReceived: tutorReceives,
+          stripeFee: stripeFee,
           from: studentDisplayName
         });
       }

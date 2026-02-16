@@ -48,7 +48,11 @@
 
     <!-- ── Participant ──────────────────────────────────────── -->
     <section class="ed-row">
-      <div class="ed-host">
+      <div 
+        class="ed-host"
+        [class.clickable]="isStudentUser && tutorId"
+        (click)="openTutorProfile()"
+        *ngIf="isStudentUser && tutorId; else nonClickableHost">
         <div class="ed-host-avatar" *ngIf="participantPicture">
           <img [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
         </div>
@@ -59,7 +63,22 @@
           <span class="ed-host-role">{{ participantRole }}</span>
           <span class="ed-host-name">{{ participantName }}</span>
         </div>
+        <ion-icon name="chevron-forward-outline" class="ed-host-chevron"></ion-icon>
       </div>
+      <ng-template #nonClickableHost>
+        <div class="ed-host">
+          <div class="ed-host-avatar" *ngIf="participantPicture">
+            <img [src]="participantPicture" [alt]="participantName" referrerpolicy="no-referrer">
+          </div>
+          <div class="ed-host-avatar placeholder" *ngIf="!participantPicture">
+            {{ participantInitial }}
+          </div>
+          <div class="ed-host-text">
+            <span class="ed-host-role">{{ participantRole }}</span>
+            <span class="ed-host-name">{{ participantName }}</span>
+          </div>
+        </div>
+      </ng-template>
     </section>
 
     <div class="ed-divider"></div>
@@ -124,6 +143,73 @@
       </section>
     </ng-container>
 
+    <!-- ── Feedback Status Banner ────────────────────────────── -->
+    <ng-container *ngIf="isLessonCompleted && !feedbackLoading && !analysisLoading">
+      <div class="ed-divider"></div>
+      <section class="ed-row">
+
+        <!-- Tutor: Feedback pending -->
+        <div class="ed-feedback-status pending" *ngIf="isTutorUser && feedbackPending">
+          <div class="ed-fb-status-content">
+            <div class="ed-fb-status-icon pending">
+              <ion-icon name="clipboard-outline"></ion-icon>
+            </div>
+            <div class="ed-fb-status-text">
+              <span class="ed-fb-status-title">Feedback outstanding</span>
+              <span class="ed-fb-status-sub">Leave feedback while the lesson is fresh</span>
+            </div>
+          </div>
+          <button class="ed-fb-action-btn primary" (click)="leaveFeedback()">
+            Leave Feedback
+          </button>
+        </div>
+
+        <!-- Tutor: Feedback provided -->
+        <div class="ed-feedback-status provided" *ngIf="isTutorUser && feedbackProvided">
+          <div class="ed-fb-status-content">
+            <div class="ed-fb-status-icon provided">
+              <ion-icon name="checkmark-circle"></ion-icon>
+            </div>
+            <div class="ed-fb-status-text">
+              <span class="ed-fb-status-title">You already provided feedback!</span>
+              <span class="ed-fb-status-sub" *ngIf="feedbackDate">Submitted {{ feedbackDate }}</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Student: Feedback provided by tutor -->
+        <div class="ed-feedback-status provided" *ngIf="isStudentUser && feedbackProvided">
+          <div class="ed-fb-status-content">
+            <div class="ed-fb-status-icon provided">
+              <ion-icon name="checkmark-circle"></ion-icon>
+            </div>
+            <div class="ed-fb-status-text">
+              <span class="ed-fb-status-title">{{ tutorDisplayName }} provided feedback!</span>
+              <span class="ed-fb-status-sub" *ngIf="feedbackDate">{{ feedbackDate }}</span>
+            </div>
+          </div>
+          <!-- <button class="ed-fb-action-btn subtle" (click)="viewFeedback()">
+            View
+          </button> -->
+        </div>
+
+        <!-- Student: Awaiting tutor feedback -->
+        <div class="ed-feedback-status awaiting" *ngIf="isStudentUser && feedbackPending">
+          <div class="ed-fb-status-content">
+            <div class="ed-fb-status-icon awaiting">
+              <ion-icon name="time-outline"></ion-icon>
+            </div>
+            <div class="ed-fb-status-text">
+              <span class="ed-fb-status-title">Awaiting feedback from {{ tutorDisplayName }}</span>
+              <span class="ed-fb-status-sub">Your tutor's feedback will appear here once submitted</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </ng-container>
+
     <!-- ── Notes ────────────────────────────────────────────── -->
     <ng-container *ngIf="lesson.notes">
       <div class="ed-divider"></div>
@@ -138,18 +224,22 @@
       <div class="ed-divider"></div>
       <section class="ed-row">
         <h2 class="ed-section-label">{{ isTutorUser ? 'Tip received' : 'Tip sent' }}</h2>
+        <p class="ed-tip-message">{{ tipMessage }}</p>
         <div class="ed-highlight-row">
-          <span class="ed-highlight-value">{{ tipAmount }}</span>
+          <span class="ed-highlight-value">{{ isTutorUser && tipHasFee ? tipTutorReceived : tipAmount }}</span>
           <span class="ed-highlight-meta" *ngIf="tipDate">{{ tipDate }}</span>
+        </div>
+        <div class="ed-tip-fee-note" *ngIf="isTutorUser && tipHasFee">
+          <span class="ed-tip-fee-detail">{{ tipAmount }} tip − {{ tipStripeFee }} processing fee</span>
         </div>
       </section>
     </ng-container>
 
-    <!-- ── AI Analysis (Student only) ───────────────────────── -->
+    <!-- ── Analysis (Student only) ───────────────────────── -->
     <ng-container *ngIf="hasAnalysis && isStudentUser">
       <div class="ed-divider"></div>
       <section class="ed-row">
-        <h2 class="ed-section-label">AI Analysis</h2>
+        <h2 class="ed-section-label">{{ analysisLabel }}</h2>
 
         <!-- Level + Summary (hide summary text when tutor feedback covers it) -->
         <div class="ed-analysis-top" *ngIf="analysisData?.overallAssessment">
@@ -227,10 +317,10 @@
       </section>
     </ng-container>
 
-    <!-- ── Tutor Note ───────────────────────────────────────── -->
-    <ng-container *ngIf="hasTutorNote">
+    <!-- ── Tutor Note (Student view only - separate section) ───────────────────────────────────────── -->
+    <ng-container *ngIf="hasTutorNote && isStudentUser">
       <div class="ed-divider"></div>
-      <section class="ed-row">
+      <section class="ed-row" id="feedback-detail-section">
         <h2 class="ed-section-label">Tutor note</h2>
 
         <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression }}</span>
@@ -243,13 +333,74 @@
       </section>
     </ng-container>
 
-    <!-- ── Tutor Feedback (structured) ──────────────────────── -->
-    <ng-container *ngIf="hasTutorFeedback">
+    <!-- ── Your Feedback / Tutor Feedback (Tutor view: collapsible with note + structured feedback) ──────────────────────── -->
+    <ng-container *ngIf="(hasTutorNote || hasTutorFeedback) && isTutorUser">
       <div class="ed-divider"></div>
-      <section class="ed-row">
+      <section class="ed-row" id="feedback-detail-section">
+        <div class="ed-feedback-header collapsible" (click)="toggleFeedbackSection()">
+          <h2 class="ed-section-label">Your feedback</h2>
+          <div class="ed-feedback-header-right">
+            <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
+            <ion-icon 
+              [name]="feedbackSectionExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"
+              class="ed-feedback-toggle-icon">
+            </ion-icon>
+          </div>
+        </div>
+
+        <div class="ed-feedback-content" [class.collapsed]="!feedbackSectionExpanded">
+          <!-- Tutor Note (inside collapsible for tutor view) -->
+          <ng-container *ngIf="hasTutorNote">
+            <div class="ed-fb-block">
+              <h3 class="ed-sub-label">Your note</h3>
+              <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression }}</span>
+              <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
+              <div class="ed-note-hw" *ngIf="analysisData?.tutorNote?.homework">
+                <h3 class="ed-sub-label">Homework</h3>
+                <p class="ed-body">{{ analysisData?.tutorNote?.homework }}</p>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- Structured Tutor Feedback -->
+          <div class="ed-fb-block" *ngIf="feedbackStrengths.length">
+            <h3 class="ed-sub-label green">Strengths</h3>
+            <ul class="ed-fb-list">
+              <li *ngFor="let s of feedbackStrengths">{{ s }}</li>
+            </ul>
+          </div>
+
+          <div class="ed-fb-block" *ngIf="feedbackImprovements.length">
+            <h3 class="ed-sub-label amber">Areas to improve</h3>
+            <ul class="ed-fb-list">
+              <li *ngFor="let a of feedbackImprovements">{{ a }}</li>
+            </ul>
+          </div>
+
+          <div class="ed-fb-block" *ngIf="feedbackHomework">
+            <h3 class="ed-sub-label">Homework</h3>
+            <p class="ed-body">{{ feedbackHomework }}</p>
+          </div>
+
+          <div class="ed-fb-block" *ngIf="feedbackNotes">
+            <h3 class="ed-sub-label">Notes</h3>
+            <p class="ed-body">{{ feedbackNotes }}</p>
+          </div>
+
+          <span class="ed-meta" *ngIf="feedbackDate">Provided {{ feedbackDate }}</span>
+        </div>
+      </section>
+    </ng-container>
+
+    <!-- ── Tutor Feedback (Student view only - separate section) ──────────────────────── -->
+    <ng-container *ngIf="hasTutorFeedback && isStudentUser">
+      <div class="ed-divider"></div>
+      <section class="ed-row" id="feedback-detail-section">
         <div class="ed-feedback-header">
           <h2 class="ed-section-label">Tutor feedback</h2>
-          <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
+          <div class="ed-feedback-header-right">
+            <span class="ed-cefr-sm" *ngIf="feedbackCefrLevel">{{ feedbackCefrLevel }}</span>
+          </div>
         </div>
 
         <div class="ed-fb-block" *ngIf="feedbackStrengths.length">

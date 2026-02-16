@@ -511,7 +511,7 @@
       <ion-content class="airbnb-modal-ion-content">
         <div class="airbnb-modal-body">
           <ng-container *ngFor="let fb of pendingFeedbackItems">
-            <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb._id)">
+            <div class="airbnb-lesson-row" (click)="navigateToFeedback(fb.lessonId, fb._id)">
               <div class="airbnb-lesson-left">
                 <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
                 <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>

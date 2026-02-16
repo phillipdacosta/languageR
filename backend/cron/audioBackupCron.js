@@ -4,6 +4,30 @@ const transcriptionRetryService = require('../services/transcriptionRetryService
 const analysisRetryService = require('../services/analysisRetryService');
 
 /**
+ * Calculate total speaking time from transcript segments (in seconds).
+ * Uses segment.duration if available (from Whisper seg.end - seg.start).
+ * Falls back to estimating from word count (~150 words/minute) for older segments.
+ */
+function calculateSpeakingTime(segments) {
+  if (!segments || segments.length === 0) return 0;
+  
+  const segmentsWithDuration = segments.filter(s => s.duration && s.duration > 0);
+  
+  if (segmentsWithDuration.length > 0) {
+    const totalFromDurations = segmentsWithDuration.reduce((sum, s) => sum + s.duration, 0);
+    if (segmentsWithDuration.length < segments.length) {
+      const avgDuration = totalFromDurations / segmentsWithDuration.length;
+      return totalFromDurations + (segments.length - segmentsWithDuration.length) * avgDuration;
+    }
+    return totalFromDurations;
+  }
+  
+  // Fallback: estimate from word count (~150 words/minute = 2.5 words/second)
+  const totalWords = segments.reduce((sum, s) => sum + (s.text ? s.text.split(/\s+/).length : 0), 0);
+  return totalWords / 2.5;
+}
+
+/**
  * Cron job to cleanup expired audio backups
  * Runs every 6 hours
  */
@@ -121,10 +145,15 @@ function startStuckTranscriptionCron() {
           
           const studentSegments = transcript.segments.filter(s => s.speaker === 'student');
           const tutorSegments = transcript.segments.filter(s => s.speaker === 'tutor');
+          
+          // Calculate actual speaking time from segment durations (in seconds)
+          const studentSpeakingSeconds = calculateSpeakingTime(studentSegments);
+          const tutorSpeakingSeconds = calculateSpeakingTime(tutorSegments);
+          
           transcript.metadata = {
             totalDuration: (transcript.endTime - transcript.startTime) / 1000,
-            studentSpeakingTime: studentSegments.length,
-            tutorSpeakingTime: tutorSegments.length,
+            studentSpeakingTime: Math.round(studentSpeakingSeconds), // in seconds
+            tutorSpeakingTime: Math.round(tutorSpeakingSeconds), // in seconds
             wordCount: transcript.segments.reduce((sum, seg) => sum + seg.text.split(' ').length, 0)
           };
           

@@ -127,11 +127,16 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   participantPicture = '';
   participantInitial = '';
   participantRole = ''; // "Student" or "Tutor"
+  tutorId: string | null = null; // For navigation to tutor profile (students only)
 
   // Tip info
   hasTip = false;
   tipAmount = '';
   tipDate = '';
+  tipStripeFee = '';
+  tipTutorReceived = '';
+  tipHasFee = false;
+  tipMessage = '';
 
   // Payment method info (student only)
   paymentMethodLabel = '';
@@ -157,6 +162,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   // Analysis display
   hasAnalysis = false;
+  isAiAnalysis = false;     // true = AI-generated, false = tutor-sourced
+  analysisLabel = 'Analysis'; // Dynamic section label
   hasTutorNote = false;
   hasTutorFeedback = false;
   hasHomework = false;
@@ -174,10 +181,17 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   feedbackStrengths: string[] = [];
   feedbackImprovements: string[] = [];
   feedbackHomework = '';
+  feedbackSectionExpanded = false; // Collapsible state for tutor view (closed by default)
   feedbackNotes = '';
   feedbackCefrLevel = '';
   feedbackDate = '';
   sanitizedTutorNote: SafeHtml = '';
+
+  // Feedback status (banner)
+  isLessonCompleted = false;
+  feedbackProvided = false;
+  feedbackPending = false;
+  tutorDisplayName = ''; // "Phillip D." — for student view
 
   // Countdown
   private countdownInterval: any;
@@ -296,9 +310,13 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.computeAnalysisProperties();
         }
         this.analysisLoading = false;
+        // Re-compute feedback status now that we know the actual analysis state
+        // (fixes race condition where feedback loaded before analysis)
+        this.computeFeedbackStatus();
       },
       error: () => {
         this.analysisLoading = false;
+        this.computeFeedbackStatus();
       }
     });
 
@@ -311,9 +329,11 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.computeFeedbackProperties();
         }
         this.feedbackLoading = false;
+        this.computeFeedbackStatus();
       },
       error: () => {
         this.feedbackLoading = false;
+        this.computeFeedbackStatus();
       }
     });
 
@@ -395,6 +415,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.statusLabel = 'Completed';
       this.statusColor = '#6b7280';
       this.statusClass = 'completed';
+      this.isLessonCompleted = true;
     } else if (this.lesson.status === 'pending_reschedule') {
       this.statusLabel = 'Pending Reschedule';
       this.statusColor = '#f59e0b';
@@ -491,6 +512,21 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.participantInitial = (p.name || p.firstName || 'P').charAt(0).toUpperCase();
       this.participantRole = this.isTutorUser ? 'Student' : 'Tutor';
     }
+
+    // Pre-compute tutor display name for student view ("Phillip D.")
+    const tutor = this.lesson.tutorId;
+    if (tutor) {
+      const tFirst = tutor.firstName || tutor.name?.split(' ')[0] || '';
+      const tLast = tutor.lastName || tutor.name?.split(' ').slice(1).join(' ') || '';
+      this.tutorDisplayName = tFirst && tLast
+        ? `${tFirst} ${tLast.charAt(0).toUpperCase()}.`
+        : tutor.name || 'Your tutor';
+      
+      // Store tutor ID for navigation (students only)
+      if (this.isStudentUser) {
+        this.tutorId = tutor._id?.toString() || tutor.toString() || null;
+      }
+    }
   }
 
   private computeTip() {
@@ -501,6 +537,19 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.tipDate = this.lesson.tip.paidAt
         ? new Date(this.lesson.tip.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
+      // Fee breakdown for tutor
+      const fee = this.lesson.tip.stripeFee || 0;
+      const received = this.lesson.tip.tutorReceived || this.lesson.tip.amount;
+      this.tipHasFee = fee > 0;
+      this.tipStripeFee = `$${fee.toFixed(2)}`;
+      this.tipTutorReceived = `$${received.toFixed(2)}`;
+      // Contextual message
+      if (this.isTutorUser) {
+        this.tipMessage = 'You received a tip for this lesson!';
+      } else {
+        const tutorName = this.tutorDisplayName || 'your tutor';
+        this.tipMessage = `You tipped ${tutorName} for this lesson!`;
+      }
     }
   }
 
@@ -559,6 +608,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   private computeAnalysisProperties() {
     if (!this.analysisData) return;
     this.hasAnalysis = this.analysisData.status === 'completed';
+    this.isAiAnalysis = this.analysisData.source !== 'tutor';
+    this.analysisLabel = this.isAiAnalysis ? 'AI Analysis' : 'Tutor Assessment';
 
     // Pre-compute score colors
     this.grammarScoreColor = this.calcScoreColor(this.analysisData.grammarAnalysis?.accuracyScore);
@@ -694,10 +745,10 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   joinLesson() {
     if (!this.lesson || !this.currentUser) return;
+    // SECURITY: role is determined from lesson data + auth, not passed in URL
     this.router.navigate(['/pre-call'], {
       queryParams: {
         lessonId: this.lesson._id,
-        role: this.userRole,
         lessonMode: 'true',
         isClass: 'false'
       }
@@ -798,6 +849,73 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         color: 'danger'
       });
       await toast.present();
+    }
+  }
+
+  private computeFeedbackStatus() {
+    if (!this.isLessonCompleted || !this.lesson) return;
+
+    // Trial lessons: no feedback expected from tutors
+    const isTrial = !!this.lesson.isTrialLesson;
+    if (isTrial) {
+      this.feedbackProvided = false;
+      this.feedbackPending = false;
+      return;
+    }
+
+    // Feedback is "provided" if we have either a tutor note or structured TutorFeedback
+    this.feedbackProvided = this.hasTutorNote || this.hasTutorFeedback;
+
+    // For tutors, feedback is always shown as pending if not provided
+    // For students, only show "awaiting" if AI analysis is NOT available AND
+    // the lesson actually requires tutor feedback (i.e. AI wasn't supposed to handle it)
+    if (this.isTutorUser) {
+      this.feedbackPending = !this.feedbackProvided;
+    } else {
+      // Student: check both the loaded analysis AND the lesson's embedded aiAnalysis field
+      const hasAiAnalysis = this.hasAnalysis
+        || this.lesson.aiAnalysis?.status === 'completed'
+        || !!this.lesson.aiAnalysis?.generatedAt;
+
+      // If AI analysis was enabled for this lesson, tutor feedback is NOT required.
+      // Only show "Awaiting feedback" when the lesson explicitly requires tutor feedback
+      // (requiresTutorFeedback is true) or when there's a pending TutorFeedback record.
+      const aiWasEnabled = this.lesson.aiAnalysisEnabledAtTime === true;
+      const requiresTutorFeedback = !!this.lesson.requiresTutorFeedback;
+      const hasPendingFeedbackRecord = !!this.tutorFeedback && this.tutorFeedback.status === 'pending';
+
+      this.feedbackPending = !this.feedbackProvided
+        && !hasAiAnalysis
+        && (requiresTutorFeedback || hasPendingFeedbackRecord || !aiWasEnabled);
+    }
+  }
+
+  leaveFeedback() {
+    if (!this.eventId) return;
+    this.router.navigate(['/post-lesson-tutor', this.eventId]);
+  }
+
+  toggleFeedbackSection() {
+    this.feedbackSectionExpanded = !this.feedbackSectionExpanded;
+  }
+
+  viewFeedback() {
+    // Scroll to the feedback section or show in a modal
+    // For now, just scroll to the tutor feedback/note section
+    const el = document.querySelector('.ed-feedback-status')?.closest('.ed')?.querySelector('.ed-section-label');
+    if (this.hasTutorFeedback || this.hasTutorNote) {
+      // The feedback is displayed inline below — just scroll down
+      const feedbackSection = document.getElementById('feedback-detail-section');
+      if (feedbackSection) {
+        feedbackSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }
+
+  openTutorProfile() {
+    // Only allow navigation for students viewing tutor info
+    if (this.isStudentUser && this.tutorId) {
+      this.router.navigate(['/tutor', this.tutorId]);
     }
   }
 

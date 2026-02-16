@@ -79,10 +79,10 @@ export class ReminderNotificationComponent implements OnInit, OnDestroy {
     if (reminder.type === 'lesson' && reminder.lessonId) {
       console.log('🔔 [REMINDER] Navigating to pre-call for lesson:', reminder.lessonId);
       // Navigate to pre-call page with query params (not path params)
+      // SECURITY: role is determined from lesson data + auth, not passed in URL
       await this.router.navigate(['/pre-call'], {
         queryParams: {
           lessonId: reminder.lessonId,
-          role: 'tutor', // Will be determined by pre-call page based on user
           lessonMode: 'true'
         }
       });

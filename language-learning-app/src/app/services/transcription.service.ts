@@ -145,7 +145,7 @@ export interface LessonAnalysis {
   // Analysis source
   source?: 'ai' | 'tutor';
   
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'generating';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'generating' | 'insufficient_data';
   error?: string; // Optional error message when status is 'failed'
 }
 

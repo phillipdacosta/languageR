@@ -151,9 +151,9 @@
             <tr 
               *ngFor="let payment of filteredPayments" 
               class="txn-row"
-              [class.clickable]="payment.status !== 'cancelled' && payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
+              [class.clickable]="payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
               [class.refunded]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
-              (click)="(payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.lessonId) && viewLesson(payment.lessonId)">
+              (click)="(payment.status !== 'refunded' && (payment.lessonId || payment.classId)) && viewEvent(payment.lessonId, payment.classId)">
               
               <!-- Date -->
               <td class="date-col">
@@ -203,7 +203,8 @@
                   <span>${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</span>
                 </ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded' && payment.status !== 'partially_refunded'">
-                  ${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}
+                  <ng-container *ngIf="payment.paymentType === 'tip'">${{ (payment.amount || payment.tutorPayout).toFixed(2) }}</ng-container>
+                  <ng-container *ngIf="payment.paymentType !== 'tip'">${{ (payment.tutorPayout + payment.platformFee).toFixed(2) }}</ng-container>
                 </ng-container>
               </td>
               
@@ -211,7 +212,12 @@
               <td class="amount-col fee right">
                 <ng-container *ngIf="payment.status === 'cancelled' || payment.status === 'refunded'">$0.00</ng-container>
                 <ng-container *ngIf="payment.status !== 'cancelled' && payment.status !== 'refunded'">
-                  ${{ payment.platformFee.toFixed(2) }}
+                  <ng-container *ngIf="payment.paymentType === 'tip' && payment.stripeFee > 0">
+                    <span class="fee-stripe">${{ payment.stripeFee.toFixed(2) }}</span>
+                  </ng-container>
+                  <ng-container *ngIf="payment.paymentType !== 'tip' || !payment.stripeFee || payment.stripeFee === 0">
+                    ${{ payment.platformFee.toFixed(2) }}
+                  </ng-container>
                 </ng-container>
               </td>
               
@@ -452,7 +458,7 @@
             <!-- Available Balance -->
             <div class="balance-card">
               <div class="balance-label">Available Balance</div>
-              <div class="balance-amount">${{ balance.available.toFixed(2) }}</div>
+              <div class="balance-amount">${{ formatCurrency(balance.available) }}</div>
               <div class="balance-note" *ngIf="selectedWithdrawalMethod === 'paypal'">Minimum withdrawal: $10.00</div>
             </div>
 
@@ -462,7 +468,7 @@
               <div *ngIf="withdrawalAmount >= 10; else paypalPlaceholder">
                 <div class="breakdown-row">
                   <span class="breakdown-label">Withdrawal amount:</span>
-                  <span class="breakdown-value">${{ withdrawalAmount.toFixed(2) }}</span>
+                  <span class="breakdown-value">${{ formatCurrency(withdrawalAmount) }}</span>
                 </div>
                 <div class="breakdown-row fee-row">
                   <span class="breakdown-label">
@@ -473,7 +479,7 @@
                       (click)="showPayPalFeeInfo()">
                     </ion-icon>
                   </span>
-                  <span class="breakdown-value fee-value">-${{ calculatePayPalFee(withdrawalAmount).toFixed(2) }}</span>
+                  <span class="breakdown-value fee-value">-${{ formatCurrency(calculatePayPalFee(withdrawalAmount)) }}</span>
                 </div>
                 <div class="fee-note">
                   <ion-icon name="alert-circle-outline"></ion-icon>
@@ -482,7 +488,7 @@
                 <div class="breakdown-divider"></div>
                 <div class="breakdown-row total-row">
                   <span class="breakdown-label">You will receive:</span>
-                  <span class="breakdown-value total">${{ getNetAmount().toFixed(2) }}</span>
+                  <span class="breakdown-value total">${{ formatCurrency(getNetAmount()) }}</span>
                 </div>
               </div>
               <!-- Placeholder when amount is invalid -->
@@ -509,7 +515,7 @@
                 <div class="breakdown-divider"></div>
                 <div class="breakdown-row total-row">
                   <span class="breakdown-label">You will receive:</span>
-                  <span class="breakdown-value total">${{ withdrawalAmount.toFixed(2) }}</span>
+                  <span class="breakdown-value total">${{ formatCurrency(withdrawalAmount) }}</span>
                 </div>
               </div>
             </div>
@@ -525,12 +531,10 @@
               <div class="amount-input-wrapper">
                 <div class="currency-symbol">$</div>
                 <input 
-                  type="number" 
+                  type="text" 
                   class="amount-input"
-                  [(ngModel)]="withdrawalAmount"
-                  [min]="selectedWithdrawalMethod === 'stripe_connect' ? 0.01 : 10"
-                  [max]="balance.available"
-                  step="0.01"
+                  [(ngModel)]="formattedWithdrawalAmount"
+                  (blur)="onWithdrawalAmountBlur()"
                   placeholder="0.00">
                 <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>
               </div>

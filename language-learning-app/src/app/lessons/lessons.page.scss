@@ -691,6 +691,26 @@ $transition-fast: 0.15s ease;
   flex-shrink: 0;
 }
 
+// ─── Student Awaiting Tutor Feedback ──────
+.student-feedback-awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: #F0F4FF;
+  font-size: 13px;
+  font-weight: 500;
+  color: #4B5EAA;
+  letter-spacing: -0.1px;
+
+  ion-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    color: #6B7FCC;
+  }
+}
+
 .action-generating {
   display: flex;
   align-items: center;
@@ -929,167 +949,6 @@ $transition-fast: 0.15s ease;
       background: $bg-hover;
       border-color: $text-primary;
     }
-  }
-}
-
-// =============================================
-// TUTOR FEEDBACK MODAL – AIRBNB STYLE
-// =============================================
-.feedback-modal-container {
-  background: white;
-  border-radius: 24px;
-  padding: 0;
-  max-width: 480px;
-  width: 100%;
-  margin: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-}
-
-.feedback-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid $border-light;
-
-  h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: $text-primary;
-    margin: 0;
-    letter-spacing: -0.2px;
-  }
-}
-
-.feedback-modal-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: $bg-subtle;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background $transition-fast;
-
-  ion-icon {
-    font-size: 18px;
-    color: $text-primary;
-  }
-
-  &:hover {
-    background: $border-light;
-  }
-}
-
-.feedback-modal-body {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.feedback-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.feedback-section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.section-icon {
-  font-size: 18px;
-
-  &.strengths-icon {
-    color: #34C759;
-  }
-
-  &.areas-icon {
-    color: #FF9500;
-  }
-
-  &.homework-icon {
-    color: #007AFF;
-  }
-
-  &.notes-icon {
-    color: $text-secondary;
-  }
-}
-
-.feedback-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: $text-secondary;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.feedback-list {
-  margin: 0;
-  padding: 0 0 0 8px;
-  list-style: none;
-
-  li {
-    position: relative;
-    padding: 6px 0 6px 16px;
-    font-size: 15px;
-    color: $text-primary;
-    line-height: 1.5;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 14px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: $border-light;
-    }
-  }
-}
-
-.feedback-text {
-  font-size: 15px;
-  color: $text-primary;
-  line-height: 1.6;
-  margin: 0;
-  padding-left: 8px;
-  white-space: pre-wrap;
-}
-
-.feedback-modal-actions {
-  padding: 20px 24px;
-  border-top: 1px solid $border-light;
-  background: #FAFAFA;
-}
-
-.feedback-action-btn {
-  width: 100%;
-  padding: 14px 20px;
-  border-radius: $radius-md;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all $transition-fast;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: $text-primary;
-  color: white;
-  border: none;
-
-  &:hover {
-    background: #000000;
   }
 }
 

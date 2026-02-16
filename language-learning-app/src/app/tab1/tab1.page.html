@@ -130,12 +130,12 @@
     </div>
     
     <!-- Outstanding Feedback Banner (Airbnb style) -->
-    <div class="feedback-banner-airbnb" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
+    <div class="feedback-banner-airbnb" [class.grace-expired]="feedbackGraceExpired" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
       <div class="feedback-banner-left">
         <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
         <div class="feedback-banner-copy">
           <span class="feedback-banner-title">Feedback needed</span>
-          <span class="feedback-banner-subtitle">Your profile is hidden until complete</span>
+          <span class="feedback-banner-subtitle">{{ feedbackBannerSubtitle }}</span>
         </div>
       </div>
       <button class="feedback-banner-cta">
@@ -521,7 +521,7 @@
         <div 
           *ngFor="let feedback of pendingFeedback.slice(0, 3)" 
           class="feedback-request-card"
-          (click)="openFeedbackForm(feedback._id)"
+          (click)="openFeedbackForm(feedback.lessonId, feedback._id)"
         >
           <ion-avatar class="feedback-avatar">
             <img [src]="feedback.studentPicture" *ngIf="feedback.studentPicture" />
@@ -686,7 +686,7 @@
             [class.active]="isLessonInProgress(nextClass.lesson)"
             [disabled]="!canJoinStudentLesson(nextClass)"
             (click)="joinStudentLesson(nextClass)">
-            {{ isLessonInProgress(nextClass.lesson) ? 'Join Now' : 'Join Class' }}
+            {{ isLessonInProgress(nextClass.lesson) ? 'Join Now' : 'Join Lesson' }}
           </ion-button>
         </div>
 
@@ -846,7 +846,7 @@
               
               <!-- Show all link -->
               <button class="coming-up-show-all" (click)="openAllLessonsModal()">
-                View all upcoming lessons
+                View more upcoming lessons
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
             </div>
@@ -855,22 +855,22 @@
             <div class="coming-up-empty" *ngIf="timelineEvents.length === 0">
               <p>{{ getComingUpEmptyMessage() }}</p>
               <button class="coming-up-show-all" (click)="openAllLessonsModal()">
-                View all upcoming lessons
+                View more upcoming lessons
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
             </div>
             
             <!-- Contextual action prompt (feedback or find tutors) -->
-            <div class="coming-up-action" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
+            <!-- <div class="coming-up-action" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
               <div class="action-left">
                 <span class="action-count">{{ pendingFeedbackCount }}</span>
                 <div class="action-text">
                   <span class="action-title">Feedback needed</span>
-                  <span class="action-subtitle">Your profile is hidden until complete</span>
+                  <span class="action-subtitle">{{ feedbackBannerSubtitle }}</span>
                 </div>
               </div>
               <span class="action-cta">Review <ion-icon name="arrow-forward-outline"></ion-icon></span>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>
@@ -1234,7 +1234,7 @@
           </div>
           
           <!-- Lesson row - clean, no border -->
-          <div class="airbnb-lesson-row" [class.cancelled]="event.isCancelled" [@lessonRowEnter] (click)="navigateToLesson(event.lesson); closeAllLessonsModal()">
+          <div class="airbnb-lesson-row" [class.cancelled]="event.isCancelled" [@lessonRowEnter] (click)="navigateToLessonFromModal(event.lesson)">
             <div class="airbnb-lesson-left">
               <div class="airbnb-lesson-date">{{ event.date }}</div>
               <div class="airbnb-lesson-time">{{ event.time }} – {{ event.endTime || '' }}</div>
@@ -1306,7 +1306,7 @@
     <ion-content class="airbnb-modal-ion-content">
       <div class="airbnb-modal-body">
         <ng-container *ngFor="let fb of pendingFeedback; let i = index">
-          <div class="airbnb-lesson-row" (click)="openFeedbackForm(fb._id); closeFeedbackModal()">
+          <div class="airbnb-lesson-row" (click)="openFeedbackForm(fb.lessonId, fb._id); closeFeedbackModal()">
             <div class="airbnb-lesson-left">
               <div class="airbnb-lesson-date">{{ formatFeedbackDate(fb.lesson?.startTime) }}</div>
               <div class="airbnb-lesson-time">{{ formatFeedbackTime(fb.lesson?.startTime) }} · {{ fb.lesson?.duration }} min</div>

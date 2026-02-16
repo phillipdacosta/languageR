@@ -1,216 +1,232 @@
-<ion-content class="post-lesson-tutor-content" [scrollY]="!studentAiEnabled">
+<ion-content class="post-lesson-tutor-content" [scrollY]="true">
   <div class="content-wrapper">
-    
-    <!-- Top Left Home Button -->
-    <button class="top-home-btn" (click)="goHome()">
-      <ion-icon name="arrow-back"></ion-icon>
-      <span>Home</span>
+
+    <!-- Back Button -->
+    <button class="back-btn" (click)="goHome()">
+      <ion-icon name="chevron-back"></ion-icon>
+      <span>{{ backButtonLabel }}</span>
     </button>
 
-    <div class="congratulations-container" *ngIf="!noteSubmitted">
-      
-      <!-- Compact Header -->
-      <div class="congrats-header">
-        <div class="header-content">
-          <span class="congrats-icon">🎉</span>
-          <div class="header-text">
-            <h1>Great Lesson!</h1>
-            <p *ngIf="student">Completed with {{ getStudentDisplayName() }}</p>
-          </div>
-        </div>
-        
-        <!-- Inline Earnings -->
-        <div class="earnings-badge" *ngIf="lesson">
-          <span class="earnings-label">Earned</span>
-          <span class="earnings-amount">${{ getEarningsAmount() }}</span>
+    <!-- ==================== MAIN CARD ==================== -->
+    <div class="lesson-card" *ngIf="!noteSubmitted">
+
+      <!-- Header -->
+      <div class="card-header">
+        <span class="header-emoji">🎉</span>
+        <h1>Great Lesson!</h1>
+        <p class="header-subtitle" *ngIf="student">Completed with {{ studentDisplayName }}</p>
+      </div>
+
+      <!-- Student Info -->
+      <div class="student-row" *ngIf="student && lesson">
+        <img class="avatar" [src]="student.picture || 'assets/default-avatar.png'" [alt]="studentDisplayName" />
+        <div class="info">
+          <span class="name">{{ studentDisplayName }}</span>
+          <span class="datetime">{{ lessonDateTime }}</span>
+          <span class="duration">{{ lesson.actualDurationMinutes || lesson.duration }} min lesson</span>
         </div>
       </div>
 
-      <!-- Main Content: Side by Side -->
-      <div class="main-layout">
-        
-        <!-- LEFT: Student Info + Analysis -->
-        <div class="left-panel">
-          <div class="student-card" *ngIf="student && lesson">
-            <img class="student-avatar" [src]="student.picture || 'assets/default-avatar.png'" [alt]="getStudentDisplayName()" />
-            <div class="student-info">
-              <h3>{{ getStudentDisplayName() }}</h3>
-              <p class="lesson-datetime">{{ formatLessonDateTime() }}</p>
-              <p class="lesson-duration">{{ lesson.actualDurationMinutes || lesson.duration }} min lesson</p>
-            </div>
-          </div>
-          
-          <!-- Performance Metrics (compact) -->
-          <div class="metrics-row" *ngIf="analysisLoaded && analysis">
-            <div class="metric-item">
-              <span class="metric-value">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</span>
-              <span class="metric-label">Level</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-value">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }}</span>
-              <span class="metric-label">Words</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-value">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</span>
-              <span class="metric-label">Grammar</span>
-            </div>
+      <!-- Performance Metrics -->
+      <div class="metrics" *ngIf="analysisLoaded && analysis">
+        <div class="metric">
+          <span class="metric-val">{{ analysis.overallAssessment?.proficiencyLevel || 'N/A' }}</span>
+          <span class="metric-lbl">Level</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ analysis.vocabularyAnalysis?.uniqueWordCount || 0 }}</span>
+          <span class="metric-lbl">Words</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ analysis.grammarAnalysis?.accuracyScore || 0 }}%</span>
+          <span class="metric-lbl">Grammar</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ==================== COUNTDOWN TIMER (when feedback is required) ==================== -->
+      <div class="countdown-banner" *ngIf="showCountdown && !noteSubmitted" [class.expired]="countdownExpired">
+        <div class="countdown-icon">
+          <ion-icon [name]="countdownExpired ? 'alert-circle' : 'time-outline'"></ion-icon>
+        </div>
+        <div class="countdown-body">
+          <p class="countdown-title" *ngIf="!countdownExpired">
+            Submit within <strong>{{ countdownDisplay }}</strong> to keep your profile visible
+          </p>
+          <p class="countdown-title" *ngIf="countdownExpired">
+            Your profile is now hidden from students
+          </p>
+          <p class="countdown-sub" *ngIf="!countdownExpired">
+            Your profile will be hidden from search and bookings if feedback isn't submitted in time.
+          </p>
+          <p class="countdown-sub" *ngIf="countdownExpired">
+            Submit your feedback now to restore your profile visibility.
+          </p>
+        </div>
+      </div>
+
+      <!-- ==================== FEEDBACK ENCOURAGEMENT ==================== -->
+      <div class="feedback-tip">
+        <div class="feedback-tip-icon">🎓</div>
+        <div class="feedback-tip-body">
+          <p class="feedback-tip-lead">Your honest feedback helps students grow</p>
+          <p class="feedback-tip-detail">
+            Be specific and objective — constructive notes drive real progress,
+            even when they highlight areas to improve. Students value honesty
+            over praise.
+          </p>
+          <div class="feedback-tip-badge">
+            <ion-icon name="ribbon-outline"></ion-icon>
+            <span>Consistent, quality feedback earns you the <strong>Coaching-Oriented Tutor</strong> badge — visible to all students searching for tutors.</span>
           </div>
         </div>
+      </div>
 
-        <!-- RIGHT: Note Form (compact) -->
-        <div class="right-panel">
-          <div class="form-header">
-            <h2>Leave a Note</h2>
-            <span class="assessment-badge" *ngIf="!studentAiEnabled">Tutor Assessment Required</span>
-          </div>
+      <!-- ==================== NOTE FORM ==================== -->
+      <h2 class="section-title">Leave a Note</h2>
+      <span class="assessment-badge" *ngIf="!studentAiEnabled">Assessment Required</span>
 
-          <!-- Quick Impression - Inline -->
-          <div class="impression-row">
+      <!-- Quick Impressions -->
+      <div class="impressions">
+        <button
+          *ngFor="let option of impressionOptions"
+          class="chip"
+          [class.selected]="quickImpression === option.value"
+          [attr.data-color]="option.color"
+          (click)="selectImpression(option.value)">
+          {{ option.label }}
+        </button>
+      </div>
+
+      <!-- ===== ENHANCED ASSESSMENT (AI off) ===== -->
+      <div class="assessment-form" *ngIf="!studentAiEnabled">
+
+        <!-- CEFR Level -->
+        <div class="form-group">
+          <label>CEFR Level <span class="req">*</span></label>
+          <div class="cefr-chips">
             <button
-              *ngFor="let option of impressionOptions"
-              class="impression-chip"
-              [class.selected]="quickImpression === option.value"
-              [attr.data-color]="option.color"
-              (click)="selectImpression(option.value)">
-              {{ option.label }}
+              *ngFor="let level of cefrLevels"
+              class="cefr-chip"
+              [class.selected]="cefrLevel === level"
+              (click)="selectCefrLevel(level)">
+              {{ level }}
             </button>
           </div>
+        </div>
 
-          <!-- === ENHANCED ASSESSMENT (shown only when AI is off) === -->
-          <div class="enhanced-assessment" *ngIf="!studentAiEnabled">
-            
-            <!-- CEFR Level Selection -->
-            <div class="assessment-section">
-              <label>CEFR Level <span class="required">*</span></label>
-              <div class="cefr-row">
-                <button
-                  *ngFor="let level of cefrLevels"
-                  class="cefr-chip"
-                  [class.selected]="cefrLevel === level"
-                  (click)="selectCefrLevel(level)">
-                  {{ level }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Grammar & Fluency Ratings Side by Side -->
-            <div class="ratings-row">
-              <div class="rating-group">
-                <label>Grammar <span class="required">*</span></label>
-                <div class="star-row">
-                  <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
-                    class="rating-dot"
-                    [class.active]="grammarRating >= i"
-                    (click)="setGrammarRating(i)">
-                  </button>
-                  <span class="rating-value" *ngIf="grammarRating > 0">{{ grammarRating }}/10</span>
-                </div>
-              </div>
-              <div class="rating-group">
-                <label>Fluency <span class="required">*</span></label>
-                <div class="star-row">
-                  <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
-                    class="rating-dot"
-                    [class.active]="fluencyRating >= i"
-                    (click)="setFluencyRating(i)">
-                  </button>
-                  <span class="rating-value" *ngIf="fluencyRating > 0">{{ fluencyRating }}/10</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Key Error Areas -->
-            <div class="assessment-section">
-              <label>Key Error Areas <span class="optional">(Optional)</span></label>
-              <div class="chip-grid">
-                <button
-                  *ngFor="let area of errorAreaOptions"
-                  class="select-chip"
-                  [class.selected]="selectedErrorAreas.includes(area)"
-                  (click)="toggleErrorArea(area)">
-                  {{ area }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Strengths -->
-            <div class="assessment-section">
-              <label>Strengths <span class="required">*</span></label>
-              <div class="chip-grid">
-                <button
-                  *ngFor="let s of strengthOptions"
-                  class="select-chip chip-green"
-                  [class.selected]="selectedStrengths.includes(s)"
-                  (click)="toggleStrength(s)">
-                  {{ s }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Areas to Improve -->
-            <div class="assessment-section">
-              <label>Areas to Improve <span class="required">*</span></label>
-              <div class="chip-grid">
-                <button
-                  *ngFor="let a of improvementOptions"
-                  class="select-chip chip-orange"
-                  [class.selected]="selectedAreasToImprove.includes(a)"
-                  (click)="toggleAreaToImprove(a)">
-                  {{ a }}
-                </button>
-              </div>
+        <!-- Grammar & Fluency Ratings -->
+        <div class="ratings-grid">
+          <div class="form-group">
+            <label>Grammar <span class="req">*</span></label>
+            <div class="dots-row">
+              <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
+                class="dot"
+                [class.active]="grammarRating >= i"
+                (click)="setGrammarRating(i)">
+              </button>
+              <span class="dot-val" *ngIf="grammarRating > 0">{{ grammarRating }}/10</span>
             </div>
           </div>
-          <!-- === END ENHANCED ASSESSMENT === -->
-
-          <!-- Note + Homework Side by Side -->
-          <div class="fields-row">
-            <div class="field-group">
-              <label>Your Note <span class="required">*</span></label>
-              <ion-textarea
-                [(ngModel)]="noteText"
-                placeholder="Share your thoughts..."
-                rows="3"
-                maxlength="1000">
-              </ion-textarea>
+          <div class="form-group">
+            <label>Fluency <span class="req">*</span></label>
+            <div class="dots-row">
+              <button *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]"
+                class="dot"
+                [class.active]="fluencyRating >= i"
+                (click)="setFluencyRating(i)">
+              </button>
+              <span class="dot-val" *ngIf="fluencyRating > 0">{{ fluencyRating }}/10</span>
             </div>
-            <div class="field-group">
-              <label>Homework <span class="optional">(Optional)</span></label>
-              <ion-textarea
-                [(ngModel)]="homework"
-                placeholder="Suggest practice..."
-                rows="3"
-                maxlength="500">
-              </ion-textarea>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="form-actions">
-            <ion-button
-              color="primary"
-              [disabled]="!noteText.trim() || submittingNote || (!studentAiEnabled && !isEnhancedFormValid())"
-              (click)="submitNote()">
-              <ion-spinner *ngIf="submittingNote" name="crescent"></ion-spinner>
-              <span *ngIf="!submittingNote">Send Note</span>
-            </ion-button>
-            <button class="skip-link" *ngIf="studentAiEnabled" (click)="skipNote()">Skip</button>
           </div>
         </div>
+
+        <!-- Key Error Areas -->
+        <div class="form-group">
+          <label>Key Error Areas <span class="opt">(Optional)</span></label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let area of errorAreaOptions"
+              class="tag"
+              [class.selected]="selectedErrorAreas.includes(area)"
+              (click)="toggleErrorArea(area)">
+              {{ area }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Strengths -->
+        <div class="form-group">
+          <label>Strengths <span class="req">*</span></label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let s of strengthOptions"
+              class="tag tag-green"
+              [class.selected]="selectedStrengths.includes(s)"
+              (click)="toggleStrength(s)">
+              {{ s }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Areas to Improve -->
+        <div class="form-group">
+          <label>Areas to Improve <span class="req">*</span></label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let a of improvementOptions"
+              class="tag tag-amber"
+              [class.selected]="selectedAreasToImprove.includes(a)"
+              (click)="toggleAreaToImprove(a)">
+              {{ a }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- ===== END ENHANCED ASSESSMENT ===== -->
+
+      <!-- Note + Homework -->
+      <div class="textarea-grid">
+        <div class="form-group">
+          <label>Your Note <span class="req">*</span></label>
+          <ion-textarea
+            [(ngModel)]="noteText"
+            placeholder="Share your thoughts..."
+            rows="3"
+            maxlength="1000">
+          </ion-textarea>
+        </div>
+        <div class="form-group">
+          <label>Homework <span class="opt">(Optional)</span></label>
+          <ion-textarea
+            [(ngModel)]="homework"
+            placeholder="Suggest practice..."
+            rows="3"
+            maxlength="500">
+          </ion-textarea>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn-primary" [disabled]="isSubmitDisabled" (click)="submitNote()">
+          <ion-spinner *ngIf="submittingNote" name="crescent"></ion-spinner>
+          <span *ngIf="!submittingNote">Send Note</span>
+        </button>
+        <button class="btn-text" *ngIf="studentAiEnabled" (click)="skipNote()">Skip</button>
       </div>
 
     </div>
 
-    <!-- Success Message -->
-    <div class="success-container" *ngIf="noteSubmitted">
-      <div class="success-content">
-        <ion-icon name="checkmark-circle" color="success"></ion-icon>
-        <h2>Note Sent!</h2>
-        <p>{{ student?.name }} will see your feedback.</p>
-        <ion-button color="primary" (click)="goHome()">
-          Go to Home
-        </ion-button>
+    <!-- ==================== SUCCESS STATE ==================== -->
+    <div class="success-card" *ngIf="noteSubmitted">
+      <div class="success-icon-wrap">
+        <ion-icon name="checkmark-circle"></ion-icon>
       </div>
+      <h2>Note Sent!</h2>
+      <p>{{ studentDisplayName }} will see your feedback.</p>
+      <button class="btn-primary" (click)="goHome()">Go to Home</button>
     </div>
 
   </div>

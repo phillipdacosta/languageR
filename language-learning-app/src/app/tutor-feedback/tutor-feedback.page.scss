@@ -57,31 +57,35 @@
   margin-bottom: 16px;
 }
 
-.close-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  display: flex;
+.back-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 8px 4px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
 
   ion-icon {
     font-size: 20px;
     color: var(--text-primary);
   }
 
+  .back-label {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
   &:hover {
-    background: #f0f0f0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.04);
   }
 
   &:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
   }
 }
 

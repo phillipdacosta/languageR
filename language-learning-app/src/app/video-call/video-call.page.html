@@ -1,4 +1,4 @@
-<ion-header [translucent]="true">
+<!-- <ion-header [translucent]="true">
   <ion-toolbar>
     <div class="header-content">
       <ion-title>Video Class</ion-title>
@@ -13,7 +13,7 @@
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-</ion-header>
+</ion-header> -->
 
 <ion-content [fullscreen]="true">
   <!-- Office Hours Timer (Top Center) - Always visible during office hours -->
@@ -237,7 +237,7 @@
         <!-- Remote video will be displayed here -->
         
         <!-- Camera Off placeholder for main view -->
-        <div class="video-placeholder" *ngIf="getRemoteUserVideoOffState()">
+        <div class="video-placeholder" *ngIf="isRemoteUserVideoOff">
           <ion-avatar class="avatar-placeholder">
             <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
             <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
@@ -248,9 +248,9 @@
         <!-- Remote user mute indicator (overlay on main video) -->
         <div class="remote-user-info" *ngIf="remoteUserCount > 0">
           <div class="remote-user-label">
-            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
-                      [class.muted]="getRemoteUserMuteState()"></ion-icon>
-            <span>{{getRemoteParticipantLabel()}}</span>
+            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="isRemoteUserMuted"></ion-icon>
+            <span>{{ remoteParticipantLabel }}</span>
           </div>
         </div>
       </div>
@@ -439,10 +439,10 @@
       <ng-container *ngIf="!isClass">
         <!-- Remote participant tile (only show when whiteboard is open) -->
         <div class="participant-tile remote-participant" *ngIf="remoteUserCount > 0 && showWhiteboard">
-          <div #remoteVideoTile class="participant-video" *ngIf="!getRemoteUserVideoOffState()">
+          <div #remoteVideoTile class="participant-video" *ngIf="!isRemoteUserVideoOff">
             <!-- Remote video will be cloned here when whiteboard is open -->
           </div>
-          <div class="video-placeholder small" *ngIf="getRemoteUserVideoOffState()">
+          <div class="video-placeholder small" *ngIf="isRemoteUserVideoOff">
             <ion-avatar class="avatar-placeholder small">
               <img *ngIf="remoteParticipantProfilePicture" [src]="remoteParticipantProfilePicture" alt="Remote participant" referrerpolicy="no-referrer">
               <ion-icon *ngIf="!remoteParticipantProfilePicture" name="person" class="avatar-icon"></ion-icon>
@@ -450,9 +450,9 @@
             <p>Camera Off</p>
           </div>
           <div class="participant-label">
-            <ion-icon [name]="getRemoteUserMuteState() ? 'mic-off-outline' : 'mic-outline'" 
-                      [class.muted]="getRemoteUserMuteState()"></ion-icon>
-            <span>{{getRemoteParticipantLabel()}}</span>
+            <ion-icon [name]="isRemoteUserMuted ? 'mic-off-outline' : 'mic-outline'" 
+                      [class.muted]="isRemoteUserMuted"></ion-icon>
+            <span>{{ remoteParticipantLabel }}</span>
           </div>
         </div>
         
@@ -482,7 +482,7 @@
     <!-- Chat Panel -->
     <div class="chat-panel" *ngIf="showChat">
       <div class="chat-header">
-        <h3>Chat with {{getRemoteParticipantLabel()}}</h3>
+        <h3>Chat with {{ remoteParticipantLabel }}</h3>
         <ion-button (click)="toggleChat()" size="small" fill="clear">
           <ion-icon name="close-outline"></ion-icon>
         </ion-button>
@@ -588,7 +588,7 @@
       <div *ngIf="replyingToMessage" class="replying-to-container">
         <div class="replying-to-header">
           <ion-icon name="arrow-undo-outline" class="reply-icon"></ion-icon>
-          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : getRemoteParticipantLabel() }}</span>
+          <span class="replying-to-label">Replying to {{ isMyMessage(replyingToMessage) ? 'yourself' : remoteParticipantLabel }}</span>
           <ion-icon name="close-outline" class="close-reply-icon" (click)="clearReply()"></ion-icon>
         </div>
         <div class="replying-to-preview">
@@ -694,4 +694,43 @@
     </div>
 
   </div>
+
+
 </ion-content>
+
+<!-- Talk Time Popup (Bottom Right) — OUTSIDE ion-content so position:fixed works in Ionic -->
+<div class="talk-time-popup" *ngIf="showTalkTimePopup" [class.dismissing]="talkTimePopupDismissed">
+  <button class="talk-time-close" (click)="dismissTalkTimePopup()">
+    <ion-icon name="close"></ion-icon>
+  </button>
+  <div class="talk-time-header">
+    <ion-icon name="mic-outline" class="talk-time-icon"></ion-icon>
+    <span class="talk-time-title">Speaking Time</span>
+  </div>
+
+  <!-- Pre-lesson waiting state -->
+  <div class="talk-time-waiting" *ngIf="isWaitingForLessonStart">
+    <ion-icon name="time-outline" class="waiting-icon"></ion-icon>
+    <span class="waiting-text">Tracking starts when lesson begins</span>
+  </div>
+
+  <!-- Active talk time tracking (only after lesson starts) -->
+  <div class="talk-time-body" *ngIf="!isWaitingForLessonStart">
+    <!-- Local user -->
+    <div class="talk-time-row">
+      <span class="talk-time-name">{{ localSpeakerName }}</span>
+      <div class="talk-time-bar-container">
+        <div class="talk-time-bar local-bar" [style.width.%]="localSpeakingPercent"></div>
+      </div>
+      <span class="talk-time-value">{{ localSpeakingPercentFormatted }}</span>
+    </div>
+    <!-- Remote user -->
+    <div class="talk-time-row">
+      <span class="talk-time-name">{{ remoteSpeakerName }}</span>
+      <div class="talk-time-bar-container">
+        <div class="talk-time-bar remote-bar" [style.width.%]="remoteSpeakingPercent"></div>
+      </div>
+      <span class="talk-time-value">{{ remoteSpeakingPercentFormatted }}</span>
+    </div>
+  </div>
+</div>

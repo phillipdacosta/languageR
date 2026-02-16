@@ -1686,13 +1686,15 @@ ion-content {
 
 // Avatar — replaces the calendar icon, same position & sizing
 .upnext-filled-avatar {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: 20px;
   overflow: hidden;
   margin-bottom: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+  position: relative;
+  top: 30px;
   
   img {
     width: 100%;
@@ -1844,13 +1846,20 @@ ion-content {
   // Outline variant (Join Class button) — matches withdraw-btn dimensions
   &[fill="outline"] {
     --border-color: #222222;
-    --color: #222222;
+    --color: #ffffff;
     --border-width: 1px;
-    --background: transparent;
+    --background: #222222;
     
-    &:hover {
-      --background: #222222;
+    &:hover:not([disabled]) {
+      --background: #000000;
       --color: #ffffff;
+      --border-color: #000000;
+    }
+    
+    &[disabled] {
+      --background: transparent;
+      --color: #9ca3af;
+      --border-color: #e5e7eb;
     }
   }
   overflow: hidden;
@@ -3172,6 +3181,28 @@ ion-content {
       padding: 7px 12px;
       font-size: 13px;
     }
+  }
+}
+
+// Grace-expired state: banner shifts to red/urgent
+.feedback-banner-airbnb.grace-expired {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.12);
+
+  &:hover {
+    background: #FEE2E2;
+    border-color: #F87171;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.18);
+  }
+
+  .feedback-banner-subtitle {
+    color: #B91C1C;
+    font-weight: 500;
+  }
+
+  .feedback-banner-count {
+    background: #DC2626;
   }
 }
 
@@ -9584,17 +9615,23 @@ ion-content {
     p { color: var(--ion-text-color-step-400, #aaa) !important; }
   }
   .empty-state-clean-btn {
-    --background: transparent !important;
+    --background: #222222 !important;
     --color: #ffffff !important;
-    --border-color: #ffffff !important;
-    &:hover {
-      --background: #ffffff !important;
-      --color: #1d1d1f !important;
+    --border-color: #222222 !important;
+    &:hover:not([disabled]) {
+      --background: #000000 !important;
+      --color: #ffffff !important;
+      --border-color: #000000 !important;
+    }
+    &[disabled] {
+      --background: transparent !important;
+      --color: #666666 !important;
+      --border-color: #666666 !important;
     }
     &.active {
-      --background: #ffffff !important;
-      --color: #1d1d1f !important;
-      --border-color: #ffffff !important;
+      --background: #222222 !important;
+      --color: #ffffff !important;
+      --border-color: #222222 !important;
     }
   }
   
