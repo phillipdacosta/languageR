@@ -82,6 +82,122 @@ ion-toolbar {
   }
 }
 
+// ----- Skeleton Loader -----
+.earnings-skeleton {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.skeleton-balance-strip {
+  display: flex;
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 20px 0;
+  margin-bottom: 24px;
+}
+
+.skeleton-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 24px;
+
+  & + & {
+    border-left: 1px solid $border;
+  }
+}
+
+.skeleton-line {
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-label {
+  width: 64px;
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+.skeleton-value {
+  width: 96px;
+  height: 28px;
+  margin-bottom: 8px;
+}
+
+.skeleton-sub {
+  width: 80px;
+  height: 10px;
+}
+
+.skeleton-withdraw-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 32px;
+}
+
+.skeleton-btn {
+  width: 160px;
+  height: 48px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-chart-card {
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 24px;
+}
+
+.skeleton-chart-title {
+  width: 180px;
+  height: 16px;
+  margin-bottom: 16px;
+}
+
+.skeleton-chart-amount {
+  width: 120px;
+  height: 32px;
+  margin-bottom: 24px;
+}
+
+.skeleton-chart-area {
+  width: 100%;
+  height: 200px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+// ----- Fade In for content -----
+.earnings-fade-in {
+  animation: earningsFadeIn 0.4s ease-out forwards;
+}
+
+@keyframes earningsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 // ----- Inline Wrapper (when embedded in another page) -----
 .earnings-inline-wrapper {
   .earnings-content {

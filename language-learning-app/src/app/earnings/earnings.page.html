@@ -26,10 +26,23 @@
 
 <!-- Shared earnings content template -->
 <ng-template #earningsBody>
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading-container">
-    <ion-spinner name="crescent" color="dark"></ion-spinner>
-    <p>Loading earnings...</p>
+  <!-- Loading State — Skeleton that mirrors the real layout -->
+  <div *ngIf="loading" class="earnings-skeleton">
+    <div class="skeleton-balance-strip">
+      <div class="skeleton-stat" *ngFor="let s of [1,2,3]">
+        <div class="skeleton-line skeleton-label"></div>
+        <div class="skeleton-line skeleton-value"></div>
+        <div class="skeleton-line skeleton-sub"></div>
+      </div>
+    </div>
+    <div class="skeleton-withdraw-row">
+      <div class="skeleton-btn"></div>
+    </div>
+    <div class="skeleton-chart-card">
+      <div class="skeleton-line skeleton-chart-title"></div>
+      <div class="skeleton-line skeleton-chart-amount"></div>
+      <div class="skeleton-chart-area"></div>
+    </div>
   </div>
 
   <!-- Error State -->
@@ -40,7 +53,7 @@
   </div>
 
   <!-- Earnings Content -->
-  <div *ngIf="!loading && !error" class="earnings-content">
+  <div *ngIf="!loading && !error" class="earnings-content earnings-fade-in">
 
     <!-- Balance Strip Row -->
     <div class="balance-strip-row">
@@ -52,7 +65,7 @@
           <span class="stat-value" *ngIf="showWalletBalance || walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
           <span class="stat-value masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
           <span class="stat-value-hover" *ngIf="!showWalletBalance && !walletTemporarilyVisible">${{ balance.pending.toFixed(2) }}</span>
-          <span class="stat-sub">24hr hold</span>
+          <span class="stat-sub">1hr hold</span>
         </div>
         <div class="stat-divider"></div>
         <div class="balance-stat available-stat"

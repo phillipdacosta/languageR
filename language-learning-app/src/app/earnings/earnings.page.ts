@@ -178,19 +178,25 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       // fallback: userJoinDate stays as now
     }
     
-    await Promise.all([
-      this.loadBalance(),
-      this.loadEarnings(),
-      this.loadWithdrawalHistory()
-    ]);
-    // Recreate chart after all data (balance + payments) is loaded
+    // Load ALL data before revealing the UI (prevents $0.00 flash)
+    this.loading = true;
+    try {
+      await Promise.all([
+        this.loadBalance(),
+        this.loadEarnings(),
+        this.loadWithdrawalHistory()
+      ]);
+    } finally {
+      this.loading = false;
+    }
+    // Create chart after all data (balance + payments) is loaded
     setTimeout(() => this.createEarningsChart(), 50);
     this.setupWebSocketListeners();
   }
 
   ngAfterViewInit() {
-    // Chart will be created after data loads
-    setTimeout(() => this.createEarningsChart(), 100);
+    // Chart will be created after data loads (if not already)
+    setTimeout(() => this.createEarningsChart(), 150);
   }
 
   /**
@@ -199,12 +205,18 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
    */
   async ionViewWillEnter() {
     console.log('💰 [EARNINGS] Page entering - refreshing data...');
-    await Promise.all([
-      this.loadBalance(),
-      this.loadEarnings(),
-      this.loadWithdrawalHistory()
-    ]);
-    // Recreate chart with fresh data (balance + payments)
+    // Load ALL data before revealing the UI (prevents $0.00 flash)
+    this.loading = true;
+    try {
+      await Promise.all([
+        this.loadBalance(),
+        this.loadEarnings(),
+        this.loadWithdrawalHistory()
+      ]);
+    } finally {
+      this.loading = false;
+    }
+    // Create chart with fresh data (balance + payments)
     setTimeout(() => this.createEarningsChart(), 50);
   }
   
@@ -280,7 +292,6 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   }
 
   async loadEarnings() {
-    this.loading = true;
     this.error = null;
 
     try {
@@ -305,15 +316,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         // Apply filters
         this.applyFilters();
         this.updateFilterState();
-
-        // Update earnings chart
-        setTimeout(() => this.createEarningsChart(), 50);
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
       this.error = 'Failed to load earnings. Please try again.';
-    } finally {
-      this.loading = false;
     }
   }
 
