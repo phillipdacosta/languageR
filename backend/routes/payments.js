@@ -1154,10 +1154,11 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     console.log(`💰 Fetching earnings for tutor ${user._id}...`);
     
-    // Pagination
+    // Pagination (use limit=0 to fetch all, for chart data)
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const requestedLimit = parseInt(req.query.limit);
+    const limit = requestedLimit === 0 ? 0 : (requestedLimit || 20);
+    const skip = limit === 0 ? 0 : (page - 1) * limit;
     
     // Build query
     const query = { 
@@ -1170,16 +1171,20 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       // We'll filter by status after mapping, since it's computed
     }
 
-    // Get payments with pagination
-    let payments = await Payment.find(query)
+    // Get payments (limit=0 returns all for chart data)
+    let paymentsQuery = Payment.find(query)
       .populate('lessonId', 'startTime endTime duration status cancelReason')
       .populate('classId', 'startTime endTime name status')
       .populate('studentId', 'name firstName lastName picture')
-      .sort({ createdAt: -1 }) // Sort by booking date
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 }); // Sort by booking date
 
-    console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (page ${page})`);
+    if (limit > 0) {
+      paymentsQuery = paymentsQuery.skip(skip).limit(limit);
+    }
+
+    let payments = await paymentsQuery;
+
+    console.log(`💰 Found ${payments.length} payments for tutor ${user._id} (${limit === 0 ? 'all' : `page ${page}`})`);
 
     // ─── Fetch any missing hybrid payment partners ────────────────────
     // If a hybrid payment's partner landed on a different page, fetch it so we can merge
@@ -1415,7 +1420,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       pendingEarnings,
       recentPayments: filteredPayments,
       page,
-      hasMore: payments.length === limit, // If we got full page, there might be more
+      hasMore: limit > 0 && payments.length === limit, // If we got full page, there might be more
       payoutProvider: user.payoutProvider || 'unknown',
       payoutDetails: user.payoutDetails
     });

@@ -415,15 +415,15 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Process withdrawals (every 5 minutes)');
   
-  // NEW: Release Tutor Earnings (20 minutes past the hour)
-  // Moves earnings from pending to available after 24hr hold period
-  // TODO: Change back to '20 * * * *' for production (every hour at :20)
+  // Release Tutor Earnings
+  // Moves earnings from pending to available after 1-hour hold period
+  // Runs every 5 minutes to catch newly eligible payments promptly
   cron.schedule('*/5 * * * *', () => {
     releaseEarnings(io).catch(err => {
       console.error('❌ [Cron] Error in releaseEarnings:', err);
     });
   });
-  console.log('⏰ Cron job started: Release tutor earnings (every 5 MINUTES - testing)');
+  console.log('⏰ Cron job started: Release tutor earnings (every 5 minutes)');
   
   // Start background job to reconcile payments (check DB vs Stripe sync)
   // Runs nightly at 2:00 AM

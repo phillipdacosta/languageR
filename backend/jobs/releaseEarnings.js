@@ -6,7 +6,7 @@ const alertService = require('../services/alertService');
 /**
  * Release Earnings Cron Job (WITH BATCHING + RETRY LOGIC)
  * 
- * Runs every hour to check for tutor earnings that have passed the 24hr hold period
+ * Runs every 5 minutes to check for tutor earnings that have passed the 1-hour hold period
  * and moves them from pendingBalance to availableBalance.
  * 
  * SCALABILITY FEATURES:
@@ -118,9 +118,9 @@ async function releaseEarnings(io = null) {
           }
           
           // Move from pending to available
+          // Note: lifetimeEarnings is already tracked at earn-time (completeLessonPayment)
           tutor.tutorEarnings.pendingBalance -= payment.tutorPayout;
           tutor.tutorEarnings.availableBalance += payment.tutorPayout;
-          tutor.tutorEarnings.lifetimeEarnings += payment.tutorPayout;
           await tutor.save();
           
           // Update payment status

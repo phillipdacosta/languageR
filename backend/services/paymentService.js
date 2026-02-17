@@ -763,10 +763,9 @@ class PaymentService {
     console.log(`   Platform Fee (${this.PLATFORM_FEE_PERCENTAGE}%): $${platformFee.toFixed(2)}`);
     console.log(`   Tutor Payout: $${tutorPayout.toFixed(2)}`);
     
-    // Calculate earnings release date (15 MINUTES for testing - normally 24 hours)
-    // TODO: Change back to 24 hours for production
+    // Calculate earnings release date (1 hour hold after lesson end)
     const releaseDate = new Date(lesson.endTime);
-    releaseDate.setMinutes(releaseDate.getMinutes() + 15);
+    releaseDate.setHours(releaseDate.getHours() + 1);
     
     console.log(`   Release Date: ${releaseDate.toISOString()}`);
     
@@ -790,11 +789,13 @@ class PaymentService {
     }
     
     tutor.tutorEarnings.pendingBalance += tutorPayout;
+    tutor.tutorEarnings.lifetimeEarnings += tutorPayout; // Track at earn-time (not release-time)
     await tutor.save();
     
     console.log(`💼 Updated tutor balance:`);
     console.log(`   Pending: $${tutor.tutorEarnings.pendingBalance.toFixed(2)}`);
     console.log(`   Available: $${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
+    console.log(`   Lifetime: $${tutor.tutorEarnings.lifetimeEarnings.toFixed(2)}`);
     console.log(`\n✅ [NEW SYSTEM] Earnings will be available for withdrawal after ${releaseDate.toLocaleString()}\n`);
 
     // 🔔 Send notification to tutor when they earn money (NEW SYSTEM - pending balance)
@@ -817,9 +818,12 @@ class PaymentService {
         });
 
         if (!existingNotification) {
-          // NEW SYSTEM: Always show pending with 24hr hold
-          const hoursUntilRelease = Math.round((releaseDate - new Date()) / (1000 * 60 * 60));
-          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> from your lesson on <strong>${lessonDate}</strong> with ${studentName}. Funds will be available for withdrawal in ${hoursUntilRelease} hours.`;
+          // Earnings are on 1-hour hold before becoming available for withdrawal
+          const minutesUntilRelease = Math.max(1, Math.round((releaseDate - new Date()) / (1000 * 60)));
+          const timeLabel = minutesUntilRelease >= 60 
+            ? `${Math.round(minutesUntilRelease / 60)} hour${Math.round(minutesUntilRelease / 60) !== 1 ? 's' : ''}`
+            : `${minutesUntilRelease} minute${minutesUntilRelease !== 1 ? 's' : ''}`;
+          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> from your lesson on <strong>${lessonDate}</strong> with ${studentName}. Funds will be available for withdrawal in ~${timeLabel}.`;
 
           // Create notification in database
           const notification = new Notification({

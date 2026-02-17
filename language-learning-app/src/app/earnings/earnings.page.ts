@@ -183,6 +183,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.loadEarnings(),
       this.loadWithdrawalHistory()
     ]);
+    // Recreate chart after all data (balance + payments) is loaded
+    setTimeout(() => this.createEarningsChart(), 50);
     this.setupWebSocketListeners();
   }
 
@@ -202,6 +204,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.loadEarnings(),
       this.loadWithdrawalHistory()
     ]);
+    // Recreate chart with fresh data (balance + payments)
+    setTimeout(() => this.createEarningsChart(), 50);
   }
   
   // Load wallet visibility setting from user profile
@@ -281,7 +285,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     try {
       const response = await firstValueFrom(
-        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings`, {
+        this.http.get<any>(`${environment.apiUrl}/payments/tutor/earnings?limit=0`, {
           headers: this.userService.getAuthHeadersSync()
         })
       );
@@ -511,9 +515,16 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       current = new Date(current.getTime() + weekMs);
     }
 
-    // Filter valid payments
+    // Filter to only actually-earned payments (exclude future/unearned)
     const validPayments = this.recentPayments.filter(p => {
-      return p.status !== 'cancelled' && p.status !== 'refunded';
+      // Only count money the tutor has actually earned:
+      // - 'paid'      = transferred/withdrawn (transferStatus 'succeeded' or 'withdrawn')
+      // - 'succeeded' = available for withdrawal (transferStatus 'available')
+      // - 'pending'   = earned, on hold (transferStatus 'on_hold')
+      // Excluded: cancelled, refunded, scheduled, in_progress, processing, class_scheduled
+      return p.status === 'paid'
+        || p.status === 'succeeded'
+        || p.status === 'pending';
     });
 
     // Fill buckets
@@ -552,7 +563,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     const { labels, data, total } = this.getChartData();
-    this.chartTotal = `$${total.toFixed(2)}`;
+    // For "All Time", use the reconciled lifetime balance (authoritative source)
+    // For period views (1m, 6m), use the computed total from that period's payments
+    const displayTotal = (this.chartPeriod === 'all' && this.balance?.lifetime != null)
+      ? this.balance.lifetime
+      : total;
+    this.chartTotal = `$${displayTotal.toFixed(2)}`;
     this.chartHasData = data.some(v => v > 0);
 
     // Uppercase labels like the reference design (OCT 01, OCT 08, etc.)

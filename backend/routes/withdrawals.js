@@ -72,13 +72,144 @@ router.get('/balance', verifyToken, async (req, res) => {
       await user.save();
     }
     
-    // Use database values (authoritative source)
-    // Note: calculated values don't work correctly with partial withdrawals
-    // because payments get marked as 'withdrawn' even when partial amount remains
+    // ── Balance Reconciliation ─────────────────────────────────────────
+    // Recalculate balances from actual payment records (source of truth)
+    // to detect and fix any drift caused by bugs, race conditions, or 
+    // the lifetimeEarnings tracking change (was release-time, now earn-time).
+    try {
+      const mongoose = require('mongoose');
+      const tutorObjectId = new mongoose.Types.ObjectId(user._id);
+
+      // Aggregate earned payments by transferStatus
+      const aggregation = await Payment.aggregate([
+        { 
+          $match: { 
+            tutorId: tutorObjectId,
+            status: { $in: ['succeeded'] },
+            revenueRecognized: true
+          } 
+        },
+        { 
+          $group: { 
+            _id: '$transferStatus', 
+            total: { $sum: '$tutorPayout' } 
+          } 
+        }
+      ]);
+
+      // Also include tip payments (they may have revenueRecognized: true already)
+      const tipAgg = await Payment.aggregate([
+        {
+          $match: {
+            tutorId: tutorObjectId,
+            paymentType: 'tip',
+            status: 'succeeded'
+          }
+        },
+        {
+          $group: {
+            _id: '$transferStatus',
+            total: { $sum: '$tutorPayout' }
+          }
+        }
+      ]);
+
+      // Build status-to-total map (merge regular + tip, avoiding double counting)
+      const statusTotals = {};
+      // Regular payments (non-tip)
+      for (const row of aggregation) {
+        statusTotals[row._id || 'null'] = (statusTotals[row._id || 'null'] || 0) + row.total;
+      }
+      // Tip payments that might not be in the regular aggregation
+      // (tips have paymentType='tip' and may already be in the aggregation if revenueRecognized)
+      // To avoid double counting, only add tip totals for statuses not already counted
+      const tipPaymentIds = await Payment.find({
+        tutorId: user._id,
+        paymentType: 'tip',
+        status: 'succeeded'
+      }).select('_id');
+      
+      const regularPaymentIds = await Payment.find({
+        tutorId: user._id,
+        status: 'succeeded',
+        revenueRecognized: true,
+        paymentType: { $ne: 'tip' }
+      }).select('_id');
+
+      // Just re-aggregate ALL earned payments (tips + regular) in one query
+      const fullAgg = await Payment.aggregate([
+        {
+          $match: {
+            tutorId: tutorObjectId,
+            status: 'succeeded',
+            $or: [
+              { revenueRecognized: true },
+              { paymentType: 'tip' }
+            ]
+          }
+        },
+        {
+          $group: {
+            _id: '$transferStatus',
+            total: { $sum: '$tutorPayout' }
+          }
+        }
+      ]);
+
+      const totals = {};
+      for (const row of fullAgg) {
+        totals[row._id || 'null'] = row.total;
+      }
+
+      const calcPending = Math.round((totals['on_hold'] || 0) * 100) / 100;
+      const calcAvailable = Math.round((totals['available'] || 0) * 100) / 100;
+      const calcPendingWithdrawal = Math.round((totals['pending_withdrawal'] || 0) * 100) / 100;
+      const calcWithdrawn = Math.round((totals['withdrawn'] || 0) * 100) / 100;
+      const calcSucceeded = Math.round((totals['succeeded'] || 0) * 100) / 100; // legacy
+      const calcLifetime = Math.round((calcPending + calcAvailable + calcPendingWithdrawal + calcWithdrawn + calcSucceeded) * 100) / 100;
+
+      const currentPending = Math.round((user.tutorEarnings.pendingBalance || 0) * 100) / 100;
+      const currentAvailable = Math.round((user.tutorEarnings.availableBalance || 0) * 100) / 100;
+      const currentLifetime = Math.round((user.tutorEarnings.lifetimeEarnings || 0) * 100) / 100;
+
+      let needsReconciliation = false;
+
+      if (Math.abs(currentPending - calcPending) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] pendingBalance drift: DB=$${currentPending} vs Calculated=$${calcPending}`);
+        needsReconciliation = true;
+      }
+      if (Math.abs(currentLifetime - calcLifetime) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] lifetimeEarnings drift: DB=$${currentLifetime} vs Calculated=$${calcLifetime}`);
+        needsReconciliation = true;
+      }
+      // For available balance, account for pending_withdrawal deductions
+      // available in DB should equal calcAvailable (payments marked 'available')
+      // but pending_withdrawal amounts have already been deducted from availableBalance
+      const effectiveAvailable = Math.round((calcAvailable) * 100) / 100;
+      if (Math.abs(currentAvailable - effectiveAvailable) > 0.01) {
+        console.warn(`⚠️ [RECONCILE] availableBalance drift: DB=$${currentAvailable} vs Calculated=$${effectiveAvailable}`);
+        needsReconciliation = true;
+      }
+
+      if (needsReconciliation) {
+        console.log(`🔧 [RECONCILE] Fixing balances for tutor ${user._id}...`);
+        user.tutorEarnings.pendingBalance = calcPending;
+        user.tutorEarnings.availableBalance = effectiveAvailable;
+        user.tutorEarnings.lifetimeEarnings = calcLifetime;
+        await user.save();
+        console.log(`✅ [RECONCILE] Fixed: Pending=$${calcPending}, Available=$${effectiveAvailable}, Lifetime=$${calcLifetime}`);
+      }
+    } catch (reconcileError) {
+      console.error('⚠️ [RECONCILE] Reconciliation failed (non-critical):', reconcileError.message);
+      // Don't fail the balance request — just log the error
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    // Use reconciled values from the user model
     const availableBalance = user.tutorEarnings.availableBalance || 0;
     const pendingBalance = user.tutorEarnings.pendingBalance || 0;
     
-    console.log(`💰 Balance for tutor ${user._id}: Available=$${availableBalance.toFixed(2)}, Pending=$${pendingBalance.toFixed(2)}`);
+    console.log(`💰 Balance for tutor ${user._id}: Available=$${availableBalance.toFixed(2)}, Pending=$${pendingBalance.toFixed(2)}, Lifetime=$${(user.tutorEarnings.lifetimeEarnings || 0).toFixed(2)}`);
     
     res.json({
       success: true,
