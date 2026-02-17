@@ -80,72 +80,19 @@ router.get('/balance', verifyToken, async (req, res) => {
       const mongoose = require('mongoose');
       const tutorObjectId = new mongoose.Types.ObjectId(user._id);
 
-      // Aggregate earned payments by transferStatus
-      const aggregation = await Payment.aggregate([
-        { 
-          $match: { 
-            tutorId: tutorObjectId,
-            status: { $in: ['succeeded'] },
-            revenueRecognized: true
-          } 
-        },
-        { 
-          $group: { 
-            _id: '$transferStatus', 
-            total: { $sum: '$tutorPayout' } 
-          } 
-        }
-      ]);
+      // ── Single, authoritative aggregation ──────────────────────────
+      // A payment is "earned" if it has a recognised transferStatus.
+      // This is the ONLY criterion — it's set atomically in
+      // completeLessonPayment (before tutor balance is touched) and in
+      // the tip route, so it can never be out of sync with reality.
+      const earnedStatuses = ['on_hold', 'available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
 
-      // Also include tip payments (they may have revenueRecognized: true already)
-      const tipAgg = await Payment.aggregate([
-        {
-          $match: {
-            tutorId: tutorObjectId,
-            paymentType: 'tip',
-            status: 'succeeded'
-          }
-        },
-        {
-          $group: {
-            _id: '$transferStatus',
-            total: { $sum: '$tutorPayout' }
-          }
-        }
-      ]);
-
-      // Build status-to-total map (merge regular + tip, avoiding double counting)
-      const statusTotals = {};
-      // Regular payments (non-tip)
-      for (const row of aggregation) {
-        statusTotals[row._id || 'null'] = (statusTotals[row._id || 'null'] || 0) + row.total;
-      }
-      // Tip payments that might not be in the regular aggregation
-      // (tips have paymentType='tip' and may already be in the aggregation if revenueRecognized)
-      // To avoid double counting, only add tip totals for statuses not already counted
-      const tipPaymentIds = await Payment.find({
-        tutorId: user._id,
-        paymentType: 'tip',
-        status: 'succeeded'
-      }).select('_id');
-      
-      const regularPaymentIds = await Payment.find({
-        tutorId: user._id,
-        status: 'succeeded',
-        revenueRecognized: true,
-        paymentType: { $ne: 'tip' }
-      }).select('_id');
-
-      // Just re-aggregate ALL earned payments (tips + regular) in one query
       const fullAgg = await Payment.aggregate([
         {
           $match: {
             tutorId: tutorObjectId,
             status: 'succeeded',
-            $or: [
-              { revenueRecognized: true },
-              { paymentType: 'tip' }
-            ]
+            transferStatus: { $in: earnedStatuses }
           }
         },
         {

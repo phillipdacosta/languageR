@@ -1334,6 +1334,7 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         className: payment.classId?.name || null,
         isClassPayment,
         paymentType: payment.paymentType || 'lesson_booking',
+        transferStatus: payment.transferStatus || null,
         receiptUrl: payment.receiptUrl || null,
         stripeChargeId: payment.stripeChargeId || null,
         paypalTransactionId: payment.paypalTransactionId || null,

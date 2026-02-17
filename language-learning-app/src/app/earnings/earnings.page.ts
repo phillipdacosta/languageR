@@ -35,6 +35,7 @@ interface PaymentBreakdown {
   className?: string;
   isClassPayment?: boolean;
   paymentType?: string;
+  transferStatus?: string;
   cancelReason?: string;
 }
 
@@ -521,17 +522,22 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       current = new Date(current.getTime() + weekMs);
     }
 
-    // Filter to only actually-earned payments (exclude future/unearned)
-    const validPayments = this.recentPayments.filter(p => {
-      // Only count money the tutor has actually earned:
-      // - 'paid'      = transferred/withdrawn (transferStatus 'succeeded' or 'withdrawn')
-      // - 'succeeded' = available for withdrawal (transferStatus 'available')
-      // - 'pending'   = earned, on hold (transferStatus 'on_hold')
-      // Excluded: cancelled, refunded, scheduled, in_progress, processing, class_scheduled
-      return p.status === 'paid'
-        || p.status === 'succeeded'
-        || p.status === 'pending';
-    });
+    // Filter to only actually-earned payments.
+    // Primary: use authoritative transferStatus (set atomically in completeLessonPayment).
+    // Fallback: if transferStatus isn't available (API not yet updated), use derived
+    // status but exclude clearly-unearned statuses.
+    // A payment is "earned" when it has a recognised transferStatus — set atomically
+    // in completeLessonPayment before the tutor balance is incremented.
+    const earnedTransferStatuses = ['on_hold', 'available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
+
+    // Check if the API provides transferStatus (backend may be outdated)
+    const apiSupportsTransferStatus = this.recentPayments.some(p => !!p.transferStatus);
+
+    const validPayments = apiSupportsTransferStatus
+      ? this.recentPayments.filter(p =>
+          p.transferStatus != null && earnedTransferStatuses.includes(p.transferStatus))
+      : this.recentPayments.filter(p =>
+          p.status === 'paid' || p.status === 'succeeded' || p.status === 'pending');
 
     // Fill buckets
     let total = 0;

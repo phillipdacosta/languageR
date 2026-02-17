@@ -769,16 +769,23 @@ class PaymentService {
     
     console.log(`   Release Date: ${releaseDate.toISOString()}`);
     
-    // Update payment record with new system fields
+    // ─── Step 1: Save payment FIRST so reconciliation always sees it ───
+    // This prevents a race condition where the tutor balance is incremented
+    // but the payment hasn't been saved yet with revenueRecognized/transferStatus,
+    // causing the reconciliation to overwrite lifetimeEarnings downward.
+    const wasAlreadyRecognized = payment.revenueRecognized;
     payment.tutorPayout = tutorPayout;
     payment.platformFee = platformFee;
-    payment.transferStatus = 'on_hold';  // NEW STATUS: Funds on hold for 24hrs
+    payment.transferStatus = 'on_hold';
     payment.earningsReleaseDate = releaseDate;
+    payment.revenueRecognized = true;
+    payment.revenueRecognizedAt = new Date();
+    await payment.save();
+    console.log(`💾 Payment saved: transferStatus=on_hold, revenueRecognized=true`);
     
-    // Update tutor's pending balance (will become available after 24hrs)
+    // ─── Step 2: Increment tutor balance (safe now — payment is persisted) ───
     const tutor = await User.findById(lesson.tutorId._id);
     if (!tutor.tutorEarnings) {
-      // Initialize if not exists (migration support)
       tutor.tutorEarnings = {
         availableBalance: 0,
         pendingBalance: 0,
@@ -789,7 +796,7 @@ class PaymentService {
     }
     
     tutor.tutorEarnings.pendingBalance += tutorPayout;
-    tutor.tutorEarnings.lifetimeEarnings += tutorPayout; // Track at earn-time (not release-time)
+    tutor.tutorEarnings.lifetimeEarnings += tutorPayout;
     await tutor.save();
     
     console.log(`💼 Updated tutor balance:`);
@@ -800,7 +807,7 @@ class PaymentService {
 
     // 🔔 Send notification to tutor when they earn money (NEW SYSTEM - pending balance)
     // This prevents duplicate notifications if completeLessonPayment is called multiple times
-    if (payment.status === 'succeeded' && !payment.revenueRecognized) {
+    if (payment.status === 'succeeded' && !wasAlreadyRecognized) {
       try {
         const studentName = formatNameWithInitial(lesson.studentId);
         
@@ -878,12 +885,7 @@ class PaymentService {
       console.log(`ℹ️  Skipping payment notification - payment status: ${payment.status}, revenueRecognized: ${payment.revenueRecognized}`);
     }
 
-    // Step 3: Update payment record
-    payment.tutorPayout = tutorPayout;
-    payment.platformFee = platformFee;
-    payment.revenueRecognized = true; // NEW: Mark revenue as recognized
-    payment.revenueRecognizedAt = new Date(); // NEW: Timestamp when revenue recognized
-    await payment.save();
+    // (Payment already saved in Step 1 above with revenueRecognized + transferStatus)
 
     // ===================================================================
     // 💸 AUTOMATIC PLATFORM PROFIT PAYOUT TO BANK
