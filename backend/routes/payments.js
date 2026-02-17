@@ -1355,14 +1355,37 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         if (hybridMergeMap.has(lessonKey)) {
           // Merge into existing row
           const existing = hybridMergeMap.get(lessonKey);
+
+          // Sum the raw amounts (wallet + card = full lesson price)
           existing.amount += row.amount;
-          existing.tutorPayout += row.tutorPayout;
-          existing.platformFee += row.platformFee;
           existing.refundAmount += row.refundAmount;
-          // Keep the more "complete" status (card payment usually has receipt/charge)
+
+          // Preserve transferStatus from whichever row has it
+          // (the row processed by completeLessonPayment has the correct transferStatus)
+          if (!existing.transferStatus && row.transferStatus) {
+            existing.transferStatus = row.transferStatus;
+          }
+
+          // tutorPayout & platformFee: use the values from the row that went through
+          // completeLessonPayment (identified by having a transferStatus). That row
+          // already has the correct FULL lesson payout, not a partial amount.
+          if (row.transferStatus && !existing._hasAuthorativePayout) {
+            existing.tutorPayout = row.tutorPayout;
+            existing.platformFee = row.platformFee;
+            existing._hasAuthorativePayout = true;
+          } else if (!existing._hasAuthorativePayout) {
+            // Neither row has transferStatus yet — fall back to recalculating
+            // from combined amount (80/20 split)
+            existing.tutorPayout = existing.amount * 0.80;
+            existing.platformFee = existing.amount * 0.20;
+          }
+          // If existing already has the authoritative payout, don't change it
+
+          // Keep the more "complete" receipt info (card payment usually has receipt/charge)
           if (row.receiptUrl && !existing.receiptUrl) existing.receiptUrl = row.receiptUrl;
           if (row.stripeChargeId && !existing.stripeChargeId) existing.stripeChargeId = row.stripeChargeId;
-          console.log(`🔀 Merged hybrid payment rows for lesson ${lessonKey}: combined $${existing.amount.toFixed(2)}`);
+          if (row.stripeFee && !existing.stripeFee) existing.stripeFee = row.stripeFee;
+          console.log(`🔀 Merged hybrid payment rows for lesson ${lessonKey}: combined $${existing.amount.toFixed(2)}, payout $${existing.tutorPayout.toFixed(2)}`);
         } else {
           // First hybrid row for this lesson — store for potential merge
           hybridMergeMap.set(lessonKey, { ...row });
@@ -1375,12 +1398,16 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     // Add all merged hybrid rows to the results
     for (const mergedRow of hybridMergeMap.values()) {
-      delete mergedRow._isHybrid; // Remove internal flag before sending to frontend
+      delete mergedRow._isHybrid;
+      delete mergedRow._hasAuthorativePayout;
       recentPayments.push(mergedRow);
     }
 
     // Also clean up non-hybrid rows
-    recentPayments.forEach(row => delete row._isHybrid);
+    recentPayments.forEach(row => {
+      delete row._isHybrid;
+      delete row._hasAuthorativePayout;
+    });
 
     // Re-sort by date (merging may have disrupted order)
     recentPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
