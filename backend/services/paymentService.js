@@ -811,11 +811,14 @@ class PaymentService {
       try {
         const studentName = formatNameWithInitial(lesson.studentId);
         
-        const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric'
-        });
+        // Format date with ordinal (e.g., "Feb 14th" instead of "Feb 14, 2026")
+        const lessonStartDate = new Date(lesson.startTime);
+        const day = lessonStartDate.getDate();
+        const ordinal = day === 1 || day === 21 || day === 31 ? 'st' :
+                       day === 2 || day === 22 ? 'nd' :
+                       day === 3 || day === 23 ? 'rd' : 'th';
+        const monthName = lessonStartDate.toLocaleDateString('en-US', { month: 'short' });
+        const lessonDateOrdinal = `${monthName} ${day}${ordinal}`;
 
         // Check if notification already exists for this payment to prevent duplicates
         const existingNotification = await Notification.findOne({
@@ -830,7 +833,7 @@ class PaymentService {
           const timeLabel = minutesUntilRelease >= 60 
             ? `${Math.round(minutesUntilRelease / 60)} hour${Math.round(minutesUntilRelease / 60) !== 1 ? 's' : ''}`
             : `${minutesUntilRelease} minute${minutesUntilRelease !== 1 ? 's' : ''}`;
-          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> from your lesson on <strong>${lessonDate}</strong> with ${studentName}. Funds will be available for withdrawal in ~${timeLabel}.`;
+          const notificationMessage = `You earned <strong>$${tutorPayout.toFixed(2)}</strong> for your <strong>${lessonDateOrdinal}</strong> lesson with <strong>${studentName}</strong>. Funds will be available for withdrawal in ~${timeLabel}.`;
 
           // Create notification in database
           const notification = new Notification({

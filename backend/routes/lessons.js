@@ -3603,21 +3603,21 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
     };
     await lesson.save();
 
-    // Format lesson date/time for notifications
+    // Format lesson date with ordinal for notifications
     const studentDisplayName = formatDisplayName(student);
     const tutorDisplayName = formatDisplayName(tutor);
-    const lessonDate = new Date(lesson.startTime).toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric'
-    });
-    const lessonTime = new Date(lesson.startTime).toLocaleTimeString('en-US', {
-      hour: 'numeric', minute: '2-digit', hour12: true
-    });
-    const lessonDatetime = `${lessonDate} at ${lessonTime}`;
+    const lessonStartDate = new Date(lesson.startTime);
+    const day = lessonStartDate.getDate();
+    const ordinal = day === 1 || day === 21 || day === 31 ? 'st' :
+                   day === 2 || day === 22 ? 'nd' :
+                   day === 3 || day === 23 ? 'rd' : 'th';
+    const monthName = lessonStartDate.toLocaleDateString('en-US', { month: 'short' });
+    const lessonDateOrdinal = `${monthName} ${day}${ordinal}`;
 
     // 1. Notification for tutor — "You received a tip"
     const tipMessage = stripeFee > 0
-      ? `You received a $${tutorReceives.toFixed(2)} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}. ($${amount.toFixed(2)} tip − $${stripeFee.toFixed(2)} processing fee)`
-      : `You received a $${amount.toFixed(2)} tip from ${studentDisplayName} for your lesson on ${lessonDatetime}.`;
+      ? `You received a <strong>$${tutorReceives.toFixed(2)}</strong> tip from <strong>${studentDisplayName}</strong> for your <strong>${lessonDateOrdinal}</strong> lesson. (<strong>$${amount.toFixed(2)}</strong> tip − <strong>$${stripeFee.toFixed(2)}</strong> processing fee)`
+      : `You received a <strong>$${amount.toFixed(2)}</strong> tip from <strong>${studentDisplayName}</strong> for your <strong>${lessonDateOrdinal}</strong> lesson.`;
     const tutorNotification = new Notification({
       userId: tutor._id,
       type: 'tip_received',
@@ -3641,7 +3641,7 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
       userId: student._id,
       type: 'tip_sent',
       title: '💸 Tip sent!',
-      message: `You sent a $${amount} tip to ${tutorDisplayName} for your lesson on ${lessonDatetime}.`,
+      message: `You sent a <strong>$${amount.toFixed(2)}</strong> tip to <strong>${tutorDisplayName}</strong> for your <strong>${lessonDateOrdinal}</strong> lesson.`,
       data: {
         lessonId: lessonId,
         amount: amount,
