@@ -1736,6 +1736,7 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
 
     // Update lesson investigation status
     lesson.payoutPaused = false;
+    lesson.underInvestigation = false;
     lesson.investigationResolvedAt = new Date();
     lesson.investigationResolution = resolution || 'approved';
     

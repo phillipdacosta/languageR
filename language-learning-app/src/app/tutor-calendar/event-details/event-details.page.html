@@ -516,7 +516,8 @@
           <span class="ed-kv-key">Reported</span>
           <span class="ed-kv-val">{{ issueDate }}</span>
         </div>
-        <span class="ed-investigation-tag" *ngIf="isUnderInvestigation">Under investigation</span>
+        <span class="ed-investigation-tag" *ngIf="isUnderInvestigation && !isInvestigationResolved">Under investigation</span>
+        <span class="ed-investigation-tag resolved" *ngIf="isInvestigationResolved">{{ investigationResolutionLabel }}</span>
       </section>
     </ng-container>
 

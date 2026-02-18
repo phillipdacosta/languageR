@@ -744,6 +744,11 @@
 .ed-investigation-tag {
   background: #fef3e0;
   color: var(--ed-amber);
+
+  &.resolved {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
 }
 
 .ed-cancel-section {}

@@ -154,6 +154,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   issueDetailsText = '';
   issueDate = '';
   isUnderInvestigation = false;
+  isInvestigationResolved = false;
+  investigationResolutionLabel = '';
 
   // Reschedule info
   hasReschedule = false;
@@ -609,6 +611,16 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         ? new Date(this.lesson.issueReportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
       this.isUnderInvestigation = !!this.lesson.underInvestigation;
+      this.isInvestigationResolved = !!this.lesson.investigationResolvedAt;
+      if (this.isInvestigationResolved) {
+        const resolutionMap: Record<string, string> = {
+          approved: 'Resolved — No issue found',
+          refunded: 'Resolved — Refunded',
+          partial_refund: 'Resolved — Partially refunded',
+          no_action: 'Resolved — No action taken'
+        };
+        this.investigationResolutionLabel = resolutionMap[this.lesson.investigationResolution || ''] || 'Resolved';
+      }
     }
   }
 
