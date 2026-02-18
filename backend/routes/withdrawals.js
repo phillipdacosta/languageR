@@ -113,7 +113,9 @@ router.get('/balance', verifyToken, async (req, res) => {
       const calcPendingWithdrawal = Math.round((totals['pending_withdrawal'] || 0) * 100) / 100;
       const calcWithdrawn = Math.round((totals['withdrawn'] || 0) * 100) / 100;
       const calcSucceeded = Math.round((totals['succeeded'] || 0) * 100) / 100; // legacy
-      const calcLifetime = Math.round((calcPending + calcAvailable + calcPendingWithdrawal + calcWithdrawn + calcSucceeded) * 100) / 100;
+      // Lifetime = only funds the tutor has actually received (NOT pending/on_hold)
+      // on_hold payments can still be refunded/cancelled, so they don't count
+      const calcLifetime = Math.round((calcAvailable + calcPendingWithdrawal + calcWithdrawn + calcSucceeded) * 100) / 100;
 
       const currentPending = Math.round((user.tutorEarnings.pendingBalance || 0) * 100) / 100;
       const currentAvailable = Math.round((user.tutorEarnings.availableBalance || 0) * 100) / 100;

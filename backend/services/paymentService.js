@@ -796,7 +796,9 @@ class PaymentService {
     }
     
     tutor.tutorEarnings.pendingBalance += tutorPayout;
-    tutor.tutorEarnings.lifetimeEarnings += tutorPayout;
+    // NOTE: lifetimeEarnings is NOT incremented here. Pending payments can still
+    // be refunded/cancelled. Lifetime is only updated when funds are released
+    // from hold (in releaseEarnings job) and reflects confirmed earnings only.
     await tutor.save();
     
     console.log(`💼 Updated tutor balance:`);

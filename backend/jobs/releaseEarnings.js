@@ -117,10 +117,11 @@ async function releaseEarnings(io = null) {
             };
           }
           
-          // Move from pending to available
-          // Note: lifetimeEarnings is already tracked at earn-time (completeLessonPayment)
+          // Move from pending to available and count toward lifetime
+          // lifetimeEarnings only reflects confirmed earnings (not pending/on_hold)
           tutor.tutorEarnings.pendingBalance -= payment.tutorPayout;
           tutor.tutorEarnings.availableBalance += payment.tutorPayout;
+          tutor.tutorEarnings.lifetimeEarnings += payment.tutorPayout;
           await tutor.save();
           
           // Update payment status
