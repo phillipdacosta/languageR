@@ -307,14 +307,13 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: flex-start;
+  align-items: stretch;
   padding: 40px 48px;
   background: #0a0a0a;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   height: 100vh;
   max-height: 100vh;
-  min-height: 0; // Allow flexbox to shrink
+  min-height: 0;
 
   @media (max-width: 768px) {
     padding: 32px 24px;
@@ -322,6 +321,7 @@
     text-align: center;
     min-height: 40vh;
     height: auto;
+    overflow-y: auto;
   }
 
   .lesson-header {
@@ -455,13 +455,12 @@
     background: #ffffff;
     border: 1px solid #ebebeb;
     border-radius: 16px;
-    padding: 20px;
+    padding: 24px;
     margin-bottom: 16px;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     animation: slideIn 0.3s ease-out;
-    max-height: 450px;
     overflow-y: auto;
-    flex-shrink: 1;
+    flex: 1;
     min-height: 0;
 
     .notes-header {
@@ -475,14 +474,14 @@
 
       h3 {
         margin: 0;
-        font-size: 16px;
+        font-size: 17px;
         font-weight: 600;
         color: #222222;
         letter-spacing: -0.2px;
       }
 
       .notes-date {
-        font-size: 13px;
+        font-size: 14px;
         color: #717171;
         font-weight: 400;
       }
@@ -508,7 +507,7 @@
 
     .notes-content {
       .notes-section {
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         
         &:last-child {
           margin-bottom: 0;
@@ -518,14 +517,14 @@
           font-size: 13px;
           font-weight: 600;
           color: #222222;
-          margin: 0 0 8px 0;
-          letter-spacing: 0.1px;
+          margin: 0 0 10px 0;
+          letter-spacing: 0.3px;
           text-transform: uppercase;
         }
         
         .section-text {
-          font-size: 14px;
-          line-height: 1.4;
+          font-size: 15px;
+          line-height: 1.5;
           color: #222222;
           margin: 0;
         }
@@ -536,11 +535,11 @@
           margin: 0;
           
           li {
-            font-size: 14px;
+            font-size: 15px;
             color: #222222;
-            padding: 4px 0;
+            padding: 5px 0;
             padding-left: 20px;
-            line-height: 1.4;
+            line-height: 1.5;
             position: relative;
             
             &:before {

@@ -199,7 +199,7 @@
           <div class="notes-section" *ngIf="previousLessonNotes.strengths?.length">
             <div class="section-label">What They Did Well</div>
             <ul class="section-list">
-              <li *ngFor="let strength of previousLessonNotes.strengths.slice(0, 2)">
+              <li *ngFor="let strength of previousLessonNotes.strengths">
                 {{ strength }}
               </li>
             </ul>
@@ -209,7 +209,7 @@
           <div class="notes-section" *ngIf="previousLessonNotes.areasForImprovement?.length">
             <div class="section-label">What They Struggled With</div>
             <ul class="section-list">
-              <li *ngFor="let area of previousLessonNotes.areasForImprovement.slice(0, 2)">
+              <li *ngFor="let area of previousLessonNotes.areasForImprovement">
                 {{ area }}
               </li>
             </ul>
@@ -218,7 +218,7 @@
           <!-- Error Patterns with Examples -->
           <div class="notes-section" *ngIf="previousLessonNotes.errorPatterns && previousLessonNotes.errorPatterns.length">
             <div class="section-label">Common Mistakes</div>
-            <div *ngFor="let error of previousLessonNotes.errorPatterns.slice(0, 2)" class="error-pattern">
+            <div *ngFor="let error of previousLessonNotes.errorPatterns" class="error-pattern">
               <div class="error-pattern-name">{{ error.pattern }} <span class="error-frequency">({{ error.frequency }}x)</span></div>
               <div *ngIf="error.examples && error.examples.length && error.examples[0].original" class="error-example">
                 <span class="error-original">"{{ error.examples[0].original }}"</span>
@@ -232,7 +232,7 @@
           <div class="notes-section" *ngIf="previousLessonNotes.recommendedFocus?.length">
             <div class="section-label">Ideas for Today</div>
             <ul class="section-list">
-              <li *ngFor="let focus of previousLessonNotes.recommendedFocus.slice(0, 3)">
+              <li *ngFor="let focus of previousLessonNotes.recommendedFocus">
                 {{ focus }}
               </li>
             </ul>
