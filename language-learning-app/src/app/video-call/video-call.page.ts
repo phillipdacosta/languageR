@@ -54,6 +54,60 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   isVideoOff = false;
   showWhiteboard = false;
   showChat = false;
+  showNotes = false;
+  
+  // Notes form properties (for tutors during lesson)
+  lessonNoteText: string = '';
+  lessonQuickImpression: string = '';
+  lessonHomework: string = '';
+  lessonSelectedStrengths: string[] = [];
+  lessonSelectedAreasToImprove: string[] = [];
+  lessonSelectedErrorAreas: string[] = [];
+  savingNotes = false;
+  notesLastSaved: Date | null = null;
+  private notesAutoSaveInterval: any = null;
+  
+  // Options for notes form
+  impressionOptions = [
+    { value: 'excellent', label: '🌟 Excellent Progress!', color: 'success' },
+    { value: 'great', label: '✅ Great Job!', color: 'primary' },
+    { value: 'good', label: '👍 Good Effort', color: 'secondary' },
+    { value: 'needs-work', label: '💪 Needs More Practice', color: 'warning' }
+  ];
+  
+  strengthOptions = [
+    'Conversational fluency',
+    'Vocabulary usage',
+    'Grammar accuracy',
+    'Pronunciation',
+    'Listening comprehension',
+    'Confidence',
+    'Complex sentences',
+    'Natural expressions'
+  ];
+  
+  improvementOptions = [
+    'Grammar accuracy',
+    'Verb conjugation',
+    'Vocabulary range',
+    'Pronunciation',
+    'Fluency/speed',
+    'Listening skills',
+    'Sentence complexity',
+    'Idiomatic expressions'
+  ];
+  
+  errorAreaOptions = [
+    'Verb conjugation',
+    'Gender agreement',
+    'Prepositions',
+    'Tense usage',
+    'Vocabulary',
+    'Pronunciation',
+    'Sentence structure',
+    'Articles'
+  ];
+  
   isDrawing = false;
   isConnected = false;
   isScreenSharing = false;
@@ -2224,6 +2278,132 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.cdr.detectChanges();
         this.scrollChatToBottomInstant();
       }
+    }
+  }
+
+  // Notes panel for tutors to write notes during lesson
+  toggleNotes() {
+    this.showNotes = !this.showNotes;
+    
+    if (this.showNotes && this.userRole === 'tutor') {
+      // Start auto-save when notes panel opens
+      this.startNotesAutoSave();
+      // Load any existing notes
+      this.loadLessonNotes();
+    } else {
+      // Stop auto-save when panel closes
+      this.stopNotesAutoSave();
+    }
+  }
+  
+  toggleLessonStrength(strength: string) {
+    const index = this.lessonSelectedStrengths.indexOf(strength);
+    if (index > -1) {
+      this.lessonSelectedStrengths.splice(index, 1);
+    } else {
+      this.lessonSelectedStrengths.push(strength);
+    }
+    this.autoSaveNotes();
+  }
+  
+  toggleLessonAreaToImprove(area: string) {
+    const index = this.lessonSelectedAreasToImprove.indexOf(area);
+    if (index > -1) {
+      this.lessonSelectedAreasToImprove.splice(index, 1);
+    } else {
+      this.lessonSelectedAreasToImprove.push(area);
+    }
+    this.autoSaveNotes();
+  }
+  
+  toggleLessonErrorArea(area: string) {
+    const index = this.lessonSelectedErrorAreas.indexOf(area);
+    if (index > -1) {
+      this.lessonSelectedErrorAreas.splice(index, 1);
+    } else {
+      this.lessonSelectedErrorAreas.push(area);
+    }
+    this.autoSaveNotes();
+  }
+  
+  formatNotesSaveTime(date: Date): string {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    
+    if (seconds < 10) return 'just now';
+    if (seconds < 60) return `${seconds}s ago`;
+    if (minutes < 60) return `${minutes}m ago`;
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  
+  startNotesAutoSave() {
+    // Auto-save every 30 seconds
+    this.notesAutoSaveInterval = setInterval(() => {
+      this.autoSaveNotes();
+    }, 30000);
+  }
+  
+  stopNotesAutoSave() {
+    if (this.notesAutoSaveInterval) {
+      clearInterval(this.notesAutoSaveInterval);
+      this.notesAutoSaveInterval = null;
+    }
+  }
+  
+  async autoSaveNotes() {
+    if (!this.lessonId || this.userRole !== 'tutor') return;
+    if (this.savingNotes) return; // Prevent concurrent saves
+    
+    this.savingNotes = true;
+    
+    try {
+      // Save notes to localStorage as backup
+      const notesData = {
+        lessonId: this.lessonId,
+        noteText: this.lessonNoteText,
+        quickImpression: this.lessonQuickImpression,
+        homework: this.lessonHomework,
+        strengths: this.lessonSelectedStrengths,
+        areasToImprove: this.lessonSelectedAreasToImprove,
+        errorAreas: this.lessonSelectedErrorAreas,
+        savedAt: new Date().toISOString()
+      };
+      
+      localStorage.setItem(`lesson_notes_${this.lessonId}`, JSON.stringify(notesData));
+      
+      // TODO: Also save to backend API endpoint for persistence across devices
+      // For now, localStorage is sufficient for same-session persistence
+      
+      this.notesLastSaved = new Date();
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error auto-saving notes:', error);
+    } finally {
+      this.savingNotes = false;
+    }
+  }
+  
+  loadLessonNotes() {
+    if (!this.lessonId) return;
+    
+    try {
+      const saved = localStorage.getItem(`lesson_notes_${this.lessonId}`);
+      if (saved) {
+        const notesData = JSON.parse(saved);
+        this.lessonNoteText = notesData.noteText || '';
+        this.lessonQuickImpression = notesData.quickImpression || '';
+        this.lessonHomework = notesData.homework || '';
+        this.lessonSelectedStrengths = notesData.strengths || [];
+        this.lessonSelectedAreasToImprove = notesData.areasToImprove || [];
+        this.lessonSelectedErrorAreas = notesData.errorAreas || [];
+        if (notesData.savedAt) {
+          this.notesLastSaved = new Date(notesData.savedAt);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading notes:', error);
     }
   }
 
@@ -5518,6 +5698,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.cleanupAllMediaElements();
     }
 
+    // Cleanup notes auto-save
+    this.stopNotesAutoSave();
+    
     // Cleanup whiteboard
     await this.destroyWhiteboard();
 

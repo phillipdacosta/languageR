@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
+  <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat" [class.notes-open]="showNotes">
     <!-- Main Content Area (above controls) -->
     <div class="main-content-area">
     <!-- Whiteboard Panel (Left Side) -->
@@ -655,6 +655,110 @@
         </div>
       </div>
     </div>
+    
+    <!-- Notes Panel (Tutor Only) -->
+    <div class="notes-panel" *ngIf="showNotes && userRole === 'tutor'">
+      <div class="notes-header">
+        <h3>Lesson Notes</h3>
+        <div class="notes-header-actions">
+          <span class="notes-save-status" *ngIf="notesLastSaved">
+            Saved {{ formatNotesSaveTime(notesLastSaved) }}
+          </span>
+          <ion-button (click)="toggleNotes()" size="small" fill="clear">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+      
+      <div class="notes-content">
+        <!-- Quick Impressions -->
+        <div class="notes-section">
+          <label class="notes-label">Quick Impression</label>
+          <div class="impressions">
+            <button
+              *ngFor="let option of impressionOptions"
+              class="chip"
+              [class.selected]="lessonQuickImpression === option.value"
+              [attr.data-color]="option.color"
+              (click)="lessonQuickImpression = option.value; autoSaveNotes()">
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Strengths -->
+        <div class="notes-section">
+          <label class="notes-label">Strengths</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let s of strengthOptions"
+              class="tag tag-green"
+              [class.selected]="lessonSelectedStrengths.includes(s)"
+              (click)="toggleLessonStrength(s)">
+              {{ s }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Areas to Improve -->
+        <div class="notes-section">
+          <label class="notes-label">Areas to Improve</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let a of improvementOptions"
+              class="tag tag-amber"
+              [class.selected]="lessonSelectedAreasToImprove.includes(a)"
+              (click)="toggleLessonAreaToImprove(a)">
+              {{ a }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Error Areas -->
+        <div class="notes-section">
+          <label class="notes-label">Key Error Areas</label>
+          <div class="chip-wrap">
+            <button
+              *ngFor="let area of errorAreaOptions"
+              class="tag"
+              [class.selected]="lessonSelectedErrorAreas.includes(area)"
+              (click)="toggleLessonErrorArea(area)">
+              {{ area }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Note Text -->
+        <div class="notes-section">
+          <label class="notes-label">Your Note</label>
+          <ion-textarea
+            [(ngModel)]="lessonNoteText"
+            placeholder="Write your notes during the lesson..."
+            rows="6"
+            maxlength="1000"
+            (ionInput)="autoSaveNotes()">
+          </ion-textarea>
+        </div>
+        
+        <!-- Homework -->
+        <div class="notes-section">
+          <label class="notes-label">Homework (Optional)</label>
+          <ion-textarea
+            [(ngModel)]="lessonHomework"
+            placeholder="Suggest practice..."
+            rows="3"
+            maxlength="500"
+            (ionInput)="autoSaveNotes()">
+          </ion-textarea>
+        </div>
+        
+        <!-- Save Status -->
+        <div class="notes-footer" *ngIf="savingNotes">
+          <ion-spinner name="crescent" size="small"></ion-spinner>
+          <span>Saving...</span>
+        </div>
+      </div>
+    </div>
     </div> <!-- End of main-content-area -->
     
     <!-- Bottom Controls (Separate from main content) -->
@@ -686,6 +790,15 @@
       
       <ion-button (click)="toggleChat()" [color]="showChat ? 'primary' : 'medium'" fill="clear" title="Chat">
         <ion-icon name="chatbubbles-outline"></ion-icon>
+      </ion-button>
+      
+      <ion-button 
+        *ngIf="userRole === 'tutor'"
+        (click)="toggleNotes()" 
+        [color]="showNotes ? 'primary' : 'medium'" 
+        fill="clear" 
+        title="Notes">
+        <ion-icon name="document-text-outline"></ion-icon>
       </ion-button>
       
       <ion-button (click)="endCall()" color="danger" fill="solid" title="End Call">
