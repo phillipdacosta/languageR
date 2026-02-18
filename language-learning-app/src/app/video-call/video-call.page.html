@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat" [class.notes-open]="showNotes">
+  <div class="video-call-wrapper" [class.whiteboard-open]="showWhiteboard" [class.chat-open]="showChat">
     <!-- Main Content Area (above controls) -->
     <div class="main-content-area">
     <!-- Whiteboard Panel (Left Side) -->
@@ -655,14 +655,15 @@
         </div>
       </div>
     </div>
+    </div> <!-- End of main-content-area -->
     
-    <!-- Notes Panel (Tutor Only) -->
-    <div class="notes-panel" *ngIf="showNotes && userRole === 'tutor'">
-      <div class="notes-header">
+    <!-- Floating Notes Panel (Tutor Only) - Bottom Left -->
+    <div class="floating-notes-panel" *ngIf="showNotes && userRole === 'tutor'">
+      <div class="floating-notes-header">
         <h3>Lesson Notes</h3>
-        <div class="notes-header-actions">
+        <div class="floating-notes-header-actions">
           <span class="notes-save-status" *ngIf="notesLastSaved">
-            Saved {{ formatNotesSaveTime(notesLastSaved) }}
+            {{ formatNotesSaveTime(notesLastSaved) }}
           </span>
           <ion-button (click)="toggleNotes()" size="small" fill="clear">
             <ion-icon name="close-outline"></ion-icon>
@@ -670,7 +671,7 @@
         </div>
       </div>
       
-      <div class="notes-content">
+      <div class="floating-notes-content">
         <!-- Quick Impressions -->
         <div class="notes-section">
           <label class="notes-label">Quick Impression</label>
@@ -734,7 +735,7 @@
           <ion-textarea
             [(ngModel)]="lessonNoteText"
             placeholder="Write your notes during the lesson..."
-            rows="6"
+            rows="4"
             maxlength="1000"
             (ionInput)="autoSaveNotes()">
           </ion-textarea>
@@ -746,7 +747,7 @@
           <ion-textarea
             [(ngModel)]="lessonHomework"
             placeholder="Suggest practice..."
-            rows="3"
+            rows="2"
             maxlength="500"
             (ionInput)="autoSaveNotes()">
           </ion-textarea>
@@ -759,7 +760,6 @@
         </div>
       </div>
     </div>
-    </div> <!-- End of main-content-area -->
     
     <!-- Bottom Controls (Separate from main content) -->
     <div class="video-controls">
