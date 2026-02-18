@@ -753,6 +753,22 @@ $transition-fast: 0.15s ease;
   }
 }
 
+.action-issue-resolved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(52, 199, 89, 0.08);
+  border-radius: $radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2e7d32;
+
+  ion-icon {
+    font-size: 16px;
+  }
+}
+
 // ─── Lessons Footer ────────────────────────
 .lessons-footer {
   display: flex;

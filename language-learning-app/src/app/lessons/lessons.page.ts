@@ -40,6 +40,7 @@ interface ProcessedLesson {
   hasTutorNoteAvailable: boolean;
   canReportIssue: boolean;
   isIssueReported: boolean;
+  isInvestigationResolved: boolean;
   showActions: boolean;
   canJoin: boolean;
   needsTutorFeedback: boolean;
@@ -468,6 +469,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       hasTutorNoteAvailable,
       canReportIssue,
       isIssueReported: !!lesson.issueReported,
+      isInvestigationResolved: !!lesson.investigationResolvedAt,
       showActions,
       canJoin,
       needsTutorFeedback,

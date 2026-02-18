@@ -166,9 +166,13 @@
                   <ion-icon name="flag-outline"></ion-icon>
                   Report Issue
                 </button>
-                <div *ngIf="pl.isIssueReported" class="action-issue-reported">
+                <div *ngIf="pl.isIssueReported && !pl.isInvestigationResolved" class="action-issue-reported">
                   <ion-icon name="flag" color="warning"></ion-icon>
                   <span>Issue reported</span>
+                </div>
+                <div *ngIf="pl.isInvestigationResolved" class="action-issue-resolved">
+                  <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                  <span>Resolved</span>
                 </div>
               </ng-container>
 
