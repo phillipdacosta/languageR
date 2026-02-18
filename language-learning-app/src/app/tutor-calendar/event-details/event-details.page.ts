@@ -613,13 +613,19 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.isUnderInvestigation = !!this.lesson.underInvestigation;
       this.isInvestigationResolved = !!this.lesson.investigationResolvedAt;
       if (this.isInvestigationResolved) {
-        const resolutionMap: Record<string, string> = {
-          approved: 'Resolved — No issue found',
-          refunded: 'Resolved — Refunded',
-          partial_refund: 'Resolved — Partially refunded',
-          no_action: 'Resolved — No action taken'
-        };
-        this.investigationResolutionLabel = resolutionMap[this.lesson.investigationResolution || ''] || 'Resolved';
+        if (this.isTutorUser) {
+          // Tutor just sees "Resolved" — no need for specifics
+          this.investigationResolutionLabel = 'Resolved';
+        } else {
+          // Student sees the specific outcome
+          const resolutionMap: Record<string, string> = {
+            approved: 'Resolved — No issue found',
+            refunded: 'Resolved — Refunded',
+            partial_refund: 'Resolved — Partially refunded',
+            no_action: 'Resolved — No action taken'
+          };
+          this.investigationResolutionLabel = resolutionMap[this.lesson.investigationResolution || ''] || 'Resolved';
+        }
       }
     }
   }
