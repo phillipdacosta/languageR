@@ -225,6 +225,35 @@ export class ReportedLessonsPage implements OnInit {
     }
   }
 
+  async cancelPayout(lesson: ReportedLesson) {
+    const alert = await this.alertController.create({
+      header: 'Cancel Payout',
+      message: 'This will cancel the tutor\'s payment and refund the student. Are you sure?',
+      inputs: [
+        {
+          name: 'notes',
+          type: 'textarea',
+          placeholder: 'Reason for cancellation...'
+        }
+      ],
+      buttons: [
+        {
+          text: 'Back',
+          role: 'cancel'
+        },
+        {
+          text: 'Cancel Payout & Refund Student',
+          cssClass: 'alert-button-danger',
+          handler: async (data: any) => {
+            await this.confirmResumePayout(lesson, 'refunded', data.notes || 'Admin cancelled payout');
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
   async resumePayout(lesson: ReportedLesson) {
     const alert = await this.alertController.create({
       header: 'Resume Payout',

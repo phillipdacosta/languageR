@@ -1,20 +1,13 @@
-
-<ion-header>
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="goBack()" aria-label="Go back">
-        <ion-icon name="arrow-back-outline"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
-
 <ion-content class="pre-call-content">
   <div class="pre-call-container">
-
     
     <!-- Left Panel: Video Preview and Controls -->
     <div class="preview-panel">
+      <!-- Go Back Button -->
+      <button class="go-back-button" (click)="goBack()" aria-label="Go back">
+        Go Back
+      </button>
+      
       <div class="preview-header">
         <h3 class="preview-title">Join with mic {{ isMuted ? 'OFF' : 'ON' }} and camera {{ isVideoOff ? 'OFF' : 'ON' }}</h3>
       </div>

@@ -1494,6 +1494,33 @@ router.post('/lesson/:id/pause-payout', verifyToken, requireAdmin, async (req, r
 
     await lesson.save();
 
+    // 🔔 Notify tutor that payment is under review
+    if (lesson.tutorId) {
+      const studentDisplayName = formatNameWithInitial(lesson.studentId);
+      await Notification.create({
+        userId: lesson.tutorId._id,
+        type: 'payout_paused',
+        title: 'Payment Under Review',
+        message: `Your payment for your lesson with <strong>${studentDisplayName}</strong> is <strong>under review</strong>. We'll notify you once the review is complete.`,
+        link: `/tabs/home/earnings`,
+        data: {
+          lessonId: lesson._id,
+          studentName: studentDisplayName
+        }
+      });
+
+      // Real-time push via WebSocket
+      if (global.io) {
+        global.io.to(`user:${lesson.tutorId._id}`).emit('notification', {
+          type: 'payout_paused',
+          title: 'Payment Under Review',
+          message: `Your payment for your lesson with ${studentDisplayName} is under review.`
+        });
+      }
+
+      console.log(`🔔 Notified tutor ${lesson.tutorId.name} about paused payout`);
+    }
+
     console.log(`✅ Payout paused for lesson ${lessonId}`);
 
     res.json({

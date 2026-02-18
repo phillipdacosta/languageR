@@ -130,6 +130,15 @@
               <ion-icon slot="start" name="play-circle-outline"></ion-icon>
               Resume Payout
             </ion-button>
+            <ion-button 
+              *ngIf="lesson.payoutPaused"
+              fill="outline" 
+              size="small" 
+              color="danger"
+              (click)="cancelPayout(lesson)">
+              <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+              Cancel Payout
+            </ion-button>
           </div>
         </ion-card-content>
       </ion-card>

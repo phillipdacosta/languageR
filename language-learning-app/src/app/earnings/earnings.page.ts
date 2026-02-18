@@ -522,22 +522,19 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       current = new Date(current.getTime() + weekMs);
     }
 
-    // Filter to only actually-earned payments.
-    // Primary: use authoritative transferStatus (set atomically in completeLessonPayment).
-    // Fallback: if transferStatus isn't available (API not yet updated), use derived
-    // status but exclude clearly-unearned statuses.
-    // A payment is "earned" when it has a recognised transferStatus — set atomically
-    // in completeLessonPayment before the tutor balance is incremented.
-    const earnedTransferStatuses = ['on_hold', 'available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
+    // Filter to only fully-confirmed earnings (not pending/on_hold).
+    // Payments that are still on_hold could be refunded or cancelled,
+    // so they should NOT appear in the earnings chart.
+    const confirmedTransferStatuses = ['available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
 
     // Check if the API provides transferStatus (backend may be outdated)
     const apiSupportsTransferStatus = this.recentPayments.some(p => !!p.transferStatus);
 
     const validPayments = apiSupportsTransferStatus
       ? this.recentPayments.filter(p =>
-          p.transferStatus != null && earnedTransferStatuses.includes(p.transferStatus))
+          p.transferStatus != null && confirmedTransferStatuses.includes(p.transferStatus))
       : this.recentPayments.filter(p =>
-          p.status === 'paid' || p.status === 'succeeded' || p.status === 'pending');
+          p.status === 'paid' || p.status === 'succeeded');
 
     // Fill buckets
     let total = 0;
@@ -575,12 +572,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     const { labels, data, total } = this.getChartData();
-    // For "All Time", use the reconciled lifetime balance (authoritative source)
-    // For period views (1m, 6m), use the computed total from that period's payments
-    const displayTotal = (this.chartPeriod === 'all' && this.balance?.lifetime != null)
-      ? this.balance.lifetime
-      : total;
-    this.chartTotal = `$${displayTotal.toFixed(2)}`;
+    // Use the computed total from confirmed (non-pending) payments only.
+    // This excludes on_hold payments that could still be refunded/cancelled.
+    this.chartTotal = `$${total.toFixed(2)}`;
     this.chartHasData = data.some(v => v > 0);
 
     // Uppercase labels like the reference design (OCT 01, OCT 08, etc.)
