@@ -284,15 +284,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       shouldLoadNotes: this.isTutor && !this.isTrialLesson
     });
 
-    // Load previous lesson notes for tutors (skip for trial lessons)
-    if (this.isTutor && !this.isTrialLesson) {
+    // Load previous lesson notes for tutors and students (skip for trial lessons)
+    if (!this.isTrialLesson) {
       console.log('✅ Calling loadPreviousLessonNotes() from ngOnInit');
       this.loadPreviousLessonNotes();
     } else {
-      console.log('⏭️ NOT calling loadPreviousLessonNotes() - Reason:', {
-        isTutor: this.isTutor,
-        isTrialLesson: this.isTrialLesson
-      });
+      console.log('⏭️ NOT calling loadPreviousLessonNotes() - Reason: isTrialLesson');
     }
 
     // Connect to WebSocket and listen for lesson presence
@@ -802,13 +799,13 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       hasLessonData: !!this.currentLessonData
     });
     
-    if (!this.isTutor || !this.lessonId || this.isTrialLesson) {
-      console.log('⏭️ Skipping previous notes: isTutor=%s, lessonId=%s, isTrialLesson=%s', 
-        this.isTutor, this.lessonId, this.isTrialLesson);
+    if (!this.lessonId || this.isTrialLesson) {
+      console.log('⏭️ Skipping previous notes: lessonId=%s, isTrialLesson=%s', 
+        this.lessonId, this.isTrialLesson);
       return;
     }
 
-    console.log('✅ Passed first check (isTutor && lessonId && !isTrialLesson)');
+    console.log('✅ Passed first check (lessonId && !isTrialLesson)');
 
     try {
       console.log('🔄 Getting current user...');
@@ -858,9 +855,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('✅ Not an office hours session, proceeding...');
 
       const studentId = lesson.studentId?._id || lesson.studentId;
-      
-      // The current user object uses 'id' not '_id'
-      const tutorId = (currentUser as any).id || (currentUser as any)._id;
+      const tutorId = lesson.tutorId?._id || lesson.tutorId;
 
       console.log('🔍 Extracted IDs:', { 
         studentId, 

@@ -168,8 +168,8 @@
         </div>
       </div>
       
-      <!-- Previous Lesson Notes (for tutors, not trial lessons) -->
-      <div class="previous-notes-card" *ngIf="isTutor && !isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
+      <!-- Previous Lesson Notes (for tutors and students, not trial lessons) -->
+      <div class="previous-notes-card" *ngIf="!isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
         <div class="notes-header">
           <h3>Last Lesson Notes</h3>
           <div class="notes-date" *ngIf="previousLessonNotes && !loadingPreviousNotes">
