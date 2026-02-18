@@ -251,9 +251,11 @@
         &.notification-btn {
           position: relative;
           
-          // ion-icon {
-          //   color: inherit; // Inherit from parent (will be #717171 or #222222)
-          // }
+          ion-icon {
+            font-size: 18px;
+            color: inherit; // Inherit from parent (will be #717171 or #222222)
+            transition: color 0.2s ease;
+          }
           
           .notification-dot {
             position: absolute;

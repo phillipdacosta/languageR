@@ -98,7 +98,7 @@
                   (click)="onNotificationButtonClick()"
                   (mouseenter)="onNotificationButtonMouseEnter()"
                   (mouseleave)="onNotificationButtonMouseLeave()">
-            <!-- <ion-icon name="notifications-outline"></ion-icon> -->
+            <ion-icon name="notifications-outline"></ion-icon>
             <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
           </button>
         </div>
