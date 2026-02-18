@@ -431,7 +431,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
     if (now >= start && now <= end) {
       this.statusLabel = 'In Progress';
-      this.statusColor = '#10b981';
+      this.statusColor = '#60a5fa';
       this.statusClass = 'in-progress';
       this.isLessonInProgress = true;
     } else if (now > end) {

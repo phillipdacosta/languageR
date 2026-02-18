@@ -255,7 +255,7 @@
   text-transform: uppercase;
 
   &.upcoming    { background: #f0f5ff; color: #1a73e8; }
-  &.in-progress { background: #fef3e0; color: #e67700; }
+  &.in-progress { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
   &.completed   { background: #e8f5e9; color: var(--ed-green); }
   &.cancelled   { background: #fde8e8; color: var(--ed-red); }
 }
