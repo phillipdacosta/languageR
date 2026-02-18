@@ -32,19 +32,36 @@
         <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
       </div>
       
-      <div class="desktop-nav-buttons" slot="end">
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/home')" (click)="navigateTo('/tabs/home')">
-          <ion-icon name="home"></ion-icon>
+      <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
+        <!-- Sliding underline indicator -->
+        <div class="nav-underline-indicator" 
+             [style.left.px]="underlineLeft" 
+             [style.width.px]="underlineWidth"
+             *ngIf="underlineWidth > 0"></div>
+        
+        <button class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/home')" 
+                (click)="navigateTo('/tabs/home')"
+                #homeBtn>
+          <!-- <ion-icon name="home"></ion-icon> -->
           <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
           </button>
         
-        <button *ngIf="currentUser?.userType === 'student'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-search')" (click)="navigateTo('/tabs/tutor-search')">
-          <ion-icon name="search"></ion-icon>
+        <button *ngIf="currentUser?.userType === 'student'" 
+                class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/tutor-search')" 
+                (click)="navigateTo('/tabs/tutor-search')"
+                #tutorSearchBtn>
+          <!-- <ion-icon name="search"></ion-icon> -->
           <ion-label>{{ 'TABS.FIND_TUTORS' | translate }}</ion-label>
         </button>
         
-        <button *ngIf="currentUser?.userType === 'tutor'" class="nav-button" [class.active]="isCurrentRoute('/tabs/tutor-calendar')" (click)="navigateTo('/tabs/tutor-calendar')">
-          <ion-icon name="calendar"></ion-icon>
+        <button *ngIf="currentUser?.userType === 'tutor'" 
+                class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/tutor-calendar')" 
+                (click)="navigateTo('/tabs/tutor-calendar')"
+                #calendarBtn>
+          <!-- <ion-icon name="calendar"></ion-icon> -->
           <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
         </button>
         
@@ -54,18 +71,24 @@
                 (mouseenter)="onMessagesButtonMouseEnter()"
                 (mouseleave)="onMessagesButtonMouseLeave()"
                 #messagesBtn>
-          <ion-icon name="chatbubbles"></ion-icon>
+          <!-- <ion-icon name="chatbubbles"></ion-icon> -->
           <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
           <span class="notification-dot message-notification-dot" *ngIf="(unreadCount$ | async)! > 0"></span>
         </button>
         
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/lessons')" (click)="navigateTo('/tabs/lessons')">
-          <ion-icon name="book-outline"></ion-icon>
+        <button class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/lessons')" 
+                (click)="navigateTo('/tabs/lessons')"
+                #lessonsBtn>
+          <!-- <ion-icon name="book-outline"></ion-icon> -->
           <ion-label>Lessons</ion-label>
         </button>
         
-        <button class="nav-button" [class.active]="isCurrentRoute('/tabs/profile')" (click)="navigateTo('/tabs/profile')">
-          <ion-icon name="person"></ion-icon>
+        <button class="nav-button" 
+                [class.active]="isCurrentRoute('/tabs/profile')" 
+                (click)="navigateTo('/tabs/profile')"
+                #profileBtn>
+          <!-- <ion-icon name="person"></ion-icon> -->
           <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
         </button>
         
@@ -75,7 +98,7 @@
                   (click)="onNotificationButtonClick()"
                   (mouseenter)="onNotificationButtonMouseEnter()"
                   (mouseleave)="onNotificationButtonMouseLeave()">
-            <ion-icon name="notifications-outline"></ion-icon>
+            <!-- <ion-icon name="notifications-outline"></ion-icon> -->
             <span class="notification-dot" *ngIf="(unreadNotificationCount$ | async)! > 0"></span>
           </button>
         </div>

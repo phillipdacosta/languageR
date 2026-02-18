@@ -185,10 +185,9 @@
                 {{ tutor.bio }}
               </p>
               <button class="learn-more-btn" 
-                      (click)="toggleBioExpansion(tutor.id, $event)" 
-                      *ngIf="tutor.bio && tutor.bio.length > 200">
-                {{ isBioExpanded(tutor.id) ? 'Show less' : 'Learn more' }}
-                <ion-icon [name]="isBioExpanded(tutor.id) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+              (click)="openTutorProfile(tutor, $event)"
+               > Learn more
+<!-- =                <ion-icon [name]="isBioExpanded(tutor.id) ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon> -->
               </button>
             </div>
             

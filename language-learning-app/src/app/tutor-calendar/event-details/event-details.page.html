@@ -391,7 +391,7 @@
           <ng-container *ngIf="hasTutorNote">
             <div class="ed-fb-block">
               <h3 class="ed-sub-label">Your note</h3>
-              <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression }}</span>
+              <span class="ed-impression" *ngIf="analysisData?.tutorNote?.quickImpression">{{ analysisData?.tutorNote?.quickImpression | titlecase }}</span>
               <div class="ed-rich-body" [innerHTML]="sanitizedTutorNote"></div>
               <div class="ed-note-hw" *ngIf="analysisData?.tutorNote?.homework">
                 <h3 class="ed-sub-label">Homework</h3>

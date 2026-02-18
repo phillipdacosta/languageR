@@ -181,6 +181,18 @@
     align-items: center;
     gap: 32px;
     margin-right: 16px;
+    position: relative; // For sliding underline positioning
+    
+    // Sliding underline indicator
+    .nav-underline-indicator {
+      position: absolute;
+      bottom: -1px; // Position at bottom of toolbar (accounting for border)
+      height: 2px;
+      background-color: #000000;
+      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 10;
+    }
     
     // Only apply Airbnb-style tabs on desktop (min-width: 992px)
     @media (min-width: 992px) {
@@ -192,23 +204,22 @@
         padding: 0;
         background: transparent;
         border: none;
-        // border-bottom: 2px solid transparent; // Underline — commented out for now
         border-radius: 0;
         cursor: pointer;
-        transition: color 0.2s ease; // border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: color 0.2s ease;
         color: #717171;
         text-decoration: none;
         position: relative;
         gap: 8px;
         height: auto;
         min-width: auto;
-        // margin-bottom: -1px; // Overlap the toolbar bottom border — commented out for now
         
-        ion-icon {
-          font-size: 18px;
-          color: inherit;
-          transition: color 0.2s ease;
-        }
+        // Icons commented out
+        // ion-icon {
+        //   font-size: 18px;
+        //   color: inherit;
+        //   transition: color 0.2s ease;
+        // }
         
         ion-label {
           font-size: 14px;
@@ -221,26 +232,15 @@
         &:hover {
           background: transparent;
           color: #222222;
-          // border-bottom-color: transparent;
           transform: none;
           box-shadow: none;
-          
-          ion-icon {
-            transform: none;
-          }
         }
         
         &.active {
           background: transparent;
           color: #222222;
-          // border-bottom-color: #222222; // Silky smooth underline — commented out for now
           box-shadow: none;
           transform: none;
-          
-          ion-icon {
-            color: #222222;
-            transform: none;
-          }
           
           ion-label {
             color: #222222;
@@ -251,9 +251,9 @@
         &.notification-btn {
           position: relative;
           
-          ion-icon {
-            color: inherit; // Inherit from parent (will be #717171 or #222222)
-          }
+          // ion-icon {
+          //   color: inherit; // Inherit from parent (will be #717171 or #222222)
+          // }
           
           .notification-dot {
             position: absolute;

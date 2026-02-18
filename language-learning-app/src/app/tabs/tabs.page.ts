@@ -99,6 +99,16 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   messagesDropdownRight = 20;
   @ViewChild('notificationBtn', { read: ElementRef }) notificationBtn!: ElementRef;
   @ViewChild('messagesBtn', { read: ElementRef }) messagesBtn!: ElementRef;
+  @ViewChild('navButtonsContainer', { read: ElementRef }) navButtonsContainer!: ElementRef;
+  @ViewChild('homeBtn', { read: ElementRef }) homeBtn!: ElementRef;
+  @ViewChild('tutorSearchBtn', { read: ElementRef }) tutorSearchBtn!: ElementRef;
+  @ViewChild('calendarBtn', { read: ElementRef }) calendarBtn!: ElementRef;
+  @ViewChild('lessonsBtn', { read: ElementRef }) lessonsBtn!: ElementRef;
+  @ViewChild('profileBtn', { read: ElementRef }) profileBtn!: ElementRef;
+  
+  // Sliding underline properties
+  underlineLeft = 0;
+  underlineWidth = 0;
   // Note: notifications array removed - now using notifications$ observable from service
   isLoadingNotifications = false;
   // Messages dropdown state
@@ -212,6 +222,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
         this.cdr.markForCheck();
         setTimeout(() => this.cdr.detectChanges(), 0);
       }, 100);
+      
+      // Update sliding underline position
+      setTimeout(() => this.updateUnderline(), 50);
     });
     
     // Initialize current route
@@ -415,6 +428,42 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     return normalizedUrl === normalizedRoute || normalizedUrl.startsWith(normalizedRoute + '/');
   }
 
+  // Update sliding underline position based on active route
+  updateUnderline() {
+    // Only update on desktop (when showTabs is false)
+    if (this.showTabs || !this.navButtonsContainer) {
+      this.underlineWidth = 0;
+      return;
+    }
+
+    let activeButton: ElementRef | null = null;
+
+    // Find which button is active based on current route
+    if (this.isCurrentRoute('/tabs/home') && this.homeBtn) {
+      activeButton = this.homeBtn;
+    } else if (this.isCurrentRoute('/tabs/tutor-search') && this.tutorSearchBtn) {
+      activeButton = this.tutorSearchBtn;
+    } else if (this.isCurrentRoute('/tabs/tutor-calendar') && this.calendarBtn) {
+      activeButton = this.calendarBtn;
+    } else if (this.isCurrentRoute('/tabs/messages') && this.messagesBtn) {
+      activeButton = this.messagesBtn;
+    } else if (this.isCurrentRoute('/tabs/lessons') && this.lessonsBtn) {
+      activeButton = this.lessonsBtn;
+    } else if (this.isCurrentRoute('/tabs/profile') && this.profileBtn) {
+      activeButton = this.profileBtn;
+    }
+
+    if (activeButton && activeButton.nativeElement) {
+      const containerRect = this.navButtonsContainer.nativeElement.getBoundingClientRect();
+      const buttonRect = activeButton.nativeElement.getBoundingClientRect();
+      
+      // Calculate position relative to container
+      this.underlineLeft = buttonRect.left - containerRect.left;
+      this.underlineWidth = buttonRect.width;
+    } else {
+      this.underlineWidth = 0;
+    }
+  }
 
   // Helper methods for template
   isWeb() {
@@ -514,6 +563,14 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
 
   ngAfterViewInit() {
     // ViewChild is available after view init
+    // Update underline position after view is initialized
+    setTimeout(() => {
+      this.updateUnderline();
+      // Also update on window resize
+      window.addEventListener('resize', () => {
+        setTimeout(() => this.updateUnderline(), 50);
+      });
+    }, 100);
   }
 
   loadNotifications() {
