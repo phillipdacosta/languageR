@@ -1901,7 +1901,7 @@ h2 {
           gap: 8px !important;
           
           h2 {
-            font-size: 13px;
+            font-size: 14px;
             margin: 0 0 8px 0;
             font-weight: 600;
           }
@@ -1924,7 +1924,7 @@ h2 {
             }
             
             .meta .name {
-              font-size: 16px !important;
+              font-size: 17px !important;
               margin-bottom: 4px !important;
             }
             
@@ -1934,32 +1934,32 @@ h2 {
               border-radius: 6px !important;
               
               .mon {
-                font-size: 9px !important;
+                font-size: 10px !important;
               }
               
               .day {
-                font-size: 16px !important;
+                font-size: 17px !important;
               }
             }
             
             .slot-text .when {
-              font-size: 14px !important;
+              font-size: 15px !important;
               margin-bottom: 2px !important;
             }
             
             .slot-text .tz-note {
-              font-size: 11px !important;
+              font-size: 12px !important;
             }
             
             .tutor-rate {
               margin-top: 4px !important;
               
               .rate-amount {
-                font-size: 18px !important;
+                font-size: 19px !important;
               }
               
               .rate-label {
-                font-size: 11px !important;
+                font-size: 12px !important;
               }
             }
           }
@@ -1971,12 +1971,12 @@ h2 {
             border-radius: 8px !important;
             
             .info-item {
-              font-size: 13px !important;
+              font-size: 14px !important;
               gap: 6px !important;
               margin: 0 !important;
               
               ion-icon {
-                font-size: 16px !important;
+                font-size: 17px !important;
               }
             }
           }
@@ -1987,7 +1987,7 @@ h2 {
             border-radius: 8px !important;
             
             .breakdown-title {
-              font-size: 13px !important;
+              font-size: 14px !important;
               margin-bottom: 6px !important;
               font-weight: 600;
             }
@@ -1995,19 +1995,27 @@ h2 {
             .breakdown-item {
               margin: 3px 0 !important;
               padding: 2px 0 !important;
-              font-size: 13px !important;
+              font-size: 14px !important;
               
               &.calculation {
-                .breakdown-label,
+                .breakdown-label {
+                  font-size: 13px !important;
+                  font-weight: 500;
+                  
+                  strong {
+                    font-weight: 600;
+                    color: #1c1c1e;
+                  }
+                }
                 .breakdown-value {
-                  font-size: 12px !important;
+                  font-size: 13px !important;
                 }
               }
               
               &.subtotal {
                 .breakdown-label,
                 .breakdown-value {
-                  font-size: 14px !important;
+                  font-size: 15px !important;
                 }
               }
               
@@ -2018,11 +2026,11 @@ h2 {
                 
                 .breakdown-label {
                   font-weight: 600;
-                  font-size: 14px !important;
+                  font-size: 15px !important;
                 }
                 
                 .breakdown-value {
-                  font-size: 18px !important;
+                  font-size: 19px !important;
                   font-weight: 700;
                 }
               }
@@ -2030,7 +2038,7 @@ h2 {
             
             .breakdown-label,
             .breakdown-value {
-              font-size: 13px !important;
+              font-size: 14px !important;
             }
             
             .payment-breakdown {
