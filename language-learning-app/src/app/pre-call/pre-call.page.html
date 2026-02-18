@@ -178,37 +178,34 @@
       <!-- Previous Lesson Notes (for tutors, not trial lessons) -->
       <div class="previous-notes-card" *ngIf="isTutor && !isTrialLesson && (previousLessonNotes || loadingPreviousNotes)">
         <div class="notes-header">
-          <ion-icon name="document-text-outline"></ion-icon>
           <h3>Last Lesson Notes</h3>
+          <div class="notes-date" *ngIf="previousLessonNotes && !loadingPreviousNotes">
+            {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
+          </div>
         </div>
         
         <div *ngIf="loadingPreviousNotes" class="loading-notes">
-          <ion-spinner name="crescent" color="primary"></ion-spinner>
+          <ion-spinner name="crescent" color="medium"></ion-spinner>
           <span>Loading previous lesson...</span>
         </div>
         
         <div *ngIf="previousLessonNotes && !loadingPreviousNotes" class="notes-content">
-          <div class="notes-date">
-            <ion-icon name="calendar-outline"></ion-icon>
-            {{ previousLessonNotes.lessonDate | date:'MMM d, y' }}
-          </div>
-          
           <!-- Topics Discussed / Summary -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.summary">
-            <h4>💬 What You Worked On</h4>
-            <p>{{ previousLessonNotes.overallAssessment.summary }}</p>
+            <div class="section-label">What You Worked On</div>
+            <div class="section-text">{{ previousLessonNotes.overallAssessment.summary }}</div>
           </div>
           
           <!-- Progress Note -->
           <div class="notes-section" *ngIf="previousLessonNotes.overallAssessment?.progressFromLastLesson">
-            <h4>📈 Progress</h4>
-            <p>{{ previousLessonNotes.overallAssessment.progressFromLastLesson }}</p>
+            <div class="section-label">Progress</div>
+            <div class="section-text">{{ previousLessonNotes.overallAssessment.progressFromLastLesson }}</div>
           </div>
           
           <!-- Strengths -->
           <div class="notes-section" *ngIf="previousLessonNotes.strengths?.length">
-            <h4>✅ What They Did Well</h4>
-            <ul>
+            <div class="section-label">What They Did Well</div>
+            <ul class="section-list">
               <li *ngFor="let strength of previousLessonNotes.strengths.slice(0, 2)">
                 {{ strength }}
               </li>
@@ -217,8 +214,8 @@
           
           <!-- Struggles -->
           <div class="notes-section" *ngIf="previousLessonNotes.areasForImprovement?.length">
-            <h4>⚠️ What They Struggled With</h4>
-            <ul>
+            <div class="section-label">What They Struggled With</div>
+            <ul class="section-list">
               <li *ngFor="let area of previousLessonNotes.areasForImprovement.slice(0, 2)">
                 {{ area }}
               </li>
@@ -227,19 +224,21 @@
           
           <!-- Error Patterns with Examples -->
           <div class="notes-section" *ngIf="previousLessonNotes.errorPatterns && previousLessonNotes.errorPatterns.length">
-            <h4>🔍 Common Mistakes</h4>
+            <div class="section-label">Common Mistakes</div>
             <div *ngFor="let error of previousLessonNotes.errorPatterns.slice(0, 2)" class="error-pattern">
-              <strong>{{ error.pattern }}</strong> ({{ error.frequency }}x)
+              <div class="error-pattern-name">{{ error.pattern }} <span class="error-frequency">({{ error.frequency }}x)</span></div>
               <div *ngIf="error.examples && error.examples.length && error.examples[0].original" class="error-example">
-                "{{ error.examples[0].original }}" → "{{ error.examples[0].corrected }}"
+                <span class="error-original">"{{ error.examples[0].original }}"</span>
+                <span class="error-arrow">→</span>
+                <span class="error-corrected">"{{ error.examples[0].corrected }}"</span>
               </div>
             </div>
           </div>
           
           <!-- Recommended Focus -->
           <div class="notes-section" *ngIf="previousLessonNotes.recommendedFocus?.length">
-            <h4>💡 Ideas for Today</h4>
-            <ul>
+            <div class="section-label">Ideas for Today</div>
+            <ul class="section-list">
               <li *ngFor="let focus of previousLessonNotes.recommendedFocus.slice(0, 3)">
                 {{ focus }}
               </li>
@@ -248,8 +247,8 @@
           
           <!-- Homework Check -->
           <div class="notes-section" *ngIf="previousLessonNotes.homeworkSuggestions?.length">
-            <h4>✏️ Check Their Homework</h4>
-            <p>{{ previousLessonNotes.homeworkSuggestions[0] }}</p>
+            <div class="section-label">Check Their Homework</div>
+            <div class="section-text">{{ previousLessonNotes.homeworkSuggestions[0] }}</div>
           </div>
         </div>
       </div>
