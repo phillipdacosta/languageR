@@ -3750,6 +3750,11 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Issue already reported for this lesson' });
     }
 
+    // Block reporting if investigation was already resolved (admin decision is final)
+    if (lesson.investigationResolvedAt) {
+      return res.status(400).json({ success: false, error: 'This lesson has already been reviewed. No further reports can be submitted.' });
+    }
+
     // Check if lesson is completed
     if (lesson.status !== 'completed') {
       return res.status(400).json({ success: false, error: 'Can only report issues for completed lessons' });

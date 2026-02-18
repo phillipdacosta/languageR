@@ -1746,6 +1746,17 @@ router.post('/lesson/:id/resume-payout', verifyToken, requireAdmin, async (req, 
 
     await lesson.save();
 
+    // Mark any existing dispute notifications as non-disputable (decision is final)
+    await Notification.updateMany(
+      { 
+        'data.lessonId': lesson._id,
+        type: { $in: ['payment_cancelled', 'payment_reduced'] }
+      },
+      { 
+        $set: { 'data.canDispute': false }
+      }
+    );
+
     console.log(`✅ Investigation resolved for lesson ${lessonId}: ${resolution}`);
 
     res.json({

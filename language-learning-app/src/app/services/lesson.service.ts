@@ -74,6 +74,8 @@ export interface Lesson {
   issueDetails?: string;
   issueReportedAt?: string;
   underInvestigation?: boolean;
+  investigationResolvedAt?: string;
+  investigationResolution?: string;
   payoutPaused?: boolean;
   
   // Per-minute billing tracking (for office hours)

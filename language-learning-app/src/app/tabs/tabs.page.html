@@ -197,7 +197,7 @@
             <div class="notification-item-right">
               <!-- Dispute Button for payment_cancelled notifications -->
               <ion-button 
-                *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                 class="dispute-button"
                 fill="clear"
                 size="small"
@@ -257,7 +257,7 @@
               <div class="notification-item-right">
                 <!-- Dispute Button for payment_cancelled notifications -->
                 <ion-button 
-                  *ngIf="notification.type === 'payment_cancelled' || notification.type === 'payment_reduced'"
+                  *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                   class="dispute-button"
                   fill="clear"
                   size="small"

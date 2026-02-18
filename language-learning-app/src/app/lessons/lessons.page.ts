@@ -393,7 +393,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
     // Can report issue (within 24h of end)
     const hoursSinceEnd = lesson.endTime ? (now.getTime() - new Date(lesson.endTime).getTime()) / (1000 * 60 * 60) : Infinity;
-    const canReportIssue = role === 'student' && status === 'completed' && !lesson.issueReported && hoursSinceEnd <= 24;
+    const canReportIssue = role === 'student' && status === 'completed' && !lesson.issueReported && !lesson.investigationResolvedAt && hoursSinceEnd <= 24;
 
     // Can join (upcoming or in-progress, within 10 min before start to end)
     const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);

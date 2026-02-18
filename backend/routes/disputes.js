@@ -45,6 +45,22 @@ router.post('/create', verifyToken, async (req, res) => {
       });
     }
 
+    // Block disputes on resolved investigations — admin decision is final
+    if (lesson.investigationResolvedAt) {
+      return res.status(400).json({
+        success: false,
+        error: 'This investigation has been resolved. The admin decision is final and cannot be disputed further.'
+      });
+    }
+
+    // Block duplicate disputes
+    if (lesson.disputeSubmitted) {
+      return res.status(400).json({
+        success: false,
+        error: 'A dispute has already been submitted for this lesson.'
+      });
+    }
+
     // Create the dispute record (we'll store it in lesson for now)
     lesson.disputeSubmitted = true;
     lesson.disputeSubmittedAt = new Date();
