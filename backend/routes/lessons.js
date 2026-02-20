@@ -3704,14 +3704,14 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/lessons/:id/report-issue - Student reports an issue with a lesson
+// POST /api/lessons/:id/report-issue - Student or tutor reports an issue with a lesson
 router.post('/:id/report-issue', verifyToken, async (req, res) => {
   try {
     const { issueType, details } = req.body;
     const lessonId = req.params.id;
-    const studentAuth0Id = req.user.sub;
+    const userAuth0Id = req.user.sub;
 
-    console.log('🚨 Student reporting issue:', { lessonId, issueType, studentAuth0Id });
+    console.log('🚨 User reporting issue:', { lessonId, issueType, userAuth0Id });
 
     // Validate input
     if (!issueType || !details) {
@@ -3721,7 +3721,7 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
       });
     }
 
-    const validIssueTypes = ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other'];
+    const validIssueTypes = ['tutor_no_show', 'student_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other'];
     if (!validIssueTypes.includes(issueType)) {
       return res.status(400).json({ 
         success: false, 
@@ -3729,20 +3729,22 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
       });
     }
 
-    // Get lesson and student
+    // Get lesson and user
     const lesson = await Lesson.findById(lessonId).populate('studentId tutorId');
     if (!lesson) {
       return res.status(404).json({ success: false, error: 'Lesson not found' });
     }
 
-    const student = await User.findOne({ auth0Id: studentAuth0Id });
-    if (!student) {
-      return res.status(404).json({ success: false, error: 'Student not found' });
+    const user = await User.findOne({ auth0Id: userAuth0Id });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Verify requester is the student
-    if (lesson.studentId._id.toString() !== student._id.toString()) {
-      return res.status(403).json({ success: false, error: 'Only the student can report issues' });
+    // Verify requester is either the student or tutor of this lesson
+    const isStudent = lesson.studentId._id.toString() === user._id.toString();
+    const isTutor = lesson.tutorId._id.toString() === user._id.toString();
+    if (!isStudent && !isTutor) {
+      return res.status(403).json({ success: false, error: 'Only the student or tutor can report issues' });
     }
 
     // Check if already reported
@@ -3755,12 +3757,12 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'This lesson has already been reviewed. No further reports can be submitted.' });
     }
 
-    // Check if lesson is completed
+    // Check if lesson is completed (or cancelled with compensation)
     if (lesson.status !== 'completed') {
       return res.status(400).json({ success: false, error: 'Can only report issues for completed lessons' });
     }
 
-    // Check if within 24-hour window
+    // Check if within 72-hour window
     if (!lesson.endTime) {
       return res.status(400).json({ success: false, error: 'Lesson end time not found' });
     }
@@ -3781,11 +3783,11 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
     lesson.issueType = issueType;
     lesson.issueDetails = details;
     lesson.issueReportedAt = new Date();
-    lesson.issueReportedBy = student._id;
+    lesson.issueReportedBy = user._id;
     lesson.underInvestigation = true; // Automatically mark for investigation
 
     // For serious issues (no-show, inappropriate), pause payout immediately
-    if (issueType === 'tutor_no_show' || issueType === 'inappropriate') {
+    if (issueType === 'tutor_no_show' || issueType === 'student_no_show' || issueType === 'inappropriate') {
       lesson.payoutPaused = true;
       lesson.payoutPausedAt = new Date();
       console.log('⚠️ Serious issue detected - pausing payout immediately');
@@ -3793,10 +3795,11 @@ router.post('/:id/report-issue', verifyToken, async (req, res) => {
 
     await lesson.save();
 
-    // Create notification for admin (future: can be sent via email/Slack)
+    // Create notification for admin
     console.log(`🔔 ADMIN ALERT: Issue reported for lesson ${lessonId}`);
     console.log(`   Type: ${issueType}`);
-    console.log(`   Student: ${student.name} (${student.email})`);
+    console.log(`   Reported by: ${user.name} (${user.email}) [${isStudent ? 'student' : 'tutor'}]`);
+    console.log(`   Student: ${lesson.studentId.name} (${lesson.studentId.email})`);
     console.log(`   Tutor: ${lesson.tutorId.name} (${lesson.tutorId.email})`);
     console.log(`   Details: ${details}`);
     console.log(`   Payout paused: ${lesson.payoutPaused}`);

@@ -1399,58 +1399,113 @@
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  background: black;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 24px 16px;
+  background: #1a1a1a;
   z-index: 150;
-  min-height: 90px;
   
-  ion-button {
-    --background: rgba(255, 255, 255, 0.15);
-    --background-hover: rgba(255, 255, 255, 0.25);
-    --background-activated: rgba(255, 255, 255, 0.3);
-    --color: white;
-    --border-radius: 50%;
-    width: 52px;
-    height: 52px;
-    margin: 0;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
+  .control-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    min-width: 64px;
+    padding: 4px 0;
+    border-radius: 12px;
+    transition: background 0.2s ease;
     
     &:hover {
-      transform: scale(1.05);
-    }
-    
-    ion-icon {
-      font-size: 24px;
-    }
-    
-    // End call button - red
-    &[color="danger"] {
-      --background: #f44336;
-      --background-hover: #d32f2f;
-      --background-activated: #c62828;
+      background: rgba(255, 255, 255, 0.06);
       
-      &:hover {
-        transform: scale(1.08);
+      .control-btn {
+        background: rgba(255, 255, 255, 0.2);
       }
     }
     
-    // Active/selected buttons - blue
-    &[color="primary"] {
-      --background: #2196F3;
-      --background-hover: #1976D2;
+    &:active {
+      .control-btn {
+        transform: scale(0.93);
+      }
     }
+  }
+  
+  .control-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.12);
+    transition: all 0.2s ease;
+    
+    ion-icon {
+      font-size: 22px;
+      color: white;
+    }
+    
+    // Active state — danger (mic off, cam off)
+    &.active-danger {
+      background: rgba(255, 59, 48, 0.85);
+      
+      ion-icon {
+        color: white;
+      }
+    }
+    
+    // Active state — primary (screen share, board, chat on)
+    &.active-primary {
+      background: rgba(33, 150, 243, 0.85);
+      
+      ion-icon {
+        color: white;
+      }
+    }
+    
+    // End call button
+    &.danger {
+      background: #ff3b30;
+      
+      ion-icon {
+        color: white;
+      }
+    }
+  }
+  
+  .control-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+    line-height: 1;
+    user-select: none;
+    
+    &.danger {
+      color: #ff6961;
+    }
+    
+    &.primary {
+      color: #64b5f6;
+    }
+  }
+  
+  .control-item.end-call {
+    margin-left: 12px;
   }
   
   // Responsive adjustments
   @media (max-width: 768px) {
-    gap: 8px;
-    padding: 16px 12px;
-    min-height: 80px;
+    gap: 2px;
+    padding: 10px 12px 14px;
     
-    ion-button {
+    .control-item {
+      min-width: 56px;
+    }
+    
+    .control-btn {
       width: 44px;
       height: 44px;
       
@@ -1458,20 +1513,36 @@
         font-size: 20px;
       }
     }
+    
+    .control-label {
+      font-size: 10px;
+    }
   }
   
   @media (max-width: 480px) {
-    gap: 6px;
-    padding: 12px 8px;
-    min-height: 70px;
+    gap: 0;
+    padding: 8px 4px 12px;
     
-    ion-button {
+    .control-item {
+      min-width: 48px;
+      gap: 4px;
+    }
+    
+    .control-btn {
       width: 40px;
       height: 40px;
       
       ion-icon {
         font-size: 18px;
       }
+    }
+    
+    .control-label {
+      font-size: 9px;
+    }
+    
+    .control-item.end-call {
+      margin-left: 6px;
     }
   }
 }
@@ -1978,6 +2049,11 @@
       --placeholder-opacity: 1;
       --padding-start: 16px;
       --padding-end: 16px;
+      --highlight-color-focused: transparent;
+      --highlight-color-valid: transparent;
+      --highlight-color-invalid: transparent;
+      --highlight-height: 0;
+      --border-width: 0;
       border-radius: 24px;
       font-size: 14px;
     }
@@ -3249,6 +3325,29 @@
     }
   }
   
+  .notes-privacy-notice {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #e0e0e0;
+    
+    ion-icon {
+      font-size: 14px;
+      color: #999;
+      flex-shrink: 0;
+    }
+    
+    span {
+      font-size: 12px;
+      font-weight: 500;
+      color: #999;
+      letter-spacing: -0.1px;
+    }
+  }
+  
   .floating-notes-content {
     flex: 1;
     overflow-y: auto;
@@ -3377,6 +3476,11 @@
         --padding-end: 10px;
         --padding-top: 10px;
         --padding-bottom: 10px;
+        --highlight-color-focused: transparent;
+        --highlight-color-valid: transparent;
+        --highlight-color-invalid: transparent;
+        --highlight-height: 0;
+        --border-width: 0;
         font-size: 13px;
         line-height: 1.4;
         
@@ -3410,6 +3514,956 @@
   to {
     opacity: 1;
     transform: translateY(0) translateX(0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FLOATING VOCABULARY PANEL (Bottom Right, Airbnb-inspired)
+// ═══════════════════════════════════════════════════════
+
+.floating-vocab-panel {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  width: 380px;
+  max-height: 520px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  animation: slideInFromBottomRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  @media (max-width: 768px) {
+    width: calc(100vw - 40px);
+    max-width: 380px;
+    bottom: 90px;
+    right: 20px;
+    left: 20px;
+  }
+  
+  .floating-vocab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: #fafafa;
+    border-radius: 16px 16px 0 0;
+    flex-shrink: 0;
+    
+    h3 {
+      margin: 0;
+      color: #222;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    
+    .floating-vocab-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .vocab-save-status {
+        font-size: 11px;
+        color: #717171;
+        font-weight: 500;
+      }
+    }
+    
+    ion-button {
+      --color: #717171;
+      --background: transparent;
+      --background-hover: rgba(0, 0, 0, 0.05);
+      --padding-start: 4px;
+      --padding-end: 4px;
+    }
+  }
+  
+  .floating-vocab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    background: white;
+    border-radius: 0 0 16px 16px;
+    -webkit-overflow-scrolling: touch;
+    max-height: 440px;
+  }
+  
+  .vocab-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    color: #717171;
+    
+    ion-icon {
+      font-size: 40px;
+      color: rgba(0, 0, 0, 0.12);
+      margin-bottom: 12px;
+    }
+    
+    p {
+      margin: 0 0 4px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #222;
+    }
+    
+    span {
+      font-size: 13px;
+      color: #717171;
+    }
+  }
+  
+  .vocab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .vocab-item {
+    position: relative;
+    padding: 12px 32px 12px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    animation: vocabFadeIn 0.25s ease;
+    
+    &:last-child {
+      border-bottom: none;
+    }
+    
+    .vocab-item-main {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .vocab-word {
+      font-size: 15px;
+      font-weight: 600;
+      color: #222;
+    }
+    
+    .vocab-arrow {
+      font-size: 13px;
+      color: #b0b0b0;
+    }
+    
+    .vocab-translation {
+      font-size: 14px;
+      color: #717171;
+      font-weight: 400;
+    }
+    
+    .vocab-example {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: #999;
+      font-style: italic;
+      line-height: 1.4;
+    }
+    
+    .vocab-remove {
+      position: absolute;
+      top: 10px;
+      right: 0;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      color: #ccc;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+      opacity: 0;
+      
+      ion-icon {
+        font-size: 14px;
+      }
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.05);
+        color: #ff3b30;
+        opacity: 1;
+      }
+    }
+    
+    &:hover .vocab-remove {
+      opacity: 1;
+    }
+  }
+  
+  .vocab-add-form {
+    padding: 12px 0 4px;
+    animation: vocabFadeIn 0.2s ease;
+    
+    .vocab-add-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      
+      .vocab-add-arrow {
+        font-size: 14px;
+        color: #b0b0b0;
+        flex-shrink: 0;
+      }
+    }
+    
+    .vocab-input {
+      --background: #f7f7f7;
+      --border-radius: 10px;
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --color: #222;
+      --placeholder-color: #b0b0b0;
+      --highlight-color-focused: transparent;
+      --highlight-color-valid: transparent;
+      --highlight-color-invalid: transparent;
+      --highlight-height: 0;
+      --border-width: 0;
+      font-size: 14px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 10px;
+      transition: border-color 0.2s ease;
+      
+      &:focus-within {
+        border-color: #222;
+      }
+    }
+    
+    .vocab-example-input {
+      margin-bottom: 10px;
+    }
+    
+    .vocab-add-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    
+    .vocab-cancel-btn {
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: #717171;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: background 0.2s ease;
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.05);
+      }
+    }
+    
+    .vocab-save-btn {
+      padding: 6px 16px;
+      border: none;
+      background: #222;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+      
+      &:hover:not(:disabled) {
+        background: #444;
+      }
+      
+      &:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+    }
+  }
+  
+  .vocab-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px 0;
+    border: none;
+    background: transparent;
+    color: #222;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    margin-top: 4px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+    
+    &:hover {
+      color: #555;
+    }
+  }
+}
+
+@keyframes slideInFromBottomRight {
+  from {
+    opacity: 0;
+    transform: translateY(20px) translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) translateX(0);
+  }
+}
+
+@keyframes vocabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FLOATING GOALS/AGENDA PANEL (Airbnb-inspired)
+// ═══════════════════════════════════════════════════════
+
+.floating-goals-panel {
+  position: fixed;
+  bottom: 100px;
+  right: 420px; // Next to vocab if open, or standalone
+  width: 340px;
+  max-height: 440px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  animation: slideInFromBottomRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  @media (max-width: 768px) {
+    width: calc(100vw - 40px);
+    max-width: 340px;
+    bottom: 90px;
+    right: 20px;
+    left: 20px;
+  }
+  
+  .floating-goals-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: #fafafa;
+    border-radius: 16px 16px 0 0;
+    flex-shrink: 0;
+    
+    h3 {
+      margin: 0;
+      color: #222;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    
+    .floating-goals-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .goals-optional-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #717171;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: rgba(0, 0, 0, 0.04);
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+    }
+    
+    ion-button {
+      --color: #717171;
+      --background: transparent;
+      --background-hover: rgba(0, 0, 0, 0.05);
+      --padding-start: 4px;
+      --padding-end: 4px;
+    }
+  }
+  
+  .floating-goals-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    background: white;
+    border-radius: 0 0 16px 16px;
+    -webkit-overflow-scrolling: touch;
+    max-height: 360px;
+  }
+  
+  .goals-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    text-align: center;
+    
+    ion-icon {
+      font-size: 36px;
+      color: rgba(0, 0, 0, 0.12);
+      margin-bottom: 12px;
+    }
+    
+    p {
+      margin: 0;
+      color: #222;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    
+    span {
+      margin-top: 4px;
+      color: #717171;
+      font-size: 13px;
+    }
+  }
+  
+  .goals-list {
+    .goal-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+      animation: vocabFadeIn 0.2s ease;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .goal-check {
+        border: none;
+        background: transparent;
+        padding: 0;
+        cursor: pointer;
+        flex-shrink: 0;
+        
+        ion-icon {
+          font-size: 22px;
+          color: #717171;
+          transition: color 0.2s ease;
+        }
+      }
+      
+      .goal-text {
+        flex: 1;
+        font-size: 14px;
+        color: #222;
+        font-weight: 400;
+        line-height: 1.4;
+        transition: all 0.2s ease;
+      }
+      
+      .goal-remove {
+        border: none;
+        background: transparent;
+        padding: 4px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        
+        ion-icon {
+          font-size: 16px;
+          color: #999;
+        }
+      }
+      
+      &:hover .goal-remove {
+        opacity: 1;
+      }
+      
+      &.completed {
+        .goal-check ion-icon {
+          color: #34C759;
+        }
+        
+        .goal-text {
+          text-decoration: line-through;
+          color: #999;
+        }
+      }
+    }
+  }
+  
+  .goal-add-form {
+    padding: 8px 0;
+    
+    .goal-input {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+      --background: #f7f7f7;
+      --border-radius: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 8px;
+      --highlight-color-focused: transparent;
+      --highlight-color-valid: transparent;
+      --highlight-color-invalid: transparent;
+      --highlight-height: 0;
+      --border-width: 0;
+      
+      &:focus-within {
+        border-color: #222;
+      }
+    }
+    
+    .goal-add-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      
+      .goal-cancel-btn {
+        border: none;
+        background: transparent;
+        color: #717171;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 6px 12px;
+        border-radius: 8px;
+        
+        &:hover {
+          background: #f7f7f7;
+        }
+      }
+      
+      .goal-save-btn {
+        border: none;
+        background: #222;
+        color: white;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 6px 16px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: #444;
+        }
+        
+        &:disabled {
+          background: #e0e0e0;
+          color: #999;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+  
+  .goal-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px 0;
+    border: none;
+    background: transparent;
+    color: #222;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    margin-top: 4px;
+    
+    ion-icon {
+      font-size: 18px;
+    }
+    
+    &:hover {
+      color: #555;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CORRECTION CARD STYLES (in chat)
+// ═══════════════════════════════════════════════════════
+
+.chat-panel {
+  .chat-message.correction-message {
+    // Corrections are always full-width, not aligned to left/right
+    justify-content: center !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    
+    .message-content {
+      max-width: 90% !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+    }
+  }
+}
+
+.correction-card {
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  width: 100%;
+  animation: vocabFadeIn 0.25s ease;
+  
+  .correction-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    
+    ion-icon {
+      font-size: 16px;
+      color: #222;
+    }
+    
+    span {
+      font-size: 12px;
+      font-weight: 600;
+      color: #222;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+  }
+  
+  .correction-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .correction-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    
+    .correction-label {
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+      width: 16px;
+      text-align: center;
+    }
+    
+    .correction-text {
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    
+    &.incorrect {
+      background: rgba(255, 59, 48, 0.06);
+      
+      .correction-label {
+        color: #ff3b30;
+      }
+      
+      .correction-text {
+        color: #c0392b;
+        text-decoration: line-through;
+        text-decoration-color: rgba(255, 59, 48, 0.4);
+      }
+    }
+    
+    &.correct {
+      background: rgba(52, 199, 89, 0.06);
+      
+      .correction-label {
+        color: #34c759;
+      }
+      
+      .correction-text {
+        color: #27ae60;
+        font-weight: 500;
+      }
+    }
+  }
+  
+  .message-time {
+    display: block;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #b0b0b0;
+    text-align: right;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// CORRECTION INPUT (in chat, tutors only)
+// ═══════════════════════════════════════════════════════
+
+.correction-input-container {
+  padding: 14px 16px;
+  background: #fafafa;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  animation: slideDown 0.2s ease-out;
+  
+  .correction-input-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    
+    ion-icon {
+      font-size: 18px;
+      color: #222;
+    }
+    
+    span {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+      color: #222;
+    }
+    
+    .close-correction {
+      font-size: 20px;
+      color: #999;
+      cursor: pointer;
+      transition: color 0.2s;
+      
+      &:hover {
+        color: #666;
+      }
+    }
+  }
+  
+  .correction-input-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+    
+    .correction-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      
+      .correction-field-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        
+        &.incorrect-label {
+          color: #ff3b30;
+        }
+        
+        &.correct-label {
+          color: #34c759;
+        }
+      }
+      
+      .correction-field-input {
+        --background: white;
+        --border-radius: 10px;
+        --padding-start: 12px;
+        --padding-end: 12px;
+        --color: #222;
+        --placeholder-color: #b0b0b0;
+        --highlight-color-focused: transparent;
+        --highlight-color-valid: transparent;
+        --highlight-color-invalid: transparent;
+        --highlight-height: 0;
+        --border-width: 0;
+        font-size: 14px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 10px;
+        transition: border-color 0.2s ease;
+        
+        &:focus-within {
+          border-color: #222;
+        }
+      }
+    }
+  }
+  
+  .correction-send-btn {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: #222;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover:not(:disabled) {
+      background: #444;
+    }
+    
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.active-correction-btn {
+  --color: #222 !important;
+}
+
+// ═══════════════════════════════════════════════════════
+// RESOURCES & DOCUMENTS SECTION (in chat header)
+// ═══════════════════════════════════════════════════════
+
+.resources-section {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: white;
+  
+  .resources-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.02);
+    }
+    
+    .resources-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      ion-icon {
+        font-size: 18px;
+        color: #222;
+      }
+      
+      span {
+        font-size: 13px;
+        font-weight: 600;
+        color: #222;
+      }
+      
+      .resources-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background: rgba(0, 0, 0, 0.06);
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #717171;
+      }
+    }
+    
+    .resources-chevron {
+      font-size: 16px;
+      color: #b0b0b0;
+      transition: transform 0.2s ease;
+    }
+  }
+  
+  .resources-list {
+    padding: 0 20px 10px;
+    max-height: 180px;
+    overflow-y: auto;
+    animation: slideDown 0.2s ease-out;
+  }
+  
+  .resource-item {
+    margin-bottom: 2px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  .resource-file,
+  .resource-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-decoration: none;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+    
+    .resource-icon {
+      font-size: 20px;
+      color: #717171;
+      flex-shrink: 0;
+    }
+    
+    .resource-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      
+      .resource-name {
+        font-size: 13px;
+        font-weight: 500;
+        color: #222;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .resource-meta {
+        font-size: 11px;
+        color: #b0b0b0;
+      }
+    }
+    
+    .resource-download,
+    .resource-external {
+      font-size: 16px;
+      color: #b0b0b0;
+      flex-shrink: 0;
+      transition: color 0.2s ease;
+    }
+    
+    &:hover .resource-download,
+    &:hover .resource-external {
+      color: #222;
+    }
   }
 }
 

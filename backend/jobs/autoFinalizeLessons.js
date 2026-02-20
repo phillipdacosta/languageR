@@ -528,23 +528,80 @@ async function finalizeLesson(lesson, endTime = new Date()) {
         
         // CASE 1: Lesson completed successfully (both showed up)
         if (lesson.actualCallStartTime && lesson.status === 'completed') {
-          // Capture full payment
-          if (payment.status === 'authorized') {
-            console.log(`💳 [AutoFinalize] Capturing full payment for completed lesson ${lesson._id}`);
-            const paymentService = require('../services/paymentService');
-            try {
-              await paymentService.deductLessonFunds(lesson._id);
-              console.log(`✅ [AutoFinalize] Payment captured for lesson ${lesson._id}`);
-            } catch (captureError) {
-              console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
-              throw captureError;
+          // Check for anomalously short lessons (< 5 min for lessons >= 15 min scheduled)
+          const scheduledDuration = lesson.duration || 25;
+          const actualDuration = lesson.actualDurationMinutes || 0;
+          const shortLessonThreshold = Math.min(5, scheduledDuration * 0.2); // 5 min or 20% of scheduled, whichever is smaller
+          const isAnomalouslyShort = scheduledDuration >= 15 && actualDuration > 0 && actualDuration < shortLessonThreshold;
+
+          if (isAnomalouslyShort) {
+            // AUTO-FLAG: Lesson was too short — hold payment for admin review
+            console.log(`🚩 [AutoFinalize] FLAGGED: Lesson ${lesson._id} was only ${actualDuration} min (scheduled: ${scheduledDuration} min) — auto-holding for review`);
+            
+            // Capture the payment first
+            if (payment.status === 'authorized') {
+              const paymentService = require('../services/paymentService');
+              try {
+                await paymentService.deductLessonFunds(lesson._id);
+                console.log(`✅ [AutoFinalize] Payment captured for flagged lesson ${lesson._id}`);
+              } catch (captureError) {
+                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
+                throw captureError;
+              }
             }
+            
+            // Complete payment (puts it on_hold for tutor) but also flag for admin
+            const paymentService = require('../services/paymentService');
+            await paymentService.completeLessonPayment(lesson._id);
+            
+            // Auto-flag the lesson and pause payout
+            lesson.autoFlaggedShortLesson = true;
+            lesson.autoFlagReason = `Actual duration ${actualDuration} min vs ${scheduledDuration} min scheduled`;
+            lesson.payoutPaused = true;
+            lesson.payoutPausedAt = new Date();
+            lesson.underInvestigation = true;
+            lesson.issueReported = true;
+            lesson.issueType = 'ended_early';
+            lesson.issueDetails = `Auto-flagged: Lesson lasted only ${actualDuration} minute(s) out of ${scheduledDuration} minutes scheduled. Payment held for admin review.`;
+            lesson.issueReportedAt = new Date();
+            await lesson.save();
+            
+            // Create admin alert
+            await alertService.createAlert({
+              type: 'SHORT_LESSON_FLAGGED',
+              severity: 'HIGH',
+              title: `Auto-flagged short lesson — ${actualDuration} min of ${scheduledDuration} min`,
+              description: `Lesson ${lesson._id} between tutor and student lasted only ${actualDuration} minute(s) out of ${scheduledDuration} minutes scheduled. Payment has been auto-held for admin review.`,
+              lessonId: lesson._id,
+              data: {
+                actualDuration,
+                scheduledDuration,
+                tutorId: lesson.tutorId?._id || lesson.tutorId,
+                studentId: lesson.studentId?._id || lesson.studentId,
+                lessonPrice: lesson.price
+              }
+            });
+            
+            console.log(`✅ [AutoFinalize] Short lesson flagged and payout paused for lesson ${lesson._id}`);
+          } else {
+            // Normal completion — capture and complete payment
+            if (payment.status === 'authorized') {
+              console.log(`💳 [AutoFinalize] Capturing full payment for completed lesson ${lesson._id}`);
+              const paymentService = require('../services/paymentService');
+              try {
+                await paymentService.deductLessonFunds(lesson._id);
+                console.log(`✅ [AutoFinalize] Payment captured for lesson ${lesson._id}`);
+              } catch (captureError) {
+                console.error(`❌ [AutoFinalize] Payment capture failed for lesson ${lesson._id}:`, captureError.message);
+                throw captureError;
+              }
+            }
+            
+            // Complete payment (revenue recognition + tutor payout)
+            const paymentService = require('../services/paymentService');
+            await paymentService.completeLessonPayment(lesson._id);
+            console.log(`✅ [AutoFinalize] Payment completed (payout sent) for lesson ${lesson._id}`);
           }
-          
-          // Complete payment (revenue recognition + tutor payout)
-          const paymentService = require('../services/paymentService');
-          await paymentService.completeLessonPayment(lesson._id);
-          console.log(`✅ [AutoFinalize] Payment completed (payout sent) for lesson ${lesson._id}`);
         }
         
         // CASE 2: Both no-show - full refund

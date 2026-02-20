@@ -288,6 +288,39 @@
           visibility: visible !important;
           pointer-events: none !important;
         }
+
+        // Messages button
+        &.messages-button {
+          position: relative;
+          margin-right: 0;
+          transition: margin-right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+          // Add extra space after button when badge is visible
+          &:has(.new-badge) {
+            margin-right: 28px;
+          }
+        }
+
+        // "new" badge — floats in the gap space after "Messages" text
+        &.messages-button .new-badge {
+          position: absolute;
+          left: 100%;
+          top: 50%;
+          transform: translateY(-50%);
+          margin-left: 6px;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          color: #ff3b30;
+          background: rgba(255, 59, 48, 0.1);
+          padding: 2px 6px;
+          border-radius: 4px;
+          line-height: 1;
+          pointer-events: none;
+          white-space: nowrap;
+          animation: newBadgeSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
       }
     }
     
@@ -1645,6 +1678,18 @@ ion-tab-button {
     }
   }
   
+}
+
+// Airbnb-style slide-in animation for "new" badge
+@keyframes newBadgeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) scale(1);
+  }
 }
 
 // Celebrate animation for system notifications

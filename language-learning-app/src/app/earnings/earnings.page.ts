@@ -442,6 +442,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     if (payment.status === 'cancelled') {
       return payment.cancelReason || (payment.isClassPayment ? 'Class was cancelled' : 'Lesson was cancelled');
     }
+    // Show cancel reason as context even when tutor was compensated (e.g. student no-show)
+    if (payment.cancelReason && payment.lessonStatus === 'cancelled') {
+      return payment.cancelReason;
+    }
     if (payment.status === 'processing' || payment.lessonStatus === 'ended_early') {
       return 'Payment amount will be sent after the 24 hour hold period';
     }

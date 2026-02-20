@@ -8,6 +8,8 @@ import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
+import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
+import { ReviewDeckService } from '../services/review-deck.service';
 
 interface LessonInfo {
   _id: string;
@@ -97,6 +99,13 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     return Math.max(0, this.tipAmount - this.cardProcessingFee);
   }
   
+  // Vocabulary & Goals from lesson
+  vocabItems: VocabEntry[] = [];
+  goalItems: GoalEntry[] = [];
+  savedVocabIds: Set<number> = new Set();
+  savingVocabIndex: number | null = null;
+  savingAllVocab = false;
+
   // Polling
   private pollingInterval: any = null;
   pollCount = 0;
@@ -111,7 +120,9 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private vocabularyService: VocabularyService,
+    private reviewDeckService: ReviewDeckService
   ) {}
 
   async ngOnInit() {
@@ -123,6 +134,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     
     if (this.lessonId) {
       await this.loadLessonInfo();
+      this.loadVocabulary();
       
       // Only poll for analysis if AI is enabled
       if (this.aiAnalysisEnabled && !this.isTrialLesson) {
@@ -500,6 +512,116 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   viewFullAnalysis() {
     this.router.navigate(['/lesson-analysis', this.lessonId]);
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // VOCABULARY & GOALS
+  // ═══════════════════════════════════════════════════════
+  
+  private loadVocabulary() {
+    if (!this.lessonId) return;
+    
+    this.vocabularyService.getVocabulary(this.lessonId).subscribe({
+      next: (response) => {
+        if (response?.data) {
+          this.vocabItems = response.data.vocabulary || [];
+          this.goalItems = response.data.goals || [];
+        }
+      },
+      error: (err) => {
+        console.warn('Could not load vocabulary for post-lesson:', err);
+      }
+    });
+  }
+  
+  async saveVocabToReviewDeck(item: VocabEntry, index: number) {
+    if (this.savedVocabIds.has(index)) return;
+    
+    this.savingVocabIndex = index;
+    
+    try {
+      await firstValueFrom(this.reviewDeckService.saveItem({
+        original: item.word,
+        corrected: item.translation,
+        explanation: item.example || '',
+        context: `Vocabulary from lesson`,
+        language: this.lesson?.subject || 'Spanish',
+        errorType: 'vocabulary',
+        lessonId: this.lessonId
+      }));
+      
+      this.savedVocabIds.add(index);
+      
+      const toast = await this.toastCtrl.create({
+        message: `"${item.word}" saved to Review Deck`,
+        duration: 2000,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Error saving vocab to review deck:', error);
+      const toast = await this.toastCtrl.create({
+        message: 'Could not save to Review Deck',
+        duration: 2000,
+        color: 'danger',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.savingVocabIndex = null;
+    }
+  }
+  
+  async saveAllVocabToReviewDeck() {
+    if (this.savingAllVocab) return;
+    
+    this.savingAllVocab = true;
+    
+    const unsavedItems = this.vocabItems
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => !this.savedVocabIds.has(index));
+    
+    if (unsavedItems.length === 0) {
+      this.savingAllVocab = false;
+      return;
+    }
+    
+    try {
+      const batchItems = unsavedItems.map(({ item }) => ({
+        original: item.word,
+        corrected: item.translation,
+        explanation: item.example || '',
+        context: `Vocabulary from lesson`,
+        language: this.lesson?.subject || 'Spanish',
+        errorType: 'vocabulary' as const,
+        lessonId: this.lessonId
+      }));
+      
+      await firstValueFrom(this.reviewDeckService.saveMultiple(batchItems));
+      
+      // Mark all as saved
+      unsavedItems.forEach(({ index }) => this.savedVocabIds.add(index));
+      
+      const toast = await this.toastCtrl.create({
+        message: `${unsavedItems.length} words saved to Review Deck`,
+        duration: 2500,
+        color: 'success',
+        position: 'top'
+      });
+      await toast.present();
+    } catch (error) {
+      console.error('Error batch saving vocab:', error);
+      const toast = await this.toastCtrl.create({
+        message: 'Could not save all words. Try saving them individually.',
+        duration: 3000,
+        color: 'warning',
+        position: 'top'
+      });
+      await toast.present();
+    } finally {
+      this.savingAllVocab = false;
+    }
   }
 }
 

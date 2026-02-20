@@ -1273,8 +1273,19 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
           paymentStatus = 'refunded';
         } else if (payment.status === 'partially_refunded' && payment.refundReason && payment.refundReason.includes('investigation')) {
           paymentStatus = 'partially_refunded';
+        } else if (payment.revenueRecognized && tutorPayout > 0) {
+          // Tutor was compensated despite cancellation (e.g. student no-show, tutor waited)
+          if (payment.transferStatus === 'succeeded' || payment.transferStatus === 'withdrawn') {
+            paymentStatus = 'paid';
+          } else if (payment.transferStatus === 'available') {
+            paymentStatus = 'succeeded';
+          } else if (payment.transferStatus === 'on_hold') {
+            paymentStatus = 'pending';
+          } else {
+            paymentStatus = 'paid';
+          }
         } else {
-          // Regular cancellation (no-show, etc.)
+          // Regular cancellation where tutor was NOT compensated
           paymentStatus = 'cancelled';
         }
       } else if (payment.status === 'refunded') {

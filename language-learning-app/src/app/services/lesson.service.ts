@@ -70,7 +70,7 @@ export interface Lesson {
   
   // Issue Reporting & Investigation
   issueReported?: boolean;
-  issueType?: 'tutor_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
+  issueType?: 'tutor_no_show' | 'student_no_show' | 'ended_early' | 'poor_quality' | 'inappropriate' | 'technical' | 'other';
   issueDetails?: string;
   issueReportedAt?: string;
   underInvestigation?: boolean;

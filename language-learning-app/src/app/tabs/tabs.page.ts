@@ -457,9 +457,13 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       const containerRect = this.navButtonsContainer.nativeElement.getBoundingClientRect();
       const buttonRect = activeButton.nativeElement.getBoundingClientRect();
       
+      // For messages button, use label width instead of button width (to exclude badge)
+      const labelElement = activeButton.nativeElement.querySelector('ion-label');
+      const widthToUse = labelElement ? labelElement.getBoundingClientRect().width : buttonRect.width;
+      
       // Calculate position relative to container
       this.underlineLeft = buttonRect.left - containerRect.left;
-      this.underlineWidth = buttonRect.width;
+      this.underlineWidth = widthToUse;
     } else {
       this.underlineWidth = 0;
     }

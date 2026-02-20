@@ -392,9 +392,9 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const tutorNote = (lesson as any).tutorNote;
     const hasTutorNoteAvailable = !!(tutorNote && tutorNote.text);
 
-    // Can report issue (within 24h of end)
+    // Can report issue (within 24h of end, both students and tutors)
     const hoursSinceEnd = lesson.endTime ? (now.getTime() - new Date(lesson.endTime).getTime()) / (1000 * 60 * 60) : Infinity;
-    const canReportIssue = role === 'student' && status === 'completed' && !lesson.issueReported && !lesson.investigationResolvedAt && hoursSinceEnd <= 24;
+    const canReportIssue = status === 'completed' && !lesson.issueReported && !lesson.investigationResolvedAt && hoursSinceEnd <= 24;
 
     // Can join (upcoming or in-progress, within 10 min before start to end)
     const minutesUntilStart = (start.getTime() - now.getTime()) / (1000 * 60);
@@ -665,17 +665,29 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   async reportIssue(pl: ProcessedLesson) {
     const lesson = pl.lesson;
+    const isStudentRole = pl.role === 'student';
+
+    // Different issue types for students vs tutors
+    const studentIssueTypes: { type: 'radio'; label: string; value: string }[] = [
+      { type: 'radio', label: "Tutor didn't show up", value: 'tutor_no_show' },
+      { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
+      { type: 'radio', label: 'Poor lesson quality', value: 'poor_quality' },
+      { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
+      { type: 'radio', label: 'Technical issues', value: 'technical' },
+      { type: 'radio', label: 'Other', value: 'other' }
+    ];
+    const tutorIssueTypes: { type: 'radio'; label: string; value: string }[] = [
+      { type: 'radio', label: "Student didn't show up", value: 'student_no_show' },
+      { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
+      { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
+      { type: 'radio', label: 'Technical issues', value: 'technical' },
+      { type: 'radio', label: 'Other', value: 'other' }
+    ];
+
     const alert = await this.alertController.create({
       header: 'Report Issue',
       message: 'Please select the issue you experienced:',
-      inputs: [
-        { type: 'radio', label: "Tutor didn't show up", value: 'tutor_no_show' },
-        { type: 'radio', label: 'Lesson ended early', value: 'ended_early' },
-        { type: 'radio', label: 'Poor lesson quality', value: 'poor_quality' },
-        { type: 'radio', label: 'Inappropriate behavior', value: 'inappropriate' },
-        { type: 'radio', label: 'Technical issues', value: 'technical' },
-        { type: 'radio', label: 'Other', value: 'other' }
-      ],
+      inputs: isStudentRole ? studentIssueTypes : tutorIssueTypes,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {

@@ -123,6 +123,7 @@ app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
+app.use('/api/vocabulary', require('./routes/vocabulary'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {

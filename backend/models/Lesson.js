@@ -167,12 +167,24 @@ const LessonSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     index: true,
-    comment: 'Whether student reported an issue with this lesson'
+    comment: 'Whether a participant reported an issue with this lesson'
   },
   issueType: {
     type: String,
-    enum: ['tutor_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
+    enum: ['tutor_no_show', 'student_no_show', 'ended_early', 'poor_quality', 'inappropriate', 'technical', 'other', null],
     default: null
+  },
+  // Auto-flag for anomalously short lessons
+  autoFlaggedShortLesson: {
+    type: Boolean,
+    default: false,
+    index: true,
+    comment: 'Automatically flagged because actual duration was much shorter than scheduled'
+  },
+  autoFlagReason: {
+    type: String,
+    default: null,
+    comment: 'Why the lesson was auto-flagged (e.g. "Actual duration 2 min vs 25 min scheduled")'
   },
   issueDetails: {
     type: String,

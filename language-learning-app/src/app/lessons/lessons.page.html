@@ -172,7 +172,7 @@
                 </div>
                 <div *ngIf="pl.isInvestigationResolved" class="action-issue-resolved">
                   <ion-icon name="checkmark-circle" color="success"></ion-icon>
-                  <span>Resolved</span>
+                  <span>Issue</span>
                 </div>
               </ng-container>
 
@@ -201,6 +201,21 @@
                   <ion-icon name="create-outline"></ion-icon>
                   Add Note
                 </button>
+                <!-- Report Issue (tutor) -->
+                <button *ngIf="pl.canReportIssue" class="action-btn subtle" (click)="reportIssue(pl); $event.stopPropagation()">
+                  <ion-icon name="flag-outline"></ion-icon>
+                  Report Issue
+                </button>
+                <ng-container *ngIf="pl.isIssueReported">
+                  <div *ngIf="!pl.isInvestigationResolved" class="action-issue-reported">
+                    <ion-icon name="flag" color="warning"></ion-icon>
+                    <span>Issue reported</span>
+                  </div>
+                  <div *ngIf="pl.isInvestigationResolved" class="action-issue-resolved">
+                    <!-- <ion-icon name="checkmark-circle" color="success"></ion-icon> -->
+                    <span>Issue resolved</span>
+                  </div>
+                </ng-container>
               </ng-container>
 
             </ng-container>

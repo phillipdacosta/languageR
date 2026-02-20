@@ -27,6 +27,10 @@ export class AgoraService {
   private remoteUsers: Map<UID, { videoTrack?: IRemoteVideoTrack; audioTrack?: IRemoteAudioTrack; isMuted?: boolean; isVideoOff?: boolean }> = new Map();
   private videoEnabledState: boolean = true; // Track video enabled state
   private isScreenSharing: boolean = false;
+  
+  // Callback for when screen sharing is stopped externally (e.g. browser "Stop sharing" button)
+  private onScreenShareStoppedCallback: (() => void) | null = null;
+  private screenSharePerformanceInterval: any = null;
 
   // Virtual background properties (following official example)
   private extension: any = null;
@@ -1293,6 +1297,10 @@ export class AgoraService {
       }
 
       // Stop screen sharing if active
+      if (this.screenSharePerformanceInterval) {
+        clearInterval(this.screenSharePerformanceInterval);
+        this.screenSharePerformanceInterval = null;
+      }
       if (this.screenTrack) {
         try {
           console.log('🖥️ Stopping screen sharing track...');
@@ -1304,6 +1312,7 @@ export class AgoraService {
           console.warn('⚠️ Error stopping screen track:', error);
         }
       }
+      this.onScreenShareStoppedCallback = null;
 
       // Clean up virtual background processor
       if (this.processor) {
@@ -1992,9 +2001,13 @@ export class AgoraService {
       console.log('✅ Screen sharing started successfully');
 
       // Listen for screen share end (when user clicks "Stop sharing" in browser)
-      this.screenTrack.on("track-ended", () => {
-        console.log('🖥️ Screen sharing ended by user');
-        this.stopScreenShare();
+      this.screenTrack.on("track-ended", async () => {
+        console.log('🖥️ Screen sharing ended by user (browser stop button)');
+        await this.stopScreenShare();
+        // Notify the page component so it can update its own UI state
+        if (this.onScreenShareStoppedCallback) {
+          this.onScreenShareStoppedCallback();
+        }
       });
 
       // Monitor and optimize screen sharing performance
@@ -2024,6 +2037,12 @@ export class AgoraService {
   async stopScreenShare(): Promise<void> {
     try {
       console.log('🖥️ Stopping screen share...');
+      
+      // Clear performance monitoring interval
+      if (this.screenSharePerformanceInterval) {
+        clearInterval(this.screenSharePerformanceInterval);
+        this.screenSharePerformanceInterval = null;
+      }
       
       if (this.screenTrack && this.client) {
         // Unpublish screen track
@@ -2065,6 +2084,15 @@ export class AgoraService {
     return this.screenTrack;
   }
 
+  /**
+   * Register a callback to be notified when screen sharing is stopped externally
+   * (e.g. when the user clicks the browser's native "Stop sharing" button).
+   * The page component should call this to stay in sync.
+   */
+  onScreenShareStopped(callback: () => void): void {
+    this.onScreenShareStoppedCallback = callback;
+  }
+
 
   /**
    * Monitor screen sharing performance and adjust quality if needed
@@ -2072,10 +2100,16 @@ export class AgoraService {
   private monitorScreenSharePerformance(): void {
     if (!this.screenTrack || !this.client) return;
 
+    // Clear any existing interval first
+    if (this.screenSharePerformanceInterval) {
+      clearInterval(this.screenSharePerformanceInterval);
+    }
+
     // Monitor performance every 5 seconds
-    const performanceInterval = setInterval(() => {
+    this.screenSharePerformanceInterval = setInterval(() => {
       if (!this.isScreenSharing || !this.screenTrack) {
-        clearInterval(performanceInterval);
+        clearInterval(this.screenSharePerformanceInterval);
+        this.screenSharePerformanceInterval = null;
         return;
       }
 

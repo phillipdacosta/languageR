@@ -17,6 +17,7 @@ import { TranscriptionService } from '../services/transcription.service';
 import { DeepgramAudioService } from '../services/deepgram-audio.service';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
 import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
+import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { environment } from '../../environments/environment';
 
 @Component({
@@ -66,6 +67,31 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   savingNotes = false;
   notesLastSaved: Date | null = null;
   private notesAutoSaveInterval: any = null;
+  
+  // Vocabulary panel properties (shared between tutor and student)
+  showVocabulary = false;
+  vocabularyItems: Array<{ word: string; translation: string; example: string; addedBy: string; id: string }> = [];
+  newVocabWord = '';
+  newVocabTranslation = '';
+  newVocabExample = '';
+  isAddingVocab = false;
+  vocabLastSaved: Date | null = null;
+  private vocabAutoSaveInterval: any = null;
+  private vocabSaving = false;
+  
+  // Lesson goals/agenda (optional, shared between tutor and student)
+  showGoals = false;
+  goalItems: Array<{ text: string; completed: boolean; addedBy: string; id: string }> = [];
+  newGoalText = '';
+  isAddingGoal = false;
+  
+  // Correction input mode (for tutors in chat)
+  showCorrectionInput = false;
+  correctionOriginal = '';
+  correctionFixed = '';
+  
+  // Resources/Documents section in chat
+  showResourcesSection = false;
   
   // Options for notes form
   impressionOptions = [
@@ -327,6 +353,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   private talkTimePopupShown: boolean = false; // prevent showing twice
   private talkTimeCheckInterval: any = null;
   talkTimePopupDismissed: boolean = false; // user dismissed the popup
+  private talkTimeAutoHideTimer: any = null; // auto-hide after 10 seconds
   private scheduledLessonStartTime: number = 0; // Scheduled start time timestamp — talk time only tracked after this
   isWaitingForLessonStart: boolean = false; // True if user joined early, before scheduled start
   // Pre-calculated display properties (no functions in template)
@@ -359,7 +386,8 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     private deepgramAudioService: DeepgramAudioService,
     private earlyExitService: EarlyExitService,
     private ngZone: NgZone,
-    private reminderService: ReminderService
+    private reminderService: ReminderService,
+    private vocabularyService: VocabularyService
   ) { }
 
   async ngOnInit() {
@@ -2407,6 +2435,345 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  // ═══════════════════════════════════════════════════════
+  // VOCABULARY PANEL METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleVocabulary() {
+    this.showVocabulary = !this.showVocabulary;
+    
+    if (this.showVocabulary) {
+      this.loadVocabulary();
+      this.startVocabAutoSave();
+    } else {
+      this.stopVocabAutoSave();
+    }
+  }
+  
+  addVocabularyItem() {
+    if (!this.newVocabWord.trim() || !this.newVocabTranslation.trim()) return;
+    
+    const item = {
+      word: this.newVocabWord.trim(),
+      translation: this.newVocabTranslation.trim(),
+      example: this.newVocabExample.trim(),
+      addedBy: this.userRole,
+      id: `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    };
+    
+    this.vocabularyItems.push(item);
+    this.newVocabWord = '';
+    this.newVocabTranslation = '';
+    this.newVocabExample = '';
+    this.isAddingVocab = false;
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  removeVocabularyItem(id: string) {
+    this.vocabularyItems = this.vocabularyItems.filter(v => v.id !== id);
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  cancelAddVocab() {
+    this.newVocabWord = '';
+    this.newVocabTranslation = '';
+    this.newVocabExample = '';
+    this.isAddingVocab = false;
+  }
+  
+  private startVocabAutoSave() {
+    this.vocabAutoSaveInterval = setInterval(() => {
+      this.autoSaveVocabulary();
+    }, 15000); // Auto-save every 15 seconds
+  }
+  
+  private stopVocabAutoSave() {
+    if (this.vocabAutoSaveInterval) {
+      clearInterval(this.vocabAutoSaveInterval);
+      this.vocabAutoSaveInterval = null;
+    }
+  }
+  
+  private autoSaveVocabulary() {
+    if (!this.lessonId || this.vocabSaving) return;
+    
+    // Always save to localStorage as backup
+    try {
+      const vocabData = {
+        lessonId: this.lessonId,
+        items: this.vocabularyItems,
+        goals: this.goalItems,
+        savedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`lesson_vocab_${this.lessonId}`, JSON.stringify(vocabData));
+    } catch (error) {
+      console.error('Error saving vocabulary to localStorage:', error);
+    }
+    
+    // Save to backend
+    this.vocabSaving = true;
+    const vocabEntries: VocabEntry[] = this.vocabularyItems.map(v => ({
+      word: v.word,
+      translation: v.translation,
+      example: v.example,
+      addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
+    }));
+    const goalEntries: GoalEntry[] = this.goalItems.map(g => ({
+      text: g.text,
+      completed: g.completed,
+      addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
+    }));
+    
+    this.vocabularyService.saveVocabulary(this.lessonId, vocabEntries, goalEntries).subscribe({
+      next: () => {
+        this.vocabLastSaved = new Date();
+        this.vocabSaving = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error saving vocabulary to backend:', err);
+        this.vocabSaving = false;
+        // localStorage backup already saved above
+        this.vocabLastSaved = new Date();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+  
+  private loadVocabulary() {
+    if (!this.lessonId) return;
+    
+    // Try backend first
+    this.vocabularyService.getVocabulary(this.lessonId).subscribe({
+      next: (response) => {
+        if (response?.data) {
+          const data = response.data;
+          if (data.vocabulary && data.vocabulary.length > 0) {
+            this.vocabularyItems = data.vocabulary.map((v: any) => ({
+              word: v.word,
+              translation: v.translation,
+              example: v.example || '',
+              addedBy: v.addedBy || 'tutor',
+              id: v._id || `vocab_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+            }));
+          }
+          if (data.goals && data.goals.length > 0) {
+            this.goalItems = data.goals.map((g: any) => ({
+              text: g.text,
+              completed: g.completed || false,
+              addedBy: g.addedBy || 'student',
+              id: g._id || `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+            }));
+          }
+          if (data.updatedAt) {
+            this.vocabLastSaved = new Date(data.updatedAt);
+          }
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.warn('Could not load vocabulary from backend, falling back to localStorage:', err);
+        this.loadVocabularyFromLocalStorage();
+      }
+    });
+  }
+  
+  private loadVocabularyFromLocalStorage() {
+    if (!this.lessonId) return;
+    try {
+      const saved = localStorage.getItem(`lesson_vocab_${this.lessonId}`);
+      if (saved) {
+        const vocabData = JSON.parse(saved);
+        this.vocabularyItems = vocabData.items || [];
+        this.goalItems = vocabData.goals || [];
+        if (vocabData.savedAt) {
+          this.vocabLastSaved = new Date(vocabData.savedAt);
+        }
+        this.cdr.detectChanges();
+      }
+    } catch (error) {
+      console.error('Error loading vocabulary from localStorage:', error);
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════
+  // LESSON GOALS/AGENDA METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleGoals() {
+    this.showGoals = !this.showGoals;
+    if (this.showGoals && this.goalItems.length === 0 && this.vocabularyItems.length === 0) {
+      // Goals panel shares the same backend doc as vocab, load if not already loaded
+      this.loadVocabulary();
+    }
+  }
+  
+  addGoalItem() {
+    if (!this.newGoalText.trim()) return;
+    
+    const item = {
+      text: this.newGoalText.trim(),
+      completed: false,
+      addedBy: this.userRole,
+      id: `goal_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`
+    };
+    
+    this.goalItems.push(item);
+    this.newGoalText = '';
+    this.isAddingGoal = false;
+    this.autoSaveVocabulary(); // Goals save alongside vocab
+    this.cdr.detectChanges();
+  }
+  
+  toggleGoalCompleted(id: string) {
+    const goal = this.goalItems.find(g => g.id === id);
+    if (goal) {
+      goal.completed = !goal.completed;
+      this.autoSaveVocabulary();
+      this.cdr.detectChanges();
+    }
+  }
+  
+  removeGoalItem(id: string) {
+    this.goalItems = this.goalItems.filter(g => g.id !== id);
+    this.autoSaveVocabulary();
+    this.cdr.detectChanges();
+  }
+  
+  cancelAddGoal() {
+    this.newGoalText = '';
+    this.isAddingGoal = false;
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // CORRECTION MESSAGE METHODS (sent as special chat messages)
+  // ═══════════════════════════════════════════════════════
+  
+  toggleCorrectionInput() {
+    this.showCorrectionInput = !this.showCorrectionInput;
+    if (!this.showCorrectionInput) {
+      this.correctionOriginal = '';
+      this.correctionFixed = '';
+    }
+  }
+  
+  sendCorrection() {
+    if (!this.correctionOriginal.trim() || !this.correctionFixed.trim()) return;
+    if (!this.otherUserAuth0Id || this.isSending) return;
+    
+    // Format as a special correction message with markers
+    const correctionContent = `[CORRECTION]\n❌ ${this.correctionOriginal.trim()}\n✅ ${this.correctionFixed.trim()}`;
+    
+    this.isSending = true;
+    
+    if (this.websocketService.getConnectionStatus()) {
+      this.websocketService.sendMessage(
+        this.otherUserAuth0Id,
+        correctionContent,
+        'text'
+      );
+      
+      this.messageSendTimeout = setTimeout(() => {
+        if (this.isSending) {
+          this.sendCorrectionViaHTTP(correctionContent);
+        }
+      }, 2000);
+    } else {
+      this.sendCorrectionViaHTTP(correctionContent);
+    }
+    
+    // Clear inputs
+    this.correctionOriginal = '';
+    this.correctionFixed = '';
+    this.showCorrectionInput = false;
+    this.cdr.detectChanges();
+  }
+  
+  private sendCorrectionViaHTTP(content: string) {
+    if (!this.isSending) return;
+    if (!this.otherUserAuth0Id) return;
+    
+    this.messagingService.sendMessage(
+      this.otherUserAuth0Id,
+      content,
+      'text'
+    ).subscribe({
+      next: (response) => {
+        const message = response.message;
+        const exists = this.chatMessages.find(m => m.id === message.id);
+        if (!exists) {
+          this.chatMessages.push(message);
+          this.messages = this.chatMessages;
+          this.scrollChatToBottom();
+        }
+        this.isSending = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Error sending correction via HTTP:', error);
+        this.isSending = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+  
+  isCorrection(message: Message): boolean {
+    return message.content?.startsWith('[CORRECTION]') || false;
+  }
+  
+  getCorrectionOriginal(message: Message): string {
+    if (!this.isCorrection(message)) return '';
+    const lines = message.content.split('\n');
+    const originalLine = lines.find(l => l.startsWith('❌'));
+    return originalLine ? originalLine.replace('❌ ', '') : '';
+  }
+  
+  getCorrectionFixed(message: Message): string {
+    if (!this.isCorrection(message)) return '';
+    const lines = message.content.split('\n');
+    const fixedLine = lines.find(l => l.startsWith('✅'));
+    return fixedLine ? fixedLine.replace('✅ ', '') : '';
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // RESOURCES/DOCUMENTS SECTION METHODS
+  // ═══════════════════════════════════════════════════════
+  
+  toggleResourcesSection() {
+    this.showResourcesSection = !this.showResourcesSection;
+  }
+  
+  get resourceMessages(): Message[] {
+    return this.chatMessages.filter(m => 
+      m.type === 'file' || m.type === 'image' || this.isLinkMessage(m)
+    );
+  }
+  
+  isLinkMessage(message: Message): boolean {
+    if (message.type !== 'text') return false;
+    if (this.isCorrection(message)) return false;
+    const urlRegex = /https?:\/\/[^\s]+/;
+    return urlRegex.test(message.content || '');
+  }
+  
+  extractLink(message: Message): string {
+    const urlRegex = /https?:\/\/[^\s]+/;
+    const match = message.content?.match(urlRegex);
+    return match ? match[0] : '';
+  }
+  
+  extractLinkDomain(message: Message): string {
+    try {
+      const url = this.extractLink(message);
+      if (!url) return '';
+      return new URL(url).hostname.replace('www.', '');
+    } catch {
+      return '';
+    }
+  }
+
   // Legacy initializeWhiteboard removed - now using Agora Fastboard
 
   clearWhiteboard() {
@@ -3895,13 +4262,19 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     } catch (error: any) {
       console.error('❌ Screen sharing error:', error);
       
-      let errorMessage = 'Failed to share screen';
-      if (error.message?.includes('Permission denied')) {
-        errorMessage = 'Screen sharing permission was denied. Please allow screen sharing and try again.';
-      } else if (error.message?.includes('NotAllowedError')) {
-        errorMessage = 'Screen sharing is not allowed. Please check your browser permissions.';
-      } else if (error.message?.includes('NotSupportedError')) {
+      // User cancelled the browser picker — not an error, just a no-op
+      const errorName = error?.name || '';
+      const errorMsg = error?.message || '';
+      if (errorName === 'NotAllowedError' || errorMsg.includes('Permission denied') || errorMsg.includes('PERMISSION_DENIED')) {
+        console.log('ℹ️ User cancelled screen sharing picker');
+        return; // Silent return — no alert needed
+      }
+      
+      let errorMessage = 'Failed to share screen. Please try again.';
+      if (errorName === 'NotSupportedError' || errorMsg.includes('NotSupportedError')) {
         errorMessage = 'Screen sharing is not supported in this browser.';
+      } else if (errorName === 'NotReadableError' || errorMsg.includes('NotReadableError')) {
+        errorMessage = 'Could not access the screen. Another app may be blocking it.';
       }
       
       const alert = await this.alertController.create({
@@ -3932,10 +4305,35 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isScreenSharing = true;
       console.log('✅ Screen sharing started successfully');
       
-      // Display the screen share video
+      // Register callback for when browser's "Stop sharing" button is clicked.
+      // This fires from outside Angular zone, so we wrap in ngZone.run + detectChanges.
+      this.agoraService.onScreenShareStopped(() => {
+        this.ngZone.run(() => {
+          console.log('🖥️ Screen share stopped externally — syncing page state');
+          this.isScreenSharing = false;
+          
+          // Clean up the screen share display
+          if (this.screenShareVideoRef?.nativeElement) {
+            this.screenShareVideoRef.nativeElement.innerHTML = '';
+          }
+          if (this.localVideoPipRef?.nativeElement) {
+            this.localVideoPipRef.nativeElement.innerHTML = '';
+          }
+          
+          // Restore normal video layout
+          setTimeout(() => {
+            this.playRemoteVideoInCorrectContainer();
+          }, 300);
+          
+          this.cdr.detectChanges();
+        });
+      });
+      
+      // Display the screen share video after change detection runs
+      this.cdr.detectChanges();
       setTimeout(() => {
         this.displayScreenShare();
-      }, 500);
+      }, 200);
 
       
       // Show success message with cursor tip
@@ -3958,6 +4356,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async stopScreenShare() {
     console.log('🖥️ Stopping screen share...');
     
+    // Guard: if already stopped (e.g. browser "Stop sharing" already ran), just sync UI
+    if (!this.isScreenSharing) {
+      console.log('ℹ️ Screen sharing already stopped, skipping');
+      return;
+    }
+    
     try {
       await this.agoraService.stopScreenShare();
       this.isScreenSharing = false;
@@ -3977,7 +4381,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Restore normal video layout
       setTimeout(() => {
         this.playRemoteVideoInCorrectContainer();
-      }, 500);
+      }, 300);
+      
+      this.cdr.detectChanges();
       
       // Show success message
       const toast = await this.toastController.create({
@@ -3990,6 +4396,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       
     } catch (error) {
       console.error('❌ Failed to stop screen sharing:', error);
+      // Ensure UI state is always reset even on error
+      this.isScreenSharing = false;
+      this.cdr.detectChanges();
       throw error;
     }
   }
@@ -4120,10 +4529,27 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.startScreenShare(canvasStream);
       this.isScreenSharing = true;
       
+      // Register callback for external stop (browser "Stop sharing" button)
+      this.agoraService.onScreenShareStopped(() => {
+        this.ngZone.run(() => {
+          console.log('🖥️ Canvas share stopped externally — syncing page state');
+          this.isScreenSharing = false;
+          if (this.screenShareVideoRef?.nativeElement) {
+            this.screenShareVideoRef.nativeElement.innerHTML = '';
+          }
+          if (this.localVideoPipRef?.nativeElement) {
+            this.localVideoPipRef.nativeElement.innerHTML = '';
+          }
+          setTimeout(() => this.playRemoteVideoInCorrectContainer(), 300);
+          this.cdr.detectChanges();
+        });
+      });
+      
       // Display the shared canvas in screen share mode
+      this.cdr.detectChanges();
       setTimeout(() => {
         this.displayScreenShare();
-      }, 500);
+      }, 200);
 
       console.log('✅ Canvas sharing started successfully');
       
@@ -5209,6 +5635,24 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         console.log('🚪 VideoCall: Query params were:', this.queryParams);
       }
       
+      // Final save of vocabulary/goals before leaving
+      if (this.vocabularyItems.length > 0 || this.goalItems.length > 0) {
+        try {
+          const vocabEntries: VocabEntry[] = this.vocabularyItems.map(v => ({
+            word: v.word, translation: v.translation, example: v.example,
+            addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
+          }));
+          const goalEntries: GoalEntry[] = this.goalItems.map(g => ({
+            text: g.text, completed: g.completed,
+            addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
+          }));
+          await firstValueFrom(this.vocabularyService.saveVocabulary(this.lessonId!, vocabEntries, goalEntries));
+          console.log('📖 Vocabulary & goals saved to backend before leaving');
+        } catch (vocabError) {
+          console.warn('⚠️ Could not save vocabulary to backend on exit (non-fatal):', vocabError);
+        }
+      }
+
       // Final persist of talk time before cleanup (captures any in-progress speaking)
       const flushNow = Date.now();
       let flushLocalSeconds = this.speakingTimeAccumulator.get('local') || 0;
@@ -5220,6 +5664,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Clear persisted talk time when the lesson is permanently ending
       if (isPermanentEnd || otherParticipantEnded) {
         this.clearTalkTimeStorage();
+        this.clearLessonLocalStorage();
       }
 
       // Stop audio monitoring BEFORE leaving channel
@@ -5595,6 +6040,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       clearInterval(this.talkTimeCheckInterval);
       this.talkTimeCheckInterval = null;
     }
+    if (this.talkTimeAutoHideTimer) {
+      clearTimeout(this.talkTimeAutoHideTimer);
+      this.talkTimeAutoHideTimer = null;
+    }
     
     // Stop remote user monitoring
     if (this.remoteUserMonitorInterval) {
@@ -5700,6 +6149,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
     // Cleanup notes auto-save
     this.stopNotesAutoSave();
+    
+    // Cleanup vocabulary auto-save
+    this.stopVocabAutoSave();
     
     // Cleanup whiteboard
     await this.destroyWhiteboard();
@@ -6068,8 +6520,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Start tracking talk time and show the popup immediately (always visible).
-   * Both tutor and student see this. Updates live every 2 seconds.
+   * Start tracking talk time. The popup appears at 60% of the booked lesson 
+   * duration (measured from the scheduled start time) and auto-dismisses 
+   * after 10 seconds. Both tutor and student see this.
    */
   private startTalkTimeTracking(): void {
     console.log('🗣️ startTalkTimeTracking called', {
@@ -6091,10 +6544,13 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       ? (this.studentName || 'Student') 
       : (this.tutorName || 'Tutor');
 
-    // Show the popup immediately for ALL 1:1 lessons (including office hours)
-    // Skip only for classes (multi-participant)
-    if (this.isClass) {
-      console.log('⏭️ Talk time tracking skipped (class — multi-participant)');
+    // Skip for classes, trial lessons, and office hours (quick lessons)
+    if (this.isClass || this.isTrialLesson || this.isOfficeHours) {
+      console.log('⏭️ Talk time tracking skipped', {
+        isClass: this.isClass,
+        isTrialLesson: this.isTrialLesson,
+        isOfficeHours: this.isOfficeHours
+      });
       return;
     }
 
@@ -6107,33 +6563,61 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('⏳ User joined before lesson start time — talk time tracking paused until lesson begins');
     }
 
-    this.showTalkTimePopup = true;
-    this.talkTimePopupShown = true;
+    // Don't show popup yet — it will appear at 60% of booked time
     this.computeTalkTimeDisplay();
     this.cdr.detectChanges();
-    console.log('🗣️ Talk time popup shown immediately (always visible for both users)');
+    console.log('🗣️ Talk time tracking started (popup will appear at 60% of lesson time)');
 
-    // Update display live every 2 seconds
+    // Update display live every 2 seconds and check if it's time to show the popup
     this.talkTimeCheckInterval = setInterval(() => {
-      if (this.showTalkTimePopup && !this.talkTimePopupDismissed) {
-        // Re-sync remote speaker name in case it loaded late
-        const updatedRemoteName = this.userRole === 'tutor' 
-          ? (this.studentName || 'Student') 
-          : (this.tutorName || 'Tutor');
-        if (updatedRemoteName !== this.remoteSpeakerName) {
-          this.remoteSpeakerName = updatedRemoteName;
-        }
-        
-        // Update waiting state — once lesson starts, flip this flag
-        if (this.isWaitingForLessonStart && this.hasLessonStarted()) {
-          this.isWaitingForLessonStart = false;
-          console.log('🎬 Lesson has officially started — talk time tracking activated');
-        }
-        
-        this.computeTalkTimeDisplay();
-        this.cdr.detectChanges();
+      // Re-sync remote speaker name in case it loaded late
+      const updatedRemoteName = this.userRole === 'tutor' 
+        ? (this.studentName || 'Student') 
+        : (this.tutorName || 'Tutor');
+      if (updatedRemoteName !== this.remoteSpeakerName) {
+        this.remoteSpeakerName = updatedRemoteName;
       }
+      
+      // Update waiting state — once lesson starts, flip this flag
+      if (this.isWaitingForLessonStart && this.hasLessonStarted()) {
+        this.isWaitingForLessonStart = false;
+        console.log('🎬 Lesson has officially started — talk time tracking activated');
+      }
+      
+      this.computeTalkTimeDisplay();
+
+      // Show popup at 60% of booked lesson time (only once, and only if not dismissed)
+      if (!this.talkTimePopupShown && !this.talkTimePopupDismissed && this.shouldShowTalkTimePopup()) {
+        this.showTalkTimePopup = true;
+        this.talkTimePopupShown = true;
+        console.log('🗣️ Talk time popup shown at 60% of lesson time');
+
+        // Auto-dismiss after 10 seconds
+        this.talkTimeAutoHideTimer = setTimeout(() => {
+          if (this.showTalkTimePopup && !this.talkTimePopupDismissed) {
+            this.dismissTalkTimePopup();
+            console.log('🗣️ Talk time popup auto-dismissed after 10 seconds');
+          }
+        }, 10000);
+      }
+
+      this.cdr.detectChanges();
     }, 2000);
+  }
+
+  /**
+   * Checks whether 60% of the booked lesson duration has elapsed since the
+   * scheduled start time.
+   */
+  private shouldShowTalkTimePopup(): boolean {
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) return false;
+    if (!this.hasLessonStarted()) return false;
+
+    const elapsedMs = Date.now() - this.scheduledLessonStartTime;
+    const bookedMs = this.bookedDuration * 60 * 1000;
+    const threshold = bookedMs * 0.6; // 60%
+
+    return elapsedMs >= threshold;
   }
 
   // ── Talk Time Persistence (survives page refresh) ────────────────
@@ -6202,6 +6686,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Clear lesson-specific localStorage items (vocab, notes) after a permanent end.
+   * Backend already has the persisted data, so these local copies can go.
+   */
+  private clearLessonLocalStorage(): void {
+    if (!this.lessonId) return;
+    try {
+      localStorage.removeItem(`lesson_vocab_${this.lessonId}`);
+      localStorage.removeItem(`lesson_notes_${this.lessonId}`);
+      console.log('🗑️ Cleared lesson localStorage (vocab, notes) for lesson', this.lessonId);
+    } catch (e) {
+      // Non-critical — ignore
+    }
+  }
+
+  /**
    * Compute the display values for talk time (runs once when popup triggers)
    */
   private computeTalkTimeDisplay(): void {
@@ -6253,6 +6752,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   dismissTalkTimePopup(): void {
     this.showTalkTimePopup = false;
     this.talkTimePopupDismissed = true;
+    if (this.talkTimeAutoHideTimer) {
+      clearTimeout(this.talkTimeAutoHideTimer);
+      this.talkTimeAutoHideTimer = null;
+    }
     this.cdr.detectChanges();
   }
 

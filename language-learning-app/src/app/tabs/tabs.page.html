@@ -73,8 +73,7 @@
                 #messagesBtn>
           <!-- <ion-icon name="chatbubbles"></ion-icon> -->
           <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
-          <!-- <span style="color: #ff3b30; font-size: 12px; font-weight: 800;" *ngIf="(unreadCount$ | async)! > 0"> (1)</span> -->
-           <ion-badge style="border-radius: 50%;" color="danger" *ngIf="(unreadCount$ | async)! > 0">{{ (unreadCount$ | async)! }}</ion-badge>
+          <span class="new-badge" *ngIf="(unreadCount$ | async)! > 0">new</span>
         </button>
         
         <button class="nav-button" 

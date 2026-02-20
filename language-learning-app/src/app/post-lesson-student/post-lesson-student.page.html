@@ -322,5 +322,60 @@
         </ng-container>
       </div>
     </div>
+    
+    <!-- VOCABULARY & GOALS SECTION (Below main card) -->
+    <div class="vocab-goals-section" *ngIf="vocabItems.length > 0 || goalItems.length > 0">
+      
+      <!-- Vocabulary Words -->
+      <div class="vocab-card" *ngIf="vocabItems.length > 0">
+        <div class="vocab-card-header">
+          <div class="vocab-card-title">
+            <ion-icon name="book-outline"></ion-icon>
+            <h3>Vocabulary from this lesson</h3>
+          </div>
+          <span class="vocab-count">{{ vocabItems.length }} {{ vocabItems.length === 1 ? 'word' : 'words' }}</span>
+        </div>
+        
+        <div class="vocab-list">
+          <div *ngFor="let item of vocabItems; let i = index" class="vocab-list-item" [class.saved]="savedVocabIds.has(i)">
+            <div class="vocab-item-content">
+              <span class="vocab-word">{{ item.word }}</span>
+              <span class="vocab-arrow">→</span>
+              <span class="vocab-translation">{{ item.translation }}</span>
+            </div>
+            <p *ngIf="item.example" class="vocab-example">"{{ item.example }}"</p>
+            <div class="vocab-item-actions">
+              <button 
+                class="vocab-save-btn" 
+                [class.saved]="savedVocabIds.has(i)"
+                (click)="saveVocabToReviewDeck(item, i)"
+                [disabled]="savingVocabIndex === i">
+                <ion-icon [name]="savedVocabIds.has(i) ? 'bookmark' : 'bookmark-outline'"></ion-icon>
+                <span>{{ savedVocabIds.has(i) ? 'Saved' : 'Save to deck' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <button class="vocab-save-all-btn" (click)="saveAllVocabToReviewDeck()" *ngIf="vocabItems.length > 1 && savedVocabIds.size < vocabItems.length" [disabled]="savingAllVocab">
+          <ion-icon name="bookmark-outline"></ion-icon>
+          <span>{{ savingAllVocab ? 'Saving...' : 'Save all to Review Deck' }}</span>
+        </button>
+      </div>
+      
+      <!-- Lesson Goals -->
+      <div class="goals-card" *ngIf="goalItems.length > 0">
+        <div class="goals-card-header">
+          <ion-icon name="flag-outline"></ion-icon>
+          <h3>Lesson goals</h3>
+        </div>
+        <div class="goals-list">
+          <div *ngFor="let goal of goalItems" class="goal-item" [class.completed]="goal.completed">
+            <ion-icon [name]="goal.completed ? 'checkmark-circle' : 'ellipse-outline'" [color]="goal.completed ? 'success' : 'medium'"></ion-icon>
+            <span>{{ goal.text }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </ion-content>
