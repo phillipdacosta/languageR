@@ -982,7 +982,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
                 handler: () => {
                   if (notification.lessonId || notification.data?.lessonId) {
                     const lessonId = notification.lessonId || notification.data?.lessonId;
-                    this.router.navigate(['/tabs/tutor-calendar/event', lessonId]);
+                    this.router.navigate(['/event', lessonId]);
                   }
                 }
               }

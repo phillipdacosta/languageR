@@ -730,8 +730,22 @@ ion-toolbar {
   padding: 4px 0;
 }
 
-// Selected Chips (top cap)
+// Selected Chips — smooth reveal/collapse (matches tutor-filters pattern)
 .ef-selected-section {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.3s ease,
+              margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-bottom: 0;
+
+  &.visible {
+    max-height: 300px;
+    opacity: 1;
+    margin-bottom: 0;
+  }
+
   .ef-selected-chips {
     display: flex;
     flex-wrap: wrap;
@@ -751,19 +765,31 @@ ion-toolbar {
   font-weight: 500;
   color: $text-primary;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease;
+  animation: efChipEnter 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
 
   &:hover {
     background: $bg-subtle;
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.96);
   }
 
   ion-icon {
     font-size: 14px;
     color: $text-secondary;
+  }
+}
+
+@keyframes efChipEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -779,6 +805,39 @@ ion-toolbar {
   height: 1px;
   background: $border;
   margin: 24px 0;
+
+  // Animated divider that accompanies the selected section
+  &.ef-divider-selected {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin: 0;
+    transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.3s ease,
+                margin 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+
+    &.visible {
+      max-height: 1px;
+      opacity: 1;
+      margin: 24px 0;
+    }
+  }
+}
+
+// Slide-down animation for expandable sections
+.ef-slide-down {
+  animation: efSlideDown 0.25s ease both;
+}
+
+@keyframes efSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 // Time period grid
@@ -801,11 +860,15 @@ ion-toolbar {
   font-weight: 500;
   color: $text-primary;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.15s ease, font-weight 0.25s ease;
   text-align: center;
 
   &:hover {
     border-color: #b0b0b0;
+  }
+
+  &:active {
+    transform: scale(0.97);
   }
 
   &.active {
@@ -875,11 +938,15 @@ ion-toolbar {
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s ease;
   text-align: left;
 
   &:hover {
     background: $bg-subtle;
+  }
+
+  &:active {
+    background: #eaeaea;
   }
 
   &.active {
@@ -896,6 +963,7 @@ ion-toolbar {
     font-size: 15px;
     font-weight: 400;
     color: $text-primary;
+    transition: font-weight 0.15s ease;
   }
 
   &.active span {
@@ -938,6 +1006,7 @@ ion-toolbar {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  animation: efCheckPop 0.25s cubic-bezier(0.32, 0.72, 0, 1) both;
 
   ion-icon {
     font-size: 14px;
@@ -962,11 +1031,15 @@ ion-toolbar {
   border: none;
   border-radius: 10px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.2s ease;
   text-align: left;
 
   &:hover {
     background: $bg-subtle;
+  }
+
+  &:active {
+    background: #eaeaea;
   }
 
   &.active {
@@ -1053,7 +1126,7 @@ ion-toolbar {
   font-weight: 600;
   color: #fff;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s ease, transform 0.15s ease;
   min-width: 160px;
 
   &:hover {
@@ -1061,7 +1134,21 @@ ion-toolbar {
   }
 
   &:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
+  }
+}
+
+@keyframes efCheckPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -1116,10 +1203,36 @@ ion-toolbar {
   border-radius: $radius;
   overflow: hidden;
   background: white;
+
+  &.scrollable-table {
+    max-height: 70vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: white;
+    }
+  }
   
   @media (max-width: 900px) {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+.table-footer {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px;
+  border-top: 1px solid $border;
+  background: #fafafa;
+
+  .showing-count {
+    font-size: 13px;
+    color: #999;
   }
 }
 

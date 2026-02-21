@@ -150,6 +150,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   // Issue info
   hasIssue = false;
+  isIssueReporter = false;
   issueTypeLabel = '';
   issueDetailsText = '';
   issueDate = '';
@@ -194,6 +195,15 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   feedbackProvided = false;
   feedbackPending = false;
   tutorDisplayName = ''; // "Phillip D." — for student view
+
+  // Payment status (financial outcome)
+  paymentData: any = null;
+  hasPaymentStatus = false;
+  paymentStatusIcon = '';
+  paymentStatusTitle = '';
+  paymentStatusDescription = '';
+  paymentStatusClass = '';   // 'refunded' | 'partial' | 'cancelled' | 'paid' | 'on-hold'
+  paymentStatusDetails: { key: string; value: string }[] = [];
 
   // Countdown
   private countdownInterval: any;
@@ -304,7 +314,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     }
 
     // Track all pending requests — skeleton stays until everything resolves
-    this.pendingRequests = 3; // analysis + feedback + billing
+    this.pendingRequests = 4; // analysis + feedback + billing + payment
     if (this.isStudentUser) {
       this.pendingRequests++; // + payment method
     }
@@ -353,6 +363,23 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         if (res.success && res.billing) {
           this.billingData = res.billing;
           this.computeBillingProperties();
+        }
+        this.onRequestComplete();
+      },
+      error: () => {
+        this.onRequestComplete();
+      }
+    });
+
+    // Load payment details (for financial status section)
+    this.http.get<any>(
+      `${environment.backendUrl}/api/payments/lesson/${this.eventId}`,
+      { headers }
+    ).subscribe({
+      next: (res) => {
+        if (res.success && res.payment) {
+          this.paymentData = res.payment;
+          this.computePaymentStatus();
         }
         this.onRequestComplete();
       },
@@ -606,7 +633,14 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         other: 'Other'
       };
       this.issueTypeLabel = issueMap[this.lesson.issueType || ''] || 'Issue Reported';
-      this.issueDetailsText = this.lesson.issueDetails || '';
+
+      // Only the person who reported the issue sees the detailed text
+      const reporterId = this.lesson.issueReportedBy?._id?.toString()
+        || this.lesson.issueReportedBy?.toString()
+        || '';
+      const userId = String((this.currentUser as any)?._id || this.currentUser?.id || '');
+      this.isIssueReporter = reporterId === userId;
+      this.issueDetailsText = this.isIssueReporter ? (this.lesson.issueDetails || '') : '';
       this.issueDate = this.lesson.issueReportedAt
         ? new Date(this.lesson.issueReportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
@@ -722,6 +756,128 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         this.paymentMethodLabel = method ? method.charAt(0).toUpperCase() + method.slice(1).replace(/_/g, ' ') : '';
         this.paymentMethodIcon = 'card-outline';
         break;
+    }
+  }
+
+  private computePaymentStatus() {
+    const p = this.paymentData;
+    if (!p) return;
+
+    const status = p.status;
+    const transferStatus = p.transferStatus;
+    const isCancelled = this.lesson?.status === 'cancelled';
+    const isLate = !!this.lesson?.isLateCancellation;
+    const cancellationFee = this.lesson?.cancellationFeeCharged || 0;
+    const refundAmt = p.refundAmount || 0;
+    const amount = p.amount || 0;
+    const tutorPayout = p.tutorPayout || 0;
+
+    this.hasPaymentStatus = true;
+
+    if (status === 'refunded') {
+      this.paymentStatusClass = 'refunded';
+      this.paymentStatusIcon = 'arrow-undo-circle-outline';
+      if (this.isStudentUser) {
+        this.paymentStatusTitle = 'Payment refunded';
+        this.paymentStatusDescription = `$${refundAmt > 0 ? refundAmt.toFixed(2) : amount.toFixed(2)} was returned to your account.`;
+        if (p.refundReason) {
+          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+        }
+        if (p.refundMethod) {
+          const methodLabel = p.refundMethod === 'wallet' ? 'Wallet credit' : 'Original payment method';
+          this.paymentStatusDetails.push({ key: 'Refunded to', value: methodLabel });
+        }
+      } else {
+        this.paymentStatusTitle = 'Payment reversed';
+        this.paymentStatusDescription = 'The payment for this lesson was refunded to the student. No earnings apply.';
+        if (p.refundReason) {
+          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+        }
+      }
+    } else if (status === 'partially_refunded') {
+      this.paymentStatusClass = 'partial';
+      this.paymentStatusIcon = 'swap-horizontal-outline';
+      if (this.isStudentUser) {
+        this.paymentStatusTitle = 'Payment reduced';
+        this.paymentStatusDescription = `$${refundAmt.toFixed(2)} was refunded to your account.`;
+        const finalCharge = amount - refundAmt;
+        this.paymentStatusDetails.push({ key: 'Original amount', value: `$${amount.toFixed(2)}` });
+        this.paymentStatusDetails.push({ key: 'Refunded', value: `$${refundAmt.toFixed(2)}` });
+        this.paymentStatusDetails.push({ key: 'Final charge', value: `$${finalCharge.toFixed(2)}` });
+        if (p.refundReason) {
+          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+        }
+      } else {
+        this.paymentStatusTitle = 'Earnings adjusted';
+        this.paymentStatusDescription = 'The student received a partial refund. Your earnings were adjusted accordingly.';
+        if (tutorPayout > 0) {
+          this.paymentStatusDetails.push({ key: 'Your earnings', value: `$${tutorPayout.toFixed(2)}` });
+        }
+        if (p.refundReason) {
+          this.paymentStatusDetails.push({ key: 'Reason', value: p.refundReason });
+        }
+      }
+    } else if (status === 'cancelled' || (isCancelled && status !== 'succeeded')) {
+      this.paymentStatusClass = 'cancelled';
+      this.paymentStatusIcon = 'close-circle-outline';
+      if (this.isStudentUser) {
+        if (isLate && cancellationFee > 0) {
+          this.paymentStatusTitle = 'Cancellation fee applied';
+          this.paymentStatusDescription = `A late cancellation fee of $${cancellationFee.toFixed(2)} was charged.`;
+          if (amount - cancellationFee > 0) {
+            this.paymentStatusDetails.push({ key: 'Refunded', value: `$${(amount - cancellationFee).toFixed(2)}` });
+          }
+          this.paymentStatusDetails.push({ key: 'Cancellation fee', value: `$${cancellationFee.toFixed(2)}` });
+        } else {
+          this.paymentStatusTitle = 'No charge applied';
+          this.paymentStatusDescription = 'The lesson was cancelled and no payment was charged.';
+        }
+      } else {
+        if (isLate && cancellationFee > 0) {
+          this.paymentStatusTitle = 'Late cancellation compensation';
+          this.paymentStatusDescription = `You earned $${tutorPayout > 0 ? tutorPayout.toFixed(2) : cancellationFee.toFixed(2)} from the late cancellation fee.`;
+        } else {
+          this.paymentStatusTitle = 'No earnings';
+          this.paymentStatusDescription = 'This lesson was cancelled. No earnings apply.';
+        }
+      }
+    } else if (transferStatus === 'on_hold' || this.lesson?.payoutPaused) {
+      this.paymentStatusClass = 'on-hold';
+      this.paymentStatusIcon = 'pause-circle-outline';
+      if (this.isStudentUser) {
+        this.paymentStatusTitle = 'Payment on hold';
+        this.paymentStatusDescription = 'Your payment is on hold while this lesson is being reviewed.';
+      } else {
+        this.paymentStatusTitle = 'Earnings on hold';
+        this.paymentStatusDescription = 'Your earnings are on hold while this lesson is being reviewed.';
+      }
+    } else if (status === 'succeeded' || status === 'authorized') {
+      this.paymentStatusClass = 'paid';
+      this.paymentStatusIcon = 'checkmark-circle-outline';
+      if (this.isStudentUser) {
+        this.paymentStatusTitle = 'Payment complete';
+        this.paymentStatusDescription = `$${amount.toFixed(2)} was charged.`;
+      } else {
+        this.paymentStatusTitle = 'Earnings confirmed';
+        this.paymentStatusDescription = tutorPayout > 0
+          ? `You earned $${tutorPayout.toFixed(2)} from this lesson.`
+          : 'Your earnings for this lesson have been confirmed.';
+        if (transferStatus === 'available' || transferStatus === 'pending_withdrawal') {
+          this.paymentStatusDetails.push({ key: 'Status', value: 'Available for withdrawal' });
+        } else if (transferStatus === 'withdrawn') {
+          this.paymentStatusDetails.push({ key: 'Status', value: 'Withdrawn' });
+        }
+      }
+    } else {
+      // Pending, processing, or unknown
+      this.hasPaymentStatus = false;
+    }
+
+    if (p.refundedAt && this.hasPaymentStatus && (status === 'refunded' || status === 'partially_refunded')) {
+      this.paymentStatusDetails.push({
+        key: 'Date',
+        value: new Date(p.refundedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      });
     }
   }
 

@@ -605,7 +605,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   }
 
   onLessonClick(pl: ProcessedLesson) {
-    this.router.navigate(['/tabs/tutor-calendar/event', pl.id]);
+    this.router.navigate(['/event', pl.id]);
   }
 
   viewFeedback(pl: ProcessedLesson) {

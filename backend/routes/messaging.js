@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const multer = require('multer');
 const { verifyToken } = require('../middleware/videoUploadMiddleware');
 const { initializeGCS } = require('../config/gcs');
@@ -231,20 +232,17 @@ router.get('/conversations', verifyToken, async (req, res) => {
         
         // If not found and otherUserId doesn't start with 'dev-user-', try with prefix
         if (!otherUser && !conv.otherUserId.startsWith('dev-user-')) {
-          console.log(`⚠️ User not found for auth0Id: ${conv.otherUserId}, trying with dev-user- prefix`);
           otherUser = await User.findOne({ auth0Id: `dev-user-${conv.otherUserId}` });
-          if (otherUser) {
-            console.log(`✅ Found user with prefix: ${otherUser.auth0Id}`);
-          }
         }
         
-        // If still not found, try checking if it's an email and search by email
+        // Try by MongoDB _id (conversations may reference _id instead of auth0Id)
+        if (!otherUser && mongoose.Types.ObjectId.isValid(conv.otherUserId)) {
+          otherUser = await User.findById(conv.otherUserId);
+        }
+
+        // Try by email
         if (!otherUser && conv.otherUserId.includes('@')) {
-          console.log(`⚠️ Trying to find user by email: ${conv.otherUserId}`);
           otherUser = await User.findOne({ email: conv.otherUserId });
-          if (otherUser) {
-            console.log(`✅ Found user by email: ${otherUser.auth0Id}`);
-          }
         }
         
         if (!otherUser) {

@@ -5044,7 +5044,7 @@ navigateToLessons() {
   navigateToLesson(lesson: Lesson) {
     // Navigate to event details page (same route for lessons and classes)
     if (lesson?._id) {
-      this.router.navigate(['/tabs/tutor-calendar/event', lesson._id]);
+      this.router.navigate(['/event', lesson._id]);
     }
   }
 

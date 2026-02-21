@@ -137,6 +137,11 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'event/:id',
+    loadComponent: () => import('./tutor-calendar/event-details/event-details.page').then(m => m.EventDetailsPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'lesson-analysis/:id',
     loadComponent: () => import('./lesson-analysis/lesson-analysis.page').then( m => m.LessonAnalysisPage),
     canActivate: [AuthGuard]

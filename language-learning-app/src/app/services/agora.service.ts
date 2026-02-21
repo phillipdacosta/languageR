@@ -168,7 +168,9 @@ export class AgoraService {
     //    Agora requires registerExtensions() before createClient().
     this.extension = null;
     this.virtualBackgroundEnabled = false;
-    this.virtualBackgroundState = { enabled: false, type: null };
+    // NOTE: Do NOT reset virtualBackgroundState here — it stores the DESIRED VB
+    // configuration set by the user in pre-call. joinLesson() reads this state to
+    // reapply VB to new tracks after joining the channel.
 
     // 4. Clean up any existing local tracks (from pre-call or previous session)
     if (this.localAudioTrack) {

@@ -192,7 +192,7 @@
       </div>
 
       <!-- Transaction Table -->
-      <div *ngIf="filteredPayments.length > 0" class="table-wrap">
+      <div *ngIf="filteredPayments.length > 0" class="table-wrap scrollable-table">
         <table class="txn-table">
           <thead>
             <tr>
@@ -206,11 +206,11 @@
           </thead>
           <tbody>
             <tr 
-              *ngFor="let payment of filteredPayments" 
+              *ngFor="let payment of displayedPayments" 
               class="txn-row"
-              [class.clickable]="payment.status !== 'refunded' && (payment.lessonId || payment.classId)"
+              [class.clickable]="payment.lessonId || payment.classId"
               [class.refunded]="payment.status === 'refunded' || payment.status === 'partially_refunded'"
-              (click)="(payment.status !== 'refunded' && (payment.lessonId || payment.classId)) && viewEvent(payment.lessonId, payment.classId)">
+              (click)="(payment.lessonId || payment.classId) && viewEvent(payment.lessonId, payment.classId)">
               
               <!-- Date -->
               <td class="date-col">
@@ -295,7 +295,24 @@
             </tr>
           </tbody>
         </table>
+
+        <!-- Showing count & load-more sentinel -->
+        <div class="table-footer" *ngIf="filteredPayments.length > displayedPayments.length">
+          <span class="showing-count">
+            Showing {{ displayedPayments.length }} of {{ filteredPayments.length }}
+          </span>
+        </div>
       </div>
+
+      <!-- Infinite scroll (works inside both ion-content and inline wrappers) -->
+      <ion-infinite-scroll
+        *ngIf="!allTransactionsLoaded && filteredPayments.length > 0"
+        threshold="200px"
+        (ionInfinite)="loadMoreTransactions($any($event))">
+        <ion-infinite-scroll-content
+          loadingSpinner="crescent">
+        </ion-infinite-scroll-content>
+      </ion-infinite-scroll>
     </div>
   </div>
 </ng-template>
@@ -318,8 +335,8 @@
     </ion-header>
 
     <ion-content class="ef-content">
-      <!-- Selected Filters Cap -->
-      <section class="ef-selected-section" *ngIf="hasActiveFilters()">
+      <!-- Selected Filters Chips — smooth reveal/collapse -->
+      <section class="ef-selected-section" [class.visible]="activeFilterCount > 0">
         <h3 class="ef-section-title">Selected</h3>
         <div class="ef-selected-chips">
           <button class="ef-filter-chip" *ngIf="selectedDateRange !== 'all'" (click)="selectedDateRange = 'all'; onFilterChange()">
@@ -337,7 +354,7 @@
         </div>
       </section>
 
-      <div class="ef-divider" *ngIf="hasActiveFilters()"></div>
+      <div class="ef-divider ef-divider-selected" [class.visible]="activeFilterCount > 0"></div>
 
       <!-- Time Period Section -->
       <section class="ef-section">
@@ -382,7 +399,7 @@
         </div>
 
         <!-- Custom Date Range -->
-        <div class="ef-custom-dates" *ngIf="selectedDateRange === 'custom'">
+        <div class="ef-custom-dates ef-slide-down" *ngIf="selectedDateRange === 'custom'">
           <div class="ef-date-field">
             <label>Start date</label>
             <input 

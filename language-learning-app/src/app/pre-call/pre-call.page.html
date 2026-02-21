@@ -14,19 +14,27 @@
 
       <!-- Video Preview -->
       <div class="video-preview-container" [class.video-off]="isVideoOff">
+        <!-- Native video element for MediaStream preview (before virtual background) -->
         <video 
           #videoPreview 
           autoplay 
           playsinline 
           muted
           class="video-preview"
-          [class.hidden]="isVideoOff || isLoading || !!errorMessage">
+          [class.hidden]="isVideoOff || isLoading || !!errorMessage || useAgoraForPreview">
         </video>
         
-        <div class="video-placeholder" *ngIf="isVideoOff || isLoading || !!errorMessage">
+        <!-- Agora container for virtual background preview (Agora's play() creates a <video> child inside) -->
+        <div 
+          #agoraPreview 
+          class="video-preview agora-preview"
+          [class.hidden]="isVideoOff || isLoading || !!errorMessage || !useAgoraForPreview">
+        </div>
+        
+        <div class="video-placeholder" *ngIf="(isVideoOff || isLoading) && !errorMessage">
           <ion-icon name="person" class="placeholder-icon"></ion-icon>
           <p *ngIf="isVideoOff">Camera is off</p>
-          <p *ngIf="isLoading && !isVideoOff && !errorMessage">Loading camera...</p>
+          <p *ngIf="isLoading && !isVideoOff">Loading camera...</p>
         </div>
         <div class="error-message" *ngIf="errorMessage">
           <ion-icon name="alert-circle-outline"></ion-icon>
@@ -45,35 +53,31 @@
 
       <!-- Controls -->
       <div class="preview-controls">
-        <a class="test-devices-link" (click)="testDevices()">Test devices</a>
         <div class="control-buttons">
-          <button 
-            class="control-btn" 
-            [class.active]="!isMuted"
-            (click)="toggleMicrophone()"
-            aria-label="Toggle microphone">
-            <ion-icon [name]="isMuted ? 'mic-off-outline' : 'mic-outline'" [class.muted]="isMuted"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            [class.active]="!isVideoOff"
-            (click)="toggleCamera()"
-            aria-label="Toggle camera">
-            <ion-icon [name]="isVideoOff ? 'videocam-off-outline' : 'videocam-outline'" [class.off]="isVideoOff"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            [class.active]="showVirtualBackgroundControls"
-            (click)="toggleVirtualBackgroundControls()"
-            aria-label="Virtual Background">
-            <ion-icon name="color-filter-outline"></ion-icon>
-          </button>
-          <button 
-            class="control-btn" 
-            (click)="testDevices()"
-            aria-label="Settings">
-            <ion-icon name="settings-outline"></ion-icon>
-          </button>
+          <div class="control-item" (click)="toggleMicrophone()">
+            <div class="control-btn" [class.active-danger]="isMuted">
+              <ion-icon [name]="isMuted ? 'mic-off' : 'mic-outline'"></ion-icon>
+            </div>
+            <span class="control-label" [class.danger]="isMuted">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
+          </div>
+          <div class="control-item" (click)="toggleCamera()">
+            <div class="control-btn" [class.active-danger]="isVideoOff">
+              <ion-icon [name]="isVideoOff ? 'videocam-off' : 'videocam-outline'"></ion-icon>
+            </div>
+            <span class="control-label" [class.danger]="isVideoOff">{{ isVideoOff ? 'Start Video' : 'Camera' }}</span>
+          </div>
+          <div class="control-item" (click)="toggleVirtualBackgroundControls()">
+            <div class="control-btn" [class.active-primary]="showVirtualBackgroundControls">
+              <ion-icon name="color-filter-outline"></ion-icon>
+            </div>
+            <span class="control-label" [class.primary]="showVirtualBackgroundControls">Effects</span>
+          </div>
+          <div class="control-item" (click)="testDevices()">
+            <div class="control-btn">
+              <ion-icon name="settings-outline"></ion-icon>
+            </div>
+            <span class="control-label">Devices</span>
+          </div>
         </div>
         
         <!-- Audio Level Indicator -->
@@ -263,7 +267,7 @@
         class="enter-button" 
         expand="block" 
         (click)="enterClassroom()"
-        [disabled]="isLoading || !!errorMessage || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
+        [disabled]="!isLessonReady || isOfficeHoursWaitingRoom || waitingForTutorAcceptance">
         <span *ngIf="!isOfficeHoursWaitingRoom && !waitingForTutorAcceptance">Enter classroom</span>
         <span *ngIf="isOfficeHoursWaitingRoom">Waiting for student...</span>
         <span *ngIf="waitingForTutorAcceptance">

@@ -75,8 +75,6 @@
   white-space: nowrap;
   padding: 8px 0;
   flex-shrink: 0;
-  position: relative;
-  left: 170px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
 
   &:hover {
@@ -753,6 +751,80 @@
 
 .ed-cancel-section {}
 
+/* ── Payment / Financial Status ───────────────────────── */
+.ed-payment-status {
+  border-radius: 12px;
+  padding: 16px;
+  background: #f9fafb;
+
+  &.refunded  { background: #fef2f2; }
+  &.partial   { background: #fffbeb; }
+  &.cancelled { background: #f9fafb; }
+  &.paid      { background: #f0fdf4; }
+  &.on-hold   { background: #fffbeb; }
+}
+
+.ed-payment-status-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.ed-payment-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.06);
+
+  ion-icon {
+    font-size: 22px;
+    color: var(--ed-text-primary);
+  }
+
+  &.refunded  { background: #fee2e2; ion-icon { color: #dc2626; } }
+  &.partial   { background: #fef3c7; ion-icon { color: #d97706; } }
+  &.cancelled { background: #f3f4f6; ion-icon { color: #6b7280; } }
+  &.paid      { background: #dcfce7; ion-icon { color: #16a34a; } }
+  &.on-hold   { background: #fef3c7; ion-icon { color: #d97706; } }
+}
+
+.ed-payment-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.ed-payment-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ed-text-primary);
+}
+
+.ed-payment-desc {
+  font-size: 14px;
+  color: var(--ed-text-secondary);
+  line-height: 1.45;
+}
+
+.ed-payment-details {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+  .ed-kv {
+    margin-bottom: 6px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
 /* ── Enrolled Students ────────────────────────────────── */
 .ed-enrolled {
   display: flex;
@@ -903,23 +975,26 @@ ion-header {
   ion-toolbar {
     --background: transparent;
     --border-width: 0;
-    --padding-start: 8px;
-    --padding-end: 8px;
-    
-    .go-back-link {
-      display: flex;
-      align-items: center;
-      height: 100%;
-    }
+    --min-height: 0;
   }
 }
 
-.back-btn {
-  --color: var(--ed-text-primary);
-  width: 36px;
-  height: 36px;
+.ed-toolbar-inner {
+  max-width: var(--ed-page-max);
+  margin: 0 auto;
+  padding: 8px var(--ed-pad-x) 4px;
+  display: flex;
+  justify-content: flex-end;
 
-  ion-icon { font-size: 22px; }
+  .go-back-link {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px 14px;
+    border-radius: 20px;
+    position: relative;
+    left: 200px;
+  }
 }
 
 /* ── Feedback Status Banner ───────────────────────────── */

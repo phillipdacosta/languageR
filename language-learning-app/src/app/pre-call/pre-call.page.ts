@@ -20,6 +20,7 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('videoPreview', { static: false }) videoPreviewRef!: ElementRef<HTMLVideoElement>;
+  @ViewChild('agoraPreview', { static: false }) agoraPreviewRef!: ElementRef<HTMLDivElement>;
 
   lessonId: string = '';
   lessonTitle: string = '';
@@ -29,8 +30,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   isMuted = false; // Default to unmuted (users can toggle off)
   isVideoOff = false; // Default to video on (users can toggle off)
   localStream: MediaStream | null = null;
-  isLoading = true;
+  isLoading = true; // Camera/mic preview loading (cosmetic only — does NOT block Enter button)
+  isLessonReady = false; // True once lesson data is loaded — controls Enter button
   errorMessage: string = '';
+  useAgoraForPreview = false; // True when Agora tracks are used for display (after VB activation)
   isTutor: boolean = false;
   isTrialLesson: boolean = false;
   isClass: boolean = false; // Track if this is a class or 1:1 lesson
@@ -222,6 +225,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Load lesson details to get tutor name
       await this.loadLessonDetails();
       this.isLoading = false;
+      this.isLessonReady = true;
       return;
     }
     
@@ -351,6 +355,14 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Request camera/mic access for preview after view is initialized
     // This ensures videoPreviewRef is available
     await this.setupPreview();
+    
+    // Safety: ensure isLoading never stays stuck (e.g., if getUserMedia hangs)
+    setTimeout(() => {
+      if (this.isLoading) {
+        console.warn('⚠️ Camera preview loading timed out after 8s — forcing isLoading=false');
+        this.isLoading = false;
+      }
+    }, 8000);
   }
 
   // Store lesson data to avoid re-fetching
@@ -489,6 +501,10 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
             }
           }
         }
+        
+        // Lesson data loaded successfully — enable the Enter button
+        this.isLessonReady = true;
+        console.log('✅ Lesson is ready — Enter button enabled');
       }
     } catch (error) {
       console.error('Error loading session details:', error);
@@ -496,13 +512,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.tutorName = 'Tutor';
       this.studentName = 'Student';
       this.participantName = this.isTutor ? this.studentName : this.tutorName;
+      // Still allow entry even if lesson details partially failed
+      this.isLessonReady = true;
     } finally {
-      this.isLoading = false;
+      // NOTE: Do NOT set this.isLoading here — isLoading is the camera preview
+      // loading state, managed exclusively by setupPreview(). Lesson-data
+      // readiness is tracked by this.isLessonReady instead.
       console.log('✅ loadLessonDetails complete:', {
         isLoading: this.isLoading,
+        isLessonReady: this.isLessonReady,
         errorMessage: this.errorMessage,
         isOfficeHoursWaitingRoom: this.isOfficeHoursWaitingRoom,
-        buttonShouldBeEnabled: !this.isLoading && !this.errorMessage && !this.isOfficeHoursWaitingRoom
+        buttonShouldBeEnabled: this.isLessonReady && !this.isOfficeHoursWaitingRoom
       });
     }
   }
@@ -518,17 +539,57 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         audio: !this.isMuted
       };
 
+      console.log('📷 setupPreview: requesting getUserMedia with constraints:', constraints);
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
       
-      this.isLoading = false;
+      console.log('📷 setupPreview: getUserMedia succeeded', {
+        videoTracks: this.localStream.getVideoTracks().length,
+        audioTracks: this.localStream.getAudioTracks().length,
+        videoTrackState: this.localStream.getVideoTracks()[0]?.readyState,
+        audioTrackState: this.localStream.getAudioTracks()[0]?.readyState
+      });
       
-      // Update video preview after loading is false so element is visible
-      // Use setTimeout to ensure Angular change detection has run
+      // STEP 1: Attach the stream to the video element IMMEDIATELY — even while
+      // the element is still visibility:hidden. This starts the browser's video
+      // decode pipeline so the feed is ready to display the moment we unhide it.
+      const videoElement = this.videoPreviewRef?.nativeElement;
+      if (videoElement && !this.isVideoOff) {
+        videoElement.muted = true;
+        videoElement.srcObject = this.localStream;
+        videoElement.play().catch(() => {});
+        console.log('📷 setupPreview: attached stream to video element (still hidden)');
+      }
+      
+      // STEP 2: Unhide the video element
+      this.isLoading = false;
+      this.cdr.detectChanges();
+      
+      // STEP 3: Re-trigger play() now that the element is fully visible.
+      // Some browsers need this after a visibility change.
+      if (videoElement) {
+        videoElement.play().catch(err => {
+          console.warn('⚠️ setupPreview: play() after unhide failed:', err);
+        });
+      }
+      
+      // Start audio level monitoring
+      this.startAudioMonitoring();
+      
+      // NOTE: Agora tracks are NOT created here to avoid a dual camera capture
+      // conflict that kills the MediaStream preview. Agora is lazily initialized
+      // when virtual background is first activated (setBackgroundBlur/setBackgroundColor).
+      
+      // Safety: retry once after 500ms in case the first play didn't work
       setTimeout(() => {
-        this.updateVideoPreview();
-        // Initialize Agora client for virtual background support
-        this.initializeAgoraForVirtualBackground();
-      }, 0);
+        const ve = this.videoPreviewRef?.nativeElement;
+        if (ve && this.localStream && !this.isVideoOff && !this.useAgoraForPreview) {
+          if (!ve.srcObject) {
+            console.warn('⚠️ setupPreview: video srcObject was null, retrying...');
+            ve.srcObject = this.localStream;
+          }
+          ve.play().catch(() => {});
+        }
+      }, 500);
     } catch (error: any) {
       console.error('Error setting up preview:', error);
       this.isLoading = false;
@@ -573,14 +634,18 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
     // Check if we're using Agora tracks (for virtual background)
     const agoraVideoTrack = this.agoraService.getLocalVideoTrack();
     
-    if (agoraVideoTrack) {
+    if (agoraVideoTrack && this.useAgoraForPreview) {
       // If using Agora tracks, toggle the Agora video track
       await agoraVideoTrack.setEnabled(!this.isVideoOff);
       console.log(`📹 Camera ${this.isVideoOff ? 'OFF' : 'ON'} (Agora track)`);
       
-      // Update video element visibility but keep using Agora track
+      // Re-play the Agora track on the div container when turning camera back on
       if (!this.isVideoOff) {
-        this.updateVideoPreviewWithAgoraTrack();
+        const agoraContainer = this.agoraPreviewRef?.nativeElement;
+        if (agoraContainer) {
+          agoraContainer.innerHTML = '';
+          agoraVideoTrack.play(agoraContainer, { mirror: false });
+        }
       }
     } else if (this.localStream) {
       // If using MediaStream, toggle MediaStream video tracks
@@ -670,6 +735,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
         });
         this.localStream = null;
       }
+      
+      // Clear Agora preview container (Agora tracks are cleaned up in ngOnDestroy)
+      const agoraContainer = this.agoraPreviewRef?.nativeElement;
+      if (agoraContainer) {
+        agoraContainer.innerHTML = '';
+      }
 
       // DON'T join Agora or initialize client here
       // Let video-call page handle the entire Agora lifecycle
@@ -742,6 +813,12 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('🎥 Clearing video element srcObject...');
       videoElement.srcObject = null;
       videoElement.load(); // Reset the video element
+    }
+    
+    // Clear Agora preview container
+    const agoraContainer = this.agoraPreviewRef?.nativeElement;
+    if (agoraContainer) {
+      agoraContainer.innerHTML = '';
     }
     
     // Stop preview stream before navigating away
@@ -954,6 +1031,16 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.error('❌ Error clearing video element:', error);
     }
     
+    // Clear Agora preview container
+    try {
+      const agoraContainer = this.agoraPreviewRef?.nativeElement;
+      if (agoraContainer) {
+        agoraContainer.innerHTML = '';
+      }
+    } catch (error) {
+      console.error('❌ Error clearing Agora container:', error);
+    }
+    
     // Clean up media stream
     if (this.localStream) {
       console.log('🛑 Stopping preview MediaStream tracks in ngOnDestroy...');
@@ -1023,7 +1110,19 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Update the video preview (simple MediaStream only)
   updateVideoPreview() {
     const videoElement = this.videoPreviewRef?.nativeElement;
-    if (!videoElement) return;
+    
+    console.log('📷 updateVideoPreview called:', {
+      hasVideoElement: !!videoElement,
+      isVideoOff: this.isVideoOff,
+      hasLocalStream: !!this.localStream,
+      useAgoraForPreview: this.useAgoraForPreview,
+      isLoading: this.isLoading
+    });
+    
+    if (!videoElement) {
+      console.warn('⚠️ updateVideoPreview: videoPreviewRef is null — element not in DOM yet');
+      return;
+    }
 
     if (this.isVideoOff) {
       videoElement.srcObject = null;
@@ -1035,12 +1134,24 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       // Ensure video element is muted to prevent audio feedback
       videoElement.muted = true;
       videoElement.srcObject = this.localStream;
-      videoElement.play().catch(err => {
-        console.error('Error playing video:', err);
-      });
+      
+      const playPromise = videoElement.play();
+      if (playPromise) {
+        playPromise.then(() => {
+          console.log('✅ updateVideoPreview: video play() succeeded');
+        }).catch(err => {
+          console.error('❌ updateVideoPreview: video play() failed:', err);
+          // Retry play after a short delay (some browsers need user interaction first)
+          setTimeout(() => {
+            videoElement.play().catch(() => {});
+          }, 300);
+        });
+      }
       
       // Start monitoring audio levels for visual feedback
       this.startAudioMonitoring();
+    } else {
+      console.warn('⚠️ updateVideoPreview: no localStream available');
     }
   }
 
@@ -1172,20 +1283,15 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.agoraService.disableVirtualBackground();
       this.isVirtualBackgroundEnabled = false;
       
-      // Recreate MediaStream with audio (since we stopped it when enabling blur)
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true
-        });
-        this.localStream = stream;
-        console.log('✅ Recreated MediaStream with audio for preview');
-      } catch (error) {
-        console.error('❌ Failed to recreate MediaStream:', error);
+      // Keep using Agora track for display (just without VB processing now).
+      // No need to recreate MediaStream — the Agora track shows the raw camera.
+      const agoraContainer = this.agoraPreviewRef?.nativeElement;
+      const agoraVideoTrack = this.agoraService.getLocalVideoTrack();
+      if (agoraContainer && agoraVideoTrack) {
+        agoraContainer.innerHTML = '';
+        agoraVideoTrack.play(agoraContainer, { mirror: false });
+        console.log('✅ Replayed Agora track without VB processing');
       }
-      
-      // Switch back to original MediaStream
-      this.updateVideoPreview();
       
       console.log('✅ Virtual background disabled successfully');
       
@@ -1197,34 +1303,49 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // Update video preview to show Agora track (with virtual background effects)
+  // Uses the dedicated #agoraPreview div container — Agora's play() creates a <video> child inside it
   private updateVideoPreviewWithAgoraTrack(): void {
-    const videoElement = this.videoPreviewRef?.nativeElement;
+    const agoraContainer = this.agoraPreviewRef?.nativeElement;
     const agoraVideoTrack = this.agoraService.getLocalVideoTrack();
     
-    if (videoElement && agoraVideoTrack) {
+    if (agoraContainer && agoraVideoTrack) {
       try {
-        // Stop the original MediaStream to prevent audio feedback
+        // Stop the original MediaStream since Agora has taken over the camera
         if (this.localStream) {
-          this.localStream.getAudioTracks().forEach(track => {
+          this.localStream.getTracks().forEach(track => {
             track.stop();
-            console.log('🔇 Stopped MediaStream audio track to prevent feedback');
+            console.log(`🔇 Stopped MediaStream ${track.kind} track — Agora taking over`);
           });
+          this.localStream = null;
         }
         
-        // Ensure video element is muted to prevent any audio feedback
-        videoElement.muted = true;
+        // Clear the original video element
+        const videoElement = this.videoPreviewRef?.nativeElement;
+        if (videoElement) {
+          videoElement.srcObject = null;
+        }
         
-        // Play the Agora track (which has virtual background processing)
-        // Disable mirroring to prevent video from flipping when blur is enabled
-        agoraVideoTrack.play(videoElement, { mirror: false });
-        console.log('✅ Switched to Agora video track with virtual background (mirror disabled)');
+        // Switch display mode to Agora
+        this.useAgoraForPreview = true;
         
-        // Start monitoring Agora audio levels
-        this.startAudioMonitoring();
+        // Use setTimeout to let Angular update DOM (show the div, hide the video)
+        setTimeout(() => {
+          // Clear previous Agora rendering
+          agoraContainer.innerHTML = '';
+          
+          // Play the Agora track into the div container
+          // Agora creates its own <video> child element inside the div
+          agoraVideoTrack.play(agoraContainer, { mirror: false });
+          console.log('✅ Switched to Agora video track display (mirror disabled)');
+          
+          // Start monitoring Agora audio levels
+          this.startAudioMonitoring();
+        }, 0);
       } catch (error) {
         console.error('❌ Failed to play Agora video track:', error);
         // Fallback to original MediaStream
-        this.updateVideoPreview();
+        this.useAgoraForPreview = false;
+        this.setupPreview();
       }
     }
   }
@@ -1727,6 +1848,7 @@ export class PreCallPage implements OnInit, AfterViewInit, OnDestroy {
       this.isClass = false; // Office hours are always 1:1 lessons
       this.isOfficeHoursWaitingRoom = false;
       this.isLoading = true; // Show loading while fetching lesson data
+      this.isLessonReady = false; // Reset until lesson data loads
       this.errorMessage = '';
       
       // Load lesson details

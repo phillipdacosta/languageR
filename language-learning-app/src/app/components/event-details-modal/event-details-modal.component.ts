@@ -303,7 +303,7 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     this.close();
     
     if (this.event.lessonId) {
-      this.router.navigate(['/tabs/tutor-calendar/event', this.event.lessonId]);
+      this.router.navigate(['/event', this.event.lessonId]);
     } else if (this.event.classId) {
       this.router.navigate(['/tabs/tutor-calendar/class', this.event.classId]);
     }

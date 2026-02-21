@@ -1,11 +1,6 @@
 <ion-header class="ion-no-border">
   <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-button (click)="goBack()" class="back-btn">
-        <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-    <div slot="end" style="padding-right: 16px;">
+    <div class="ed-toolbar-inner">
       <button class="go-back-link" (click)="goBack()">Go back</button>
     </div>
   </ion-toolbar>
@@ -33,7 +28,6 @@
             <div class="skeleton-badge"></div>
             <div class="skeleton-badge"></div>
           </div>
-          <div class="skeleton-button"></div>
         </div>
         <div class="skeleton-title"></div>
       </header>
@@ -77,7 +71,6 @@
             <span class="ed-type-label" *ngIf="lesson?.isTrialLesson">Trial lesson</span>
             <span class="ed-type-label" *ngIf="lesson?.isOfficeHours">Office hours</span>
           </div>
-          <button class="go-back-link" (click)="goBack()">Go back</button>
         </div>
         <h1 class="ed-title">{{ lesson?.subject || 'Language Lesson' }}</h1>
       </header>
@@ -499,6 +492,31 @@
       </section>
     </ng-container>
 
+    <!-- ── Payment / Financial Status ────────────────────────── -->
+    <ng-container *ngIf="hasPaymentStatus">
+      <div class="ed-divider"></div>
+      <section class="ed-row">
+        <h2 class="ed-section-label">Payment status</h2>
+        <div class="ed-payment-status" [ngClass]="paymentStatusClass">
+          <div class="ed-payment-status-header">
+            <div class="ed-payment-icon" [ngClass]="paymentStatusClass">
+              <ion-icon [name]="paymentStatusIcon"></ion-icon>
+            </div>
+            <div class="ed-payment-text">
+              <span class="ed-payment-title">{{ paymentStatusTitle }}</span>
+              <span class="ed-payment-desc">{{ paymentStatusDescription }}</span>
+            </div>
+          </div>
+          <div class="ed-payment-details" *ngIf="paymentStatusDetails.length > 0">
+            <div class="ed-kv" *ngFor="let detail of paymentStatusDetails">
+              <span class="ed-kv-key">{{ detail.key }}</span>
+              <span class="ed-kv-val">{{ detail.value }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
     <!-- ── Issue ────────────────────────────────────────────── -->
     <ng-container *ngIf="hasIssue">
       <div class="ed-divider"></div>
@@ -508,11 +526,11 @@
           <span class="ed-kv-key">Type</span>
           <span class="ed-kv-val">{{ issueTypeLabel }}</span>
         </div>
-        <div class="ed-kv" *ngIf="issueDetailsText">
+        <div class="ed-kv" *ngIf="issueDetailsText && isIssueReporter">
           <span class="ed-kv-key">Details</span>
           <span class="ed-kv-val">{{ issueDetailsText }}</span>
         </div>
-        <div class="ed-kv" *ngIf="issueDate">
+        <div class="ed-kv" *ngIf="issueDate && isIssueReporter">
           <span class="ed-kv-key">Reported</span>
           <span class="ed-kv-val">{{ issueDate }}</span>
         </div>

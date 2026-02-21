@@ -117,6 +117,7 @@ export interface LessonJoinResponse {
     tutor: any;
     student: any;
     subject: string;
+    aiAnalysisEnabledAtTime?: boolean | null;
   };
   class?: {
     id?: string;

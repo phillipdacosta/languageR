@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule, Location } from '@angular/common';
-import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter } from '@ionic/angular';
+import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, InfiniteScrollCustomEvent } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { UserService } from '../services/user.service';
@@ -101,6 +101,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   
   recentPayments: PaymentBreakdown[] = [];
   filteredPayments: PaymentBreakdown[] = [];
+  displayedPayments: PaymentBreakdown[] = [];
+  displayLimit: number = 20;
+  allTransactionsLoaded: boolean = false;
   withdrawalHistory: WithdrawalHistory[] = [];
   
   // Filters
@@ -358,7 +361,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     // It will try to load a lesson first, then fall back to class if not found
     const eventId = lessonId || classId;
     if (eventId) {
-      this.router.navigate(['/tabs/tutor-calendar/event', eventId]);
+      this.router.navigate(['/event', eventId]);
     }
   }
 
@@ -474,7 +477,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
    * Builds weekly earnings data starting from the user's join date.
    * Each bucket represents one week (Mon-Sun).
    */
-  private getChartData(): { labels: string[]; data: number[]; total: number } {
+  private getChartData(): {
+    labels: string[];
+    data: number[];
+    total: number;
+    buckets: { start: Date; end: Date; label: string; value: number; isPartial: boolean }[];
+    now: Date;
+  } {
     const now = new Date();
     const weekMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -510,28 +519,26 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     firstMonday.setHours(0, 0, 0, 0);
 
     // Build weekly buckets from firstMonday to now
-    const buckets: { start: Date; end: Date; key: string; label: string; value: number }[] = [];
+    const buckets: { start: Date; end: Date; label: string; value: number; isPartial: boolean }[] = [];
     let current = new Date(firstMonday);
+    const dateFmt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
     while (current <= now) {
       const weekEnd = new Date(current.getTime() + weekMs - 1);
-      const label = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const isPartial = weekEnd > now;
+      const label = current.toLocaleDateString('en-US', dateFmt);
       buckets.push({
         start: new Date(current),
         end: weekEnd,
-        key: current.toISOString(),
         label: label.toUpperCase(),
-        value: 0
+        value: 0,
+        isPartial
       });
       current = new Date(current.getTime() + weekMs);
     }
 
     // Filter to only fully-confirmed earnings (not pending/on_hold).
-    // Payments that are still on_hold could be refunded or cancelled,
-    // so they should NOT appear in the earnings chart.
     const confirmedTransferStatuses = ['available', 'pending_withdrawal', 'withdrawn', 'succeeded'];
-
-    // Check if the API provides transferStatus (backend may be outdated)
     const apiSupportsTransferStatus = this.recentPayments.some(p => !!p.transferStatus);
 
     const validPayments = apiSupportsTransferStatus
@@ -546,14 +553,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       const paymentDate = new Date(p.date);
       const earned = p.tutorPayout || 0;
 
-      // Find which week this payment belongs to
       for (const bucket of buckets) {
         if (paymentDate >= bucket.start && paymentDate <= bucket.end) {
           bucket.value += earned;
           break;
         }
       }
-      // Always count toward total if within chart range
       if (paymentDate >= firstMonday && paymentDate <= now) {
         total += earned;
       }
@@ -561,7 +566,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     const labels = buckets.map(b => b.label);
     const data = buckets.map(b => b.value);
-    return { labels, data, total };
+    return { labels, data, total, buckets, now };
   }
 
   createEarningsChart() {
@@ -575,13 +580,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       this.earningsChart.destroy();
     }
 
-    const { labels, data, total } = this.getChartData();
-    // Use the computed total from confirmed (non-pending) payments only.
-    // This excludes on_hold payments that could still be refunded/cancelled.
+    const { labels, data, total, buckets, now } = this.getChartData();
     this.chartTotal = `$${total.toFixed(2)}`;
     this.chartHasData = data.some(v => v > 0);
 
-    // Uppercase labels like the reference design (OCT 01, OCT 08, etc.)
     const upperLabels = labels.map(l => l.toUpperCase());
 
     // Create gradient fill (light blue fading to transparent)
@@ -590,7 +592,6 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     fillGradient.addColorStop(0.6, 'rgba(52, 120, 247, 0.06)');
     fillGradient.addColorStop(1, 'rgba(52, 120, 247, 0.0)');
 
-    // Determine how many labels to show based on data length
     const maxLabels = data.length <= 6 ? data.length : this.chartPeriod === '1m' ? 5 : this.chartPeriod === '6m' ? 8 : 10;
 
     // Find indices of peak values (top 3) for showing point dots
@@ -600,8 +601,25 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       .slice(0, 3)
       .map(item => item.idx);
 
-    const pointRadii = data.map((_, idx) => sortedIndices.includes(idx) ? 5 : 0);
+    const lastIdx = data.length - 1;
+    const hasPartialWeek = buckets.length > 0 && buckets[lastIdx]?.isPartial;
+
+    // Always show partial-week point; show top-3 peaks for complete weeks
+    const pointRadii = data.map((_, idx) => {
+      if (hasPartialWeek && idx === lastIdx) return 5;
+      return sortedIndices.includes(idx) ? 5 : 0;
+    });
     const pointHoverRadii = data.map(() => 6);
+
+    // Partial-week point uses a lighter, semi-transparent style
+    const pointBgColors = data.map((_, idx) =>
+      hasPartialWeek && idx === lastIdx ? 'rgba(52, 120, 247, 0.45)' : '#3478f7'
+    );
+    const pointBorderColors = data.map((_, idx) =>
+      hasPartialWeek && idx === lastIdx ? 'rgba(52, 120, 247, 0.6)' : '#ffffff'
+    );
+
+    const dateFmt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
 
     const config: ChartConfiguration<'line'> = {
       type: 'line',
@@ -614,15 +632,21 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
           backgroundColor: fillGradient,
           borderWidth: 2.5,
           fill: true,
-          tension: 0.4,  // Smooth flowing curves
+          tension: 0.4,
           pointRadius: pointRadii,
           pointHoverRadius: pointHoverRadii,
-          pointBackgroundColor: '#3478f7',
-          pointBorderColor: '#ffffff',
+          pointBackgroundColor: pointBgColors,
+          pointBorderColor: pointBorderColors,
           pointBorderWidth: 2.5,
           pointHoverBackgroundColor: '#2563eb',
           pointHoverBorderColor: '#ffffff',
           pointHoverBorderWidth: 3,
+          segment: {
+            borderDash: (segCtx: any) => {
+              if (hasPartialWeek && segCtx.p1DataIndex === lastIdx) return [6, 4];
+              return undefined as any;
+            }
+          }
         }]
       },
       options: {
@@ -658,15 +682,26 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
             bodyColor: '#ffffff',
             displayColors: false,
             callbacks: {
+              title: (tooltipItems) => {
+                const idx = tooltipItems[0].dataIndex;
+                const bucket = buckets[idx];
+                if (!bucket) return '';
+                const startStr = bucket.start.toLocaleDateString('en-US', dateFmt).toUpperCase();
+                const endDate = bucket.isPartial ? now : bucket.end;
+                const endStr = endDate.toLocaleDateString('en-US', dateFmt).toUpperCase();
+                return `${startStr} – ${endStr}`;
+              },
               label: (context) => {
-                return `$${(context.raw as number).toFixed(2)}`;
+                const idx = context.dataIndex;
+                const amount = `$${(context.raw as number).toFixed(2)}`;
+                return buckets[idx]?.isPartial ? `${amount} (so far)` : amount;
               }
             }
           }
         },
         scales: {
           y: {
-            display: false,  // Hidden Y axis like the reference design
+            display: false,
             beginAtZero: true,
             grid: {
               color: 'rgba(0, 0, 0, 0.03)',
@@ -1124,6 +1159,22 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     this.filteredPayments = filtered;
+    this.displayLimit = 20;
+    this.updateDisplayedPayments();
+  }
+
+  updateDisplayedPayments() {
+    this.displayedPayments = this.filteredPayments.slice(0, this.displayLimit);
+    this.allTransactionsLoaded = this.displayedPayments.length >= this.filteredPayments.length;
+  }
+
+  loadMoreTransactions(event: InfiniteScrollCustomEvent) {
+    this.displayLimit += 20;
+    this.updateDisplayedPayments();
+    event.target.complete();
+    if (this.allTransactionsLoaded) {
+      event.target.disabled = true;
+    }
   }
 
   onFilterChange() {

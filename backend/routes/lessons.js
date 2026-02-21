@@ -1423,6 +1423,16 @@ router.post('/:id/join', verifyToken, async (req, res) => {
       console.log(`👨‍🎓 Student joined at: ${now.toISOString()}`);
     }
 
+    // ── Snapshot the student's AI setting at lesson start ──
+    // This is immutable — once set at lesson start, mid-lesson changes won't affect this lesson.
+    // Changes only take effect from the NEXT lesson onward.
+    if (lesson.aiAnalysisEnabledAtTime === null || lesson.aiAnalysisEnabledAtTime === undefined) {
+      const studentProfile = await User.findById(isStudentId).select('profile');
+      const aiEnabled = studentProfile?.profile?.aiAnalysisEnabled !== false;
+      lesson.aiAnalysisEnabledAtTime = aiEnabled;
+      console.log(`📸 Snapshotted aiAnalysisEnabledAtTime=${aiEnabled} at lesson start for lesson ${lesson._id}`);
+    }
+
     // Record actual call start time ONLY when BOTH participants are present
     // This ensures we can verify the lesson actually happened before capturing payment
     // Add a 4-second grace period after second participant joins
@@ -1513,7 +1523,8 @@ router.post('/:id/join', verifyToken, async (req, res) => {
         endTime: lesson.endTime,
         tutor: lesson.tutorId,
         student: lesson.studentId,
-        subject: lesson.subject
+        subject: lesson.subject,
+        aiAnalysisEnabledAtTime: lesson.aiAnalysisEnabledAtTime
       },
       userRole: isTutor ? 'tutor' : 'student',
       serverTime: now.toISOString()
