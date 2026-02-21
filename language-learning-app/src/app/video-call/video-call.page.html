@@ -16,6 +16,14 @@
 </ion-header> -->
 
 <ion-content [fullscreen]="true">
+  <!-- Leaving Overlay — shown instantly when End Call is clicked -->
+  <div class="leaving-overlay" *ngIf="isEndingCall">
+    <div class="leaving-content">
+      <ion-spinner name="crescent" color="light"></ion-spinner>
+      <span>Leaving...</span>
+    </div>
+  </div>
+
   <!-- Office Hours Timer (Top Center) - Always visible during office hours -->
   <div class="office-hours-timer" *ngIf="isOfficeHours">
     <div class="timer-display" [class.overage]="isInOverage()">
@@ -981,55 +989,63 @@
         <span class="control-label" [class.primary]="isScreenSharing">{{ isScreenSharing ? 'Stop Share' : 'Share' }}</span>
       </div>
       
-      <div class="control-item" (click)="toggleVirtualBackgroundControls()">
-        <div class="control-btn" [class.active-primary]="showVirtualBackgroundControls">
-          <ion-icon name="color-filter-outline"></ion-icon>
-        </div>
-        <span class="control-label">Effects</span>
-      </div>
-      
-      <div class="control-item" (click)="toggleWhiteboard()">
-        <div class="control-btn" [class.active-primary]="showWhiteboard">
-          <ion-icon name="easel-outline"></ion-icon>
-        </div>
-        <span class="control-label">Board</span>
-      </div>
-      
       <div class="control-item" (click)="toggleChat()">
         <div class="control-btn" [class.active-primary]="showChat">
           <ion-icon name="chatbubble-outline"></ion-icon>
         </div>
         <span class="control-label">Chat</span>
       </div>
-      
-      <div class="control-item" (click)="toggleVocabulary()">
-        <div class="control-btn" [class.active-primary]="showVocabulary">
-          <ion-icon name="book-outline"></ion-icon>
+
+      <!-- More Menu Toggle -->
+      <div class="control-item" (click)="toggleMoreMenu()">
+        <div class="control-btn" [class.active-primary]="showMoreMenu">
+          <ion-icon name="grid-outline"></ion-icon>
         </div>
-        <span class="control-label">Vocab</span>
+        <span class="control-label" [class.primary]="showMoreMenu">More</span>
       </div>
       
-      <div class="control-item" (click)="toggleGoals()">
-        <div class="control-btn" [class.active-primary]="showGoals">
-          <ion-icon name="flag-outline"></ion-icon>
-        </div>
-        <span class="control-label">Goals</span>
-      </div>
-      
-      <div class="control-item" 
-           *ngIf="userRole === 'tutor'"
-           (click)="toggleNotes()">
-        <div class="control-btn" [class.active-primary]="showNotes">
-          <ion-icon name="document-text-outline"></ion-icon>
-        </div>
-        <span class="control-label">Notes</span>
-      </div>
-      
-      <div class="control-item end-call" (click)="endCall()">
+      <div class="control-item end-call" (click)="!isEndingCall && endCall()" [class.disabled]="isEndingCall">
         <div class="control-btn danger">
           <ion-icon name="call" style="transform: rotate(135deg);"></ion-icon>
         </div>
-        <span class="control-label danger">Leave</span>
+        <span class="control-label danger">{{ isEndingCall ? 'Leaving...' : 'Leave' }}</span>
+      </div>
+    </div>
+
+    <!-- More Menu Popover -->
+    <div class="more-menu-backdrop" *ngIf="showMoreMenu" (click)="toggleMoreMenu()"></div>
+    <div class="more-menu" *ngIf="showMoreMenu">
+      <div class="more-menu-item" (click)="toggleVirtualBackgroundControls(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showVirtualBackgroundControls">
+          <ion-icon name="color-filter-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Effects</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleWhiteboard(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showWhiteboard">
+          <ion-icon name="easel-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Whiteboard</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleVocabulary(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showVocabulary">
+          <ion-icon name="book-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Vocabulary</span>
+      </div>
+      <div class="more-menu-item" (click)="toggleGoals(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showGoals">
+          <ion-icon name="flag-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Goals</span>
+      </div>
+      <div class="more-menu-item" 
+           *ngIf="userRole === 'tutor'"
+           (click)="toggleNotes(); toggleMoreMenu()">
+        <div class="more-menu-icon" [class.active]="showNotes">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <span class="more-menu-label">Notes</span>
       </div>
     </div>
 

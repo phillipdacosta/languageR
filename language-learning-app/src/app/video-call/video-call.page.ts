@@ -212,6 +212,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // currentUserId is already defined in chat properties below
   isTrialLesson: boolean = false;
   
+  // Snapshot of student's AI analysis setting, locked at lesson start.
+  // Mid-lesson changes do NOT affect the current lesson — only the next one.
+  aiAnalysisEnabledAtTime: boolean | null = null;
+  
   // Next event warning (for tutors)
   showNextEventWarning: boolean = false;
   nextEventMinutesAway: number = 0;
@@ -229,12 +233,21 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Virtual background properties
   showVirtualBackgroundControls = false;
   isVirtualBackgroundEnabled = false;
+  showMoreMenu = false;
 
   // AI Transcription & Analysis properties
   private isTranscriptionEnabled = false;
   private lessonLanguage = 'en'; // Will be set from lesson data
   private TRANSCRIPTION_SESSION_KEY = 'activeTranscriptionSession';
   private currentTranscriptId: string = '';
+  
+  // Pre-emptive analysis: stop transcription 1 min before lesson end so analysis is ready
+  private preEmptiveAnalysisTimer: any = null;
+  private transcriptionCompletedEarly = false; // True if transcription was completed pre-emptively
+  private isCompletingTranscription = false;    // Mutex: prevents concurrent transcription completion
+  
+  // End-call responsiveness
+  isEndingCall = false; // Drives the "Leaving..." overlay in the template
   
   // OpenAI Audio recording for transcription
   private transcriptionRecorder: MediaRecorder | null = null;
@@ -808,6 +821,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         // Update channel name from the join response
         if (joinResponse.agora.channelName) {
           this.channelName = joinResponse.agora.channelName;
+        }
+        
+        // Store the AI analysis snapshot (locked at lesson start, immutable for this lesson)
+        if (joinResponse.lesson?.aiAnalysisEnabledAtTime !== undefined) {
+          this.aiAnalysisEnabledAtTime = joinResponse.lesson.aiAnalysisEnabledAtTime ?? null;
+          console.log('📸 AI analysis snapshot from join response:', this.aiAnalysisEnabledAtTime);
         }
         
         console.log('✅ Successfully joined lesson via backend, channel:', this.channelName);
@@ -2091,7 +2110,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       console.log('Video toggled from', previousState, 'to', this.isVideoOff);
       console.log('Video:', this.isVideoOff ? 'Off' : 'On');
       
-      // Force change detection to update DOM (show/hide video element)
+      // Force change detection to update DOM (show/hide overlay, toggle .hidden class)
       this.cdr.detectChanges();
       
       // Update participants list for classes to reflect new video state
@@ -2099,36 +2118,33 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.updateParticipantsList();
       }
       
-      // Refresh video display after toggling and DOM updates
-      setTimeout(() => {
-        if (!this.isVideoOff) {
-          // Video was turned ON - setup display based on current view mode
-          console.log('📹 Video turned ON, setting up display...');
-          
-          // Check if we should be in tutor gallery mode
-          if (this.isClass && this.userRole === 'tutor' && !this.showWhiteboard) {
-            console.log('🎓 Tutor in gallery mode - refreshing gallery view');
-            this.playVideosInTutorGallery();
-          } else {
-            // Regular mode or student mode
-            this.setupLocalVideoDisplay();
-          }
-        } else {
-          // Video was turned OFF - clear the video element(s)
-          console.log('🚫 Turning video OFF - clearing display');
-          
-          // Clear gallery view if applicable
-          const galleryElement = document.querySelector('[data-gallery-uid="local"] .video-display') as HTMLElement;
-          if (galleryElement) {
-            galleryElement.innerHTML = '';
-          }
-          
-          // Clear regular tile view if applicable
-          if (this.localVideoRef) {
-            this.localVideoRef.nativeElement.innerHTML = '';
-          }
+      // NOTE: We intentionally do NOT clear innerHTML or re-call setupLocalVideoDisplay() here.
+      // setMuted(true/false) in agoraService.toggleVideo() pauses/resumes the Agora
+      // video track while keeping the <video> element alive. The CSS .hidden class
+      // (opacity:0) hides the container and the avatar overlay covers it visually.
+      // This avoids the flash caused by destroying and re-creating the video element,
+      // which is especially visible with virtual background (processor pipeline restart).
+      
+      if (!this.isVideoOff) {
+        console.log('📹 Video turned ON — track resumed via setMuted(false), no re-play needed');
+        
+        // Edge case: if the video element was never set up (e.g. joined with camera off),
+        // we need to play the track for the first time
+        const localVideoTrack = this.agoraService.getLocalVideoTrack();
+        const localVideoElement = this.isClass
+          ? document.querySelector('[data-participant-uid="local"] .participant-video') as HTMLElement
+          : this.localVideoRef?.nativeElement;
+        
+        if (localVideoTrack && localVideoElement && !localVideoElement.querySelector('video, div[id]')) {
+          console.log('📹 No video child found — first-time play needed');
+          setTimeout(() => {
+            localVideoTrack.play(localVideoElement!, { mirror: false });
+            console.log('✅ First-time local video play complete');
+          }, 100);
         }
-      }, 300); // Increased timeout to allow DOM update
+      } else {
+        console.log('🚫 Video turned OFF — track muted via setMuted(true), element kept alive');
+      }
     } catch (error) {
       console.error('Error toggling video:', error);
     }
@@ -2151,16 +2167,16 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     });
     
     // Show enhanced sharing messages
-    if (this.showWhiteboard) {
-      const toast = await this.toastController.create({
-        message: '🎨 Whiteboard opened - both users can collaborate in real-time! You can see each other\'s cursors.',
-        duration: 4000,
-        color: 'success',
-        position: 'top',
-        cssClass: 'whiteboard-toast'
-      });
-      await toast.present();
-    }
+    // if (this.showWhiteboard) {
+    //   const toast = await this.toastController.create({
+    //     message: '🎨 Whiteboard opened - both users can collaborate in real-time! You can see each other\'s cursors.',
+    //     duration: 4000,
+    //     color: 'success',
+    //     position: 'top',
+    //     cssClass: 'whiteboard-toast'
+    //   });
+    //   await toast.present();
+    // }
     
     // Force change detection to update the DOM
     this.cdr.detectChanges();
@@ -4606,6 +4622,10 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     this.showVirtualBackgroundControls = !this.showVirtualBackgroundControls;
   }
 
+  toggleMoreMenu(): void {
+    this.showMoreMenu = !this.showMoreMenu;
+  }
+
   async setBackgroundBlur(): Promise<void> {
     try {
       console.log('🌀 Setting background blur in video call...');
@@ -5561,105 +5581,41 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   async endCall(otherParticipantEnded: boolean = false) {
     try {
       this.hasEndedCall = true; // Prevent ngOnDestroy from doing redundant cleanup
+      this.isEndingCall = true; // Show "Leaving..." overlay instantly
+      this.cdr.detectChanges();  // Force immediate UI update so user sees feedback NOW
       console.log('🚪 VideoCall: Ending video call...', { otherParticipantEnded });
-      
-      // Determine if this is a permanent end (at/after scheduled end time) or temporary leave
-      let isPermanentEnd = false;
-      
-      if (this.lessonId) {
-        try {
-          const lessonResponse = await firstValueFrom(this.lessonService.getLesson(this.lessonId));
-          const lesson = lessonResponse?.lesson;
-          
-          if (lesson?.endTime) {
-            const scheduledEndTime = new Date(lesson.endTime);
-            const now = new Date();
-            isPermanentEnd = now >= scheduledEndTime;
-            
-            console.log('🕐 End call timing check:', {
-              scheduledEndTime: scheduledEndTime.toISOString(),
-              currentTime: now.toISOString(),
-              isPermanentEnd,
-              minutesRemaining: Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000)
-            });
-          }
-        } catch (error) {
-          console.warn('⚠️ Could not check lesson end time:', error);
-          // Default to temporary leave if we can't determine
-        }
-      }
-      
-      // ALWAYS stop audio recording and complete transcription before navigating away.
-      // This is critical: once we navigate, the video-call component is destroyed
-      // and any deferred completeTranscription calls (e.g. from early exit modal) will never fire.
-      if (this.isTranscriptionEnabled) {
-        console.log('🛑 Stopping audio recording and completing transcription...');
-        await this.stopAudioCapture_FIXED();
-        
-        // Wait for batch upload to finish
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        console.log('✅ Audio recording stopped and uploaded');
-        
-        // Complete transcription NOW — before navigating away
-        // This triggers Whisper + GPT analysis on the backend
-        if (this.currentTranscriptId) {
-          try {
-            console.log('📝 Completing transcription before navigation...');
-            await firstValueFrom(this.transcriptionService.completeTranscription());
-            console.log('✅ Transcription completion sent to backend');
-          } catch (error) {
-            console.error('❌ Error completing transcription (non-fatal):', error);
-            // Non-fatal: the retry cron will catch it
-          }
-        }
-        
-        this.clearTranscriptionSession();
-        this.isTranscriptionEnabled = false;
-      }
-      
-      // Call leave endpoint if we have a lessonId
-      if (this.lessonId) {
-        console.log('🚪 VideoCall: Calling leave endpoint for lesson:', this.lessonId);
-        console.log('🚪 VideoCall: Current user info:', await firstValueFrom(this.userService.getCurrentUser()));
-        try {
-          const leaveResponse = await firstValueFrom(this.lessonService.leaveLesson(this.lessonId));
-          console.log('🚪 VideoCall: ✅ Leave endpoint SUCCESS:', leaveResponse);
-          
-        } catch (leaveError: any) {
-          console.error('🚪 VideoCall: ❌ Error calling leave endpoint:', leaveError);
-          console.error('🚪 VideoCall: Error details:', leaveError?.error || leaveError?.message || 'Unknown error');
-          // Continue with call ending even if leave fails
-        }
-      } else {
-        console.log('🚪 VideoCall: ⚠️ No lessonId available, skipping leave endpoint');
-        console.log('🚪 VideoCall: Query params were:', this.queryParams);
-      }
-      
-      // Final save of vocabulary/goals before leaving
-      if (this.vocabularyItems.length > 0 || this.goalItems.length > 0) {
-        try {
-          const vocabEntries: VocabEntry[] = this.vocabularyItems.map(v => ({
-            word: v.word, translation: v.translation, example: v.example,
-            addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
-          }));
-          const goalEntries: GoalEntry[] = this.goalItems.map(g => ({
-            text: g.text, completed: g.completed,
-            addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
-          }));
-          await firstValueFrom(this.vocabularyService.saveVocabulary(this.lessonId!, vocabEntries, goalEntries));
-          console.log('📖 Vocabulary & goals saved to backend before leaving');
-        } catch (vocabError) {
-          console.warn('⚠️ Could not save vocabulary to backend on exit (non-fatal):', vocabError);
-        }
-      }
 
-      // Final persist of talk time before cleanup (captures any in-progress speaking)
+      // ── 1. INSTANT: Cancel timers, stop audio monitoring, persist local state ──
+      
+      // Cancel pre-emptive analysis timer
+      if (this.preEmptiveAnalysisTimer) {
+        clearTimeout(this.preEmptiveAnalysisTimer);
+        this.preEmptiveAnalysisTimer = null;
+      }
+      
+      // Stop audio monitoring (purely local — instant)
+      this.stopAllAudioMonitoring();
+      
+      // Persist talk time locally (synchronous)
       const flushNow = Date.now();
       let flushLocalSeconds = this.speakingTimeAccumulator.get('local') || 0;
       const flushLocalStart = this.speakingStartTime.get('local');
       if (flushLocalStart) flushLocalSeconds += (flushNow - flushLocalStart) / 1000;
       this.persistTalkTimeToStorage(flushLocalSeconds, this.syncedRemoteSpeakingSeconds);
-      console.log(`💾 Final talk time persisted: local=${Math.round(flushLocalSeconds)}s, remote=${Math.round(this.syncedRemoteSpeakingSeconds)}s`);
+
+      // ── 2. Determine end-type using CACHED data (no API call) ──
+      let isPermanentEnd = false;
+      let scheduledEndTime: Date | null = null;
+      if (this.scheduledLessonStartTime && this.bookedDuration) {
+        const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+        scheduledEndTime = new Date(scheduledEndMs);
+        isPermanentEnd = Date.now() >= scheduledEndMs;
+        console.log('🕐 End call timing (from cache):', {
+          scheduledEndTime: scheduledEndTime.toISOString(),
+          isPermanentEnd,
+          minutesRemaining: Math.round((scheduledEndMs - Date.now()) / 60000)
+        });
+      }
 
       // Clear persisted talk time when the lesson is permanently ending
       if (isPermanentEnd || otherParticipantEnded) {
@@ -5667,101 +5623,75 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         this.clearLessonLocalStorage();
       }
 
-      // Stop audio monitoring BEFORE leaving channel
-      console.log('🚪 VideoCall: Stopping audio monitoring...');
-      this.stopAllAudioMonitoring();
-      
-      console.log('🚪 VideoCall: Leaving Agora channel and cleaning up tracks...');
+      // ── 3. FAST: Leave Agora channel + cleanup media (essential before navigation) ──
+      console.log('🚪 VideoCall: Leaving Agora channel...');
       await this.agoraService.leaveChannel();
       this.isConnected = false;
-
-      // Explicitly cleanup all video/audio elements and their MediaStreams
-      console.log('🚪 VideoCall: Cleaning up all video/audio elements...');
       this.cleanupAllMediaElements();
 
-      // Longer delay to ensure camera/mic hardware is fully released before navigation
-      console.log('🚪 VideoCall: Waiting for camera/mic release...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('🚪 VideoCall: Camera/mic released');
-
-      // Navigate to tabs first
-      console.log('🚪 VideoCall: Navigating to tabs');
-      await this.router.navigate(['/tabs']);
+      // ── 4. NAVIGATE IMMEDIATELY — don't wait for backend calls ──
+      // Capture values we need for background work before navigating
+      const lessonId = this.lessonId;
+      const userRole = this.userRole;
+      const isTrialLesson = this.isTrialLesson;
+      const isClass = this.isClass;
+      const transcriptionEnabled = this.isTranscriptionEnabled;
+      const transcriptId = this.currentTranscriptId;
+      const transcriptionAlreadyDone = this.transcriptionCompletedEarly || this.isCompletingTranscription;
+      const vocabItems = [...this.vocabularyItems];
+      const goalItems = [...this.goalItems];
       
-      // If this is NOT a permanent end (early exit) AND other participant didn't end it, trigger early exit modal
-      // For permanent end (on-time), finalize lesson directly
-      // For other participant ended, just dismiss without finalizing (already finalized by them)
       if (!isPermanentEnd && !otherParticipantEnded) {
-        // Early exit - show modal with options
-        const lesson = await firstValueFrom(this.lessonService.getLesson(this.lessonId!));
-        if (lesson?.lesson) {
-          const scheduledEndTime = new Date(lesson.lesson.endTime);
+        // Early exit — navigate to tabs, then show modal
+        console.log('🚪 Navigating to tabs (early exit)...');
+        await this.router.navigate(['/tabs']);
+        
+        if (lessonId && scheduledEndTime) {
           const now = new Date();
           const minutesRemaining = Math.round((scheduledEndTime.getTime() - now.getTime()) / 60000);
-          
           setTimeout(() => {
-            console.log('🚪 VideoCall: Triggering early exit modal...');
             this.earlyExitService.triggerEarlyExit({
-              lessonId: this.lessonId!,
+              lessonId,
               scheduledEndTime,
               currentTime: now,
               minutesRemaining: Math.max(0, minutesRemaining),
-              isClass: this.isClass
+              isClass
             });
-          }, 300);
+          }, 200);
         }
       } else if (isPermanentEnd) {
-        // On-time or late exit - finalize and trigger analysis automatically
-        setTimeout(async () => {
-          console.log('🚪 VideoCall: On-time exit - finalizing lesson and generating analysis...');
-          try {
-            // Call call-end endpoint to finalize
-            await firstValueFrom(this.lessonService.endCall(this.lessonId!));
-            console.log('✅ Lesson finalized');
-            
-            // Navigate based on role to NEW post-lesson pages
-            if (this.userRole === 'student') {
-              console.log('📊 Navigating student to post-lesson page');
-              await this.router.navigate(['/post-lesson-student', this.lessonId]);
-            } else if (this.isTrialLesson) {
-              // Trial lessons: skip post-lesson feedback — go straight to lessons
-              console.log('⏭️ Trial lesson — skipping post-lesson page for tutor');
-              await this.router.navigate(['/tabs/lessons']);
-            } else {
-              console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId], {
-                queryParams: { fromPostCall: 'true' }
-              });
-            }
-          } catch (err) {
-            console.error('❌ Error finalizing lesson:', err);
-          }
-        }, 300);
+        // On-time exit — go straight to post-lesson page (call-end fires in background)
+        console.log('🚪 On-time exit — navigating to post-lesson page...');
+        if (userRole === 'student') {
+          await this.router.navigate(['/post-lesson-student', lessonId]);
+        } else if (isTrialLesson) {
+          await this.router.navigate(['/tabs/lessons']);
+        } else {
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true' }
+          });
+        }
       } else if (otherParticipantEnded) {
-        // Other participant ended - navigate based on role (lesson already finalized by them)
-        console.log('🚪 VideoCall: Other participant ended lesson');
-        setTimeout(async () => {
-          try {
-            if (this.userRole === 'student') {
-              // Students see the post-lesson page
-              console.log('📊 Navigating student to post-lesson page');
-              await this.router.navigate(['/post-lesson-student', this.lessonId]);
-            } else if (this.isTrialLesson) {
-              // Trial lessons: skip post-lesson feedback — go straight to lessons
-              console.log('⏭️ Trial lesson — skipping post-lesson page for tutor');
-              await this.router.navigate(['/tabs/lessons']);
-            } else {
-              // Tutors see post-lesson page
-              console.log('🎉 Navigating tutor to post-lesson page');
-              await this.router.navigate(['/post-lesson-tutor', this.lessonId], {
-                queryParams: { fromPostCall: 'true' }
-              });
-            }
-          } catch (err) {
-            console.error('❌ Error navigating after other participant ended:', err);
-          }
-        }, 300);
+        // Other participant ended — navigate to post-lesson page
+        console.log('🚪 Other participant ended — navigating to post-lesson page...');
+        if (userRole === 'student') {
+          await this.router.navigate(['/post-lesson-student', lessonId]);
+        } else if (isTrialLesson) {
+          await this.router.navigate(['/tabs/lessons']);
+        } else {
+          await this.router.navigate(['/post-lesson-tutor', lessonId], {
+            queryParams: { fromPostCall: 'true' }
+          });
+        }
       }
+
+      // ── 5. BACKGROUND: Fire-and-forget cleanup (runs AFTER navigation) ──
+      // These are all non-blocking. If any fail, cron jobs provide a safety net.
+      this.runBackgroundCleanup({
+        lessonId, userRole, isPermanentEnd, otherParticipantEnded,
+        transcriptionEnabled, transcriptId, transcriptionAlreadyDone,
+        vocabItems, goalItems
+      });
       
       // After navigation, prompt tutor to add note (always for tutors, regardless of who ended)
       if (this.userRole === 'tutor') {
@@ -5780,6 +5710,80 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       await this.router.navigate(['/tabs']);
       
       // Don't try to show anything on error - user can access from lesson history if needed
+    }
+  }
+
+  /**
+   * Fire-and-forget background cleanup after navigation.
+   * All calls here are non-critical — cron jobs catch anything that fails.
+   */
+  private async runBackgroundCleanup(ctx: {
+    lessonId: string | undefined;
+    userRole: string;
+    isPermanentEnd: boolean;
+    otherParticipantEnded: boolean;
+    transcriptionEnabled: boolean;
+    transcriptId: string;
+    transcriptionAlreadyDone: boolean;
+    vocabItems: any[];
+    goalItems: any[];
+  }): Promise<void> {
+    try {
+      // 1. Stop audio capture (if still running)
+      if (ctx.transcriptionEnabled && !ctx.transcriptionAlreadyDone) {
+        try {
+          await this.stopAudioCapture_FIXED();
+          // Brief wait for final upload
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (e) { console.warn('⚠️ Background: stopAudioCapture failed:', e); }
+      }
+
+      // 2. Complete transcription (if not already done by pre-emptive trigger)
+      if (ctx.transcriptionEnabled && ctx.transcriptId && !ctx.transcriptionAlreadyDone) {
+        try {
+          console.log('📝 Background: completing transcription...');
+          await firstValueFrom(this.transcriptionService.completeTranscription());
+          console.log('✅ Background: transcription completed');
+        } catch (e) { console.warn('⚠️ Background: completeTranscription failed (cron will retry):', e); }
+        this.clearTranscriptionSession();
+        this.isTranscriptionEnabled = false;
+      }
+
+      // 3. Call leave endpoint
+      if (ctx.lessonId) {
+        try {
+          await firstValueFrom(this.lessonService.leaveLesson(ctx.lessonId));
+          console.log('✅ Background: leave endpoint called');
+        } catch (e) { console.warn('⚠️ Background: leave endpoint failed:', e); }
+      }
+
+      // 4. Finalize lesson (for permanent/on-time exits)
+      if (ctx.isPermanentEnd && ctx.lessonId) {
+        try {
+          await firstValueFrom(this.lessonService.endCall(ctx.lessonId));
+          console.log('✅ Background: lesson finalized via call-end');
+        } catch (e) { console.warn('⚠️ Background: call-end failed (cron will finalize):', e); }
+      }
+
+      // 5. Save vocabulary/goals
+      if (ctx.lessonId && (ctx.vocabItems.length > 0 || ctx.goalItems.length > 0)) {
+        try {
+          const vocabEntries: VocabEntry[] = ctx.vocabItems.map((v: any) => ({
+            word: v.word, translation: v.translation, example: v.example,
+            addedBy: (v.addedBy as 'tutor' | 'student') || 'tutor'
+          }));
+          const goalEntries: GoalEntry[] = ctx.goalItems.map((g: any) => ({
+            text: g.text, completed: g.completed,
+            addedBy: (g.addedBy as 'tutor' | 'student') || 'student'
+          }));
+          await firstValueFrom(this.vocabularyService.saveVocabulary(ctx.lessonId, vocabEntries, goalEntries));
+          console.log('✅ Background: vocabulary/goals saved');
+        } catch (e) { console.warn('⚠️ Background: vocab save failed:', e); }
+      }
+
+      console.log('✅ Background cleanup complete');
+    } catch (error) {
+      console.error('❌ Background cleanup error (non-fatal):', error);
     }
   }
 
@@ -6027,6 +6031,12 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
       } catch (error) {
         console.error('❌ Error stopping audio in ngOnDestroy:', error);
       }
+    }
+    
+    // Clear pre-emptive analysis timer
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+      this.preEmptiveAnalysisTimer = null;
     }
     
     // Stop office hours timer
@@ -6811,21 +6821,17 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
 
-      // Check if student has AI analysis enabled
-      // Default to TRUE if we can't determine (backwards compatibility)
-      console.log('🤖 Checking AI analysis setting for student...');
-      const student = lesson.studentId as any; // Should be populated by backend
+      // Check the AI setting snapshot that was locked at lesson start (join time).
+      // Mid-lesson changes do NOT affect the current lesson — only the next one.
+      console.log('🤖 Checking AI analysis snapshot (locked at lesson start):', this.aiAnalysisEnabledAtTime);
       
-      // Only skip if explicitly disabled
-      if (student && typeof student === 'object' && student.profile && student.profile.aiAnalysisEnabled === false) {
-        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis disabled by student');
-        console.log('🎤 === TRANSCRIPTION CHECK END (AI DISABLED) ===');
+      if (this.aiAnalysisEnabledAtTime === false) {
+        console.log('⏭️ SKIPPING TRANSCRIPTION - AI analysis was disabled at lesson start');
+        console.log('🎤 === TRANSCRIPTION CHECK END (AI DISABLED AT START) ===');
         return;
       }
       
-      console.log('✅ AI analysis enabled (or unknown) - proceeding with transcription');
-      
-      console.log('✅ Proceeding with transcription (AI analysis always enabled)');
+      console.log('✅ AI analysis enabled at lesson start - proceeding with transcription');
 
       // Determine language being learned and convert to ISO code
       const languageMap: { [key: string]: string } = {
@@ -6885,6 +6891,9 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
             
             // Start capturing audio from local microphone
             this.startAudioCapture_FIXED();
+            
+            // Schedule pre-emptive analysis trigger (1 min before lesson ends)
+            this.schedulePreEmptiveAnalysis();
           },
           error: (error) => {
             console.error('❌ ❌ ❌ FAILED TO START WHISPER TRANSCRIPTION ❌ ❌ ❌');
@@ -6900,6 +6909,89 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     }
     
     console.log('🎤 === DEEPGRAM TRANSCRIPTION CHECK END ===');
+  }
+
+  /**
+   * Schedule a pre-emptive analysis trigger 1 minute before the lesson's scheduled end.
+   * This stops transcription and sends it for analysis early, so the student
+   * sees the completed analysis immediately on the post-lesson page.
+   */
+  private schedulePreEmptiveAnalysis(): void {
+    // Need both the scheduled start time and booked duration to calculate the end
+    if (!this.scheduledLessonStartTime || !this.bookedDuration) {
+      console.warn('⏰ Cannot schedule pre-emptive analysis: missing scheduledLessonStartTime or bookedDuration');
+      return;
+    }
+
+    const scheduledEndMs = this.scheduledLessonStartTime + (this.bookedDuration * 60 * 1000);
+    const triggerMs = scheduledEndMs - (60 * 1000); // 1 minute before scheduled end
+    const delayMs = triggerMs - Date.now();
+
+    if (delayMs <= 0) {
+      console.warn('⏰ Pre-emptive analysis: trigger time is already in the past — skipping timer');
+      return;
+    }
+
+    // Clear any existing timer
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+    }
+
+    console.log(`⏰ Pre-emptive analysis scheduled in ${Math.round(delayMs / 1000)}s (1 min before lesson end at ${new Date(scheduledEndMs).toLocaleTimeString()})`);
+
+    this.preEmptiveAnalysisTimer = setTimeout(async () => {
+      await this.triggerPreEmptiveAnalysis();
+    }, delayMs);
+  }
+
+  /**
+   * Stop transcription and trigger analysis 1 minute before the lesson ends.
+   * The audio capture is stopped, final chunks uploaded, and completeTranscription() called.
+   * When the student later clicks "End Call", the analysis should already be done.
+   */
+  private async triggerPreEmptiveAnalysis(): Promise<void> {
+    // Guard: only run once, only if transcription is active, and not already in progress
+    if (this.transcriptionCompletedEarly || this.isCompletingTranscription ||
+        !this.isTranscriptionEnabled || !this.currentTranscriptId) {
+      console.log('⏰ Pre-emptive analysis: skipping (already completed, in progress, or transcription not active)');
+      return;
+    }
+
+    // If the user is already ending the call, don't interfere
+    if (this.isEndingCall) {
+      console.log('⏰ Pre-emptive analysis: skipping — endCall() is already running');
+      return;
+    }
+
+    this.isCompletingTranscription = true; // Acquire mutex
+    console.log('⏰🤖 === PRE-EMPTIVE ANALYSIS TRIGGER (1 min before end) ===');
+
+    try {
+      // 1. Stop audio capture
+      console.log('⏰ Stopping audio capture for pre-emptive analysis...');
+      await this.stopAudioCapture_FIXED();
+      console.log('⏰ ✅ Audio capture stopped');
+
+      // 2. Wait for final upload to be processed by the backend
+      console.log('⏰ Waiting 3s for final upload processing...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // 3. Complete the transcription — this triggers Whisper processing + GPT-4 analysis
+      console.log('⏰ Completing transcription and triggering analysis...');
+      await firstValueFrom(this.transcriptionService.completeTranscription());
+      console.log('⏰ ✅ Transcription completed — analysis is now running on the backend');
+
+      // 4. Mark as completed so endCall() doesn't try to do it again
+      this.transcriptionCompletedEarly = true;
+      this.clearTranscriptionSession();
+
+      console.log('⏰🤖 === PRE-EMPTIVE ANALYSIS COMPLETE ===');
+    } catch (error) {
+      console.error('⏰ ❌ Pre-emptive analysis failed (non-fatal — endCall will retry):', error);
+      // Don't set transcriptionCompletedEarly — let endCall() handle it as a fallback
+    } finally {
+      this.isCompletingTranscription = false; // Release mutex
+    }
   }
 
   /**
@@ -7610,6 +7702,18 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
    */
   private async stopTranscriptionImmediately(): Promise<void> {
     console.log('🛑🛑🛑 STOPPING TRANSCRIPTION IMMEDIATELY (Early Exit)');
+    
+    // Cancel pre-emptive analysis timer — we're ending now
+    if (this.preEmptiveAnalysisTimer) {
+      clearTimeout(this.preEmptiveAnalysisTimer);
+      this.preEmptiveAnalysisTimer = null;
+    }
+    
+    // If pre-emptive analysis already completed, nothing more to do
+    if (this.transcriptionCompletedEarly) {
+      console.log('⏰ Transcription already completed pre-emptively — skipping immediate stop');
+      return;
+    }
     
     try {
       // Stop audio capture
