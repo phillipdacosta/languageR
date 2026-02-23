@@ -83,7 +83,7 @@
     "EARNINGS_TITLE": "Revenus",
     "TOTAL_BALANCE": "Solde total",
     "PENDING": "En attente",
-    "WITHDRAW_FUNDS": "Retirer des fonds",
+    "WITHDRAW_FUNDS": "Retirer les fonds",
     "COMING_UP": "À venir",
     "FULL_SCHEDULE": "Planning complet",
     "COL_TIME": "HEURE",
@@ -692,8 +692,5 @@
     "INTRO_VIDEO": "Vidéo de présentation",
     "INTRO_VIDEO_SUBTITLE": "Aidez les étudiants à mieux vous connaître",
     "INTRO_VIDEO_DESC": "Téléversez une courte vidéo pour vous présenter et expliquer votre style d'enseignement. Cette vidéo sera affichée aux étudiants lorsqu'ils recherchent des tuteurs."
-  },
-  "HOME": {
-    "UPCOMING_LESSONS": "Leçons à venir"
-  } 
+  }
 }
