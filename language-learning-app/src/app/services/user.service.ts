@@ -4,6 +4,7 @@ import { Observable, BehaviorSubject, Subject, from, of } from 'rxjs';
 import { map, tap, take, switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
+import { SupportedLanguage } from './language.service';
 
 export interface User {
   id: string;
@@ -21,7 +22,7 @@ export interface User {
   isAdmin?: boolean; // Admin flag for backend access
   onboardingCompleted: boolean;
   nativeLanguage?: string;
-  interfaceLanguage?: 'en' | 'es' | 'fr' | 'pt' | 'de';
+  interfaceLanguage?: SupportedLanguage;
   // Tutor-specific onboarding tracking
   tutorOnboarding?: {
     photoUploaded: boolean;
@@ -628,7 +629,7 @@ export class UserService {
   /**
    * Update user interface language
    */
-  updateInterfaceLanguage(language: 'en' | 'es' | 'fr' | 'pt' | 'de'): Observable<User> {
+  updateInterfaceLanguage(language: SupportedLanguage): Observable<User> {
     return this.updateProfile({ interfaceLanguage: language });
   }
 

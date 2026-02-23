@@ -292,7 +292,7 @@ const userSchema = new mongoose.Schema({
   // Interface language preference for the app UI
   interfaceLanguage: {
     type: String,
-    enum: ['en', 'es', 'fr', 'pt', 'de'],
+    enum: ['en', 'es', 'fr', 'pt', 'de', 'it', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi', 'nl', 'pl', 'tr', 'sv', 'no', 'da', 'fi', 'el', 'cs', 'ro', 'uk', 'vi', 'th', 'id', 'ms', 'he', 'fa'],
     default: 'en',
     trim: true,
     comment: 'Preferred language for app interface (UI text)'

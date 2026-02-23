@@ -543,6 +543,12 @@ router.put('/onboarding', verifyToken, async (req, res) => {
       }
     }
     
+    // Save interface language if provided during onboarding
+    if (req.body.interfaceLanguage && ['en', 'es', 'fr', 'pt', 'de'].includes(req.body.interfaceLanguage)) {
+      user.interfaceLanguage = req.body.interfaceLanguage;
+      console.log('🌐 Interface language set during onboarding:', req.body.interfaceLanguage);
+    }
+
     // Update onboarding data based on user type
     user.onboardingCompleted = true;
     
@@ -624,6 +630,8 @@ router.put('/onboarding', verifyToken, async (req, res) => {
         onboardingCompleted: user.onboardingCompleted,
         onboardingData: user.onboardingData,
         profile: user.profile,
+        nativeLanguage: user.nativeLanguage,
+        interfaceLanguage: user.interfaceLanguage,
         stats: user.stats,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt

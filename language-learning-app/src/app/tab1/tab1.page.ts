@@ -34,6 +34,7 @@ import { TutorFeedbackService, PendingFeedbackItem } from '../services/tutor-fee
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { SmartIslandService, DynamicCard } from '../services/smart-island.service';
+import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-tab1',
@@ -206,7 +207,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor pending feedback
   pendingFeedback: PendingFeedbackItem[] = [];
   pendingFeedbackCount = 0;
-  feedbackBannerSubtitle: string = 'Your profile is hidden until complete';
+  feedbackBannerSubtitle: string = '';
   feedbackGraceExpired: boolean = false;
   private feedbackGraceInterval: any = null;
   private static readonly FEEDBACK_GRACE_MS = 2 * 60 * 60 * 1000; // 2 hours
@@ -369,7 +370,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private tutorFeedbackService: TutorFeedbackService,
     private http: HttpClient,
     private smartIslandService: SmartIslandService,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private translateService: TranslateService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -1582,7 +1584,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
       if (remainingMs <= 0) {
         this.feedbackGraceExpired = true;
-        this.feedbackBannerSubtitle = 'Your profile is hidden until complete';
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_HIDDEN_UNTIL_COMPLETE');
         if (this.feedbackGraceInterval) {
           clearInterval(this.feedbackGraceInterval);
           this.feedbackGraceInterval = null;
@@ -1596,9 +1598,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       const m = Math.floor((totalSec % 3600) / 60);
 
       if (h > 0) {
-        this.feedbackBannerSubtitle = `Complete within ${h}h ${m.toString().padStart(2, '0')}m to stay visible`;
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_COMPLETE_WITHIN_HM', { h, m: m.toString().padStart(2, '0') });
       } else {
-        this.feedbackBannerSubtitle = `Complete within ${m}m to stay visible`;
+        this.feedbackBannerSubtitle = this.translateService.instant('HOME.FEEDBACK_COMPLETE_WITHIN_M', { m });
       }
     };
 
@@ -4005,290 +4007,75 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return cancelledLessons.length > 0 && completedLessons.length === 0;
   }
 
-  // Time-aware greeting with variations
   getGreeting(): string {
     const now = new Date();
     const hour = now.getHours();
-    const firstName = this.currentUser?.firstName || '';
-    
-    // Determine time of day
-    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    const name = this.currentUser?.firstName || '';
+
+    let key: string;
     if (hour >= 5 && hour < 12) {
-      timeOfDay = 'morning';
+      key = 'HOME.GREETING_MORNING';
     } else if (hour >= 12 && hour < 17) {
-      timeOfDay = 'afternoon';
+      key = 'HOME.GREETING_AFTERNOON';
     } else if (hour >= 17 && hour < 22) {
-      timeOfDay = 'evening';
+      key = 'HOME.GREETING_EVENING';
     } else {
-      timeOfDay = 'night';
+      key = 'HOME.GREETING_NIGHT';
     }
-    
-    const greetings: Record<string, string[]> = {
-      morning: [
-        `Good morning, ${firstName}!`,
-        `Morning, ${firstName}!`,
-        `Hi, ${firstName}!`,
-        `Hey, ${firstName}!`,
-        `Hello, ${firstName}!`,
-        `Hi there, ${firstName}!`
-      ],
-      afternoon: [
-        `Good afternoon, ${firstName}!`,
-        `Afternoon, ${firstName}!`,
-        `Hi, ${firstName}!`,
-        `Hey, ${firstName}!`,
-        `Hello, ${firstName}!`,
-        `Hi there, ${firstName}!`
-      ],
-      evening: [
-        `Good evening, ${firstName}!`,
-        `Evening, ${firstName}!`,
-        `Hi, ${firstName}!`,
-        `Hey, ${firstName}!`,
-        `Hello, ${firstName}!`,
-        `Hi there, ${firstName}!`
-      ],
-      night: [
-        `Hi, ${firstName}!`,
-        `Hey, ${firstName}!`,
-        `Evening, ${firstName}!`,
-        `Hi there, ${firstName}!`,
-        `Hello, ${firstName}!`,
-        `Hey there, ${firstName}!`
-      ]
-    };
-    
-    return greetings[timeOfDay][this.greetingIndex % 6];
+
+    return this.translateService.instant(key, { name });
   }
 
-  // Message rotation system - 6 variations per scenario
   getWelcomeMessage(): string {
-    // Scenario 1: No lessons today, has availability
     if (!this.nextLesson && this.hasAvailability && !this.hadLessonsToday) {
-      const messages = [
-        'Your schedule is open — ready for new opportunities!',
-        'A fresh day ahead — perfect for new bookings!',
-        'Your calendar is clear and ready for students.',
-        'Great day to connect with new students!',
-        'Your availability is open — let\'s fill your schedule!',
-        'Ready to make a difference in someone\'s learning journey!'
-      ];
-      return messages[this.welcomeMessageIndex % 6];
+      return this.translateService.instant('HOME.WELCOME_OPEN_SCHEDULE');
     }
-    
-    // Scenario 2: Had completed lessons today
     if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
-      const messages = [
-        'You made a positive impact today — well done!',
-        'Great teaching today — your students appreciate you!',
-        'You\'ve done amazing work today — keep it up!',
-        'Your dedication shows — excellent work today!',
-        'You\'ve helped students grow today — that\'s what matters!',
-        'Another successful day of teaching — you\'re making a difference!'
-      ];
-      return messages[this.welcomeMessageIndex % 6];
+      return this.translateService.instant('HOME.WELCOME_GREAT_WORK');
     }
-    
-    // Scenario 3: Had only cancelled lessons today
     if (!this.nextLesson && this.hasAvailability && this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
-      const messages = [
-        'Your schedule opened up today — new opportunities await!',
-        'Flexibility is key — your calendar is ready for new bookings.',
-        'Sometimes plans change — you\'re ready for what\'s next!',
-        'Your availability is open — perfect time for new connections!',
-        'A fresh start — your calendar is ready for students.',
-        'New opportunities ahead — your schedule is open!'
-      ];
-      return messages[this.welcomeMessageIndex % 6];
+      return this.translateService.instant('HOME.WELCOME_PLANS_CHANGED');
     }
-    
-    // Scenario 4: No availability set
     if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount === 0) {
-      const messages = [
-        'Set your availability to start getting bookings.',
-        'Open your calendar to connect with students.',
-        'Share your availability to begin teaching.',
-        'Let students know when you\'re available.',
-        'Set your schedule to start receiving bookings.',
-        'Update your availability to grow your student base.'
-      ];
-      return messages[this.welcomeMessageIndex % 6];
+      return this.translateService.instant('HOME.WELCOME_SET_AVAILABILITY');
     }
-
-        // Scenario 5: Feedback needed
-        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
-          const messages = [
-            'You have feedback waiting for you.',
-            'Your students are waiting for your feedback.',
-            'Your feedback is needed to continue teaching.',
-            'Your feedback is needed to continue receiving bookings.',
-            'Your feedback is needed to continue growing your student base.',
-            'Your feedback is needed to continue receiving bookings.'
-          ];
-          return messages[this.welcomeMessageIndex % 6];
-        }
-                // Scenario 5: Feedback needed
-        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
-          const messages = [
-            'You have feedback waiting for you.',
-            'Your students are waiting for your feedback.',
-            'Your feedback is needed to continue teaching.',
-            'Your feedback is needed to continue receiving bookings.',
-            'Your feedback is needed to continue growing your student base.',
-            'Your feedback is needed to continue receiving bookings.'
-          ];
-          return messages[this.welcomeMessageIndex % 6];
-        }
-
-        // Scenario 6: No availability set and feedback needed
-        if (!this.nextLesson && !this.hasAvailability && this.pendingFeedbackCount > 0) {
-          const messages = [
-            'You have feedback waiting for you.',
-            'Your students are waiting for your feedback.',
-            'Your feedback is needed to continue teaching.',
-            'Your feedback is needed to continue receiving bookings.',
-            'Your feedback is needed to continue growing your student base.',
-            'Your feedback is needed to continue receiving bookings.'
-          ];
-          return messages[this.welcomeMessageIndex % 6];
-        }  
-        // Scenario 7: Lessons today and feedback needed
-        if (this.hadLessonsToday && this.pendingFeedbackCount > 0) {
-          const messages = [
-            'You have feedback waiting for you.',
-            'Your students are waiting for your feedback.',
-            'Your feedback is needed to continue teaching.',
-            'Your feedback is needed to continue receiving bookings.',
-            'Your feedback is needed to continue growing your student base.',
-            'Your feedback is needed to continue receiving bookings.'
-          ];
-          return messages[this.welcomeMessageIndex % 6];
-        }
-    
+    if (this.pendingFeedbackCount > 0) {
+      return this.translateService.instant('HOME.WELCOME_FEEDBACK_NEEDED');
+    }
     return '';
   }
 
   getEmptyStateTitle(): string {
     if (!this.hadLessonsToday) {
-      const titles = [
-        'Your schedule is clear',
-        'Ready for new bookings',
-        'Open availability',
-        'Calendar is open',
-        'Ready to teach',
-        'Schedule is available'
-      ];
-      return titles[this.emptyStateTitleIndex % 6];
-    } else {
-      const titles = [
-        'No more lessons today',
-        'Calendar is open',
-        'Nothing else lined up',
-        'Schedule is clear'
-      ];
-      return titles[this.emptyStateTitleIndex % 6];
+      return this.translateService.instant('HOME.EMPTY_TITLE_CLEAR');
     }
+    return this.translateService.instant('HOME.EMPTY_TITLE_DONE');
   }
 
   getEmptyStateMessage(): string {
     if (!this.hasAvailability) {
-      const messages = [
-        'Set your availability so students can discover and book you.',
-        'Share your schedule to start connecting with learners.',
-        'Let students know when you\'re available to teach.',
-        'Open your calendar to begin receiving bookings.',
-        'Update your availability to grow your student base.',
-        'Set your schedule to start your teaching journey.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.EMPTY_MSG_NO_AVAILABILITY');
     }
-    
     if (!this.hadLessonsToday) {
-      const messages = [
-        'Check your calendar or update your availability to get more bookings.',
-        'Your schedule is open — perfect time for new students.',
-        'Ready for bookings — keep your availability updated.',
-        'Great opportunity to connect with new learners.',
-        'Your calendar is ready — students are looking for tutors like you.',
-        'Stay active — update your availability to attract more bookings.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.EMPTY_MSG_OPEN');
     }
-    
     if (this.hadOnlyCancelledLessonsToday) {
-      const messages = [
-        'Check your calendar for upcoming lessons.',
-        'Your schedule opened up — new opportunities await.',
-        'Stay ready — more bookings could come your way.',
-        'Keep your availability updated for future bookings.',
-        'Your calendar is open — perfect for new connections.',
-        'Flexibility is key — you\'re ready for what\'s next.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.EMPTY_MSG_CANCELLED');
     }
-    
-    // Had completed lessons
-    const messages = [
-      'Check your calendar for upcoming lessons.',
-      'Keep your availability updated for future bookings.',
-      'See what\'s coming up next on your calendar.',
-      'Your schedule will update with new bookings.',
-      'Stay ready — more lessons could come your way.',
-      'Check your calendar for what\'s ahead.'
-    ];
-    return messages[this.emptyStateMessageIndex % 6];
+    return this.translateService.instant('HOME.EMPTY_MSG_COMPLETED');
   }
 
   getComingUpEmptyMessage(): string {
-    // If there's a next lesson, show message about no additional lessons
     if (this.nextLesson) {
-      const messages = [
-        'No additional lessons scheduled.',
-        'That\'s your next lesson — nothing else lined up.',
-        'Just one lesson coming up — you\'re all set.',
-        'Your next lesson is scheduled — no others yet.',
-        'One lesson ahead — your schedule is clear after that.',
-        'Next lesson is set — no additional bookings yet.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.COMING_UP_NO_ADDITIONAL');
     }
-    
-    // If had lessons today (completed)
     if (this.hadLessonsToday && !this.hadOnlyCancelledLessonsToday) {
-      const messages = [
-        'No more lessons on the schedule.',
-        'Your next lessons will appear here.',
-        'Nothing else coming up — check your calendar.',
-        'No additional lessons scheduled.',
-        'Your calendar will update with new bookings.',
-        'Check back later for upcoming lessons.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.COMING_UP_NO_MORE');
     }
-    
-    // If only cancelled lessons today
     if (this.hadLessonsToday && this.hadOnlyCancelledLessonsToday) {
-      const messages = [
-        'No upcoming lessons scheduled.',
-        'Your schedule is open — ready for new bookings.',
-        'No lessons on the calendar yet.',
-        'Calendar is clear — perfect for new opportunities.',
-        'No upcoming lessons — stay ready for bookings.',
-        'Schedule is open — new lessons could come anytime.'
-      ];
-      return messages[this.emptyStateMessageIndex % 6];
+      return this.translateService.instant('HOME.COMING_UP_CANCELLED');
     }
-    
-    // No lessons today at all
-    const messages = [
-      'No upcoming lessons.',
-      'Your schedule is open and ready.',
-      'No lessons scheduled yet.',
-      'Calendar is clear — ready for bookings.',
-      'No upcoming lessons — stay available!',
-      'Schedule is open — perfect time for new students.'
-    ];
-    return messages[this.emptyStateMessageIndex % 6];
+    return this.translateService.instant('HOME.COMING_UP_NONE');
   }
 
   // Get the absolute NEXT lesson (regardless of date) - used for "Up Next" card
@@ -6468,7 +6255,7 @@ navigateToLessons() {
     const viewDetailsClone: HTMLElement | null = srcViewDetailsRect ? document.createElement('div') : null;
 
     if (withdrawClone && srcWithdrawRect) {
-      withdrawClone.textContent = 'Withdraw Funds';
+      withdrawClone.textContent = this.translateService.instant('HOME.WITHDRAW_FUNDS');
       Object.assign(withdrawClone.style, {
         position: 'fixed',
         left: `${srcWithdrawRect.left}px`,
@@ -6488,15 +6275,14 @@ navigateToLessons() {
         backgroundColor: 'transparent',
         border: '1px solid #222222',
         borderRadius: '12px',
-        // Stagger: position moves with spring curve, color/font morphs with a slight delay
         transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s, opacity 0.2s ease',
       });
       document.body.appendChild(withdrawClone);
     }
 
     if (viewDetailsClone && srcViewDetailsRect) {
-      // Arrow span matches ion-icon box: 16×16px, centered
-      viewDetailsClone.innerHTML = '<span style="text-decoration:underline">View Details</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>';
+      const viewDetailsText = this.translateService.instant('HOME.VIEW_DETAILS');
+      viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsText}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
       Object.assign(viewDetailsClone.style, {
         position: 'fixed',
         left: `${srcViewDetailsRect.left}px`,
@@ -6535,7 +6321,8 @@ navigateToLessons() {
           destGoBack.style.transition = 'none';
           destGoBack.style.opacity = '0';
           const destRect = destGoBack.getBoundingClientRect();
-          viewDetailsClone.innerHTML = '<span style="text-decoration:underline">Go back</span>';
+          const goBackLabel = this.translateService.instant('EARNINGS.GO_BACK');
+          viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${goBackLabel}</span>`;
           viewDetailsClone.style.left = `${destRect.left}px`;
           viewDetailsClone.style.top = `${destRect.top}px`;
           viewDetailsClone.style.width = `${destRect.width}px`;
@@ -6665,7 +6452,7 @@ navigateToLessons() {
 
     if (srcWithdrawRect) {
       withdrawClone = document.createElement('div');
-      withdrawClone.textContent = 'Withdraw Funds';
+      withdrawClone.textContent = this.translateService.instant('EARNINGS.WITHDRAW_FUNDS');
       Object.assign(withdrawClone.style, {
         position: 'fixed',
         left: `${srcWithdrawRect.left}px`,
@@ -6685,7 +6472,6 @@ navigateToLessons() {
         backgroundColor: '#000000',
         border: '1px solid #000000',
         borderRadius: '8px',
-        // Stagger: position moves with spring curve, color/font morphs with a slight delay
         transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s',
       });
       document.body.appendChild(withdrawClone);
@@ -6693,7 +6479,8 @@ navigateToLessons() {
 
     if (srcGoBackRect) {
       goBackClone = document.createElement('div');
-      goBackClone.innerHTML = '<span style="text-decoration:underline">Go back</span>';
+      const goBackText = this.translateService.instant('EARNINGS.GO_BACK');
+      goBackClone.innerHTML = `<span style="text-decoration:underline">${goBackText}</span>`;
       Object.assign(goBackClone.style, {
         position: 'fixed',
         left: `${srcGoBackRect.left}px`,
@@ -6776,7 +6563,8 @@ navigateToLessons() {
         if (goBackClone && destViewDetails) {
           const destRect = destViewDetails.getBoundingClientRect();
           // Arrow span matches ion-icon box: 16×16px, centered
-          goBackClone.innerHTML = '<span style="text-decoration:underline">View Details</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>';
+          const viewDetailsLabel = this.translateService.instant('HOME.VIEW_DETAILS');
+          goBackClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsLabel}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
           goBackClone.style.left = `${destRect.left}px`;
           goBackClone.style.top = `${destRect.top}px`;
           goBackClone.style.width = `${destRect.width}px`;

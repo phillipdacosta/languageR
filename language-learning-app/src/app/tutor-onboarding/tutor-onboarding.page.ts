@@ -1,8 +1,9 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -15,16 +16,33 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./tutor-onboarding.page.scss'],
   standalone: false,
 })
-export class TutorOnboardingPage implements OnInit, AfterViewChecked {
+export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<User | null>;
   currentStep = 1;
   totalSteps = 9; // Name + Residence + Native Language + Languages + Experience + Schedule + Bio + Rate + Video
+
+  // Language selection pre-step
+  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  availableInterfaceLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
+  selectedLanguageFlag = '🇬🇧';
+
+  // Rotating heading animation
+  headingTexts = [
+    'Choose your language',
+    'Elige tu idioma',
+    'Choisissez votre langue',
+    'Escolha seu idioma',
+    'Wählen Sie Ihre Sprache'
+  ];
+  activeHeadingIndex = 0;
+  private headingInterval: any;
 
   // Preview & Welcome state
   showPreview = false;
   showWelcome = false;
   isSubmitting = false;
-  hasReachedPreview = false; // True once the user has visited the preview page at least once
+  hasReachedPreview = false;
 
   // Tutor onboarding data
   firstName = '';
@@ -341,6 +359,7 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private languageService: LanguageService,
     private router: Router,
     private sanitizer: DomSanitizer,
     private loadingController: LoadingController,
@@ -351,9 +370,32 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
     private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+  }
+
+  ngOnDestroy() {
+    this.stopHeadingRotation();
+  }
+
+  private startHeadingRotation() {
+    this.stopHeadingRotation();
+    this.headingInterval = setInterval(() => {
+      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
+      this.cdr.detectChanges();
+    }, 2400);
+  }
+
+  private stopHeadingRotation() {
+    if (this.headingInterval) {
+      clearInterval(this.headingInterval);
+      this.headingInterval = null;
+    }
   }
 
   ngOnInit() {
+    this.startHeadingRotation();
+
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
@@ -408,7 +450,6 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
   }
 
   private focusFirstInput() {
-    // Focus the first input/textarea based on current step
     if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
       this.firstNameInput.nativeElement.focus();
     } else if (this.currentStep === 7 && this.summaryInput?.nativeElement) {
@@ -418,6 +459,26 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
     }
   }
 
+  selectInterfaceLanguage(lang: SupportedLanguage) {
+    this.selectedInterfaceLanguage = lang;
+    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.languageService.setLanguage(lang);
+  }
+
+  confirmLanguageSelection() {
+    this.stopHeadingRotation();
+    this.preStepPhase = 'welcome';
+  }
+
+  goBackToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
+  }
+
+  startOnboarding() {
+    this.preStepPhase = 'done';
+  }
+
   nextStep() {
     if (this.canProceed() && this.currentStep < this.totalSteps) {
       this.currentStep++;
@@ -425,9 +486,16 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
   }
 
   prevStep() {
-    if (this.currentStep > 1) {
+    if (this.currentStep === 1) {
+      this.preStepPhase = 'welcome';
+    } else {
       this.currentStep--;
     }
+  }
+
+  goToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
   }
 
   setNativeLanguage(code: string) {
@@ -597,21 +665,22 @@ export class TutorOnboardingPage implements OnInit, AfterViewChecked {
       console.log('🔍 Tutor userType:', user?.userType);
 
       // Prepare tutor onboarding data
-      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string } = {
+      const onboardingData: TutorOnboardingData & { nativeLanguage?: string; residenceCountry?: string; interfaceLanguage?: string } = {
         firstName: this.formatName(this.firstName),
         lastName: this.formatName(this.lastName),
         country: this.country,
-        residenceCountry: this.residenceCountry, // NEW: For payout method selection
-        nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
+        residenceCountry: this.residenceCountry,
+        nativeLanguage: this.nativeLanguage,
+        interfaceLanguage: this.selectedInterfaceLanguage,
         languages: this.selectedLanguages,
         experience: this.selectedExperience,
         schedule: this.selectedSchedule,
         summary: this.formatText(this.profileSummary),
         bio: this.formatText(this.profileBio),
         hourlyRate: this.hourlyRate,
-        introductionVideo: this.introductionVideo, // Include introduction video
-        videoThumbnail: this.thumbnailUrl, // Include custom thumbnail
-        videoType: this.videoType // Include video type
+        introductionVideo: this.introductionVideo,
+        videoThumbnail: this.thumbnailUrl,
+        videoType: this.videoType
       };
 
       console.log('Saving tutor onboarding data to database:', onboardingData);

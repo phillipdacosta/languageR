@@ -40,16 +40,16 @@
           </p>
           <!-- Show actual content only after loading completes -->
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && !nextLesson">
-            You have {{activeInvitationsCount}} pending {{activeInvitationsCount === 1 ? 'invitation' : 'invitations'}}
+            {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE' : 'HOME.WELCOME_INVITATION_MANY') | translate:{ count: activeInvitationsCount } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && nextLesson && nextLessonTimeLabel">
-            Your next lesson is {{ nextLessonTimeLabel }}
+            {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && activeInvitationsCount > 0 && nextLesson && nextLessonTimeLabel">
-            {{activeInvitationsCount}} {{activeInvitationsCount === 1 ? 'invitation' : 'invitations'}} pending • Next lesson {{ nextLessonTimeLabel }}
+            {{ (activeInvitationsCount === 1 ? 'HOME.WELCOME_INVITATION_ONE_AND_LESSON' : 'HOME.WELCOME_INVITATION_MANY_AND_LESSON') | translate:{ count: activeInvitationsCount, time: nextLessonTimeLabel } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !activeInvitationsCount && (!nextLesson || !nextLessonTimeLabel)">
-            Ready to learn something new today?
+            {{ 'HOME.WELCOME_DEFAULT' | translate }}
           </p>
         </div>
         
@@ -70,7 +70,7 @@
             <ion-skeleton-text animated style="width: 160px; height: 16px; display: inline-block;"></ion-skeleton-text>
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
-            Your next lesson is {{ nextLessonTimeLabel }}
+            {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !nextLesson">
             {{ getWelcomeMessage() }}
@@ -90,39 +90,39 @@
             <div class="banner-text">
               <!-- Fully Approved Message (all items done but tutor still not approved — edge case) -->
               <div *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete && !currentUser?.tutorApproved">
-                <h3>🎉 Almost There!</h3>
+                <h3>🎉 {{ 'HOME.BANNER_ALMOST_THERE' | translate }}</h3>
                 <p class="banner-items">
-                  All your items are approved! Your profile is being finalized. Be sure to add your availability!
+                  {{ 'HOME.BANNER_ALL_APPROVED' | translate }}
                 </p>
               </div>
               <!-- Regular Onboarding Message (not everything approved yet) -->
               <div *ngIf="!(tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete)">
-                <h3>Complete Your Profile Setup</h3>
+                <h3>{{ 'HOME.BANNER_COMPLETE_SETUP' | translate }}</h3>
                 <p class="banner-items">
-                  <span *ngIf="!hasCustomProfilePhoto"> Upload your profile photo</span>
+                  <span *ngIf="!hasCustomProfilePhoto"> {{ 'HOME.BANNER_UPLOAD_PHOTO' | translate }}</span>
                   <span class="separator" *ngIf="!hasCustomProfilePhoto && (!tutorOnboardingStatus?.videoApproved || !tutorOnboardingStatus?.credentialsApproved || !tutorOnboardingStatus?.stripeComplete)"> | </span>
                   
-                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> Introduction video pending review </span>
-                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> Upload your introduction video </span>
+                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && (currentUser?.onboardingData?.pendingVideo || currentUser?.onboardingData?.introductionVideo)"> {{ 'HOME.BANNER_VIDEO_PENDING' | translate }} </span>
+                  <span *ngIf="!tutorOnboardingStatus?.videoApproved && !currentUser?.onboardingData?.pendingVideo && !currentUser?.onboardingData?.introductionVideo"> {{ 'HOME.BANNER_UPLOAD_VIDEO' | translate }} </span>
                   <span class="separator" *ngIf="!tutorOnboardingStatus?.videoApproved && (!tutorOnboardingStatus?.credentialsApproved || !tutorOnboardingStatus?.stripeComplete)"> | </span>
 
-                  <span *ngIf="!tutorOnboardingStatus?.credentialsComplete"> Upload your credentials </span>
-                  <span *ngIf="tutorOnboardingStatus?.credentialsComplete && !tutorOnboardingStatus?.credentialsApproved"> Credentials pending review </span>
+                  <span *ngIf="!tutorOnboardingStatus?.credentialsComplete"> {{ 'HOME.BANNER_UPLOAD_CREDENTIALS' | translate }} </span>
+                  <span *ngIf="tutorOnboardingStatus?.credentialsComplete && !tutorOnboardingStatus?.credentialsApproved"> {{ 'HOME.BANNER_CREDENTIALS_PENDING' | translate }} </span>
                   <span class="separator" *ngIf="(!tutorOnboardingStatus?.credentialsComplete || !tutorOnboardingStatus?.credentialsApproved) && !tutorOnboardingStatus?.stripeComplete"> | </span>
                   
-                  <span *ngIf="!tutorOnboardingStatus?.stripeComplete"> Connect your bank account </span>
+                  <span *ngIf="!tutorOnboardingStatus?.stripeComplete"> {{ 'HOME.BANNER_CONNECT_BANK' | translate }} </span>
                 </p>
               </div>
             </div>
             <!-- Add Availability Button (when everything approved) -->
             <ion-button *ngIf="tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete && !currentUser?.tutorApproved" fill="solid" (click)="router.navigate(['/tabs/tutor-calendar'])" >
               <ion-icon name="calendar-outline" slot="start"></ion-icon>
-              Add Availability
+              {{ 'HOME.BANNER_ADD_AVAILABILITY' | translate }}
             </ion-button>
             <!-- Continue Setup Button (when onboarding incomplete) -->
             <ion-button *ngIf="!(tutorOnboardingStatus?.videoApproved && tutorOnboardingStatus?.credentialsApproved && tutorOnboardingStatus?.stripeComplete)" fill="solid" (click)="openTutorOnboarding()">
               <ion-icon name="arrow-forward" slot="end"></ion-icon>
-              Continue Setup
+              {{ 'HOME.BANNER_CONTINUE_SETUP' | translate }}
             </ion-button>
           </div>
         </ion-card-content>
@@ -134,12 +134,12 @@
       <div class="feedback-banner-left">
         <div class="feedback-banner-count">{{ pendingFeedbackCount }}</div>
         <div class="feedback-banner-copy">
-          <span class="feedback-banner-title">Feedback needed</span>
+          <span class="feedback-banner-title">{{ 'HOME.FEEDBACK_NEEDED' | translate }}</span>
           <span class="feedback-banner-subtitle">{{ feedbackBannerSubtitle }}</span>
         </div>
       </div>
       <button class="feedback-banner-cta">
-        Review
+        {{ 'HOME.FEEDBACK_REVIEW' | translate }}
         <ion-icon name="arrow-forward-outline"></ion-icon>
       </button>
     </div>
@@ -156,7 +156,7 @@
               <ion-icon name="calendar"></ion-icon>
             </div> -->
             <div class="badge-label">
-              <span>Up Next</span>
+              <span>{{ 'HOME.UP_NEXT' | translate }}</span>
             </div>
           </div>
           
@@ -181,16 +181,16 @@
                   
                   <!-- Content -->
                   <div class="up-next-text">
-                    <h3 class="up-next-title">Your Next Lesson Awaits!</h3>
+                    <h3 class="up-next-title">{{ 'HOME.NEXT_LESSON_AWAITS' | translate }}</h3>
                     <p class="up-next-subtitle">
-                      Book a session to continue your progress
+                      {{ 'HOME.BOOK_SESSION' | translate }}
                     </p>
                   </div>
                 </div>
                 
                 <!-- CTA Button stays at bottom -->
                 <div class="text-link-cta" (click)="openSearchTutors(); $event.stopPropagation()">
-                  Find Tutors
+                  {{ 'HOME.FIND_TUTORS' | translate }}
                   <ion-icon name="arrow-forward"></ion-icon>
                 </div>
               </div>
@@ -203,23 +203,23 @@
                 <!-- Status Badges (if any) -->
                 <div class="lesson-status-badges" *ngIf="nextLesson.lesson?.status === 'cancelled' || nextLesson.isTrialLesson || nextLesson.lesson?.rescheduleProposal">
                   <span class="status-badge badge-cancelled" *ngIf="nextLesson.lesson?.status === 'cancelled'">
-                    <ion-icon name="close-circle"></ion-icon> CANCELLED
+                    <ion-icon name="close-circle"></ion-icon> {{ 'HOME.STATUS_CANCELLED' | translate }}
                   </span>
                   <span class="status-badge badge-trial" *ngIf="nextLesson.isTrialLesson && nextLesson.lesson?.status !== 'cancelled'">
-                    <ion-icon name="star"></ion-icon> TRIAL
+                    <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
                   </span>
                   <span class="status-badge badge-rescheduled" 
                         *ngIf="nextLesson.lesson?.rescheduleProposal?.status === 'accepted' && nextLesson.lesson?.status === 'scheduled'">
-                    <ion-icon name="checkmark-circle"></ion-icon> RESCHEDULED
+                    <ion-icon name="checkmark-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULED' | translate }}
                   </span>
                   <span class="status-badge badge-reschedule-sent" 
                         *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && nextLesson.isRescheduleProposer">
-                    <ion-icon name="time"></ion-icon> RESCHEDULE SENT
+                    <ion-icon name="time"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_SENT' | translate }}
                   </span>
                   <span class="status-badge badge-reschedule-action" 
                         *ngIf="nextLesson.lesson?.status === 'pending_reschedule' && nextLesson.lesson?.rescheduleProposal?.status === 'pending' && !nextLesson.isRescheduleProposer"
                         (click)="showRescheduleProposal(nextLesson.lesson); $event.stopPropagation()">
-                    <ion-icon name="alert-circle"></ion-icon> RESCHEDULE REQUEST
+                    <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
                   </span>
                 </div>
                 
@@ -254,12 +254,12 @@
                       
                       <div class="detail-group" *ngIf="nextLesson?.lesson?.lessonNumber">
                         <ion-icon name="book-outline"></ion-icon>
-                        <span class="detail-label">Lesson {{ nextLesson.lesson.lessonNumber }}</span>
+                        <span class="detail-label">{{ 'HOME.LESSON_NUMBER' | translate:{ number: nextLesson.lesson.lessonNumber } }}</span>
                       </div>
                       
                       <div class="detail-group">
                         <ion-icon name="calendar-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.isToday ? 'Today' : nextLesson?.dateTag }}</span>
+                        <span class="detail-label">{{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateTag }}</span>
                       </div>
                       
                       <div class="detail-group">
@@ -284,7 +284,7 @@
                   <div class="lesson-info">
                     <!-- Class Name as title -->
                     <h3 class="tutor-name class-title">
-                      {{ nextLesson.lesson.className || nextLesson.lesson.subject || 'Group Class' }}
+                      {{ nextLesson.lesson.className || nextLesson.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}
                     </h3>
                     
                     <!-- Instructor info -->
@@ -305,7 +305,7 @@
                     <div class="lesson-details-row">
                       <div class="detail-group">
                         <ion-icon name="calendar-outline"></ion-icon>
-                        <span class="detail-label">{{ nextLesson?.isToday ? 'Today' : nextLesson?.dateTag }}</span>
+                        <span class="detail-label">{{ nextLesson?.isToday ? ('HOME.TODAY' | translate) : nextLesson?.dateTag }}</span>
                       </div>
                       
                       <div class="detail-group">
@@ -326,7 +326,7 @@
                 
                 <!-- Starts In Card (matches tutor design) -->
                 <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
-                  <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? 'STARTED' : 'STARTS IN' }}</span>
+                  <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
                   <span class="countdown-modern">{{ getTimeUntilLesson(nextLesson?.lesson) }}</span>
                   <ion-button 
                     class="join-button-modern"
@@ -334,7 +334,7 @@
                     [disabled]="!canJoinStudentLesson(nextLesson)"
                     (click)="joinStudentLesson(nextLesson); $event.stopPropagation()">
                     <ion-icon slot="start" [name]="isLessonInProgress(nextLesson?.lesson) ? 'videocam' : 'videocam-outline'"></ion-icon>
-                    {{ isLessonInProgress(nextLesson?.lesson) ? 'Join Now' : 'Join' }}
+                    {{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN' | translate) }}
                   </ion-button>
                 </div>
                 
@@ -361,17 +361,17 @@
                         <!-- Reschedule -->
                         <ion-item *ngIf="!hasLessonStarted(nextLesson?.lesson)" [button]="true" (click)="rescheduleLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" [detail]="false">
                           <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>Reschedule</ion-label>
+                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                         </ion-item>
                         <ion-item *ngIf="hasLessonStarted(nextLesson?.lesson)" [button]="false" [detail]="false" class="reschedule-disabled">
                           <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>Reschedule</ion-label>
+                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                         </ion-item>
                         
                         <!-- Cancel -->
                         <ion-item [button]="true" (click)="cancelLesson(nextLesson?.lesson?._id, nextLesson?.lesson)" class="ion-text-danger" [detail]="false">
                           <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                          <ion-label>Cancel lesson</ion-label>
+                          <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
                         </ion-item>
                       </ion-list>
                     </ion-content>
@@ -605,27 +605,27 @@
         <span style="display: none;">{{ countdownTick }}</span>
         
         <!-- Up Next label — top left -->
-        <span class="upnext-filled-label">Up Next</span>
+        <span class="upnext-filled-label">{{ 'HOME.UP_NEXT' | translate }}</span>
 
         <div class="upnext-filled-badges">
           <span class="badge-inline badge-trial" *ngIf="nextClass.isTrialLesson && nextClass.lesson?.status !== 'cancelled'">
-            <ion-icon name="star"></ion-icon> TRIAL
+            <ion-icon name="star"></ion-icon> {{ 'HOME.STATUS_TRIAL' | translate }}
           </span>
           <span class="badge-inline badge-cancelled" *ngIf="nextClass.lesson?.status === 'cancelled'">
-            CANCELLED
+            {{ 'HOME.STATUS_CANCELLED' | translate }}
           </span>
           <span class="badge-inline badge-reschedule-accepted" 
                 *ngIf="nextClass.lesson?.rescheduleProposal?.status === 'accepted' && nextClass.lesson?.status === 'scheduled'">
-            <ion-icon name="checkmark-circle"></ion-icon> RESCHEDULED
+            <ion-icon name="checkmark-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULED' | translate }}
           </span>
           <span class="badge-inline badge-reschedule-sent" 
                 *ngIf="nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && nextClass.isRescheduleProposer">
-            <ion-icon name="time"></ion-icon> RESCHEDULE SENT
+            <ion-icon name="time"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_SENT' | translate }}
           </span>
           <span class="badge-inline badge-reschedule-proposal" 
                 *ngIf="nextClass.lesson?.status === 'pending_reschedule' && nextClass.lesson?.rescheduleProposal?.status === 'pending' && !nextClass.isRescheduleProposer"
                 (click)="showRescheduleProposal(nextClass.lesson)">
-            <ion-icon name="alert-circle"></ion-icon> RESCHEDULE REQUEST
+            <ion-icon name="alert-circle"></ion-icon> {{ 'HOME.STATUS_RESCHEDULE_REQUEST' | translate }}
           </span>
         </div>
 
@@ -648,7 +648,7 @@
 
         <div class="upnext-filled-text">
           <h3>
-            <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || 'Group Class' }}</span>
+            <span *ngIf="nextClass.lesson?.isClass">{{ nextClass.lesson.className || nextClass.lesson.subject || ('HOME.GROUP_CLASS' | translate) }}</span>
             <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass | displayName }}</span>
           </h3>
           <p class="upnext-filled-meta">
@@ -657,12 +657,12 @@
             </span>
             <span *ngIf="!nextClass.lesson?.isClass">{{ nextClass.subject }}</span>
             <span class="meta-dot" *ngIf="!nextClass.lesson?.isClass">·</span>
-            <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? 'Today' : nextClass.dateTag }}</span>
+            <span [class.meta-today]="nextClass.isToday">{{ nextClass.isToday ? ('HOME.TODAY' | translate) : nextClass.dateTag }}</span>
             <span class="meta-dot">·</span>
             <span>{{ getTimeRangeOnly(nextClass.lesson) }}</span>
           </p>
           <p class="upnext-filled-countdown" *ngIf="nextClass.lesson?.status !== 'cancelled'">
-            Starts in {{ getTimeUntilLesson(nextClass.lesson) }}
+            {{ 'HOME.STARTS_IN_TIME' | translate:{ time: getTimeUntilLesson(nextClass.lesson) } }}
           </p>
         </div>
 
@@ -675,7 +675,7 @@
 
         <p class="cancel-reason" *ngIf="nextClass.lesson?.status === 'cancelled' && nextClass.lesson?.cancelReason === 'minimum_not_met'" style="text-align: center;">
           <ion-icon name="information-circle-outline"></ion-icon>
-          Cancelled due to insufficient enrollment
+          {{ 'HOME.CANCELLED_INSUFFICIENT' | translate }}
         </p>
 
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
@@ -686,7 +686,7 @@
             [class.active]="isLessonInProgress(nextClass.lesson)"
             [disabled]="!canJoinStudentLesson(nextClass)"
             (click)="joinStudentLesson(nextClass)">
-            {{ isLessonInProgress(nextClass.lesson) ? 'Join Now' : 'Join Lesson' }}
+            {{ isLessonInProgress(nextClass.lesson) ? ('HOME.JOIN_NOW' | translate) : ('HOME.JOIN_LESSON' | translate) }}
           </ion-button>
         </div>
 
@@ -710,19 +710,19 @@
               <ion-list>
                 <ion-item *ngIf="isTutorUser && nextClass.lesson?.isClass" [button]="true" (click)="inviteStudentToClass(nextClass.lesson._id)" [detail]="false">
                   <ion-icon name="person-add-outline" slot="start"></ion-icon>
-                  <ion-label>Invite student</ion-label>
+                  <ion-label>{{ 'HOME.INVITE_STUDENT' | translate }}</ion-label>
                 </ion-item>
                 <ion-item *ngIf="!hasLessonStarted(nextClass.lesson)" [button]="true" (click)="nextClass.lesson?.isClass ? rescheduleClass(nextClass.lesson._id, nextClass.lesson) : rescheduleLesson(nextClass.lesson._id, nextClass.lesson)" [detail]="false">
                   <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                  <ion-label>Reschedule</ion-label>
+                  <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                 </ion-item>
                 <ion-item *ngIf="hasLessonStarted(nextClass.lesson)" [button]="false" [detail]="false" class="reschedule-disabled">
                   <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                  <ion-label>Reschedule</ion-label>
+                  <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                 </ion-item>
                 <ion-item [button]="true" (click)="nextClass.lesson?.isClass ? cancelClass(nextClass.lesson._id, nextClass.lesson) : cancelLesson(nextClass.lesson._id, nextClass.lesson)" class="ion-text-danger" [detail]="false">
                   <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                  <ion-label>Cancel lesson</ion-label>
+                  <ion-label>{{ 'HOME.CANCEL_LESSON' | translate }}</ion-label>
                 </ion-item>
               </ion-list>
             </ion-content>
@@ -746,7 +746,7 @@
           class="empty-state-clean-btn"
           routerLink="{{ hasAvailability ? '/tabs/tutor-calendar' : '/tabs/availability-setup' }}">
           <span [@buttonTextFade]="buttonTextState" class="button-text-animated">
-            {{ hasAvailability ? 'View Calendar' : 'Set Availability' }}
+            {{ hasAvailability ? ('HOME.VIEW_CALENDAR' | translate) : ('HOME.SET_AVAILABILITY' | translate) }}
           </span>
           <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
         </ion-button>
@@ -759,24 +759,24 @@
       <div class="grid-cell-earnings" *ngIf="!insightsLoading">
         <div class="earnings-card-widget" [class.skip-entry-animation]="returningFromEarnings">
           <div class="earnings-card-header">
-            <h3>Earnings</h3>
+            <h3>{{ 'HOME.EARNINGS_TITLE' | translate }}</h3>
           </div>
           <div class="earnings-card-body">
-            <div class="earnings-label">Total Balance</div>
+            <div class="earnings-label">{{ 'HOME.TOTAL_BALANCE' | translate }}</div>
             <div class="earnings-balance" (click)="toggleWalletVisibility($event)">
               <span *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="earnings-dots-display">••••</span></span>
               <span *ngIf="showWalletBalance || walletTemporarilyVisible">${{ tutorTotalEarnings.toFixed(2) }}</span>
             </div>
             <div class="earnings-pending" *ngIf="tutorPendingEarnings > 0 && (showWalletBalance || walletTemporarilyVisible)">
-              <span class="pending-label">Pending</span>
+              <span class="pending-label">{{ 'HOME.PENDING' | translate }}</span>
               <span class="pending-amount">${{ tutorPendingEarnings.toFixed(2) }}</span>
             </div>
           </div>
           <ion-button fill="outline" expand="block" class="withdraw-btn" (click)="openWithdrawModal()">
-            Withdraw Funds
+            {{ 'HOME.WITHDRAW_FUNDS' | translate }}
           </ion-button>
           <button class="view-details-link" (click)="navigateToEarnings()">
-            View Details
+            {{ 'HOME.VIEW_DETAILS' | translate }}
             <ion-icon name="arrow-forward-outline"></ion-icon>
           </button>
         </div>
@@ -786,17 +786,17 @@
       <div class="grid-cell-comingup">
         <div class="timeline-section" *ngIf="!isLoadingLessons">
           <div class="section-header-new">
-            <h2>Coming Up</h2>
-            <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">Full Schedule</ion-button>
+            <h2>{{ 'HOME.COMING_UP' | translate }}</h2>
+            <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
           
           <!-- Table-style lesson list -->
           <div class="coming-up-single">
             <!-- Column Headers (desktop only) -->
             <div class="coming-up-headers" *ngIf="timelineEvents.length > 0">
-              <span class="cu-header cu-h-time">TIME</span>
-              <span class="cu-header cu-h-person">{{ isTutorUser ? 'STUDENT' : 'TUTOR' }}</span>
-              <span class="cu-header cu-h-status">STATUS</span>
+              <span class="cu-header cu-h-time">{{ 'HOME.COL_TIME' | translate }}</span>
+              <span class="cu-header cu-h-person">{{ isTutorUser ? ('HOME.COL_STUDENT' | translate) : ('HOME.COL_TUTOR' | translate) }}</span>
+              <span class="cu-header cu-h-status">{{ 'HOME.COL_STATUS' | translate }}</span>
             </div>
 
             <!-- Lesson rows -->
@@ -807,7 +807,7 @@
                 <!-- Time Column -->
                 <div class="cu-col cu-time-col">
                   <span class="cu-time-text">{{ event.time }}</span>
-                  <span class="cu-duration">{{ event.duration }} mins</span>
+                  <span class="cu-duration">{{ event.duration }} {{ 'HOME.MINS' | translate }}</span>
                 </div>
                 <!-- Person Column -->
                 <div class="cu-col cu-person-col">
@@ -832,11 +832,11 @@
                       <ion-list>
                         <ion-item *ngIf="!hasLessonStarted(event.lesson)" [button]="true" (click)="event.lesson?.isClass ? rescheduleClass(event.lesson._id, event.lesson) : rescheduleLesson(event.lesson._id, event.lesson)" [detail]="false">
                           <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>Reschedule</ion-label>
+                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
                         </ion-item>
                         <ion-item [button]="true" (click)="event.lesson?.isClass ? cancelClass(event.lesson._id, event.lesson) : cancelLesson(event.lesson._id, event.lesson)" class="ion-text-danger" [detail]="false">
                           <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                          <ion-label>Cancel</ion-label>
+                          <ion-label>{{ 'HOME.CANCEL' | translate }}</ion-label>
                         </ion-item>
                       </ion-list>
                     </ion-content>
@@ -846,7 +846,7 @@
               
               <!-- Show all link -->
               <button class="coming-up-show-all" (click)="openAllLessonsModal()">
-                View more upcoming lessons
+                {{ 'HOME.VIEW_MORE_LESSONS' | translate }}
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
             </div>
@@ -855,7 +855,7 @@
             <div class="coming-up-empty" *ngIf="timelineEvents.length === 0">
               <p>{{ getComingUpEmptyMessage() }}</p>
               <button class="coming-up-show-all" (click)="openAllLessonsModal()">
-                View more upcoming lessons
+                {{ 'HOME.VIEW_MORE_LESSONS' | translate }}
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
             </div>
@@ -879,14 +879,14 @@
       <div class="grid-cell-stats" *ngIf="!insightsLoading">
         <div class="sidebar-stats-row">
           <div class="sidebar-stat-card">
-            <span class="stat-card-label">LESSONS</span>
+            <span class="stat-card-label">{{ 'HOME.STATS_LESSONS' | translate }}</span>
             <span class="stat-card-value">{{ lessonsThisWeek }}</span>
-            <span class="stat-card-sub">This week</span>
+            <span class="stat-card-sub">{{ 'HOME.STATS_THIS_WEEK' | translate }}</span>
           </div>
           <div class="sidebar-stat-card">
-            <span class="stat-card-label">RATING</span>
+            <span class="stat-card-label">{{ 'HOME.STATS_RATING' | translate }}</span>
             <span class="stat-card-value">{{ tutorRating }} <ion-icon name="star" class="star-icon"></ion-icon></span>
-            <span class="stat-card-sub">Overall</span>
+            <span class="stat-card-sub">{{ 'HOME.STATS_OVERALL' | translate }}</span>
           </div>
         </div>
       </div>
@@ -921,7 +921,7 @@
       <ng-template>
         <ion-header>
           <ion-toolbar>
-            <ion-title>Your Tutors</ion-title>
+            <ion-title>{{ 'HOME.YOUR_TUTORS' | translate }}</ion-title>
             <ion-buttons slot="end">
               <ion-button (click)="closeAllTutorsModal()">
                 <ion-icon name="close" slot="icon-only"></ion-icon>
@@ -930,7 +930,7 @@
           </ion-toolbar>
         </ion-header>
         <ion-content class="ion-padding">
-          <p>Coming soon: View all your tutors here</p>
+          <p>{{ 'HOME.COMING_SOON_TUTORS' | translate }}</p>
         </ion-content>
       </ng-template>
     </ion-modal>
@@ -1030,15 +1030,15 @@
     <div class="explore-pills" *ngIf="isStudentUser && !isLoadingLessons">
       <button class="explore-pill">
         <ion-icon name="book-outline"></ion-icon>
-        Materials
+        {{ 'HOME.MATERIALS' | translate }}
       </button>
       <button class="explore-pill">
         <ion-icon name="chatbubbles-outline"></ion-icon>
-        Forum
+        {{ 'HOME.FORUM' | translate }}
       </button>
       <button class="explore-pill" (click)="navigateToExplore()">
         <ion-icon name="people-outline"></ion-icon>
-        Classes
+        {{ 'HOME.CLASSES' | translate }}
       </button>
     </div>
 
@@ -1046,15 +1046,15 @@
     <div class="explore-pills" *ngIf="!isLoadingLessons && isTutorUser">
       <button class="explore-pill" (click)="navigateToExplore()">
         <ion-icon name="people-outline"></ion-icon>
-        Classes
+        {{ 'HOME.CLASSES' | translate }}
       </button>
       <button class="explore-pill">
         <ion-icon name="create-outline"></ion-icon>
-        Create Material
+        {{ 'HOME.CREATE_MATERIAL' | translate }}
       </button>
       <button class="explore-pill">
         <ion-icon name="chatbubbles-outline"></ion-icon>
-        Forum
+        {{ 'HOME.FORUM' | translate }}
       </button>
     </div>
 
@@ -1202,7 +1202,7 @@
         <button class="airbnb-modal-back" *ngIf="isDatePickerView" (click)="closeDatePickerView()">
           <ion-icon name="arrow-back"></ion-icon>
         </button>
-        <h2 *ngIf="!isDatePickerView">Upcoming lessons</h2>
+        <h2 *ngIf="!isDatePickerView">{{ 'HOME.UPCOMING_LESSONS_MODAL' | translate }}</h2>
         <h2 *ngIf="isDatePickerView">&nbsp;</h2>
         <button class="airbnb-modal-close" (click)="closeAllLessonsModal()">
           <ion-icon name="close"></ion-icon>
@@ -1214,7 +1214,7 @@
         <div class="airbnb-month-left">
           <span class="airbnb-month-label">{{ currentMonthLabel }}</span>
           <button class="airbnb-clear-filter" [class.visible]="hasMonthFilter" (click)="clearMonthFilter()">
-            Clear filter
+            {{ 'HOME.CLEAR_FILTER' | translate }}
           </button>
         </div>
         <button class="airbnb-calendar-btn" (click)="openDatePickerView()">
@@ -1242,7 +1242,7 @@
             <div class="airbnb-lesson-right">
               <div class="airbnb-lesson-participant-info">
                 <div class="airbnb-lesson-name">{{ event.name }}</div>
-                <div class="airbnb-lesson-cancelled" *ngIf="event.isCancelled">Cancelled</div>
+                <div class="airbnb-lesson-cancelled" *ngIf="event.isCancelled">{{ 'HOME.CANCELLED' | translate }}</div>
               </div>
               <div class="airbnb-lesson-avatar-small">
                 <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name">
@@ -1254,10 +1254,10 @@
         
         <div class="airbnb-no-lessons" *ngIf="allLessonsForModal.length === 0" [@fadeIn]>
           <ion-icon name="calendar-outline"></ion-icon>
-          <p *ngIf="selectedFilterMonth === null">No upcoming lessons.</p>
-          <p *ngIf="selectedFilterMonth !== null">No lessons in {{ currentMonthLabel }}.</p>
+          <p *ngIf="selectedFilterMonth === null">{{ 'HOME.NO_UPCOMING_LESSONS' | translate }}</p>
+          <p *ngIf="selectedFilterMonth !== null">{{ 'HOME.NO_LESSONS_IN_MONTH' | translate:{ month: currentMonthLabel } }}</p>
           <button class="airbnb-clear-filter-btn" *ngIf="selectedFilterMonth !== null" (click)="clearMonthFilter()">
-            Show all lessons
+            {{ 'HOME.SHOW_ALL_LESSONS' | translate }}
           </button>
         </div>
       </div>
@@ -1288,14 +1288,14 @@
   <ng-template>
     <ion-header class="airbnb-modal-ion-header">
       <div class="airbnb-modal-header">
-        <h2>Outstanding feedback</h2>
+        <h2>{{ 'HOME.OUTSTANDING_FEEDBACK' | translate }}</h2>
         <button class="airbnb-modal-close" (click)="closeFeedbackModal()">
           <ion-icon name="close"></ion-icon>
         </button>
       </div>
       <div class="airbnb-month-selector">
         <div class="airbnb-month-left">
-          <span class="airbnb-month-label">{{ pendingFeedbackCount }} lesson{{ pendingFeedbackCount !== 1 ? 's' : '' }} need your feedback</span>
+          <span class="airbnb-month-label">{{ 'HOME.FEEDBACK_COUNT' | translate:{ count: pendingFeedbackCount, plural: (pendingFeedbackCount !== 1 ? 's' : '') } }}</span>
         </div>
         <div class="feedback-modal-icon">
           <ion-icon name="clipboard-outline"></ion-icon>
@@ -1314,7 +1314,7 @@
             <div class="airbnb-lesson-right">
               <div class="airbnb-lesson-participant-info">
                 <div class="airbnb-lesson-name">{{ fb.studentName || 'Student' }}</div>
-                <div class="airbnb-feedback-pending">Pending</div>
+                <div class="airbnb-feedback-pending">{{ 'HOME.FEEDBACK_PENDING' | translate }}</div>
               </div>
               <div class="airbnb-lesson-avatar-small">
                 <img *ngIf="fb.studentPicture" [src]="fb.studentPicture" [alt]="fb.studentName">
@@ -1326,7 +1326,7 @@
 
         <div class="airbnb-no-lessons" *ngIf="pendingFeedback.length === 0">
           <ion-icon name="checkmark-circle-outline"></ion-icon>
-          <p>All feedback completed!</p>
+          <p>{{ 'HOME.ALL_FEEDBACK_COMPLETED' | translate }}</p>
         </div>
       </div>
     </ion-content>

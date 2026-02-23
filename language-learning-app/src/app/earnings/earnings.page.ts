@@ -10,6 +10,7 @@ import { firstValueFrom, filter, takeUntil } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { formatDateInTz, formatTimeInTz } from '../shared/timezone.utils';
 
 // Register Chart.js components
@@ -71,7 +72,7 @@ interface WithdrawalHistory {
   templateUrl: './earnings.page.html',
   styleUrls: ['./earnings.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, TranslateModule]
 })
 export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
   // Inline mode: when embedded inside another page (e.g., home page)
@@ -82,7 +83,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
   private earningsChart: Chart | null = null;
   chartPeriod: '1m' | '6m' | 'all' = '1m';
-  chartPeriodLabel: string = 'Weekly earnings since you joined';
+  chartPeriodLabel: string = '';
   chartTotal: string = '$0.00';
   chartHasData: boolean = false;
   private userJoinDate: Date = new Date();
@@ -157,7 +158,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     private alertController: AlertController,
     private toastController: ToastController,
     private modalController: ModalController,
-    private navCtrl: NavController
+    private navCtrl: NavController,
+    private translateService: TranslateService
   ) {
     // Subscribe to currentUser$ observable to get updates automatically when profile changes
     this.userService.currentUser$
@@ -330,7 +332,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
-      this.error = 'Failed to load earnings. Please try again.';
+      this.error = this.translateService.instant('EARNINGS.ERROR_LOAD');
     }
   }
 
@@ -345,13 +347,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   getTransferredLabel(): string {
     switch(this.payoutProvider) {
       case 'stripe':
-        return 'In your Stripe account';
+        return this.translateService.instant('EARNINGS.TRANSFER_STRIPE');
       case 'paypal':
-        return 'In your PayPal account';
+        return this.translateService.instant('EARNINGS.TRANSFER_PAYPAL');
       case 'manual':
-        return 'Paid out';
+        return this.translateService.instant('EARNINGS.TRANSFER_MANUAL');
       default:
-        return 'Successfully transferred';
+        return this.translateService.instant('EARNINGS.TRANSFER_DEFAULT');
     }
   }
 
@@ -429,52 +431,87 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   getStatusText(status: string): string {
     switch(status) {
       case 'paid':
-        return 'Transferred';
+        return this.translateService.instant('EARNINGS.STATUS_TRANSFERRED');
       case 'in_progress':
-        return 'In Progress';
+        return this.translateService.instant('EARNINGS.STATUS_IN_PROGRESS');
       case 'processing':
-        return 'Processing Payment';
+        return this.translateService.instant('EARNINGS.STATUS_PROCESSING');
       case 'scheduled':
       case 'class_scheduled':
-        return 'Scheduled';
+        return this.translateService.instant('EARNINGS.STATUS_SCHEDULED');
       case 'cancelled':
-        return 'Cancelled';
+        return this.translateService.instant('EARNINGS.STATUS_CANCELLED');
       case 'refunded':
-        return 'Payment Cancelled';
+        return this.translateService.instant('EARNINGS.STATUS_REFUNDED');
       case 'partially_refunded':
-        return 'Payment Reduced';
+        return this.translateService.instant('EARNINGS.STATUS_REDUCED');
       case 'succeeded':
-        return 'Available'; // Changed from default "Pending Transfer"
+        return this.translateService.instant('EARNINGS.STATUS_AVAILABLE');
       default:
-        return 'Pending Transfer';
+        return this.translateService.instant('EARNINGS.STATUS_PENDING');
     }
+  }
+
+  private readonly backendReasonMap: Record<string, string> = {
+    'No-show by both parties': 'EARNINGS.REASON_NO_SHOW_BOTH',
+    'No-show by both parties - payment auto-released': 'EARNINGS.REASON_NO_SHOW_BOTH_RELEASED',
+    'Student no-show (tutor waited)': 'EARNINGS.REASON_STUDENT_NO_SHOW',
+    'Student no-show (tutor waited) - 50% fee charged': 'EARNINGS.REASON_STUDENT_NO_SHOW_FEE',
+    'Tutor no-show (student waited)': 'EARNINGS.REASON_TUTOR_NO_SHOW',
+    'no_show': 'EARNINGS.REASON_NO_SHOW',
+    'no_show_both_parties': 'EARNINGS.REASON_NO_SHOW_BOTH',
+    'class_no_show': 'EARNINGS.REASON_CLASS_NO_SHOW',
+    'minimum_not_met': 'EARNINGS.REASON_MINIMUM_NOT_MET',
+    'class_cancelled_minimum_not_met': 'EARNINGS.REASON_CLASS_MIN_NOT_MET',
+    'tutor_cancelled': 'EARNINGS.REASON_TUTOR_CANCELLED',
+    'student_cancelled': 'EARNINGS.REASON_STUDENT_CANCELLED',
+    'class_cancelled_by_tutor': 'EARNINGS.REASON_CLASS_CANCELLED_TUTOR',
+    'payment_failed': 'EARNINGS.REASON_PAYMENT_FAILED',
+    'schedule_conflict': 'EARNINGS.REASON_SCHEDULE_CONFLICT',
+    'not_prepared': 'EARNINGS.REASON_NOT_PREPARED',
+    'technical_issues': 'EARNINGS.REASON_TECHNICAL_ISSUES',
+    'found_different_tutor': 'EARNINGS.REASON_FOUND_DIFFERENT_TUTOR',
+  };
+
+  translateBackendReason(reason: string | undefined | null): string | null {
+    if (!reason) return null;
+    const key = this.backendReasonMap[reason];
+    if (key) return this.translateService.instant(key);
+    if (reason.startsWith('Admin investigation:')) {
+      const note = reason.replace('Admin investigation:', '').trim();
+      return this.translateService.instant('EARNINGS.REASON_ADMIN_INVESTIGATION', { note });
+    }
+    return reason;
   }
 
   getStatusNote(payment: PaymentBreakdown): string | null {
     if (payment.status === 'refunded') {
-      return payment.refundReason || 'Payment cancelled after investigation';
+      return this.translateBackendReason(payment.refundReason) || this.translateService.instant('EARNINGS.NOTE_REFUNDED');
     }
     if (payment.status === 'partially_refunded') {
-      return payment.refundReason || `Payment reduced after investigation. $${(payment.refundAmount || 0).toFixed(2)} refunded to student.`;
+      return this.translateBackendReason(payment.refundReason) || this.translateService.instant('EARNINGS.NOTE_REDUCED', { amount: (payment.refundAmount || 0).toFixed(2) });
     }
     if (payment.status === 'cancelled') {
-      return payment.cancelReason || (payment.isClassPayment ? 'Class was cancelled' : 'Lesson was cancelled');
+      return this.translateBackendReason(payment.cancelReason) || (payment.isClassPayment
+        ? this.translateService.instant('EARNINGS.NOTE_CLASS_CANCELLED')
+        : this.translateService.instant('EARNINGS.NOTE_LESSON_CANCELLED'));
     }
-    // Show cancel reason as context even when tutor was compensated (e.g. student no-show)
     if (payment.cancelReason && payment.lessonStatus === 'cancelled') {
-      return payment.cancelReason;
+      return this.translateBackendReason(payment.cancelReason);
     }
     if (payment.status === 'processing' || payment.lessonStatus === 'ended_early') {
-      return 'Payment amount will be sent after the 24 hour hold period';
+      return this.translateService.instant('EARNINGS.NOTE_PROCESSING_HOLD');
     }
     if (payment.status === 'in_progress') {
-      return payment.isClassPayment ? 'Class currently in progress' : 'Lesson currently in progress';
+      return payment.isClassPayment
+        ? this.translateService.instant('EARNINGS.NOTE_CLASS_IN_PROGRESS')
+        : this.translateService.instant('EARNINGS.NOTE_LESSON_IN_PROGRESS');
     }
     if (payment.status === 'scheduled' || payment.status === 'class_scheduled') {
       return '';
     }
     if (payment.paymentType === 'tip' && payment.stripeFee > 0) {
-      return `Card processing fee: $${payment.stripeFee.toFixed(2)}`;
+      return this.translateService.instant('EARNINGS.NOTE_CARD_FEE', { amount: payment.stripeFee.toFixed(2) });
     }
     return null;
   }
@@ -507,16 +544,16 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     switch (this.chartPeriod) {
       case '1m':
         periodStart = new Date(now.getTime() - 4 * weekMs);
-        this.chartPeriodLabel = 'Weekly earnings · Last month';
+        this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_1M');
         break;
       case '6m':
         periodStart = new Date(now.getTime() - 26 * weekMs);
-        this.chartPeriodLabel = 'Weekly earnings · Last 6 months';
+        this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_6M');
         break;
       case 'all':
       default:
         periodStart = new Date(this.userJoinDate);
-        this.chartPeriodLabel = 'Weekly earnings since you joined';
+        this.chartPeriodLabel = this.translateService.instant('EARNINGS.CHART_PERIOD_ALL');
         break;
     }
 
@@ -641,7 +678,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       data: {
         labels: upperLabels,
         datasets: [{
-          label: 'Earnings',
+          label: this.translateService.instant('EARNINGS.CHART_LABEL'),
           data: data,
           borderColor: '#3478f7',
           backgroundColor: fillGradient,
@@ -825,9 +862,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     
     if (!this.payoutMethodConfigured) {
       const alert = await this.alertController.create({
-        header: 'Payout Method Required',
-        message: 'Please set up your payout method (Stripe or PayPal) in settings before requesting a withdrawal.',
-        buttons: ['OK']
+        header: this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_TITLE'),
+        message: this.translateService.instant('EARNINGS.WITHDRAW_METHOD_REQUIRED_MSG'),
+        buttons: [this.translateService.instant('EARNINGS.OK')]
       });
       await alert.present();
       return;
@@ -835,9 +872,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     if (this.balance.available <= 0) {
       const alert = await this.alertController.create({
-        header: 'No Available Balance',
-        message: 'You have no funds available for withdrawal at this time.',
-        buttons: ['OK']
+        header: this.translateService.instant('EARNINGS.WITHDRAW_NO_BALANCE_TITLE'),
+        message: this.translateService.instant('EARNINGS.WITHDRAW_NO_BALANCE_MSG'),
+        buttons: [this.translateService.instant('EARNINGS.OK')]
       });
       await alert.present();
       return;
@@ -944,9 +981,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   async showPayPalFeeInfo() {
     const alert = await this.alertController.create({
-      header: 'PayPal Fee Information',
-      message: 'PayPal charges a 2% fee (minimum $0.25, maximum $20) for instant payouts to your PayPal account. <strong>This fee is charged by PayPal, not by us.</strong> We do not receive any portion of this fee.',
-      buttons: ['Got it']
+      header: this.translateService.instant('EARNINGS.WITHDRAW_PAYPAL_FEE_TITLE'),
+      message: this.translateService.instant('EARNINGS.WITHDRAW_PAYPAL_FEE_MSG'),
+      buttons: [this.translateService.instant('EARNINGS.GOT_IT')]
     });
     await alert.present();
   }
@@ -957,17 +994,18 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
 
     // Show confirmation alert
+    const methodLabel = this.selectedWithdrawalMethod === 'stripe_connect' ? 'Stripe Connect' : 'PayPal';
     const alert = await this.alertController.create({
-      header: 'Confirm Withdrawal',
-      message: `Are you sure you want to withdraw $${this.withdrawalAmount.toFixed(2)}? This will be sent to your ${this.selectedWithdrawalMethod === 'stripe_connect' ? 'Stripe Connect' : 'PayPal'} account.`,
+      header: this.translateService.instant('EARNINGS.WITHDRAW_CONFIRM_TITLE'),
+      message: this.translateService.instant('EARNINGS.WITHDRAW_CONFIRM_MSG', { amount: this.withdrawalAmount.toFixed(2), method: methodLabel }),
       buttons: [
         {
-          text: 'Cancel',
+          text: this.translateService.instant('EARNINGS.WITHDRAW_CANCEL'),
           role: 'cancel',
           cssClass: 'secondary'
         },
         {
-          text: 'Confirm',
+          text: this.translateService.instant('EARNINGS.WITHDRAW_CONFIRM_BTN'),
           handler: async () => {
             this.isWithdrawalModalOpen = false;
             await this.processWithdrawal(this.withdrawalAmount, this.selectedWithdrawalMethod!);
@@ -984,9 +1022,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     const minAmount = method === 'stripe_connect' ? 0.01 : 10;
     if (amount < minAmount) {
       const toast = await this.toastController.create({
-        message: method === 'stripe_connect' 
-          ? 'Please enter a valid withdrawal amount'
-          : 'Minimum withdrawal amount is $10',
+        message: method === 'stripe_connect'
+          ? this.translateService.instant('EARNINGS.WITHDRAW_MIN_STRIPE_ERROR')
+          : this.translateService.instant('EARNINGS.WITHDRAW_MIN_PAYPAL_ERROR'),
         duration: 3000,
         color: 'danger'
       });
@@ -996,7 +1034,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     if (amount > this.balance.available) {
       const toast = await this.toastController.create({
-        message: 'Insufficient balance',
+        message: this.translateService.instant('EARNINGS.WITHDRAW_INSUFFICIENT'),
         duration: 3000,
         color: 'danger'
       });
@@ -1018,7 +1056,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
       if (response.success) {
         const toast = await this.toastController.create({
-          message: `Withdrawal of $${amount.toFixed(2)} requested successfully! Processing within 1-2 business days.`,
+          message: this.translateService.instant('EARNINGS.WITHDRAW_SUCCESS', { amount: amount.toFixed(2) }),
           duration: 4000,
           color: 'success'
         });
@@ -1034,7 +1072,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       console.error('❌ Error requesting withdrawal:', error);
       
       const toast = await this.toastController.create({
-        message: error.error?.message || 'Failed to request withdrawal. Please try again.',
+        message: error.error?.message || this.translateService.instant('EARNINGS.WITHDRAW_ERROR'),
         duration: 4000,
         color: 'danger'
       });
@@ -1063,15 +1101,15 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   getWithdrawalStatusText(status: string): string {
     switch(status) {
       case 'completed':
-        return 'Completed';
+        return this.translateService.instant('EARNINGS.WITHDRAW_STATUS_COMPLETED');
       case 'processing':
-        return 'Processing';
+        return this.translateService.instant('EARNINGS.WITHDRAW_STATUS_PROCESSING');
       case 'pending':
-        return 'Pending';
+        return this.translateService.instant('EARNINGS.WITHDRAW_STATUS_PENDING');
       case 'failed':
-        return 'Failed';
+        return this.translateService.instant('EARNINGS.WITHDRAW_STATUS_FAILED');
       case 'cancelled':
-        return 'Cancelled';
+        return this.translateService.instant('EARNINGS.WITHDRAW_STATUS_CANCELLED');
       default:
         return status;
     }
@@ -1217,15 +1255,15 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     // Compute date range label
     switch (this.selectedDateRange) {
-      case 'today': this.dateRangeLabel = 'Today'; break;
-      case 'week': this.dateRangeLabel = 'Last 7 days'; break;
-      case 'month': this.dateRangeLabel = 'This month'; break;
-      case 'year': this.dateRangeLabel = 'This year'; break;
+      case 'today': this.dateRangeLabel = this.translateService.instant('EARNINGS.FILTER_TODAY'); break;
+      case 'week': this.dateRangeLabel = this.translateService.instant('EARNINGS.FILTER_LAST_7_DAYS'); break;
+      case 'month': this.dateRangeLabel = this.translateService.instant('EARNINGS.FILTER_THIS_MONTH'); break;
+      case 'year': this.dateRangeLabel = this.translateService.instant('EARNINGS.FILTER_THIS_YEAR'); break;
       case 'custom':
         if (this.customStartDate && this.customEndDate) {
           this.dateRangeLabel = `${this.customStartDate} – ${this.customEndDate}`;
         } else {
-          this.dateRangeLabel = 'Custom range';
+          this.dateRangeLabel = this.translateService.instant('EARNINGS.FILTER_CUSTOM_RANGE');
         }
         break;
       default: this.dateRangeLabel = ''; break;

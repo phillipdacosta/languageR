@@ -8,7 +8,17 @@ import { environment } from '../../environments/environment';
 export interface Notification {
   _id: string;
   userId: string;
-  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'class_invitation' | 'class_accepted' | 'office_hours_booking' | 'office_hours_starting' | 'lesson_analysis_ready' | 'tutor_video_approved' | 'tutor_video_rejected' | 'payment_received' | 'lesson_refunded' | 'lesson_partial_refund' | 'payment_cancelled' | 'payment_reduced' | 'investigation_resolved' | 'dispute_submitted' | 'lesson_completed' | 'feedback_reminder' | 'progress_milestone';
+  type: 'lesson_created' | 'message' | 'lesson_reminder' | 'lesson_cancelled' | 'potential_student'
+    | 'class_invitation' | 'class_accepted' | 'class_removed' | 'invitation_cancelled'
+    | 'lesson_rescheduled' | 'reschedule_proposed' | 'reschedule_accepted' | 'reschedule_rejected'
+    | 'office_hours_booking' | 'office_hours_starting'
+    | 'lesson_analysis_ready' | 'class_auto_cancelled' | 'class_invitation_cancelled'
+    | 'tutor_video_approved' | 'tutor_video_rejected'
+    | 'payment_received' | 'lesson_refunded' | 'lesson_partial_refund' | 'payment_cancelled' | 'payment_reduced'
+    | 'investigation_resolved' | 'dispute_submitted'
+    | 'feedback_required' | 'tip_sent' | 'tip_received' | 'withdrawal_initiated'
+    | 'lesson_completed' | 'feedback_reminder' | 'feedback_received'
+    | 'progress_milestone' | 'credential_approved' | 'credential_rejected' | 'tutor_note_saved';
   title: string;
   message: string;
   data: any;

@@ -81,7 +81,7 @@
                 (click)="navigateTo('/tabs/lessons')"
                 #lessonsBtn>
           <!-- <ion-icon name="book-outline"></ion-icon> -->
-          <ion-label>Lessons</ion-label>
+          <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
         </button>
         
         <button class="nav-button" 
@@ -353,12 +353,12 @@
   <ion-tab-bar slot="bottom" *ngIf="showTabs && !shouldHideTabs">
     <ion-tab-button tab="home" [routerLink]="['/tabs/home']" routerDirection="root">
       <ion-icon aria-hidden="true" name="home"></ion-icon>
-      <ion-label>Home</ion-label>
+      <ion-label>{{ 'TABS.HOME' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button *ngIf="currentUser?.userType === 'student'" tab="tutor-search" [routerLink]="['/tabs/tutor-search']" routerDirection="root">
       <ion-icon aria-hidden="true" name="search"></ion-icon>
-      <ion-label>Search</ion-label>
+      <ion-label>{{ 'TABS.SEARCH' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button *ngIf="currentUser?.userType === 'tutor'"
@@ -367,7 +367,7 @@
                     [attr.aria-selected]="isCalendarTabSelected"
                     [attr.aria-label]="'Calendar'">
       <ion-icon aria-hidden="true" name="calendar"></ion-icon>
-      <ion-label>Calendar</ion-label>
+      <ion-label>{{ 'TABS.CALENDAR' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button tab="messages" 
@@ -378,7 +378,7 @@
                     [attr.aria-label]="'Messages'"
                     style="position: relative;">
       <ion-icon aria-hidden="true" name="chatbubbles"></ion-icon>
-      <ion-label>Messages</ion-label>
+      <ion-label>{{ 'TABS.MESSAGES' | translate }}</ion-label>
       <span *ngIf="(unreadCount$ | async)! > 0" 
             class="notification-dot message-tab-notification-dot"
             style="position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; background-color: #ff3b30; border-radius: 50%; border: 2px solid white; z-index: 9999; display: block;"></span>
@@ -386,7 +386,7 @@
 
     <ion-tab-button tab="lessons" [routerLink]="['/tabs/lessons']" routerDirection="root">
       <ion-icon aria-hidden="true" name="book-outline"></ion-icon>
-      <ion-label>Lessons</ion-label>
+      <ion-label>{{ 'TABS.LESSONS' | translate }}</ion-label>
     </ion-tab-button>
 
     <ion-tab-button tab="profile" [routerLink]="['/tabs/profile']" routerDirection="root" class="profile-avatar-tab">
@@ -394,7 +394,7 @@
         <img [src]="currentUser!.picture" alt="" referrerpolicy="no-referrer">
       </div>
       <ion-icon aria-hidden="true" name="person-circle-outline" *ngIf="!currentUser?.picture"></ion-icon>
-      <ion-label>Profile</ion-label>
+      <ion-label>{{ 'TABS.PROFILE' | translate }}</ion-label>
     </ion-tab-button>
   </ion-tab-bar>
 

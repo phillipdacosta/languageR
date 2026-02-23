@@ -1,7 +1,8 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
+import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
@@ -14,17 +15,34 @@ import { CountrySelectModalComponent } from '../components/country-select-modal/
   styleUrls: ['./onboarding.page.scss'],
   standalone: false,
 })
-export class OnboardingPage implements OnInit, AfterViewChecked {
+export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   user$: Observable<any>;
   currentStep = 1;
   totalSteps = 5; // Students: Name + Native Language + Languages + Goals + Experience/Schedule
   currentUser: User | null = null;
 
+  // Language selection pre-step
+  preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  availableInterfaceLanguages: LanguageOption[] = [];
+  selectedInterfaceLanguage: SupportedLanguage = 'en';
+  selectedLanguageFlag = '🇬🇧';
+
+  // Rotating heading animation
+  headingTexts = [
+    'Choose your language',
+    'Elige tu idioma',
+    'Choisissez votre langue',
+    'Escolha seu idioma',
+    'Wählen Sie Ihre Sprache'
+  ];
+  activeHeadingIndex = 0;
+  private headingInterval: any;
+
   // Preview & Welcome state
   showPreview = false;
   showWelcome = false;
   isSubmitting = false;
-  hasReachedPreview = false; // True once the user has visited the preview page at least once
+  hasReachedPreview = false;
 
   // ViewChild references for autofocus
   @ViewChild('firstNameInput') firstNameInput?: ElementRef<HTMLInputElement>;
@@ -270,6 +288,7 @@ export class OnboardingPage implements OnInit, AfterViewChecked {
   constructor(
     private authService: AuthService,
     private userService: UserService,
+    private languageService: LanguageService,
     private router: Router,
     private loadingController: LoadingController,
     private alertController: AlertController,
@@ -278,9 +297,32 @@ export class OnboardingPage implements OnInit, AfterViewChecked {
     private cdr: ChangeDetectorRef
   ) {
     this.user$ = this.authService.user$;
+    this.availableInterfaceLanguages = this.languageService.supportedLanguages;
+    this.selectedInterfaceLanguage = this.languageService.getCurrentLanguage();
+  }
+
+  ngOnDestroy() {
+    this.stopHeadingRotation();
+  }
+
+  private startHeadingRotation() {
+    this.stopHeadingRotation();
+    this.headingInterval = setInterval(() => {
+      this.activeHeadingIndex = (this.activeHeadingIndex + 1) % this.headingTexts.length;
+      this.cdr.detectChanges();
+    }, 2400);
+  }
+
+  private stopHeadingRotation() {
+    if (this.headingInterval) {
+      clearInterval(this.headingInterval);
+      this.headingInterval = null;
+    }
   }
 
   ngOnInit() {
+    this.startHeadingRotation();
+
     // Check if user is authenticated
     this.authService.isAuthenticated$.pipe(take(1)).subscribe(isAuthenticated => {
       if (!isAuthenticated) {
@@ -351,10 +393,29 @@ export class OnboardingPage implements OnInit, AfterViewChecked {
   }
 
   private focusFirstInput() {
-    // Focus the first input based on current step
     if (this.currentStep === 1 && this.firstNameInput?.nativeElement) {
       this.firstNameInput.nativeElement.focus();
     }
+  }
+
+  selectInterfaceLanguage(lang: SupportedLanguage) {
+    this.selectedInterfaceLanguage = lang;
+    this.selectedLanguageFlag = this.languageService.getLanguageOption(lang)?.flag || '🇬🇧';
+    this.languageService.setLanguage(lang);
+  }
+
+  confirmLanguageSelection() {
+    this.stopHeadingRotation();
+    this.preStepPhase = 'welcome';
+  }
+
+  goBackToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
+  }
+
+  startOnboarding() {
+    this.preStepPhase = 'done';
   }
 
   nextStep() {
@@ -372,9 +433,16 @@ export class OnboardingPage implements OnInit, AfterViewChecked {
   }
 
   previousStep() {
-    if (this.currentStep > 1) {
+    if (this.currentStep === 1) {
+      this.preStepPhase = 'welcome';
+    } else {
       this.currentStep--;
     }
+  }
+
+  goToLanguageSelect() {
+    this.preStepPhase = 'language';
+    this.startHeadingRotation();
   }
 
   toggleLanguage(language: string) {
@@ -533,16 +601,17 @@ export class OnboardingPage implements OnInit, AfterViewChecked {
         ).toPromise();
       } else {
         // Student onboarding
-        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string } = {
+        const onboardingData: OnboardingData & { userType: string; picture?: string; nativeLanguage?: string; interfaceLanguage?: string } = {
           userType: 'student',
           firstName: this.formatName(this.firstName),
           lastName: this.formatName(this.lastName),
-          nativeLanguage: this.nativeLanguage, // NEW: Native language for analysis feedback
+          nativeLanguage: this.nativeLanguage,
+          interfaceLanguage: this.selectedInterfaceLanguage,
           languages: this.selectedLanguages,
           goals: this.learningGoals,
           experienceLevel: this.experienceLevel,
           preferredSchedule: this.preferredSchedule,
-          picture: auth0User.picture // Include picture from Auth0 user profile
+          picture: auth0User.picture
         };
 
         console.log('💾 Saving student onboarding data (user will be created if needed)');

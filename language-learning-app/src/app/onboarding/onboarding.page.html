@@ -1,4 +1,96 @@
-<ion-header *ngIf="!showWelcome">
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PRE-STEP: Language Selection                       -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="pre-step-container" *ngIf="preStepPhase === 'language'">
+  <div class="pre-step-inner">
+    <div class="pre-step-logo">
+      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon">
+    </div>
+
+    <div class="pre-step-rotating-heading">
+      <span
+        *ngFor="let text of headingTexts; let i = index"
+        class="rotating-text"
+        [class.visible]="i === activeHeadingIndex">{{ text }}</span>
+    </div>
+
+    <div class="pre-step-language-scroll">
+      <div class="pre-step-language-grid">
+        <button
+          *ngFor="let lang of availableInterfaceLanguages"
+          class="pre-step-lang-card"
+          [class.selected]="selectedInterfaceLanguage === lang.code"
+          (click)="selectInterfaceLanguage(lang.code)">
+          <span class="lang-flag">{{ lang.flag }}</span>
+          <div class="lang-labels">
+            <span class="lang-native-name">{{ lang.nativeName }}</span>
+            <span class="lang-english-name">{{ lang.name }}</span>
+          </div>
+          <div class="lang-check" *ngIf="selectedInterfaceLanguage === lang.code">
+            <ion-icon name="checkmark-circle"></ion-icon>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="pre-step-cta-wrapper">
+      <button class="pre-step-cta" (click)="confirmLanguageSelection()">
+        {{ 'ONBOARDING.LANG_SELECT.CONFIRM' | translate }}
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PRE-STEP: Welcome Screen                           -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="pre-step-container welcome-phase" *ngIf="preStepPhase === 'welcome'">
+  <div class="pre-step-inner welcome-inner">
+    <div class="pre-step-logo">
+      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon welcome-icon">
+    </div>
+
+    <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
+    <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.SUBTITLE' | translate }}</p>
+
+    <div class="welcome-features">
+      <div class="welcome-feature">
+        <div class="feature-icon">
+          <ion-icon name="people"></ion-icon>
+        </div>
+        <span>{{ 'TUTOR.TITLE' | translate }}</span>
+      </div>
+      <div class="welcome-feature">
+        <div class="feature-icon">
+          <ion-icon name="videocam"></ion-icon>
+        </div>
+        <span>{{ 'HOME.START_LESSON' | translate }}</span>
+      </div>
+      <div class="welcome-feature">
+        <div class="feature-icon">
+          <ion-icon name="trending-up"></ion-icon>
+        </div>
+        <span>{{ 'LESSON_SUMMARY.PROGRESS' | translate }}</span>
+      </div>
+    </div>
+
+    <button class="pre-step-cta" (click)="startOnboarding()">
+      {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
+      <ion-icon name="arrow-forward"></ion-icon>
+    </button>
+
+    <button class="pre-step-back-link" (click)="goBackToLanguageSelect()">
+      <ion-icon name="chevron-back"></ion-icon>
+      {{ 'ONBOARDING.WELCOME_SCREEN.BACK' | translate }}
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MAIN ONBOARDING (shown after pre-step)             -->
+<!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="!showWelcome && preStepPhase === 'done'">
   <ion-toolbar class="onboarding-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
@@ -6,6 +98,10 @@
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
+      <button class="lang-switch-btn" (click)="goToLanguageSelect()">
+        <span class="lang-switch-flag">{{ selectedLanguageFlag }}</span>
+        <span class="lang-switch-code">{{ selectedInterfaceLanguage | uppercase }}</span>
+      </button>
       <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
         <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
       </ion-button>
@@ -13,7 +109,7 @@
   </ion-toolbar>
 </ion-header>
 
-<div class="onboarding-container" *ngIf="!showPreview && !showWelcome">
+<div class="onboarding-container" *ngIf="!showPreview && !showWelcome && preStepPhase === 'done'">
   <!-- Two Column Layout -->
   <div class="onboarding-content">
     
@@ -21,8 +117,8 @@
     <div class="left-column">
       <!-- Header -->
       <div class="onboarding-header">
-        <h1>Welcome!</h1>
-        <p>Let's get you started</p>
+        <h1>{{ 'ONBOARDING.STUDENT.WELCOME_TITLE' | translate }}</h1>
+        <p>{{ 'ONBOARDING.STUDENT.WELCOME_SUBTITLE' | translate }}</p>
       </div>
 
       <!-- Progress Bar -->
@@ -30,7 +126,7 @@
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" [style.width.%]="getProgressPercentage()"></div>
         </div>
-        <p class="progress-text">Step {{ currentStep }} of {{ totalSteps }}</p>
+        <p class="progress-text">{{ 'ONBOARDING.STEP_INDICATOR' | translate:{ current: currentStep, total: totalSteps } }}</p>
       </div>
 
       <!-- Steps List -->
@@ -45,8 +141,8 @@
             <span *ngIf="currentStep <= 1" class="step-number">1</span>
           </div>
           <div class="step-info">
-            <h3>About You</h3>
-            <p>Your name</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_ABOUT' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_ABOUT_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -60,8 +156,8 @@
             <span *ngIf="currentStep <= 2" class="step-number">2</span>
           </div>
           <div class="step-info">
-            <h3>Native Language</h3>
-            <p>Your primary language</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_NATIVE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_NATIVE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -75,8 +171,8 @@
             <span *ngIf="currentStep <= 3" class="step-number">3</span>
           </div>
           <div class="step-info">
-            <h3>Languages</h3>
-            <p>What you want to learn</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_LANGUAGES' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_LANGUAGES_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -90,8 +186,8 @@
             <span *ngIf="currentStep <= 4" class="step-number">4</span>
           </div>
           <div class="step-info">
-            <h3>Goals</h3>
-            <p>Your learning goals</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_GOALS' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_GOALS_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -105,8 +201,8 @@
             <span *ngIf="currentStep <= 5" class="step-number">5</span>
           </div>
           <div class="step-info">
-            <h3>Experience</h3>
-            <p>Your level & schedule</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_EXPERIENCE' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_EXPERIENCE_DESC' | translate }}</p>
           </div>
         </div>
 
@@ -120,8 +216,8 @@
             <ion-icon name="document-text"></ion-icon>
           </div>
           <div class="step-info">
-            <h3>Review</h3>
-            <p>Review & submit</p>
+            <h3>{{ 'ONBOARDING.STUDENT.SIDEBAR_REVIEW' | translate }}</h3>
+            <p>{{ 'ONBOARDING.STUDENT.SIDEBAR_REVIEW_DESC' | translate }}</p>
           </div>
         </div>
       </div>
@@ -130,10 +226,9 @@
       <div class="nav-buttons">
         <ion-button 
           fill="clear" 
-          [disabled]="currentStep === 1"
           (click)="previousStep()">
           <ion-icon name="chevron-back" slot="start"></ion-icon>
-          Previous
+          {{ 'ONBOARDING.NAV.PREVIOUS' | translate }}
         </ion-button>
 
         <ion-button 
@@ -141,7 +236,7 @@
           *ngIf="currentStep < totalSteps"
           [disabled]="!canProceed()"
           (click)="nextStep()">
-          Next
+          {{ 'ONBOARDING.NAV.NEXT' | translate }}
           <ion-icon name="chevron-forward" slot="end"></ion-icon>
         </ion-button>
       </div>
@@ -160,28 +255,28 @@
           <div class="step-icon-circle">
             <ion-icon name="person"></ion-icon>
           </div>
-          <h2 class="step-title">What's your name?</h2>
-          <p class="step-description">Let's start with the basics</p>
+          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP1_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP1_SUBTITLE' | translate }}</p>
 
           <div class="form-fields">
             <div class="form-field">
-              <label>First Name *</label>
+              <label>{{ 'ONBOARDING.STUDENT.STEP1_FIRST_NAME' | translate }}</label>
               <input 
                 #firstNameInput
                 type="text"
                 [(ngModel)]="firstName"
                 (blur)="formatFirstNameOnBlur()"
-                placeholder="Enter your first name"
+                [placeholder]="'ONBOARDING.STUDENT.STEP1_FIRST_PLACEHOLDER' | translate"
                 class="modern-input">
             </div>
 
             <div class="form-field">
-              <label>Last Name *</label>
+              <label>{{ 'ONBOARDING.STUDENT.STEP1_LAST_NAME' | translate }}</label>
               <input 
                 type="text"
                 [(ngModel)]="lastName"
                 (blur)="formatLastNameOnBlur()"
-                placeholder="Enter your last name"
+                [placeholder]="'ONBOARDING.STUDENT.STEP1_LAST_PLACEHOLDER' | translate"
                 class="modern-input">
             </div>
           </div>
@@ -192,8 +287,8 @@
           <div class="step-icon-circle">
             <ion-icon name="language"></ion-icon>
           </div>
-          <h2 class="step-title">What's your native language?</h2>
-          <p class="step-description">We'll provide lesson feedback in your language</p>
+          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP2_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP2_SUBTITLE' | translate }}</p>
 
           <div class="language-grid">
             <button 
@@ -212,8 +307,8 @@
           <div class="step-icon-circle">
             <ion-icon name="globe"></ion-icon>
           </div>
-          <h2 class="step-title">What languages would you like to learn?</h2>
-          <p class="step-description">Select all languages that interest you</p>
+          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP3_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP3_SUBTITLE' | translate }}</p>
 
           <div class="options-grid">
             <button 
@@ -231,8 +326,8 @@
           <div class="step-icon-circle">
             <ion-icon name="trophy"></ion-icon>
           </div>
-          <h2 class="step-title">What are your learning goals?</h2>
-          <p class="step-description">Choose what you want to achieve</p>
+          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP4_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP4_SUBTITLE' | translate }}</p>
 
           <div class="goals-list">
             <button 
@@ -254,12 +349,12 @@
           <div class="step-icon-circle">
             <ion-icon name="school"></ion-icon>
           </div>
-          <h2 class="step-title">Tell us about your experience</h2>
-          <p class="step-description">This helps us match you with the right tutors</p>
+          <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP5_TITLE' | translate }}</h2>
+          <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP5_SUBTITLE' | translate }}</p>
 
           <div class="form-fields">
             <div class="form-field">
-              <label>What's your current level?</label>
+              <label>{{ 'ONBOARDING.STUDENT.STEP5_LEVEL' | translate }}</label>
               <div class="options-list">
                 <button 
                   *ngFor="let level of experienceLevels"
@@ -272,7 +367,7 @@
             </div>
 
             <div class="form-field">
-              <label>How often would you like to practice?</label>
+              <label>{{ 'ONBOARDING.STUDENT.STEP5_FREQUENCY' | translate }}</label>
               <div class="options-list">
                 <button 
                   *ngFor="let schedule of scheduleOptions"
@@ -296,7 +391,7 @@
           class="primary-action"
           [disabled]="!canProceed()"
           (click)="nextStep()">
-          Continue
+          {{ 'ONBOARDING.NAV.CONTINUE' | translate }}
           <ion-icon name="arrow-forward" slot="end"></ion-icon>
         </ion-button>
       </div>
@@ -308,7 +403,7 @@
           class="submit-action"
           [disabled]="!canProceed()"
           (click)="showPreviewPage()">
-          Done
+          {{ 'ONBOARDING.NAV.DONE' | translate }}
           <ion-icon name="checkmark" slot="end"></ion-icon>
         </ion-button>
       </div>
@@ -324,8 +419,8 @@
       <div class="preview-icon-circle">
         <ion-icon name="document-text"></ion-icon>
       </div>
-      <h1 class="preview-title">Review Your Info</h1>
-      <p class="preview-subtitle">Make sure everything looks good before we get you started</p>
+      <h1 class="preview-title">{{ 'ONBOARDING.STUDENT.PREVIEW_TITLE' | translate }}</h1>
+      <p class="preview-subtitle">{{ 'ONBOARDING.STUDENT.PREVIEW_SUBTITLE' | translate }}</p>
     </div>
 
     <div class="preview-sections">
@@ -333,15 +428,15 @@
       <div class="preview-section">
         <div class="preview-section-header">
           <ion-icon name="person"></ion-icon>
-          <h3>About You</h3>
-          <button class="edit-link" (click)="goBackToEdit(1)">Edit</button>
+          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_ABOUT' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(1)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Name</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_NAME' | translate }}</span>
           <span class="preview-value">{{ firstName }} {{ lastName }}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Native Language</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_NATIVE_LANG' | translate }}</span>
           <span class="preview-value">{{ getNativeLanguageName() }}</span>
         </div>
       </div>
@@ -350,15 +445,15 @@
       <div class="preview-section">
         <div class="preview-section-header">
           <ion-icon name="globe"></ion-icon>
-          <h3>Learning Preferences</h3>
-          <button class="edit-link" (click)="goBackToEdit(3)">Edit</button>
+          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING_PREFS' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(3)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Learning</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEARNING' | translate }}</span>
           <span class="preview-value">{{ selectedLanguages.join(', ') }}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Goals</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOALS' | translate }}</span>
           <span class="preview-value">{{ learningGoals.join(', ') }}</span>
         </div>
       </div>
@@ -367,15 +462,15 @@
       <div class="preview-section">
         <div class="preview-section-header">
           <ion-icon name="school"></ion-icon>
-          <h3>Experience</h3>
-          <button class="edit-link" (click)="goBackToEdit(5)">Edit</button>
+          <h3>{{ 'ONBOARDING.STUDENT.PREVIEW_EXPERIENCE' | translate }}</h3>
+          <button class="edit-link" (click)="goBackToEdit(5)">{{ 'ONBOARDING.NAV.EDIT' | translate }}</button>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Level</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEVEL' | translate }}</span>
           <span class="preview-value">{{ experienceLevel }}</span>
         </div>
         <div class="preview-row">
-          <span class="preview-label">Schedule</span>
+          <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_SCHEDULE' | translate }}</span>
           <span class="preview-value">{{ preferredSchedule }}</span>
         </div>
       </div>
@@ -384,7 +479,7 @@
     <div class="preview-actions">
       <button class="preview-back-btn" (click)="goBackToEdit()">
         <ion-icon name="chevron-back"></ion-icon>
-        Go Back
+        {{ 'ONBOARDING.NAV.GO_BACK' | translate }}
       </button>
       <ion-button 
         size="large"
@@ -392,7 +487,7 @@
         [disabled]="isSubmitting"
         (click)="completeOnboarding()">
         <ion-spinner *ngIf="isSubmitting" name="crescent" class="btn-spinner"></ion-spinner>
-        <span *ngIf="!isSubmitting">Complete Setup</span>
+        <span *ngIf="!isSubmitting">{{ 'ONBOARDING.NAV.COMPLETE_SETUP' | translate }}</span>
         <ion-icon *ngIf="!isSubmitting" name="checkmark-circle" slot="end"></ion-icon>
       </ion-button>
     </div>
@@ -419,8 +514,8 @@
       <div class="hero-check">
         <ion-icon name="checkmark-sharp"></ion-icon>
       </div>
-      <h1 class="hero-title">You're all set, {{ firstName }}!</h1>
-      <p class="hero-subtitle">Your learning journey starts now. We've matched you with the best resources to help you reach your goals.</p>
+      <h1 class="hero-title">{{ 'ONBOARDING.STUDENT.SUCCESS_TITLE' | translate:{ name: firstName } }}</h1>
+      <p class="hero-subtitle">{{ 'ONBOARDING.STUDENT.SUCCESS_SUBTITLE' | translate }}</p>
     </div>
 
     <!-- Highlights Card -->
@@ -431,7 +526,7 @@
             <ion-icon name="checkmark-circle"></ion-icon>
           </div>
           <div class="detail-text">
-            <span class="detail-value">Profile created</span>
+            <span class="detail-value">{{ 'ONBOARDING.STUDENT.SUCCESS_PROFILE_CREATED' | translate }}</span>
           </div>
         </div>
         <div class="detail-row">
@@ -439,7 +534,7 @@
             <ion-icon name="checkmark-circle"></ion-icon>
           </div>
           <div class="detail-text">
-            <span class="detail-value">Ready to book lessons</span>
+            <span class="detail-value">{{ 'ONBOARDING.STUDENT.SUCCESS_READY_BOOK' | translate }}</span>
           </div>
         </div>
         <div class="detail-row">
@@ -447,7 +542,7 @@
             <ion-icon name="checkmark-circle"></ion-icon>
           </div>
           <div class="detail-text">
-            <span class="detail-value">Personalized experience awaits</span>
+            <span class="detail-value">{{ 'ONBOARDING.STUDENT.SUCCESS_PERSONALIZED' | translate }}</span>
           </div>
         </div>
       </div>
@@ -456,12 +551,12 @@
     <!-- Info Note -->
     <div class="info-note">
       <ion-icon name="sparkles-outline"></ion-icon>
-      <span>We'll personalize your experience based on your preferences.</span>
+      <span>{{ 'ONBOARDING.STUDENT.SUCCESS_NOTE' | translate }}</span>
     </div>
 
     <!-- CTA -->
     <button class="done-btn" (click)="navigateToHome()">
-      Start Learning
+      {{ 'ONBOARDING.NAV.START_LEARNING' | translate }}
     </button>
   </div>
 </div>

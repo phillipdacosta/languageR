@@ -671,13 +671,12 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   private computeReschedule() {
     if (!this.lesson?.rescheduleProposal) return;
     const rp = this.lesson.rescheduleProposal;
-    // Only show for pending reschedule proposals — accepted/rejected are historical
-    if (rp.status && rp.status === 'pending') {
+    if (rp.status === 'pending' && rp.proposedStartTime && rp.proposedEndTime && rp.proposedBy) {
       this.hasReschedule = true;
       this.rescheduleStatus = 'Pending';
-      if (rp.proposedStartTime && rp.proposedEndTime) {
-        const s = new Date(rp.proposedStartTime);
-        const e = new Date(rp.proposedEndTime);
+      const s = new Date(rp.proposedStartTime);
+      const e = new Date(rp.proposedEndTime);
+      if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
         this.proposedTimeRange = `${formatDateInTz(s, this.userTz, { month: 'short', day: 'numeric', year: undefined })} at ${formatTimeInTz(s, this.userTz)} – ${formatTimeInTz(e, this.userTz)}`;
       }
     }

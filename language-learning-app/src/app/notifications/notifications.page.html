@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/home"></ion-back-button>
     </ion-buttons>
-    <ion-title>Notifications</ion-title>
+    <ion-title>{{ 'NOTIFICATIONS.TITLE' | translate }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -14,7 +14,7 @@
       <div class="notification-header">
         <div class="notification-header-left">
           <h2 class="notification-page-title">
-            Notifications
+            {{ 'NOTIFICATIONS.TITLE' | translate }}
             <span class="unread-count-badge" *ngIf="getUnreadNotifications().length > 0">
               {{ getUnreadNotifications().length }}
             </span>
@@ -27,7 +27,7 @@
             fill="clear"
             (click)="markAllAsRead()">
             <ion-icon name="checkmark-done-outline" slot="start"></ion-icon>
-            Mark All as Read
+            {{ 'NOTIFICATIONS.MARK_ALL_READ' | translate }}
           </ion-button>
         </div>
       </div>
@@ -36,7 +36,7 @@
       <div class="notification-search-container">
         <ion-searchbar
           [(ngModel)]="searchTerm"
-          placeholder="Search notifications..."
+          [placeholder]="'NOTIFICATIONS.SEARCH_PLACEHOLDER' | translate"
           (ionInput)="onSearchInput($event)"
           class="notification-searchbar">
         </ion-searchbar>
@@ -65,7 +65,7 @@
     <div class="notification-section" *ngIf="isLoading">
       <div class="notification-loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading notifications...</p>
+        <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
       </div>
     </div>
 
@@ -74,7 +74,7 @@
       <!-- Today Section -->
       <div class="notification-section" *ngIf="getTodayNotifications().length > 0">
         <div class="section-divider"></div>
-        <h2 class="notification-section-title">Today</h2>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.TODAY' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -112,7 +112,7 @@
                 class="add-availability-btn"
                 (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                 <ion-icon name="calendar-outline"></ion-icon>
-                Add availability
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
               </button>
               <!-- View Progress Button for progress_milestone notifications -->
               <button 
@@ -120,7 +120,7 @@
                 class="add-availability-btn milestone-btn"
                 (click)="navigateToProgress(); $event.stopPropagation()">
                 <ion-icon name="trophy-outline"></ion-icon>
-                View Progress
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
               </button>
             </div>
             <div class="notification-item-right">
@@ -133,7 +133,7 @@
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
             </div>
           </div>
@@ -143,7 +143,7 @@
       <!-- Yesterday Section -->
       <div class="notification-section" *ngIf="getYesterdayNotifications().length > 0">
         <div class="section-divider"></div>
-        <h2 class="notification-section-title">Yesterday</h2>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.YESTERDAY' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -181,7 +181,7 @@
                 class="add-availability-btn"
                 (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                 <ion-icon name="calendar-outline"></ion-icon>
-                Add availability
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
               </button>
               <!-- View Progress Button for progress_milestone notifications -->
               <button 
@@ -189,7 +189,7 @@
                 class="add-availability-btn milestone-btn"
                 (click)="navigateToProgress(); $event.stopPropagation()">
                 <ion-icon name="trophy-outline"></ion-icon>
-                View Progress
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
               </button>
             </div>
             <div class="notification-item-right">
@@ -202,7 +202,7 @@
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
             </div>
           </div>
@@ -212,7 +212,7 @@
       <!-- Later Section -->
       <div class="notification-section" *ngIf="getLaterNotifications().length > 0">
         <div class="section-divider"></div>
-        <h2 class="notification-section-title">Earlier</h2>
+        <h2 class="notification-section-title">{{ 'NOTIFICATIONS.EARLIER' | translate }}</h2>
         <div class="notification-list">
           <div
             class="notification-item"
@@ -250,7 +250,7 @@
                 class="add-availability-btn"
                 (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                 <ion-icon name="calendar-outline"></ion-icon>
-                Add availability
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
               </button>
               <!-- View Progress Button for progress_milestone notifications -->
               <button 
@@ -258,7 +258,7 @@
                 class="add-availability-btn milestone-btn"
                 (click)="navigateToProgress(); $event.stopPropagation()">
                 <ion-icon name="trophy-outline"></ion-icon>
-                View Progress
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
               </button>
             </div>
             <div class="notification-item-right">
@@ -271,7 +271,7 @@
                 size="small"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
             </div>
           </div>
@@ -280,9 +280,9 @@
 
       <div class="notification-empty" *ngIf="getTodayNotifications().length === 0 && getYesterdayNotifications().length === 0 && getLaterNotifications().length === 0">
         <ion-icon name="notifications-off-outline"></ion-icon>
-        <p>No notifications found</p>
-        <small *ngIf="searchTerm">Try adjusting your search terms</small>
-        <small *ngIf="!searchTerm">Stay tuned! We'll let you know when there's something new.</small>
+        <p>{{ 'NOTIFICATIONS.EMPTY_TITLE' | translate }}</p>
+        <small *ngIf="searchTerm">{{ 'NOTIFICATIONS.EMPTY_SEARCH' | translate }}</small>
+        <small *ngIf="!searchTerm">{{ 'NOTIFICATIONS.EMPTY_DEFAULT' | translate }}</small>
       </div>
     </ng-container>
   </div>
@@ -294,7 +294,7 @@
     [disabled]="!hasMoreNotifications">
     <ion-infinite-scroll-content
       loadingSpinner="crescent"
-      loadingText="Loading older notifications...">
+      [loadingText]="'NOTIFICATIONS.LOADING_MORE' | translate">
     </ion-infinite-scroll-content>
   </ion-infinite-scroll>
 </ion-content>
