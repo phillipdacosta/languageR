@@ -7,6 +7,7 @@ import { LessonAnalysis } from '../services/transcription.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { firstValueFrom } from 'rxjs';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { ReviewDeckService } from '../services/review-deck.service';
@@ -97,6 +98,10 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   get tutorReceivesAfterFee(): number {
     return Math.max(0, this.tipAmount - this.cardProcessingFee);
+  }
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
   }
   
   // Vocabulary & Goals from lesson
@@ -470,7 +475,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString('en-US', {
+    return formatDateInTz(new Date(date), this.userTz, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -479,11 +484,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatTimeInTz(new Date(date), this.userTz);
   }
 
   async openCardManagement() {

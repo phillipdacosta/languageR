@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
 import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { firstValueFrom } from 'rxjs';
@@ -75,6 +76,10 @@ export class RescheduleLessonModalComponent implements OnInit {
     private userService: UserService,
     private lessonService: LessonService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   async ngOnInit() {
     // Determine tutor and student IDs immediately (lightweight)
@@ -379,18 +384,14 @@ export class RescheduleLessonModalComponent implements OnInit {
     this.selectedTime = event.selectedTime;
     
     // Format for display - Airbnb style (e.g. "Thursday, February 12, 2026")
-    this.selectedDateFormatted = selectedDateTime.toLocaleDateString('en-US', {
+    this.selectedDateFormatted = formatDateInTz(selectedDateTime, this.userTz, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
     
-    this.selectedTimeFormatted = selectedDateTime.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    this.selectedTimeFormatted = formatTimeInTz(selectedDateTime, this.userTz);
     
     // Trigger smooth transition to confirmation screen (forward)
     this.animationDirection = 'forward';
@@ -531,18 +532,13 @@ export class RescheduleLessonModalComponent implements OnInit {
     const startDate = new Date(this.lesson.startTime);
     
     // Format: "Monday, December 23 at 10:30 AM"
-    const dateOptions: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    const timeOptions: Intl.DateTimeFormatOptions = { 
-      hour: 'numeric', 
-      minute: '2-digit' 
-    };
-    
-    const formattedDate = startDate.toLocaleDateString('en-US', dateOptions);
-    const formattedTime = startDate.toLocaleTimeString('en-US', timeOptions);
+    const formattedDate = formatDateInTz(startDate, this.userTz, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: undefined
+    });
+    const formattedTime = formatTimeInTz(startDate, this.userTz);
     
     this.originalLessonTime = `${formattedDate} at ${formattedTime}`;
   }

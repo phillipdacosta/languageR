@@ -650,6 +650,44 @@ router.put('/profile', verifyToken, async (req, res) => {
     
     console.log('📝 Before update - officeHoursEnabled:', user.profile?.officeHoursEnabled, 'showWalletBalance:', user.profile?.showWalletBalance, 'remindersEnabled:', user.profile?.remindersEnabled, 'aiAnalysisEnabled:', user.profile?.aiAnalysisEnabled);
     
+    // If timezone is changing and tutor has availability, convert blocks to maintain real-world times
+    const oldTimezone = user.profile?.timezone || 'UTC';
+    const newTimezone = timezone !== undefined ? timezone : oldTimezone;
+    if (timezone !== undefined && oldTimezone !== newTimezone && user.userType === 'tutor' && user.availability?.length > 0) {
+      console.log(`🌍 Timezone changing from ${oldTimezone} to ${newTimezone} — converting ${user.availability.length} availability blocks`);
+      const { fromZonedTime, toZonedTime } = require('date-fns-tz');
+
+      for (const block of user.availability) {
+        if (!block.startTime || !block.endTime) continue;
+
+        const refDate = block.absoluteStart ? new Date(block.absoluteStart) : new Date();
+        const year = refDate.getFullYear();
+        const month = refDate.getMonth();
+        const day = refDate.getDate();
+
+        const [sh, sm] = block.startTime.split(':').map(Number);
+        const [eh, em] = block.endTime.split(':').map(Number);
+
+        const oldStart = new Date(year, month, day, sh, sm, 0, 0);
+        const oldEnd = new Date(year, month, day, eh, em, 0, 0);
+
+        const startUtc = fromZonedTime(oldStart, oldTimezone);
+        const endUtc = fromZonedTime(oldEnd, oldTimezone);
+
+        const newStart = toZonedTime(startUtc, newTimezone);
+        const newEnd = toZonedTime(endUtc, newTimezone);
+
+        block.startTime = `${String(newStart.getHours()).padStart(2, '0')}:${String(newStart.getMinutes()).padStart(2, '0')}`;
+        block.endTime = `${String(newEnd.getHours()).padStart(2, '0')}:${String(newEnd.getMinutes()).padStart(2, '0')}`;
+
+        if (block.day !== undefined) {
+          block.day = newStart.getDay();
+        }
+      }
+
+      console.log(`✅ Converted availability blocks to ${newTimezone}`);
+    }
+
     // Update profile data - preserve existing values if not provided, use defaults if field doesn't exist
     user.profile = {
       bio: bio !== undefined ? bio : (user.profile?.bio ?? ''),

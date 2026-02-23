@@ -15,7 +15,7 @@ import { TimezoneSelectorComponent } from '../components/timezone-selector/timez
 import { PayoutSelectionModalComponent } from '../components/payout-selection-modal/payout-selection-modal.component';
 import { ImageCropperComponent } from '../components/image-cropper/image-cropper.component';
 import { detectUserTimezone } from '../shared/timezone.constants';
-import { getTimezoneLabel } from '../shared/timezone.utils';
+import { getTimezoneLabel, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
@@ -483,13 +483,13 @@ export class ProfilePage implements OnInit {
   formatFeedbackDate(dateStr: any): string {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return formatDateInTz(d, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
   }
 
   formatFeedbackTime(dateStr: any): string {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return formatTimeInTz(d, this.userTz);
   }
 
   // Get full name for display
@@ -568,6 +568,10 @@ export class ProfilePage implements OnInit {
 
   getDisplayUser(): any {
     return this.isViewingOtherUser ? this.viewingUser : this.currentUser;
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
   }
 
   onVideoUploaded(data: { url: string; thumbnail: string; type: 'upload' | 'youtube' | 'vimeo' }) {

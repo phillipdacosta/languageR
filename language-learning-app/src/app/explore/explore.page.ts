@@ -7,6 +7,7 @@ import { ClassService } from '../services/class.service';
 import { UserService } from '../services/user.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 
 @Component({
@@ -72,6 +73,8 @@ export class ExplorePage implements OnInit {
     { value: 'Swahili', label: 'Swahili' },
     { value: 'English', label: 'English' }
   ];
+
+  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
 
   constructor(
     private classService: ClassService,
@@ -280,10 +283,11 @@ export class ExplorePage implements OnInit {
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: undefined
     });
   }
 
@@ -315,11 +319,7 @@ export class ExplorePage implements OnInit {
 
   formatTime(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   getLevelLabel(level: string): string {

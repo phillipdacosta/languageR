@@ -589,7 +589,7 @@
                          [class.availability-event]="event.isAvailability"
                          [class.class-event]="event.isClass"
                          [class.is-cancelled]="event.extendedProps?.isCancelled"
-                         [style.top.px]="event | eventTop"
+                         [style.top.px]="event | eventTop:userTz"
                          [style.height.px]="event | eventHeight"
                          [class.past]="event | isEventPast"
                          [class.short-event]="(event | eventHeight) < 45"
@@ -606,7 +606,7 @@
                       <div class="event-header">
                         <!-- First row: Time and duration (left aligned) -->
                         <div class="event-time-row">
-                          <div class="event-time">{{ event | eventTime }}</div>
+                          <div class="event-time">{{ event | eventTime:userTz }}</div>
                         </div>
                         
                         <!-- Second row: Avatar and name (left aligned) -->
@@ -679,7 +679,7 @@
                        [class.availability-event]="event.isAvailability"
                        [class.class-event]="event.isClass"
                        [class.is-cancelled]="event.extendedProps?.isCancelled"
-                       [style.top.px]="event | eventTop"
+                       [style.top.px]="event | eventTop:userTz"
                        [style.height.px]="event | eventHeight"
                        [class.past]="event | isEventPast"
                        [class.short-event]="(event | eventHeight) < 45"
@@ -689,7 +689,7 @@
                     <div class="event-header">
                       <!-- First row: Time and duration (left aligned) -->
                       <div class="event-time-row">
-                        <div class="event-time">{{ event | eventTime }}</div>
+                        <div class="event-time">{{ event | eventTime:userTz }}</div>
                       </div>
                       
                       <!-- Second row: Avatar and name (left aligned) -->

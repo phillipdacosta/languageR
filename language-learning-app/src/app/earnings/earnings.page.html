@@ -214,9 +214,9 @@
               
               <!-- Date -->
               <td class="date-col">
-                <span class="date-primary">{{ payment.date | date:'MMM d' }}</span>
-                <span class="date-secondary" *ngIf="payment.startTime">{{ payment.startTime | date:'h:mm a' }}</span>
-                <span class="date-secondary" *ngIf="!payment.startTime">—</span>
+                <span class="date-primary">{{ payment.formattedDate }}</span>
+                <span class="date-secondary" *ngIf="payment.formattedTime">{{ payment.formattedTime }}</span>
+                <span class="date-secondary" *ngIf="!payment.formattedTime">—</span>
               </td>
               
               <!-- Student -->

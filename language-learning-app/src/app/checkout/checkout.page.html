@@ -20,16 +20,6 @@
             </div>
             <div class="meta">
               <div class="name">{{ tutorDisplayName }}</div>
-              <div class="slot-line">
-                <div class="date-badge">
-                  <div class="mon">{{ dateMonthShort }}</div>
-                  <div class="day">{{ dateDayNumber }}</div>
-                </div>
-                <div class="slot-text">
-                  <div class="when">{{ dateWeekday }}, {{ timeRange }}</div>
-                  <div class="tz-note">Time is based on your location</div>
-                </div>
-              </div>
               <div class="tutor-rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">
                 <div class="rate-amount">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}</div>
                 <div class="rate-label">per 50-min lesson</div>
@@ -37,24 +27,40 @@
             </div>
           </div>
 
-          <!-- Lesson Details Info Card - Compact -->
-          <div class="lesson-info-card compact">
-            <div class="info-item" *ngIf="isTrialLesson">
-              <ion-icon name="sparkles-outline" class="trial-icon"></ion-icon>
-              <span class="trial-label"><strong>Trial Lesson</strong></span>
-            </div>
-            <div class="info-item">
-              <ion-icon name="videocam-outline"></ion-icon>
-              <span>Live video</span>
-            </div>
-            <div class="info-item">
-              <ion-icon name="document-text-outline"></ion-icon>
-              <span>Transcript</span>
-            </div>
-            <div class="info-item">
+          <div class="booking-details compact">
+            <div class="bd-row">
               <ion-icon name="calendar-outline"></ion-icon>
-              <span>Reschedule</span>
+              <div class="bd-text">
+                <span class="bd-label">Date</span>
+                <span class="bd-value">{{ formattedDate }}</span>
+              </div>
             </div>
+            <div class="bd-row">
+              <ion-icon name="time-outline"></ion-icon>
+              <div class="bd-text">
+                <span class="bd-label">Time</span>
+                <span class="bd-value">{{ timeRange }}</span>
+              </div>
+            </div>
+            <div class="bd-row">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <div class="bd-text">
+                <span class="bd-label">Duration</span>
+                <span class="bd-value">{{ lessonMinutes }} minutes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lesson-features compact">
+            <span class="feature-chip trial" *ngIf="isTrialLesson">
+              <ion-icon name="sparkles-outline"></ion-icon> Trial
+            </span>
+            <span class="feature-chip">
+              <ion-icon name="videocam-outline"></ion-icon> Live video
+            </span>
+            <span class="feature-chip">
+              <ion-icon name="swap-horizontal-outline"></ion-icon> Reschedule
+            </span>
           </div>
 
           <!-- Price Breakdown -->
@@ -359,7 +365,6 @@
           <!-- Confirm Button -->
           <ion-button 
             expand="block" 
-            color="primary" 
             class="confirm-btn"
             [disabled]="isBooking || !tutor || !currentUser || !hasValidPaymentMethod"
             (click)="confirmBooking()">
@@ -374,23 +379,12 @@
     <!-- Original Single Column Layout for Non-Embedded Mode -->
     <ng-container *ngIf="!embedded">
       <section class="summary">
-        <h2>Your tutor</h2>
         <div class="tutor-card">
           <div class="avatar">
             <img *ngIf="tutor?.picture" [src]="tutor.picture" alt="{{ tutorDisplayName }}">
           </div>
           <div class="meta">
             <div class="name">{{ tutorDisplayName }}</div>
-            <div class="slot-line">
-              <div class="date-badge">
-                <div class="mon">{{ dateMonthShort }}</div>
-                <div class="day">{{ dateDayNumber }}</div>
-              </div>
-              <div class="slot-text">
-                <div class="when">{{ dateWeekday }}, {{ timeRange }}</div>
-                <div class="tz-note">Time is based on your location</div>
-              </div>
-            </div>
             <div class="tutor-rate" *ngIf="tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate">
               <div class="rate-amount">${{ tutor?.hourlyRate || tutor?.onboardingData?.hourlyRate }}</div>
               <div class="rate-label">per 50-min lesson</div>
@@ -398,24 +392,41 @@
           </div>
         </div>
 
-        <!-- Lesson Details Info Card -->
-        <div class="lesson-info-card">
-          <div class="info-item" *ngIf="isTrialLesson">
-            <ion-icon name="sparkles-outline" class="trial-icon"></ion-icon>
-            <span class="trial-label"><strong>Trial Lesson</strong> with {{ tutorDisplayName }}</span>
-          </div>
-          <div class="info-item">
-            <ion-icon name="videocam-outline"></ion-icon>
-            <span>Live video lesson</span>
-          </div>
-          <!-- <div class="info-item">
-            <ion-icon name="document-text-outline"></ion-icon>
-            <span>Session transcript included</span>
-          </div> -->
-          <div class="info-item">
+        <div class="booking-details">
+          <div class="bd-row">
             <ion-icon name="calendar-outline"></ion-icon>
-            <span>Flexible rescheduling</span>
+            <div class="bd-text">
+              <span class="bd-label">Date</span>
+              <span class="bd-value">{{ formattedDate }}</span>
+            </div>
           </div>
+          <div class="bd-row">
+            <ion-icon name="time-outline"></ion-icon>
+            <div class="bd-text">
+              <span class="bd-label">Time</span>
+              <span class="bd-value">{{ timeRange }}</span>
+            </div>
+          </div>
+          <div class="bd-row">
+            <ion-icon name="hourglass-outline"></ion-icon>
+            <div class="bd-text">
+              <span class="bd-label">Duration</span>
+              <span class="bd-value">{{ lessonMinutes }} minutes</span>
+            </div>
+          </div>
+          <p class="bd-tz">Time is in your local timezone</p>
+        </div>
+
+        <div class="lesson-features">
+          <span class="feature-chip trial" *ngIf="isTrialLesson">
+            <ion-icon name="sparkles-outline"></ion-icon> Trial Lesson
+          </span>
+          <span class="feature-chip">
+            <ion-icon name="videocam-outline"></ion-icon> Live video
+          </span>
+          <span class="feature-chip">
+            <ion-icon name="swap-horizontal-outline"></ion-icon> Reschedule
+          </span>
         </div>
 
         <div class="details">
@@ -718,7 +729,6 @@
         <!-- Confirm Button -->
         <ion-button 
           expand="block" 
-          color="primary" 
           class="confirm-btn"
           [disabled]="isBooking || !tutor || !currentUser || !hasValidPaymentMethod"
           (click)="confirmBooking()">

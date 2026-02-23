@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { trigger, state, style, transition, animate } from '@angular/animations';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-booking-success',
@@ -45,8 +47,13 @@ export class BookingSuccessPage implements OnInit {
   formattedTime: string = '';
 
   constructor(
-    private router: Router
+    private router: Router,
+    private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     // Get lesson details from navigation state
@@ -79,16 +86,13 @@ export class BookingSuccessPage implements OnInit {
     // Format date and time
     if (this.lessonDetails.startTime) {
       const startDate = new Date(this.lessonDetails.startTime);
-      this.formattedDate = startDate.toLocaleDateString('en-US', {
+      this.formattedDate = formatDateInTz(startDate, this.userTz, {
         weekday: 'long',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
+        year: undefined
       });
-      this.formattedTime = startDate.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
+      this.formattedTime = formatTimeInTz(startDate, this.userTz);
     }
   }
 

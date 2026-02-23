@@ -256,13 +256,15 @@ router.get('/conversations', verifyToken, async (req, res) => {
             auth0Id: otherUser.auth0Id,
             name: formatDisplayName(otherUser),
             picture: otherUser.picture,
-            userType: otherUser.userType
+            userType: otherUser.userType,
+            timezone: otherUser.profile?.timezone || otherUser.timezone || 'UTC'
           } : {
             id: conv.otherUserId,
             auth0Id: conv.otherUserId,
             name: 'Unknown User',
             picture: null,
-            userType: 'user'
+            userType: 'user',
+            timezone: 'UTC'
           },
           lastMessage: {
             content: conv.lastMessage.content,

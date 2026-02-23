@@ -1,124 +1,80 @@
 /**
- * Timezone conversion utilities
- * Handles converting times between different timezones
+ * Timezone conversion utilities using date-fns-tz for reliable conversions.
  */
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 /**
- * Convert a time string (HH:mm) on a specific date from one timezone to another
- * @param dateStr Date string in YYYY-MM-DD format
- * @param timeStr Time string in HH:mm format (24-hour)
- * @param fromTimezone Source timezone (IANA identifier)
- * @param toTimezone Target timezone (IANA identifier)
- * @returns Object with converted date and time
+ * Convert a wall-clock time (HH:mm on YYYY-MM-DD) from one IANA timezone to another.
+ * Uses date-fns-tz for correct DST-aware conversion.
  */
 export function convertTimeToTimezone(
   dateStr: string,
   timeStr: string,
   fromTimezone: string,
   toTimezone: string
-): { date: string; time: string; dateTime: Date } {
+): { date: string; time: string; dateTime: Date; dayOfWeek: number } {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
+
+  if (fromTimezone === toTimezone) {
+    const dt = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return { date: dateStr, time: timeStr, dateTime: dt, dayOfWeek: dt.getDay() };
+  }
+
   try {
-    // Parse the date and time
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    
-    // Create a date string in the source timezone
-    // Format: "2024-01-15 14:30" -> needs to be interpreted in fromTimezone
-    const dateTimeStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-    
-    // Parse as if in fromTimezone
-    const sourceDate = new Date(dateTimeStr);
-    
-    // Get the offset difference between timezones
-    const sourceFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: fromTimezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    const targetFormatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: toTimezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-    
-    // Create a Date object representing the time in UTC
-    // We'll use a reference date to calculate the offset
-    const refDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
-    
-    // Format the reference date in both timezones
-    const sourceParts = sourceFormatter.formatToParts(refDate);
-    const targetParts = targetFormatter.formatToParts(refDate);
-    
-    // Extract values
-    const getPartValue = (parts: Intl.DateTimeFormatPart[], type: string) => {
-      return parts.find(p => p.type === type)?.value || '0';
-    };
-    
-    const targetYear = parseInt(getPartValue(targetParts, 'year'));
-    const targetMonth = parseInt(getPartValue(targetParts, 'month'));
-    const targetDay = parseInt(getPartValue(targetParts, 'day'));
-    const targetHour = parseInt(getPartValue(targetParts, 'hour'));
-    const targetMinute = parseInt(getPartValue(targetParts, 'minute'));
-    
-    // Create the converted date
-    const convertedDate = new Date(targetYear, targetMonth - 1, targetDay, targetHour, targetMinute, 0);
-    
-    // Format output
-    const outDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
-    const outTime = `${String(targetHour).padStart(2, '0')}:${String(targetMinute).padStart(2, '0')}`;
-    
+    const wallClock = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    const utcInstant = fromZonedTime(wallClock, fromTimezone);
+    const target = toZonedTime(utcInstant, toTimezone);
+
+    const outYear = target.getFullYear();
+    const outMonth = target.getMonth() + 1;
+    const outDay = target.getDate();
+    const outHours = target.getHours();
+    const outMinutes = target.getMinutes();
+
     return {
-      date: outDate,
-      time: outTime,
-      dateTime: convertedDate
+      date: `${outYear}-${String(outMonth).padStart(2, '0')}-${String(outDay).padStart(2, '0')}`,
+      time: `${String(outHours).padStart(2, '0')}:${String(outMinutes).padStart(2, '0')}`,
+      dateTime: target,
+      dayOfWeek: target.getDay()
     };
   } catch (error) {
     console.error('Error converting timezone:', error);
-    // Return original values on error
-    return {
-      date: dateStr,
-      time: timeStr,
-      dateTime: new Date()
-    };
+    const dt = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    return { date: dateStr, time: timeStr, dateTime: dt, dayOfWeek: dt.getDay() };
   }
 }
 
 /**
- * Simpler approach: Convert a Date object from one timezone to another
- * @param date Date object or ISO string
- * @param fromTimezone Source timezone
- * @param toTimezone Target timezone
- * @returns Date object in target timezone
+ * Convert a wall-clock time in a specific timezone to a UTC Date.
  */
-export function convertDateBetweenTimezones(
-  date: Date | string,
-  fromTimezone: string,
-  toTimezone: string
-): Date {
-  try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    
-    // Get the time in the source timezone
-    const sourceStr = dateObj.toLocaleString('en-US', { timeZone: fromTimezone });
-    
-    // Parse it back as if it were in the target timezone
-    // This effectively "moves" the time to the target timezone
-    const targetDate = new Date(sourceStr);
-    
-    return targetDate;
-  } catch (error) {
-    console.error('Error converting date between timezones:', error);
-    return typeof date === 'string' ? new Date(date) : date;
-  }
+export function wallClockToUtc(dateStr: string, timeStr: string, timezone: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const wallClock = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  return fromZonedTime(wallClock, timezone);
+}
+
+/**
+ * Convert a UTC Date to wall-clock components in a specific timezone.
+ */
+export function utcToWallClock(
+  utcDate: Date,
+  timezone: string
+): { date: string; time: string; dayOfWeek: number; hours: number; minutes: number } {
+  const zoned = toZonedTime(utcDate, timezone);
+  const y = zoned.getFullYear();
+  const m = zoned.getMonth() + 1;
+  const d = zoned.getDate();
+  const h = zoned.getHours();
+  const min = zoned.getMinutes();
+  return {
+    date: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
+    time: `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`,
+    dayOfWeek: zoned.getDay(),
+    hours: h,
+    minutes: min
+  };
 }
 
 /**
@@ -166,47 +122,88 @@ export function getTimezoneLabel(timezone: string): string {
 }
 
 /**
- * Convert availability block times from tutor timezone to viewer timezone
- * @param blocks Availability blocks with startTime and endTime
- * @param date The date for which we're converting
- * @param fromTimezone Tutor's timezone
- * @param toTimezone Viewer's timezone
- * @returns Blocks with converted times
+ * Format a UTC Date as a time string (e.g., "2:30 PM") in the given timezone.
+ * Falls back to browser timezone if none provided.
  */
-export function convertAvailabilityBlocks(
-  blocks: any[],
-  date: Date,
-  fromTimezone: string,
-  toTimezone: string
-): any[] {
-  if (fromTimezone === toTimezone) {
-    return blocks; // No conversion needed
+export function formatTimeInTz(date: Date | string, timezone?: string): string {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      ...(timezone ? { timeZone: timezone } : {})
+    });
+  } catch {
+    return '';
   }
-  
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  
-  return blocks.map(block => {
-    const startConverted = convertTimeToTimezone(dateStr, block.startTime, fromTimezone, toTimezone);
-    const endConverted = convertTimeToTimezone(dateStr, block.endTime, fromTimezone, toTimezone);
-    
-    return {
-      ...block,
-      originalStartTime: block.startTime,
-      originalEndTime: block.endTime,
-      startTime: startConverted.time,
-      endTime: endConverted.time,
-      // Note: Date might change due to timezone conversion
-      dateOffset: startConverted.date !== dateStr ? startConverted.date : undefined
-    };
-  });
 }
 
 /**
- * Check if two dates are on the same day in a given timezone
- * @param date1 First date
- * @param date2 Second date
- * @param timezone Timezone to compare in
- * @returns True if same day
+ * Format a UTC Date as a date string (e.g., "Feb 23, 2026") in the given timezone.
+ * Falls back to browser timezone if none provided.
+ */
+export function formatDateInTz(
+  date: Date | string,
+  timezone?: string,
+  options?: Intl.DateTimeFormatOptions
+): string {
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const defaults: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      ...(timezone ? { timeZone: timezone } : {})
+    };
+    return d.toLocaleDateString('en-US', { ...defaults, ...options });
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Format a UTC Date as a time range (e.g., "2:30 PM – 3:00 PM") in the given timezone.
+ */
+export function formatTimeRangeInTz(start: Date | string, end: Date | string, timezone?: string): string {
+  return `${formatTimeInTz(start, timezone)} – ${formatTimeInTz(end, timezone)}`;
+}
+
+/**
+ * Get the hour (0-23) of a Date in a given timezone.
+ * Falls back to local getHours() if no timezone provided.
+ */
+export function getHoursInTz(date: Date, timezone?: string): number {
+  if (!timezone) return date.getHours();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', hour12: false }).formatToParts(date);
+    const hourPart = parts.find(p => p.type === 'hour');
+    const h = parseInt(hourPart?.value || '0', 10);
+    return h === 24 ? 0 : h;
+  } catch {
+    return date.getHours();
+  }
+}
+
+/**
+ * Get the minute (0-59) of a Date in a given timezone.
+ * Falls back to local getMinutes() if no timezone provided.
+ */
+export function getMinutesInTz(date: Date, timezone?: string): number {
+  if (!timezone) return date.getMinutes();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, minute: 'numeric' }).formatToParts(date);
+    const minPart = parts.find(p => p.type === 'minute');
+    return parseInt(minPart?.value || '0', 10);
+  } catch {
+    return date.getMinutes();
+  }
+}
+
+/**
+ * Check if two dates are on the same day in a given timezone.
  */
 export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string): boolean {
   try {
@@ -216,13 +213,8 @@ export function isSameDayInTimezone(date1: Date, date2: Date, timezone: string):
       month: '2-digit',
       day: '2-digit'
     });
-    
-    const date1Str = formatter.format(date1);
-    const date2Str = formatter.format(date2);
-    
-    return date1Str === date2Str;
+    return formatter.format(date1) === formatter.format(date2);
   } catch {
-    // Fallback to simple comparison
     return date1.toDateString() === date2.toDateString();
   }
 }

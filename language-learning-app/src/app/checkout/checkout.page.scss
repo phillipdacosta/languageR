@@ -253,20 +253,20 @@ h2 {
 
 .meta .tutor-rate { 
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
   
   .rate-amount {
-    color: #667eea;
-    font-size: 20px;
+    color: #1c1c1e;
+    font-size: 17px;
     font-weight: 700;
     line-height: 1;
   }
   
   .rate-label {
     color: #8e8e93;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
   }
 }
@@ -307,6 +307,108 @@ h2 {
       color: #667eea;
       font-weight: 600;
     }
+  }
+}
+
+// Booking Details — Prominent date/time/duration section
+.booking-details {
+  background: #f8f9fa;
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  &.compact {
+    padding: 12px 14px;
+    gap: 10px;
+    margin-bottom: 10px;
+
+    .bd-row ion-icon { font-size: 18px; }
+    .bd-value { font-size: 14px; }
+    .bd-label { font-size: 10px; }
+  }
+}
+
+.bd-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  ion-icon {
+    font-size: 22px;
+    color: #1c1c1e;
+    flex-shrink: 0;
+  }
+}
+
+.bd-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.bd-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8e8e93;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.bd-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c1c1e;
+  letter-spacing: -0.3px;
+}
+
+.bd-tz {
+  font-size: 11px;
+  color: #8e8e93;
+  margin: -4px 0 0 0;
+}
+
+// Lesson Features — Horizontal chip row
+.lesson-features {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+
+  &.compact {
+    margin-bottom: 10px;
+
+    .feature-chip {
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+  }
+}
+
+.feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1c1c1e;
+  background: #f2f2f7;
+  padding: 6px 12px;
+  border-radius: 20px;
+
+  ion-icon {
+    font-size: 14px;
+    color: #8e8e93;
+  }
+
+  &.trial {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.12) 100%);
+    color: #667eea;
+    font-weight: 600;
+
+    ion-icon { color: #764ba2; }
   }
 }
 
@@ -897,9 +999,10 @@ h2 {
 
 // Buttons
 .confirm-btn {
-  --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --background: #222;
+  --color: #fff;
   --border-radius: 12px;
-  --box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  --box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   --padding-top: 14px;
   --padding-bottom: 14px;
   margin-top: 16px;
@@ -912,12 +1015,13 @@ h2 {
   transition: all 0.2s ease;
   
   &:hover:not([disabled]) {
-    --box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
-    transform: translateY(-2px);
+    --background: #000;
+    --box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
   }
   
   &[disabled] {
-    opacity: 0.6;
+    opacity: 0.5;
   }
 }
 
@@ -1928,29 +2032,6 @@ h2 {
               margin-bottom: 4px !important;
             }
             
-            .date-badge {
-              width: 40px !important;
-              padding: 4px !important;
-              border-radius: 6px !important;
-              
-              .mon {
-                font-size: 10px !important;
-              }
-              
-              .day {
-                font-size: 17px !important;
-              }
-            }
-            
-            .slot-text .when {
-              font-size: 15px !important;
-              margin-bottom: 2px !important;
-            }
-            
-            .slot-text .tz-note {
-              font-size: 12px !important;
-            }
-            
             .tutor-rate {
               margin-top: 4px !important;
               
@@ -1960,23 +2041,6 @@ h2 {
               
               .rate-label {
                 font-size: 12px !important;
-              }
-            }
-          }
-          
-          .lesson-info-card.compact {
-            padding: 8px !important;
-            margin-bottom: 8px !important;
-            gap: 6px !important;
-            border-radius: 8px !important;
-            
-            .info-item {
-              font-size: 14px !important;
-              gap: 6px !important;
-              margin: 0 !important;
-              
-              ion-icon {
-                font-size: 17px !important;
               }
             }
           }

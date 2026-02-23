@@ -182,9 +182,9 @@
           <h2 class="calendar-title">{{ getWeekRange() }}</h2>
         </div>
         <div class="toolbar-right">
-          <p class="timezone-info" *ngIf="tutorTimezone">
+          <p class="timezone-info" *ngIf="tutorTimezoneLabel">
             <ion-icon name="globe-outline"></ion-icon>
-            {{ getTimezoneLabel(tutorTimezone) }}
+            {{ tutorTimezoneLabel }}
           </p>
           <div class="view-switcher">
             <button [class.active]="!isSingleDayMode" (click)="switchToWeekView()">Week</button>

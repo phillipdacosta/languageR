@@ -7,6 +7,7 @@ import { ClassService } from '../services/class.service';
 import { UserService } from '../services/user.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-explore-details',
@@ -21,6 +22,8 @@ export class ExploreDetailsPage implements OnInit {
   isLoading = true;
   currentUser: any = null;
   sanitizedDescription: SafeHtml = '';
+
+  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
 
   constructor(
     private route: ActivatedRoute,
@@ -81,36 +84,24 @@ export class ExploreDetailsPage implements OnInit {
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   }
 
   formatTime(dateString: string): string {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatTimeRange(startTime: string, endTime: string): string {
     const start = new Date(startTime);
     const end = new Date(endTime);
-    const startStr = start.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    const endStr = end.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    const startStr = formatTimeInTz(start, this.userTz);
+    const endStr = formatTimeInTz(end, this.userTz);
     return `${startStr} - ${endStr}`;
   }
 

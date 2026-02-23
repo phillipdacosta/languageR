@@ -761,6 +761,7 @@
   &.partial   { background: #fffbeb; }
   &.cancelled { background: #f9fafb; }
   &.paid      { background: #f0fdf4; }
+  &.pending   { background: #eff6ff; }
   &.on-hold   { background: #fffbeb; }
 }
 
@@ -789,6 +790,7 @@
   &.partial   { background: #fef3c7; ion-icon { color: #d97706; } }
   &.cancelled { background: #f3f4f6; ion-icon { color: #6b7280; } }
   &.paid      { background: #dcfce7; ion-icon { color: #16a34a; } }
+  &.pending   { background: #dbeafe; ion-icon { color: #2563eb; } }
   &.on-hold   { background: #fef3c7; ion-icon { color: #d97706; } }
 }
 

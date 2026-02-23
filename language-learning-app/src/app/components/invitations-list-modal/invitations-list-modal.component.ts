@@ -2,7 +2,9 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { ClassService } from '../../services/class.service';
+import { UserService } from '../../services/user.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 
 @Component({
   selector: 'app-invitations-list-modal',
@@ -51,8 +53,13 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   constructor(
     private modalController: ModalController,
     private classService: ClassService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     console.log('InvitationsListModalComponent - all invitations:', this.invitations);
@@ -140,30 +147,27 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   formatClassDate(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: undefined
     });
   }
 
   formatClassTime(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatDetailedDate(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
+    return formatDateInTz(date, this.userTz, {
       weekday: 'long',
       year: 'numeric',
-      month: 'long', 
+      month: 'long',
       day: 'numeric'
     });
   }
@@ -171,11 +175,7 @@ export class InvitationsListModalComponent implements OnInit, OnChanges {
   formatDetailedTime(dateString: string): string {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatTutorName(tutor: any): string {

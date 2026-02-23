@@ -11,6 +11,7 @@ import { MessagingService } from '../services/messaging.service';
 import { LessonService } from '../services/lesson.service';
 import { ClassService } from '../services/class.service';
 import { firstValueFrom } from 'rxjs';
+import { fromZonedTime } from 'date-fns-tz';
 import { VideoPlayerModalComponent } from './video-player-modal.component';
 import { CountryFilterPopoverComponent } from './country-filter-popover.component';
 import { TutorFiltersModalComponent } from '../components/tutor-filters-modal/tutor-filters-modal.component';
@@ -1958,73 +1959,91 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
         return bookedRanges.some(range => slotStart < range.end && slotEnd > range.start);
       };
 
-      // Process availability blocks to find available slots for today/tomorrow
-      for (const block of response.availability) {
-        if (block.type !== 'available') continue;
+      // Use the same approach as tutor-availability-viewer:
+      // Iterate standard 30-min slots in student timezone, convert each to tutor timezone,
+      // and check if any availability block covers that time.
+      const tutorTz = response.timezone || 'America/New_York';
+      const studentTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const blocks = response.availability.filter((b: any) => b.type === 'available');
 
-        let blockStart: Date | null = null;
-        let blockEnd: Date | null = null;
+      const timeToMinutes = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + (m || 0);
+      };
 
-        // Handle absolute date blocks
-        if (block.absoluteStart && block.absoluteEnd) {
-          blockStart = new Date(block.absoluteStart);
-          blockEnd = new Date(block.absoluteEnd);
-        } 
-        // Handle recurring blocks
-        else if (block.startTime && block.endTime && typeof block.day === 'number') {
-          const dayOfWeek = block.day;
-          const todayDay = today.getDay();
-          const tomorrowDay = tomorrow.getDay();
+      for (const checkDate of [today, tomorrow]) {
+        if (availableSlots.length >= 5) break;
+        const dateYear = checkDate.getFullYear();
+        const dateMonth = checkDate.getMonth();
+        const dateDay = checkDate.getDate();
 
-          if (dayOfWeek === todayDay) {
-            const [hours, minutes] = block.startTime.split(':').map(Number);
-            blockStart = new Date(today);
-            blockStart.setHours(hours, minutes || 0, 0, 0);
-            const [endHours, endMinutes] = block.endTime.split(':').map(Number);
-            blockEnd = new Date(today);
-            blockEnd.setHours(endHours, endMinutes || 0, 0, 0);
-          } else if (dayOfWeek === tomorrowDay) {
-            const [hours, minutes] = block.startTime.split(':').map(Number);
-            blockStart = new Date(tomorrow);
-            blockStart.setHours(hours, minutes || 0, 0, 0);
-            const [endHours, endMinutes] = block.endTime.split(':').map(Number);
-            blockEnd = new Date(tomorrow);
-            blockEnd.setHours(endHours, endMinutes || 0, 0, 0);
-          }
-        }
+        for (let h = 0; h < 24; h++) {
+          for (const m of [0, 30]) {
+            if (availableSlots.length >= 5) break;
 
-        if (!blockStart || !blockEnd) continue;
+            // Create this slot as a wall-clock time in student timezone, then convert to UTC
+            const studentWall = new Date(dateYear, dateMonth, dateDay, h, m, 0, 0);
+            const slotUtc = fromZonedTime(studentWall, studentTz);
 
-        // Only include future slots
-        if (blockStart < now) {
-          // If block started but hasn't ended, use current time as start
-          if (blockEnd > now) {
-            blockStart = now;
-          } else {
-            continue;
-          }
-        }
+            // Skip past slots
+            if (slotUtc <= now) continue;
+            // Skip slots beyond our window
+            if (slotUtc >= dayAfterTomorrow) continue;
 
-        // Only include slots for today or tomorrow
-        if (blockStart >= dayAfterTomorrow) {
-          continue;
-        }
+            // Convert student slot to tutor wall-clock time for availability check
+            const tutorWall = new Date(slotUtc.toLocaleString('en-US', { timeZone: tutorTz }));
+            const tutorDayOfWeek = tutorWall.getDay();
+            const tutorMinutes = tutorWall.getHours() * 60 + tutorWall.getMinutes();
+            const tutorDateStr = `${tutorWall.getFullYear()}-${String(tutorWall.getMonth() + 1).padStart(2, '0')}-${String(tutorWall.getDate()).padStart(2, '0')}`;
 
-        // Generate 25-minute slots within this block (every 30 minutes to allow buffer)
-        let slotStart = new Date(blockStart);
-        const maxSlots = 5; // Limit to prevent too many slots
-        let slotCount = 0;
-        
-        while (slotStart < blockEnd && slotStart < dayAfterTomorrow && slotCount < maxSlots) {
-          const slotEnd = new Date(slotStart.getTime() + 25 * 60 * 1000);
-          if (slotEnd <= blockEnd && slotStart >= now && !isSlotBooked(slotStart, slotEnd)) {
-            availableSlots.push({
-              date: new Date(slotStart),
-              time: slotStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+            // Check if any block covers this tutor time
+            const hasAvailability = blocks.some((block: any) => {
+              if (block.day !== tutorDayOfWeek) return false;
+
+              // Date-specific block check
+              if (block.absoluteStart && block.absoluteEnd) {
+                const blockStart = new Date(block.absoluteStart);
+                const blockEnd = new Date(block.absoluteEnd);
+                blockStart.setHours(0, 0, 0, 0);
+                blockEnd.setHours(0, 0, 0, 0);
+                const tutorDate = new Date(tutorWall);
+                tutorDate.setHours(0, 0, 0, 0);
+                if (tutorDate < blockStart || tutorDate > blockEnd) return false;
+              } else if (block.id && typeof block.id === 'string') {
+                const idParts = block.id.split('-');
+                if (idParts.length >= 3) {
+                  const byear = parseInt(idParts[0]);
+                  const bmonth = parseInt(idParts[1]) - 1;
+                  const bday = parseInt(idParts[2]);
+                  if (!isNaN(byear) && !isNaN(bmonth) && !isNaN(bday)) {
+                    const blockDate = new Date(byear, bmonth, bday, 0, 0, 0, 0);
+                    const tutorDate = new Date(tutorWall);
+                    tutorDate.setHours(0, 0, 0, 0);
+                    if (blockDate.getTime() !== tutorDate.getTime()) return false;
+                  }
+                }
+              }
+
+              if (!block.startTime || !block.endTime) return false;
+              const blockStart = timeToMinutes(block.startTime);
+              const blockEnd = timeToMinutes(block.endTime);
+              return tutorMinutes >= blockStart && tutorMinutes < blockEnd;
             });
-            slotCount++;
+
+            if (!hasAvailability) continue;
+
+            // Check if booked
+            const slotEnd = new Date(slotUtc.getTime() + 25 * 60 * 1000);
+            if (isSlotBooked(slotUtc, slotEnd)) continue;
+
+            const timeLabel = studentWall.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
+            });
+
+            availableSlots.push({ date: slotUtc, time: timeLabel });
           }
-          slotStart = new Date(slotStart.getTime() + 30 * 60 * 1000); // 30 min intervals
         }
       }
 

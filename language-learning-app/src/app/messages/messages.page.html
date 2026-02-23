@@ -202,11 +202,17 @@
               {{ selectedConversation?.otherUser?.name?.charAt(0) || '?' }}
             </div>
           </ion-avatar>
-        <div class="stable-chat-name" 
-             [textContent]="selectedConversation?.otherUser?.name || ''"
-             (click)="toggleDetailsPanel()"
-             (mouseenter)="showHoverCard()"
-             (mouseleave)="hideHoverCard()">
+        <div class="stable-chat-name-group">
+          <div class="stable-chat-name" 
+               [textContent]="selectedConversation?.otherUser?.name || ''"
+               (click)="toggleDetailsPanel()"
+               (mouseenter)="showHoverCard()"
+               (mouseleave)="hideHoverCard()">
+          </div>
+          <span class="other-user-local-time" *ngIf="otherUserLocalTime">
+            <ion-icon name="time-outline"></ion-icon>
+            {{ otherUserLocalTime }}
+          </span>
         </div>
 
         <ion-button size="small" fill="clear" (click)="openBookLesson(); $event.stopPropagation()" *ngIf="selectedConversation && currentUserType === 'student'">
@@ -253,13 +259,9 @@
 
               <!-- Row 2: Time + Action Buttons -->
               <div class="hover-card-actions">
-                <span class="local-time" *ngIf="selectedConversation?.otherUser?.timezone">
+                <span class="local-time" *ngIf="otherUserLocalTime">
                   <ion-icon name="time-outline"></ion-icon>
-                  {{ getUserLocalTime(selectedConversation?.otherUser) }}
-                </span>
-                <span class="local-time-placeholder" *ngIf="!selectedConversation?.otherUser?.timezone">
-                  <ion-icon name="time-outline"></ion-icon>
-                  Time unavailable
+                  {{ otherUserLocalTime }}
                 </span>
               </div>
 
@@ -515,6 +517,7 @@
             [dateIso]="checkoutData.date"
             [time]="checkoutData.time"
             [lessonMinutes]="checkoutData.duration"
+            [slotTimezone]="checkoutData.timezone || ''"
             [embedded]="true"
             (bookingComplete)="onCheckoutComplete()"
             (cancelled)="onCheckoutCancelled()">
@@ -766,15 +769,9 @@
                 <p class="user-status" *ngIf="selectedConversation.otherUser.userType !== 'tutor'">
                   {{ selectedConversation.otherUser.userType || 'User' }}
                 </p>
-                <!-- Time status under user type -->
-                <p class="time-status-mobile" *ngIf="selectedConversation.otherUser.userType === 'tutor'">
+                <p class="time-status-mobile" *ngIf="otherUserLocalTime">
                   <ion-icon name="time-outline"></ion-icon>
-                  <span *ngIf="selectedConversation.otherUser.timezone">
-                    {{ getUserLocalTime(selectedConversation.otherUser) }}
-                  </span>
-                  <span *ngIf="!selectedConversation.otherUser.timezone">
-                    Time unavailable
-                  </span>
+                  <span>{{ otherUserLocalTime }}</span>
                 </p>
               </div>
             </div>

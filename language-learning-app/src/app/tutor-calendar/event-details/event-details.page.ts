@@ -14,6 +14,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { CancelReasonModalComponent } from '../../components/cancel-reason-modal/cancel-reason-modal.component';
 import { ConfirmActionModalComponent } from '../../components/confirm-action-modal/confirm-action-modal.component';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 
 // ── Interfaces ──────────────────────────────────────────────────
 interface AnalysisData {
@@ -208,6 +209,10 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   // Countdown
   private countdownInterval: any;
   private pendingRequests = 0;
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -525,14 +530,13 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     } else if (start.toDateString() === tomorrow.toDateString()) {
       this.formattedDate = 'Tomorrow';
     } else {
-      this.formattedDate = start.toLocaleDateString('en-US', {
+      this.formattedDate = formatDateInTz(start, this.userTz, {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
       });
     }
 
     // Time range
-    const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    this.formattedTimeRange = `${fmt(start)} – ${fmt(end)}`;
+    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz)} – ${formatTimeInTz(end, this.userTz)}`;
 
     // Duration
     const mins = this.lesson.duration || 60;
@@ -587,7 +591,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.hasTip = true;
       this.tipAmount = `$${this.lesson.tip.amount.toFixed(2)}`;
       this.tipDate = this.lesson.tip.paidAt
-        ? new Date(this.lesson.tip.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? formatDateInTz(this.lesson.tip.paidAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
       // Fee breakdown for tutor
       const fee = this.lesson.tip.stripeFee || 0;
@@ -615,7 +619,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.cancelledByLabel = cancelledByMap[this.lesson.cancelledBy] || 'Unknown';
       this.cancelReasonLabel = this.lesson.cancelReasonText || this.lesson.cancelReason || 'No reason provided';
       this.cancelledAtLabel = this.lesson.cancelledAt
-        ? new Date(this.lesson.cancelledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+        ? `${formatDateInTz(this.lesson.cancelledAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })} ${formatTimeInTz(this.lesson.cancelledAt, this.userTz)}`
         : '';
     }
   }
@@ -642,7 +646,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       this.isIssueReporter = reporterId === userId;
       this.issueDetailsText = this.isIssueReporter ? (this.lesson.issueDetails || '') : '';
       this.issueDate = this.lesson.issueReportedAt
-        ? new Date(this.lesson.issueReportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? formatDateInTz(this.lesson.issueReportedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
       this.isUnderInvestigation = !!this.lesson.underInvestigation;
       this.isInvestigationResolved = !!this.lesson.investigationResolvedAt;
@@ -674,8 +678,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
       if (rp.proposedStartTime && rp.proposedEndTime) {
         const s = new Date(rp.proposedStartTime);
         const e = new Date(rp.proposedEndTime);
-        const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        this.proposedTimeRange = `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${fmt(s)} – ${fmt(e)}`;
+        this.proposedTimeRange = `${formatDateInTz(s, this.userTz, { month: 'short', day: 'numeric', year: undefined })} at ${formatTimeInTz(s, this.userTz)} – ${formatTimeInTz(e, this.userTz)}`;
       }
     }
   }
@@ -720,7 +723,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     this.feedbackNotes = this.tutorFeedback.overallNotes || '';
     this.feedbackCefrLevel = this.tutorFeedback.estimatedCefrLevel || '';
     this.feedbackDate = this.tutorFeedback.providedAt
-      ? new Date(this.tutorFeedback.providedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      ? formatDateInTz(this.tutorFeedback.providedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
       : '';
   }
 
@@ -852,20 +855,36 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         this.paymentStatusDescription = 'Your earnings are on hold while this lesson is being reviewed.';
       }
     } else if (status === 'succeeded' || status === 'authorized') {
-      this.paymentStatusClass = 'paid';
-      this.paymentStatusIcon = 'checkmark-circle-outline';
+      const lessonCompleted = this.lesson?.status === 'completed';
+      const lessonEnded = this.lesson?.endTime && new Date(this.lesson.endTime).getTime() < Date.now();
+      const isFinished = lessonCompleted || lessonEnded;
+
+      this.paymentStatusClass = isFinished ? 'paid' : 'pending';
+      this.paymentStatusIcon = isFinished ? 'checkmark-circle-outline' : 'time-outline';
       if (this.isStudentUser) {
-        this.paymentStatusTitle = 'Payment complete';
-        this.paymentStatusDescription = `$${amount.toFixed(2)} was charged.`;
+        if (isFinished) {
+          this.paymentStatusTitle = 'Payment complete';
+          this.paymentStatusDescription = `$${amount.toFixed(2)} was charged.`;
+        } else {
+          this.paymentStatusTitle = 'Payment authorized';
+          this.paymentStatusDescription = `$${amount.toFixed(2)} will be charged after the lesson.`;
+        }
       } else {
-        this.paymentStatusTitle = 'Earnings confirmed';
-        this.paymentStatusDescription = tutorPayout > 0
-          ? `You earned $${tutorPayout.toFixed(2)} from this lesson.`
-          : 'Your earnings for this lesson have been confirmed.';
-        if (transferStatus === 'available' || transferStatus === 'pending_withdrawal') {
-          this.paymentStatusDetails.push({ key: 'Status', value: 'Available for withdrawal' });
-        } else if (transferStatus === 'withdrawn') {
-          this.paymentStatusDetails.push({ key: 'Status', value: 'Withdrawn' });
+        if (isFinished) {
+          this.paymentStatusTitle = 'Earnings confirmed';
+          this.paymentStatusDescription = tutorPayout > 0
+            ? `You earned $${tutorPayout.toFixed(2)} from this lesson.`
+            : 'Your earnings for this lesson have been confirmed.';
+          if (transferStatus === 'available' || transferStatus === 'pending_withdrawal') {
+            this.paymentStatusDetails.push({ key: 'Status', value: 'Available for withdrawal' });
+          } else if (transferStatus === 'withdrawn') {
+            this.paymentStatusDetails.push({ key: 'Status', value: 'Withdrawn' });
+          }
+        } else {
+          this.paymentStatusTitle = 'Earnings pending';
+          this.paymentStatusDescription = tutorPayout > 0
+            ? `You'll earn $${tutorPayout.toFixed(2)} after this lesson.`
+            : 'Your earnings will be confirmed after the lesson.';
         }
       }
     } else {
@@ -876,7 +895,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (p.refundedAt && this.hasPaymentStatus && (status === 'refunded' || status === 'partially_refunded')) {
       this.paymentStatusDetails.push({
         key: 'Date',
-        value: new Date(p.refundedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        value: formatDateInTz(p.refundedAt, this.userTz, { month: 'short', day: 'numeric', year: 'numeric' })
       });
     }
   }
@@ -906,10 +925,9 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (start.toDateString() === new Date().toDateString()) {
       this.formattedDate = 'Today';
     } else {
-      this.formattedDate = start.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      this.formattedDate = formatDateInTz(start, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
     }
-    const fmt = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    this.formattedTimeRange = `${fmt(start)} – ${fmt(end)}`;
+    this.formattedTimeRange = `${formatTimeInTz(start, this.userTz)} – ${formatTimeInTz(end, this.userTz)}`;
     this.formattedDuration = `${this.classData.duration || 60} minutes`;
     this.formattedPrice = this.classData.price ? `$${this.classData.price.toFixed(2)}` : 'Free';
 

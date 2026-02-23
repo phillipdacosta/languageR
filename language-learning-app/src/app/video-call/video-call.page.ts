@@ -19,6 +19,7 @@ import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.
 import { createFastboard, FastboardApp, mount } from '@netless/fastboard';
 import { VocabularyService, VocabEntry, GoalEntry } from '../services/vocabulary.service';
 import { environment } from '../../environments/environment';
+import { formatTimeInTz } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-video-call',
@@ -274,6 +275,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   isSending = false;
   isLoadingMessages = false;
   currentUserId: string = '';
+  currentUser: any = null;
   otherUserAuth0Id: string = '';
   messageSendTimeout: any;
   private destroy$ = new Subject<void>();
@@ -549,6 +551,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
 
       // SECURITY: Get identity from authenticated user (never trust URL params for identity/role)
       const me = await firstValueFrom(this.userService.getCurrentUser());
+      this.currentUser = me ?? null;
       this.currentUserId = me?.id || ''; // Store current user's MongoDB ID
       this.myAgoraUid = me?.id || ''; // Use MongoDB ID as Agora UID
       this.myName = (me as any)?.firstName || me?.name?.split(' ')[0] || 'User';
@@ -2379,7 +2382,11 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     if (seconds < 10) return 'just now';
     if (seconds < 60) return `${seconds}s ago`;
     if (minutes < 60) return `${minutes}m ago`;
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTimeInTz(date, this.userTz);
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
   }
   
   startNotesAutoSave() {
@@ -4263,7 +4270,7 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
   // Format time for messages
   formatMessageTime(timestamp: string): string {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return formatTimeInTz(date, this.userTz);
   }
 
   async shareScreen() {

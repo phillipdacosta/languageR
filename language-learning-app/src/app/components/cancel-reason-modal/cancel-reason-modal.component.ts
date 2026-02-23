@@ -3,6 +3,8 @@ import { ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../../shared/timezone.utils';
 
 export interface CancellationReason {
   id: string;
@@ -49,7 +51,14 @@ export class CancelReasonModalComponent implements OnInit {
 
   reasons: CancellationReason[] = [];
 
-  constructor(private modalController: ModalController) {}
+  constructor(
+    private modalController: ModalController,
+    private userService: UserService
+  ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     // Select reasons based on user role
@@ -78,23 +87,35 @@ export class CancelReasonModalComponent implements OnInit {
     tomorrow.setDate(tomorrow.getDate() + 1);
     
     let dayLabel: string;
-    if (date.toDateString() === today.toDateString()) {
-      dayLabel = 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      dayLabel = 'Tomorrow';
+    if (this.userTz) {
+      if (isSameDayInTimezone(date, today, this.userTz)) {
+        dayLabel = 'Today';
+      } else if (isSameDayInTimezone(date, tomorrow, this.userTz)) {
+        dayLabel = 'Tomorrow';
+      } else {
+        dayLabel = formatDateInTz(date, this.userTz, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: undefined
+        });
+      }
     } else {
-      dayLabel = date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
+      if (date.toDateString() === today.toDateString()) {
+        dayLabel = 'Today';
+      } else if (date.toDateString() === tomorrow.toDateString()) {
+        dayLabel = 'Tomorrow';
+      } else {
+        dayLabel = formatDateInTz(date, undefined, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: undefined
+        });
+      }
     }
     
-    const timeStr = date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    const timeStr = formatTimeInTz(date, this.userTz);
     
     return `${dayLabel} at ${timeStr}`;
   }

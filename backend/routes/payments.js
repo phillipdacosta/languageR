@@ -24,6 +24,7 @@ const Message = require('../models/Message');
 const { generateTrialLessonMessage } = require('../utils/systemMessages');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 const TutorFeedback = require('../models/TutorFeedback');
+const { toZonedTime } = require('date-fns-tz');
 
 // Use shared name formatter
 const formatDisplayName = formatNameWithInitial;
@@ -199,30 +200,22 @@ router.post('/book-lesson-with-payment', verifyToken, async (req, res) => {
     }
 
     // 3. CHECK: Timeslot is still in tutor's availability
-    // NOTE: Availability blocks are stored in the TUTOR'S local timezone
-    // The lesson times from frontend are in UTC, so we need to handle this carefully
-    
-    // Get tutor's timezone (default to America/New_York if not set)
-    const tutorTimezone = tutor.timezone || 'America/New_York';
-    
-    // Convert lesson start time to tutor's local timezone for comparison
-    const lessonInTutorTz = new Date(lessonStartTime.toLocaleString('en-US', { timeZone: tutorTimezone }));
-    const lessonEndInTutorTz = new Date(lessonEndTime.toLocaleString('en-US', { timeZone: tutorTimezone }));
-    
-    // Get day of week in tutor's timezone (as string like 'Wednesday')
-    const dayOfWeekString = lessonStartTime.toLocaleDateString('en-US', { weekday: 'long', timeZone: tutorTimezone });
-    
-    // Also get day as number (0=Sunday, 1=Monday, ..., 6=Saturday) for comparison
-    // Availability blocks may store day as number OR string depending on how they were created
-    const dayOfWeekNumber = lessonInTutorTz.getDay(); // 0-6, Sunday=0
-    
-    // Map to handle both formats - availability may use 0-6 (Sun-Sat) or 1-7 (Mon-Sun) or strings
+    // Availability blocks are stored in the TUTOR'S local timezone.
+    // Lesson times from the frontend arrive as UTC, so convert to tutor's tz.
+    const tutorTimezone = tutor.profile?.timezone || tutor.timezone || 'America/New_York';
+
+    // Convert UTC lesson times to tutor's wall-clock time using date-fns-tz
+    const lessonInTutorTz = toZonedTime(lessonStartTime, tutorTimezone);
+    const lessonEndInTutorTz = toZonedTime(lessonEndTime, tutorTimezone);
+
+    const dayOfWeekString = lessonInTutorTz.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayOfWeekNumber = lessonInTutorTz.getDay();
+
     const dayNameToNumber = {
-      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
       'Thursday': 4, 'Friday': 5, 'Saturday': 6
     };
-    
-    // Get hours and minutes in tutor's local time
+
     const localStartHours = lessonInTutorTz.getHours();
     const localStartMinutes = lessonInTutorTz.getMinutes();
     const localEndHours = lessonEndInTutorTz.getHours();

@@ -4,6 +4,7 @@ import { IonicModule, ModalController, ToastController, LoadingController } from
 import { Router } from '@angular/router';
 import { LessonService } from '../../services/lesson.service';
 import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../../shared/timezone.utils';
 import { CancelReasonModalComponent } from '../cancel-reason-modal/cancel-reason-modal.component';
 import { ConfirmActionModalComponent } from '../confirm-action-modal/confirm-action-modal.component';
 
@@ -71,6 +72,10 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     private lessonService: LessonService,
     private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     console.log('Event details modal opened with event:', this.event);
@@ -260,11 +265,7 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatTimeInTz(new Date(date), this.userTz);
   }
 
   formatDate(date: Date): string {
@@ -273,18 +274,25 @@ export class EventDetailsModalComponent implements OnInit, OnDestroy {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (d.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (d.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
+    if (this.userTz) {
+      if (isSameDayInTimezone(d, today, this.userTz)) {
+        return 'Today';
+      } else if (isSameDayInTimezone(d, tomorrow, this.userTz)) {
+        return 'Tomorrow';
+      }
     } else {
-      return d.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      });
+      if (d.toDateString() === today.toDateString()) {
+        return 'Today';
+      } else if (d.toDateString() === tomorrow.toDateString()) {
+        return 'Tomorrow';
+      }
     }
+    return formatDateInTz(d, this.userTz, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
   }
 
   formatDuration(minutes: number): string {

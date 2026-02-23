@@ -19,6 +19,7 @@ import { DisplayNamePipe } from '../pipes/display-name.pipe';
 import { LessonService } from '../services/lesson.service';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 
 @Component({
   selector: 'app-tutor-page',
@@ -106,6 +107,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   
   // Trial lesson eligibility
   studentHadPreviousLesson = false;
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -768,9 +773,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     } else if (days === 1) {
       return 'Yesterday';
     } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', year: undefined });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
   }
   
@@ -1355,7 +1360,11 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+      return formatDateInTz(date, this.userTz, {
+        month: 'long',
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
     }
   }
 
@@ -1395,13 +1404,13 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return formatTimeInTz(date, this.userTz);
     } else if (days === 1) {
       return 'Yesterday';
     } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', year: undefined });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
   }
 

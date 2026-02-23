@@ -9,8 +9,8 @@ import { ClassService } from '../../services/class.service';
 import { Subject, asyncScheduler } from 'rxjs';
 import { takeUntil, timeout, observeOn } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
-import { detectUserTimezone } from '../../shared/timezone.constants';
-import { getTimezoneLabel } from '../../shared/timezone.utils';
+import { detectUserTimezone, TIMEZONES, TimezoneOption, getTimezoneOffset } from '../../shared/timezone.constants';
+import { getTimezoneLabel, convertTimeToTimezone, utcToWallClock, wallClockToUtc } from '../../shared/timezone.utils';
 
 interface AvailabilityBlock {
   id: string;
@@ -52,15 +52,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   @Input() showDurationSelector = false;
   // Selected duration for filtering available slots (25 or 50 minutes)
   @Input() selectedDuration: 25 | 50 = 25; // Default to 25 minutes
-  // Emit event when slot is selected (instead of dismissing modal)
-  @Output() slotSelected = new EventEmitter<{ selectedDate: string; selectedTime: string }>();
+  @Output() slotSelected = new EventEmitter<{ selectedDate: string; selectedTime: string; timezone?: string }>();
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
   timezone: string = 'America/New_York'; // Tutor's timezone
   viewerTimezone: string = ''; // Viewer's timezone (detected from browser)
+  selectedTimezone: string = ''; // Currently selected timezone for display (dropdown)
   currentWeekStart: Date = new Date();
   isLoading = false;
+
+  // Timezone dropdown options
+  timezoneOptions: { value: string; label: string }[] = [];
+
+  // Raw booked lessons stored for re-processing on timezone change
+  private rawBookedLessons: any[] = [];
   
   daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   timeSlots: string[] = [];
@@ -89,6 +95,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   currentUserIsTutor = false;
   weekRangeDisplay = '';
   timezoneMessage = '';
+  tutorTimezoneLabel = '';
+  showTutorTimezoneHint = false;
   
   // Pre-computed date-to-slots array for direct template iteration (avoids function calls in *ngFor)
   weekDateSlots: { date: Date; slots: { label: string; time: string; booked: boolean; isPast: boolean }[] }[] = [];
@@ -147,8 +155,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     this.updateWeekRangeDisplay();
     this.updateTimezoneMessage();
     
-    // Detect viewer's timezone
+    // Detect viewer's timezone and set as default selection
     this.viewerTimezone = detectUserTimezone();
+    this.selectedTimezone = this.viewerTimezone;
+    this.buildTimezoneOptions();
     
     // Check if this would be a trial lesson (only for students viewing tutor availability)
     // Wait for user to load first to ensure auth headers are available
@@ -222,6 +232,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   
   private updateTimezoneMessage() {
     this.timezoneMessage = this.getTimezoneMessage();
+    this.showTutorTimezoneHint = !this.isViewerTimezoneSameAsTutor();
+    this.tutorTimezoneLabel = getTimezoneLabel(this.timezone);
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -337,7 +349,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           next: async (response) => {
             this.availability = response.availability || [];
             this.timezone = response.timezone || 'America/New_York';
-            
+            this.updateTimezoneMessage();
+
             // Check if tutor is accepting bookings
             if (response.acceptingBookings === false) {
               this.tutorBlocked = true;
@@ -436,93 +449,43 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     }
   }
 
-  private buildBookedSlotsSet(lessons: Lesson[]) {
+  private buildBookedSlotsSet(lessons: any[]) {
+    this.rawBookedLessons = lessons;
     const set = new Set<string>();
-    
-    // Get the current week's date range
-    const weekStart = new Date(this.currentWeekStart);
-    weekStart.setHours(0, 0, 0, 0);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    // Create a map of dates to their index in weekDates array (0-6)
-    const dateToIndexMap = new Map<string, number>();
-    for (let i = 0; i < this.weekDates.length; i++) {
-      const dateKey = this.dateKey(this.weekDates[i]);
-      dateToIndexMap.set(dateKey, i);
+
+    const weekDateKeys = new Set<string>();
+    for (const wd of this.weekDates) {
+      weekDateKeys.add(this.dateKey(wd));
     }
-    
-    let processedCount = 0;
-    let skippedCount = 0;
-    
+
     for (const lesson of lessons) {
-      // Only consider scheduled or in_progress lessons
-      // Only include scheduled, in_progress, and pending_reschedule lessons
-      // pending_reschedule lessons should KEEP their time slot busy until accepted/rejected
       if (lesson.status !== 'scheduled' && lesson.status !== 'in_progress' && lesson.status !== 'pending_reschedule') {
-        skippedCount++;
         continue;
       }
 
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
-      
-      // Calculate buffer time based on lesson duration
       const lessonDurationMinutes = lesson.duration || 60;
       const bufferMinutes = lessonDurationMinutes === 25 ? 5 : lessonDurationMinutes === 50 ? 10 : 10;
-      
-      // Extend end time to include buffer
-      const endTimeWithBuffer = new Date(endTime);
-      endTimeWithBuffer.setMinutes(endTimeWithBuffer.getMinutes() + bufferMinutes);
-      
-      // Only include lessons that fall within the current week being displayed
-      if (endTimeWithBuffer < weekStart || startTime > weekEnd) {
-        skippedCount++;
-        continue;
+      const endTimeWithBuffer = new Date(endTime.getTime() + bufferMinutes * 60000);
+
+      // Round start down to nearest 30-min boundary
+      let currentUTC = new Date(startTime);
+      currentUTC.setMinutes(Math.floor(currentUTC.getMinutes() / 30) * 30, 0, 0);
+
+      while (currentUTC < endTimeWithBuffer) {
+        // Convert UTC lesson time → viewer's selected timezone
+        const inViewer = utcToWallClock(currentUTC, this.selectedTimezone);
+        // Use date-specific key so lessons from different weeks don't collide
+        if (weekDateKeys.has(inViewer.date)) {
+          set.add(`${inViewer.date}-${inViewer.time}`);
+        }
+        currentUTC = new Date(currentUTC.getTime() + 30 * 60000);
       }
-      
-      // Get the actual date of the lesson (normalized to midnight)
-      const lessonDate = new Date(startTime);
-      lessonDate.setHours(0, 0, 0, 0);
-      const lessonDateKey = this.dateKey(lessonDate);
-      
-      // Find which column (0-6) this date corresponds to in the displayed week
-      const weekIndex = dateToIndexMap.get(lessonDateKey);
-      if (weekIndex === undefined) {
-        skippedCount++;
-        continue;
-      }
-      
-      // Get the day index (0=Sun, 1=Mon, ..., 6=Sat) for the actual date
-      // This matches how availability is stored (by day of week, not specific date)
-      const dayIndex = lessonDate.getDay();
-      
-      // Generate 30-minute slots between start and end+buffer
-      // Round down to nearest 30-minute slot for starting point
-      let currentTime = new Date(startTime);
-      currentTime.setMinutes(Math.floor(currentTime.getMinutes() / 30) * 30, 0, 0);
-      
-      const slotsMarked: string[] = [];
-      while (currentTime < endTimeWithBuffer) {
-        const hours = currentTime.getHours().toString().padStart(2, '0');
-        const minutes = currentTime.getMinutes().toString().padStart(2, '0');
-        const timeSlot = `${hours}:${minutes}`;
-        const key = `${dayIndex}-${timeSlot}`;
-        set.add(key);
-        slotsMarked.push(key);
-        
-        // Move to next 30-minute slot
-        currentTime.setMinutes(currentTime.getMinutes() + 30);
-      }
-      
-      processedCount++;
     }
-    
+
     this.bookedSlots = set;
     this.slotsCache.clear();
-    // DON'T recompute slots here - let the caller handle it to avoid race conditions
-    // This allows ngOnInit to wait for BOTH availability and bookedLessons before computing
   }
 
   private buildAvailabilitySet() {
@@ -755,138 +718,121 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
   }
 
-  // Check if a time slot is in the past
   private isSlotInPast(date: Date, timeSlot: string): boolean {
-    const [hours, minutes] = timeSlot.split(':').map(Number);
-    const slotDateTime = new Date(date);
-    slotDateTime.setHours(hours, minutes, 0, 0);
-    
-    const now = new Date();
-    return slotDateTime < now;
+    const dateStr = this.dateKey(date);
+    const utcTime = wallClockToUtc(dateStr, timeSlot, this.selectedTimezone);
+    return utcTime < new Date();
   }
 
-  // Internal method to compute slots (called by precomputeDateSlots)
+  /**
+   * Compute available time slots for a given date.
+   * Times are displayed in the viewer's selected timezone.
+   * Availability is checked by converting each viewer-tz slot → tutor-tz and matching against blocks.
+   */
   private computeAvailableTimeLabelsForDate(date: Date): { label: string; time: string; booked: boolean; isPast: boolean }[] {
-    // Only show availability within the displayed 7-day window
     const dateToCheck = new Date(date);
     dateToCheck.setHours(0, 0, 0, 0);
-    
+
     const windowStart = new Date(this.currentWeekStart);
     windowStart.setHours(0, 0, 0, 0);
-    
     const windowEnd = new Date(this.currentWeekStart);
     windowEnd.setDate(windowEnd.getDate() + 6);
     windowEnd.setHours(23, 59, 59, 999);
-    
-    if (dateToCheck < windowStart || dateToCheck > windowEnd) {
-      return [];
-    }
-    
-    // Don't cache when studentBusySlots is provided (for mutual availability)
+
+    if (dateToCheck < windowStart || dateToCheck > windowEnd) return [];
+
     const shouldCache = !this.studentBusySlots || this.studentBusySlots.size === 0;
-    
-    // Include duration in cache key so different durations have different caches
-    const cacheKey = this.dateKey(date) + '_' + Math.floor(Date.now() / 60000) + '_' + this.selectedDuration;
+    const cacheKey = `${this.dateKey(date)}_${Math.floor(Date.now() / 60000)}_${this.selectedDuration}_${this.selectedTimezone}`;
     const cached = shouldCache ? this.slotsCache.get(cacheKey) : undefined;
-    if (cached) {
-      return cached;
-    }
-    
-    // Clear old cache entries (keep last 10)
+    if (cached) return cached;
+
     if (this.slotsCache.size > 10) {
       const firstKey = this.slotsCache.keys().next().value;
-      if (firstKey) {
-        this.slotsCache.delete(firstKey);
-      }
+      if (firstKey) this.slotsCache.delete(firstKey);
     }
-    
-    // Use native getDay() to match how availability is stored (0=Sun, 1=Mon, ..., 6=Sat)
+
+    const viewerDateStr = this.dateKey(date);
     const dayIndex = date.getDay();
-    
-    // Filter blocks that apply to this specific date
-    const applicableBlocks = this.availability.filter(block => {
-      if (block.type !== 'available') return false;
-      if (block.day !== dayIndex) return false;
-      
-      // If block has absolute dates, check if this date is within the range
-      if (block.absoluteStart && block.absoluteEnd) {
-        const blockStart = new Date(block.absoluteStart);
-        const blockEnd = new Date(block.absoluteEnd);
-        blockStart.setHours(0, 0, 0, 0);
-        blockEnd.setHours(0, 0, 0, 0);
-        
-        const checkDateNormalized = new Date(dateToCheck);
-        checkDateNormalized.setHours(0, 0, 0, 0);
-        
-        return checkDateNormalized.getTime() >= blockStart.getTime() && 
-               checkDateNormalized.getTime() <= blockEnd.getTime();
-      }
-      
-      // If no absoluteStart, try to parse date from the id field (format: "YYYY-MM-DD-...")
-      if (block.id && typeof block.id === 'string') {
-        const idParts = block.id.split('-');
-        if (idParts.length >= 3) {
-          // Extract YYYY-MM-DD from id  
-          // Parse as local date to avoid timezone shifts
-          const year = parseInt(idParts[0]);
-          const month = parseInt(idParts[1]) - 1; // Month is 0-indexed
-          const day = parseInt(idParts[2]);
-          const blockDate = new Date(year, month, day, 0, 0, 0, 0);
-          
-          const checkDateNormalized = new Date(dateToCheck);
-          checkDateNormalized.setHours(0, 0, 0, 0);
-          
-          
-          // Only show if dates match exactly
-          return blockDate.getTime() === checkDateNormalized.getTime();
-        }
-      }
-      
-      // If no date info at all, it's a recurring pattern - always applies
-      return true;
-    });
-    
+    const sameTimezone = this.selectedTimezone === this.timezone;
+
     const slots: { label: string; time: string; booked: boolean; isPast: boolean }[] = [];
-    const dateKeyStr = this.dateKey(dateToCheck);
-    
+
     for (let i = 0; i < this.timeSlots.length; i++) {
-      const key = `${dayIndex}-${this.timeSlots[i]}`;
-      
-      // Check if this time slot falls within any applicable block
-      const timeInMinutes = this.timeToMinutes(this.timeSlots[i]);
-      const hasAvailability = applicableBlocks.some(block => {
+      const viewerTime = this.timeSlots[i];
+
+      // Convert viewer's (date + time) → tutor's (date + time) for availability lookup
+      let tutorDayIndex: number;
+      let tutorTimeStr: string;
+      let tutorDateStr: string;
+
+      if (sameTimezone) {
+        tutorDayIndex = dayIndex;
+        tutorTimeStr = viewerTime;
+        tutorDateStr = viewerDateStr;
+      } else {
+        const converted = convertTimeToTimezone(viewerDateStr, viewerTime, this.selectedTimezone, this.timezone);
+        tutorDayIndex = converted.dayOfWeek;
+        tutorTimeStr = converted.time;
+        tutorDateStr = converted.date;
+      }
+
+      const tutorTimeMinutes = this.timeToMinutes(tutorTimeStr);
+
+      // Check if any tutor availability block covers this time
+      const hasAvailability = this.availability.some(block => {
+        if (block.type !== 'available') return false;
+        if (block.day !== tutorDayIndex) return false;
+
+        // Date-specific: absoluteStart / absoluteEnd
+        if (block.absoluteStart && block.absoluteEnd) {
+          const blockStart = new Date(block.absoluteStart);
+          const blockEnd = new Date(block.absoluteEnd);
+          blockStart.setHours(0, 0, 0, 0);
+          blockEnd.setHours(0, 0, 0, 0);
+          const [ty, tm, td] = tutorDateStr.split('-').map(Number);
+          const tutorDate = new Date(ty, tm - 1, td, 0, 0, 0, 0);
+          if (tutorDate < blockStart || tutorDate > blockEnd) return false;
+        } else if (block.id && typeof block.id === 'string') {
+          // Date-specific from block id (format: "YYYY-MM-DD-...")
+          const idParts = block.id.split('-');
+          if (idParts.length >= 3) {
+            const byear = parseInt(idParts[0]);
+            const bmonth = parseInt(idParts[1]) - 1;
+            const bday = parseInt(idParts[2]);
+            if (!isNaN(byear) && !isNaN(bmonth) && !isNaN(bday)) {
+              const blockDate = new Date(byear, bmonth, bday, 0, 0, 0, 0);
+              const [ty, tm, td] = tutorDateStr.split('-').map(Number);
+              const tutorDate = new Date(ty, tm - 1, td, 0, 0, 0, 0);
+              if (blockDate.getTime() !== tutorDate.getTime()) return false;
+            }
+          }
+        }
+
         const blockStart = this.timeToMinutes(block.startTime);
         const blockEnd = this.timeToMinutes(block.endTime);
-        return timeInMinutes >= blockStart && timeInMinutes < blockEnd;
+        return tutorTimeMinutes >= blockStart && tutorTimeMinutes < blockEnd;
       });
-      
+
       if (hasAvailability) {
-        const isBooked = this.bookedSlots.has(key);
-        const isPast = this.isSlotInPast(date, this.timeSlots[i]);
-        
-        // Check if student is busy at this time (if studentBusySlots provided)
-        const isStudentBusy = this.isStudentBusyAtSlot(dayIndex, this.timeSlots[i], dateKeyStr);
-        
-        // Check if there's enough consecutive time for selected duration
-        // Apply this filter when: 1) duration selector is shown OR 2) in selection mode (scheduling a class)
+        // Booked check uses date-specific key in viewer timezone
+        const bookedKey = `${viewerDateStr}-${viewerTime}`;
+        const isBooked = this.bookedSlots.has(bookedKey);
+        const isPast = this.isSlotInPast(date, viewerTime);
+
+        const isStudentBusy = this.isStudentBusyAtSlot(dayIndex, viewerTime, viewerDateStr);
+
         const shouldFilterByDuration = this.showDurationSelector || this.selectionMode;
-        const hasEnoughTime = shouldFilterByDuration && !isBooked && !isPast 
-          ? this.hasEnoughConsecutiveTime(date, this.timeSlots[i], dayIndex) 
-          : true; // If not filtering by duration, don't apply this filter
-        
-        // Only show slot if:
-        // 1. Student is NOT busy (or no busy slots provided)
-        // 2. There's enough consecutive time for the selected duration
+        const hasEnoughTime = shouldFilterByDuration && !isBooked && !isPast
+          ? this.hasEnoughConsecutiveTime(date, viewerTime, dayIndex)
+          : true;
+
         if (!isStudentBusy && hasEnoughTime) {
-          slots.push({ label: this.timeLabels[i], time: this.timeSlots[i], booked: isBooked, isPast: isPast });
+          slots.push({ label: this.timeLabels[i], time: viewerTime, booked: isBooked, isPast: isPast });
         }
       }
     }
-    
-    // Cache with timestamp key (auto-invalidates after 1 minute)
-    if (shouldCache) {
-      this.slotsCache.set(cacheKey, slots);
-    }
+
+    if (shouldCache) this.slotsCache.set(cacheKey, slots);
     return slots;
   }
 
@@ -926,44 +872,65 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     this.precomputeDateSlots();
   }
 
+  private buildTimezoneOptions() {
+    const seen = new Set<string>();
+    const options: { value: string; label: string }[] = [];
+
+    // Always include the detected browser timezone first
+    if (this.viewerTimezone) {
+      seen.add(this.viewerTimezone);
+      options.push({ value: this.viewerTimezone, label: `${getTimezoneLabel(this.viewerTimezone)} (You)` });
+    }
+
+    for (const tz of TIMEZONES) {
+      if (!seen.has(tz.value)) {
+        seen.add(tz.value);
+        const offset = getTimezoneOffset(tz.value);
+        options.push({ value: tz.value, label: `${tz.label} (${offset})` });
+      }
+    }
+
+    this.timezoneOptions = options;
+  }
+
+  onTimezoneChange(newTimezone: string) {
+    if (newTimezone === this.selectedTimezone) return;
+    this.selectedTimezone = newTimezone;
+    this.slotsCache.clear();
+    this.updateTimezoneMessage();
+
+    // Rebuild booked slots in new timezone
+    if (this.rawBookedLessons.length > 0) {
+      this.buildBookedSlotsSet(this.rawBookedLessons);
+    }
+
+    this.precomputeDateSlots();
+  }
+
   /**
    * Check if a time slot has enough consecutive available time for the selected duration + buffer
-   * @param date The date of the slot
-   * @param timeSlot The time slot (HH:mm format)
-   * @param dayIndex The day index (0-6)
-   * @returns true if there's enough time, false otherwise
    */
-  private hasEnoughConsecutiveTime(date: Date, timeSlot: string, dayIndex: number): boolean {
-    // Calculate total time needed (lesson + buffer)
+  private hasEnoughConsecutiveTime(date: Date, timeSlot: string, _dayIndex: number): boolean {
     const bufferMinutes = this.selectedDuration === 25 ? 5 : 10;
-    const totalMinutesNeeded = this.selectedDuration + bufferMinutes; // 30 or 60
-    
-    // Parse the starting time
+    const totalMinutesNeeded = this.selectedDuration + bufferMinutes;
+
     const [hours, minutes] = timeSlot.split(':').map(Number);
     let checkTime = new Date(date);
     checkTime.setHours(hours, minutes, 0, 0);
-    
-    const endTime = new Date(checkTime);
-    endTime.setMinutes(endTime.getMinutes() + totalMinutesNeeded);
-    
-    // Check every 30-minute slot from start to end (exclusive of end)
+
+    const endTime = new Date(checkTime.getTime() + totalMinutesNeeded * 60000);
+
     let currentCheck = new Date(checkTime);
-    
     while (currentCheck < endTime) {
+      const currentDateStr = this.dateKey(currentCheck);
       const checkHours = currentCheck.getHours().toString().padStart(2, '0');
       const checkMinutes = currentCheck.getMinutes().toString().padStart(2, '0');
-      const checkSlot = `${checkHours}:${checkMinutes}`;
-      const checkKey = `${dayIndex}-${checkSlot}`;
-      
-      // If any slot in the range is booked, return false
-      if (this.bookedSlots.has(checkKey)) {
-        return false;
-      }
-      
-      // Move to next 30-minute slot
-      currentCheck.setMinutes(currentCheck.getMinutes() + 30);
+      const checkKey = `${currentDateStr}-${checkHours}:${checkMinutes}`;
+
+      if (this.bookedSlots.has(checkKey)) return false;
+      currentCheck = new Date(currentCheck.getTime() + 30 * 60000);
     }
-    
+
     return true;
   }
 
@@ -984,52 +951,40 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
-      
-      // Emit event for parent component to handle (for inline usage in modals like reschedule)
+
       this.slotSelected.emit({
         selectedDate: dateString,
-        selectedTime: slot.time
+        selectedTime: slot.time,
+        timezone: this.selectedTimezone
       });
-      
-      // Only dismiss modal if dismissOnSelect is true (for programmatically opened modals)
+
       if (this.dismissOnSelect) {
         this.modalController.dismiss({
           selectedDate: dateString,
           selectedTime: slot.time,
-          lessonMinutes: this.selectedDuration
+          lessonMinutes: this.selectedDuration,
+          timezone: this.selectedTimezone
         });
       }
-      
+
       return;
     }
-    
-    // Don't allow tutors to book their own slots (except in selection mode)
-    if (this.isCurrentUserTutor()) {
-      return;
-    }
-    
-    // Navigate to checkout with tutor/time and selected duration
-    // Format date as YYYY-MM-DD (not full ISO timestamp)
+
+    if (this.isCurrentUserTutor()) return;
+
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const dateIso = `${year}-${month}-${day}`;
-    
-    console.log('🔗 [Availability] Navigating to checkout:', {
-      tutorId: this.tutorId,
-      date: dateIso,
-      time: slot.time,
-      duration: this.selectedDuration,
-      isTrialLesson: this.isTrialLesson
-    });
-    
+
     this.router.navigate(['/checkout'], {
       queryParams: {
         tutorId: this.tutorId,
         date: dateIso,
         time: slot.time,
         duration: this.selectedDuration,
-        isTrialLesson: this.isTrialLesson // Pass trial lesson status
+        isTrialLesson: this.isTrialLesson,
+        timezone: this.selectedTimezone
       }
     });
   }
@@ -1041,21 +996,16 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     return getTimezoneLabel(timezone);
   }
   
-  /**
-   * Check if viewer's timezone matches tutor's timezone
-   */
   isViewerTimezoneSameAsTutor(): boolean {
-    return this.viewerTimezone === this.timezone;
+    return this.selectedTimezone === this.timezone;
   }
-  
-  /**
-   * Get timezone display message
-   */
+
   getTimezoneMessage(): string {
+    const label = this.getTimezoneLabel(this.selectedTimezone);
     if (this.isViewerTimezoneSameAsTutor()) {
-      return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
+      return `Times shown in: ${label}`;
     }
-    return `Times shown in your timezone: ${this.getTimezoneLabel(this.viewerTimezone)}`;
+    return `Times shown in: ${label} (Tutor is in ${this.getTimezoneLabel(this.timezone)})`;
   }
   
   /**

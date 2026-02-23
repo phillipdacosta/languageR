@@ -21,6 +21,7 @@ import { BlockTimeComponent } from '../modals/block-time/block-time.component';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { getHoursInTz, getMinutesInTz, formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 // Performance pipes
 import { EventsForDayPipe } from './pipes/events-for-day.pipe';
 import { EventsForSelectedDayPipe } from './pipes/events-for-selected-day.pipe';
@@ -136,6 +137,7 @@ interface AgendaSection {
 })
 export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   currentUser: User | null = null;
+  userTz: string | undefined = undefined;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   
   // Check if onboarding is incomplete (same condition as banner)
@@ -256,9 +258,9 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const start = this.mobileWeekStart ? this.getStartOfDay(this.mobileWeekStart) : this.getStartOfDay(new Date());
     const end = this.addDays(start, this.agendaDaysToShow - 1);
     return "".concat(
-      start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined }),
       ' – ',
-      end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      formatDateInTz(end, this.userTz, { month: 'short', day: 'numeric', year: undefined })
     );
   }
 
@@ -340,7 +342,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return formatTimeInTz(date, this.userTz);
   }
 
   formatDuration(minutes: number): string {
@@ -433,10 +435,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       const current = this.addDays(start, i);
       days.push({
         date: current,
-        dayName: current.toLocaleDateString('en-US', { weekday: 'long' }),
-        shortDay: current.toLocaleDateString('en-US', { weekday: 'short' }),
+        dayName: formatDateInTz(current, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
+        shortDay: formatDateInTz(current, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNumber: current.getDate().toString(),
-        monthLabel: current.toLocaleDateString('en-US', { month: 'long' }),
+        monthLabel: formatDateInTz(current, this.userTz, { month: 'long', day: undefined, year: undefined }),
         isToday: this.isSameDay(current, new Date())
       });
     }
@@ -823,8 +825,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   }
 
   private getAgendaLabels(date: Date, offset: number): { dayLabel: string; dateLabel: string; relative?: string } {
-    const dateLabel = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const dayLabel = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateLabel = formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: undefined });
+    const dayLabel = formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
     let relative: string | undefined;
     if (offset === 1) {
       relative = 'Tomorrow';
@@ -857,13 +859,21 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     // Subscribe to user changes to keep hasCustomProfilePhoto in sync
     this.userSubscription = this.userService.currentUser$.subscribe(user => {
       if (user) {
+        const prevTimezone = this.currentUser?.profile?.timezone;
         this.currentUser = user;
+        this.userTz = user.profile?.timezone || undefined;
         // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
         this.hasCustomProfilePhoto = !!(user.picture && (
           user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
           (user.auth0Picture && user.picture !== user.auth0Picture) // Different from original Auth0 photo
         ));
-        console.log(`📷 [TUTOR-CALENDAR] User updated, hasCustomProfilePhoto:`, this.hasCustomProfilePhoto);
+
+        // Immediately update time indicator and scroll to it when timezone changes
+        if (prevTimezone && user.profile?.timezone && prevTimezone !== user.profile.timezone) {
+          this.updateCurrentTimePosition();
+          this.hasScrolledToNow = false;
+          setTimeout(() => this.scrollToNowIndicator(), 100);
+        }
 
         // Load outstanding feedback for tutors
         if (user.userType === 'tutor') {
@@ -1209,7 +1219,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     this.userService.getCurrentUser().subscribe({
       next: (user) => {
         this.currentUser = user;
-        
+        this.userTz = user?.profile?.timezone || undefined;
+
         // Check if user has a custom uploaded photo (not just Google/Auth0 photo)
         this.hasCustomProfilePhoto = !!(user.picture && (
           user.picture.includes('storage.googleapis.com') || // GCS uploaded photo
@@ -1489,10 +1500,10 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
         }
       }
       
-      // Format time for display (12-hour format like availability-setup)
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
-      const timeStr = `${this.formatTime12Hour(startTime.getHours(), startTime.getMinutes())} - ${this.formatTime12Hour(endTime.getHours(), endTime.getMinutes())}`;
+      const tz = this.userTz;
+      const timeStr = `${this.formatTime12Hour(getHoursInTz(startTime, tz), getMinutesInTz(startTime, tz))} - ${this.formatTime12Hour(getHoursInTz(endTime, tz), getMinutesInTz(endTime, tz))}`;
       
       const isPast = endTime.getTime() < Date.now();
       const eventData = {
@@ -1993,9 +2004,17 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
     const colsRect = cols.getBoundingClientRect();
     const axisWidth = axis ? axis.getBoundingClientRect().width : 42;
 
-    // Position from minutes since midnight (calendar configured with slotMinTime 00:00)
-    const now = new Date();
-    const minutes = now.getHours() * 60 + now.getMinutes();
+    const tz = this.currentUser?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const nowFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const nowParts = nowFormatter.formatToParts(new Date());
+    const nowHour = parseInt(nowParts.find(p => p.type === 'hour')?.value || '0', 10);
+    const nowMin = parseInt(nowParts.find(p => p.type === 'minute')?.value || '0', 10);
+    const minutes = nowHour * 60 + nowMin;
     const totalMinutes = 24 * 60;
     const height = body.clientHeight || bodyRect.height;
     this.customNowTop = Math.max(0, Math.min(height - 1, Math.round((minutes / totalMinutes) * height)));
@@ -2628,13 +2647,13 @@ When enabled:
         // Add time slot information as query params
         if (timeSlot.start) {
           const startTime = timeSlot.start;
-          queryParams.startHour = startTime.getHours();
-          queryParams.startMinute = startTime.getMinutes();
+          queryParams.startHour = getHoursInTz(startTime, this.userTz);
+          queryParams.startMinute = getMinutesInTz(startTime, this.userTz);
         }
         if (timeSlot.end) {
           const endTime = timeSlot.end;
-          queryParams.endHour = endTime.getHours();
-          queryParams.endMinute = endTime.getMinutes();
+          queryParams.endHour = getHoursInTz(endTime, this.userTz);
+          queryParams.endMinute = getMinutesInTz(endTime, this.userTz);
         }
         if (timeSlot.durationMinutes) {
           queryParams.duration = timeSlot.durationMinutes;
@@ -2752,8 +2771,8 @@ When enabled:
   }
 
   private timeString(d: Date): string {
-    const h = d.getHours().toString().padStart(2, '0');
-    const m = d.getMinutes().toString().padStart(2, '0');
+    const h = getHoursInTz(d, this.userTz).toString().padStart(2, '0');
+    const m = getMinutesInTz(d, this.userTz).toString().padStart(2, '0');
     return `${h}:${m}`;
   }
 
@@ -2864,8 +2883,8 @@ When enabled:
   }
 
   private formatTimeParts(d: Date): { time: string; period: string } {
-    const hour = d.getHours();
-    const minute = d.getMinutes();
+    const hour = getHoursInTz(d, this.userTz);
+    const minute = getMinutesInTz(d, this.userTz);
     const period = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     const displayMinute = minute.toString().padStart(2, '0');
@@ -3003,20 +3022,20 @@ When enabled:
       
       this.weekDays.push({
         date: date,
-        shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNumber: date.getDate().toString(),
-        dayName: date.toLocaleDateString('en-US', { weekday: 'long' })
+        dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined })
       });
     }
   }
-  
+
   private updateSelectedDayForDayView(date: Date) {
     this.selectedDayForDayView = {
       date: new Date(date),
-      shortDay: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      shortDay: formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
       dayNumber: date.getDate().toString(),
-      dayName: date.toLocaleDateString('en-US', { weekday: 'long' }),
-      monthLabel: date.toLocaleDateString('en-US', { month: 'long' }),
+      dayName: formatDateInTz(date, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined }),
+      monthLabel: formatDateInTz(date, this.userTz, { month: 'long', day: undefined, year: undefined }),
       year: date.getFullYear()
     };
   }
@@ -3101,11 +3120,11 @@ When enabled:
   }
   
   private updateWeekTitle() {
-    const startMonth = this.currentWeekStart.toLocaleDateString('en-US', { month: 'long' });
+    const startMonth = formatDateInTz(this.currentWeekStart, this.userTz, { month: 'long', day: undefined, year: undefined });
     const endDate = new Date(this.currentWeekStart);
     endDate.setDate(this.currentWeekStart.getDate() + 6);
-    const endMonth = endDate.toLocaleDateString('en-US', { month: 'long' });
-    
+    const endMonth = formatDateInTz(endDate, this.userTz, { month: 'long', day: undefined, year: undefined });
+
     if (startMonth === endMonth) {
       this.currentWeekTitle = `${startMonth} ${this.currentWeekStart.getFullYear()}`;
     } else {
@@ -3261,11 +3280,11 @@ When enabled:
   }
   
   calculateEventTop(event: any): number {
-    const startHour = event.start.getHours();
-    const startMinute = event.start.getMinutes();
-    const startOffset = 6; // Calendar starts at 6 AM
-    const slotHeight = 70; // 70px per hour (increased from 60px)
-    
+    const startHour = getHoursInTz(event.start, this.userTz);
+    const startMinute = getMinutesInTz(event.start, this.userTz);
+    const startOffset = 6;
+    const slotHeight = 70;
+
     return ((startHour - startOffset) * slotHeight) + (startMinute / 60 * slotHeight);
   }
   
@@ -3296,22 +3315,20 @@ When enabled:
   }
   
   private updateCurrentTimePosition() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const startOffset = 6; // Calendar starts at 6 AM
-    const slotHeight = 110; // 110px per hour (must match CSS .hour-line height)
-    
-    this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);
-    
-    console.log('🕐 [TIME-DEBUG] Time indicator:', {
-      now: now.toLocaleTimeString(),
-      currentHour,
-      currentMinute,
-      startOffset,
-      calculatedPosition: this.currentTimePosition,
-      expectedHourFromTop: (currentHour - startOffset)
+    const tz = this.currentUser?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
     });
+    const parts = formatter.formatToParts(new Date());
+    const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const startOffset = 6;
+    const slotHeight = 110;
+
+    this.currentTimePosition = ((currentHour - startOffset) * slotHeight) + (currentMinute / 60 * slotHeight);
   }
   
   // Scroll to "now" indicator on page load
@@ -3550,14 +3567,12 @@ When enabled:
 
   formatFeedbackDate(dateStr: any): string {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
   }
 
   formatFeedbackTime(dateStr: any): string {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return formatTimeInTz(dateStr, this.userTz);
   }
 }
 

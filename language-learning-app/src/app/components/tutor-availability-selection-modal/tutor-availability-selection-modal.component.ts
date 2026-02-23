@@ -3,6 +3,8 @@ import { ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
+import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { CheckoutPage } from '../../checkout/checkout.page';
 import { trigger, transition, style, animate } from '@angular/animations';
 
@@ -61,8 +63,13 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
 
   constructor(
     private modalController: ModalController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     // If only one tutor, go directly to availability view
@@ -162,18 +169,14 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
     console.log('🎯 Tutor ID:', this.getTutorId(this.selectedTutor!));
     
     // Format for display
-    this.selectedDateFormatted = selectedDateTime.toLocaleDateString('en-US', {
+    this.selectedDateFormatted = formatDateInTz(selectedDateTime, this.userTz, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
     
-    this.selectedTimeFormatted = selectedDateTime.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    this.selectedTimeFormatted = formatTimeInTz(selectedDateTime, this.userTz);
     
     // Navigate to embedded checkout
     this.animationDirection = 'forward';

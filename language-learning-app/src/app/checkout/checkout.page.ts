@@ -11,6 +11,8 @@ import { firstValueFrom } from 'rxjs';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { CardManagementModalComponent } from '../components/card-management-modal/card-management-modal.component';
 import { environment } from '../../environments/environment';
+import { wallClockToUtc, formatTimeInTz } from '../shared/timezone.utils';
+import { detectUserTimezone } from '../shared/timezone.constants';
 
 // Declare Stripe
 declare var Stripe: any;
@@ -27,6 +29,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
   @Input() dateIso = '';
   @Input() time = '';
   @Input() lessonMinutes = 25;
+  @Input() slotTimezone = ''; // IANA timezone the selected date/time is expressed in
   @Input() embedded = false; // When true, render without back button and emit events instead of navigating
   @Output() bookingComplete = new EventEmitter<void>();
   @Output() cancelled = new EventEmitter<void>();
@@ -72,6 +75,10 @@ export class CheckoutPage implements OnInit, OnDestroy {
   private _cachedTimeRange: string = '';
   private _cachedTimeRangeKey: string = '';
 
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
   constructor(
     private route: ActivatedRoute, 
     private router: Router,
@@ -102,6 +109,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
       this.dateIso = qp.get('date') || '';
       this.time = qp.get('time') || '';
       this.lessonMinutes = parseInt(qp.get('duration') || '25', 10);
+      this.slotTimezone = qp.get('timezone') || '';
       
       console.log('🔍 [CHECKOUT] Loaded from query params:', {
         tutorId: this.tutorId,
@@ -297,11 +305,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
             status: lesson.status
           });
           
-          const timeStr = lessonStart.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit', 
-            hour12: true 
-          });
+          const timeStr = formatTimeInTz(lessonStart, this.userTz);
           
           return {
             message: `You already have a ${lesson.subject} lesson scheduled at ${timeStr}. Please choose a different time slot.`
@@ -336,11 +340,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
                 end: classEnd.toISOString()
               });
               
-              const timeStr = classStart.toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit', 
-                hour12: true 
-              });
+              const timeStr = formatTimeInTz(classStart, this.userTz);
               
               return {
                 message: `You already have a class "${cls.name}" scheduled at ${timeStr}. Please choose a different time slot.`
@@ -867,58 +867,39 @@ export class CheckoutPage implements OnInit, OnDestroy {
     });
   }
 
+  private get slotStartUtc(): Date | null {
+    return this.parseStartDate();
+  }
+
+  private get slotTz(): string {
+    return this.slotTimezone || detectUserTimezone();
+  }
+
   get formattedDate(): string {
-    if (!this.dateIso) return '';
-    const d = new Date(this.dateIso);
-    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', {
+      weekday: 'long', month: 'short', day: 'numeric',
+      timeZone: this.slotTz
+    });
   }
 
   get dateMonthShort(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
-    } catch (e) {
-      console.error('Error parsing dateMonthShort:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', timeZone: this.slotTz }).toUpperCase();
   }
 
   get dateDayNumber(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return String(date.getDate());
-    } catch (e) {
-      console.error('Error parsing dateDayNumber:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { day: 'numeric', timeZone: this.slotTz });
   }
 
   get dateWeekday(): string {
-    if (!this.dateIso) return '';
-    try {
-      // Parse date explicitly to avoid timezone issues
-      const parts = this.dateIso.split('-');
-      if (parts.length !== 3) return '';
-      const [year, month, day] = parts.map(Number);
-      if (isNaN(year) || isNaN(month) || isNaN(day)) return '';
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString(undefined, { weekday: 'long' });
-    } catch (e) {
-      console.error('Error parsing dateWeekday:', e, this.dateIso);
-      return '';
-    }
+    const d = this.slotStartUtc;
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { weekday: 'long', timeZone: this.slotTz });
   }
 
   get pricePerLesson(): number {
@@ -955,37 +936,31 @@ export class CheckoutPage implements OnInit, OnDestroy {
       });
       return null;
     }
-    
+
     try {
-      // Parse date components from ISO string (YYYY-MM-DD)
       const dateParts = this.dateIso.split('-');
-      if (dateParts.length !== 3) {
-        console.error('🕐 [CHECKOUT] Invalid dateIso format:', this.dateIso);
-        return null;
-      }
+      if (dateParts.length !== 3) return null;
       const [year, month, day] = dateParts.map(Number);
-      
-      // Parse time components (HH:MM in 24-hour format)
+
       const timeParts = this.time.split(':');
-      if (timeParts.length < 2) {
-        console.error('🕐 [CHECKOUT] Invalid time format:', this.time);
-        return null;
-      }
+      if (timeParts.length < 2) return null;
       const [hours, minutes] = timeParts.map(Number);
-      
-      // Validate parsed values
-      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
-        console.error('🕐 [CHECKOUT] Invalid date/time values:', {
-          year, month, day, hours, minutes
-        });
-        return null;
-      }
-      
-      // Create date in LOCAL timezone (not UTC)
-      // This ensures the lesson is scheduled for the correct local time
-      const localDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
-      
-      return localDate;
+
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) return null;
+
+      // If a timezone was provided (from the availability viewer), convert wall-clock
+      // time in that timezone to a proper UTC Date. Otherwise fall back to browser local.
+      const tz = this.slotTimezone || detectUserTimezone();
+      const utcDate = wallClockToUtc(this.dateIso, this.time, tz);
+
+      console.log('🕐 [CHECKOUT] parseStartDate:', {
+        dateIso: this.dateIso,
+        time: this.time,
+        timezone: tz,
+        utcResult: utcDate.toISOString()
+      });
+
+      return utcDate;
     } catch (e) {
       console.error('🕐 [CHECKOUT] Error parsing start date:', e);
       return null;
@@ -993,7 +968,8 @@ export class CheckoutPage implements OnInit, OnDestroy {
   }
 
   private format12h(d: Date): string {
-    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    const tz = this.slotTimezone || detectUserTimezone();
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz });
   }
 
   get timeRange(): string {

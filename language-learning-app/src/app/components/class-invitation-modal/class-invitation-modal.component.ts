@@ -6,6 +6,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { ClassService, ClassInvitation } from '../../services/class.service';
 import { UserService } from '../../services/user.service';
+import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { environment } from '../../../environments/environment';
 
 declare var Stripe: any;
@@ -64,6 +65,10 @@ export class ClassInvitationModalComponent implements OnInit, OnDestroy {
     private http: HttpClient,
     private userService: UserService
   ) {}
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   ngOnInit() {
     // Initialize Stripe
@@ -155,22 +160,18 @@ export class ClassInvitationModalComponent implements OnInit, OnDestroy {
   get formattedDate(): string {
     if (!this.classData) return '';
     const date = new Date(this.classData.startTime);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return formatDateInTz(date, this.userTz, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   }
 
   get formattedTime(): string {
     if (!this.classData) return '';
     const date = new Date(this.classData.startTime);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   get duration(): number {

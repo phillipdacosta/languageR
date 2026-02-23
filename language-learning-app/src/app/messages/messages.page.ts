@@ -10,6 +10,7 @@ import { ImageViewerModal } from './image-viewer-modal.component';
 import { MessageContextMenuComponent } from './message-context-menu.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorAvailabilitySelectionModalComponent } from '../components/tutor-availability-selection-modal/tutor-availability-selection-modal.component';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { takeUntil, debounceTime, take, switchMap } from 'rxjs/operators';
 import { trigger, style, transition, animate } from '@angular/animations';
@@ -101,10 +102,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   hoveredConversationId: string | null = null; // Track which conversation is being hovered in the list
   showAvailabilityViewer = false; // Toggle for availability viewer in details panel
   showCheckout = false; // Toggle for checkout in details panel
-  checkoutData: { tutorId: string; date: string; time: string; duration: number } | null = null;
-  private hoverCardTimeout: any = null; // Timeout for hover card delay
+  checkoutData: { tutorId: string; date: string; time: string; duration: number; timezone?: string } | null = null;
+  otherUserLocalTime = '';
+  private localTimeInterval: any = null;
+  private hoverCardTimeout: any = null;
   currentUserId$ = new BehaviorSubject<string>('');
   currentUserType: 'student' | 'tutor' | null = null;
+  currentUser: any = null;
   // Conversations search
   searchTerm = '';
   private searchInput$ = new Subject<string>();
@@ -488,6 +492,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
       // Get current user type from UserService
       this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+        this.currentUser = user ?? null;
         this.currentUserType = user?.userType || null;
       });
 
@@ -852,10 +857,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     if (diffDays === 1) return 'Yesterday';
     // Within the last week, show weekday name
     if (diffDays > 1 && diffDays < 7) {
-      return date.toLocaleDateString(undefined, { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined });
     }
     // Otherwise show locale short date
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
   }
 
   // Ionic lifecycle hook - called every time the view enters
@@ -954,6 +959,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
                   name: tutor.name,
                   picture: tutor.picture,
                   userType: 'tutor',
+                  timezone: tutor.profile?.timezone || 'UTC',
                   languages: tutor.languages || [],
                   hourlyRate: tutor.hourlyRate,
                   rating: tutor.stats?.rating || tutor.rating,
@@ -1120,6 +1126,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       document.removeEventListener('visibilitychange', this.visibilityChangeHandler);
       this.visibilityChangeHandler = null;
     }
+    this.stopLocalTimeClock();
     this.clearPendingVoiceNote(false);
   }
 
@@ -1417,7 +1424,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       this.selectedConversation = null;
       this.hasConversationSelected = false;
       this.messages = [];
-      // Notify service that no conversation is selected
+      this.stopLocalTimeClock();
       this.messagingService.setHasSelectedConversation(false);
       this.cdr.detectChanges();
     };
@@ -1598,10 +1605,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
       if (headerName) headerName.style.opacity = '0';
     };
     
-    // Update the view and start loading messages immediately (like before)
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
     this.messagingService.setHasSelectedConversation(true);
+    this.startLocalTimeClock();
     
     // Force immediate change detection to prevent any flicker
     this.cdr.detectChanges();
@@ -1727,9 +1734,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
   
   private updateConversationView(conversation: Conversation, unreadCount: number, requestId: number) {
-    // Update header FIRST in its own change detection cycle
     this.selectedConversation = conversation;
     this.hasConversationSelected = true;
+    this.startLocalTimeClock();
     console.log(`✅ [${Date.now()}] selectedConversation SET, hasConversationSelected: ${this.hasConversationSelected}`);
     
     // Force immediate change detection
@@ -2789,13 +2796,13 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
     if (days === 0) {
-      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      return formatTimeInTz(date, this.userTz);
     } else if (days === 1) {
       return 'Yesterday';
     } else if (days < 7) {
-      return date.toLocaleDateString('en-US', { weekday: 'short' });
+      return formatDateInTz(date, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined });
     } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
   }
 
@@ -2810,7 +2817,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     } else {
-      return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
+      return formatDateInTz(date, this.userTz, { month: 'long', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
     }
   }
 
@@ -2825,6 +2832,10 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
 
   getCurrentUserId(): string {
     return this.currentUserId$.value;
+  }
+
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
   }
 
   // Handle clicks on links within system messages
@@ -2955,14 +2966,14 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     this.showAvailabilityViewer = false;
   }
 
-  onSlotSelected(event: { selectedDate: string; selectedTime: string }) {
-    // Store the selected slot data and show checkout
+  onSlotSelected(event: { selectedDate: string; selectedTime: string; timezone?: string }) {
     if (this.selectedConversation?.otherUser) {
       this.checkoutData = {
         tutorId: this.selectedConversation.otherUser.id,
         date: event.selectedDate,
         time: event.selectedTime,
-        duration: 25 // Default, will be updated from availability viewer if needed
+        duration: 25,
+        timezone: event.timezone || ''
       };
       this.showAvailabilityViewer = false;
       this.showCheckout = true;
@@ -3022,23 +3033,45 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getUserLocalTime(user: any): string {
-    // If user has timezone data, calculate their local time
     if (user?.timezone) {
       try {
-        const now = new Date();
         const formatter = new Intl.DateTimeFormat('en-US', {
           timeZone: user.timezone,
           hour: 'numeric',
           minute: '2-digit',
           hour12: true
         });
-        return formatter.format(now);
+        return formatter.format(new Date());
       } catch (error) {
         console.warn('Invalid timezone:', user.timezone);
-        return 'Time unavailable';
+        return '';
       }
     }
-    return 'Time unavailable';
+    return '';
+  }
+
+  updateOtherUserLocalTime() {
+    const user = this.selectedConversation?.otherUser;
+    if (user?.timezone) {
+      const time = this.getUserLocalTime(user);
+      this.otherUserLocalTime = time ? `It's ${time} their time` : '';
+    } else {
+      this.otherUserLocalTime = '';
+    }
+  }
+
+  private startLocalTimeClock() {
+    this.stopLocalTimeClock();
+    this.updateOtherUserLocalTime();
+    this.localTimeInterval = setInterval(() => this.updateOtherUserLocalTime(), 30000);
+  }
+
+  private stopLocalTimeClock() {
+    if (this.localTimeInterval) {
+      clearInterval(this.localTimeInterval);
+      this.localTimeInterval = null;
+    }
+    this.otherUserLocalTime = '';
   }
 
   openOtherUserProfile(event?: MouseEvent) {

@@ -9,6 +9,7 @@ import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { firstValueFrom } from 'rxjs';
+import { formatTimeInTz, formatDateInTz, isSameDayInTimezone } from '../shared/timezone.utils';
 
 interface LessonInfo {
   _id: string;
@@ -121,6 +122,10 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
     'Sentence complexity',
     'Idiomatic expressions'
   ];
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   /** Disable submit button when form is incomplete */
   get isSubmitDisabled(): boolean {
@@ -503,20 +508,18 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
 
   formatDate(date: Date): string {
     const d = new Date(date);
+    const tz = this.userTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
     const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // Check if today
-    if (d.toDateString() === today.toDateString()) {
+    const yesterday = new Date(Date.now() - 86400000);
+
+    if (isSameDayInTimezone(d, today, tz)) {
       return 'Today';
     }
-    // Check if yesterday
-    if (d.toDateString() === yesterday.toDateString()) {
+    if (isSameDayInTimezone(d, yesterday, tz)) {
       return 'Yesterday';
     }
-    
-    return d.toLocaleDateString('en-US', {
+
+    return formatDateInTz(d, this.userTz, {
       weekday: 'short',
       month: 'short',
       day: 'numeric'
@@ -524,11 +527,7 @@ export class PostLessonTutorPage implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatTimeInTz(new Date(date), this.userTz);
   }
 
   private computeStudentDisplayName(): string {

@@ -9,6 +9,7 @@ import { ClassService } from '../../services/class.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { getTimezoneLabel } from '../../shared/timezone.utils';
+import { fromZonedTime } from 'date-fns-tz';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 
 interface TimeSlot {
@@ -62,6 +63,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   
   // Tutor's timezone
   tutorTimezone: string = '';
+  tutorTimezoneLabel: string = '';
 
   // UI State
   activeTab = 'availability';
@@ -370,10 +372,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngOnInit() {
-    // Load tutor's timezone
-    this.userService.getUserTimezone().pipe(takeUntil(this.destroy$)).subscribe(timezone => {
-      this.tutorTimezone = timezone;
-      console.log('🌍 Tutor timezone loaded:', this.tutorTimezone);
+    // Reactively track tutor's timezone so it updates if changed from profile page
+    this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      const tz = user?.profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+      if (tz !== this.tutorTimezone) {
+        this.tutorTimezone = tz;
+        this.tutorTimezoneLabel = getTimezoneLabel(tz);
+        this.updateCurrentTimePosition();
+        setTimeout(() => this.scrollToCurrentTime(), 100);
+      }
     });
     
     // Check if we're in single day mode
@@ -1373,25 +1380,23 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
   
   private updateCurrentTimePosition() {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const startOffset = 0; // Availability starts at midnight (0:00)
-    const slotHeight = 26; // Each row is 24px + 2px margin-bottom = 26px per 30min slot
-    
-    // Each time slot is 30 minutes, so we have 2 slots per hour
+    const tz = this.tutorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date());
+    const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const startOffset = 0;
+    const slotHeight = 26;
+
     const totalSlotsFromStart = ((currentHour - startOffset) * 2) + Math.floor(currentMinute / 30);
     const minutesIntoCurrentSlot = currentMinute % 30;
-    
-    // Position includes partial slot progress
+
     this.currentTimePosition = (totalSlotsFromStart * slotHeight) + (minutesIntoCurrentSlot / 30 * slotHeight);
-    
-    console.log('🕐 Time indicator position:', {
-      time: `${currentHour}:${currentMinute.toString().padStart(2, '0')}`,
-      totalSlotsFromStart,
-      minutesIntoSlot: minutesIntoCurrentSlot,
-      position: this.currentTimePosition
-    });
   }
 
   private async getScrollContainer(retryCount = 0): Promise<HTMLElement | Window | null> {
@@ -1659,12 +1664,12 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       const dayOfWeek = dayDate.getDay(); // Get day of week for backward compatibility
       console.log(`🔧 Date ${dateStr} maps to ${dayDate.toDateString()}, day of week: ${dayOfWeek}`);
 
-      // Create absolute start/end dates for this specific date
+      // Create absolute start/end dates for this specific date, in the tutor's profile timezone
+      const tz = this.tutorTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const getAbsoluteDateTime = (date: Date, timeStr: string) => {
         const [hours, minutes] = timeStr.split(':').map(Number);
-        const absoluteDate = new Date(date);
-        absoluteDate.setHours(hours, minutes, 0, 0);
-        return absoluteDate.toISOString();
+        const wallClock = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours, minutes, 0, 0);
+        return fromZonedTime(wallClock, tz).toISOString();
       };
 
       for (let i = 1; i < indices.length; i++) {

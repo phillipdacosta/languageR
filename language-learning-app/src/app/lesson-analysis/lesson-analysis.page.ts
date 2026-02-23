@@ -9,6 +9,7 @@ import { LessonAnalysis } from '../services/transcription.service';
 import { ReviewDeckService, ReviewDeckItem } from '../services/review-deck.service';
 import { UserService } from '../services/user.service';
 import { LessonService } from '../services/lesson.service';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 
 interface LessonInfo {
   _id: string;
@@ -60,6 +61,10 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   
   // Expose Math for template
   Math = Math;
+
+  private get userTz(): string | undefined {
+    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -274,7 +279,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   formatDate(date: Date): string {
-    return new Date(date).toLocaleDateString('en-US', {
+    return formatDateInTz(date, this.userTz, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -283,10 +288,7 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
   }
 
   formatTime(date: Date): string {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
   goBack() {

@@ -15,6 +15,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil, filter, forkJoin } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { environment } from '../environments/environment';
+import { getTimezoneLabel } from './shared/timezone.utils';
 
 @Component({
   selector: 'app-root',
@@ -147,9 +148,19 @@ export class AppComponent implements OnInit, OnDestroy {
         
         // Detect and save timezone automatically
         this.userService.detectAndSaveTimezone().subscribe({
-          next: (updated) => {
+          next: async (updated) => {
             if (updated) {
-              console.log('🌍 Timezone auto-detected and saved');
+              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+              const label = getTimezoneLabel(tz);
+              console.log('🌍 Timezone auto-detected and saved:', label);
+              const toast = await this.toastController.create({
+                message: `Timezone updated to ${label}`,
+                duration: 3000,
+                position: 'bottom',
+                icon: 'globe-outline',
+                color: 'primary'
+              });
+              await toast.present();
             }
           },
           error: (error) => {

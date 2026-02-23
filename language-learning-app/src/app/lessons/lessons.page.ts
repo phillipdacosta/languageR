@@ -11,6 +11,7 @@ import { TutorFeedbackService } from '../services/tutor-feedback.service';
 import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 
 // Pre-computed lesson display model (avoids function calls in template)
 interface ProcessedLesson {
@@ -65,6 +66,8 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   isLoading = true;
   private destroy$ = new Subject<void>();
   private hasInitiallyLoaded = false;
+
+  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
 
   // Processed & filtered
   filteredLessons: Lesson[] = [];
@@ -127,17 +130,19 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
   ) {}
 
   ngOnInit() {
-    // Subscribe to currentUser$ – only load lessons once we have a valid user
-    // This avoids the race condition where Auth0 hasn't initialized yet
     this.userService.currentUser$.pipe(
       filter(user => !!user),
-      take(1),
       takeUntil(this.destroy$)
     ).subscribe(user => {
+      const prevTz = this.currentUser?.profile?.timezone;
       this.currentUser = user;
       this.isStudentUser = user?.userType === 'student';
       this.isTutorUser = user?.userType === 'tutor';
-      this.loadLessons();
+      if (!this.hasInitiallyLoaded) {
+        this.loadLessons();
+      } else if (prevTz !== user?.profile?.timezone) {
+        this.reprocessLessons();
+      }
     });
 
     // Trigger user load if not already cached
@@ -356,6 +361,12 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.updateFilterState();
   }
 
+  private reprocessLessons() {
+    this.processedLessons = this.filteredLessons.map(l => this.processLesson(l));
+    this.currentPage = 0;
+    this.loadFirstPage();
+  }
+
   // ─── Pre-compute lesson display data ─────────────────
   private processLesson(lesson: Lesson): ProcessedLesson {
     const role = this.getUserRole(lesson);
@@ -364,12 +375,14 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     const end = new Date(lesson.endTime);
     const now = new Date();
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const tz = this.userTz;
+    const startStr = formatTimeInTz(start, tz);
+    const endStr = formatTimeInTz(end, tz);
 
-    const timeOpts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
-    const startStr = start.toLocaleTimeString('en-US', timeOpts);
-    const endStr = end.toLocaleTimeString('en-US', timeOpts);
+    const fmtMonth = formatDateInTz(start, tz, { month: 'short', day: undefined, year: undefined });
+    const fmtDayNum = formatDateInTz(start, tz, { day: 'numeric', month: undefined, year: undefined });
+    const fmtWeekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
+    const fmtMonthLong = formatDateInTz(start, tz, { month: 'long', day: undefined, year: undefined });
 
     // Status
     let status = lesson.status;
@@ -451,10 +464,10 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       otherName: other.name,
       otherPicture: other.picture === '/assets/default-avatar.png' ? '' : other.picture,
       otherInitials: initials.toUpperCase(),
-      formattedMonth: monthNames[start.getMonth()],
-      formattedDayNum: String(start.getDate()),
-      formattedWeekday: dayNames[start.getDay()],
-      formattedDate: `${dayNames[start.getDay()]}, ${monthNames[start.getMonth()]} ${start.getDate()}`,
+      formattedMonth: fmtMonth,
+      formattedDayNum: fmtDayNum,
+      formattedWeekday: fmtWeekday,
+      formattedDate: `${fmtWeekday}, ${fmtMonthLong} ${fmtDayNum}`,
       formattedTimeRange: `${startStr} – ${endStr}`,
       duration: lesson.duration,
       price: lesson.price,

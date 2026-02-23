@@ -10,6 +10,7 @@ import { firstValueFrom, filter, takeUntil } from 'rxjs';
 import { Subject, Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { formatDateInTz, formatTimeInTz } from '../shared/timezone.utils';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -37,6 +38,8 @@ interface PaymentBreakdown {
   paymentType?: string;
   transferStatus?: string;
   cancelReason?: string;
+  formattedDate?: string;
+  formattedTime?: string;
 }
 
 interface TutorBalance {
@@ -139,6 +142,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   // Wallet visibility (tied to profile setting)
   showWalletBalance = false; // Hide by default
   walletTemporarilyVisible = false; // For mobile tap-to-reveal
+
+  userTz: string = '';
   
   private subscriptions: Subscription[] = [];
   private destroy$ = new Subject<void>();
@@ -163,7 +168,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       .subscribe(user => {
         if (user?.profile) {
           this.showWalletBalance = user.profile.showWalletBalance || false;
-          console.log('💰 [EARNINGS] Wallet balance setting updated:', this.showWalletBalance);
+          this.userTz = user.profile.timezone || '';
         }
       });
   }
@@ -177,6 +182,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       const user = await firstValueFrom(this.userService.getCurrentUser(true));
       if (user?.createdAt) {
         this.userJoinDate = new Date(user.createdAt);
+      }
+      if (user?.profile?.timezone) {
+        this.userTz = user.profile.timezone;
       }
     } catch (e) {
       // fallback: userJoinDate stays as now
@@ -230,11 +238,12 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       const user = await firstValueFrom(this.userService.getCurrentUser(true));
       if (user?.profile) {
         this.showWalletBalance = user.profile.showWalletBalance || false;
-        console.log('💰 Loaded wallet balance setting:', this.showWalletBalance);
+        if (user.profile.timezone) {
+          this.userTz = user.profile.timezone;
+        }
       }
     } catch (error) {
       console.error('❌ Error loading wallet visibility setting:', error);
-      // Default to hidden if error
       this.showWalletBalance = false;
     }
   }
@@ -314,16 +323,22 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         this.stripeConnectAccountId = response.stripeConnectAccountId || '';
         console.log(`💰 Loaded ${this.recentPayments.length} payments`);
         
-        // Extract unique students and statuses for filters
+        this.computePaymentDisplayDates();
         this.extractFilterOptions();
-        
-        // Apply filters
         this.applyFilters();
         this.updateFilterState();
       }
     } catch (error: any) {
       console.error('❌ Error loading earnings:', error);
       this.error = 'Failed to load earnings. Please try again.';
+    }
+  }
+
+  private computePaymentDisplayDates() {
+    const tz = this.userTz || undefined;
+    for (const p of this.recentPayments) {
+      p.formattedDate = p.date ? formatDateInTz(p.date, tz, { month: 'short', day: 'numeric', year: undefined }) : '';
+      p.formattedTime = p.startTime ? formatTimeInTz(p.startTime, tz) : '';
     }
   }
 
@@ -526,7 +541,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     while (current <= now) {
       const weekEnd = new Date(current.getTime() + weekMs - 1);
       const isPartial = weekEnd > now;
-      const label = current.toLocaleDateString('en-US', dateFmt);
+      const label = formatDateInTz(current, this.userTz || undefined, { month: 'short', day: 'numeric', year: undefined });
       buckets.push({
         start: new Date(current),
         end: weekEnd,
@@ -686,9 +701,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
                 const idx = tooltipItems[0].dataIndex;
                 const bucket = buckets[idx];
                 if (!bucket) return '';
-                const startStr = bucket.start.toLocaleDateString('en-US', dateFmt).toUpperCase();
+                const tz = this.userTz || undefined;
+                const startStr = formatDateInTz(bucket.start, tz, { month: 'short', day: 'numeric', year: undefined }).toUpperCase();
                 const endDate = bucket.isPartial ? now : bucket.end;
-                const endStr = endDate.toLocaleDateString('en-US', dateFmt).toUpperCase();
+                const endStr = formatDateInTz(endDate, tz, { month: 'short', day: 'numeric', year: undefined }).toUpperCase();
                 return `${startStr} – ${endStr}`;
               },
               label: (context) => {

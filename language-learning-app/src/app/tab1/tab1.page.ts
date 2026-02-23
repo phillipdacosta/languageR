@@ -24,6 +24,7 @@ import { InviteStudentModalComponent } from '../components/invite-student-modal/
 import { RescheduleLessonModalComponent } from '../components/reschedule-lesson-modal/reschedule-lesson-modal.component';
 import { RescheduleProposalModalComponent } from '../components/reschedule-proposal-modal/reschedule-proposal-modal.component';
 import { LessonSummaryComponent } from '../modals/lesson-summary/lesson-summary.component';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { NotesModalComponent } from '../components/notes-modal/notes-modal.component';
 import { TutorAvailabilityViewerComponent } from '../components/tutor-availability-viewer/tutor-availability-viewer.component';
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
@@ -92,6 +93,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   isWeb = false;
   isMobile = false;
   currentUser: User | null = null;
+  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
   lessons: Lesson[] = [];
   cancelledLessons: Lesson[] = [];
   pastLessons: Lesson[] = [];
@@ -1538,32 +1540,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   formatClassDate(dateString: string | null | undefined): string {
     if (!dateString) return 'Date TBD';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date TBD';
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      });
-    } catch {
-      return 'Date TBD';
-    }
+    const result = formatDateInTz(dateString, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+    return result || 'Date TBD';
   }
 
   formatClassTime(dateString: string | null | undefined): string {
     if (!dateString) return 'Time TBD';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Time TBD';
-      return date.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
-        minute: '2-digit', 
-        hour12: true 
-      });
-    } catch {
-      return 'Time TBD';
-    }
+    const result = formatTimeInTz(dateString, this.userTz);
+    return result || 'Time TBD';
   }
 
   ionViewDidLeave() {
@@ -3498,44 +3482,37 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     const lessonDay = this.startOfDay(start);
     const daysDiff = Math.floor((lessonDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     
-    // Format time
-    const time = start.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit', 
-      hour12: true 
-    });
-    
-    // Determine day text
+    const tz = this.userTz;
+    const time = formatTimeInTz(start, tz);
+
     let dayText = '';
     if (daysDiff === 0) {
       dayText = 'today';
     } else if (daysDiff === 1) {
       dayText = 'tomorrow';
     } else if (daysDiff < 7) {
-      // Show weekday with date: "Monday, November 25"
-      const weekday = start.toLocaleDateString('en-US', { weekday: 'long' });
-      const date = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      const weekday = formatDateInTz(start, tz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
+      const date = formatDateInTz(start, tz, { month: 'long', day: 'numeric', year: undefined });
       dayText = `${weekday}, ${date}`;
     } else {
-      // Show month and day: "December 2"
-      dayText = start.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+      dayText = formatDateInTz(start, tz, { month: 'long', day: 'numeric', year: undefined });
     }
-    
+
     return {
-      date: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: formatDateInTz(start, tz, { month: 'short', day: 'numeric', year: undefined }),
       time,
       dayText
     };
   }
 
-  // Format lesson time for display with clear when information
   formatLessonTime(lesson: Lesson): string {
     const start = new Date(lesson.startTime);
     const end = new Date(lesson.endTime);
     const now = new Date();
-    
-    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const tz = this.userTz;
+
+    const startTime = formatTimeInTz(start, tz);
+    const endTime = formatTimeInTz(end, tz);
     
     // Calculate relative date
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -3567,10 +3544,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       whenText = 'Tomorrow';
     } else if (daysDiff > 1 && daysDiff < 7) {
       // Within the next week, show weekday name
-      whenText = start.toLocaleDateString('en-US', { weekday: 'long' });
+      whenText = formatDateInTz(start, this.userTz, { weekday: 'long', month: undefined, day: undefined, year: undefined });
     } else {
-      // Further out, show full date
-      whenText = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      whenText = formatDateInTz(start, this.userTz, { month: 'short', day: 'numeric', year: undefined });
     }
     
     return `${whenText} • ${startTime} - ${endTime}`;
@@ -3585,15 +3561,9 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     return subject.replace(/ Lesson$/i, '').trim();
   }
   
-  // Get just the time range portion (e.g., "2:00 PM - 3:00 PM")
   getTimeRangeOnly(lesson: Lesson): string {
-    const start = new Date(lesson.startTime);
-    const end = new Date(lesson.endTime);
-    
-    const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    
-    return `${startTime} — ${endTime}`;
+    const tz = this.userTz;
+    return `${formatTimeInTz(lesson.startTime, tz)} — ${formatTimeInTz(lesson.endTime, tz)}`;
   }
 
   /**
@@ -4575,12 +4545,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else if (lessonDate.getTime() === tomorrow.getTime()) {
       return 'TOMORROW';
     } else {
-      // Format as "Mon. Nov 17"
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
-      }).replace(',', '.');
+      return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }).replace(',', '.');
     }
   }
 
@@ -5013,31 +4978,21 @@ navigateToLessons() {
 
   // Format time only (e.g., "2:00 PM")
   formatTimeOnly(date: Date): string {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return formatTimeInTz(date, this.userTz);
   }
 
-  // Format relative date (e.g., "Today", "Tomorrow", "Wed, Nov 15")
   formatRelativeDate(date: Date): string {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
+
     const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Tomorrow';
     if (diffDays === -1) return 'Yesterday';
-    
-    // For other dates, show day and date (e.g., "Wed, Nov 15")
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
+
+    return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
   }
 
   // Navigate to lesson details or join
@@ -5820,7 +5775,7 @@ navigateToLessons() {
     const isFuture = selectedDay.getTime() > today.getTime();
     
     // Format date for messages
-    const dateLabel = isToday ? 'today' : this.selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const dateLabel = isToday ? 'today' : formatDateInTz(this.selectedDate, this.userTz);
 
     if (!Array.isArray(this.availabilityBlocks) || this.availabilityBlocks.length === 0) {
       if (this.isSelectedDatePast) {
@@ -6194,7 +6149,7 @@ navigateToLessons() {
       const d = this.startOfDay(new Date(startDate));
       d.setDate(d.getDate() + i);
       result.push({
-        label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        label: formatDateInTz(d, this.userTz, { weekday: 'short', month: undefined, day: undefined, year: undefined }),
         dayNum: d.getDate(),
         date: d,
         isToday: this.isSameDay(d, today)
@@ -6321,19 +6276,20 @@ navigateToLessons() {
     const sameMonth = startOfWeek.getMonth() === endOfWeek.getMonth();
     const sameYear = startOfWeek.getFullYear() === endOfWeek.getFullYear();
 
+    const tz = this.userTz;
     if (sameMonth && sameYear) {
-      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const startLabel = formatDateInTz(startOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
       return `${startLabel} - ${endOfWeek.getDate()}, ${startOfWeek.getFullYear()}`;
     }
 
     if (sameYear) {
-      const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const startLabel = formatDateInTz(startOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
+      const endLabel = formatDateInTz(endOfWeek, tz, { month: 'short', day: 'numeric', year: undefined });
       return `${startLabel} - ${endLabel}, ${startOfWeek.getFullYear()}`;
     }
 
-    const startLabel = startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const endLabel = endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startLabel = formatDateInTz(startOfWeek, tz);
+    const endLabel = formatDateInTz(endOfWeek, tz);
     return `${startLabel} - ${endLabel}`;
   }
 
@@ -7366,26 +7322,10 @@ navigateToLessons() {
         proposal: proposal,
         participantName: participantName,
         participantAvatar: participantAvatar || undefined,
-        proposedDate: proposedDate.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
-        proposedTime: proposedDate.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit' 
-        }),
-        originalDate: originalDate.toLocaleDateString('en-US', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
-        }),
-        originalTime: originalDate.toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit' 
-        }),
+        proposedDate: formatDateInTz(proposedDate, this.userTz, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        proposedTime: formatTimeInTz(proposedDate, this.userTz),
+        originalDate: formatDateInTz(originalDate, this.userTz, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        originalTime: formatTimeInTz(originalDate, this.userTz),
         otherParticipant: otherParticipant
       };
       
@@ -7857,14 +7797,12 @@ navigateToLessons() {
 
   formatFeedbackDate(dateStr: any): string {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return formatDateInTz(dateStr, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
   }
 
   formatFeedbackTime(dateStr: any): string {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return formatTimeInTz(dateStr, this.userTz);
   }
 
   // ---- LEGACY ACTION SHEET (kept for reference, replaced by modal) ----
@@ -7873,7 +7811,7 @@ navigateToLessons() {
     
     const buttons = this.pendingFeedback.map((fb: any) => {
       const date = fb.lesson?.startTime
-        ? new Date(fb.lesson.startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        ? `${formatDateInTz(fb.lesson.startTime, this.userTz, { month: 'short', day: 'numeric', year: undefined })} ${formatTimeInTz(fb.lesson.startTime, this.userTz)}`
         : '';
       return {
         text: `${fb.studentName || 'Student'} — ${date}`,

@@ -4,7 +4,9 @@ import { ModalController } from '@ionic/angular';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { NotificationService, Notification } from '../services/notification.service';
+import { UserService } from '../services/user.service';
 import { WebSocketService } from '../services/websocket.service';
+import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { PlatformService } from '../services/platform.service';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
@@ -39,7 +41,8 @@ export class NotificationsPage implements OnDestroy {
     { value: 'progress', label: 'Progress' }
   ];
   private destroy$ = new Subject<void>();
-  
+  currentUser: any = null;
+
   // Lazy loading properties
   isLoadingMore = false;
   hasMoreNotifications = true;
@@ -48,6 +51,7 @@ export class NotificationsPage implements OnDestroy {
 
   constructor(
     private notificationService: NotificationService,
+    private userService: UserService,
     private websocketService: WebSocketService,
     private router: Router,
     private platformService: PlatformService,
@@ -59,6 +63,11 @@ export class NotificationsPage implements OnDestroy {
       .subscribe(() => {
         this.loadNotifications();
       });
+
+    this.userService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
+      this.currentUser = user ?? null;
+    });
+    this.userService.getCurrentUser().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   ionViewWillEnter() {
@@ -147,6 +156,10 @@ export class NotificationsPage implements OnDestroy {
     return this.notifications.filter(n => n.read);
   }
 
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
   formatNotificationTime(createdAt: Date | string): string {
     const date = new Date(createdAt);
     const now = new Date();
@@ -169,19 +182,11 @@ export class NotificationsPage implements OnDestroy {
 
     // For yesterday, show time
     if (this.isYesterday(createdAt)) {
-      return date.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit'
-      });
+      return formatTimeInTz(date, this.userTz);
     }
 
     // For older notifications, show date and time
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
+    return formatDateInTz(date, this.userTz, { month: 'short', day: 'numeric', year: undefined }) + ' ' + formatTimeInTz(date, this.userTz);
   }
 
   onNotificationClick(notification: Notification) {
