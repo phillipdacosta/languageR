@@ -1,6 +1,15 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- PRE-STEP: Language Selection                       -->
 <!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="preStepPhase === 'language'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
 <div class="pre-step-container" *ngIf="preStepPhase === 'language'">
   <div class="pre-step-inner">
     <div class="pre-step-logo">
@@ -45,45 +54,60 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- PRE-STEP: Welcome Screen                           -->
 <!-- ═══════════════════════════════════════════════════ -->
-<div class="pre-step-container welcome-phase" *ngIf="preStepPhase === 'welcome'">
+<ion-header *ngIf="preStepPhase === 'welcome'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
   <div class="pre-step-inner welcome-inner">
     <div class="pre-step-logo">
       <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon welcome-icon">
     </div>
 
-    <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
-    <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.SUBTITLE' | translate }}</p>
-
-    <div class="welcome-features">
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="people"></ion-icon>
-        </div>
-        <span>{{ 'TUTOR.TITLE' | translate }}</span>
-      </div>
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="videocam"></ion-icon>
-        </div>
-        <span>{{ 'HOME.START_LESSON' | translate }}</span>
-      </div>
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="trending-up"></ion-icon>
-        </div>
-        <span>{{ 'LESSON_SUMMARY.PROGRESS' | translate }}</span>
-      </div>
+    <div class="welcome-hero">
+      <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
+      <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.GREETING' | translate }}</h1>
     </div>
 
-    <button class="pre-step-cta" (click)="startOnboarding()">
-      {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
-      <ion-icon name="arrow-forward"></ion-icon>
-    </button>
+    <div class="welcome-body">
+      <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.SUBTITLE' | translate }}</p>
 
-    <button class="pre-step-back-link" (click)="goBackToLanguageSelect()">
-      <ion-icon name="chevron-back"></ion-icon>
-      {{ 'ONBOARDING.WELCOME_SCREEN.BACK' | translate }}
-    </button>
+      <div class="welcome-features">
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="people"></ion-icon>
+          </div>
+          <span>{{ 'TUTOR.TITLE' | translate }}</span>
+        </div>
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="videocam"></ion-icon>
+          </div>
+          <span>{{ 'HOME.START_LESSON' | translate }}</span>
+        </div>
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="trending-up"></ion-icon>
+          </div>
+          <span>{{ 'LESSON_SUMMARY.PROGRESS' | translate }}</span>
+        </div>
+      </div>
+
+      <button class="pre-step-cta" (click)="startOnboarding()">
+        {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+
+      <button class="pre-step-back-link" (click)="goBackToLanguageSelect()">
+        <ion-icon name="chevron-back"></ion-icon>
+        {{ 'ONBOARDING.WELCOME_SCREEN.BACK' | translate }}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -333,13 +357,13 @@
             <button 
               *ngFor="let goal of availableGoals"
               class="goal-button"
-              [class.selected]="learningGoals.includes(goal)"
-              (click)="toggleGoal(goal)">
+              [class.selected]="learningGoals.includes(goal.value)"
+              (click)="toggleGoal(goal.value)">
               <ion-icon 
-                [name]="learningGoals.includes(goal) ? 'checkbox' : 'square-outline'"
+                [name]="learningGoals.includes(goal.value) ? 'checkbox' : 'square-outline'"
                 class="checkbox-icon">
               </ion-icon>
-              <span>{{ goal }}</span>
+              <span>{{ goal.key | translate }}</span>
             </button>
           </div>
         </div>
@@ -359,9 +383,9 @@
                 <button 
                   *ngFor="let level of experienceLevels"
                   class="option-button-block"
-                  [class.selected]="experienceLevel === level"
-                  (click)="setExperienceLevel(level)">
-                  {{ level }}
+                  [class.selected]="experienceLevel === level.value"
+                  (click)="setExperienceLevel(level.value)">
+                  {{ level.key | translate }}
                 </button>
               </div>
             </div>
@@ -372,9 +396,9 @@
                 <button 
                   *ngFor="let schedule of scheduleOptions"
                   class="option-button-block"
-                  [class.selected]="preferredSchedule === schedule"
-                  (click)="setPreferredSchedule(schedule)">
-                  {{ schedule }}
+                  [class.selected]="preferredSchedule === schedule.value"
+                  (click)="setPreferredSchedule(schedule.value)">
+                  {{ schedule.key | translate }}
                 </button>
               </div>
             </div>
@@ -454,7 +478,7 @@
         </div>
         <div class="preview-row">
           <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_GOALS' | translate }}</span>
-          <span class="preview-value">{{ learningGoals.join(', ') }}</span>
+          <span class="preview-value">{{ translatedGoalsList }}</span>
         </div>
       </div>
 
@@ -467,11 +491,11 @@
         </div>
         <div class="preview-row">
           <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_LEVEL' | translate }}</span>
-          <span class="preview-value">{{ experienceLevel }}</span>
+          <span class="preview-value">{{ translatedExperienceLevel }}</span>
         </div>
         <div class="preview-row">
           <span class="preview-label">{{ 'ONBOARDING.STUDENT.PREVIEW_SCHEDULE' | translate }}</span>
-          <span class="preview-value">{{ preferredSchedule }}</span>
+          <span class="preview-value">{{ translatedSchedule }}</span>
         </div>
       </div>
     </div>

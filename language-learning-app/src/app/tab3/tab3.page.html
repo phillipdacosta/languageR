@@ -217,67 +217,84 @@
     <div *ngIf="showCelebration && celebrationSnapshot" class="celebration-overlay">
       <!-- Confetti -->
       <div class="confetti-container">
-        <div class="confetti-piece" *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]" [attr.data-i]="i"></div>
+        <div class="confetti-piece" *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50]" [attr.data-i]="i"></div>
       </div>
-      <div class="celebration-card">
-        <div class="celebration-header">
-          <div class="celebration-emoji">🏆</div>
-          <h2 class="celebration-title">
-            {{ celebrationSnapshot.milestoneNumber === 1 ? 'Progress Profile Unlocked!' : 'Milestone ' + celebrationSnapshot.milestoneNumber + ' Complete!' }}
-          </h2>
-          <p class="celebration-subtitle">
-            {{ celebrationSnapshot.milestoneNumber === 1 
-              ? 'You\'ve completed 5 analyzed lessons. Here\'s your first snapshot.' 
-              : 'Lessons ' + celebrationSnapshot.startLesson + '–' + celebrationSnapshot.endLesson + ' summary' }}
-          </p>
+      <div class="celebration-card" [class.revealed]="celebrationRevealed">
+        <div class="celebration-trophy-wrapper">
+          <div class="trophy-glow"></div>
+          <dotlottie-player src="/assets/Trophy.lottie" autoplay speed="1" class="celebration-trophy-lottie"></dotlottie-player>
         </div>
 
-        <div class="celebration-level">
-          <div class="celebration-level-badge" [ngClass]="'level-badge-large--' + getLevelClass(celebrationSnapshot.cefrLevel)">
-            {{ celebrationSnapshot.cefrLevel }}
+        <div class="celebration-body">
+          <div class="celebration-header">
+            <h2 class="celebration-title">
+              {{ celebrationSnapshot.milestoneNumber === 1 ? 'Progress Profile Unlocked!' : 'Milestone ' + celebrationSnapshot.milestoneNumber + ' Complete!' }}
+            </h2>
+            <p class="celebration-subtitle">
+              {{ celebrationSnapshot.milestoneNumber === 1
+                ? 'You\'ve completed 5 analyzed lessons. Here\'s your first snapshot.'
+                : 'Lessons ' + celebrationSnapshot.startLesson + '–' + celebrationSnapshot.endLesson + ' summary' }}
+            </p>
           </div>
-          <span class="celebration-level-label">Average Level</span>
-        </div>
 
-        <div class="celebration-metrics">
-          <div class="celebration-metric">
-            <div class="metric-ring" style="--ring-color: #3b82f6">
-              <span class="metric-value">{{ celebrationSnapshot.grammarScore }}%</span>
+          <div class="celebration-level">
+            <div class="celebration-level-badge" [ngClass]="'level-badge-large--' + getLevelClass(celebrationSnapshot.cefrLevel)">
+              {{ celebrationSnapshot.cefrLevel }}
             </div>
-            <span class="metric-label">Grammar</span>
-            <span class="metric-change" *ngIf="celebrationSnapshot.grammarChange > 0">
-              +{{ celebrationSnapshot.grammarChange }}%
-            </span>
+            <span class="celebration-level-label">Average Level</span>
           </div>
-          <div class="celebration-metric">
-            <div class="metric-ring" style="--ring-color: #8b5cf6">
-              <span class="metric-value">{{ celebrationSnapshot.fluencyScore }}%</span>
+
+          <div class="celebration-metrics">
+            <div class="celebration-metric stagger-1">
+              <div class="metric-ring" style="--ring-color: #3b82f6">
+                <span class="metric-value">{{ celebrationSnapshot.grammarScore }}%</span>
+              </div>
+              <span class="metric-label">Grammar</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.grammarChange > 0">
+                +{{ celebrationSnapshot.grammarChange }}%
+              </span>
             </div>
-            <span class="metric-label">Fluency</span>
-            <span class="metric-change" *ngIf="celebrationSnapshot.fluencyChange > 0">
-              +{{ celebrationSnapshot.fluencyChange }}%
-            </span>
+            <div class="celebration-metric stagger-2">
+              <div class="metric-ring" style="--ring-color: #8b5cf6">
+                <span class="metric-value">{{ celebrationSnapshot.fluencyScore }}%</span>
+              </div>
+              <span class="metric-label">Fluency</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.fluencyChange > 0">
+                +{{ celebrationSnapshot.fluencyChange }}%
+              </span>
+            </div>
+            <div class="celebration-metric stagger-3">
+              <div class="metric-ring" style="--ring-color: #f59e0b">
+                <span class="metric-value">{{ celebrationSnapshot.vocabScore }}%</span>
+              </div>
+              <span class="metric-label">Vocabulary</span>
+              <span class="metric-change" *ngIf="celebrationSnapshot.vocabChange > 0">
+                +{{ celebrationSnapshot.vocabChange }}%
+              </span>
+            </div>
           </div>
-          <div class="celebration-metric">
-            <div class="metric-ring" style="--ring-color: #f59e0b">
-              <span class="metric-value">{{ celebrationSnapshot.vocabScore }}%</span>
-            </div>
-            <span class="metric-label">Vocabulary</span>
-            <span class="metric-change" *ngIf="celebrationSnapshot.vocabChange > 0">
-              +{{ celebrationSnapshot.vocabChange }}%
-            </span>
+
+          <div class="celebration-study-time" *ngIf="celebrationSnapshot.studyTime > 0">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ formatStudyTime(celebrationSnapshot.studyTime) }} of speaking practice</span>
+          </div>
+
+          <div class="celebration-cta-row">
+            <!-- <dotlottie-player
+              *ngIf="celebrationRevealed && celebrationSnapshot.milestoneNumber > 1"
+              src="/assets/bird-celebrate.lottie"
+              autoplay
+              loop
+              speed="1"
+              class="celebration-bird">
+            </dotlottie-player> -->
+            <button class="celebration-cta" (click)="dismissCelebration()">
+              {{ celebrationSnapshot.milestoneNumber === 1 ? 'View My Progress' : 'Continue' }}
+              <ion-icon name="arrow-forward"></ion-icon>
+            </button>
           </div>
         </div>
 
-        <div class="celebration-study-time" *ngIf="celebrationSnapshot.studyTime > 0">
-          <ion-icon name="time-outline"></ion-icon>
-          <span>{{ formatStudyTime(celebrationSnapshot.studyTime) }} of speaking practice</span>
-        </div>
-
-        <button class="celebration-cta" (click)="dismissCelebration()">
-          {{ celebrationSnapshot.milestoneNumber === 1 ? 'View My Progress' : 'Continue' }}
-          <ion-icon name="arrow-forward"></ion-icon>
-        </button>
       </div>
     </div>
 

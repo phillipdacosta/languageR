@@ -247,13 +247,62 @@ $ob-accent: #222222;
   }
 }
 
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  transition: flex-direction 0s 0.3s, padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .welcome-revealed & {
+    flex-direction: row;
+    padding: 0 0 16px;
+    gap: 8px;
+  }
+}
+
+.welcome-celebration-lottie {
+  width: 220px;
+  height: 220px;
+  flex-shrink: 0;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1), height 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .welcome-revealed & {
+    width: 72px;
+    height: 72px;
+  }
+}
+
 .welcome-title {
   font-size: 32px;
   font-weight: 700;
   color: $ob-text-primary;
   letter-spacing: -0.5px;
-  margin: 0 0 12px;
+  margin: 0;
   line-height: 1.2;
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.5s ease 0.15s, transform 0.5s ease 0.15s;
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.welcome-body {
+  opacity: 0;
+  transform: translateY(16px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.5s ease 0.25s, transform 0.5s ease 0.25s, max-height 0.6s ease 0.1s;
+
+  .welcome-revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
 }
 
 .welcome-subtitle {

@@ -1589,7 +1589,8 @@ ion-content {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #f0f4ff, #e8ecf4);
+  background: linear-gradient(135deg, #5ba8e0a6 0%, #4298d3cc 50%, #2d7bb8ad 100%);
+  box-shadow: 0 4px 12px rgba(66, 152, 211, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1598,7 +1599,7 @@ ion-content {
   
   ion-icon {
     font-size: 28px;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.95);
   }
   
   @media (max-width: 600px) {
@@ -9608,8 +9609,9 @@ ion-content {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
   }
   .empty-state-clean-icon {
-    background: linear-gradient(135deg, #333333, #3a3a3a) !important;
-    ion-icon { color: #aaa !important; }
+    background: linear-gradient(135deg, #3a7ba8 0%, #4298d3 50%, #2d6b94 100%) !important;
+    box-shadow: 0 4px 12px rgba(66, 152, 211, 0.35) !important;
+    ion-icon { color: rgba(255, 255, 255, 0.95) !important; }
   }
   .empty-state-clean-text {
     h3 { color: var(--ion-text-color, #ffffff) !important; }
@@ -11397,6 +11399,29 @@ ion-modal.reschedule-proposal-modal {
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  .profile-hidden-banner {
+    background: #fff7ea !important;
+    border: 1px solid #FFB74D !important;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12) !important;
+
+    .banner-icon {
+      background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%) !important;
+      box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3) !important;
+    }
+
+    .banner-text {
+      p, .banner-items {
+        color: #5D4037 !important;
+      }
+    }
+
+    ion-button {
+      --background: #222222 !important;
+      --background-hover: #000000 !important;
+      --background-activated: #000000 !important;
     }
   }
 

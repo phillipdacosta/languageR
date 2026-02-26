@@ -124,12 +124,14 @@ export function getTimezoneLabel(timezone: string): string {
 /**
  * Format a UTC Date as a time string (e.g., "2:30 PM") in the given timezone.
  * Falls back to browser timezone if none provided.
+ * @param locale BCP 47 locale (e.g. 'en', 'fr', 'de') for localized output; defaults to 'en-US'.
  */
-export function formatTimeInTz(date: Date | string, timezone?: string): string {
+export function formatTimeInTz(date: Date | string, timezone?: string, locale?: string): string {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString('en-US', {
+    const loc = locale && locale.length >= 2 ? locale : 'en-US';
+    return d.toLocaleTimeString(loc, {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -143,22 +145,25 @@ export function formatTimeInTz(date: Date | string, timezone?: string): string {
 /**
  * Format a UTC Date as a date string (e.g., "Feb 23, 2026") in the given timezone.
  * Falls back to browser timezone if none provided.
+ * @param locale BCP 47 locale (e.g. 'en', 'fr', 'de') for localized output; defaults to 'en-US'.
  */
 export function formatDateInTz(
   date: Date | string,
   timezone?: string,
-  options?: Intl.DateTimeFormatOptions
+  options?: Intl.DateTimeFormatOptions,
+  locale?: string
 ): string {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
+    const loc = locale && locale.length >= 2 ? locale : 'en-US';
     const defaults: Intl.DateTimeFormatOptions = {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       ...(timezone ? { timeZone: timezone } : {})
     };
-    return d.toLocaleDateString('en-US', { ...defaults, ...options });
+    return d.toLocaleDateString(loc, { ...defaults, ...options });
   } catch {
     return '';
   }

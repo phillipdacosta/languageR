@@ -42,7 +42,7 @@
                 <div class="visibility-status" *ngIf="!isViewingOtherUser && isTutor()">
                   <!-- Skeleton placeholder while loading -->
                   <div class="visibility-skeleton" *ngIf="!visibilityLoaded">
-                    <ion-skeleton-text [animated]="true" style="width: 180px; height: 34px; border-radius: 20px;"></ion-skeleton-text>
+                    <ion-skeleton-text [animated]="true" style="width: 140px; height: 22px; border-radius: 6px;"></ion-skeleton-text>
                   </div>
                   <!-- Actual badge once loaded -->
                   <ng-container *ngIf="visibilityLoaded">
@@ -153,7 +153,7 @@
             <p>{{ getPayoutSetupText() }}</p>
           </div>
           <ion-button 
-            color="primary" 
+            fill="clear"
             (click)="startStripeConnectOnboarding()"
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
@@ -175,8 +175,7 @@
           </div>
           <ion-button 
             *ngIf="payoutProvider === 'stripe'"
-            fill="outline"
-            color="primary" 
+            fill="clear"
             (click)="editStripeConnectAccount()"
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
@@ -185,8 +184,7 @@
           </ion-button>
           <ion-button 
             *ngIf="payoutProvider !== 'stripe'"
-            fill="outline"
-            color="primary" 
+            fill="clear"
             (click)="startStripeConnectOnboarding()"
             [disabled]="isLoadingStripeConnect"
             class="compact-button">
@@ -256,7 +254,7 @@
       </ion-card>
       
       <!-- Tutor Video Section - Only show for own profile -->
-      <ion-card class="tutor-video-card" *ngIf="!isViewingOtherUser">
+      <ion-card class="tutor-video-card" id="intro-video-section" *ngIf="!isViewingOtherUser">
         <ion-card-header>
           <ion-card-title>{{'PROFILE_SCREEN.INTRO_VIDEO' | translate}}</ion-card-title>
           <ion-card-subtitle>{{'PROFILE_SCREEN.INTRO_VIDEO_SUBTITLE' | translate}}</ion-card-subtitle>
@@ -416,9 +414,7 @@
 
     <!-- Logout Button - Only show for own profile -->
     <ion-button 
-      expand="block" 
-      fill="solid" 
-      color="danger" 
+      fill="clear"
       (click)="logout()"
       class="logout-button"
       *ngIf="!isViewingOtherUser">

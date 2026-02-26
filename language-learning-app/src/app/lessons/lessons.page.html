@@ -97,7 +97,7 @@
           [class.last-item]="last">
 
           <!-- Main Row (clickable) -->
-          <div class="lesson-row-main" (click)="onLessonClick(pl)">
+          <div class="lesson-row-main" (click)="onLessonClick(pl, $event)">
             <!-- Date Block -->
             <div class="lesson-date-block">
               <span class="date-month">{{ pl.formattedMonth }}</span>

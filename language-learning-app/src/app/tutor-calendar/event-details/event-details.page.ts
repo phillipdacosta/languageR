@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
@@ -8,6 +8,7 @@ import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
 import { TutorFeedbackService, TutorFeedback } from '../../services/tutor-feedback.service';
+import { FlipTransitionService } from '../../services/flip-transition.service';
 import { PlatformService } from '../../services/platform.service';
 import { WalletService } from '../../services/wallet.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -228,7 +229,9 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private toastController: ToastController,
     private loadingController: LoadingController,
-    private location: Location
+    private location: Location,
+    private flipTransition: FlipTransitionService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -259,6 +262,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
     }
+    this.flipTransition.cleanup();
   }
 
   // ── Data Loading ──────────────────────────────────────────────
@@ -300,14 +304,17 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.loading = false;
           this.computeClassProperties();
           this.startCountdown();
+          this.flipTransition.cleanup();
         } else {
           this.error = 'Event not found';
           this.loading = false;
+          this.flipTransition.cleanup();
         }
       },
       error: () => {
         this.error = 'Failed to load event details';
         this.loading = false;
+        this.flipTransition.cleanup();
       }
     });
   }
@@ -420,7 +427,59 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (this.pendingRequests <= 0) {
       this.computeFeedbackStatus();
       this.loading = false;
+      this.cdr.detectChanges();
+      this.landFlipTransition();
     }
+  }
+
+  /** FLIP landing: fly clones from their source positions to destination elements */
+  private landFlipTransition(): void {
+    const data = this.flipTransition.consume();
+    if (!data?.clones?.length) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        for (const entry of data.clones) {
+          const clone = entry.cloneElement;
+          if (!clone?.parentNode) continue;
+
+          const dest = document.querySelector(entry.destSelector) as HTMLElement;
+          if (!dest) {
+            clone.style.opacity = '0';
+            setTimeout(() => { if (clone.parentNode) clone.remove(); }, 300);
+            continue;
+          }
+
+          dest.style.transition = 'none';
+          dest.style.opacity = '0';
+
+          const destRect = dest.getBoundingClientRect();
+          const destCs = window.getComputedStyle(dest);
+
+          clone.style.left = `${destRect.left}px`;
+          clone.style.top = `${destRect.top}px`;
+          clone.style.fontSize = destCs.fontSize;
+          clone.style.fontWeight = destCs.fontWeight;
+          clone.style.color = destCs.color;
+          clone.style.letterSpacing = destCs.letterSpacing;
+
+          setTimeout(() => {
+            const finalRect = dest.getBoundingClientRect();
+            clone.style.transition = 'none';
+            clone.style.left = `${finalRect.left}px`;
+            clone.style.top = `${finalRect.top}px`;
+
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                dest.style.opacity = '1';
+                if (clone.parentNode) clone.remove();
+                setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+              });
+            });
+          }, 500);
+        }
+      });
+    });
   }
 
   // ── Compute Properties (no functions in template) ─────────────

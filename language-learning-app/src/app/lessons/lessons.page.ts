@@ -1,13 +1,14 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter } from '@ionic/angular';
+import { IonicModule, LoadingController, ToastController, AlertController, ViewWillEnter, NavController } from '@ionic/angular';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../services/lesson.service';
 import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
+import { FlipTransitionService } from '../services/flip-transition.service';
 import { Subject, firstValueFrom } from 'rxjs';
 import { takeUntil, filter, take } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -120,8 +121,10 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     private userService: UserService,
     private agoraService: AgoraService,
     private tutorFeedbackService: TutorFeedbackService,
+    private flipTransition: FlipTransitionService,
     private router: Router,
     private route: ActivatedRoute,
+    private navCtrl: NavController,
     private loadingController: LoadingController,
     private toastController: ToastController,
     private alertController: AlertController,
@@ -617,7 +620,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.expandedLessonId = this.expandedLessonId === pl.id ? null : pl.id;
   }
 
-  onLessonClick(pl: ProcessedLesson) {
+  onLessonClick(pl: ProcessedLesson, _event?: MouseEvent) {
     this.router.navigate(['/event', pl.id]);
   }
 

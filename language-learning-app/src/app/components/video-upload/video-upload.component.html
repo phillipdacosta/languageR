@@ -6,14 +6,14 @@
       [class.active]="uploadMode === 'file'"
       (click)="toggleUploadMode('file')">
       <ion-icon name="cloud-upload-outline"></ion-icon>
-      Upload File
+      {{ 'VIDEO_UPLOAD.UPLOAD_FILE' | translate }}
     </button>
     <button 
       class="mode-btn" 
       [class.active]="uploadMode === 'link'"
       (click)="toggleUploadMode('link')">
       <ion-icon name="link-outline"></ion-icon>
-      Paste Link
+      {{ 'VIDEO_UPLOAD.PASTE_LINK' | translate }}
     </button>
   </div>
 
@@ -22,7 +22,7 @@
     
     <!-- Thumbnail Upload — shown first so it's visible before uploading a video -->
     <div class="thumbnail-upload-section" *ngIf="!videoUrl">
-      <p class="thumbnail-label">Add a thumbnail (optional but recommended - tutors with thumbnails earn 18% more!)</p>
+      <p class="thumbnail-label">{{ 'VIDEO_UPLOAD.THUMBNAIL_LABEL' | translate }}</p>
       <input #thumbnailFileInput 
              type="file" 
              accept="image/jpeg,image/jpg,image/png" 
@@ -31,7 +31,7 @@
       
       <button class="thumbnail-upload-btn" (click)="thumbnailFileInput.click()" *ngIf="!thumbnailPreview">
         <ion-icon name="image-outline"></ion-icon>
-        Upload Thumbnail (16:9 ratio, JPG/PNG, max 20MB)
+        {{ 'VIDEO_UPLOAD.UPLOAD_THUMBNAIL' | translate }}
       </button>
       
       <div class="thumbnail-preview-small" *ngIf="thumbnailPreview">
@@ -57,9 +57,9 @@
       
       <div class="upload-content">
         <ion-icon name="videocam-outline" class="upload-icon"></ion-icon>
-        <h3>Upload Introduction Video</h3>
-        <p>Click to browse or drag and drop a video file</p>
-        <p class="upload-hint">Max size: 1GB. Large videos will be automatically compressed.</p>
+        <h3>{{ 'VIDEO_UPLOAD.UPLOAD_TITLE' | translate }}</h3>
+        <p>{{ 'VIDEO_UPLOAD.UPLOAD_DESC' | translate }}</p>
+        <p class="upload-hint">{{ 'VIDEO_UPLOAD.UPLOAD_HINT' | translate }}</p>
       </div>
     </div>
     
@@ -73,9 +73,9 @@
   <div class="link-section" *ngIf="!videoUrl && uploadMode === 'link'">
     <div class="link-input-area">
       <ion-icon name="link-outline" class="link-icon"></ion-icon>
-      <h3>🔗 Paste your video link</h3>
-      <p class="link-hint">YouTube or Vimeo URLs accepted</p>
-      <p class="link-privacy">Your video must be set to <strong>Public</strong> or <strong>Unlisted</strong></p>
+      <h3>{{ 'VIDEO_UPLOAD.PASTE_TITLE' | translate }}</h3>
+      <p class="link-hint">{{ 'VIDEO_UPLOAD.PASTE_HINT' | translate }}</p>
+      <p class="link-privacy">{{ 'VIDEO_UPLOAD.PASTE_PRIVACY' | translate }}</p>
       
       <div class="link-input-wrapper">
         <ion-input
@@ -88,7 +88,7 @@
       
       <!-- Optional: Custom Thumbnail for Vimeo -->
       <div class="thumbnail-upload-section" *ngIf="videoLinkInput.includes('vimeo')">
-        <p class="thumbnail-label-small">Add a custom thumbnail for Vimeo videos (optional)</p>
+        <p class="thumbnail-label-small">{{ 'VIDEO_UPLOAD.VIMEO_THUMBNAIL' | translate }}</p>
         <input #thumbnailLinkInput 
                type="file" 
                accept="image/jpeg,image/jpg,image/png" 
@@ -97,7 +97,7 @@
         
         <button class="thumbnail-upload-btn-small" (click)="thumbnailLinkInput.click()" *ngIf="!thumbnailPreview">
           <ion-icon name="image-outline"></ion-icon>
-          Upload Thumbnail
+          {{ 'VIDEO_UPLOAD.UPLOAD_THUMBNAIL_SHORT' | translate }}
         </button>
         
         <div class="thumbnail-preview-small" *ngIf="thumbnailPreview">
@@ -115,9 +115,9 @@
         [disabled]="!videoLinkInput.trim()"
         (click)="onPasteLink()">
         <ion-icon name="checkmark-circle"></ion-icon>
-        Add Video
+        {{ 'VIDEO_UPLOAD.ADD_VIDEO' | translate }}
       </button>
-      <p class="add-video-hint" *ngIf="videoLinkInput.trim()">Click the button above to save your video link</p>
+      <p class="add-video-hint" *ngIf="videoLinkInput.trim()">{{ 'VIDEO_UPLOAD.ADD_VIDEO_HINT' | translate }}</p>
     </div>
     
     <div class="upload-error" *ngIf="errorMessage">
@@ -132,7 +132,7 @@
       <!-- Pending Review Badge -->
       <div class="pending-review-badge" *ngIf="hasPendingVideo">
         <ion-icon name="time-outline"></ion-icon>
-        <span>Pending Admin Review</span>
+        <span>{{ 'VIDEO_UPLOAD.PENDING_REVIEW' | translate }}</span>
       </div>
       
       <!-- Show thumbnail if available with loading=eager for better quality -->
@@ -145,10 +145,11 @@
       
       <!-- For uploaded videos without thumbnail, show video element for preview -->
       <video *ngIf="!thumbnailUrl && videoUrl && videoType === 'upload'" 
-             [src]="videoUrl" 
+             [src]="videoUrl + '#t=0.5'" 
              class="video-thumbnail-image"
              preload="metadata"
-             crossorigin="anonymous"
+             muted
+             playsinline
              #videoPreview></video>
       
       <!-- For YouTube/Vimeo without custom thumbnail, show platform thumbnail or placeholder -->
@@ -173,8 +174,8 @@
     
     <!-- Thumbnail Upload Section for Videos (after upload) -->
     <div class="thumbnail-section" *ngIf="videoUrl && !autoThumbnailGenerated && !thumbnailUrl">
-      <h4>Add a Thumbnail (Recommended)</h4>
-      <p class="thumbnail-benefit">Tutors with thumbnails earn 18% more on average!</p>
+      <h4>{{ 'VIDEO_UPLOAD.ADD_THUMBNAIL_TITLE' | translate }}</h4>
+      <p class="thumbnail-benefit">{{ 'VIDEO_UPLOAD.THUMBNAIL_BENEFIT' | translate }}</p>
       
       <input #thumbnailAfterInput 
              type="file" 
@@ -184,7 +185,7 @@
       
       <button class="thumbnail-btn" (click)="thumbnailAfterInput.click()">
         <ion-icon name="image-outline"></ion-icon>
-        Upload Thumbnail (16:9 ratio, JPG/PNG, max 20MB)
+        {{ 'VIDEO_UPLOAD.UPLOAD_THUMBNAIL' | translate }}
       </button>
     </div>
     
@@ -202,7 +203,6 @@
   
   <div class="upload-progress" *ngIf="isUploading">
     <ion-spinner></ion-spinner>
-    <p>{{ errorMessage || 'Processing...' }}</p>
+    <p>{{ errorMessage || ('VIDEO_UPLOAD.PROCESSING' | translate) }}</p>
   </div>
 </div>
-

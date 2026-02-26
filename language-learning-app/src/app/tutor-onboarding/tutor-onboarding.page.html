@@ -1,6 +1,15 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- PRE-STEP: Language Selection                       -->
 <!-- ═══════════════════════════════════════════════════ -->
+<ion-header *ngIf="preStepPhase === 'language'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
 <div class="pre-step-container" *ngIf="preStepPhase === 'language'">
   <div class="pre-step-inner">
     <div class="pre-step-logo">
@@ -45,45 +54,60 @@
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- PRE-STEP: Welcome Screen                           -->
 <!-- ═══════════════════════════════════════════════════ -->
-<div class="pre-step-container welcome-phase" *ngIf="preStepPhase === 'welcome'">
+<ion-header *ngIf="preStepPhase === 'welcome'">
+  <ion-toolbar class="onboarding-toolbar pre-step-toolbar">
+    <ion-buttons slot="end">
+      <ion-button fill="clear" class="logout-btn" (click)="handleLogout()">
+        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+<div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
   <div class="pre-step-inner welcome-inner">
     <div class="pre-step-logo">
       <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon welcome-icon">
     </div>
 
-    <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING' | translate }}</h1>
-    <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_SUBTITLE' | translate }}</p>
-
-    <div class="welcome-features">
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="people"></ion-icon>
-        </div>
-        <span>{{ 'TUTOR.AVAILABILITY' | translate }}</span>
-      </div>
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="videocam"></ion-icon>
-        </div>
-        <span>{{ 'HOME.START_LESSON' | translate }}</span>
-      </div>
-      <div class="welcome-feature">
-        <div class="feature-icon">
-          <ion-icon name="cash"></ion-icon>
-        </div>
-        <span>{{ 'PROFILE.HOURLY_RATE' | translate }}</span>
-      </div>
+    <div class="welcome-hero">
+      <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
+      <h1 class="welcome-title">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_GREETING' | translate }}</h1>
     </div>
 
-    <button class="pre-step-cta" (click)="startOnboarding()">
-      {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
-      <ion-icon name="arrow-forward"></ion-icon>
-    </button>
+    <div class="welcome-body">
+      <p class="welcome-subtitle">{{ 'ONBOARDING.WELCOME_SCREEN.TUTOR_SUBTITLE' | translate }}</p>
 
-    <button class="pre-step-back-link" (click)="goBackToLanguageSelect()">
-      <ion-icon name="chevron-back"></ion-icon>
-      {{ 'ONBOARDING.WELCOME_SCREEN.BACK' | translate }}
-    </button>
+      <div class="welcome-features">
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="people"></ion-icon>
+          </div>
+          <span>{{ 'TUTOR.AVAILABILITY' | translate }}</span>
+        </div>
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="videocam"></ion-icon>
+          </div>
+          <span>{{ 'HOME.START_LESSON' | translate }}</span>
+        </div>
+        <div class="welcome-feature">
+          <div class="feature-icon">
+            <ion-icon name="cash"></ion-icon>
+          </div>
+          <span>{{ 'PROFILE.HOURLY_RATE' | translate }}</span>
+        </div>
+      </div>
+
+      <button class="pre-step-cta" (click)="startOnboarding()">
+        {{ 'ONBOARDING.WELCOME_SCREEN.CTA' | translate }}
+        <ion-icon name="arrow-forward"></ion-icon>
+      </button>
+
+      <button class="pre-step-back-link" (click)="goBackToLanguageSelect()">
+        <ion-icon name="chevron-back"></ion-icon>
+        {{ 'ONBOARDING.WELCOME_SCREEN.BACK' | translate }}
+      </button>
+    </div>
   </div>
 </div>
 
@@ -437,9 +461,9 @@
             <button 
               *ngFor="let experience of experienceLevels"
               class="option-button-block"
-              [class.selected]="selectedExperience === experience"
-              (click)="setExperience(experience)">
-              {{ experience }}
+              [class.selected]="selectedExperience === experience.value"
+              (click)="setExperience(experience.value)">
+              {{ experience.key | translate }}
             </button>
           </div>
         </div>
@@ -456,9 +480,9 @@
             <button 
               *ngFor="let schedule of scheduleOptions"
               class="option-button-block"
-              [class.selected]="selectedSchedule === schedule"
-              (click)="setSchedule(schedule)">
-              {{ schedule }}
+              [class.selected]="selectedSchedule === schedule.value"
+              (click)="setSchedule(schedule.value)">
+              {{ schedule.key | translate }}
             </button>
           </div>
         </div>
@@ -644,11 +668,11 @@
         </div>
         <div class="preview-row">
           <span class="preview-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_EXPERIENCE' | translate }}</span>
-          <span class="preview-value">{{ selectedExperience }}</span>
+          <span class="preview-value">{{ translatedExperience }}</span>
         </div>
         <div class="preview-row">
           <span class="preview-label">{{ 'ONBOARDING.TUTOR_OB.PREVIEW_AVAILABILITY' | translate }}</span>
-          <span class="preview-value">{{ selectedSchedule }}</span>
+          <span class="preview-value">{{ translatedSchedule }}</span>
         </div>
       </div>
 

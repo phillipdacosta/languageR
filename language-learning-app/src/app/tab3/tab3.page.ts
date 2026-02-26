@@ -1,4 +1,5 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, OnDestroy, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
@@ -133,8 +134,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
   
   // Celebration state
   showCelebration: boolean = false;
+  celebrationRevealed: boolean = false;
   celebrationSnapshot: any = null;
-  milestonesCalculated: boolean = false; // Prevents stats flash before milestone check
+  milestonesCalculated: boolean = false;
   
   // Expose Math for template
   Math = Math;
@@ -905,7 +907,9 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       
       if (!alreadyCelebrated) {
         this.showCelebration = true;
+        this.celebrationRevealed = false;
         this.celebrationSnapshot = latestSnapshot;
+        setTimeout(() => { this.celebrationRevealed = true; this.cdr.detectChanges(); }, 3000);
       }
     }
     
@@ -940,6 +944,7 @@ export class Tab3Page implements OnInit, AfterViewInit, OnDestroy {
       localStorage.setItem(celebrationKey, 'true');
     }
     this.showCelebration = false;
+    this.celebrationRevealed = false;
     this.celebrationSnapshot = null;
     
     // Trigger milestone check notification in the background

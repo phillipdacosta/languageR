@@ -1,8 +1,10 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserService, OnboardingData, TutorOnboardingData, User } from '../services/user.service';
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take, timeout, retry, catchError } from 'rxjs/operators';
@@ -23,6 +25,7 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   // Language selection pre-step
   preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  welcomeRevealed: boolean = false;
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
@@ -33,7 +36,31 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     'Elige tu idioma',
     'Choisissez votre langue',
     'Escolha seu idioma',
-    'Wählen Sie Ihre Sprache'
+    'Wählen Sie Ihre Sprache',
+    'Scegli la tua lingua',
+    'Выберите ваш язык',
+    '选择你的语言',
+    '言語を選択してください',
+    '언어를 선택하세요',
+    'اختر لغتك',
+    'अपनी भाषा चुनें',
+    'Kies je taal',
+    'Wybierz swój język',
+    'Dilinizi seçin',
+    'Välj ditt språk',
+    'Velg ditt språk',
+    'Vælg dit sprog',
+    'Valitse kielesi',
+    'Επιλέξτε τη γλώσσα σας',
+    'Vyberte svůj jazyk',
+    'Alegeți limba dvs.',
+    'Виберіть вашу мову',
+    'Chọn ngôn ngữ của bạn',
+    'เลือกภาษาของคุณ',
+    'Pilih bahasa Anda',
+    'Pilih bahasa anda',
+    'בחר את השפה שלך',
+    'زبان خود را انتخاب کنید'
   ];
   activeHeadingIndex = 0;
   private headingInterval: any;
@@ -102,8 +129,11 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   // Available options
   availableLanguages = [
-    'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
-    'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian'
+    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
+    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
+    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
+    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
   ];
 
   // Native language options with ISO codes
@@ -140,23 +170,31 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   ];
 
   availableGoals = [
-    'Travel and tourism',
-    'Business communication',
-    'Academic studies',
-    'Cultural understanding',
-    'Personal interest',
-    'Career advancement',
-    'Make new friends'
+    { key: 'ONBOARDING.STUDENT.GOAL_TRAVEL', value: 'Travel and tourism' },
+    { key: 'ONBOARDING.STUDENT.GOAL_BUSINESS', value: 'Business communication' },
+    { key: 'ONBOARDING.STUDENT.GOAL_ACADEMIC', value: 'Academic studies' },
+    { key: 'ONBOARDING.STUDENT.GOAL_CULTURE', value: 'Cultural understanding' },
+    { key: 'ONBOARDING.STUDENT.GOAL_PERSONAL', value: 'Personal interest' },
+    { key: 'ONBOARDING.STUDENT.GOAL_CAREER', value: 'Career advancement' },
+    { key: 'ONBOARDING.STUDENT.GOAL_FRIENDS', value: 'Make new friends' }
   ];
 
-  experienceLevels = ['Beginner', 'Intermediate', 'Advanced'];
+  experienceLevels = [
+    { key: 'ONBOARDING.STUDENT.LEVEL_BEGINNER', value: 'Beginner' },
+    { key: 'ONBOARDING.STUDENT.LEVEL_INTERMEDIATE', value: 'Intermediate' },
+    { key: 'ONBOARDING.STUDENT.LEVEL_ADVANCED', value: 'Advanced' }
+  ];
 
   scheduleOptions = [
-    'Daily (30+ minutes)',
-    '3-4 times per week',
-    'Weekends only',
-    'Flexible schedule'
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_DAILY', value: 'Daily (30+ minutes)' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_3_4', value: '3-4 times per week' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_WEEKENDS', value: 'Weekends only' },
+    { key: 'ONBOARDING.STUDENT.SCHEDULE_FLEXIBLE', value: 'Flexible schedule' }
   ];
+
+  translatedGoalsList = '';
+  translatedExperienceLevel = '';
+  translatedSchedule = '';
 
   // Tutor-specific options - comprehensive list with flags
   tutorCountryOptions = [
@@ -294,7 +332,8 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     private alertController: AlertController,
     private modalController: ModalController,
     private onboardingGuard: OnboardingGuard,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
@@ -407,10 +446,13 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   confirmLanguageSelection() {
     this.stopHeadingRotation();
     this.preStepPhase = 'welcome';
+    this.welcomeRevealed = false;
+    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
   }
 
   goBackToLanguageSelect() {
     this.preStepPhase = 'language';
+    this.welcomeRevealed = false;
     this.startHeadingRotation();
   }
 
@@ -458,21 +500,31 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
     this.nativeLanguage = code;
   }
 
-  toggleGoal(goal: string) {
-    const index = this.learningGoals.indexOf(goal);
+  toggleGoal(value: string) {
+    const index = this.learningGoals.indexOf(value);
     if (index > -1) {
       this.learningGoals.splice(index, 1);
     } else {
-      this.learningGoals.push(goal);
+      this.learningGoals.push(value);
     }
+    this.translatedGoalsList = this.learningGoals
+      .map(v => {
+        const goal = this.availableGoals.find(g => g.value === v);
+        return goal ? this.translateService.instant(goal.key) : v;
+      })
+      .join(', ');
   }
 
-  setExperienceLevel(level: string) {
-    this.experienceLevel = level;
+  setExperienceLevel(value: string) {
+    this.experienceLevel = value;
+    const level = this.experienceLevels.find(l => l.value === value);
+    this.translatedExperienceLevel = level ? this.translateService.instant(level.key) : value;
   }
 
-  setPreferredSchedule(schedule: string) {
-    this.preferredSchedule = schedule;
+  setPreferredSchedule(value: string) {
+    this.preferredSchedule = value;
+    const sched = this.scheduleOptions.find(s => s.value === value);
+    this.translatedSchedule = sched ? this.translateService.instant(sched.key) : value;
   }
 
   // Tutor-specific methods
@@ -686,20 +738,20 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
       
       const buttons: any[] = showReloginButton ? [
         {
-          text: 'Re-login',
+          text: this.translateService.instant('ONBOARDING.ALERTS.RELOGIN'),
           handler: () => {
             this.authService.logout();
             this.router.navigate(['/login']);
           }
         },
         {
-          text: 'Retry',
+          text: this.translateService.instant('ONBOARDING.ALERTS.RETRY'),
           role: 'cancel'
         }
-      ] : ['OK'];
+      ] : [this.translateService.instant('ONBOARDING.ALERTS.OK')];
       
       const alert = await this.alertController.create({
-        header: 'Setup Error',
+        header: this.translateService.instant('ONBOARDING.ALERTS.SETUP_ERROR'),
         message: errorMessage,
         buttons: buttons
       });
@@ -709,17 +761,17 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   private async showError(message: string, redirectToLogin: boolean = false) {
     const alert = await this.alertController.create({
-      header: 'Error',
+      header: this.translateService.instant('ONBOARDING.ALERTS.ERROR'),
       message: message,
       buttons: redirectToLogin ? [
         {
-          text: 'Go to Login',
+          text: this.translateService.instant('ONBOARDING.ALERTS.GO_TO_LOGIN'),
           handler: () => {
             this.authService.logout();
             this.router.navigate(['/login']);
           }
         }
-      ] : ['OK']
+      ] : [this.translateService.instant('ONBOARDING.ALERTS.OK')]
     });
     await alert.present();
   }
@@ -782,15 +834,15 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
 
   async handleLogout() {
     const alert = await this.alertController.create({
-      header: 'Logout',
-      message: 'Are you sure you want to logout?',
+      header: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+      message: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT_CONFIRM'),
       buttons: [
         {
-          text: 'Cancel',
+          text: this.translateService.instant('ONBOARDING.ALERTS.CANCEL'),
           role: 'cancel'
         },
         {
-          text: 'Logout',
+          text: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
           handler: async () => {
             await this.authService.logout();
           }

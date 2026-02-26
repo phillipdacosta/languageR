@@ -501,8 +501,29 @@
               <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>
               <h2 class="calendar-title" *ngIf="customView === 'day' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ selectedDayForDayView.monthLabel }} {{ selectedDayForDayView.year }}</h2>
               
+              <!-- Profile Hidden Banner (video removed) -->
+              <div class="onboarding-banner-container" *ngIf="isProfileHiddenNoVideo">
+                <ion-card class="onboarding-banner profile-hidden-banner">
+                  <ion-card-content>
+                    <div class="banner-content">
+                      <div class="banner-icon">
+                        <ion-icon name="eye-off-outline"></ion-icon>
+                      </div>
+                      <div class="banner-text">
+                        <h3>{{ 'HOME.BANNER_PROFILE_HIDDEN' | translate }}</h3>
+                        <p class="banner-items">{{ 'HOME.BANNER_PROFILE_HIDDEN_DESC' | translate }}</p>
+                      </div>
+                      <ion-button fill="solid" (click)="router.navigate(['/tabs/profile'], { queryParams: { scrollTo: 'intro-video-section' } })">
+                        <ion-icon name="videocam-outline" slot="start"></ion-icon>
+                        {{ 'HOME.BANNER_UPLOAD_VIDEO_CTA' | translate }}
+                      </ion-button>
+                    </div>
+                  </ion-card-content>
+                </ion-card>
+              </div>
+
               <!-- Onboarding Warning Banner - Show when onboarding incomplete -->
-              <div class="onboarding-banner-container" *ngIf="isOnboardingIncomplete">
+              <div class="onboarding-banner-container" *ngIf="isOnboardingIncomplete && !isProfileHiddenNoVideo">
                 <ion-card class="onboarding-banner">
                   <ion-card-content>
                     <div class="banner-content">

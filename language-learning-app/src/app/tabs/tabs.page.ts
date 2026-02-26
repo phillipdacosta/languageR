@@ -8,6 +8,8 @@ import { UserService } from '../services/user.service';
 import { MessagingService, Conversation } from '../services/messaging.service';
 import { NotificationService, Notification } from '../services/notification.service';
 import { WebSocketService } from '../services/websocket.service';
+import { NotificationTranslationService } from '../services/notification-translation.service';
+import { TranslateService } from '@ngx-translate/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PaymentDisputeModalComponent } from '../components/payment-dispute-modal/payment-dispute-modal.component';
 
@@ -131,7 +133,9 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     private websocketService: WebSocketService,
     private cdr: ChangeDetectorRef,
     private sanitizer: DomSanitizer,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private notificationTranslation: NotificationTranslationService,
+    private translateService: TranslateService
   ) {
     // FIXED: Only assign observables in constructor, NO subscriptions
     this.user$ = this.authService.user$;
@@ -144,7 +148,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
       map(notifications => notifications.map(n => ({
         ...n,
         formattedTime: this.formatNotificationTime(n.createdAt),
-        sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(n.message)
+        sanitizedMessage: this.sanitizer.bypassSecurityTrustHtml(this.notificationTranslation.getTranslatedMessage(n))
       })))
     );
     
@@ -734,12 +738,17 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
+    const t = (key: string, params?: any) => this.translateService.instant(key, params);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString();
+    if (diffMins < 1) return t('NOTIFICATIONS.TIME.JUST_NOW');
+    if (diffMins === 1) return t('NOTIFICATIONS.TIME.MINUTE_AGO', { count: 1 });
+    if (diffMins < 60) return t('NOTIFICATIONS.TIME.MINUTES_AGO', { count: diffMins });
+    if (diffHours === 1) return t('NOTIFICATIONS.TIME.HOUR_AGO', { count: 1 });
+    if (diffHours < 24) return t('NOTIFICATIONS.TIME.HOURS_AGO', { count: diffHours });
+    if (diffDays === 1) return t('NOTIFICATIONS.TIME.DAY_AGO', { count: 1 });
+    if (diffDays < 7) return t('NOTIFICATIONS.TIME.DAYS_AGO', { count: diffDays });
+    const lang = this.translateService.currentLang || this.translateService.defaultLang || 'en';
+    return date.toLocaleDateString(lang);
   }
 
   sanitizeNotificationMessage(message: string): SafeHtml {

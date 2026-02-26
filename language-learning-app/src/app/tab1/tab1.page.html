@@ -79,8 +79,29 @@
       </div>
     </div>
     
+    <!-- Profile Hidden Banner (video removed) -->
+    <div class="onboarding-banner-container" *ngIf="isTutorUser && profileHiddenNoVideo">
+      <ion-card class="onboarding-banner profile-hidden-banner">
+        <ion-card-content>
+          <div class="banner-content">
+            <div class="banner-icon">
+              <ion-icon name="eye-off-outline"></ion-icon>
+            </div>
+            <div class="banner-text">
+              <h3>{{ 'HOME.BANNER_PROFILE_HIDDEN' | translate }}</h3>
+              <p class="banner-items">{{ 'HOME.BANNER_PROFILE_HIDDEN_DESC' | translate }}</p>
+            </div>
+            <ion-button fill="solid" (click)="router.navigate(['/tabs/profile'], { queryParams: { scrollTo: 'intro-video-section' } })">
+              <ion-icon name="videocam-outline" slot="start"></ion-icon>
+              {{ 'HOME.BANNER_UPLOAD_VIDEO_CTA' | translate }}
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
     <!-- Tutor Onboarding Banner -->
-    <div class="onboarding-banner-container" *ngIf="isTutorUser && showOnboardingBanner">
+    <div class="onboarding-banner-container" *ngIf="isTutorUser && showOnboardingBanner && !profileHiddenNoVideo">
       <ion-card class="onboarding-banner">
         <ion-card-content>
           <div class="banner-content">
@@ -1267,6 +1288,7 @@
         <ion-datetime
           #lessonDatePicker
           presentation="date"
+          [locale]="currentLocale"
           [value]="selectedDateForPicker"
           (ionChange)="onDateSelected($event)"
           [min]="minDateForPicker"

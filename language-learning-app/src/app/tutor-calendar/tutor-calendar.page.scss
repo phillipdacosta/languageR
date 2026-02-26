@@ -2966,6 +2966,29 @@ ion-content {
   max-width: 100% !important;
 }
 
+.profile-hidden-banner {
+  background: #fff7ea !important;
+  border: 1px solid #FFB74D !important;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.12) !important;
+
+  .banner-icon {
+    background: linear-gradient(135deg, #FF9500 0%, #FF6B35 100%) !important;
+    box-shadow: 0 2px 8px rgba(255, 149, 0, 0.3) !important;
+  }
+
+  .banner-text {
+    p, .banner-items {
+      color: #5D4037 !important;
+    }
+  }
+
+  ion-button {
+    --background: #222222 !important;
+    --background-hover: #000000 !important;
+    --background-activated: #000000 !important;
+  }
+}
+
 // Feedback banner in toolbar context
 .toolbar-center .feedback-banner-airbnb {
   width: 100%;

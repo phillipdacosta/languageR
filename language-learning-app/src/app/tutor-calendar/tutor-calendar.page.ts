@@ -11,6 +11,7 @@ import { Calendar, EventInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import { TranslateModule } from '@ngx-translate/core';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
@@ -99,7 +100,8 @@ interface AgendaSection {
     IsEventPastPipe,
     FreeHoursPipe,
     TotalAvailabilityPipe,
-    BookedHoursPipe
+    BookedHoursPipe,
+    TranslateModule
   ],
   animations: [
     trigger('slideInUp', [
@@ -140,11 +142,18 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   userTz: string | undefined = undefined;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   
-  // Check if onboarding is incomplete (same condition as banner)
   get isOnboardingIncomplete(): boolean {
-    return !this.hasCustomProfilePhoto || 
-           !this.currentUser?.tutorOnboarding?.videoApproved || 
+    return !this.hasCustomProfilePhoto ||
+           !this.currentUser?.tutorOnboarding?.videoApproved ||
            (!this.currentUser?.tutorOnboarding?.stripeConnected && !this.currentUser?.stripeConnectOnboarded);
+  }
+
+  get isProfileHiddenNoVideo(): boolean {
+    return !this.currentUser?.tutorApproved &&
+           !!this.currentUser?.onboardingCompleted &&
+           !this.currentUser?.onboardingData?.introductionVideo &&
+           !this.currentUser?.onboardingData?.pendingVideo &&
+           !this.currentUser?.tutorOnboarding?.videoApproved;
   }
 
   // Outstanding feedback
@@ -2626,8 +2635,20 @@ When enabled:
     return { hasConflict: false };
   }
 
-  onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
-    
+  async onSetUpAvailability(date?: Date, timeSlot?: TimelineEntry) {
+    if (this.isProfileHiddenNoVideo) {
+      const alert = await this.alertController.create({
+        header: 'Profile Hidden',
+        message: 'You need to upload an introduction video before you can add availability. Your profile is currently hidden from students.',
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          { text: 'Upload Video', handler: () => this.router.navigate(['/tabs/profile']) }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
     if (!this.stripeConnectOnboarded) {
       this.showStripeOnboardingAlert();
       return;

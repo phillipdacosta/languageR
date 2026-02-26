@@ -52,7 +52,7 @@ export class FileUploadService {
 
   private getAuthHeaders(userEmail: string): HttpHeaders {
     return new HttpHeaders({
-      'Authorization': `Bearer dev-token-${userEmail.replace('@', '-').replace('.', '-')}`,
+      'Authorization': `Bearer dev-token-${userEmail.replace(/@/g, '-').replace(/\./g, '-')}`,
       // Don't set Content-Type for FormData - let browser set it with boundary
     });
   }

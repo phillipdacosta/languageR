@@ -106,6 +106,19 @@ export class ProfilePage implements OnInit {
   }
 
   ngOnInit() {
+    this.route.queryParams.subscribe(params => {
+      if (params['scrollTo']) {
+        setTimeout(() => {
+          const el = document.getElementById(params['scrollTo']);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => el.classList.remove('highlight-pulse'), 2000);
+          }
+        }, 600);
+      }
+    });
+
     // For tutors, immediately get cached payout status (prevents flashing)
     if (this.isTutor()) {
       const cachedStatus = this.userService.getPayoutStatus();
@@ -385,7 +398,10 @@ export class ProfilePage implements OnInit {
       const certsOk = !!(creds?.teachingCertifications?.some((c: any) => c.status === 'approved'));
       const videoOk = user.tutorOnboarding?.videoApproved === true;
       
-      if (!videoOk) missingItems.push('Video approval');
+      if (!videoOk) {
+        const hasAnyVideo = !!(user.onboardingData?.introductionVideo || user.onboardingData?.pendingVideo);
+        missingItems.push(hasAnyVideo ? 'Video pending approval' : 'Upload introduction video');
+      }
       if (!govIdOk) missingItems.push('Government ID verification');
       if (!certsOk) missingItems.push('Teaching certification verification');
     }
@@ -590,11 +606,29 @@ export class ProfilePage implements OnInit {
     this.hasPendingVideo = true;
   }
 
-  onVideoRemoved() {
-    this.tutorIntroductionVideo = '';
-    this.tutorVideoThumbnail = '';
-    this.tutorVideoType = 'upload';
-    this.updateTutorVideo('', '', 'upload');
+  async onVideoRemoved() {
+    const alert = await this.alertController.create({
+      header: 'Remove Introduction Video?',
+      message: 'Your profile will be <strong>hidden from students</strong> until you upload a new video and it is approved by our team. You will not be able to add availability or receive bookings during this time.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Remove Video',
+          role: 'destructive',
+          handler: () => {
+            this.videoUploadComponent?.clearPreviews();
+            this.tutorIntroductionVideo = '';
+            this.tutorVideoThumbnail = '';
+            this.tutorVideoType = 'upload';
+            this.updateTutorVideo('', '', 'upload');
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   openVideoPlayerModal() {
@@ -643,20 +677,37 @@ export class ProfilePage implements OnInit {
       
       await loading.dismiss();
       
-      // If video was previously approved, inform that new video is under review
-      const message = this.isVideoApproved 
-        ? 'Video updated! The new video has been sent for admin review. Your profile will remain active during the review process.'
-        : 'Introduction video updated successfully!';
+      const isRemoval = !videoUrl;
+      let message: string;
+      let header: string;
+
+      if (isRemoval) {
+        header = 'Video Removed';
+        message = 'Your introduction video has been removed. Your profile is now hidden from students. Upload a new video to become visible again.';
+      } else if (this.isVideoApproved) {
+        header = 'Success';
+        message = 'Video updated! The new video has been sent for admin review. Your profile will remain active during the review process.';
+      } else {
+        header = 'Success';
+        message = 'Introduction video updated successfully!';
+      }
       
       const alert = await this.alertController.create({
-        header: 'Success',
-        message: message,
+        header,
+        message,
         buttons: ['OK']
       });
       await alert.present();
       
       // Update local approval status
       this.isVideoApproved = false;
+      
+      if (!videoUrl) {
+        this.hasPendingVideo = false;
+        this.tutorIntroductionVideo = '';
+        this.tutorVideoThumbnail = '';
+        this.tutorVideoType = 'upload';
+      }
       
       // Refresh user data to get updated tutorOnboarding status
       this.userService.getCurrentUser(true).subscribe();

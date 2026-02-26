@@ -1,4 +1,24 @@
 {
+  "VIDEO_UPLOAD": {
+    "UPLOAD_FILE": "Upload File",
+    "PASTE_LINK": "Paste Link",
+    "THUMBNAIL_LABEL": "Add a thumbnail (optional but recommended - tutors with thumbnails earn 18% more!)",
+    "UPLOAD_THUMBNAIL": "Upload Thumbnail (16:9 ratio, JPG/PNG, max 20MB)",
+    "UPLOAD_THUMBNAIL_SHORT": "Upload Thumbnail",
+    "UPLOAD_TITLE": "Upload Introduction Video",
+    "UPLOAD_DESC": "Click to browse or drag and drop a video file",
+    "UPLOAD_HINT": "Max size: 1GB. Large videos will be automatically compressed.",
+    "PASTE_TITLE": "Paste your video link",
+    "PASTE_HINT": "YouTube or Vimeo URLs accepted",
+    "PASTE_PRIVACY": "Your video must be set to Public or Unlisted",
+    "VIMEO_THUMBNAIL": "Add a custom thumbnail for Vimeo videos (optional)",
+    "ADD_VIDEO": "Add Video",
+    "ADD_VIDEO_HINT": "Click the button above to save your video link",
+    "PENDING_REVIEW": "Pending Admin Review",
+    "ADD_THUMBNAIL_TITLE": "Add a Thumbnail (Recommended)",
+    "THUMBNAIL_BENEFIT": "Tutors with thumbnails earn 18% more on average!",
+    "PROCESSING": "Processing..."
+  },
   "COMMON": {
     "WELCOME": "Welcome",
     "LOADING": "Loading...",
@@ -54,6 +74,9 @@
     "BANNER_CONNECT_BANK": "Connect your bank account",
     "BANNER_ADD_AVAILABILITY": "Add Availability",
     "BANNER_CONTINUE_SETUP": "Continue Setup",
+    "BANNER_PROFILE_HIDDEN": "Your Profile Is Hidden",
+    "BANNER_PROFILE_HIDDEN_DESC": "Your profile is not visible to students because you don't have an introduction video. Upload a new video and it will be reviewed by our team.",
+    "BANNER_UPLOAD_VIDEO_CTA": "Upload Video",
     "FEEDBACK_NEEDED": "Feedback needed",
     "FEEDBACK_REVIEW": "Review",
     "UP_NEXT": "Up Next",
@@ -308,6 +331,26 @@
       "SUBTITLE": "Select the language you'd like to use throughout the app",
       "CONFIRM": "Continue"
     },
+    "COUNTRY_MODAL": {
+      "ORIGIN_TITLE": "Select Your Country of Origin",
+      "RESIDENCE_TITLE": "Where do you currently reside?",
+      "ORIGIN_DESC": "Help us personalize your experience",
+      "RESIDENCE_DESC": "This determines your available payout methods",
+      "SEARCH_PLACEHOLDER": "Search countries...",
+      "NO_RESULTS": "No countries found matching"
+    },
+    "ALERTS": {
+      "OK": "OK",
+      "CANCEL": "Cancel",
+      "RETRY": "Retry",
+      "RELOGIN": "Re-login",
+      "GO_TO_LOGIN": "Go to Login",
+      "ERROR": "Error",
+      "SETUP_ERROR": "Setup Error",
+      "SETUP_FAILED": "Failed to complete setup. Please try again.",
+      "LOGOUT": "Logout",
+      "LOGOUT_CONFIRM": "Are you sure you want to logout?"
+    },
     "WELCOME_SCREEN": {
       "GREETING": "Welcome to Speak Freely",
       "SUBTITLE": "The smarter way to learn and teach languages. Let's set up your account in just a few steps.",
@@ -374,7 +417,21 @@
       "SUCCESS_PROFILE_CREATED": "Profile created",
       "SUCCESS_READY_BOOK": "Ready to book lessons",
       "SUCCESS_PERSONALIZED": "Personalized experience awaits",
-      "SUCCESS_NOTE": "We'll personalize your experience based on your preferences."
+      "SUCCESS_NOTE": "We'll personalize your experience based on your preferences.",
+      "GOAL_TRAVEL": "Travel and tourism",
+      "GOAL_BUSINESS": "Business communication",
+      "GOAL_ACADEMIC": "Academic studies",
+      "GOAL_CULTURE": "Cultural understanding",
+      "GOAL_PERSONAL": "Personal interest",
+      "GOAL_CAREER": "Career advancement",
+      "GOAL_FRIENDS": "Make new friends",
+      "LEVEL_BEGINNER": "Beginner",
+      "LEVEL_INTERMEDIATE": "Intermediate",
+      "LEVEL_ADVANCED": "Advanced",
+      "SCHEDULE_DAILY": "Daily (30+ minutes)",
+      "SCHEDULE_3_4": "3-4 times per week",
+      "SCHEDULE_WEEKENDS": "Weekends only",
+      "SCHEDULE_FLEXIBLE": "Flexible schedule"
     },
     "TUTOR_OB": {
       "WELCOME_TITLE": "Welcome, Tutor!",
@@ -461,7 +518,17 @@
       "SUCCESS_READY_BOOKINGS": "Ready to receive bookings",
       "SUCCESS_COMMUNITY": "You're part of the community",
       "SUCCESS_NOTE": "Students can now discover your profile and book lessons with you.",
-      "VIDEO_MODAL_TITLE": "Introduction Video"
+      "VIDEO_MODAL_TITLE": "Introduction Video",
+      "EXP_NEW": "New to teaching (0-1 years)",
+      "EXP_SOME": "Some experience (1-3 years)",
+      "EXP_EXPERIENCED": "Experienced (3-5 years)",
+      "EXP_VERY": "Very experienced (5+ years)",
+      "EXP_NATIVE": "Native speaker with teaching experience",
+      "SCHED_WEEKDAYS": "Weekdays only",
+      "SCHED_WEEKENDS": "Weekends only",
+      "SCHED_EVENINGS": "Evenings only",
+      "SCHED_FLEXIBLE": "Flexible schedule",
+      "SCHED_FULLTIME": "Full-time availability"
     }
   },
   "PROFILE": {
@@ -628,6 +695,7 @@
     "SEARCH_PLACEHOLDER": "Search notifications...",
     "LOADING": "Loading notifications...",
     "TODAY": "Today",
+    "TOMORROW": "Tomorrow",
     "YESTERDAY": "Yesterday",
     "EARLIER": "Earlier",
     "ADD_AVAILABILITY": "Add availability",
@@ -641,6 +709,21 @@
     "FILTER_LESSONS": "Lessons",
     "FILTER_PAYMENT": "Payment",
     "FILTER_PROGRESS": "Progress",
+    "DROPDOWN": {
+      "IMPORTANT": "Important",
+      "MORE": "More notifications",
+      "EMPTY": "No notifications",
+      "VIEW_ALL": "View All Notifications"
+    },
+    "TIME": {
+      "JUST_NOW": "Just now",
+      "MINUTE_AGO": "{{count}} minute ago",
+      "MINUTES_AGO": "{{count}} minutes ago",
+      "HOUR_AGO": "{{count}} hour ago",
+      "HOURS_AGO": "{{count}} hours ago",
+      "DAY_AGO": "{{count}} day ago",
+      "DAYS_AGO": "{{count}} days ago"
+    },
     "MSG": {
       "LESSON_GENERIC": "lesson",
       "LESSON_SINGULAR": "lesson",
@@ -696,7 +779,48 @@
       "OFFICE_HOURS_BOOKING": "A student has booked your office hours session.",
       "OFFICE_HOURS_STARTING": "Your office hours session is starting soon.",
       "MESSAGE_REACTION": "<strong>{{userName}}</strong> reacted {{emoji}} to your message",
+      "TUTOR_NOTE_SAVED": "You provided feedback for <strong>{{studentName}}</strong> for your lesson on <strong>{{date}} at {{time}}</strong>.",
       "PAYOUT_PAUSED": "Your payment for your lesson with <strong>{{studentName}}</strong> is <strong>under review</strong>. We'll notify you once the review is complete."
+    },
+    "TITLE_TYPE": {
+      "LESSON_CREATED": "New Lesson Scheduled",
+      "LESSON_CANCELLED": "Lesson Cancelled",
+      "LESSON_RESCHEDULED": "Lesson Rescheduled",
+      "RESCHEDULE_PROPOSED": "Reschedule Proposed",
+      "RESCHEDULE_ACCEPTED": "Reschedule Accepted",
+      "RESCHEDULE_REJECTED": "Reschedule Declined",
+      "LESSON_REMINDER": "Lesson Reminder",
+      "LESSON_COMPLETED": "Lesson Completed",
+      "LESSON_ANALYSIS_READY": "Lesson Analysis Ready",
+      "CLASS_INVITATION": "Class Invitation",
+      "CLASS_ACCEPTED": "Class Accepted",
+      "CLASS_REMOVED": "Removed from Class",
+      "CLASS_CANCELLED": "Class Cancelled",
+      "INVITATION_CANCELLED": "Invitation Cancelled",
+      "MESSAGE": "New Message",
+      "POTENTIAL_STUDENT": "New Student Interest",
+      "PAYMENT_RECEIVED": "Payment Received",
+      "LESSON_REFUNDED": "Lesson Refunded",
+      "PARTIAL_REFUND": "Partial Refund",
+      "PAYMENT_CANCELLED": "Payment Cancelled",
+      "PAYMENT_REDUCED": "Payment Adjusted",
+      "INVESTIGATION_RESOLVED": "Investigation Resolved",
+      "DISPUTE_SUBMITTED": "Dispute Submitted",
+      "TIP_RECEIVED": "Tip Received",
+      "TIP_SENT": "Tip Sent",
+      "WITHDRAWAL_INITIATED": "Withdrawal Initiated",
+      "VIDEO_APPROVED": "Video Approved",
+      "VIDEO_REJECTED": "Video Needs Changes",
+      "FEEDBACK_REQUIRED": "Feedback Needed",
+      "FEEDBACK_RECEIVED": "Feedback Received",
+      "FEEDBACK_REMINDER": "Feedback Reminder",
+      "PROGRESS_MILESTONE": "Milestone Unlocked",
+      "CREDENTIAL_APPROVED": "Credential Approved",
+      "CREDENTIAL_REJECTED": "Credential Needs Review",
+      "OFFICE_HOURS_BOOKING": "Office Hours Booking",
+      "OFFICE_HOURS_STARTING": "Office Hours Starting",
+      "TUTOR_NOTE": "Tutor Note",
+      "DEFAULT": "Notification"
     }
   }
 }

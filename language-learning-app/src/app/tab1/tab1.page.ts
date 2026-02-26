@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
-import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController } from '@ionic/angular';
+import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
@@ -81,9 +81,8 @@ import { TranslateService } from '@ngx-translate/core';
   ]
 })
 export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave {
-  // Smart Island reference
+  @ViewChild(IonContent) ionContent!: IonContent;
   @ViewChild('smartIsland') smartIsland!: SmartIslandComponent;
-  // Earnings component reference
   @ViewChild('earningsComponent') earningsComponent: any;
   
   // Platform detection properties
@@ -221,6 +220,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   
   // Tutor onboarding state
   showOnboardingBanner = false;
+  profileHiddenNoVideo = false;
   tutorOnboardingStatus: any = null;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
   isTutorUser = false; // Use property instead of function call in template
@@ -3129,8 +3129,11 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     ));
     
     // Show banner only if user is NOT fully approved
-    // tutorApproved is set to true on the backend only when ALL steps are complete
     this.showOnboardingBanner = !user.tutorApproved;
+
+    // Detect profile hidden due to video removal: onboarding was completed but no video exists
+    const hasNoVideo = !user.onboardingData?.introductionVideo && !user.onboardingData?.pendingVideo;
+    this.profileHiddenNoVideo = !user.tutorApproved && user.onboardingCompleted && hasNoVideo && !user.tutorOnboarding?.videoApproved;
     
     console.log('🎯 [TAB1] Tutor approval banner decision:', {
       tutorApproved: user.tutorApproved,
@@ -4646,15 +4649,22 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   allLessonsUnfiltered: any[] = [];
   
   // Get current month label for display
+  /** Current UI locale for date/time formatting (e.g. 'en', 'fr') */
+  get currentLocale(): string {
+    return this.translateService.currentLang || this.translateService.defaultLang || 'en';
+  }
+
   get currentMonthLabel(): string {
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    if (this.selectedFilterMonth !== null && this.selectedFilterYear !== null) {
-      return `${months[this.selectedFilterMonth]} ${this.selectedFilterYear}`;
-    }
-    
-    const now = new Date();
-    return `${months[now.getMonth()]} ${now.getFullYear()}`;
+    const d = this.selectedFilterMonth !== null && this.selectedFilterYear !== null
+      ? new Date(this.selectedFilterYear, this.selectedFilterMonth, 1)
+      : new Date();
+    const loc = this.currentLocale;
+    const formatter = new Intl.DateTimeFormat(loc, {
+      month: 'long',
+      year: 'numeric',
+      ...(this.userTz ? { timeZone: this.userTz } : {})
+    });
+    return formatter.format(d);
   }
 
   // Pre-computed flag for smooth animations
@@ -4723,9 +4733,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
 
   // Format full date like "Friday, February 6"
   formatFullDate(date: Date): string {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+    return formatDateInTz(date, this.userTz, { weekday: 'long', month: 'long', day: 'numeric', year: undefined }, this.currentLocale);
   }
 
   /**
@@ -4765,7 +4773,7 @@ navigateToLessons() {
 
   // Format time only (e.g., "2:00 PM")
   formatTimeOnly(date: Date): string {
-    return formatTimeInTz(date, this.userTz);
+    return formatTimeInTz(date, this.userTz, this.currentLocale);
   }
 
   formatRelativeDate(date: Date): string {
@@ -4775,11 +4783,11 @@ navigateToLessons() {
 
     const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays === -1) return 'Yesterday';
+    if (diffDays === 0) return this.translateService.instant('NOTIFICATIONS.TODAY');
+    if (diffDays === 1) return this.translateService.instant('NOTIFICATIONS.TOMORROW');
+    if (diffDays === -1) return this.translateService.instant('NOTIFICATIONS.YESTERDAY');
 
-    return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined });
+    return formatDateInTz(date, this.userTz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }, this.currentLocale);
   }
 
   // Navigate to lesson details or join
@@ -6307,9 +6315,10 @@ navigateToLessons() {
       document.body.appendChild(viewDetailsClone);
     }
 
-    // Step 3: Switch to earnings view
+    // Step 3: Switch to earnings view & scroll to top so layout is stable
     this.showEarningsView = true;
     this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
 
     // Step 4a: View Details → Go back (destination always available in inline chrome)
     requestAnimationFrame(() => {
@@ -6377,17 +6386,25 @@ navigateToLessons() {
           withdrawClone.style.top = `${destRect.top}px`;
           withdrawClone.style.width = `${destRect.width}px`;
           withdrawClone.style.height = `${destRect.height}px`;
-          withdrawClone.style.fontSize = '14px'; // Match earnings page button size
+          withdrawClone.style.fontSize = '14px';
         });
-        // On landing: snap dest visible (still no transition), then remove clone
+        // Wait for layout to fully settle (longer than earningsFadeIn 400ms), then swap
         setTimeout(() => {
-          dest.style.opacity = '1';
+          const finalRect = dest.getBoundingClientRect();
+          withdrawClone.style.transition = 'none';
+          withdrawClone.style.left = `${finalRect.left}px`;
+          withdrawClone.style.top = `${finalRect.top}px`;
+          withdrawClone.style.width = `${finalRect.width}px`;
+          withdrawClone.style.height = `${finalRect.height}px`;
+          // Double-rAF to ensure paint has flushed the snap before revealing
           requestAnimationFrame(() => {
-            if (withdrawClone.parentNode) withdrawClone.remove();
-            // Restore default transition and clear inline opacity
-            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+            requestAnimationFrame(() => {
+              dest.style.opacity = '1';
+              if (withdrawClone.parentNode) withdrawClone.remove();
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+            });
           });
-        }, 400);
+        }, 520);
       };
 
       // Check if button is already in DOM (unlikely but possible with cached data)

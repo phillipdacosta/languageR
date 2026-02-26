@@ -185,6 +185,10 @@ ion-toolbar {
 // ----- Fade In for content -----
 .earnings-fade-in {
   animation: earningsFadeIn 0.4s ease-out forwards;
+
+  &.inline-no-slide {
+    animation: earningsFadeInFlat 0.4s ease-out forwards;
+  }
 }
 
 @keyframes earningsFadeIn {
@@ -196,6 +200,11 @@ ion-toolbar {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes earningsFadeInFlat {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 // ----- Inline Wrapper (when embedded in another page) -----

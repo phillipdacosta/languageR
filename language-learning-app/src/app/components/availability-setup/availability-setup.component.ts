@@ -1212,7 +1212,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.isSelecting = true;
     this.selectionStart = { day: dayIndex, index: slotIndex };
     this.toggleSlot(dayIndex, slotIndex);
-    this.hasUnsavedChanges = true;
   }
 
   continueSelection(dayIndex: number, slotIndex: number) {
@@ -1242,7 +1241,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     }
 
     this.updateSelectedCount();
-    this.hasUnsavedChanges = true;
   }
 
   endSelection() {
@@ -1268,7 +1266,6 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       this.selectedSlots.add(slotKey);
     }
     this.updateSelectedCount();
-    this.hasUnsavedChanges = true;
   }
   
   // Helper to format date as YYYY-MM-DD for slot keys
@@ -1433,6 +1430,15 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
 
   private updateSelectedCount() {
     this.selectedSlotsCount = this.selectedSlots.size;
+    this.hasUnsavedChanges = this.hasDirtySlots();
+  }
+
+  private hasDirtySlots(): boolean {
+    if (this.selectedSlots.size !== this.initialSelectedSlots.size) return true;
+    for (const slot of this.selectedSlots) {
+      if (!this.initialSelectedSlots.has(slot)) return true;
+    }
+    return false;
   }
 
   // Quick actions

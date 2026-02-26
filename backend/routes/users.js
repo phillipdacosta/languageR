@@ -923,7 +923,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
     const filterQuery = {
       userType: 'tutor',
       onboardingCompleted: true,
-      tutorApproved: true, // Only show approved tutors
+      tutorApproved: true,
+      'onboardingData.introductionVideo': { $exists: true, $ne: '' },
       $or: [
         { stripeConnectOnboarded: true },
         { payoutProvider: 'paypal' },
@@ -1336,22 +1337,36 @@ router.put('/tutor-video', verifyToken, async (req, res) => {
     // Reset approval status when video is changed (requires re-review)
     console.log('🔍 Current tutorOnboarding before reset:', user.tutorOnboarding);
     
+    const isVideoRemoval = !introductionVideo || introductionVideo === '';
+
     if (user.tutorOnboarding) {
       user.tutorOnboarding.videoApproved = false; // Mark for re-review
       user.tutorOnboarding.videoRejected = false; // Clear rejection
       user.tutorOnboarding.videoRejectionReason = null;
-      user.tutorOnboarding.videoUploaded = true; // Mark as uploaded for admin queue
-      user.tutorOnboarding.videoUploadedAt = new Date(); // ✅ Set upload timestamp
+      user.tutorOnboarding.videoUploaded = !isVideoRemoval; // Only mark as uploaded if there's actually a video
+      user.tutorOnboarding.videoUploadedAt = isVideoRemoval ? null : new Date();
       
       console.log('📹 Video marked for admin review');
       
-      // CRITICAL: If tutor was previously approved, keep profile visible during re-review
-      if (wasApproved) {
+      if (isVideoRemoval) {
+        // Video was removed entirely — hide profile immediately
+        user.tutorApproved = false;
+        // Clear the active video as well so students can't see it
+        if (user.onboardingData) {
+          user.onboardingData.introductionVideo = '';
+          user.onboardingData.videoThumbnail = '';
+          user.onboardingData.videoType = 'upload';
+          user.onboardingData.pendingVideo = '';
+          user.onboardingData.pendingVideoThumbnail = '';
+          user.onboardingData.pendingVideoType = 'upload';
+        }
+        console.log('🚫 Video REMOVED: Profile hidden until new video is uploaded and approved');
+      } else if (wasApproved) {
         console.log('✅ EXISTING tutor: Profile remains visible (tutorApproved stays true)');
-        // tutorApproved remains true - don't change it
+        // tutorApproved remains true — tutor is replacing their video, keep them visible during review
       } else {
         console.log('🆕 NEW tutor: Profile will be hidden until first approval');
-        user.tutorApproved = false; // Hide profile for brand new tutors
+        user.tutorApproved = false;
       }
       
       console.log('🔍 tutorOnboarding after reset:', user.tutorOnboarding);

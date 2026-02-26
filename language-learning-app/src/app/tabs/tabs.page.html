@@ -29,7 +29,7 @@
     <ion-toolbar class="desktop-nav-toolbar">
       <!-- App Icon -->
       <div class="app-icon-container" slot="start" (click)="navigateTo('/tabs/home')">
-        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+        <img src="assets/icons-app-bird.png" alt="Speak Freely" class="app-icon">
       </div>
       
       <div class="desktop-nav-buttons" slot="end" #navButtonsContainer>
@@ -126,7 +126,7 @@
        (click)="$event.stopPropagation()">
     <div class="notification-dropdown-header">
       <div class="notification-header-left">
-        <h3 class="notification-title">Notifications</h3>
+        <h3 class="notification-title">{{ 'NOTIFICATIONS.TITLE' | translate }}</h3>
         <ion-icon name="settings-outline" class="notification-settings-icon"></ion-icon>
       </div>
       <button class="notification-close-btn" (click)="closeNotificationDropdown()">
@@ -138,13 +138,13 @@
       <!-- Loading State -->
       <div *ngIf="isLoadingNotifications" class="notification-loading">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading notifications...</p>
+        <p>{{ 'NOTIFICATIONS.LOADING' | translate }}</p>
       </div>
 
       <ng-container *ngIf="formattedNotifications$ | async as notifications">
         <!-- Important Section (Unread Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications && (notifications | notificationFilter:'unread').length > 0">
-          <h4 class="notification-section-title">Important</h4>
+          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.IMPORTANT' | translate }}</h4>
           <div class="notification-item" 
                *ngFor="let notification of (notifications | notificationFilter:'unread'); trackBy: trackByNotificationId"
                [class.unread]="!notification.read"
@@ -181,7 +181,7 @@
                 class="add-availability-btn"
                 (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                 <ion-icon name="calendar-outline"></ion-icon>
-                Add availability
+                {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
               </button>
               <!-- View Progress Button for progress_milestone notifications -->
               <button 
@@ -189,7 +189,7 @@
                 class="add-availability-btn milestone-btn"
                 (click)="navigateToProgress(); $event.stopPropagation()">
                 <ion-icon name="trophy-outline"></ion-icon>
-                View Progress
+                {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
               </button>
               <p class="notification-time">{{ notification.formattedTime }}</p>
             </div>
@@ -204,7 +204,7 @@
                 [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
                 (click)="openDisputeModal(notification, $event)">
                 <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
-                Dispute
+                {{ 'NOTIFICATIONS.DISPUTE' | translate }}
               </ion-button>
             </div>
           </div>
@@ -212,7 +212,7 @@
         
         <!-- More Notifications Section (Read Notifications) -->
         <div class="notification-section" *ngIf="!isLoadingNotifications">
-          <h4 class="notification-section-title">More notifications</h4>
+          <h4 class="notification-section-title">{{ 'NOTIFICATIONS.DROPDOWN.MORE' | translate }}</h4>
           <div *ngIf="(notifications | notificationFilter:'read').length > 0">
             <div class="notification-item" 
                  *ngFor="let notification of (notifications | notificationFilter:'read'); trackBy: trackByNotificationId"
@@ -235,26 +235,23 @@
               </div>
               <div class="notification-item-content">
                 <p class="notification-text" [innerHTML]="notification.sanitizedMessage"></p>
-                <!-- Add Availability Button inline for tutor_video_approved notifications -->
                 <button 
                   *ngIf="notification.type === 'tutor_video_approved' && notification.data?.hasActionButton"
                   class="add-availability-btn"
                   (click)="navigateToTutorCalendar(); $event.stopPropagation()">
                   <ion-icon name="calendar-outline"></ion-icon>
-                  Add availability
+                  {{ 'NOTIFICATIONS.ADD_AVAILABILITY' | translate }}
                 </button>
-                <!-- View Progress Button for progress_milestone notifications -->
                 <button 
                   *ngIf="notification.type === 'progress_milestone' && notification.data?.hasActionButton"
                   class="add-availability-btn milestone-btn"
                   (click)="navigateToProgress(); $event.stopPropagation()">
                   <ion-icon name="trophy-outline"></ion-icon>
-                  View Progress
+                  {{ 'NOTIFICATIONS.VIEW_PROGRESS' | translate }}
                 </button>
                 <p class="notification-time">{{ notification.formattedTime }}</p>
               </div>
               <div class="notification-item-right">
-                <!-- Dispute Button for payment_cancelled notifications -->
                 <ion-button 
                   *ngIf="(notification.type === 'payment_cancelled' || notification.type === 'payment_reduced') && notification.data?.canDispute && !notification.data?.disputed"
                   class="dispute-button"
@@ -264,13 +261,13 @@
                   [attr.style]="'text-transform: none !important; color: #ff3b30 !important;'"
                   (click)="openDisputeModal(notification, $event)">
                   <ion-icon name="alert-circle-outline" slot="start" [style.color]="'#ff3b30'"></ion-icon>
-                  Dispute
+                  {{ 'NOTIFICATIONS.DISPUTE' | translate }}
                 </ion-button>
               </div>
             </div>
           </div>
           <div class="notification-empty" *ngIf="(notifications | notificationFilter:'read').length === 0 && (notifications | notificationFilter:'unread').length === 0">
-            <p>No notifications</p>
+            <p>{{ 'NOTIFICATIONS.DROPDOWN.EMPTY' | translate }}</p>
           </div>
         </div>
       </ng-container>
@@ -278,7 +275,7 @@
       <!-- View All Footer -->
       <div class="notification-dropdown-footer" *ngIf="!isLoadingNotifications">
         <button class="view-all-btn" (click)="navigateToNotifications()">
-          <span>View All Notifications</span>
+          <span>{{ 'NOTIFICATIONS.DROPDOWN.VIEW_ALL' | translate }}</span>
           <ion-icon name="arrow-forward"></ion-icon>
         </button>
       </div>

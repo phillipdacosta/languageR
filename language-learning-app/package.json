@@ -30,6 +30,7 @@
     "@capacitor/haptics": "7.0.2",
     "@capacitor/keyboard": "7.0.3",
     "@capacitor/status-bar": "7.0.3",
+    "@dotlottie/player-component": "^2.7.12",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fullcalendar/core": "^6.1.19",

@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import '@dotlottie/player-component';
 import { Router } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService, User } from '../services/auth.service';
 import { UserService, TutorOnboardingData } from '../services/user.service';
 import { LanguageService, LanguageOption, SupportedLanguage } from '../services/language.service';
+import { TranslateService } from '@ngx-translate/core';
 import { OnboardingGuard } from '../guards/onboarding.guard';
 import { Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -23,6 +25,7 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
   // Language selection pre-step
   preStepPhase: 'language' | 'welcome' | 'done' = 'language';
+  welcomeRevealed: boolean = false;
   availableInterfaceLanguages: LanguageOption[] = [];
   selectedInterfaceLanguage: SupportedLanguage = 'en';
   selectedLanguageFlag = '🇬🇧';
@@ -33,7 +36,31 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     'Elige tu idioma',
     'Choisissez votre langue',
     'Escolha seu idioma',
-    'Wählen Sie Ihre Sprache'
+    'Wählen Sie Ihre Sprache',
+    'Scegli la tua lingua',
+    'Выберите ваш язык',
+    '选择你的语言',
+    '言語を選択してください',
+    '언어를 선택하세요',
+    'اختر لغتك',
+    'अपनी भाषा चुनें',
+    'Kies je taal',
+    'Wybierz swój język',
+    'Dilinizi seçin',
+    'Välj ditt språk',
+    'Velg ditt språk',
+    'Vælg dit sprog',
+    'Valitse kielesi',
+    'Επιλέξτε τη γλώσσα σας',
+    'Vyberte svůj jazyk',
+    'Alegeți limba dvs.',
+    'Виберіть вашу мову',
+    'Chọn ngôn ngữ của bạn',
+    'เลือกภาษาของคุณ',
+    'Pilih bahasa Anda',
+    'Pilih bahasa anda',
+    'בחר את השפה שלך',
+    'زبان خود را انتخاب کنید'
   ];
   activeHeadingIndex = 0;
   private headingInterval: any;
@@ -165,6 +192,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   selectedLanguages: string[] = [];
   selectedExperience = '';
   selectedSchedule = '';
+  translatedExperience = '';
+  translatedSchedule = '';
   profileSummary = '';
   profileBio = '';
   hourlyRate = 25;
@@ -190,8 +219,11 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
   // Available options
   availableLanguages = [
-    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
-    'Chinese', 'Japanese', 'Korean', 'Arabic', 'Russian', 'Dutch', 'Swedish'
+    'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese',
+    'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi',
+    'Dutch', 'Polish', 'Turkish', 'Swedish', 'Norwegian', 'Danish',
+    'Finnish', 'Greek', 'Czech', 'Romanian', 'Ukrainian', 'Vietnamese',
+    'Thai', 'Indonesian', 'Malay', 'Hebrew', 'Persian'
   ];
 
   // Native language options with ISO codes (same as student onboarding)
@@ -341,19 +373,19 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   ];
 
   experienceLevels = [
-    'New to teaching (0-1 years)',
-    'Some experience (1-3 years)',
-    'Experienced (3-5 years)',
-    'Very experienced (5+ years)',
-    'Native speaker with teaching experience'
+    { key: 'ONBOARDING.TUTOR_OB.EXP_NEW', value: 'New to teaching (0-1 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_SOME', value: 'Some experience (1-3 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_EXPERIENCED', value: 'Experienced (3-5 years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_VERY', value: 'Very experienced (5+ years)' },
+    { key: 'ONBOARDING.TUTOR_OB.EXP_NATIVE', value: 'Native speaker with teaching experience' }
   ];
 
   scheduleOptions = [
-    'Weekdays only',
-    'Weekends only',
-    'Evenings only',
-    'Flexible schedule',
-    'Full-time availability'
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_WEEKDAYS', value: 'Weekdays only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_WEEKENDS', value: 'Weekends only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_EVENINGS', value: 'Evenings only' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_FLEXIBLE', value: 'Flexible schedule' },
+    { key: 'ONBOARDING.TUTOR_OB.SCHED_FULLTIME', value: 'Full-time availability' }
   ];
 
   constructor(
@@ -367,7 +399,8 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     private modalController: ModalController,
     private toastController: ToastController,
     private onboardingGuard: OnboardingGuard,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {
     this.user$ = this.authService.user$;
     this.availableInterfaceLanguages = this.languageService.supportedLanguages;
@@ -468,10 +501,13 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
   confirmLanguageSelection() {
     this.stopHeadingRotation();
     this.preStepPhase = 'welcome';
+    this.welcomeRevealed = false;
+    setTimeout(() => { this.welcomeRevealed = true; this.cdr.detectChanges(); }, 3800);
   }
 
   goBackToLanguageSelect() {
     this.preStepPhase = 'language';
+    this.welcomeRevealed = false;
     this.startHeadingRotation();
   }
 
@@ -513,12 +549,16 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
     }
   }
 
-  setExperience(experience: string) {
-    this.selectedExperience = experience;
+  setExperience(value: string) {
+    this.selectedExperience = value;
+    const exp = this.experienceLevels.find(e => e.value === value);
+    this.translatedExperience = exp ? this.translateService.instant(exp.key) : value;
   }
 
-  setSchedule(schedule: string) {
-    this.selectedSchedule = schedule;
+  setSchedule(value: string) {
+    this.selectedSchedule = value;
+    const sched = this.scheduleOptions.find(s => s.value === value);
+    this.translatedSchedule = sched ? this.translateService.instant(sched.key) : value;
   }
 
   // Open country selection modal (for nationality)
@@ -730,9 +770,9 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
       this.isSubmitting = false;
       
       const alert = await this.alertController.create({
-        header: 'Error',
-        message: 'Failed to complete setup. Please try again.',
-        buttons: ['OK']
+        header: this.translateService.instant('ONBOARDING.ALERTS.ERROR'),
+        message: this.translateService.instant('ONBOARDING.ALERTS.SETUP_FAILED'),
+        buttons: [this.translateService.instant('ONBOARDING.ALERTS.OK')]
       });
       await alert.present();
     }
@@ -790,15 +830,15 @@ export class TutorOnboardingPage implements OnInit, OnDestroy, AfterViewChecked 
 
   async handleLogout() {
     const alert = await this.alertController.create({
-      header: 'Logout',
-      message: 'Are you sure you want to logout?',
+      header: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
+      message: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT_CONFIRM'),
       buttons: [
         {
-          text: 'Cancel',
+          text: this.translateService.instant('ONBOARDING.ALERTS.CANCEL'),
           role: 'cancel'
         },
         {
-          text: 'Logout',
+          text: this.translateService.instant('ONBOARDING.ALERTS.LOGOUT'),
           handler: async () => {
             await this.authService.logout();
           }
