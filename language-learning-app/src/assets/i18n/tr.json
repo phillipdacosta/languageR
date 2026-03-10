@@ -96,6 +96,7 @@
     "JOIN_NOW": "Şimdi Katıl",
     "JOIN": "Katıl",
     "JOIN_LESSON": "Derse Katıl",
+    "PARTICIPANT_IN_CALL": "{{name}} görüşmede",
     "RESCHEDULE": "Yeniden Planla",
     "CANCEL_LESSON": "Dersi iptal et",
     "CANCEL": "İptal",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "${{amount}} çekmek istediğinizden emin misiniz? Bu {{method}} hesabınıza gönderilecek.",
     "WITHDRAW_CONFIRM_BTN": "Onayla",
     "WITHDRAW_SUCCESS": "${{amount}} çekim talebi başarıyla gönderildi! 1-2 iş günü içinde işlenecek.",
+    "WITHDRAW_SUCCESS_TITLE": "Ödeme Gönderildi!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} {{method}} hesabınıza gönderildi!",
+    "WITHDRAW_SUCCESS_NOTE": "Fonlar genellikle 1-2 iş günü içinde hesabınıza yansır.",
+    "WITHDRAW_SUCCESS_DONE": "Tamam",
     "WITHDRAW_ERROR": "Çekim talebi başarısız oldu. Lütfen tekrar deneyin.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Lütfen geçerli bir çekim tutarı girin",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimum çekim tutarı $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "Çıkış yapmak istediğinizden emin misiniz?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Speak Freely'ye Hoş Geldiniz",
+      "GREETING": "Barnaby'ye Hoş Geldiniz",
       "SUBTITLE": "Dil öğrenmenin ve öğretmenin akıllı yolu. Birkaç adımda hesabınızı oluşturalım.",
-      "TUTOR_GREETING": "Speak Freely'ye Hoş Geldiniz",
+      "TUTOR_GREETING": "Barnaby'ye Hoş Geldiniz",
       "TUTOR_SUBTITLE": "Öğretmen topluluğumuza katılın ve dünya genelinde öğrencilere ders vermeye başlayın. Profilinizi hazırlayalım.",
       "CTA": "Başlayın",
       "BACK": "Dili Değiştir"

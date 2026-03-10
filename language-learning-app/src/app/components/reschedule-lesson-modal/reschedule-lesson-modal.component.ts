@@ -3,6 +3,7 @@ import { ModalController, LoadingController, ToastController, AlertController } 
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
+import { AvailabilitySetupComponent } from '../availability-setup/availability-setup.component';
 import { UserService } from '../../services/user.service';
 import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { LessonService, Lesson } from '../../services/lesson.service';
@@ -16,7 +17,7 @@ import { asyncScheduler } from 'rxjs';
   templateUrl: './reschedule-lesson-modal.component.html',
   styleUrls: ['./reschedule-lesson-modal.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, TutorAvailabilityViewerComponent],
+  imports: [CommonModule, IonicModule, TutorAvailabilityViewerComponent, AvailabilitySetupComponent],
   animations: [
     trigger('slideInOut', [
       transition('void => forward', [
@@ -67,6 +68,9 @@ export class RescheduleLessonModalComponent implements OnInit {
   
   // Animation direction for transitions
   animationDirection: 'forward' | 'backward' = 'forward';
+
+  // View: calendar (pick slot) or availability-setup (add new availability) — tutor only
+  rescheduleView: 'calendar' | 'availability-setup' = 'calendar';
 
   constructor(
     private modalController: ModalController,
@@ -518,6 +522,19 @@ export class RescheduleLessonModalComponent implements OnInit {
   goBackToProposal() {
     // Dismiss with a flag to re-open the proposal modal
     this.modalController.dismiss({ goBackToProposal: true });
+  }
+
+  showAddAvailability(): void {
+    this.rescheduleView = 'availability-setup';
+  }
+
+  goBackToCalendar(): void {
+    this.rescheduleView = 'calendar';
+    this.refreshTrigger++;
+  }
+
+  onAvailabilitySaved(): void {
+    this.goBackToCalendar();
   }
 
   /**

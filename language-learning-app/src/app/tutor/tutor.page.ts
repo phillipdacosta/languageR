@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } fr
 import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, Platform, AlertController, AnimationController } from '@ionic/angular';
-import { ActivatedRoute, Router, NavigationEnd } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule, NavigationEnd } from '@angular/router';
 import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { UserService } from '../services/user.service';
 import { LanguageService } from '../services/language.service';
@@ -17,6 +17,7 @@ import { ImageViewerModal } from '../messages/image-viewer-modal.component';
 import { SharedModule } from '../shared/shared.module';
 import { DisplayNamePipe } from '../pipes/display-name.pipe';
 import { LessonService } from '../services/lesson.service';
+import { MaterialService, TutorMaterial } from '../services/material.service';
 import { filter, takeUntil } from 'rxjs/operators';
 import { Subject, firstValueFrom } from 'rxjs';
 import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
@@ -26,7 +27,7 @@ import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
   templateUrl: './tutor.page.html',
   styleUrls: ['./tutor.page.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe],
+  imports: [CommonModule, FormsModule, IonicModule, RouterModule, TutorAvailabilityViewerComponent, SharedModule, TutorSearchContentPageModule, DisplayNamePipe],
   animations: [
     trigger('fadeInUp', [
       transition(':enter', [
@@ -108,6 +109,10 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
   // Trial lesson eligibility
   studentHadPreviousLesson = false;
 
+  // Materials
+  tutorMaterials: (TutorMaterial & { _addedDate?: string })[] = [];
+  hasLinkedChannels = false;
+
   private get userTz(): string | undefined {
     return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
   }
@@ -125,7 +130,8 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
     private authService: AuthService,
     private alertController: AlertController,
     private animationCtrl: AnimationController,
-    private lessonService: LessonService
+    private lessonService: LessonService,
+    private materialService: MaterialService
   ) {}
 
   ngOnInit() {
@@ -179,9 +185,12 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
         console.log('🔄 tutor:', this.tutor);
         console.log('🌍 tutor country:', this.tutor?.country, 'residenceCountry:', this.tutor?.residenceCountry);
         this.isLoading = false;
+
+        const ch = this.tutor?.linkedChannels;
+        this.hasLinkedChannels = !!(ch?.youtubeChannelName || ch?.vimeoChannelName || ch?.soundcloudProfileName);
         
-        // Check if student has had a previous lesson with this tutor
         this.checkPreviousLessonsWithTutor();
+        this.loadTutorMaterials();
       },
       error: (err) => {
         const duration = performance.now() - startTime;
@@ -576,6 +585,9 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
    */
   private async checkPreviousLessonsWithTutor() {
     try {
+      const isAuth = await firstValueFrom(this.authService.isAuthenticated$).catch(() => false);
+      if (!isAuth) return;
+
       const currentUser = await firstValueFrom(this.userService.getCurrentUser());
       
       // Only check for students
@@ -634,6 +646,73 @@ export class TutorPage implements OnInit, OnDestroy, AfterViewInit {
       console.error('Error in checkPreviousLessonsWithTutor:', error);
       this.studentHadPreviousLesson = false;
     }
+  }
+
+  private loadTutorMaterials() {
+    this.materialService.getTutorMaterials(this.tutorId).subscribe({
+      next: (res) => {
+        this.tutorMaterials = (res.materials || [])
+          .filter(m => m.status === 'published')
+          .map(m => ({
+            ...m,
+            _addedDate: this.formatMaterialDate(m.createdAt)
+          }));
+      },
+      error: () => {
+        this.tutorMaterials = [];
+      }
+    });
+  }
+
+  getMaterialTypeIcon(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'videocam';
+      case 'reading': return 'book';
+      case 'listening': return 'headset';
+      default: return 'document';
+    }
+  }
+
+  getMaterialTypeLabel(type: string): string {
+    switch (type) {
+      case 'video_quiz': return 'Video Quiz';
+      case 'reading': return 'Reading';
+      case 'listening': return 'Listening';
+      default: return 'Material';
+    }
+  }
+
+  formatMaterialDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return 'Added ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  async openMaterial(material: TutorMaterial) {
+    const isAuth = await firstValueFrom(this.authService.isAuthenticated$);
+
+    if (!isAuth) {
+      const materialUrl = `/material/${material._id}`;
+      localStorage.setItem('returnUrl', materialUrl);
+
+      const alert = await this.alertController.create({
+        header: 'Log in to continue',
+        message: 'Create a free account or log in to access this material.',
+        buttons: [
+          { text: 'Cancel', role: 'cancel' },
+          {
+            text: 'Log In',
+            handler: () => {
+              this.router.navigate(['/login']);
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
+    this.router.navigate(['/material', material._id]);
   }
 
   scrollToAvailability() {

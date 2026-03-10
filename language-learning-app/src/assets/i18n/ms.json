@@ -105,6 +105,7 @@
     "JOIN_NOW": "Sertai Sekarang",
     "JOIN": "Sertai",
     "JOIN_LESSON": "Sertai Pelajaran",
+    "PARTICIPANT_IN_CALL": "{{name}} sedang dalam panggilan",
     "RESCHEDULE": "Jadualkan Semula",
     "CANCEL_LESSON": "Batalkan pelajaran",
     "CANCEL": "Batal",
@@ -293,6 +294,10 @@
     "WITHDRAW_CONFIRM_MSG": "Adakah anda pasti mahu mengeluarkan ${{amount}}? Ini akan dihantar ke akaun {{method}} anda.",
     "WITHDRAW_CONFIRM_BTN": "Sahkan",
     "WITHDRAW_SUCCESS": "Pengeluaran ${{amount}} berjaya diminta! Diproses dalam 1-2 hari bekerja.",
+    "WITHDRAW_SUCCESS_TITLE": "Pembayaran Dihantar!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} dihantar ke {{method}} anda!",
+    "WITHDRAW_SUCCESS_NOTE": "Dana biasanya tersedia dalam 1-2 hari perniagaan.",
+    "WITHDRAW_SUCCESS_DONE": "Selesai",
     "WITHDRAW_ERROR": "Gagal meminta pengeluaran. Sila cuba lagi.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Sila masukkan jumlah pengeluaran yang sah",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Jumlah pengeluaran minimum ialah $10",
@@ -362,9 +367,9 @@
       "LOGOUT_CONFIRM": "Adakah anda pasti mahu log keluar?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Selamat Datang ke Speak Freely",
+      "GREETING": "Selamat Datang ke Barnaby",
       "SUBTITLE": "Cara yang lebih bijak untuk belajar dan mengajar bahasa. Mari sediakan akaun anda dalam beberapa langkah sahaja.",
-      "TUTOR_GREETING": "Selamat Datang ke Speak Freely",
+      "TUTOR_GREETING": "Selamat Datang ke Barnaby",
       "TUTOR_SUBTITLE": "Sertai komuniti tutor kami dan mula mengajar pelajar di seluruh dunia. Mari sediakan profil anda.",
       "CTA": "Mula",
       "BACK": "Tukar Bahasa"

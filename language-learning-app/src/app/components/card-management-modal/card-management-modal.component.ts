@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController, ToastController, AlertController } from '@ionic/angular';
@@ -17,13 +17,17 @@ declare var Stripe: any;
   imports: [CommonModule, FormsModule, IonicModule]
 })
 export class CardManagementModalComponent implements OnInit, OnDestroy {
+  @Input() purchaseMode = false;
+  @Input() purchaseAmount: number = 0;
+  @Input() purchaseTitle: string = '';
+
   savedCards: any[] = [];
   isAddingNewCard = false;
   isSaving = false;
   isLoading = true;
   selectedCardId: string | null = null;
   cardholderName = '';
-  cardsChanged = false; // Track if cards were actually added/deleted/modified
+  cardsChanged = false;
 
   // Stripe
   private stripe: any;
@@ -350,11 +354,36 @@ export class CardManagementModalComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ── Dismiss ──
+  // ── Purchase / Dismiss ──
+
+  async confirmPurchase(): Promise<void> {
+    const card = this.savedCards.find(c => c.stripePaymentMethodId === this.selectedCardId) || this.savedCards[0];
+    if (!card) return;
+
+    const alert = await this.alertController.create({
+      header: 'Confirm Payment',
+      message: `You will be charged <strong>$${this.purchaseAmount.toFixed(2)}</strong> on your ${card.brand || 'card'} ending in ${card.last4}.`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Confirm',
+          handler: () => {
+            this.modalController.dismiss({
+              confirmed: true,
+              cardsUpdated: this.cardsChanged,
+              selectedCard: card
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
 
   dismiss(): void {
     const hasCards = this.savedCards.length > 0;
     this.modalController.dismiss({
+      confirmed: false,
       cardsUpdated: this.cardsChanged,
       selectedCard: hasCards ? this.savedCards.find(c => c.stripePaymentMethodId === this.selectedCardId) || this.savedCards[0] : null
     });

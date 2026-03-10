@@ -108,6 +108,7 @@
     "JOIN_NOW": "เข้าร่วมเลย",
     "JOIN": "เข้าร่วม",
     "JOIN_LESSON": "เข้าร่วมบทเรียน",
+    "PARTICIPANT_IN_CALL": "{{name}} อยู่ในสาย",
     "RESCHEDULE": "เลื่อน",
     "CANCEL_LESSON": "ยกเลิกบทเรียน",
     "CANCEL": "ยกเลิก",
@@ -296,6 +297,10 @@
     "WITHDRAW_CONFIRM_MSG": "คุณแน่ใจหรือไม่ว่าต้องการถอน ${{amount}}? จะถูกส่งไปยังบัญชี {{method}} ของคุณ",
     "WITHDRAW_CONFIRM_BTN": "ยืนยัน",
     "WITHDRAW_SUCCESS": "ขอถอนเงิน ${{amount}} สำเร็จ! ดำเนินการภายใน 1-2 วันทำการ",
+    "WITHDRAW_SUCCESS_TITLE": "ส่งการชำระเงินแล้ว!",
+    "WITHDRAW_SUCCESS_DETAIL": "ส่ง {{amount}} ไปยัง {{method}} ของคุณแล้ว!",
+    "WITHDRAW_SUCCESS_NOTE": "โดยปกติเงินจะเข้าภายใน 1-2 วันทำการ",
+    "WITHDRAW_SUCCESS_DONE": "เสร็จสิ้น",
     "WITHDRAW_ERROR": "ไม่สามารถขอถอนเงินได้ กรุณาลองอีกครั้ง",
     "WITHDRAW_MIN_STRIPE_ERROR": "กรุณาป้อนจำนวนเงินถอนที่ถูกต้อง",
     "WITHDRAW_MIN_PAYPAL_ERROR": "จำนวนเงินถอนขั้นต่ำคือ $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบ?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "ยินดีต้อนรับสู่ Speak Freely",
+      "GREETING": "ยินดีต้อนรับสู่ Barnaby",
       "SUBTITLE": "วิธีที่ชาญฉลาดกว่าในการเรียนและสอนภาษา มาตั้งค่าบัญชีของคุณในไม่กี่ขั้นตอน",
-      "TUTOR_GREETING": "ยินดีต้อนรับสู่ Speak Freely",
+      "TUTOR_GREETING": "ยินดีต้อนรับสู่ Barnaby",
       "TUTOR_SUBTITLE": "เข้าร่วมชุมชนติวเตอร์ของเราและเริ่มสอนนักเรียนทั่วโลก มาเตรียมโปรไฟล์ของคุณกัน",
       "CTA": "เริ่มต้น",
       "BACK": "เปลี่ยนภาษา"

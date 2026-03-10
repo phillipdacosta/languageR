@@ -41,6 +41,12 @@ const transcriptSegmentSchema = new mongoose.Schema({
   audioMimeType: {
     type: String,
     required: false
+  },
+  noSpeechProb: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: null
   }
 });
 
@@ -120,6 +126,17 @@ const lessonTranscriptSchema = new mongoose.Schema({
     },
     lastTranscriptionAttempt: Date,
     deleteAt: Date             // Auto-delete timestamp (48 hours after upload)
+  }],
+  
+  // Audio energy metrics from FFmpeg VAD (per audio chunk upload)
+  audioEnergyMetrics: [{
+    chunkIndex: Number,
+    rmsLevelDb: Number,
+    peakLevelDb: Number,
+    silenceRatio: Number,
+    durationSeconds: Number,
+    hasSpeech: Boolean,
+    analyzedAt: { type: Date, default: Date.now }
   }],
   
   fullText: String  // Concatenated transcript text (used by analysis)

@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const TutorFeedback = require('../models/TutorFeedback');
 const { upload, uploadImage, uploadDocument, uploadVideoWithCompression, uploadImageToGCS, verifyToken } = require('../middleware/videoUploadMiddleware');
+const TutorMaterial = require('../models/TutorMaterial');
 const { initializeGCS } = require('../config/gcs');
 const rateLimit = require('express-rate-limit');
 
@@ -1212,6 +1213,17 @@ router.get('/tutors', verifyToken, async (req, res) => {
       return aViolations - bViolations; // Lower violations = higher priority
     });
     
+    // Batch fetch material counts for all tutors in one query
+    const tutorIds = tutors.map(t => t._id);
+    const materialCounts = await TutorMaterial.aggregate([
+      { $match: { tutorId: { $in: tutorIds }, status: 'published' } },
+      { $group: { _id: '$tutorId', count: { $sum: 1 } } }
+    ]);
+    const materialCountMap = {};
+    for (const mc of materialCounts) {
+      materialCountMap[mc._id.toString()] = mc.count;
+    }
+
     const formattedTutors = tutors.map(tutor => {
       const lastActive = tutor.profile?.officeHoursLastActive;
       const officeHoursEnabled = tutor.profile?.officeHoursEnabled;
@@ -1259,7 +1271,8 @@ router.get('/tutors', verifyToken, async (req, res) => {
           active: tutor.stats?.feedbackMetrics?.coachingBadge?.active || false,
           feedbackRate: tutor.stats?.feedbackMetrics?.feedbackRate || 0,
           avgQuality: tutor.stats?.feedbackMetrics?.averageFeedbackQuality || 0
-        }
+        },
+        materialCount: materialCountMap[tutor._id.toString()] || 0
       };
     });
 
@@ -1584,6 +1597,27 @@ router.delete('/profile-picture', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error removing profile picture:', error);
     res.status(500).json({ error: 'Failed to remove profile picture' });
+  }
+});
+
+// GET /api/users/profile-picture-proxy - Proxy the user's profile picture to bypass CORS
+router.get('/profile-picture-proxy', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ auth0Id: req.user.sub });
+    if (!user || !user.picture) {
+      return res.status(404).json({ error: 'No profile picture found' });
+    }
+
+    const axios = require('axios');
+    const response = await axios.get(user.picture, { responseType: 'arraybuffer' });
+    const contentType = response.headers['content-type'] || 'image/png';
+
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'no-cache');
+    res.send(Buffer.from(response.data));
+  } catch (error) {
+    console.error('Error proxying profile picture:', error.message);
+    res.status(500).json({ error: 'Failed to load profile picture' });
   }
 });
 
@@ -2091,8 +2125,9 @@ router.get('/:userId/public', publicProfileLimiter, async (req, res) => {
           profile: user.profile || {},
           // Payout and approval info for booking validation
           tutorApproved: user.tutorApproved,
-          stripeConnectOnboarded: hasPayoutSetup, // True if ANY payout method is set up
-          payoutProvider: user.payoutProvider // Include actual provider for transparency
+          stripeConnectOnboarded: hasPayoutSetup,
+          payoutProvider: user.payoutProvider,
+          linkedChannels: user.linkedChannels || {}
         }
       });
     } else {

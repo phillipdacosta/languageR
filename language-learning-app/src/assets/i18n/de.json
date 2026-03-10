@@ -96,6 +96,7 @@
     "JOIN_NOW": "Jetzt beitreten",
     "JOIN": "Beitreten",
     "JOIN_LESSON": "Lektion beitreten",
+    "PARTICIPANT_IN_CALL": "{{name}} ist im Anruf",
     "RESCHEDULE": "Verschieben",
     "CANCEL_LESSON": "Lektion absagen",
     "CANCEL": "Abbrechen",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Bist du sicher, dass du ${{amount}} auszahlen möchtest? Der Betrag wird an dein {{method}}-Konto gesendet.",
     "WITHDRAW_CONFIRM_BTN": "Bestätigen",
     "WITHDRAW_SUCCESS": "Auszahlung von ${{amount}} erfolgreich angefordert! Bearbeitung innerhalb von 1-2 Werktagen.",
+    "WITHDRAW_SUCCESS_TITLE": "Zahlung Gesendet!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} an dein {{method}} gesendet!",
+    "WITHDRAW_SUCCESS_NOTE": "Die Gutschrift erfolgt in der Regel innerhalb von 1–2 Werktagen.",
+    "WITHDRAW_SUCCESS_DONE": "Fertig",
     "WITHDRAW_ERROR": "Auszahlung konnte nicht angefordert werden. Bitte versuche es erneut.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Bitte gib einen gültigen Auszahlungsbetrag ein",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Der Mindestauszahlungsbetrag beträgt $10",
@@ -352,9 +357,9 @@
       "LOGOUT_CONFIRM": "Sind Sie sicher, dass Sie sich abmelden möchten?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Willkommen bei Speak Freely",
+      "GREETING": "Willkommen bei Barnaby",
       "SUBTITLE": "Der intelligentere Weg, Sprachen zu lernen und zu unterrichten. Richten wir Ihr Konto in wenigen Schritten ein.",
-      "TUTOR_GREETING": "Willkommen bei Speak Freely",
+      "TUTOR_GREETING": "Willkommen bei Barnaby",
       "TUTOR_SUBTITLE": "Treten Sie unserer Tutoren-Community bei und unterrichten Sie Schüler weltweit. Bereiten wir Ihr Profil vor.",
       "CTA": "Loslegen",
       "BACK": "Sprache ändern"
@@ -815,6 +820,7 @@
     "PROFILE": "Profil",
     "INTRO_VIDEO": "Vorstellungsvideo",
     "INTRO_VIDEO_SUBTITLE": "Hilf Schülern, dich besser kennenzulernen",
-    "INTRO_VIDEO_DESC": "Lade ein kurzes Video hoch, in dem du dich vorstellst und deinen Unterrichtsstil erklärst. Dieses Video wird angezeigt, wenn Schüler nach Lehrern suchen."
+    "INTRO_VIDEO_DESC": "Lade ein kurzes Video hoch, in dem du dich vorstellst und deinen Unterrichtsstil erklärst. Dieses Video wird angezeigt, wenn Schüler nach Lehrern suchen.",
+    "PAYOUTS": "Auszahlungen"
   }
 }

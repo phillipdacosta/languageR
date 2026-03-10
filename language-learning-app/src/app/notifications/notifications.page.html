@@ -21,6 +21,14 @@
           </h2>
         </div>
         <div class="notification-header-right">
+          <button
+            type="button"
+            class="filters-trigger-btn"
+            (click)="openFiltersModal()">
+            <ion-icon name="options-outline"></ion-icon>
+            <span>{{ 'NOTIFICATIONS.FILTERS' | translate }}</span>
+            <span class="filter-count" *ngIf="hasActiveNotificationFilters">{{ activeFilterLabel }}</span>
+          </button>
           <ion-button 
             [class.hidden]="getUnreadNotifications().length === 0"
             class="mark-all-read-btn" 
@@ -40,21 +48,6 @@
           (ionInput)="onSearchInput($event)"
           class="notification-searchbar">
         </ion-searchbar>
-      </div>
-
-      <!-- Filter Checkboxes -->
-      <div class="notification-filters">
-        <div 
-          *ngFor="let filter of filters"
-          class="filter-checkbox-item"
-          (click)="toggleFilter(filter.value)">
-          <ion-checkbox 
-            [checked]="isFilterActive(filter.value)"
-            mode="ios"
-            class="filter-checkbox">
-          </ion-checkbox>
-          <span class="filter-label">{{ filter.label }}</span>
-        </div>
       </div>
     </div>
   </div>
@@ -90,7 +83,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -159,7 +152,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -228,7 +221,7 @@
                 class="notification-avatar" />
               <!-- System notifications (video approved, etc) -->
               <div *ngIf="!notification.relatedUserPicture && isSystemNotification(notification.type)" class="notification-icon-wrapper system-notification">
-                <img src="assets/app-icon.png" alt="App icon" class="app-logo-img" />
+                <img src="assets/icons-app-bird.png" alt="App icon" class="app-logo-img" />
               </div>
               <!-- Money notifications (earnings) -->
               <div *ngIf="!notification.relatedUserPicture && isMoneyNotification(notification.type)" class="notification-icon-wrapper payment-icon">
@@ -299,7 +292,67 @@
   </ion-infinite-scroll>
 </ion-content>
 
+<!-- Notifications Filters Modal (same design as lessons/earnings filters) -->
+<ion-modal
+  [isOpen]="isFiltersModalOpen"
+  (didDismiss)="closeFiltersModal()"
+  cssClass="notifications-filters-modal">
+  <ng-template>
+    <ion-header class="nf-header ion-no-border">
+      <ion-toolbar>
+        <ion-buttons slot="start">
+          <ion-button (click)="closeFiltersModal()" class="nf-close-btn">
+            <ion-icon name="close" slot="icon-only"></ion-icon>
+          </ion-button>
+        </ion-buttons>
+        <ion-title>{{ 'NOTIFICATIONS.FILTERS' | translate }}</ion-title>
+      </ion-toolbar>
+    </ion-header>
 
+    <ion-content class="nf-content">
+      <!-- Type Section -->
+      <section class="nf-section">
+        <h3 class="nf-section-title">{{ 'NOTIFICATIONS.FILTER_TYPE' | translate }}</h3>
+        <div class="nf-time-grid">
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'all'"
+            (click)="setTypeFilter('all')">
+            {{ 'NOTIFICATIONS.FILTER_ALL' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'lessons'"
+            (click)="setTypeFilter('lessons')">
+            {{ 'NOTIFICATIONS.FILTER_LESSONS' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'payment'"
+            (click)="setTypeFilter('payment')">
+            {{ 'NOTIFICATIONS.FILTER_PAYMENT' | translate }}
+          </button>
+          <button
+            class="nf-time-btn"
+            [class.active]="selectedTypeFilter === 'progress'"
+            (click)="setTypeFilter('progress')">
+            {{ 'NOTIFICATIONS.FILTER_PROGRESS' | translate }}
+          </button>
+        </div>
+      </section>
+    </ion-content>
 
+    <ion-footer class="nf-footer ion-no-border">
+      <div class="nf-footer-content">
+        <button class="nf-clear-btn" (click)="clearNotificationFilters()" [disabled]="!hasActiveNotificationFilters">
+          {{ 'NOTIFICATIONS.CLEAR_ALL' | translate }}
+        </button>
+        <button class="nf-apply-btn" (click)="applyFiltersAndCloseModal()">
+          {{ 'NOTIFICATIONS.SHOW_COUNT' | translate: { count: getFilteredNotificationCount() } }}
+        </button>
+      </div>
+    </ion-footer>
+  </ng-template>
+</ion-modal>
 
 

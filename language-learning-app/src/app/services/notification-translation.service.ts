@@ -128,6 +128,11 @@ export class NotificationTranslationService {
             tutorName: d.tutorName, className: d.className, date: fmtDate(d.startTime), time: fmtTime(d.startTime)
           });
 
+        case 'class_cancelled':
+          return t('NOTIFICATIONS.MSG.CLASS_CANCELLED', {
+            tutorName: d.tutorName, className: d.className, date: fmtDate(d.startTime), time: fmtTime(d.startTime)
+          });
+
         case 'class_auto_cancelled':
           if (d.minStudents) {
             return t('NOTIFICATIONS.MSG.CLASS_AUTO_CANCELLED_TUTOR', {
@@ -193,8 +198,10 @@ export class NotificationTranslationService {
         case 'tip_sent':
           return t('NOTIFICATIONS.MSG.TIP_SENT', { amount: fmtMoney(d.amount), tutorName: d.to || '', date: fmtDate(d.lessonDate) });
 
-        case 'withdrawal_initiated':
-          return t('NOTIFICATIONS.MSG.WITHDRAWAL_INITIATED', { amount: fmtMoney(d.amount), method: d.method || '' });
+        case 'withdrawal_initiated': {
+          const methodLabel = d.method === 'stripe_connect' ? 'Stripe Connect' : d.method === 'paypal' ? 'PayPal' : (d.method || '');
+          return t('NOTIFICATIONS.MSG.WITHDRAWAL_INITIATED', { amount: fmtMoney(d.amount), method: methodLabel });
+        }
 
         case 'tutor_video_approved':
           return d.isFirstTimeApproval ? t('NOTIFICATIONS.MSG.VIDEO_APPROVED_FIRST') : t('NOTIFICATIONS.MSG.VIDEO_APPROVED');
@@ -262,6 +269,7 @@ export class NotificationTranslationService {
       'class_invitation': 'NOTIFICATIONS.TITLE_TYPE.CLASS_INVITATION',
       'class_accepted': 'NOTIFICATIONS.TITLE_TYPE.CLASS_ACCEPTED',
       'class_removed': 'NOTIFICATIONS.TITLE_TYPE.CLASS_REMOVED',
+      'class_cancelled': 'NOTIFICATIONS.TITLE_TYPE.CLASS_CANCELLED',
       'class_auto_cancelled': 'NOTIFICATIONS.TITLE_TYPE.CLASS_CANCELLED',
       'class_invitation_cancelled': 'NOTIFICATIONS.TITLE_TYPE.CLASS_CANCELLED',
       'invitation_cancelled': 'NOTIFICATIONS.TITLE_TYPE.INVITATION_CANCELLED',

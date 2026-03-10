@@ -96,6 +96,7 @@
     "JOIN_NOW": "Bli med nå",
     "JOIN": "Bli med",
     "JOIN_LESSON": "Bli med i leksjon",
+    "PARTICIPANT_IN_CALL": "{{name}} er i samtalen",
     "RESCHEDULE": "Ombooking",
     "CANCEL_LESSON": "Avlys leksjon",
     "CANCEL": "Avbryt",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Er du sikker på at du vil ta ut ${{amount}}? Dette sendes til din {{method}}-konto.",
     "WITHDRAW_CONFIRM_BTN": "Bekreft",
     "WITHDRAW_SUCCESS": "Uttak på ${{amount}} forespurt! Behandling innen 1-2 virkedager.",
+    "WITHDRAW_SUCCESS_TITLE": "Betaling Sendt!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} sendt til din {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Midler er vanligvis tilgjengelige innen 1–2 virkedager.",
+    "WITHDRAW_SUCCESS_DONE": "Ferdig",
     "WITHDRAW_ERROR": "Kunne ikke be om uttak. Prøv igjen.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Vennligst skriv inn et gyldig uttaksbeløp",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimum uttaksbeløp er $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Er du sikker på at du vil logge ut?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Velkommen til Speak Freely",
+      "GREETING": "Velkommen til Barnaby",
       "SUBTITLE": "Den smartere måten å lære og undervise språk. La oss sette opp kontoen din med noen få steg.",
-      "TUTOR_GREETING": "Velkommen til Speak Freely",
+      "TUTOR_GREETING": "Velkommen til Barnaby",
       "TUTOR_SUBTITLE": "Bli med i lærerfellesskapet vårt og begynn å undervise elever over hele verden. La oss gjøre profilen din klar.",
       "CTA": "Kom i gang",
       "BACK": "Bytt språk"

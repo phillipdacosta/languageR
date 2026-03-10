@@ -96,6 +96,7 @@
     "JOIN_NOW": "Rejoindre maintenant",
     "JOIN": "Rejoindre",
     "JOIN_LESSON": "Rejoindre la leçon",
+    "PARTICIPANT_IN_CALL": "{{name}} est dans l'appel",
     "RESCHEDULE": "Reporter",
     "CANCEL_LESSON": "Annuler la leçon",
     "CANCEL": "Annuler",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Êtes-vous sûr de vouloir retirer ${{amount}} ? Ce montant sera envoyé à votre compte {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmer",
     "WITHDRAW_SUCCESS": "Retrait de ${{amount}} demandé avec succès ! Traitement sous 1-2 jours ouvrables.",
+    "WITHDRAW_SUCCESS_TITLE": "Paiement Envoyé !",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} envoyé à votre {{method}} !",
+    "WITHDRAW_SUCCESS_NOTE": "Les fonds sont généralement disponibles sous 1 à 2 jours ouvrables.",
+    "WITHDRAW_SUCCESS_DONE": "Terminé",
     "WITHDRAW_ERROR": "Échec de la demande de retrait. Veuillez réessayer.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Veuillez entrer un montant de retrait valide",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Le montant minimum de retrait est de 10 $",
@@ -352,9 +357,9 @@
       "LOGOUT_CONFIRM": "Êtes-vous sûr de vouloir vous déconnecter ?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Bienvenue sur Speak Freely",
+      "GREETING": "Bienvenue sur Barnaby",
       "SUBTITLE": "La façon la plus intelligente d'apprendre et d'enseigner les langues. Configurons votre compte en quelques étapes.",
-      "TUTOR_GREETING": "Bienvenue sur Speak Freely",
+      "TUTOR_GREETING": "Bienvenue sur Barnaby",
       "TUTOR_SUBTITLE": "Rejoignez notre communauté de tuteurs et commencez à enseigner à des étudiants du monde entier. Préparons votre profil.",
       "CTA": "Commencer",
       "BACK": "Changer de langue"
@@ -815,6 +820,7 @@
     "PROFILE": "Profil",
     "INTRO_VIDEO": "Vidéo de présentation",
     "INTRO_VIDEO_SUBTITLE": "Aidez les étudiants à mieux vous connaître",
-    "INTRO_VIDEO_DESC": "Téléversez une courte vidéo pour vous présenter et expliquer votre style d'enseignement. Cette vidéo sera affichée aux étudiants lorsqu'ils recherchent des tuteurs."
+    "INTRO_VIDEO_DESC": "Téléversez une courte vidéo pour vous présenter et expliquer votre style d'enseignement. Cette vidéo sera affichée aux étudiants lorsqu'ils recherchent des tuteurs.",
+    "PAYOUTS": "Paiements"
   }
 }

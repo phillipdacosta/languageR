@@ -108,6 +108,7 @@
     "JOIN_NOW": "Bergabung Sekarang",
     "JOIN": "Bergabung",
     "JOIN_LESSON": "Bergabung Pelajaran",
+    "PARTICIPANT_IN_CALL": "{{name}} sedang dalam panggilan",
     "RESCHEDULE": "Jadwalkan Ulang",
     "CANCEL_LESSON": "Batalkan pelajaran",
     "CANCEL": "Batal",
@@ -296,6 +297,10 @@
     "WITHDRAW_CONFIRM_MSG": "Apakah Anda yakin ingin menarik ${{amount}}? Ini akan dikirim ke akun {{method}} Anda.",
     "WITHDRAW_CONFIRM_BTN": "Konfirmasi",
     "WITHDRAW_SUCCESS": "Penarikan ${{amount}} berhasil diminta! Diproses dalam 1-2 hari kerja.",
+    "WITHDRAW_SUCCESS_TITLE": "Pembayaran Terkirim!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} dikirim ke {{method}} Anda!",
+    "WITHDRAW_SUCCESS_NOTE": "Dana biasanya tersedia dalam 1-2 hari kerja.",
+    "WITHDRAW_SUCCESS_DONE": "Selesai",
     "WITHDRAW_ERROR": "Gagal meminta penarikan. Silakan coba lagi.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Silakan masukkan jumlah penarikan yang valid",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Jumlah penarikan minimum adalah $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Apakah Anda yakin ingin keluar?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Selamat Datang di Speak Freely",
+      "GREETING": "Selamat Datang di Barnaby",
       "SUBTITLE": "Cara yang lebih cerdas untuk belajar dan mengajar bahasa. Mari siapkan akun Anda dalam beberapa langkah.",
-      "TUTOR_GREETING": "Selamat Datang di Speak Freely",
+      "TUTOR_GREETING": "Selamat Datang di Barnaby",
       "TUTOR_SUBTITLE": "Bergabunglah dengan komunitas tutor kami dan mulai mengajar siswa di seluruh dunia. Mari siapkan profil Anda.",
       "CTA": "Mulai",
       "BACK": "Ubah Bahasa"

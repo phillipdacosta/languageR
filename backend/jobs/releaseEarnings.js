@@ -117,25 +117,29 @@ async function releaseEarnings(io = null) {
             };
           }
           
-          // Move from pending to available and count toward lifetime
-          // lifetimeEarnings only reflects confirmed earnings (not pending/on_hold)
-          tutor.tutorEarnings.pendingBalance -= payment.tutorPayout;
-          tutor.tutorEarnings.availableBalance += payment.tutorPayout;
-          tutor.tutorEarnings.lifetimeEarnings += payment.tutorPayout;
-          await tutor.save();
+          // Atomic: move from pending to available and count toward lifetime
+          const updatedTutor = await User.findOneAndUpdate(
+            { _id: tutor._id },
+            {
+              $inc: {
+                'tutorEarnings.pendingBalance': -payment.tutorPayout,
+                'tutorEarnings.availableBalance': payment.tutorPayout,
+                'tutorEarnings.lifetimeEarnings': payment.tutorPayout
+              }
+            },
+            { new: true }
+          );
           
           // Update payment status
           payment.transferStatus = 'available';
-          
-          // SUCCESS: Reset retry tracking
           payment.processingAttempts = 0;
           payment.lastProcessingError = null;
           payment.nextRetryAt = null;
           await payment.save();
           
           console.log(`✅ Released $${payment.tutorPayout.toFixed(2)} to ${tutor.name}`);
-          console.log(`   New Available: $${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
-          console.log(`   New Pending: $${tutor.tutorEarnings.pendingBalance.toFixed(2)}`);
+          console.log(`   New Available: $${updatedTutor.tutorEarnings.availableBalance.toFixed(2)}`);
+          console.log(`   New Pending: $${updatedTutor.tutorEarnings.pendingBalance.toFixed(2)}`);
           
           totalProcessed++;
           

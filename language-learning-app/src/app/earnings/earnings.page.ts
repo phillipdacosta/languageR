@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewInit, CUSTOM_ELEMENTS_SCHEMA, ChangeDetectorRef } from '@angular/core';
+import '@dotlottie/player-component';
 import { CommonModule, Location } from '@angular/common';
 import { IonicModule, AlertController, ToastController, ModalController, NavController, ViewWillEnter, InfiniteScrollCustomEvent } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
@@ -36,6 +37,10 @@ interface PaymentBreakdown {
   classId?: string;
   className?: string;
   isClassPayment?: boolean;
+  isMaterialPurchase?: boolean;
+  materialId?: string;
+  materialTitle?: string;
+  materialType?: string;
   paymentType?: string;
   transferStatus?: string;
   cancelReason?: string;
@@ -72,12 +77,14 @@ interface WithdrawalHistory {
   templateUrl: './earnings.page.html',
   styleUrls: ['./earnings.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, TranslateModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, TranslateModule],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillEnter {
   // Inline mode: when embedded inside another page (e.g., home page)
   @Input() inline: boolean = false;
   @Output() goBackEvent = new EventEmitter<void>();
+  @Output() balanceChanged = new EventEmitter<{ available: number; pending: number }>();
 
   // Earnings chart
   @ViewChild('earningsChartCanvas') earningsChartCanvas!: ElementRef<HTMLCanvasElement>;
@@ -139,6 +146,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
   withdrawalAmount: number = 0;
   selectedWithdrawalMethod: 'stripe_connect' | 'paypal' | null = null;
   withdrawing: boolean = false;
+
+  // Withdrawal success animation state
+  withdrawalSuccess: boolean = false;
+  withdrawalSuccessRevealed: boolean = false;
+  withdrawalSuccessAmount: string = '';
+  withdrawalSuccessMethod: string = '';
+  withdrawalModalDismissing: boolean = false;
   
   // Wallet visibility (tied to profile setting)
   showWalletBalance = false; // Hide by default
@@ -159,7 +173,8 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     private toastController: ToastController,
     private modalController: ModalController,
     private navCtrl: NavController,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private cdr: ChangeDetectorRef
   ) {
     // Subscribe to currentUser$ observable to get updates automatically when profile changes
     this.userService.currentUser$
@@ -340,7 +355,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     const tz = this.userTz || undefined;
     for (const p of this.recentPayments) {
       p.formattedDate = p.date ? formatDateInTz(p.date, tz, { month: 'short', day: 'numeric', year: undefined }) : '';
-      p.formattedTime = p.startTime ? formatTimeInTz(p.startTime, tz) : '';
+      p.formattedTime = p.startTime
+        ? formatTimeInTz(p.startTime, tz)
+        : (p.paymentType === 'tip' && p.date ? formatTimeInTz(p.date, tz) : '');
     }
   }
 
@@ -640,9 +657,9 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     // Create gradient fill (light blue fading to transparent)
     const fillGradient = ctx.createLinearGradient(0, 0, 0, 280);
-    fillGradient.addColorStop(0, 'rgba(52, 120, 247, 0.18)');
-    fillGradient.addColorStop(0.6, 'rgba(52, 120, 247, 0.06)');
-    fillGradient.addColorStop(1, 'rgba(52, 120, 247, 0.0)');
+    fillGradient.addColorStop(0, 'rgba(110, 172, 217, 0.20)');
+    fillGradient.addColorStop(0.6, 'rgba(110, 172, 217, 0.06)');
+    fillGradient.addColorStop(1, 'rgba(110, 172, 217, 0.0)');
 
     const maxLabels = data.length <= 6 ? data.length : this.chartPeriod === '1m' ? 5 : this.chartPeriod === '6m' ? 8 : 10;
 
@@ -665,10 +682,10 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
     // Partial-week point uses a lighter, semi-transparent style
     const pointBgColors = data.map((_, idx) =>
-      hasPartialWeek && idx === lastIdx ? 'rgba(52, 120, 247, 0.45)' : '#3478f7'
+      hasPartialWeek && idx === lastIdx ? 'rgba(110, 172, 217, 0.45)' : '#6eacd9'
     );
     const pointBorderColors = data.map((_, idx) =>
-      hasPartialWeek && idx === lastIdx ? 'rgba(52, 120, 247, 0.6)' : '#ffffff'
+      hasPartialWeek && idx === lastIdx ? 'rgba(110, 172, 217, 0.6)' : '#ffffff'
     );
 
     const dateFmt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
@@ -680,7 +697,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         datasets: [{
           label: this.translateService.instant('EARNINGS.CHART_LABEL'),
           data: data,
-          borderColor: '#3478f7',
+          borderColor: '#6eacd9',
           backgroundColor: fillGradient,
           borderWidth: 2.5,
           fill: true,
@@ -690,7 +707,7 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
           pointBackgroundColor: pointBgColors,
           pointBorderColor: pointBorderColors,
           pointBorderWidth: 2.5,
-          pointHoverBackgroundColor: '#2563eb',
+          pointHoverBackgroundColor: '#5a9ac8',
           pointHoverBorderColor: '#ffffff',
           pointHoverBorderWidth: 3,
           segment: {
@@ -857,8 +874,13 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
 
   async requestWithdrawal() {
     console.log('🔵 requestWithdrawal called');
-    console.log('Balance available:', this.balance.available);
+    console.log('Balance available (cached):', this.balance.available);
     console.log('Payout method configured:', this.payoutMethodConfigured);
+    
+    // Always refresh balance before checking — handles stale data from
+    // long-lived tabs or laptop sleep/wake where pending funds became available.
+    await this.loadBalance();
+    console.log('Balance available (refreshed):', this.balance.available);
     
     if (!this.payoutMethodConfigured) {
       const alert = await this.alertController.create({
@@ -899,6 +921,14 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     this.isWithdrawalModalOpen = false;
   }
 
+  onWithdrawalModalDismissed() {
+    this.withdrawalSuccess = false;
+    this.withdrawalSuccessRevealed = false;
+    this.withdrawalSuccessAmount = '';
+    this.withdrawalSuccessMethod = '';
+    this.withdrawalModalDismissing = false;
+  }
+
   selectWithdrawalMethod(method: 'stripe_connect' | 'paypal') {
     this.selectedWithdrawalMethod = method;
   }
@@ -923,8 +953,20 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
     }
   }
 
+  onWithdrawalKeydown(event: KeyboardEvent) {
+    const allowed = [
+      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+      'Home', 'End'
+    ];
+    if (allowed.includes(event.key)) return;
+    if ((event.metaKey || event.ctrlKey) && ['a', 'c', 'v', 'x', 'z'].includes(event.key)) return;
+    if (event.key === '.' && !(event.target as HTMLInputElement).value.includes('.')) return;
+    if (event.key >= '0' && event.key <= '9') return;
+    event.preventDefault();
+  }
+
   onWithdrawalAmountBlur() {
-    // Format to 2 decimal places when user leaves the field
     this.withdrawalAmount = parseFloat(this.formatCurrency(this.withdrawalAmount));
   }
 
@@ -1007,7 +1049,6 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
         {
           text: this.translateService.instant('EARNINGS.WITHDRAW_CONFIRM_BTN'),
           handler: async () => {
-            this.isWithdrawalModalOpen = false;
             await this.processWithdrawal(this.withdrawalAmount, this.selectedWithdrawalMethod!);
           }
         }
@@ -1055,18 +1096,28 @@ export class EarningsPage implements OnInit, OnDestroy, AfterViewInit, ViewWillE
       );
 
       if (response.success) {
-        const toast = await this.toastController.create({
-          message: this.translateService.instant('EARNINGS.WITHDRAW_SUCCESS', { amount: amount.toFixed(2) }),
-          duration: 4000,
-          color: 'success'
-        });
-        await toast.present();
+        const methodLabel = method === 'stripe_connect' ? 'Stripe Connect' : 'PayPal';
 
-        // Reload data
+        this.withdrawalSuccessAmount = '$' + amount.toFixed(2);
+        this.withdrawalSuccessMethod = methodLabel;
+        this.withdrawalSuccess = true;
+        this.withdrawalSuccessRevealed = false;
+        this.cdr.detectChanges();
+
+        setTimeout(() => {
+          this.withdrawalSuccessRevealed = true;
+          this.cdr.detectChanges();
+        }, 2400);
+
         await Promise.all([
           this.loadBalance(),
           this.loadWithdrawalHistory()
         ]);
+
+        this.balanceChanged.emit({
+          available: this.balance.available,
+          pending: this.balance.pending
+        });
       }
     } catch (error: any) {
       console.error('❌ Error requesting withdrawal:', error);

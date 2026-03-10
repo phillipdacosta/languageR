@@ -96,6 +96,7 @@
     "JOIN_NOW": "Присоединиться",
     "JOIN": "Войти",
     "JOIN_LESSON": "Присоединиться к уроку",
+    "PARTICIPANT_IN_CALL": "{{name}} в звонке",
     "RESCHEDULE": "Перенести",
     "CANCEL_LESSON": "Отменить урок",
     "CANCEL": "Отмена",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Вы уверены, что хотите вывести ${{amount}}? Средства будут отправлены на ваш счёт {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Подтвердить",
     "WITHDRAW_SUCCESS": "Запрос на вывод ${{amount}} успешно отправлен! Обработка в течение 1-2 рабочих дней.",
+    "WITHDRAW_SUCCESS_TITLE": "Платёж отправлен!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} отправлено на ваш {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Средства обычно поступают в течение 1–2 рабочих дней.",
+    "WITHDRAW_SUCCESS_DONE": "Готово",
     "WITHDRAW_ERROR": "Не удалось запросить вывод. Попробуйте снова.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Введите корректную сумму вывода",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Минимальная сумма вывода — $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "Вы уверены, что хотите выйти?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Добро пожаловать в Speak Freely",
+      "GREETING": "Добро пожаловать в Barnaby",
       "SUBTITLE": "Более умный способ изучать и преподавать языки. Настроим ваш аккаунт за несколько шагов.",
-      "TUTOR_GREETING": "Добро пожаловать в Speak Freely",
+      "TUTOR_GREETING": "Добро пожаловать в Barnaby",
       "TUTOR_SUBTITLE": "Присоединяйтесь к нашему сообществу репетиторов и начните обучать учеников по всему миру. Подготовим ваш профиль.",
       "CTA": "Начать",
       "BACK": "Изменить язык"

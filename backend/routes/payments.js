@@ -1166,8 +1166,9 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
 
     // Get payments (limit=0 returns all for chart data)
     let paymentsQuery = Payment.find(query)
-      .populate('lessonId', 'startTime endTime duration status cancelReason')
-      .populate('classId', 'startTime endTime name status')
+      .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
+      .populate('classId', 'startTime endTime name status price')
+      .populate('materialId', 'title materialType')
       .populate('studentId', 'name firstName lastName picture')
       .sort({ createdAt: -1 }); // Sort by booking date
 
@@ -1194,8 +1195,8 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         'metadata.isHybridPayment': true,
         transferStatus: { $ne: 'acknowledged' }
       })
-        .populate('lessonId', 'startTime endTime duration status cancelReason')
-        .populate('classId', 'startTime endTime name status')
+        .populate('lessonId', 'startTime endTime duration status cancelReason price actualPrice tutorPayout platformFee')
+        .populate('classId', 'startTime endTime name status price')
         .populate('studentId', 'name firstName lastName picture');
 
       if (missingPartners.length > 0) {
@@ -1315,14 +1316,16 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       // Use class times as fallback when lessonId is not present
       const startTime = payment.lessonId?.startTime || payment.classId?.startTime || null;
       const endTime = payment.lessonId?.endTime || payment.classId?.endTime || null;
+      const isTip = payment.paymentType === 'tip';
+      const isMaterialPurchase = payment.paymentType === 'material_purchase';
 
       return {
         id: payment._id,
         studentName,
         studentPicture,
-        date: startTime || payment.createdAt,
-        startTime,
-        endTime,
+        date: (isTip || isMaterialPurchase) ? payment.createdAt : (startTime || payment.createdAt),
+        startTime: (isTip || isMaterialPurchase) ? null : startTime,
+        endTime: (isTip || isMaterialPurchase) ? null : endTime,
         amount: payment.amount || 0,
         tutorPayout,
         platformFee: payment.platformFee || 0,
@@ -1336,7 +1339,11 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
         lessonId: payment.lessonId?._id || null,
         classId: payment.classId?._id || null,
         className: payment.classId?.name || null,
+        materialId: payment.materialId?._id || null,
+        materialTitle: payment.materialId?.title || payment.metadata?.materialTitle || null,
+        materialType: payment.materialId?.materialType || payment.metadata?.materialType || null,
         isClassPayment,
+        isMaterialPurchase,
         paymentType: payment.paymentType || 'lesson_booking',
         transferStatus: payment.transferStatus || null,
         receiptUrl: payment.receiptUrl || null,
@@ -1346,72 +1353,101 @@ router.get('/tutor/earnings', verifyToken, async (req, res) => {
       };
     });
 
-    // ─── Merge hybrid payment rows ───────────────────────────────────
-    // When a student pays with wallet + card, two Payment records are created
-    // for the same lesson. The tutor should only see ONE row with combined totals.
+    // ─── Merge multiple payment rows per lesson ──────────────────────
+    // A single lesson may have multiple Payment records (hybrid wallet+card,
+    // retries, split payments, etc.). The tutor should see ONE row per lesson
+    // with the correct totals derived from the lesson itself.
     const recentPayments = [];
-    const hybridMergeMap = new Map(); // lessonId string → merged row
+    const lessonMergeMap = new Map(); // lessonId string → merged row
 
     for (const row of rawPayments) {
       const lessonKey = row.lessonId ? row.lessonId.toString() : null;
 
-      if (row._isHybrid && lessonKey) {
-        if (hybridMergeMap.has(lessonKey)) {
-          // Merge into existing row
-          const existing = hybridMergeMap.get(lessonKey);
+      if (row.paymentType === 'tip') {
+        recentPayments.push(row);
+      } else if (lessonKey && lessonMergeMap.has(lessonKey)) {
+        const existing = lessonMergeMap.get(lessonKey);
 
-          // Sum the raw amounts (wallet + card = full lesson price)
-          existing.amount += row.amount;
-          existing.refundAmount += row.refundAmount;
+        existing.amount += row.amount;
+        existing.refundAmount += row.refundAmount;
 
-          // Preserve transferStatus from whichever row has it
-          // (the row processed by completeLessonPayment has the correct transferStatus)
-          if (!existing.transferStatus && row.transferStatus) {
-            existing.transferStatus = row.transferStatus;
-          }
-
-          // tutorPayout & platformFee: use the values from the row that went through
-          // completeLessonPayment (identified by having a transferStatus). That row
-          // already has the correct FULL lesson payout, not a partial amount.
-          if (row.transferStatus && !existing._hasAuthorativePayout) {
-            existing.tutorPayout = row.tutorPayout;
-            existing.platformFee = row.platformFee;
-            existing._hasAuthorativePayout = true;
-          } else if (!existing._hasAuthorativePayout) {
-            // Neither row has transferStatus yet — fall back to recalculating
-            // from combined amount (80/20 split)
-            existing.tutorPayout = existing.amount * 0.80;
-            existing.platformFee = existing.amount * 0.20;
-          }
-          // If existing already has the authoritative payout, don't change it
-
-          // Keep the more "complete" receipt info (card payment usually has receipt/charge)
-          if (row.receiptUrl && !existing.receiptUrl) existing.receiptUrl = row.receiptUrl;
-          if (row.stripeChargeId && !existing.stripeChargeId) existing.stripeChargeId = row.stripeChargeId;
-          if (row.stripeFee && !existing.stripeFee) existing.stripeFee = row.stripeFee;
-          console.log(`🔀 Merged hybrid payment rows for lesson ${lessonKey}: combined $${existing.amount.toFixed(2)}, payout $${existing.tutorPayout.toFixed(2)}`);
-        } else {
-          // First hybrid row for this lesson — store for potential merge
-          hybridMergeMap.set(lessonKey, { ...row });
+        // Use the "best" transferStatus (prefer active states over null)
+        const statusPriority = ['available', 'on_hold', 'pending_withdrawal', 'withdrawn', 'succeeded'];
+        if (row.transferStatus && (!existing.transferStatus || statusPriority.indexOf(row.transferStatus) < statusPriority.indexOf(existing.transferStatus))) {
+          existing.transferStatus = row.transferStatus;
+          existing.status = row.status; // Sync the display status too
         }
+
+        if (row.receiptUrl && !existing.receiptUrl) existing.receiptUrl = row.receiptUrl;
+        if (row.stripeChargeId && !existing.stripeChargeId) existing.stripeChargeId = row.stripeChargeId;
+        existing.stripeFee += row.stripeFee;
+      } else if (lessonKey) {
+        // First row for this lesson — store for potential merge
+        lessonMergeMap.set(lessonKey, { ...row });
       } else {
-        // Non-hybrid payment — pass through directly
+        // No lessonId (e.g. class payments) — pass through directly
         recentPayments.push(row);
       }
     }
 
-    // Add all merged hybrid rows to the results
-    for (const mergedRow of hybridMergeMap.values()) {
+    // Finalize merged rows: use lesson-level payout values when available
+    for (const [lessonKey, mergedRow] of lessonMergeMap.entries()) {
+      // Find the original payment document to access populated lesson data
+      const sourcePayment = payments.find(p => p.lessonId?._id?.toString() === lessonKey);
+      const lessonData = sourcePayment?.lessonId;
+
+      if (lessonData?.tutorPayout != null && lessonData.tutorPayout > 0) {
+        mergedRow.tutorPayout = lessonData.tutorPayout;
+        mergedRow.platformFee = lessonData.platformFee || 0;
+        mergedRow.amount = (lessonData.actualPrice || lessonData.price) || mergedRow.amount;
+      }
+
       delete mergedRow._isHybrid;
       delete mergedRow._hasAuthorativePayout;
       recentPayments.push(mergedRow);
     }
 
-    // Also clean up non-hybrid rows
-    recentPayments.forEach(row => {
-      delete row._isHybrid;
-      delete row._hasAuthorativePayout;
-    });
+    // ─── Include cancelled classes with no payments ──────────────────
+    const ClassModel = require('../models/Class');
+    const classIdsWithPayments = new Set(
+      recentPayments.filter(r => r.classId).map(r => r.classId.toString())
+    );
+    const cancelledClasses = await ClassModel.find({
+      tutorId: user._id,
+      status: 'cancelled'
+    }).select('name startTime endTime price status cancelReason cancelledAt').lean();
+
+    for (const cls of cancelledClasses) {
+      if (classIdsWithPayments.has(cls._id.toString())) continue;
+      recentPayments.push({
+        id: `class-${cls._id}`,
+        studentName: 'N/A',
+        studentPicture: null,
+        date: cls.startTime || cls.cancelledAt || cls.createdAt,
+        startTime: cls.startTime,
+        endTime: cls.endTime,
+        amount: 0,
+        tutorPayout: 0,
+        platformFee: 0,
+        stripeFee: 0,
+        refundAmount: 0,
+        refundReason: null,
+        status: 'cancelled',
+        lessonStatus: null,
+        classStatus: 'cancelled',
+        cancelReason: cls.cancelReason || 'class_cancelled',
+        lessonId: null,
+        classId: cls._id,
+        className: cls.name,
+        isClassPayment: true,
+        paymentType: 'class_booking',
+        transferStatus: null,
+        receiptUrl: null,
+        stripeChargeId: null,
+        paypalTransactionId: null
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────
 
     // Re-sort by date (merging may have disrupted order)
     recentPayments.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -2095,4 +2131,6 @@ router.post('/deduplicate-cards', verifyToken, async (req, res) => {
 });
 
 module.exports = router;
+
+
 

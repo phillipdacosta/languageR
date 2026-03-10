@@ -1,13 +1,13 @@
 <div class="availability-setup" [class.single-day-mode]="isSingleDayMode" [class.embedded-mode]="embeddedMode">
   <!-- Mobile Header -->
-  <div class="mobile-header" *ngIf="!isSingleDayMode && !embeddedMode">
+  <div class="mobile-header" *ngIf="!embeddedMode" #mobileHeaderRef>
     <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">
       <ion-icon name="chevron-back-outline" slot="start"></ion-icon>
       Calendar
     </ion-button>
-    <ion-button fill="clear" class="mobile-settings-button" (click)="toggleMobileSettings()">
+    <!-- <ion-button fill="clear" class="mobile-settings-button" (click)="toggleMobileSettings()">
       <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
-    </ion-button>
+    </ion-button> -->
   </div>
 
   <div class="mobile-settings-wrapper" [class.open]="showMobileSettings" *ngIf="!embeddedMode">
@@ -217,7 +217,11 @@
       <div class="time-grid">
         <!-- Day Headers -->
         <div class="day-headers" *ngIf="!isSingleDayMode">
-          <div class="time-column-header"></div>
+          <div class="time-column-header">
+            <button type="button" class="sticky-back-btn" *ngIf="showStickyBackButton" (click)="goBack()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+          </div>
           <div class="day-header" *ngFor="let day of displayedWeekDays" [class.today]="isToday(day)" (click)="selectDate(day)">
             <div class="day-name">{{ day.name }}</div>
             <div class="day-date">

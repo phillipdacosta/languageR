@@ -913,7 +913,14 @@ export class TutorOnboardingComponent implements OnInit {
     this.isVideoPlayerModalOpen = false;
     this.isVideoPlaying = false;
     this.videoPlayerData = null;
-    console.log('🎬 Closing video player modal');
+  }
+
+  onVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
   }
 
   private async setupPayPal(paypalEmail: string, isUSPersonForTax?: boolean | null, hasUSBankAccount?: boolean | null) {

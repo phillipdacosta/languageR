@@ -141,6 +141,8 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   currentUser: User | null = null;
   userTz: string | undefined = undefined;
   hasCustomProfilePhoto = false; // True only if user has uploaded a custom photo (not Google photo)
+  isMobilePlatform = false;
+  isCompactToolbar = false;
   
   get isOnboardingIncomplete(): boolean {
     return !this.hasCustomProfilePhoto ||
@@ -409,10 +411,13 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
   private evaluateViewport() {
     if (typeof window === 'undefined') {
       this.isMobileView = false;
+      this.isCompactToolbar = false;
       return;
     }
     const wasMobile = this.isMobileView;
-    this.isMobileView = window.innerWidth <= 768;
+    const width = window.innerWidth;
+    this.isMobileView = width <= 768;
+    this.isCompactToolbar = width <= 1200;
     if (this.isMobileView) {
       const today = new Date();
       if (this.mobileViewMode === 'day') {
@@ -932,6 +937,7 @@ export class TutorCalendarPage implements OnInit, AfterViewInit, OnDestroy, View
       }
     });
     
+    this.isMobilePlatform = this.platformService.isMobile();
     this.evaluateViewport();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', this.viewportResizeHandler);

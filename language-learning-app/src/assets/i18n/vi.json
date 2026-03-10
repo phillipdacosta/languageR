@@ -108,6 +108,7 @@
     "JOIN_NOW": "Tham gia ngay",
     "JOIN": "Tham gia",
     "JOIN_LESSON": "Tham gia bài học",
+    "PARTICIPANT_IN_CALL": "{{name}} đang trong cuộc gọi",
     "RESCHEDULE": "Đổi lịch",
     "CANCEL_LESSON": "Hủy bài học",
     "CANCEL": "Hủy",
@@ -296,6 +297,10 @@
     "WITHDRAW_CONFIRM_MSG": "Bạn có chắc muốn rút ${{amount}}? Số tiền sẽ được gửi đến tài khoản {{method}} của bạn.",
     "WITHDRAW_CONFIRM_BTN": "Xác nhận",
     "WITHDRAW_SUCCESS": "Yêu cầu rút ${{amount}} thành công! Xử lý trong 1-2 ngày làm việc.",
+    "WITHDRAW_SUCCESS_TITLE": "Đã Gửi Thanh Toán!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} đã được gửi đến {{method}} của bạn!",
+    "WITHDRAW_SUCCESS_NOTE": "Tiền thường có sẵn trong 1-2 ngày làm việc.",
+    "WITHDRAW_SUCCESS_DONE": "Xong",
     "WITHDRAW_ERROR": "Không thể yêu cầu rút tiền. Vui lòng thử lại.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Vui lòng nhập số tiền rút hợp lệ",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Số tiền rút tối thiểu là $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Bạn có chắc muốn đăng xuất không?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Chào mừng đến với Speak Freely",
+      "GREETING": "Chào mừng đến với Barnaby",
       "SUBTITLE": "Cách thông minh hơn để học và dạy ngôn ngữ. Hãy thiết lập tài khoản của bạn chỉ trong vài bước.",
-      "TUTOR_GREETING": "Chào mừng đến với Speak Freely",
+      "TUTOR_GREETING": "Chào mừng đến với Barnaby",
       "TUTOR_SUBTITLE": "Tham gia cộng đồng gia sư của chúng tôi và bắt đầu dạy học viên trên toàn thế giới. Hãy chuẩn bị hồ sơ của bạn.",
       "CTA": "Bắt đầu",
       "BACK": "Đổi ngôn ngữ"

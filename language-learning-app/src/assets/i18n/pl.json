@@ -96,6 +96,7 @@
     "JOIN_NOW": "Dołącz teraz",
     "JOIN": "Dołącz",
     "JOIN_LESSON": "Dołącz do lekcji",
+    "PARTICIPANT_IN_CALL": "{{name}} jest w rozmowie",
     "RESCHEDULE": "Przełóż",
     "CANCEL_LESSON": "Anuluj lekcję",
     "CANCEL": "Anuluj",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Czy na pewno chcesz wypłacić ${{amount}}? Zostanie to wysłane na Twoje konto {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Potwierdź",
     "WITHDRAW_SUCCESS": "Wniosek o wypłatę ${{amount}} złożony pomyślnie! Realizacja w ciągu 1-2 dni roboczych.",
+    "WITHDRAW_SUCCESS_TITLE": "Płatność Wysłana!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} wysłano na Twoje {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Środki są zazwyczaj dostępne w ciągu 1–2 dni roboczych.",
+    "WITHDRAW_SUCCESS_DONE": "Gotowe",
     "WITHDRAW_ERROR": "Nie udało się złożyć wniosku o wypłatę. Spróbuj ponownie.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Wprowadź prawidłową kwotę wypłaty",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimalna kwota wypłaty to 10 $",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "Czy na pewno chcesz się wylogować?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Witaj w Speak Freely",
+      "GREETING": "Witaj w Barnaby",
       "SUBTITLE": "Mądrzejszy sposób na naukę i nauczanie języków. Skonfigurujmy Twoje konto w kilku krokach.",
-      "TUTOR_GREETING": "Witaj w Speak Freely",
+      "TUTOR_GREETING": "Witaj w Barnaby",
       "TUTOR_SUBTITLE": "Dołącz do naszej społeczności korepetytorów i zacznij uczyć uczniów na całym świecie. Przygotujmy Twój profil.",
       "CTA": "Rozpocznij",
       "BACK": "Zmień język"

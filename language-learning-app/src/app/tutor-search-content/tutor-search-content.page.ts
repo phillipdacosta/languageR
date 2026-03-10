@@ -1545,6 +1545,14 @@ export class TutorSearchContentPage implements OnInit, OnDestroy, AfterViewCheck
     this.closeVideoModal();
   }
 
+  onVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+  }
+
   // Animation factory for zoom enter (bound to inline modal)
   createVideoModalEnterAnimation = (baseEl: any) => {
     if (!this.videoModalCircleBounds) {

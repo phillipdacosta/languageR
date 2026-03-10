@@ -13,6 +13,13 @@
   --ion-tab-bar-background: #f8f9fa;
   --ion-tab-bar-border-color: #dee2e6;
 }
+.app-name {
+  // font-size: 20px;
+  // font-weight: 600;
+  color: #000000;
+  letter-spacing: 0.2px;
+  margin-left: 10px;
+}
 
 // Mobile Global Header (visible on all pages for mobile only)
 .mobile-global-header {
@@ -67,6 +74,10 @@
     height: 36px;
     margin-right: 12px;
     cursor: pointer;
+
+    @media (max-width: 968px) {
+      display: none;
+    }
     
     img {
       width: 100%;
@@ -153,12 +164,18 @@
     .user-avatar {
       width: 36px;
       height: 36px;
+      overflow: hidden;
+      
+      &,
+      &.user-avatar {
+        border-radius: 50% !important;
+      }
       
       img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        border-radius: 9px !important;
+        border-radius: 50% !important;
       }
       
       .user-initials {
@@ -171,7 +188,7 @@
         color: white;
         font-weight: 600;
         font-size: 12px;
-        border-radius: 16px;
+        border-radius: 50% !important;
       }
     }
   }
@@ -691,19 +708,19 @@
           .notification-text {
             margin: 0;
             font-size: 13px;
-            color: #1d1d1f;
+            color: var(--notif-text-color, #1d1d1f);
             font-weight: 400;
             line-height: 1.4;
             letter-spacing: -0.01em;
             
             strong {
-              font-weight: 600 !important;
-              color: #1d1d1f !important;
+              font-weight: 600;
+              color: var(--notif-strong-color, #1d1d1f);
             }
             
             ::ng-deep strong {
-              font-weight: 500 !important;
-              color: #1d1d1f !important;
+              font-weight: 600;
+              color: var(--notif-strong-color, #1d1d1f);
             }
             
             .notification-emoji {
@@ -1571,7 +1588,302 @@ ion-tab-button {
 }
 
 
-// Dark mode support
+// Dark mode support (class-based toggle via ThemeService)
+:host-context(html.ion-palette-dark) {
+  .platform-web {
+    --ion-tab-bar-background: #1a1a1a;
+    --ion-tab-bar-border-color: #333333;
+    
+    ion-tab-button {
+      --color: #8e8e93;
+      --color-selected: #0a84ff;
+    }
+  }
+  
+  .platform-ios,
+  .platform-android {
+    ion-tab-bar {
+      --ion-tab-bar-background: #1c1c1e;
+      --ion-tab-bar-border-color: transparent;
+      border-top-color: rgba(255, 255, 255, 0.08);
+    }
+    
+    ion-tab-button {
+      --color: #8e8e93;
+      --color-selected: #ffffff;
+      
+      &.tab-selected,
+      &.tab-selected.ion-activatable {
+        --color: #ffffff !important;
+        --color-selected: #ffffff !important;
+        
+        &::part(native) {
+          color: #ffffff !important;
+        }
+        
+        ion-icon {
+          color: #ffffff !important;
+        }
+        
+        ion-label {
+          color: #ffffff !important;
+        }
+      }
+      
+      &.profile-avatar-tab {
+        &.tab-selected .tab-avatar,
+        &[aria-selected="true"] .tab-avatar {
+          border-color: #ffffff;
+          box-shadow: 0 0 0 1.5px #ffffff;
+        }
+      }
+    }
+  }
+  
+  .app-name {
+    color: #ffffff !important;
+  }
+
+  .desktop-nav-toolbar {
+    --background: #1c1c1e;
+    --color: #ffffff;
+    --border-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(28, 28, 30, 0.95) !important;
+    
+    .app-icon-container {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+    
+    .user-profile {
+      background: transparent;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+      
+      .user-avatar img {
+        border-radius: 50% !important;
+      }
+
+      .user-info {
+        .user-name {
+          color: #ffffff;
+        }
+        
+        .user-email {
+          color: #8e8e93;
+        }
+      }
+    }
+    
+    .desktop-nav-buttons {
+      .nav-underline-indicator {
+        background-color: #ffffff !important;
+      }
+
+      .nav-button {
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent !important;
+        border: none !important;
+        
+        &:hover {
+          background: transparent !important;
+          color: #ffffff;
+        }
+        
+        &.active {
+          background: transparent !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+          
+          ion-label {
+            color: #ffffff !important;
+            font-weight: 600;
+          }
+        }
+
+        ion-label {
+          color: inherit;
+        }
+        
+        &.logout-button {
+          &:hover {
+            background: transparent !important;
+            color: #ff453a !important;
+          }
+        }
+        
+        &.notification-btn {
+          color: rgba(255, 255, 255, 0.6);
+          
+          &:hover {
+            color: #ffffff;
+          }
+          
+          .notification-dot {
+            border-color: #1c1c1e !important;
+          }
+        }
+      }
+    }
+  }
+
+  .mobile-global-header {
+    ion-toolbar {
+      --background: #1c1c1e !important;
+      --color: #ffffff !important;
+      border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    .notification-btn ion-icon {
+      color: #f5f5f7 !important;
+    }
+
+    .notification-dot {
+      border-color: #1c1c1e !important;
+    }
+
+    .header-avatar .avatar-initial {
+      background: #f5f5f7 !important;
+      color: #000 !important;
+    }
+  }
+
+  // Notification Dropdown — dark mode
+  .notification-dropdown {
+    --notif-text-color: #f5f5f7;
+    --notif-strong-color: #ffffff;
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .notification-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+
+      .notification-title { color: #f5f5f7 !important; }
+      .notification-settings-icon {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+      .notification-close-btn {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+    }
+
+    .notification-dropdown-content {
+      .notification-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .notification-section-title { color: #8e8e93 !important; }
+
+      .notification-item {
+        background: transparent !important;
+        box-shadow: none !important;
+
+        &.unread { background: rgba(66, 152, 210, 0.1) !important; }
+        &:hover { background: rgba(255, 255, 255, 0.06) !important; }
+        &.unread:hover { background: rgba(66, 152, 210, 0.15) !important; }
+
+        .notification-text {
+          color: #f5f5f7 !important;
+        }
+        .notification-time { color: #636366 !important; }
+        .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
+
+        .notification-icon-wrapper {
+          &:not(.lesson-icon):not(.analysis-icon):not(.class-invitation-icon):not(.payment-icon):not(.payment-cancelled-icon):not(.system-notification) {
+            .notification-item-icon { color: #8e8e93 !important; }
+          }
+        }
+
+        .add-availability-btn {
+          background: #f5f5f7 !important;
+          color: #000 !important;
+          &:hover { background: #ffffff !important; }
+
+          &.milestone-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #fff !important;
+          }
+        }
+
+        .notification-options-btn {
+          color: #636366 !important;
+          &:hover { background: rgba(255, 255, 255, 0.08) !important; color: #f5f5f7 !important; }
+        }
+      }
+
+      .notification-empty p { color: #8e8e93 !important; }
+    }
+
+    .notification-dropdown-footer {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+      background: #1c1c1e !important;
+
+      .view-all-btn {
+        color: #4298d2 !important;
+        &:hover { background: rgba(66, 152, 210, 0.12) !important; }
+      }
+    }
+  }
+
+  // Messages Dropdown — dark mode
+  .messages-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .messages-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+
+      .messages-title { color: #f5f5f7 !important; }
+      .messages-close-btn {
+        color: #8e8e93 !important;
+        &:hover { color: #f5f5f7 !important; }
+      }
+    }
+
+    .messages-dropdown-content {
+      .messages-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .conversation-item {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+
+        &.unread {
+          background-color: rgba(66, 152, 210, 0.1) !important;
+          border-left-color: #4298d2 !important;
+        }
+        &:hover { background-color: rgba(255, 255, 255, 0.06) !important; }
+        &.unread:hover { background-color: rgba(66, 152, 210, 0.15) !important; }
+
+        .conversation-name { color: #f5f5f7 !important; }
+        .conversation-time { color: #636366 !important; }
+        .conversation-preview { color: #8e8e93 !important; }
+
+        .conversation-avatar .avatar-fallback {
+          background: #3a3a3c !important;
+          color: #f5f5f7 !important;
+        }
+      }
+
+      .messages-empty {
+        p { color: #8e8e93 !important; }
+        .messages-empty-subtitle { color: #636366 !important; }
+      }
+    }
+  }
+}
+
+// Dark mode support (system preference fallback)
 @media (prefers-color-scheme: dark) {
   .platform-web {
     --ion-tab-bar-background: #1a1a1a;
@@ -1623,23 +1935,34 @@ ion-tab-button {
     }
   }
   
+  .app-name {
+    color: #ffffff !important;
+  }
+
   .desktop-nav-toolbar {
-    --background: #1a1a1a;
+    --background: #1c1c1e;
     --color: #ffffff;
-    --border-color: #333333;
-    border-bottom-color: #333333;
+    --border-color: rgba(255, 255, 255, 0.08);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    background: rgba(28, 28, 30, 0.95) !important;
     
     .app-icon-container {
       &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.08);
       }
     }
     
     .user-profile {
+      background: transparent;
+      
       &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
+        background-color: rgba(255, 255, 255, 0.08);
       }
       
+      .user-avatar img {
+        border-radius: 50% !important;
+      }
+
       .user-info {
         .user-name {
           color: #ffffff;
@@ -1652,29 +1975,116 @@ ion-tab-button {
     }
     
     .desktop-nav-buttons {
+      .nav-underline-indicator {
+        background-color: #ffffff !important;
+      }
+
       .nav-button {
-        color: #8e8e93;
+        color: rgba(255, 255, 255, 0.6);
+        background: transparent !important;
+        border: none !important;
         
         &:hover {
-          background: #2a2a2a;
+          background: transparent !important;
           color: #ffffff;
-          border-color: #444444;
         }
         
         &.active {
-          background: #0a84ff;
-          color: white;
-          border-color: #0a84ff;
+          background: transparent !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+          
+          ion-label {
+            color: #ffffff !important;
+            font-weight: 600;
+          }
+        }
+
+        ion-label {
+          color: inherit;
         }
         
         &.logout-button {
           &:hover {
-            background: #dc3545;
-            color: white;
-            border-color: #dc3545;
+            background: transparent !important;
+            color: #ff453a !important;
+          }
+        }
+        
+        &.notification-btn {
+          color: rgba(255, 255, 255, 0.6);
+          
+          &:hover {
+            color: #ffffff;
+          }
+          
+          .notification-dot {
+            border-color: #1c1c1e !important;
           }
         }
       }
+    }
+  }
+
+  .mobile-global-header {
+    ion-toolbar {
+      --background: #1c1c1e !important;
+      --color: #ffffff !important;
+      border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    }
+  }
+
+  .notification-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .notification-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+      .notification-title { color: #f5f5f7 !important; }
+      .notification-settings-icon { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+      .notification-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+    .notification-dropdown-content {
+      .notification-section-title { color: #8e8e93 !important; }
+      .notification-item {
+        background: transparent !important; box-shadow: none !important;
+        &.unread { background: rgba(66, 152, 210, 0.1) !important; }
+        &:hover { background: rgba(255, 255, 255, 0.06) !important; }
+        .notification-text { color: #f5f5f7 !important; strong { color: #f5f5f7 !important; } }
+        .notification-time { color: #636366 !important; }
+        .notification-avatar { border-color: rgba(255, 255, 255, 0.12) !important; }
+      }
+      .notification-empty p { color: #8e8e93 !important; }
+    }
+    .notification-dropdown-footer {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+      background: #1c1c1e !important;
+      .view-all-btn { color: #4298d2 !important; &:hover { background: rgba(66, 152, 210, 0.12) !important; } }
+    }
+  }
+
+  .messages-dropdown {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+    .messages-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+      .messages-title { color: #f5f5f7 !important; }
+      .messages-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+    .messages-dropdown-content {
+      .conversation-item {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+        &.unread { background-color: rgba(66, 152, 210, 0.1) !important; border-left-color: #4298d2 !important; }
+        &:hover { background-color: rgba(255, 255, 255, 0.06) !important; }
+        .conversation-name { color: #f5f5f7 !important; }
+        .conversation-time { color: #636366 !important; }
+        .conversation-preview { color: #8e8e93 !important; }
+        .conversation-avatar .avatar-fallback { background: #3a3a3c !important; color: #f5f5f7 !important; }
+      }
+      .messages-empty { p { color: #8e8e93 !important; } .messages-empty-subtitle { color: #636366 !important; } }
     }
   }
   

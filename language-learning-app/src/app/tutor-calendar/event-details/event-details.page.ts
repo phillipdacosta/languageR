@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
 import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { LessonService, Lesson } from '../../services/lesson.service';
 import { ClassService } from '../../services/class.service';
 import { UserService, User } from '../../services/user.service';
@@ -167,6 +167,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
 
   // Analysis display
   hasAnalysis = false;
+  analysisUnavailable = false;
   isAiAnalysis = false;     // true = AI-generated, false = tutor-sourced
   analysisLabel = 'Analysis'; // Dynamic section label
   hasTutorNote = false;
@@ -181,6 +182,14 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   // Class-specific pre-computed
   levelLabel = '';
   classRevenue = '';
+
+  // Class payment status
+  hasClassPaymentStatus = false;
+  classPaymentStatusIcon = '';
+  classPaymentStatusTitle = '';
+  classPaymentStatusDescription = '';
+  classPaymentStatusClass = '';
+  classPaymentDetails: { key: string; value: string }[] = [];
 
   // Tutor feedback display
   feedbackStrengths: string[] = [];
@@ -206,6 +215,9 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   paymentStatusDescription = '';
   paymentStatusClass = '';   // 'refunded' | 'partial' | 'cancelled' | 'paid' | 'on-hold'
   paymentStatusDetails: { key: string; value: string }[] = [];
+
+  // Class students display
+  classStudentsDisplay: { name: string; picture?: string; initials: string }[] = [];
 
   // Countdown
   private countdownInterval: any;
@@ -342,11 +354,16 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         if (res.success && res.analysis) {
           this.analysisData = res.analysis;
           this.computeAnalysisProperties();
+        } else if (this.isLessonCompleted) {
+          this.analysisUnavailable = true;
         }
         this.analysisLoading = false;
         this.onRequestComplete();
       },
-      error: () => {
+      error: (err: any) => {
+        if (err?.error?.status === 'unavailable' || this.isLessonCompleted) {
+          this.analysisUnavailable = true;
+        }
         this.analysisLoading = false;
         this.onRequestComplete();
       }
@@ -384,21 +401,8 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     });
 
     // Load payment details (for financial status section)
-    this.http.get<any>(
-      `${environment.backendUrl}/api/payments/lesson/${this.eventId}`,
-      { headers }
-    ).subscribe({
-      next: (res) => {
-        if (res.success && res.payment) {
-          this.paymentData = res.payment;
-          this.computePaymentStatus();
-        }
-        this.onRequestComplete();
-      },
-      error: () => {
-        this.onRequestComplete();
-      }
-    });
+    // Use a dedicated method that ensures valid auth headers
+    this.loadPaymentDetails();
 
     // Load payment method (student only)
     if (this.isStudentUser) {
@@ -419,6 +423,36 @@ export class EventDetailsPage implements OnInit, OnDestroy {
         }
       });
     }
+  }
+
+  private loadPaymentDetails(retryCount = 0) {
+    const headers = this.userService.getAuthHeadersSync();
+    const hasAuth = headers.has('Authorization');
+
+    if (!hasAuth && retryCount < 2) {
+      setTimeout(() => this.loadPaymentDetails(retryCount + 1), 500);
+      return;
+    }
+
+    this.http.get<any>(
+      `${environment.backendUrl}/api/payments/lesson/${this.eventId}`,
+      { headers }
+    ).subscribe({
+      next: (res) => {
+        if (res.success && res.payment) {
+          this.paymentData = res.payment;
+          this.computePaymentStatus();
+        }
+        this.onRequestComplete();
+      },
+      error: () => {
+        if (retryCount < 2) {
+          setTimeout(() => this.loadPaymentDetails(retryCount + 1), 800);
+        } else {
+          this.onRequestComplete();
+        }
+      }
+    });
   }
 
   /** Called when each async request finishes — reveals content when all done */
@@ -619,9 +653,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     if (p) {
       const firstName = p.firstName || p.name?.split(' ')[0] || '';
       const lastName = p.lastName || p.name?.split(' ').slice(1).join(' ') || '';
-      this.participantName = firstName && lastName
-        ? `${firstName} ${lastName.charAt(0).toUpperCase()}.`
-        : p.name || 'Participant';
+      this.participantName = this.formatPersonName(p);
       this.participantEmail = p.email || '';
       this.participantPicture = p.picture || '';
       this.participantInitial = (p.name || p.firstName || 'P').charAt(0).toUpperCase();
@@ -744,6 +776,7 @@ export class EventDetailsPage implements OnInit, OnDestroy {
   private computeAnalysisProperties() {
     if (!this.analysisData) return;
     this.hasAnalysis = this.analysisData.status === 'completed';
+    this.analysisUnavailable = ['failed', 'insufficient_data'].includes(this.analysisData.status || '');
     this.isAiAnalysis = this.analysisData.source !== 'tutor';
     this.analysisLabel = this.isAiAnalysis ? 'AI Analysis' : 'Tutor Assessment';
 
@@ -933,11 +966,6 @@ export class EventDetailsPage implements OnInit, OnDestroy {
           this.paymentStatusDescription = tutorPayout > 0
             ? `You earned $${tutorPayout.toFixed(2)} from this lesson.`
             : 'Your earnings for this lesson have been confirmed.';
-          if (transferStatus === 'available' || transferStatus === 'pending_withdrawal') {
-            this.paymentStatusDetails.push({ key: 'Status', value: 'Available for withdrawal' });
-          } else if (transferStatus === 'withdrawn') {
-            this.paymentStatusDetails.push({ key: 'Status', value: 'Withdrawn' });
-          }
         } else {
           this.paymentStatusTitle = 'Earnings pending';
           this.paymentStatusDescription = tutorPayout > 0
@@ -995,9 +1023,143 @@ export class EventDetailsPage implements OnInit, OnDestroy {
     };
     this.levelLabel = levelMap[this.classData.level] || 'Any Level';
 
-    if (this.classData.price && this.classData.studentIds?.length) {
-      this.classRevenue = `$${(this.classData.price * this.classData.studentIds.length).toFixed(2)}`;
+    if (this.classData.price && this.classData.confirmedStudents?.length) {
+      this.classRevenue = `$${(this.classData.price * this.classData.confirmedStudents.length).toFixed(2)}`;
     }
+
+    this.classStudentsDisplay = (this.classData.confirmedStudents || []).map((s: any) => {
+      const name = this.formatPersonName(s, 'Student');
+      return {
+        name,
+        picture: s.picture || s.profilePicture,
+        initials: name.split(' ').map((p: string) => p.charAt(0)).join('').toUpperCase().slice(0, 2),
+      };
+    });
+
+    // Check for cancelled class
+    if (this.classData.status === 'cancelled') {
+      this.statusLabel = 'Cancelled';
+      this.statusClass = 'cancelled';
+    }
+
+    // Compute class payment status
+    this.computeClassPaymentStatus();
+  }
+
+  private computeClassPaymentStatus() {
+    if (!this.classData) return;
+
+    const isTutor = this.classData.tutorId?._id === this.currentUser?.id
+      || this.classData.tutorId === this.currentUser?.id;
+    const summary = this.classData.paymentSummary;
+    const payments: any[] = this.classData.payments || [];
+    const classStatus = this.classData.status;
+    const classEnded = new Date(this.classData.endTime).getTime() < Date.now();
+
+    if (isTutor && summary) {
+      this.hasClassPaymentStatus = true;
+      this.classPaymentDetails = [];
+
+      if (summary.earningsStatus === 'withdrawn') {
+        this.classPaymentStatusClass = 'paid';
+        this.classPaymentStatusIcon = 'checkmark-circle-outline';
+        this.classPaymentStatusTitle = 'Earnings withdrawn';
+        this.classPaymentStatusDescription = `$${summary.totalTutorPayout.toFixed(2)} has been withdrawn to your account.`;
+      } else if (summary.earningsStatus === 'available') {
+        this.classPaymentStatusClass = 'paid';
+        this.classPaymentStatusIcon = 'checkmark-circle-outline';
+        this.classPaymentStatusTitle = 'Earnings available';
+        this.classPaymentStatusDescription = `$${summary.totalTutorPayout.toFixed(2)} is available for withdrawal.`;
+      } else if (summary.earningsStatus === 'on_hold') {
+        this.classPaymentStatusClass = 'on-hold';
+        this.classPaymentStatusIcon = 'pause-circle-outline';
+        this.classPaymentStatusTitle = 'Earnings on hold';
+        this.classPaymentStatusDescription = 'Your earnings are on hold during the review period.';
+      } else if (summary.earningsStatus === 'pending' && classEnded) {
+        this.classPaymentStatusClass = 'pending';
+        this.classPaymentStatusIcon = 'time-outline';
+        this.classPaymentStatusTitle = 'Earnings pending';
+        this.classPaymentStatusDescription = `$${summary.totalTutorPayout.toFixed(2)} will be available after processing.`;
+      } else if (classStatus === 'cancelled') {
+        this.classPaymentStatusClass = 'cancelled';
+        this.classPaymentStatusIcon = 'close-circle-outline';
+        this.classPaymentStatusTitle = 'No earnings';
+        this.classPaymentStatusDescription = 'This class was cancelled. No earnings apply.';
+      } else if (!classEnded) {
+        this.classPaymentStatusClass = 'pending';
+        this.classPaymentStatusIcon = 'time-outline';
+        this.classPaymentStatusTitle = 'Earnings pending';
+        this.classPaymentStatusDescription = summary.totalTutorPayout > 0
+          ? `You'll earn $${summary.totalTutorPayout.toFixed(2)} after this class.`
+          : 'Your earnings will be confirmed after the class.';
+      } else {
+        this.hasClassPaymentStatus = false;
+        return;
+      }
+
+      if (summary.totalCaptured > 0) {
+        this.classPaymentDetails.push({ key: 'Gross revenue', value: `$${summary.totalCaptured.toFixed(2)}` });
+      }
+      if (summary.totalFees > 0) {
+        this.classPaymentDetails.push({ key: 'Platform fee', value: `-$${summary.totalFees.toFixed(2)}` });
+      }
+      if (summary.totalTutorPayout > 0) {
+        this.classPaymentDetails.push({ key: 'Your earnings', value: `$${summary.totalTutorPayout.toFixed(2)}` });
+      }
+      if (summary.paymentCount > 0) {
+        this.classPaymentDetails.push({ key: 'Payments received', value: `${summary.paymentCount}` });
+      }
+    } else if (!isTutor && payments.length > 0) {
+      const myPayment = payments[0];
+      this.hasClassPaymentStatus = true;
+      this.classPaymentDetails = [];
+
+      if (myPayment.status === 'succeeded') {
+        this.classPaymentStatusClass = 'paid';
+        this.classPaymentStatusIcon = 'checkmark-circle-outline';
+        this.classPaymentStatusTitle = 'Payment complete';
+        this.classPaymentStatusDescription = `$${myPayment.amount.toFixed(2)} was charged.`;
+      } else if (myPayment.status === 'authorized') {
+        this.classPaymentStatusClass = 'pending';
+        this.classPaymentStatusIcon = 'time-outline';
+        this.classPaymentStatusTitle = 'Payment authorized';
+        this.classPaymentStatusDescription = `$${myPayment.amount.toFixed(2)} will be charged after the class.`;
+      } else if (myPayment.status === 'refunded') {
+        this.classPaymentStatusClass = 'refunded';
+        this.classPaymentStatusIcon = 'arrow-undo-circle-outline';
+        this.classPaymentStatusTitle = 'Payment refunded';
+        this.classPaymentStatusDescription = `$${myPayment.amount.toFixed(2)} was returned to your account.`;
+      } else if (myPayment.status === 'cancelled') {
+        this.classPaymentStatusClass = 'cancelled';
+        this.classPaymentStatusIcon = 'close-circle-outline';
+        this.classPaymentStatusTitle = 'No charge applied';
+        this.classPaymentStatusDescription = 'The class was cancelled and no payment was charged.';
+      } else {
+        this.hasClassPaymentStatus = false;
+      }
+    } else if (classStatus === 'cancelled') {
+      this.hasClassPaymentStatus = true;
+      this.classPaymentDetails = [];
+      this.classPaymentStatusClass = 'cancelled';
+      this.classPaymentStatusIcon = 'close-circle-outline';
+      this.classPaymentStatusTitle = isTutor ? 'No earnings' : 'No charge applied';
+      this.classPaymentStatusDescription = 'This class was cancelled.';
+    }
+  }
+
+  private formatPersonName(person: any, fallback = 'Participant'): string {
+    if (person.firstName) {
+      const lastInitial = person.lastName ? ` ${person.lastName.charAt(0)}.` : '';
+      return `${person.firstName}${lastInitial}`;
+    }
+    if (person.name && !person.name.includes('@')) {
+      const parts = person.name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+      }
+      return parts[0];
+    }
+    return fallback;
   }
 
   // ── Countdown ─────────────────────────────────────────────────

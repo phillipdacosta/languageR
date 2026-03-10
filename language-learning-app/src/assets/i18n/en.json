@@ -96,6 +96,7 @@
     "JOIN_NOW": "Join Now",
     "JOIN": "Join",
     "JOIN_LESSON": "Join Lesson",
+    "PARTICIPANT_IN_CALL": "{{name}} is in the call",
     "RESCHEDULE": "Reschedule",
     "CANCEL_LESSON": "Cancel lesson",
     "CANCEL": "Cancel",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Are you sure you want to withdraw ${{amount}}? This will be sent to your {{method}} account.",
     "WITHDRAW_CONFIRM_BTN": "Confirm",
     "WITHDRAW_SUCCESS": "Withdrawal of ${{amount}} requested successfully! Processing within 1-2 business days.",
+    "WITHDRAW_SUCCESS_TITLE": "Payment Sent!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} sent to your {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Funds are typically available within 1–2 business days.",
+    "WITHDRAW_SUCCESS_DONE": "Done",
     "WITHDRAW_ERROR": "Failed to request withdrawal. Please try again.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Please enter a valid withdrawal amount",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimum withdrawal amount is $10",
@@ -352,9 +357,9 @@
       "LOGOUT_CONFIRM": "Are you sure you want to logout?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Welcome to Speak Freely",
+      "GREETING": "Welcome to Barnaby",
       "SUBTITLE": "The smarter way to learn and teach languages. Let's set up your account in just a few steps.",
-      "TUTOR_GREETING": "Welcome to Speak Freely",
+      "TUTOR_GREETING": "Welcome to Barnaby",
       "TUTOR_SUBTITLE": "Join our community of tutors and start teaching students worldwide. Let's get your profile ready.",
       "CTA": "Get Started",
       "BACK": "Change Language"
@@ -687,7 +692,8 @@
     "PROFILE": "Profile",
     "INTRO_VIDEO": "Introduction Video",
     "INTRO_VIDEO_SUBTITLE": "Help students get to know you better",
-    "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors."
+    "INTRO_VIDEO_DESC": "Upload a short video introducing yourself and explaining your teaching style. This video will be shown to students when they're browsing tutors.",
+    "PAYOUTS": "Payouts"
   },
   "NOTIFICATIONS": {
     "TITLE": "Notifications",
@@ -705,10 +711,14 @@
     "EMPTY_SEARCH": "Try adjusting your search terms",
     "EMPTY_DEFAULT": "Stay tuned! We'll let you know when there's something new.",
     "LOADING_MORE": "Loading older notifications...",
+    "FILTERS": "Filters",
+    "FILTER_TYPE": "Type",
     "FILTER_ALL": "All",
     "FILTER_LESSONS": "Lessons",
     "FILTER_PAYMENT": "Payment",
     "FILTER_PROGRESS": "Progress",
+    "CLEAR_ALL": "Clear all",
+    "SHOW_COUNT": "Show {{count}} notifications",
     "DROPDOWN": {
       "IMPORTANT": "Important",
       "MORE": "More notifications",

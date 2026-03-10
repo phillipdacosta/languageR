@@ -96,6 +96,7 @@
     "JOIN_NOW": "今すぐ参加",
     "JOIN": "参加",
     "JOIN_LESSON": "レッスンに参加",
+    "PARTICIPANT_IN_CALL": "{{name}}が通話中です",
     "RESCHEDULE": "日程変更",
     "CANCEL_LESSON": "レッスンをキャンセル",
     "CANCEL": "キャンセル",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "${{amount}} を出金してよろしいですか？お客様の {{method}} アカウントに送金されます。",
     "WITHDRAW_CONFIRM_BTN": "確認",
     "WITHDRAW_SUCCESS": "${{amount}} の出金リクエストが正常に送信されました！1〜2営業日以内に処理されます。",
+    "WITHDRAW_SUCCESS_TITLE": "送金完了！",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}}が{{method}}に送金されました！",
+    "WITHDRAW_SUCCESS_NOTE": "通常1〜2営業日以内に反映されます。",
+    "WITHDRAW_SUCCESS_DONE": "完了",
     "WITHDRAW_ERROR": "出金リクエストに失敗しました。もう一度お試しください。",
     "WITHDRAW_MIN_STRIPE_ERROR": "有効な出金額を入力してください",
     "WITHDRAW_MIN_PAYPAL_ERROR": "最低出金額は $10 です",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "ログアウトしてもよろしいですか？"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Speak Freely へようこそ",
+      "GREETING": "Barnaby へようこそ",
       "SUBTITLE": "言語の学習と指導をよりスマートに。数ステップでアカウントを設定しましょう。",
-      "TUTOR_GREETING": "Speak Freely へようこそ",
+      "TUTOR_GREETING": "Barnaby へようこそ",
       "TUTOR_SUBTITLE": "講師コミュニティに参加して、世界中の生徒に教え始めましょう。プロフィールを準備しましょう。",
       "CTA": "始める",
       "BACK": "言語を変更"

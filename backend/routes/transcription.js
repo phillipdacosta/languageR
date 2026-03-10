@@ -107,6 +107,75 @@ async function convertWebmToMp3(webmBuffer) {
 }
 
 /**
+ * Analyze audio buffer for speech energy using FFmpeg.
+ * Returns metrics indicating whether meaningful speech is present.
+ * Used as a pre-Whisper gate to prevent hallucinations from silence/noise.
+ */
+async function analyzeAudioEnergy(audioBuffer, mimeType = 'audio/mpeg') {
+  return new Promise((resolve) => {
+    const inputStream = Readable.from(audioBuffer);
+    let stderrOutput = '';
+
+    const defaultResult = { rmsLevelDb: 0, peakLevelDb: 0, silenceRatio: 0, durationSeconds: 0, hasSpeech: true };
+
+    ffmpeg(inputStream)
+      .audioChannels(1)
+      .audioFrequency(16000)
+      .audioFilters([
+        'silencedetect=noise=-35dB:d=0.5',
+        'astats=metadata=1:reset=0'
+      ])
+      .format('null')
+      .on('stderr', (line) => {
+        stderrOutput += line + '\n';
+      })
+      .on('error', (err) => {
+        console.warn('⚠️ Audio energy analysis failed (non-critical):', err.message);
+        resolve(defaultResult);
+      })
+      .on('end', () => {
+        try {
+          const rmsMatch = stderrOutput.match(/RMS level dB:\s*([-\d.]+)/);
+          const peakMatch = stderrOutput.match(/Peak level dB:\s*([-\d.]+)/);
+          const durationMatch = stderrOutput.match(/Duration:\s*(\d+):(\d+):([\d.]+)/);
+
+          const rmsLevelDb = rmsMatch ? parseFloat(rmsMatch[1]) : -91;
+          const peakLevelDb = peakMatch ? parseFloat(peakMatch[1]) : -91;
+
+          let durationSeconds = 0;
+          if (durationMatch) {
+            durationSeconds = parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3]);
+          }
+
+          const silenceStarts = [...stderrOutput.matchAll(/silence_start:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+          const silenceEnds = [...stderrOutput.matchAll(/silence_end:\s*([\d.]+)/g)].map(m => parseFloat(m[1]));
+
+          let totalSilence = 0;
+          for (let i = 0; i < silenceEnds.length; i++) {
+            const start = i < silenceStarts.length ? silenceStarts[i] : 0;
+            totalSilence += silenceEnds[i] - start;
+          }
+          if (silenceStarts.length > silenceEnds.length && durationSeconds > 0) {
+            totalSilence += durationSeconds - silenceStarts[silenceStarts.length - 1];
+          }
+
+          const silenceRatio = durationSeconds > 0 ? totalSilence / durationSeconds : 1;
+
+          const hasSpeech = rmsLevelDb > -40 && silenceRatio < 0.90;
+
+          const result = { rmsLevelDb, peakLevelDb, silenceRatio: Math.round(silenceRatio * 1000) / 1000, durationSeconds, hasSpeech };
+          console.log(`🔊 Audio energy analysis: RMS=${rmsLevelDb}dB, Peak=${peakLevelDb}dB, silence=${(silenceRatio * 100).toFixed(1)}%, hasSpeech=${hasSpeech}`);
+          resolve(result);
+        } catch (parseErr) {
+          console.warn('⚠️ Failed to parse audio energy output:', parseErr.message);
+          resolve(defaultResult);
+        }
+      })
+      .save('/dev/null');
+  });
+}
+
+/**
  * Get target language from student's profile
  */
 async function getTargetLanguageFromStudent(studentId) {
@@ -535,6 +604,41 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
       // Continue - backup failure shouldn't stop transcription
     }
     
+    // LAYER 1: Pre-Whisper audio energy check (VAD)
+    // Prevents Whisper from hallucinating on silence/noise
+    let audioEnergyResult = null;
+    try {
+      audioEnergyResult = await analyzeAudioEnergy(audioBuffer);
+      
+      // Store metrics on the transcript for the quality gate later
+      const chunkIdx = transcript.audioEnergyMetrics ? transcript.audioEnergyMetrics.length : 0;
+      transcript.audioEnergyMetrics = transcript.audioEnergyMetrics || [];
+      transcript.audioEnergyMetrics.push({
+        chunkIndex: chunkIdx,
+        rmsLevelDb: audioEnergyResult.rmsLevelDb,
+        peakLevelDb: audioEnergyResult.peakLevelDb,
+        silenceRatio: audioEnergyResult.silenceRatio,
+        durationSeconds: audioEnergyResult.durationSeconds,
+        hasSpeech: audioEnergyResult.hasSpeech
+      });
+      
+      if (!audioEnergyResult.hasSpeech) {
+        console.log(`🔇 Audio energy below speech threshold — skipping Whisper to prevent hallucination`);
+        console.log(`   RMS: ${audioEnergyResult.rmsLevelDb}dB, Silence: ${(audioEnergyResult.silenceRatio * 100).toFixed(1)}%`);
+        
+        await transcript.save();
+        
+        return res.json({
+          message: 'Audio chunk skipped — no speech detected (silence/noise only)',
+          segmentsAdded: 0,
+          text: '',
+          skippedReason: 'no_speech_energy'
+        });
+      }
+    } catch (vadError) {
+      console.warn('⚠️ VAD analysis failed (non-critical, proceeding with Whisper):', vadError.message);
+    }
+    
     // Transcribe audio using OpenAI Whisper (with retry logic)
     let result;
     let transcriptionSuccess = false;
@@ -690,7 +794,7 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
     });
     
     const segments = result.segments
-      .filter(seg => seg.text && seg.text.trim().length > 0)  // Filter out empty segments
+      .filter(seg => seg.text && seg.text.trim().length > 0)
       .map(seg => {
       const segmentData = {
         timestamp: new Date(transcript.startTime.getTime() + (seg.start * 1000)),
@@ -698,11 +802,9 @@ router.post('/:transcriptId/audio', verifyToken, upload.single('audio'), async (
         text: seg.text,
         confidence: seg.confidence || 1,
         language: transcript.language,
-        duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0 // Duration in seconds from Whisper
+        duration: (seg.end != null && seg.start != null) ? (seg.end - seg.start) : 0,
+        noSpeechProb: seg.no_speech_prob != null ? seg.no_speech_prob : null
       };
-      
-      // Note: Audio will be uploaded to GCS in a separate batch after all segments are processed
-      // This avoids uploading duplicate audio for every segment (segments share the same audio chunk)
       
       return segmentData;
     });
@@ -1233,10 +1335,21 @@ router.get('/lesson/:lessonId/analysis', verifyToken, async (req, res) => {
       .lean();
     
     if (!analysis) {
-      return res.status(404).json({ 
+      // Check transcript to determine if analysis can ever be generated
+      const transcript = await LessonTranscript.findOne({ lessonId }).select('status segments').lean();
+      const transcriptStatus = transcript?.status || 'not_found';
+      const segmentCount = transcript?.segments?.length || 0;
+      
+      const willNeverGenerate = !transcript
+        || transcriptStatus === 'failed'
+        || (transcriptStatus === 'completed' && segmentCount === 0);
+      
+      return res.status(404).json({
         success: false,
         message: 'Analysis not found',
-        status: 'not_started'
+        status: willNeverGenerate ? 'unavailable' : 'not_started',
+        transcriptStatus,
+        segmentCount
       });
     }
     
@@ -1526,6 +1639,60 @@ async function analyzeLesson(transcriptId) {
     
     if (hallucinationHits.length >= 2) {
       qualityIssues.push(`Known hallucination phrases detected: "${hallucinationHits.join('", "')}"`);
+    }
+    
+    // CHECK 5: Aggregate no_speech_prob across all student segments
+    // Whisper returns no_speech_prob per segment; high values mean Whisper itself
+    // was uncertain whether speech was present
+    const segsWithNoSpeechProb = studentSegments.filter(s => s.noSpeechProb != null);
+    if (segsWithNoSpeechProb.length > 0) {
+      const avgNoSpeechProb = segsWithNoSpeechProb.reduce((sum, s) => sum + s.noSpeechProb, 0) / segsWithNoSpeechProb.length;
+      const highNoSpeechCount = segsWithNoSpeechProb.filter(s => s.noSpeechProb > 0.5).length;
+      const highNoSpeechRatio = highNoSpeechCount / segsWithNoSpeechProb.length;
+      
+      console.log(`🔇 No-speech prob check: avg=${avgNoSpeechProb.toFixed(3)}, high(>0.5)=${highNoSpeechCount}/${segsWithNoSpeechProb.length} (${(highNoSpeechRatio * 100).toFixed(1)}%)`);
+      
+      if (avgNoSpeechProb > 0.5) {
+        qualityIssues.push(`High no_speech_prob: average ${avgNoSpeechProb.toFixed(3)} across ${segsWithNoSpeechProb.length} segments (Whisper uncertain if speech was present)`);
+      }
+      if (highNoSpeechRatio > 0.6) {
+        qualityIssues.push(`${highNoSpeechCount}/${segsWithNoSpeechProb.length} segments (${(highNoSpeechRatio * 100).toFixed(0)}%) have high no_speech_prob (>0.5), indicating mostly noise/silence`);
+      }
+    }
+    
+    // CHECK 6: Audio energy metadata from FFmpeg VAD
+    // If the pre-Whisper audio energy analysis found the audio was borderline,
+    // use it as an additional signal
+    if (transcript.audioEnergyMetrics && transcript.audioEnergyMetrics.length > 0) {
+      const metrics = transcript.audioEnergyMetrics;
+      const allNoSpeech = metrics.every(m => !m.hasSpeech);
+      const avgSilenceRatio = metrics.reduce((sum, m) => sum + (m.silenceRatio || 0), 0) / metrics.length;
+      const avgRms = metrics.reduce((sum, m) => sum + (m.rmsLevelDb || -91), 0) / metrics.length;
+      
+      console.log(`🔊 Audio energy check: avgRMS=${avgRms.toFixed(1)}dB, avgSilence=${(avgSilenceRatio * 100).toFixed(1)}%, allNoSpeech=${allNoSpeech}`);
+      
+      if (allNoSpeech) {
+        qualityIssues.push(`Audio energy analysis: all ${metrics.length} audio chunks detected as silence/noise (no speech energy above threshold)`);
+      } else if (avgSilenceRatio > 0.85) {
+        qualityIssues.push(`Audio is ${(avgSilenceRatio * 100).toFixed(0)}% silence on average across ${metrics.length} chunks — insufficient speech content`);
+      }
+    }
+    
+    // CHECK 7: Words-per-second coherence check
+    // Whisper hallucinations often produce many words from very short audio.
+    // Real speech is typically 2-4 words/second; >5 wps sustained is suspicious.
+    const segsWithDuration = studentSegments.filter(s => s.duration && s.duration > 0);
+    if (segsWithDuration.length > 3) {
+      const suspiciousSegs = segsWithDuration.filter(s => {
+        const words = s.text.split(/\s+/).length;
+        const wps = words / s.duration;
+        return wps > 5 && words > 3;
+      });
+      const suspiciousRatio = suspiciousSegs.length / segsWithDuration.length;
+      
+      if (suspiciousRatio > 0.5) {
+        qualityIssues.push(`Unrealistic speech rate: ${suspiciousSegs.length}/${segsWithDuration.length} segments (${(suspiciousRatio * 100).toFixed(0)}%) exceed 5 words/second — likely hallucinated text`);
+      }
     }
     
     // If ANY quality issues found, skip analysis and save as insufficient_data

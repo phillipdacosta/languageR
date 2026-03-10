@@ -65,6 +65,14 @@ const routes: Routes = [
                 loadComponent: () => import('./admin/tutor-review/tutor-review.page').then(m => m.TutorReviewPage)
               },
               {
+                path: 'material-reports',
+                loadComponent: () => import('./admin/material-reports.page').then(m => m.MaterialReportsPage)
+              },
+              {
+                path: 'material-review',
+                loadComponent: () => import('./admin/material-review.page').then(m => m.MaterialReviewPage)
+              },
+              {
                 path: 'payment-review',
                 loadChildren: () => import('./admin/payment-review/payment-review.module').then(m => m.PaymentReviewPageModule)
               }
@@ -140,6 +148,10 @@ const routes: Routes = [
     path: 'event/:id',
     loadComponent: () => import('./tutor-calendar/event-details/event-details.page').then(m => m.EventDetailsPage),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'material/:id',
+    loadComponent: () => import('./material-detail/material-detail.page').then(m => m.MaterialDetailPage)
   },
   {
     path: 'lesson-analysis/:id',

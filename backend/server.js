@@ -19,7 +19,8 @@ const autoReleaseLessonPayments = require('./jobs/autoReleaseLessonPayments');
 const { processPayPalPayouts } = require('./jobs/processPayPalPayouts');
 const { processWithdrawals } = require('./jobs/processWithdrawals');
 const { reconcilePayments } = require('./jobs/reconcilePayments');
-const { releaseEarnings } = require('./jobs/releaseEarnings'); // NEW: Release tutor earnings
+const { releaseEarnings } = require('./jobs/releaseEarnings');
+const { checkMaterialAvailability } = require('./jobs/checkMaterialAvailability');
 const { initializeAudioCronJobs } = require('./cron/audioBackupCron');
 
 const app = express();
@@ -120,6 +121,7 @@ app.use('/api/withdrawals', withdrawalRoutes); // NEW: Withdrawal system
 app.use('/api/disputes', require('./routes/disputes')); // Dispute system
 app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
+app.use('/api/materials', require('./routes/materials'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
@@ -435,6 +437,14 @@ server.listen(PORT, '0.0.0.0', () => {
   });
   console.log('⏰ Cron job started: Reconcile payments (daily at 2 AM)');
   
+  // Check material video availability every 6 hours
+  cron.schedule('0 */6 * * *', () => {
+    checkMaterialAvailability().catch(err => {
+      console.error('❌ [Cron] Error in checkMaterialAvailability:', err);
+    });
+  });
+  console.log('⏰ Cron job started: Check material availability (every 6 hours)');
+
   // Initialize audio backup and retry cron jobs
   initializeAudioCronJobs();
   console.log('✅ Audio backup system initialized');

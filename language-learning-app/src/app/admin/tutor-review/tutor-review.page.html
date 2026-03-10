@@ -163,12 +163,13 @@
               class="video-player">
             </iframe>
             <!-- Direct video file -->
-            <video 
+            <video
               *ngIf="!selectedTutor._isExternalVideo"
               [src]="selectedTutor._videoUrl"
               [poster]="selectedTutor._thumbnailUrl || ''"
               controls
-              autoplay
+              playsinline
+              (loadeddata)="onVideoReady($event)"
               class="video-player">
             </video>
           </ion-content>

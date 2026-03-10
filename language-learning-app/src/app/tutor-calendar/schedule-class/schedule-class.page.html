@@ -1,7 +1,17 @@
-<ion-content [fullscreen]="true" class="schedule-class-content">
+<!-- When standalone (routed page), wrap in ion-content -->
+<ion-content *ngIf="!inline" [fullscreen]="true" class="schedule-class-content">
+  <ng-container *ngTemplateOutlet="scheduleBody"></ng-container>
+</ion-content>
+
+<!-- When inline (embedded in explore), use a plain scrollable div -->
+<div *ngIf="inline" class="schedule-class-content-inline">
+  <ng-container *ngTemplateOutlet="scheduleBody"></ng-container>
+</div>
+
+<ng-template #scheduleBody>
   <div class="onboarding-container">
     <!-- Go Back Button -->
-    <button class="go-back-link" (click)="router.navigate(['/tabs/tutor-calendar'])">Go back</button>
+    <button class="go-back-link" (click)="inline ? goBackEvent.emit() : router.navigate(['/tabs/tutor-calendar'])">Go back</button>
 
     <!-- Two Column Layout -->
     <div class="onboarding-content">
@@ -132,6 +142,7 @@
                   <ion-label class="field-label">Class Name</ion-label>
                   <ion-input 
                     class="modern-input"
+                    fill="outline"
                     formControlName="name" 
                     placeholder="e.g. Intermediate Conversation Practice"
                     [class.error]="form.controls.name.touched && form.controls.name.invalid">
@@ -165,6 +176,7 @@
                     <ion-label class="field-label">Class Level</ion-label>
                     <ion-select 
                       class="modern-select"
+                      fill="outline"
                       formControlName="level" 
                       interface="popover" 
                       placeholder="Select level">
@@ -181,6 +193,7 @@
                     <ion-label class="field-label">Lesson Duration</ion-label>
                     <ion-select 
                       class="modern-select"
+                      fill="outline"
                       formControlName="duration" 
                       interface="popover" 
                       placeholder="Select duration">
@@ -201,43 +214,37 @@
             <div *ngIf="currentStep === 2 && classType === 'recurring'" class="step-content">
               <div class="card-section economics-section">
                 <div class="card-content-scrollable">
-                <!-- 1:1 Baseline -->
-                <div class="baseline-display" *ngIf="form.value.duration">
-                  <div class="baseline-icon">
-                    <ion-icon name="person-outline"></ion-icon>
-                  </div>
-                  <div class="baseline-info">
-                    <div class="baseline-label">Your 1:1 Rate ({{form.value.duration}}min)</div>
-                    <div class="baseline-amount">${{ calculate1on1EarningsGross().toFixed(2) }}</div>
-                    <div class="baseline-net">${{ calculate1on1EarningsNet().toFixed(2) }} after fees</div>
-                  </div>
-                </div>
 
-                <!-- Price Per Student -->
-                <div class="price-section" *ngIf="form.value.duration">
-                  <div class="suggested-price" *ngIf="suggestedPrice > 0">
-                    <div class="suggested-badge">
-                      <ion-icon name="sparkles-outline"></ion-icon>
-                      <span>Suggested price per student: <strong>${{ suggestedPrice.toFixed(2) }}</strong></span>
+                <!-- Pricing -->
+                <div class="econ-group" *ngIf="form.value.duration">
+                  <h4 class="econ-group-title">Pricing</h4>
+
+                  <div class="econ-baseline-row">
+                    <div class="econ-baseline-left">
+                      <span class="econ-baseline-label">Your 1:1 rate ({{form.value.duration}}min)</span>
+                      <span class="econ-baseline-sub">${{ calculate1on1EarningsNet().toFixed(2) }} after fees</span>
                     </div>
-                    <div class="suggested-note">Based on {{form.value.duration}}min • {{getLevelLabel(form.value.level)}}</div>
+                    <span class="econ-baseline-amount">${{ calculate1on1EarningsGross().toFixed(2) }}</span>
                   </div>
 
-                  <div class="price-toggle">
-                    <ion-item lines="none">
-                      <ion-label>Use suggested pricing</ion-label>
-                      <ion-toggle 
-                        formControlName="useSuggestedPricing" 
-                        (ionChange)="onPricingToggleChange()">
-                      </ion-toggle>
-                    </ion-item>
+                  <div class="econ-suggested-row" *ngIf="suggestedPrice > 0">
+                    <span class="econ-suggested-label">Suggested per student</span>
+                    <span class="econ-suggested-amount">${{ suggestedPrice.toFixed(2) }}</span>
+                  </div>
+                  <span class="econ-suggested-note" *ngIf="suggestedPrice > 0">Based on {{form.value.duration}}min · {{getLevelLabel(form.value.level)}}</span>
+
+                  <div class="econ-toggle-row">
+                    <span class="econ-toggle-label">Use suggested pricing</span>
+                    <ion-toggle formControlName="useSuggestedPricing" (ionChange)="onPricingToggleChange()"></ion-toggle>
                   </div>
 
-                  <div class="custom-price-field" *ngIf="!form.value.useSuggestedPricing">
-                    <ion-input 
+                  <div class="form-field" *ngIf="!form.value.useSuggestedPricing" style="margin-top: 4px;">
+                    <ion-label class="field-label">Custom price per student</ion-label>
+                    <ion-input
                       class="modern-input price-input"
-                      type="number" 
-                      formControlName="customPrice" 
+                      fill="outline"
+                      type="number"
+                      formControlName="customPrice"
                       min="1" 
                       step="0.50"
                       placeholder="0.00">
@@ -250,13 +257,18 @@
                   </div>
                 </div>
 
+                <div class="econ-divider"></div>
+
                 <!-- Class Size -->
-                <div class="class-size-section">
+                <div class="econ-group">
+                  <h4 class="econ-group-title">Class size</h4>
+
                   <div class="form-row">
                     <div class="form-field">
-                      <ion-label class="field-label">Maximum Students</ion-label>
+                      <ion-label class="field-label">Maximum</ion-label>
                       <ion-input 
                         class="modern-input"
+                        fill="outline"
                         type="number" 
                         formControlName="maxStudents" 
                         min="2" 
@@ -271,14 +283,16 @@
                     </div>
 
                     <div class="form-field" *ngIf="form.value.maxStudents">
-                      <ion-label class="field-label">Minimum Students</ion-label>
+                      <ion-label class="field-label">Minimum</ion-label>
                       <ion-input 
                         class="modern-input"
+                        fill="outline"
                         type="number" 
                         formControlName="minStudents" 
                         min="2" 
                         [max]="form.value.maxStudents || 50"
                         placeholder="2">
+
                       </ion-input>
                       <ion-note class="error-note" [class.visible]="form.controls.minStudents.touched && form.controls.minStudents.invalid">
                         <span *ngIf="form.controls.minStudents.touched && form.controls.minStudents.invalid && form.controls.minStudents.errors?.['required']">Required</span>
@@ -288,100 +302,60 @@
                     </div>
                   </div>
 
-                  <!-- Recommendation Box -->
-                  <div class="recommendation-card" *ngIf="getFinalPrice() > 0 && form.value.maxStudents">
-                    <div class="recommendation-icon">
-                      <ion-icon name="bulb-outline"></ion-icon>
-                    </div>
-                    <div class="recommendation-content">
-                      <div class="recommendation-title">Recommended Minimum</div>
-                      <div class="recommendation-value">{{ getRecommendedMinimum() }} students</div>
-                      <div class="recommendation-note">Matches or exceeds your 1:1 net earnings</div>
-                    </div>
+                  <div class="econ-hint-row" *ngIf="getFinalPrice() > 0 && form.value.maxStudents">
+                    <ion-icon name="information-circle-outline"></ion-icon>
+                    <span>Recommended minimum: <strong>{{ getRecommendedMinimum() }} students</strong> to match your 1:1 net earnings</span>
                   </div>
 
-                  <!-- Earnings Breakdown Toggle -->
-                  <div class="breakdown-toggle" *ngIf="getFinalPrice() > 0" (click)="showEarningsBreakdown = !showEarningsBreakdown">
-                    <span>View detailed earnings breakdown</span>
-                    <ion-icon [name]="showEarningsBreakdown ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                  <div class="econ-toggle-row">
+                    <div>
+                      <span class="econ-toggle-label">Flexible minimum</span>
+                      <span class="econ-toggle-sub">Run class even if minimum not met</span>
+                    </div>
+                    <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
                   </div>
 
-                  <!-- Earnings Breakdown Table -->
-                  <div class="earnings-table-wrapper" *ngIf="showEarningsBreakdown && getFinalPrice() > 0">
-                    <div class="earnings-table">
-                      <div class="table-header">
-                        <span>Students</span>
-                        <span>Net Earnings (After Fees)</span>
-                      </div>
-                      
-                      <div class="table-row baseline">
-                        <div class="row-label">
-                          <ion-icon name="person-outline"></ion-icon>
-                          <span>1:1 Lesson</span>
-                        </div>
-                        <div class="row-value">
-                          <span class="amount">${{ calculate1on1EarningsNet().toFixed(2) }}</span>
-                          <span class="badge neutral">Baseline</span>
-                        </div>
-                      </div>
-
-                      <div class="table-row" 
-                           *ngFor="let count of getStudentCountRange()"
-                           [class.profitable]="isProfitable(count)"
-                           [class.below-target]="!isProfitable(count)">
-                        <div class="row-label">
-                          <ion-icon name="people-outline"></ion-icon>
-                          <span>{{ count }} Students</span>
-                        </div>
-                        <div class="row-value">
-                          <span class="amount">${{ calculateGroupEarningsNet(count).toFixed(2) }}</span>
-                          <span class="badge" [class.positive]="isProfitable(count)" [class.negative]="!isProfitable(count)">
-                            <ion-icon [name]="isProfitable(count) ? 'trending-up' : 'trending-down'"></ion-icon>
-                            {{ getEarningsPercentage(count) }}%
-                          </span>
-                        </div>
-                      </div>
-
-                      <div class="table-footer">
-                        <ion-icon name="information-circle-outline"></ion-icon>
-                        <span>{{ PLATFORM_FEE_PERCENTAGE }}% platform fee already deducted</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Auto-Cancel Warning -->
-                  <div class="warning-card" *ngIf="!form.value.flexibleMinimum && form.value.minStudents">
-                    <div class="warning-icon">
-                      <ion-icon name="alert-circle-outline"></ion-icon>
-                    </div>
-                    <div class="warning-content">
-                      <div class="warning-title">Auto-Cancellation Policy</div>
-                      <div class="warning-text">
-                        Class will auto-cancel <strong>1 hour before start</strong> if less than 
-                        <strong>{{form.value.minStudents}} students</strong> enrolled
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Flexible Minimum Toggle -->
-                  <div class="flexible-toggle-card">
-                    <ion-item lines="none">
-                      <ion-label>
-                        <h3>Flexible Minimum</h3>
-                        <p>Run class even if minimum not met</p>
-                      </ion-label>
-                      <ion-toggle formControlName="flexibleMinimum"></ion-toggle>
-                    </ion-item>
-                    <ion-note *ngIf="form.value.flexibleMinimum" class="success-note">
-                      <ion-icon name="checkmark-circle-outline"></ion-icon>
-                      No auto-cancellation • Class runs regardless of enrollment
-                    </ion-note>
+                  <div class="econ-hint-row warning" *ngIf="!form.value.flexibleMinimum && form.value.minStudents">
+                    <ion-icon name="alert-circle-outline"></ion-icon>
+                    <span>Auto-cancels <strong>1 hour before start</strong> if fewer than <strong>{{form.value.minStudents}} students</strong> enrolled</span>
                   </div>
                 </div>
 
-                <!-- Invite Students (Optional) -->
-                <div class="invite-students-section">
-                  <ion-label class="field-label">Invite Students (Optional)</ion-label>
+                <!-- Earnings Breakdown (collapsible) -->
+                <div class="econ-group" *ngIf="getFinalPrice() > 0">
+                  <button class="econ-breakdown-toggle" type="button" (click)="showEarningsBreakdown = !showEarningsBreakdown">
+                    <span>Earnings breakdown</span>
+                    <ion-icon [name]="showEarningsBreakdown ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                  </button>
+
+                  <div class="econ-breakdown-table" *ngIf="showEarningsBreakdown">
+                    <div class="econ-table-row header">
+                      <span>Students</span>
+                      <span>Net earnings</span>
+                    </div>
+                    <div class="econ-table-row baseline">
+                      <span>1:1 Lesson</span>
+                      <span>${{ calculate1on1EarningsNet().toFixed(2) }}</span>
+                    </div>
+                    <div class="econ-table-row" 
+                         *ngFor="let count of getStudentCountRange()"
+                         [class.profitable]="isProfitable(count)"
+                         [class.below-target]="!isProfitable(count)">
+                      <span>{{ count }} students</span>
+                      <div class="econ-table-value">
+                        <span>${{ calculateGroupEarningsNet(count).toFixed(2) }}</span>
+                        <span class="econ-pct" [class.up]="isProfitable(count)" [class.down]="!isProfitable(count)">{{ getEarningsPercentage(count) }}%</span>
+                      </div>
+                    </div>
+                    <div class="econ-table-footer">{{ PLATFORM_FEE_PERCENTAGE }}% platform fee deducted</div>
+                  </div>
+                </div>
+
+                <div class="econ-divider"></div>
+
+                <!-- Invite Students -->
+                <div class="econ-group">
+                  <h4 class="econ-group-title">Invite students <span class="econ-optional">Optional</span></h4>
                   
                   <div 
                     class="student-selector" 
@@ -414,10 +388,9 @@
                     <ion-icon name="chevron-down-outline" class="chevron-icon"></ion-icon>
                   </div>
 
-                  <ion-note class="helper-note">
-                    Students from your past lessons
-                  </ion-note>
+                  <span class="econ-helper-text">Students from your past lessons</span>
                 </div>
+
                 </div>
               </div>
             </div>
@@ -442,6 +415,7 @@
                     <ion-label class="field-label">Date</ion-label>
                     <ion-input 
                       class="modern-input date-input"
+                      fill="outline"
                       type="date" 
                       formControlName="date"
                       readonly
@@ -452,6 +426,7 @@
                     <ion-label class="field-label">Time</ion-label>
                     <ion-input 
                       class="modern-input time-input"
+                      fill="outline"
                       type="time" 
                       formControlName="time"
                       readonly
@@ -472,6 +447,7 @@
                     <ion-label class="field-label">Repeat Pattern</ion-label>
                     <ion-select 
                       class="modern-select"
+                      fill="outline"
                       interface="popover" 
                       formControlName="recurrenceType">
                       <ion-select-option value="none">None (Single class)</ion-select-option>
@@ -484,6 +460,7 @@
                     <ion-label class="field-label">Occurrences</ion-label>
                     <ion-input 
                       class="modern-input"
+                      fill="outline"
                       type="number" 
                       min="1" 
                       max="52" 
@@ -589,7 +566,7 @@
       </div>
     </div>
   </div>
-</ion-content>
+</ng-template>
 
 <!-- Inline Availability Picker Modal -->
 <ion-modal 

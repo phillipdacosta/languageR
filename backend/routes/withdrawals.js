@@ -142,10 +142,19 @@ router.get('/balance', verifyToken, async (req, res) => {
 
       if (needsReconciliation) {
         console.log(`🔧 [RECONCILE] Fixing balances for tutor ${user._id}...`);
+        await User.findOneAndUpdate(
+          { _id: user._id },
+          {
+            $set: {
+              'tutorEarnings.pendingBalance': calcPending,
+              'tutorEarnings.availableBalance': effectiveAvailable,
+              'tutorEarnings.lifetimeEarnings': calcLifetime
+            }
+          }
+        );
         user.tutorEarnings.pendingBalance = calcPending;
         user.tutorEarnings.availableBalance = effectiveAvailable;
         user.tutorEarnings.lifetimeEarnings = calcLifetime;
-        await user.save();
         console.log(`✅ [RECONCILE] Fixed: Pending=$${calcPending}, Available=$${effectiveAvailable}, Lifetime=$${calcLifetime}`);
       }
     } catch (reconcileError) {
@@ -459,10 +468,11 @@ router.post('/:id/cancel', verifyToken, async (req, res) => {
     withdrawal.status = 'cancelled';
     await withdrawal.save();
     
-    // Return funds to available balance
-    const tutor = await User.findById(withdrawal.tutorId);
-    tutor.tutorEarnings.availableBalance += withdrawal.amount;
-    await tutor.save();
+    // Atomic return of funds to available balance
+    await User.findOneAndUpdate(
+      { _id: withdrawal.tutorId },
+      { $inc: { 'tutorEarnings.availableBalance': withdrawal.amount } }
+    );
     
     // Reset payment statuses
     await Payment.updateMany(

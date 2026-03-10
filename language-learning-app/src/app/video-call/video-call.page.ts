@@ -5585,6 +5585,28 @@ export class VideoCallPage implements OnInit, AfterViewInit, OnDestroy {
     console.log('🧪 Test mute state sent:', testMuteState);
   }
 
+  async confirmEndCall() {
+    const alert = await this.alertController.create({
+      header: 'Leave Lesson',
+      message: 'Are you sure you want to leave this lesson?',
+      cssClass: 'leave-confirmation-alert',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Leave',
+          role: 'destructive',
+          handler: () => {
+            this.endCall();
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async endCall(otherParticipantEnded: boolean = false) {
     try {
       this.hasEndedCall = true; // Prevent ngOnDestroy from doing redundant cleanup

@@ -131,7 +131,8 @@
       </div>
 
       <div class="chart-total-row" *ngIf="chartHasData">
-        <span class="chart-total-amount">{{ chartTotal }}</span>
+        <span class="chart-total-amount" *ngIf="showWalletBalance || walletTemporarilyVisible">{{ chartTotal }}</span>
+        <span class="chart-total-amount masked" *ngIf="!showWalletBalance && !walletTemporarilyVisible">$••••</span>
         <span class="chart-total-label">{{ 'EARNINGS.TOTAL_EARNED' | translate }}</span>
       </div>
 
@@ -237,6 +238,7 @@
                     <span class="name">{{ payment.studentName }}</span>
                     <span class="type-label tip" *ngIf="payment.paymentType === 'tip'">{{ 'EARNINGS.TXN_TIP' | translate }}</span>
                     <span class="type-label class-label" *ngIf="payment.isClassPayment && payment.className">{{ payment.className }}</span>
+                    <span class="type-label material-label" *ngIf="payment.isMaterialPurchase">{{ payment.materialTitle || 'Material' }}</span>
                   </div>
                 </div>
               </td>
@@ -502,7 +504,7 @@
 <!-- Inline Withdrawal Modal -->
 <ion-modal 
   [isOpen]="isWithdrawalModalOpen" 
-  (didDismiss)="closeWithdrawalModal()"
+  (didDismiss)="onWithdrawalModalDismissed()"
   class="withdrawal-modal">
   
   <ng-template>
@@ -512,7 +514,33 @@
         <ion-icon name="close" slot="icon-only"></ion-icon>
       </ion-button>
 
-      <div class="modal-content">
+      <!-- Withdrawal Success View -->
+      <div class="withdrawal-success-view" *ngIf="withdrawalSuccess">
+        <div class="withdrawal-success-card" [class.revealed]="withdrawalSuccessRevealed">
+          <div class="withdrawal-success-lottie-wrapper">
+            <div class="withdrawal-success-glow"></div>
+            <dotlottie-player
+              src="/assets/Payment-success.lottie"
+              autoplay
+              speed="1"
+              class="withdrawal-success-lottie">
+            </dotlottie-player>
+          </div>
+          <div class="withdrawal-success-body">
+            <h2 class="withdrawal-success-title">{{ 'EARNINGS.WITHDRAW_SUCCESS_TITLE' | translate }}</h2>
+            <p class="withdrawal-success-detail">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_DETAIL' | translate:{ amount: withdrawalSuccessAmount, method: withdrawalSuccessMethod } }}
+            </p>
+            <p class="withdrawal-success-note">{{ 'EARNINGS.WITHDRAW_SUCCESS_NOTE' | translate }}</p>
+            <button class="withdrawal-success-done-btn" (click)="closeWithdrawalModal()">
+              {{ 'EARNINGS.WITHDRAW_SUCCESS_DONE' | translate }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard Withdrawal Form -->
+      <div class="modal-content" *ngIf="!withdrawalSuccess">
         <!-- Header -->
         <div class="modal-header">
           <div class="icon-wrapper">
@@ -606,8 +634,10 @@
                 <div class="currency-symbol">$</div>
                 <input 
                   type="text" 
+                  inputmode="decimal"
                   class="amount-input"
                   [(ngModel)]="formattedWithdrawalAmount"
+                  (keydown)="onWithdrawalKeydown($event)"
                   (blur)="onWithdrawalAmountBlur()"
                   placeholder="0.00">
                 <button class="max-button" (click)="setMaxWithdrawalAmount()">MAX</button>

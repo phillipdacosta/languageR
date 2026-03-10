@@ -96,6 +96,7 @@
     "JOIN_NOW": "Deltag nu",
     "JOIN": "Deltag",
     "JOIN_LESSON": "Deltag i lektion",
+    "PARTICIPANT_IN_CALL": "{{name}} er i opkaldet",
     "RESCHEDULE": "Omlæg",
     "CANCEL_LESSON": "Aflys lektion",
     "CANCEL": "Annuller",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Er du sikker på, at du vil hæve ${{amount}}? Dette sendes til din {{method}}-konto.",
     "WITHDRAW_CONFIRM_BTN": "Bekræft",
     "WITHDRAW_SUCCESS": "Udbetaling af ${{amount}} anmodet succesfuldt! Behandles inden for 1-2 hverdage.",
+    "WITHDRAW_SUCCESS_TITLE": "Betaling Sendt!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} sendt til din {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Midler er normalt tilgængelige inden for 1-2 hverdage.",
+    "WITHDRAW_SUCCESS_DONE": "Færdig",
     "WITHDRAW_ERROR": "Kunne ikke anmode om udbetaling. Prøv venligst igen.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Indtast venligst et gyldigt udbetalingsbeløb",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimumsudbetalingsbeløb er $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Er du sikker på, at du vil logge ud?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Velkommen til Speak Freely",
+      "GREETING": "Velkommen til Barnaby",
       "SUBTITLE": "Den smartere måde at lære og undervise i sprog. Lad os oprette din konto med et par nemme trin.",
-      "TUTOR_GREETING": "Velkommen til Speak Freely",
+      "TUTOR_GREETING": "Velkommen til Barnaby",
       "TUTOR_SUBTITLE": "Bliv en del af vores underviserfællesskab og begynd at undervise elever verden over. Lad os gøre din profil klar.",
       "CTA": "Kom i gang",
       "BACK": "Skift sprog"

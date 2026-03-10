@@ -112,15 +112,15 @@ async function uploadVideoWithCompression(req, res) {
     let finalBuffer = req.file.buffer;
     let compressionInfo = null;
 
-    // Compress if file is larger than 50MB
-    if (req.file.size > 50 * 1024 * 1024) {
+    // Compress if file is larger than 100MB
+    if (req.file.size > 100 * 1024 * 1024) {
       console.log('🎬 Starting video compression...');
       
       const compressionOptions = {
-        maxSizeMB: 50,
-        maxWidth: 1280,
-        maxHeight: 720,
-        quality: originalSizeMB > 200 ? 32 : 28, // More aggressive for very large files
+        maxSizeMB: 100,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        quality: originalSizeMB > 300 ? 26 : 23,
         format: 'mp4'
       };
 
@@ -144,8 +144,10 @@ async function uploadVideoWithCompression(req, res) {
 
     // Generate unique filename
     const timestamp = Date.now();
-    const fileExtension = req.file.originalname.split('.').pop() || 'mp4';
-    const fileName = `tutor-videos/${user._id}/${timestamp}-compressed.${fileExtension}`;
+    const wasCompressed = compressionInfo !== null;
+    const fileExtension = wasCompressed ? 'mp4' : (req.file.originalname.split('.').pop() || 'mp4');
+    const fileName = `tutor-videos/${user._id}/${timestamp}.${fileExtension}`;
+    const contentType = wasCompressed ? 'video/mp4' : (req.file.mimetype || 'video/mp4');
     
     console.log('📤 Starting upload to Google Cloud Storage...');
     
@@ -153,11 +155,11 @@ async function uploadVideoWithCompression(req, res) {
     const file = bucket.file(fileName);
     const stream = file.createWriteStream({
       metadata: {
-        contentType: 'video/mp4',
-        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+        contentType: contentType,
+        cacheControl: 'public, max-age=31536000',
       },
-      resumable: true, // Enable resumable uploads for large files
-      validation: 'crc32c', // Enable checksum validation
+      resumable: true,
+      validation: 'crc32c',
     });
 
     // Track upload progress

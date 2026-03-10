@@ -37,6 +37,8 @@ export class NotificationsPage implements OnDestroy {
   searchTerm: string = '';
   activeFilters: string[] = ['all'];
   filters: { value: string; label: string }[] = [];
+  isFiltersModalOpen = false;
+  selectedTypeFilter: 'all' | 'lessons' | 'payment' | 'progress' = 'all';
   private destroy$ = new Subject<void>();
   currentUser: any = null;
 
@@ -249,8 +251,9 @@ export class NotificationsPage implements OnDestroy {
         this.router.navigate(['/lesson-analysis', notification.data.lessonId]);
       }
     } else if (notification.type === 'feedback_reminder' && notification.data?.lessonId) {
-      // Tutor notification - Navigate to post-lesson tutor page to add note
       this.router.navigate(['/post-lesson-tutor', notification.data.lessonId]);
+    } else if ((notification.type === 'material_rejected' || notification.type === 'material_approved') && notification.data?.materialId) {
+      this.router.navigate(['/material', notification.data.materialId]);
     }
   }
 
@@ -307,7 +310,9 @@ export class NotificationsPage implements OnDestroy {
       'tutor_video_approved': 'checkmark-circle',
       'tutor_video_rejected': 'close-circle',
       'credential_approved': 'shield-checkmark',
-      'credential_rejected': 'shield'
+      'credential_rejected': 'shield',
+      'material_approved': 'checkmark-circle',
+      'material_rejected': 'close-circle'
     };
     return iconMap[type] || 'notifications';
   }
@@ -332,7 +337,9 @@ export class NotificationsPage implements OnDestroy {
       'tutor_video_rejected',
       'lesson_analysis_ready',
       'credential_approved',
-      'credential_rejected'
+      'credential_rejected',
+      'material_approved',
+      'material_rejected'
     ];
     return systemTypes.includes(type);
   }
@@ -450,6 +457,45 @@ export class NotificationsPage implements OnDestroy {
 
   isFilterActive(filter: string): boolean {
     return this.activeFilters.includes(filter);
+  }
+
+  get hasActiveNotificationFilters(): boolean {
+    return this.selectedTypeFilter !== 'all';
+  }
+
+  get activeFilterLabel(): string {
+    if (this.selectedTypeFilter === 'all') return '';
+    const f = this.filters.find(x => x.value === this.selectedTypeFilter);
+    return f ? f.label : '';
+  }
+
+  openFiltersModal(): void {
+    this.selectedTypeFilter = this.activeFilters.includes('all') || this.activeFilters.length === 0
+      ? 'all'
+      : (this.activeFilters[0] as 'lessons' | 'payment' | 'progress');
+    this.isFiltersModalOpen = true;
+  }
+
+  closeFiltersModal(): void {
+    this.isFiltersModalOpen = false;
+  }
+
+  setTypeFilter(value: 'all' | 'lessons' | 'payment' | 'progress'): void {
+    this.selectedTypeFilter = value;
+  }
+
+  clearNotificationFilters(): void {
+    this.selectedTypeFilter = 'all';
+  }
+
+  applyFiltersAndCloseModal(): void {
+    this.activeFilters = this.selectedTypeFilter === 'all' ? ['all'] : [this.selectedTypeFilter];
+    this.groupAndFormatNotifications();
+    this.closeFiltersModal();
+  }
+
+  getFilteredNotificationCount(): number {
+    return this.getTodayNotifications().length + this.getYesterdayNotifications().length + this.getLaterNotifications().length;
   }
 
   isToday(date: Date | string): boolean {

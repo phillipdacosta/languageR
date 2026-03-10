@@ -274,6 +274,73 @@ ion-footer {
   margin-bottom: 20px;
 }
 
+// Add Availability (tutor only) — matches schedule-class availability picker modal
+.add-availability-section {
+  padding: 20px 0 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  .add-availability-divider {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    width: 100%;
+
+    &::before,
+    &::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: $border-color;
+    }
+
+    span {
+      padding: 0 16px;
+      color: $text-secondary;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .add-availability-btn {
+    --border-radius: 12px;
+    --border-width: 1px;
+    --border-color: #{$text-primary};
+    --color: #{$text-primary};
+    --background: transparent;
+    --background-hover: #f7f7f7;
+    height: 44px;
+    font-weight: 600;
+    font-size: 15px;
+    width: auto;
+    min-width: 200px;
+
+    ion-icon {
+      font-size: 20px;
+      margin-right: 8px;
+    }
+  }
+}
+
+.availability-setup-view {
+  padding: 60px 0 24px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  app-availability-setup {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -525,5 +592,133 @@ ion-footer {
 
   .confirmation-message {
     padding: 14px 20px;
+  }
+}
+
+// =============================================
+// DARK MODE
+// =============================================
+$dk-bg: #1c1c1e;
+$dk-card: #2c2c2e;
+$dk-card-hover: #3a3a3c;
+$dk-border: rgba(255, 255, 255, 0.1);
+$dk-border-strong: rgba(255, 255, 255, 0.18);
+$dk-text: #f5f5f7;
+$dk-text-secondary: #8e8e93;
+$dk-text-tertiary: #636366;
+
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #{$dk-bg} !important;
+  }
+
+  ion-footer,
+  ion-footer ion-toolbar {
+    --background: #{$dk-bg} !important;
+  }
+
+  .floating-back-button {
+    --background: #{$dk-card};
+    --color: #{$dk-text};
+    --background-hover: #{$dk-card-hover};
+  }
+
+  .floating-close-button {
+    background: $dk-card;
+    color: $dk-text-secondary;
+    border-color: $dk-border-strong;
+    &:hover {
+      color: $dk-text;
+      border-color: $dk-text-tertiary;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .original-time-banner {
+    background: $dk-card;
+    border-color: $dk-border;
+
+    .banner-icon {
+      background: $dk-bg;
+      ion-icon { color: $dk-text-secondary; }
+    }
+    .banner-label { color: $dk-text-secondary; }
+    .banner-time { color: $dk-text; }
+  }
+
+  .participant-section {
+    border-bottom-color: $dk-border;
+    .participant-avatar .avatar-placeholder { color: $dk-text-tertiary; }
+    .participant-info {
+      h3 { color: $dk-text; }
+      p { color: $dk-text-secondary; }
+    }
+  }
+
+  .loading-state ion-spinner { --color: #{$dk-text}; }
+  .loading-state p { color: $dk-text-secondary; }
+
+  .add-availability-section {
+    .add-availability-divider {
+      &::before, &::after { background: $dk-border; }
+      span { color: $dk-text-secondary; }
+    }
+    .add-availability-btn {
+      --border-color: #{$dk-text};
+      --color: #{$dk-text};
+      --background-hover: #{$dk-card};
+    }
+  }
+
+  .button-group {
+    background: $dk-bg;
+    border-top-color: $dk-border;
+
+    ion-button {
+      &[fill="outline"] {
+        --background: transparent;
+        --border-color: #{$dk-border-strong};
+        --color: #{$dk-text};
+        --background-hover: #{$dk-card};
+      }
+      &.btn-reschedule {
+        --background: #{$dk-text};
+        --color: #000;
+        --background-hover: #fff;
+      }
+    }
+  }
+
+  // Confirmation view
+  .confirmation-view { background: transparent; }
+
+  .icon-wrapper {
+    background: $dk-card;
+  }
+  .confirmation-icon { color: $dk-text; }
+
+  .confirmation-heading { color: $dk-text; }
+  .confirmation-subheading {
+    color: $dk-text-secondary;
+    strong { color: $dk-text; }
+  }
+
+  .selected-time-card {
+    background: $dk-card;
+    border-color: $dk-border;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+
+    .date-display { color: $dk-text-secondary; }
+    .time-display-value { color: $dk-text; }
+    .participant-info-confirmation {
+      border-top-color: $dk-border;
+      .avatar-placeholder { color: $dk-text-tertiary; }
+      p { color: $dk-text-secondary; }
+    }
+  }
+
+  .confirmation-message {
+    background: $dk-card;
+    p { color: $dk-text-secondary; }
   }
 }

@@ -42,6 +42,7 @@
     <div class="cropper-wrapper">
       <image-cropper
         [imageChangedEvent]="imageChangedEvent"
+        [imageFile]="imageFile"
         [maintainAspectRatio]="true"
         [aspectRatio]="1"
         [resizeToWidth]="400"
@@ -68,12 +69,13 @@
       <ion-button 
         expand="block" 
         fill="outline"
+        class="cancel-btn"
         (click)="cancel()">
         Cancel
       </ion-button>
       <ion-button 
         expand="block"
-        color="primary"
+        class="crop-save-btn"
         (click)="crop()"
         [disabled]="!croppedImage">
         Crop & Save

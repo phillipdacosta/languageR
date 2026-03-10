@@ -175,6 +175,7 @@ export interface Tutor {
     feedbackRate: number;
     avgQuality: number;
   };
+  materialCount?: number;
   // UI state properties
   isOnline?: boolean;
   expanded?: boolean;
@@ -1183,6 +1184,22 @@ export class UserService {
             this.getCurrentUser().pipe(take(1)).subscribe();
           })
         );
+      })
+    );
+  }
+
+  /**
+   * Fetch profile picture as a Blob via backend proxy (bypasses CORS)
+   */
+  getProfilePictureBlob(): Observable<Blob> {
+    return this.authService.user$.pipe(
+      take(1),
+      switchMap(user => {
+        const userEmail = user?.email || 'unknown';
+        return this.http.get(`${this.apiUrl}/users/profile-picture-proxy`, {
+          headers: this.getAuthHeaders(userEmail),
+          responseType: 'blob'
+        });
       })
     );
   }

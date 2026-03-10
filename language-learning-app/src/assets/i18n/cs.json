@@ -96,6 +96,7 @@
     "JOIN_NOW": "Připojit se nyní",
     "JOIN": "Připojit se",
     "JOIN_LESSON": "Připojit se k lekci",
+    "PARTICIPANT_IN_CALL": "{{name}} je v hovoru",
     "RESCHEDULE": "Přeložit",
     "CANCEL_LESSON": "Zrušit lekci",
     "CANCEL": "Zrušit",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Opravdu chcete vybrat ${{amount}}? Bude odesláno na váš účet {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Potvrdit",
     "WITHDRAW_SUCCESS": "Výběr ${{amount}} úspěšně požádán! Zpracování do 1–2 pracovních dnů.",
+    "WITHDRAW_SUCCESS_TITLE": "Platba Odeslána!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} odesláno na váš {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Prostředky jsou obvykle k dispozici do 1–2 pracovních dnů.",
+    "WITHDRAW_SUCCESS_DONE": "Hotovo",
     "WITHDRAW_ERROR": "Nepodařilo se požádat o výběr. Zkuste to prosím znovu.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Zadejte prosím platnou částku výběru",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimální částka výběru je $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Opravdu se chcete odhlásit?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Vítejte v Speak Freely",
+      "GREETING": "Vítejte v Barnaby",
       "SUBTITLE": "Chytřejší způsob učení a výuky jazyků. Nastavíme vám účet v několika jednoduchých krocích.",
-      "TUTOR_GREETING": "Vítejte v Speak Freely",
+      "TUTOR_GREETING": "Vítejte v Barnaby",
       "TUTOR_SUBTITLE": "Připojte se k naší komunitě lektorů a začněte vyučovat studenty po celém světě. Připravíme váš profil.",
       "CTA": "Začít",
       "BACK": "Změnit jazyk"

@@ -194,9 +194,8 @@ router.post('/', verifyToken, async (req, res) => {
     const lessonDuration = duration || 60;
     const bufferMinutes = lessonDuration === 25 ? 5 : lessonDuration === 50 ? 10 : 10;
     
-    // Extend end time to include buffer for conflict checking
-    const requestedEndWithBuffer = new Date(requestedEnd);
-    requestedEndWithBuffer.setMinutes(requestedEndWithBuffer.getMinutes() + bufferMinutes);
+    // Calculate blocked window from start + (duration + buffer) to avoid double-buffering
+    const requestedEndWithBuffer = new Date(requestedStart.getTime() + (lessonDuration + bufferMinutes) * 60000);
     
     const now = new Date();
 
@@ -247,11 +246,9 @@ router.post('/', verifyToken, async (req, res) => {
     let conflictingLesson = null;
     for (const lesson of existingLessons) {
       const existingStart = new Date(lesson.startTime);
-      const existingEnd = new Date(lesson.endTime);
       const existingDuration = lesson.duration || 60;
       const existingBuffer = existingDuration === 25 ? 5 : existingDuration === 50 ? 10 : 10;
-      const existingEndWithBuffer = new Date(existingEnd);
-      existingEndWithBuffer.setMinutes(existingEndWithBuffer.getMinutes() + existingBuffer);
+      const existingEndWithBuffer = new Date(existingStart.getTime() + (existingDuration + existingBuffer) * 60000);
 
       // Check for overlap: existing lesson (with buffer) overlaps with new lesson (with buffer)
       // Overlap if: existingStart < requestedEndWithBuffer AND existingEndWithBuffer > requestedStart
@@ -3078,10 +3075,12 @@ router.delete('/:id/cancel', verifyToken, async (req, res) => {
         relatedUserPicture: user.picture || null,
         relatedItemId: lesson._id,
         relatedItemType: 'Lesson',
-        metadata: {
+        data: {
+          lessonId: lesson._id.toString(),
           lessonSubject: lesson.subject,
           cancelledByName: cancelledByName,
           startTime: lesson.startTime,
+          endTime: lesson.endTime,
           cancelReason: lesson.cancelReason,
           cancelReasonText: lesson.cancelReasonText,
           cancelledByType: isTutor ? 'tutor' : 'student'
@@ -3555,19 +3554,17 @@ router.post('/:id/tip', verifyToken, async (req, res) => {
     }
 
     // ---- Credit tutor's in-app available balance immediately (no hold) ----
-    const freshTutor = await User.findById(tutor._id);
-    if (!freshTutor.tutorEarnings) {
-      freshTutor.tutorEarnings = {
-        availableBalance: 0,
-        pendingBalance: 0,
-        lifetimeEarnings: 0,
-        lastWithdrawal: null,
-        totalWithdrawn: 0
-      };
-    }
-    freshTutor.tutorEarnings.availableBalance += tutorReceives;
-    freshTutor.tutorEarnings.lifetimeEarnings += tutorReceives;
-    await freshTutor.save();
+    // Atomic increment prevents lost updates from concurrent tips
+    const freshTutor = await User.findOneAndUpdate(
+      { _id: tutor._id },
+      {
+        $inc: {
+          'tutorEarnings.availableBalance': tutorReceives,
+          'tutorEarnings.lifetimeEarnings': tutorReceives
+        }
+      },
+      { new: true }
+    );
 
     console.log(`💼 Tip credited to tutor balance (immediate, no hold):`);
     console.log(`   Available: $${freshTutor.tutorEarnings.availableBalance.toFixed(2)}`);

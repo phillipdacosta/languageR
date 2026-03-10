@@ -478,3 +478,44 @@ ion-footer {
     }
   }
 }
+
+// Dark mode
+:host-context(html.ion-palette-dark) {
+  ion-content {
+    --background: #1c1c1e !important;
+  }
+  .floating-close-button {
+    background: #2c2c2e !important;
+    color: #8e8e93 !important;
+    border-color: #3a3a3c !important;
+    &:hover { color: #f5f5f7 !important; }
+  }
+  .modal-header-section .modal-title {
+    color: #f5f5f7 !important;
+  }
+  .lesson-info-card,
+  .reason-option {
+    background: #2c2c2e !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    .reason-label { color: #f5f5f7 !important; }
+    .reason-detail { color: #8e8e93 !important; }
+    &.selected {
+      border-color: var(--ion-color-primary) !important;
+      background: rgba(var(--ion-color-primary-rgb), 0.1) !important;
+    }
+  }
+  .cancel-modal-footer {
+    ion-toolbar {
+      --background: #1c1c1e !important;
+    }
+    &[fill="outline"] {
+      --border-color: #3a3a3c !important;
+      --color: #f5f5f7 !important;
+    }
+    &.btn-continue {
+      --background: #f5f5f7 !important;
+      --color: #000000 !important;
+      --background-hover: #ffffff !important;
+    }
+  }
+}

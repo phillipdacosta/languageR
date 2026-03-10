@@ -487,9 +487,14 @@
 
   <!-- Loading state -->
   <ng-template #loading>
-    <div class="loading-state">
+    <div class="loading-state" *ngIf="!analysisUnavailable">
       <ion-spinner name="crescent" color="primary"></ion-spinner>
       <p>Analyzing your lesson...</p>
+    </div>
+    <div class="unavailable-state" *ngIf="analysisUnavailable">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <h3>No analysis available</h3>
+      <p>There wasn't enough speech captured during this lesson to generate an analysis.</p>
     </div>
   </ng-template>
 </ion-content>

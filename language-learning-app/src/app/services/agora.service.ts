@@ -65,30 +65,22 @@ export class AgoraService {
   private readonly TOKEN = environment.agora.token;
   private readonly UID = environment.agora.uid;
 
-  // High-quality video encoder configuration
-  // Using Full HD 1080p for maximum clarity
+  // HD video encoder configuration — 720p with H.264 hardware encoding
+  // gives sharper results than 1080p VP9 software encoding
   private readonly encoderConfig = {
-    resolution: { width: 1920, height: 1080 }, // Full HD 1080p
-    frameRate: 30, // 30 fps for smooth video
-    bitrateMax: 4000, // 4000 kbps for high quality 1080p
-    bitrateMin: 1000,  // 1000 kbps minimum to maintain quality
-    optimizationMode: 'detail' as const // Prioritize quality over latency
+    resolution: { width: 1280, height: 720 },
+    frameRate: 30,
+    bitrateMax: 2500,
+    bitrateMin: 800,
+    optimizationMode: 'detail' as const
   };
 
-  // Alternative quality presets for different network conditions
   private readonly qualityPresets = {
-    ultra: {
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 30,
-      bitrateMax: 4000,
-      bitrateMin: 1000,
-      optimizationMode: 'detail' as const
-    },
     high: {
       resolution: { width: 1280, height: 720 },
       frameRate: 30,
-      bitrateMax: 2000,
-      bitrateMin: 600,
+      bitrateMax: 2500,
+      bitrateMin: 800,
       optimizationMode: 'detail' as const
     },
     medium: {
@@ -96,7 +88,7 @@ export class AgoraService {
       frameRate: 24,
       bitrateMax: 1200,
       bitrateMin: 400,
-      optimizationMode: 'balanced' as const
+      optimizationMode: 'detail' as const
     },
     low: {
       resolution: { width: 640, height: 360 },
@@ -106,8 +98,8 @@ export class AgoraService {
       optimizationMode: 'motion' as const
     }
   };
-  
-  private currentQuality: 'ultra' | 'high' | 'medium' | 'low' = 'ultra';
+
+  private currentQuality: 'high' | 'medium' | 'low' = 'high';
 
   constructor(
     private tokenGenerator: TokenGeneratorService,
@@ -272,9 +264,9 @@ export class AgoraService {
     await this.initializeVirtualBackgroundExtension();
 
     // Create Agora client
-    this.client = AgoraRTC.createClient({ 
-      mode: "rtc", 
-      codec: "vp9" // Using vp9 as in the example
+    this.client = AgoraRTC.createClient({
+      mode: "rtc",
+      codec: "h264"
     });
 
     // Set up event listeners
@@ -825,7 +817,11 @@ export class AgoraService {
       // Join the RTC channel
       await this.client.join(this.APP_ID, channelName, token, uid || this.UID);
       console.log("Successfully joined RTC channel:", channelName);
-      
+
+      // Enable dual-stream so receivers can pick high or low quality based on bandwidth
+      await this.client.enableDualStream();
+      console.log("Dual-stream mode enabled");
+
       // Publish local tracks
       await this.client.publish([this.localAudioTrack, this.localVideoTrack]);
       console.log("Successfully published local tracks");
@@ -1035,6 +1031,10 @@ export class AgoraService {
       // Join the RTC channel using backend-provided credentials
       await this.client.join(agora.appId, agora.channelName, agora.token, agora.uid);
       console.log("Successfully joined lesson channel:", agora.channelName);
+
+      // Enable dual-stream so receivers can pick high or low quality based on bandwidth
+      await this.client.enableDualStream();
+      console.log("Dual-stream mode enabled");
 
       // Publish both tracks (they both exist now)
       // IMPORTANT: Apply user preferences BEFORE publishing
@@ -2143,7 +2143,7 @@ export class AgoraService {
    * Set video quality dynamically
    * @param quality - Quality preset to use (ultra, high, medium, low)
    */
-  async setVideoQuality(quality: 'ultra' | 'high' | 'medium' | 'low'): Promise<void> {
+  async setVideoQuality(quality: 'high' | 'medium' | 'low'): Promise<void> {
     if (!this.localVideoTrack) {
       console.warn('No local video track to adjust quality');
       return;
@@ -2152,12 +2152,11 @@ export class AgoraService {
     try {
       this.currentQuality = quality;
       const preset = this.qualityPresets[quality];
-      
+
       console.log(`🎥 Setting video quality to ${quality}:`, preset);
-      
-      // Apply encoder configuration to existing track
+
       await this.localVideoTrack.setEncoderConfiguration(preset);
-      
+
       console.log(`✅ Video quality set to ${quality} successfully`);
     } catch (error) {
       console.error('❌ Error setting video quality:', error);
@@ -2165,10 +2164,7 @@ export class AgoraService {
     }
   }
 
-  /**
-   * Get current video quality setting
-   */
-  getCurrentQuality(): 'ultra' | 'high' | 'medium' | 'low' {
+  getCurrentQuality(): 'high' | 'medium' | 'low' {
     return this.currentQuality;
   }
 
@@ -2183,20 +2179,18 @@ export class AgoraService {
     }
 
     this.client.on('network-quality', (stats) => {
-      // stats.uplinkNetworkQuality: 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
+      // 0=unknown, 1=excellent, 2=good, 3=poor, 4=bad, 5=very bad, 6=down
       const uplink = stats.uplinkNetworkQuality;
-      
-      console.log(`📡 Network quality - Uplink: ${uplink}, Downlink: ${stats.downlinkNetworkQuality}`);
 
-      // Auto-adjust quality based on network conditions
       if (uplink >= 4 && this.currentQuality !== 'low') {
-        console.log('⚠️ Poor network detected, suggesting quality reduction');
-        // Optionally auto-reduce quality
-        // this.setVideoQuality('low');
-      } else if (uplink <= 2 && this.currentQuality !== 'ultra') {
-        console.log('✅ Good network detected, quality can be increased');
-        // Optionally auto-increase quality
-        // this.setVideoQuality('ultra');
+        console.log('⚠️ Poor network — dropping to low quality');
+        this.setVideoQuality('low');
+      } else if (uplink === 3 && this.currentQuality === 'high') {
+        console.log('⚠️ Fair network — dropping to medium quality');
+        this.setVideoQuality('medium');
+      } else if (uplink <= 2 && this.currentQuality !== 'high') {
+        console.log('✅ Good network — restoring high quality');
+        this.setVideoQuality('high');
       }
     });
 

@@ -96,6 +96,7 @@
     "JOIN_NOW": "Partecipa ora",
     "JOIN": "Partecipa",
     "JOIN_LESSON": "Partecipa alla lezione",
+    "PARTICIPANT_IN_CALL": "{{name}} è nella chiamata",
     "RESCHEDULE": "Riprogramma",
     "CANCEL_LESSON": "Annulla lezione",
     "CANCEL": "Annulla",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Sei sicuro di voler prelevare ${{amount}}? L'importo verrà inviato al tuo account {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Conferma",
     "WITHDRAW_SUCCESS": "Prelievo di ${{amount}} richiesto con successo! Elaborazione entro 1-2 giorni lavorativi.",
+    "WITHDRAW_SUCCESS_TITLE": "Pagamento Inviato!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} inviato al tuo {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "I fondi sono generalmente disponibili entro 1–2 giorni lavorativi.",
+    "WITHDRAW_SUCCESS_DONE": "Fatto",
     "WITHDRAW_ERROR": "Impossibile richiedere il prelievo. Riprova.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Inserisci un importo di prelievo valido",
     "WITHDRAW_MIN_PAYPAL_ERROR": "L'importo minimo di prelievo è $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "Sei sicuro di voler uscire?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Benvenuto su Speak Freely",
+      "GREETING": "Benvenuto su Barnaby",
       "SUBTITLE": "Il modo più intelligente per imparare e insegnare le lingue. Configuriamo il tuo account in pochi passaggi.",
-      "TUTOR_GREETING": "Benvenuto su Speak Freely",
+      "TUTOR_GREETING": "Benvenuto su Barnaby",
       "TUTOR_SUBTITLE": "Unisciti alla nostra comunità di tutor e inizia a insegnare agli studenti di tutto il mondo. Prepariamo il tuo profilo.",
       "CTA": "Inizia",
       "BACK": "Cambia lingua"

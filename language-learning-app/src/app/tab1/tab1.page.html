@@ -3,15 +3,25 @@
   
   <!-- Hidden Earnings Component (for modal only) -->
   <div style="position: absolute; left: -9999px; opacity: 0; pointer-events: none;">
-    <app-earnings #earningsComponent [inline]="true" (goBackEvent)="onEarningsGoBack()"></app-earnings>
+    <app-earnings #earningsComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
   </div>
 
   <!-- Inline Earnings View -->
   <div class="earnings-inline-panel" *ngIf="showEarningsView">
-    <app-earnings #earningsViewComponent [inline]="true" (goBackEvent)="onEarningsGoBack()"></app-earnings>
+    <app-earnings #earningsViewComponent [inline]="true" (goBackEvent)="onEarningsGoBack()" (balanceChanged)="onEarningsBalanceChanged($event)"></app-earnings>
   </div>
 
-  <div class="content-wrapper" *ngIf="!showEarningsView">
+  <!-- Inline Explore View -->
+  <div class="explore-inline-panel" *ngIf="showExploreView">
+    <app-explore [inline]="true" (goBackEvent)="onExploreGoBack()"></app-explore>
+  </div>
+
+  <!-- Inline Create Material View -->
+  <div class="create-material-inline-panel" *ngIf="showCreateMaterialView">
+    <app-create-material [inline]="true" (goBackEvent)="onCreateMaterialGoBack()"></app-create-material>
+  </div>
+
+  <div class="content-wrapper" *ngIf="!showEarningsView && !showExploreView && !showCreateMaterialView">
     
     <!-- 🎨 DEV: Test Smart Island Button -->
     <!-- <button 
@@ -69,12 +79,27 @@
           <p class="welcome-subtitle" *ngIf="isLoadingLessons">
             <ion-skeleton-text animated style="width: 160px; height: 16px; display: inline-block;"></ion-skeleton-text>
           </p>
+          <div *ngIf="!isMobile">     
+          
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && nextLesson && nextLessonTimeLabel">
             {{ 'HOME.WELCOME_NEXT_LESSON' | translate:{ time: nextLessonTimeLabel } }}
           </p>
           <p class="welcome-subtitle" *ngIf="!isLoadingLessons && !nextLesson">
             {{ getWelcomeMessage() }}
           </p>
+        </div>
+        </div>
+
+        <!-- Compact Earnings (mobile only) -->
+        <div class="earnings-mobile-card" *ngIf="!insightsLoading" [class.skip-entry-animation]="returningFromEarnings">
+          <div class="emc-balance" (click)="toggleWalletVisibility($event)">
+            <span *ngIf="!showWalletBalance && !walletTemporarilyVisible">$<span class="emc-dots">••••</span></span>
+            <span *ngIf="showWalletBalance || walletTemporarilyVisible">${{ tutorTotalEarnings.toFixed(2) }}</span>
+          </div>
+          <button class="view-details-link" (click)="navigateToEarnings()">
+            {{ 'HOME.VIEW_DETAILS' | translate }}
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
         </div>
       </div>
     </div>
@@ -345,6 +370,12 @@
                   </div>
                 </div>
                 
+                <!-- Other participant in call indicator -->
+                <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextLesson.lesson?.status !== 'cancelled'">
+                  <span class="in-call-dot"></span>
+                  <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
+                </div>
+
                 <!-- Starts In Card (matches tutor design) -->
                 <div class="starts-in-card" *ngIf="nextLesson.lesson?.status !== 'cancelled'">
                   <span class="starts-label-modern">{{ isLessonInProgress(nextLesson?.lesson) ? ('HOME.STARTED' | translate) : ('HOME.STARTS_IN' | translate) }}</span>
@@ -699,6 +730,12 @@
           {{ 'HOME.CANCELLED_INSUFFICIENT' | translate }}
         </p>
 
+        <!-- Other participant in call indicator -->
+        <div class="participant-in-call" *ngIf="nextLessonOtherJoined && nextClass.lesson?.status !== 'cancelled'">
+          <span class="in-call-dot"></span>
+          <span class="in-call-text">{{ 'HOME.PARTICIPANT_IN_CALL' | translate:{ name: nextLessonOtherName } }}</span>
+        </div>
+
         <div class="upnext-filled-actions" *ngIf="nextClass.lesson?.status !== 'cancelled'">
           <ion-button 
             fill="outline" 
@@ -803,8 +840,8 @@
         </div>
       </div>
 
-      <!-- Coming Up (Row 2, Left) -->
-      <div class="grid-cell-comingup">
+      <!-- Coming Up (Row 2, Left) — hidden on mobile unless there are lessons beyond Up Next -->
+      <div class="grid-cell-comingup" *ngIf="!isMobile || timelineEvents.length > 0">
         <div class="timeline-section" *ngIf="!isLoadingLessons">
           <div class="section-header-new">
             <h2>{{ 'HOME.COMING_UP' | translate }}</h2>
@@ -865,8 +902,8 @@
                 </ion-popover>
               </div>
               
-              <!-- Show all link -->
-              <button class="coming-up-show-all" (click)="openAllLessonsModal()">
+              <!-- Show all link (only when more than one lesson) -->
+              <button class="coming-up-show-all" *ngIf="timelineEvents.length > 1" (click)="openAllLessonsModal()">
                 {{ 'HOME.VIEW_MORE_LESSONS' | translate }}
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
@@ -875,10 +912,6 @@
             <!-- Empty state when no more lessons -->
             <div class="coming-up-empty" *ngIf="timelineEvents.length === 0">
               <p>{{ getComingUpEmptyMessage() }}</p>
-              <button class="coming-up-show-all" (click)="openAllLessonsModal()">
-                {{ 'HOME.VIEW_MORE_LESSONS' | translate }}
-                <ion-icon name="arrow-forward-outline"></ion-icon>
-              </button>
             </div>
             
             <!-- Contextual action prompt (feedback or find tutors) -->
@@ -1057,7 +1090,7 @@
         <ion-icon name="chatbubbles-outline"></ion-icon>
         {{ 'HOME.FORUM' | translate }}
       </button>
-      <button class="explore-pill" (click)="navigateToExplore()">
+      <button class="explore-pill explore-pill-classes" (click)="navigateToExplore()">
         <ion-icon name="people-outline"></ion-icon>
         {{ 'HOME.CLASSES' | translate }}
       </button>
@@ -1065,11 +1098,11 @@
 
     <!-- Explore Pills — Tutors -->
     <div class="explore-pills" *ngIf="!isLoadingLessons && isTutorUser">
-      <button class="explore-pill" (click)="navigateToExplore()">
+      <button class="explore-pill explore-pill-classes" (click)="navigateToExplore()">
         <ion-icon name="people-outline"></ion-icon>
         {{ 'HOME.CLASSES' | translate }}
       </button>
-      <button class="explore-pill">
+      <button class="explore-pill explore-pill-material" (click)="navigateToCreateMaterial()">
         <ion-icon name="create-outline"></ion-icon>
         {{ 'HOME.CREATE_MATERIAL' | translate }}
       </button>
@@ -1296,6 +1329,11 @@
           [showDefaultButtons]="false"
           size="cover">
         </ion-datetime>
+        <div class="datepicker-action">
+          <button class="datepicker-set-btn" [disabled]="!hasMonthFilter" (click)="closeDatePickerView()">
+            Set Date
+          </button>
+        </div>
       </div>
     </ion-content>
   </ng-template>

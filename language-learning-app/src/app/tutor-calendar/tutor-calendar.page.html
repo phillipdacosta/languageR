@@ -24,15 +24,14 @@
   
   <ng-container *ngIf="isMobileView; else desktopCalendar">
     <div class="mobile-header">
-      <!-- <ion-button fill="clear" class="mobile-back-button" (click)="goBack()">
-        <ion-icon name="chevron-back-outline" slot="start"></ion-icon>
-        Calendar
-      </ion-button> -->
-      <div class="mobile-header-actions">
-        <ion-button fill="clear" class="mobile-settings-button" (click)="toggleMobileSettings()">
-          <ion-icon [name]="showMobileSettings ? 'close-outline' : 'options-outline'"></ion-icon>
-        </ion-button>
+      <div class="mobile-header-toggle">
+        <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">Day</button>
+        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
       </div>
+      <ion-button fill="clear" class="mobile-availability-btn" (click)="onSetUpAvailability()" [disabled]="isScreenLocked()">
+        <ion-icon name="calendar-outline" slot="start"></ion-icon>
+        Set Availability
+      </ion-button>
     </div>
 
     <div class="mobile-settings-wrapper" [class.open]="showMobileSettings">
@@ -103,10 +102,6 @@
     </div>
 
     <div class="mobile-calendar-wrapper">
-      <div class="mobile-view-toggle">
-        <button type="button" [class.active]="mobileViewMode === 'day'" (click)="setMobileViewMode('day')" [disabled]="isScreenLocked()">Day</button>
-        <button type="button" [class.active]="mobileViewMode === 'agenda'" (click)="setMobileViewMode('agenda')" [disabled]="isScreenLocked()">Agenda</button>
-      </div>
 
       <!-- Temporarily commented out schedule legend -->
       <!-- <div class="schedule-legend">
@@ -156,7 +151,7 @@
             <div class="date-month">{{ activeDay.monthLabel }} {{ activeDay.dayNumber }}</div>
           </div>
 
-          <div class="schedule-legend">
+          <!-- <div class="schedule-legend">
             <h4>Your Schedule</h4>
             <div class="legend-items">
               <div class="legend-item">
@@ -168,7 +163,7 @@
                 <span>Booked lesson</span>
               </div>
             </div>
-          </div>
+          </div> -->
 
           <!-- Show nothing while loading -->
           <ng-container *ngIf="!isLoadingMobileData">
@@ -253,7 +248,7 @@
             <ion-button fill="clear" size="small" class="today-link" (click)="goToMobileToday()" [disabled]="isScreenLocked()">Current Week</ion-button>
           </div>
           
-          <div class="schedule-legend">
+          <!-- <div class="schedule-legend">
             <h4>Your Schedule</h4>
             <div class="legend-items">
               <div class="legend-item">
@@ -273,7 +268,7 @@
                 <span>Booked lesson</span>
               </div>
             </div>
-          </div>
+          </div> -->
           
           <!-- Show nothing while loading -->
           <ng-container *ngIf="!isLoadingMobileData">
@@ -487,7 +482,7 @@
         <!-- CUSTOM CALENDAR (NEW) -->
         <div class="custom-calendar-wrapper" [style.opacity]="isDesktopCalendarReady ? '1' : '0'" [style.transition]="'opacity 0.3s ease-in-out'">
           <!-- Calendar Toolbar -->
-          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete || pendingFeedbackCount > 0">
+          <div class="custom-toolbar" [class.onboarding-incomplete]="isOnboardingIncomplete || pendingFeedbackCount > 0" [class.mobile-toolbar]="isCompactToolbar">
             <div class="toolbar-left" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
               <button class="nav-btn" type="button" (click)="navigatePrevious()">
                 <ion-icon name="chevron-back"></ion-icon>
@@ -496,6 +491,10 @@
                 <ion-icon name="chevron-forward"></ion-icon>
               </button>
               <button class="today-btn" type="button" (click)="navigateToday()">Today</button>
+              <div class="view-switcher view-switcher-mobile" *ngIf="isCompactToolbar">
+                <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
+                <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>
+              </div>
             </div>
             <div class="toolbar-center">
               <h2 class="calendar-title" *ngIf="customView === 'week' && !isOnboardingIncomplete && pendingFeedbackCount === 0">{{ currentWeekTitle }}</h2>
@@ -569,7 +568,7 @@
                 </button>
               </div>
             </div>
-            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0">
+            <div class="toolbar-right" *ngIf="!isOnboardingIncomplete && pendingFeedbackCount === 0 && !isCompactToolbar">
               <div class="view-switcher">
                 <button [class.active]="customView === 'week'" (click)="switchView('week')">Week</button>
                 <button [class.active]="customView === 'day'" (click)="switchView('day')">Day</button>

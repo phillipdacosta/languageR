@@ -40,14 +40,13 @@ class WithdrawalService {
   async requestWithdrawal({ tutorId, amount, method }) {
     console.log(`\n💰 [WITHDRAWAL] Request initiated: tutorId=${tutorId}, amount=$${amount}, method=${method}`);
     
-    // Get tutor
+    // Get tutor for pre-flight validation (method config, minimum amounts)
     const tutor = await User.findById(tutorId);
     if (!tutor || tutor.userType !== 'tutor') {
       throw new Error('Invalid tutor');
     }
     
     // Ensure withdrawalSettings exists with updated defaults
-    // Also migrate existing users from $20 to $10 minimum
     if (!tutor.withdrawalSettings || !tutor.withdrawalSettings.minimumAmount) {
       tutor.withdrawalSettings = {
         minimumAmount: 10,
@@ -57,28 +56,18 @@ class WithdrawalService {
       await tutor.save();
       console.log('✅ Updated withdrawal settings to new defaults');
     } else if (tutor.withdrawalSettings.minimumAmount === 20) {
-      // Migrate existing users from $20 to $10
       tutor.withdrawalSettings.minimumAmount = 10;
       await tutor.save();
       console.log('✅ Migrated withdrawal minimum from $20 to $10');
     }
     
-    // Validation checks
-    // Stripe Connect has no minimum withdrawal amount, PayPal requires minimum
+    // Pre-flight validation (non-atomic, but these are config checks that don't race)
     if (method === 'paypal' && amount < tutor.withdrawalSettings.minimumAmount) {
       throw new Error(`Minimum withdrawal is $${tutor.withdrawalSettings.minimumAmount}`);
     }
-    
-    // For Stripe, only require a positive amount
     if (method === 'stripe_connect' && amount < 0.01) {
       throw new Error('Withdrawal amount must be at least $0.01');
     }
-    
-    if (amount > tutor.tutorEarnings.availableBalance) {
-      throw new Error(`Insufficient balance. Available: $${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
-    }
-    
-    // Verify method is configured
     if (method === 'stripe_connect') {
       if (!tutor.stripeConnectOnboarded || !tutor.stripePayoutsEnabled) {
         throw new Error('Stripe Connect not fully configured. Please complete onboarding.');
@@ -91,146 +80,174 @@ class WithdrawalService {
       throw new Error('Invalid withdrawal method');
     }
     
-    // Find available payments to include in this withdrawal
-    const availablePayments = await Payment.find({
-      tutorId: new mongoose.Types.ObjectId(tutorId),
-      transferStatus: 'available',
-      tutorPayout: { $gt: 0 }
-    }).sort({ earningsReleaseDate: 1 });
+    // ── ATOMIC balance deduction ──
+    // Uses findOneAndUpdate with $gte guard so two concurrent requests
+    // cannot both pass — only the first one to decrement wins.
+    const roundedAmount = Math.round(amount * 100) / 100;
+    const updatedTutor = await User.findOneAndUpdate(
+      {
+        _id: tutorId,
+        'tutorEarnings.availableBalance': { $gte: roundedAmount }
+      },
+      {
+        $inc: { 'tutorEarnings.availableBalance': -roundedAmount }
+      },
+      { new: true }
+    );
     
-    console.log(`📊 Found ${availablePayments.length} available payments totaling $${availablePayments.reduce((sum, p) => sum + p.tutorPayout, 0).toFixed(2)}`);
-    
-    if (availablePayments.length === 0) {
-      throw new Error('No available earnings to withdraw');
+    if (!updatedTutor) {
+      // Re-read to give an accurate error message
+      const freshTutor = await User.findById(tutorId);
+      const currentBalance = freshTutor?.tutorEarnings?.availableBalance ?? 0;
+      throw new Error(`Insufficient balance. Available: $${currentBalance.toFixed(2)}`);
     }
     
-    // Select payments to include (up to requested amount)
-    // Support partial payment withdrawals by splitting the last payment if needed
-    let remaining = amount;
-    const paymentsToInclude = [];
-    let paymentToSplit = null;
-    let splitAmount = 0;
+    console.log(`🔒 Atomically deducted $${roundedAmount} — new balance: $${updatedTutor.tutorEarnings.availableBalance.toFixed(2)}`);
     
-    for (const payment of availablePayments) {
-      if (remaining <= 0) break;
+    // Everything below happens after the balance is reserved.
+    // If anything fails, we roll back the atomic deduction.
+    try {
+      // Find available payments to include in this withdrawal
+      const availablePayments = await Payment.find({
+        tutorId: new mongoose.Types.ObjectId(tutorId),
+        transferStatus: 'available',
+        tutorPayout: { $gt: 0 }
+      }).sort({ earningsReleaseDate: 1 });
       
-      if (payment.tutorPayout <= remaining) {
-        // Take the entire payment
-        paymentsToInclude.push(payment._id);
-        remaining -= payment.tutorPayout;
-        console.log(`  ✅ Including full payment ${payment._id}: $${payment.tutorPayout}`);
-      } else {
-        // Need to split this payment (take only part of it)
-        paymentToSplit = payment;
-        splitAmount = remaining;
-        paymentsToInclude.push(payment._id);
-        console.log(`  ✂️  Splitting payment ${payment._id}: taking $${splitAmount} of $${payment.tutorPayout}`);
-        remaining = 0;
-        break;
+      console.log(`📊 Found ${availablePayments.length} available payments totaling $${availablePayments.reduce((sum, p) => sum + p.tutorPayout, 0).toFixed(2)}`);
+      
+      if (availablePayments.length === 0) {
+        throw new Error('No available earnings to withdraw');
       }
-    }
-    
-    if (paymentsToInclude.length === 0) {
-      throw new Error('Unable to allocate payments for withdrawal');
-    }
-    
-    // Calculate fees
-    let platformFee = 0; // We don't charge additional withdrawal fee
-    let paypalFee = 0;
-    let stripeFee = 0;
-    
-    if (method === 'paypal') {
-      // PayPal charges $0.25 or 2% (whichever is higher), max $20
-      paypalFee = Math.max(0.25, amount * 0.02);
-      paypalFee = Math.min(paypalFee, 20);
-      paypalFee = Math.round(paypalFee * 100) / 100; // Round to 2 decimals
-      console.log(`💸 PayPal fee calculated: $${paypalFee}`);
-    }
-    
-    const netAmount = amount - platformFee - paypalFee - stripeFee;
-    
-    console.log(`📝 Withdrawal breakdown: Amount=$${amount}, Fees=$${platformFee + paypalFee + stripeFee}, Net=$${netAmount}`);
-    
-    // If we need to split a payment, create the remainder payment first
-    if (paymentToSplit && splitAmount < paymentToSplit.tutorPayout) {
-      const remainderAmount = paymentToSplit.tutorPayout - splitAmount;
-      console.log(`✂️  Creating remainder payment: $${remainderAmount.toFixed(2)}`);
       
-      // Create a new payment for the remainder
-      const remainderPayment = new Payment({
-        lessonId: paymentToSplit.lessonId,
-        studentId: paymentToSplit.studentId,
-        userId: paymentToSplit.userId,
-        tutorId: paymentToSplit.tutorId,
-        amount: remainderAmount,
-        platformFee: 0, // No additional platform fee for split
-        tutorPayout: remainderAmount,
-        paymentType: paymentToSplit.paymentType,
-        paymentMethod: paymentToSplit.paymentMethod,
-        paymentIntentId: `${paymentToSplit.paymentIntentId}_split_${Date.now()}`,
-        status: 'succeeded',
-        transferStatus: 'available', // Immediately available
-        revenueRecognized: true,
-        earningsReleaseDate: paymentToSplit.earningsReleaseDate,
-        metadata: {
-          ...paymentToSplit.metadata,
-          splitFrom: paymentToSplit._id.toString(),
-          splitReason: 'Partial withdrawal - remainder after withdrawal',
-          splitDate: new Date()
+      // Select payments to include (up to requested amount)
+      let remaining = roundedAmount;
+      const paymentsToInclude = [];
+      let paymentToSplit = null;
+      let splitAmount = 0;
+      
+      for (const payment of availablePayments) {
+        if (remaining <= 0) break;
+        
+        if (payment.tutorPayout <= remaining) {
+          paymentsToInclude.push(payment._id);
+          remaining -= payment.tutorPayout;
+          console.log(`  ✅ Including full payment ${payment._id}: $${payment.tutorPayout}`);
+        } else {
+          paymentToSplit = payment;
+          splitAmount = remaining;
+          paymentsToInclude.push(payment._id);
+          console.log(`  ✂️  Splitting payment ${payment._id}: taking $${splitAmount} of $${payment.tutorPayout}`);
+          remaining = 0;
+          break;
         }
+      }
+      
+      if (paymentsToInclude.length === 0) {
+        throw new Error('Unable to allocate payments for withdrawal');
+      }
+      
+      // Calculate fees
+      let platformFee = 0;
+      let paypalFee = 0;
+      let stripeFee = 0;
+      
+      if (method === 'paypal') {
+        paypalFee = Math.max(0.25, roundedAmount * 0.02);
+        paypalFee = Math.min(paypalFee, 20);
+        paypalFee = Math.round(paypalFee * 100) / 100;
+        console.log(`💸 PayPal fee calculated: $${paypalFee}`);
+      }
+      
+      const netAmount = roundedAmount - platformFee - paypalFee - stripeFee;
+      
+      console.log(`📝 Withdrawal breakdown: Amount=$${roundedAmount}, Fees=$${platformFee + paypalFee + stripeFee}, Net=$${netAmount}`);
+      
+      // If we need to split a payment, create the remainder payment first
+      if (paymentToSplit && splitAmount < paymentToSplit.tutorPayout) {
+        const remainderAmount = paymentToSplit.tutorPayout - splitAmount;
+        console.log(`✂️  Creating remainder payment: $${remainderAmount.toFixed(2)}`);
+        
+        const remainderPayment = new Payment({
+          lessonId: paymentToSplit.lessonId,
+          studentId: paymentToSplit.studentId,
+          userId: paymentToSplit.userId,
+          tutorId: paymentToSplit.tutorId,
+          amount: remainderAmount,
+          platformFee: 0,
+          tutorPayout: remainderAmount,
+          paymentType: paymentToSplit.paymentType,
+          paymentMethod: paymentToSplit.paymentMethod,
+          paymentIntentId: `${paymentToSplit.paymentIntentId}_split_${Date.now()}`,
+          status: 'succeeded',
+          transferStatus: 'available',
+          revenueRecognized: true,
+          earningsReleaseDate: paymentToSplit.earningsReleaseDate,
+          metadata: {
+            ...paymentToSplit.metadata,
+            splitFrom: paymentToSplit._id.toString(),
+            splitReason: 'Partial withdrawal - remainder after withdrawal',
+            splitDate: new Date()
+          }
+        });
+        
+        await remainderPayment.save();
+        console.log(`✅ Created remainder payment ${remainderPayment._id}: $${remainderAmount.toFixed(2)}`);
+        
+        paymentToSplit.tutorPayout = splitAmount;
+        paymentToSplit.amount = splitAmount;
+        paymentToSplit.metadata = {
+          ...paymentToSplit.metadata,
+          splitInto: remainderPayment._id.toString(),
+          splitReason: 'Partial withdrawal - withdrawn portion',
+          splitDate: new Date()
+        };
+        await paymentToSplit.save();
+        console.log(`✅ Updated original payment ${paymentToSplit._id}: now $${splitAmount.toFixed(2)}`);
+      }
+      
+      // Create withdrawal request
+      const withdrawal = new Withdrawal({
+        tutorId,
+        amount: roundedAmount,
+        method,
+        paymentIds: paymentsToInclude,
+        platformFee,
+        stripeFee,
+        paypalFee,
+        netAmount,
+        status: 'pending',
+        requestedAt: new Date()
       });
       
-      await remainderPayment.save();
-      console.log(`✅ Created remainder payment ${remainderPayment._id}: $${remainderAmount.toFixed(2)}`);
+      await withdrawal.save();
+      console.log(`✅ Withdrawal record created: ${withdrawal._id}`);
       
-      // Update the original payment's tutorPayout to reflect only the withdrawn amount
-      paymentToSplit.tutorPayout = splitAmount;
-      paymentToSplit.amount = splitAmount;
-      paymentToSplit.metadata = {
-        ...paymentToSplit.metadata,
-        splitInto: remainderPayment._id.toString(),
-        splitReason: 'Partial withdrawal - withdrawn portion',
-        splitDate: new Date()
-      };
-      await paymentToSplit.save();
-      console.log(`✅ Updated original payment ${paymentToSplit._id}: now $${splitAmount.toFixed(2)}`);
+      // Reserve payments for this withdrawal
+      await Payment.updateMany(
+        { _id: { $in: paymentsToInclude } },
+        { 
+          transferStatus: 'pending_withdrawal',
+          withdrawalId: withdrawal._id
+        }
+      );
+      console.log(`🔒 Reserved ${paymentsToInclude.length} payments for withdrawal`);
+      
+      console.log(`💼 Tutor balance after withdrawal: Available=$${updatedTutor.tutorEarnings.availableBalance.toFixed(2)}`);
+      console.log(`✅ [WITHDRAWAL] Request completed: ${withdrawal._id}\n`);
+      
+      return withdrawal;
+      
+    } catch (error) {
+      // Roll back the atomic balance deduction
+      console.error(`❌ [WITHDRAWAL] Post-deduction failure, rolling back $${roundedAmount}: ${error.message}`);
+      await User.findOneAndUpdate(
+        { _id: tutorId },
+        { $inc: { 'tutorEarnings.availableBalance': roundedAmount } }
+      );
+      console.log(`🔄 Rolled back $${roundedAmount} to available balance`);
+      throw error;
     }
-    
-    // Create withdrawal request
-    const withdrawal = new Withdrawal({
-      tutorId,
-      amount,
-      method,
-      paymentIds: paymentsToInclude,
-      platformFee,
-      stripeFee,
-      paypalFee,
-      netAmount,
-      status: 'pending',
-      requestedAt: new Date()
-    });
-    
-    await withdrawal.save();
-    console.log(`✅ Withdrawal record created: ${withdrawal._id}`);
-    
-    // Update payment statuses (reserve them for this withdrawal)
-    await Payment.updateMany(
-      { _id: { $in: paymentsToInclude } },
-      { 
-        transferStatus: 'pending_withdrawal',
-        withdrawalId: withdrawal._id
-      }
-    );
-    console.log(`🔒 Reserved ${paymentsToInclude.length} payments for withdrawal`);
-    
-    // Reserve the balance (deduct from available)
-    tutor.tutorEarnings.availableBalance -= amount;
-    await tutor.save();
-    console.log(`💼 Updated tutor balance: Available=$${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
-    
-    console.log(`✅ [WITHDRAWAL] Request completed: ${withdrawal._id}\n`);
-    
-    return withdrawal;
   }
   
   /**
@@ -285,11 +302,15 @@ class WithdrawalService {
       );
       console.log(`📝 Updated ${withdrawal.paymentIds.length} payments to 'withdrawn'`);
       
-      // Update tutor stats
-      const tutor = await User.findById(withdrawal.tutorId);
-      tutor.tutorEarnings.totalWithdrawn += withdrawal.amount;
-      tutor.tutorEarnings.lastWithdrawal = new Date();
-      await tutor.save();
+      // Atomic tutor stats update
+      const tutor = await User.findOneAndUpdate(
+        { _id: withdrawal.tutorId },
+        {
+          $inc: { 'tutorEarnings.totalWithdrawn': withdrawal.amount },
+          $set: { 'tutorEarnings.lastWithdrawal': new Date() }
+        },
+        { new: true }
+      );
       console.log(`💼 Updated tutor stats: totalWithdrawn=$${tutor.tutorEarnings.totalWithdrawn.toFixed(2)}`);
       
       // Create notification for tutor
@@ -328,10 +349,12 @@ class WithdrawalService {
       withdrawal.retryCount += 1;
       await withdrawal.save();
       
-      // Return funds to available balance (rollback)
-      const tutor = await User.findById(withdrawal.tutorId);
-      tutor.tutorEarnings.availableBalance += withdrawal.amount;
-      await tutor.save();
+      // Atomic rollback of funds to available balance
+      const tutor = await User.findOneAndUpdate(
+        { _id: withdrawal.tutorId },
+        { $inc: { 'tutorEarnings.availableBalance': withdrawal.amount } },
+        { new: true }
+      );
       console.log(`🔄 Rolled back balance: Available=$${tutor.tutorEarnings.availableBalance.toFixed(2)}`);
       
       // Reset payment statuses

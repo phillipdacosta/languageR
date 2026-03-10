@@ -6,6 +6,9 @@ const Alert = require('../models/Alert');
 const Payment = require('../models/Payment');
 const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
+const MaterialReport = require('../models/MaterialReport');
+const MaterialPurchase = require('../models/MaterialPurchase');
+const TutorMaterial = require('../models/TutorMaterial');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const alertService = require('../services/alertService');
 const walletService = require('../services/walletService');
@@ -2075,5 +2078,198 @@ const handleAdminCredentialUrl = async (req, res) => {
 };
 router.get('/credential-url/:userId/:credentialType/:credentialId', verifyToken, requireAdmin, handleAdminCredentialUrl);
 router.get('/credential-url/:userId/:credentialType', verifyToken, requireAdmin, handleAdminCredentialUrl);
+
+// ═══ Material Report Management ═══════════════════════════════════════
+
+router.get('/material-reports', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') query.status = status;
+
+    const reports = await MaterialReport.find(query)
+      .populate('materialId', 'title materialType videoUrl status thumbnailUrl')
+      .populate('studentId', 'name email picture')
+      .populate('tutorId', 'name email picture')
+      .populate('purchaseId', 'amount stripePaymentIntentId status')
+      .populate('resolvedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, reports });
+  } catch (error) {
+    console.error('Error fetching material reports:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+router.put('/material-reports/:id', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const admin = await User.findOne({
+      $or: [{ auth0Id: req.user.sub }, { email: req.user.email }]
+    });
+
+    const report = await MaterialReport.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ success: false, message: 'Report not found' });
+    }
+
+    const { status, resolution, issueRefund } = req.body;
+
+    if (issueRefund && report.hasPurchased && report.purchaseId) {
+      const purchase = await MaterialPurchase.findById(report.purchaseId);
+      if (purchase && purchase.status === 'completed' && purchase.stripePaymentIntentId) {
+        const daysSincePurchase = (Date.now() - new Date(purchase.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSincePurchase > 90) {
+          return res.status(400).json({ success: false, message: 'Refund window expired — purchase is older than 90 days' });
+        }
+        try {
+          const stripeService = require('../services/stripeService');
+          await stripeService.createRefund({
+            paymentIntentId: purchase.stripePaymentIntentId,
+            reason: 'requested_by_customer',
+            reverseTransfer: true
+          });
+
+          purchase.status = 'refunded';
+          purchase.refundedAt = new Date();
+          purchase.refundReason = `Admin refund: ${resolution || 'Material report resolved'}`;
+          await purchase.save();
+
+          await Payment.findOneAndUpdate(
+            { materialId: report.materialId, studentId: report.studentId, paymentType: 'material_purchase' },
+            { status: 'refunded' }
+          );
+
+          report.refundIssued = true;
+          report.refundAmount = purchase.amount;
+        } catch (refundErr) {
+          console.error('Refund failed:', refundErr);
+          return res.status(500).json({ success: false, message: `Refund failed: ${refundErr.message}` });
+        }
+      }
+    }
+
+    if (status) report.status = status;
+    if (resolution) report.resolution = resolution;
+    if (status === 'resolved' || status === 'dismissed') {
+      report.resolvedAt = new Date();
+      report.resolvedBy = admin?._id;
+    }
+
+    await report.save();
+
+    const updated = await MaterialReport.findById(report._id)
+      .populate('materialId', 'title materialType videoUrl status thumbnailUrl')
+      .populate('studentId', 'name email picture')
+      .populate('tutorId', 'name email picture')
+      .populate('purchaseId', 'amount stripePaymentIntentId status')
+      .populate('resolvedBy', 'name email')
+      .lean();
+
+    res.json({ success: true, report: updated });
+  } catch (error) {
+    console.error('Error updating material report:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ═══ Material Content Review Queue ═══════════════════════════════
+
+router.get('/material-review', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { reviewStatus } = req.query;
+    const query = {};
+    if (reviewStatus && reviewStatus !== 'all') {
+      query.reviewStatus = reviewStatus;
+    } else {
+      query.reviewStatus = { $in: ['pending_review', 'approved', 'rejected'] };
+    }
+
+    const materials = await TutorMaterial.find(query)
+      .populate('tutorId', 'name email picture linkedChannels')
+      .populate('reviewedBy', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, materials });
+  } catch (error) {
+    console.error('Error fetching material review queue:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+router.put('/material-review/:id', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const admin = await User.findOne({
+      $or: [{ auth0Id: req.user.sub }, { email: req.user.email }]
+    });
+
+    const material = await TutorMaterial.findById(req.params.id);
+    if (!material) {
+      return res.status(404).json({ success: false, message: 'Material not found' });
+    }
+
+    const { reviewStatus, reviewNote } = req.body;
+    if (!['approved', 'rejected'].includes(reviewStatus)) {
+      return res.status(400).json({ success: false, message: 'reviewStatus must be approved or rejected' });
+    }
+    if (reviewStatus === 'rejected' && (!reviewNote || !reviewNote.trim())) {
+      return res.status(400).json({ success: false, message: 'A reason is required when rejecting a material' });
+    }
+
+    material.reviewStatus = reviewStatus;
+    material.reviewNote = reviewNote || '';
+    material.reviewedBy = admin?._id;
+    material.reviewedAt = new Date();
+
+    if (reviewStatus === 'rejected' && material.status === 'published') {
+      material.status = 'archived';
+    }
+
+    await material.save();
+
+    // Send notification to the tutor
+    const tutorId = material.tutorId;
+    if (tutorId) {
+      const notifType = reviewStatus === 'rejected' ? 'material_rejected' : 'material_approved';
+      const title = reviewStatus === 'rejected' ? 'Material Rejected' : 'Material Approved';
+      const message = reviewStatus === 'rejected'
+        ? `Your material <strong>"${material.title}"</strong> has been rejected.<br><br><strong>Reason:</strong> ${reviewNote.trim()}`
+        : `Your material <strong>"${material.title}"</strong> has been approved and is now live.`;
+
+      await Notification.create({
+        userId: tutorId,
+        type: notifType,
+        title,
+        message,
+        data: {
+          materialId: material._id,
+          materialTitle: material.title,
+          reviewNote: reviewNote || '',
+          reviewStatus
+        }
+      });
+
+      if (global.io) {
+        global.io.to(`user:${tutorId}`).emit('notification', {
+          type: notifType,
+          title,
+          message
+        });
+      }
+    }
+
+    const updated = await TutorMaterial.findById(material._id)
+      .populate('tutorId', 'name email picture linkedChannels')
+      .populate('reviewedBy', 'name email')
+      .lean();
+
+    res.json({ success: true, material: updated });
+  } catch (error) {
+    console.error('Error updating material review:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 module.exports = router;

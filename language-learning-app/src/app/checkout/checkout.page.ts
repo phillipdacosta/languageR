@@ -38,7 +38,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
   currentUser: any = null;
   isBooking = false;
   returnTo: string | null = null; // Track where to return after booking
-  previousLessonsWithTutor: number = 0; // Track lesson count with this tutor
+  previousLessonsWithTutor: number = -1; // -1 = unknown (not yet checked), 0 = trial, 1+ = not trial
   
   // Payment-related properties
   selectedPaymentMethod: string = 'saved-card';
@@ -238,7 +238,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
     
     // Otherwise, check via API (fallback for direct navigation)
     if (!this.tutorId || !this.currentUser) {
-      this.previousLessonsWithTutor = 0;
+      this.previousLessonsWithTutor = 1; // Default to non-trial when we can't check
       return;
     }
 
@@ -259,7 +259,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
       }
     } catch (error) {
       console.error('Error checking trial lesson status:', error);
-      this.previousLessonsWithTutor = 0;
+      this.previousLessonsWithTutor = 1; // Default to non-trial on error
     }
   }
 
@@ -1009,7 +1009,7 @@ export class CheckoutPage implements OnInit, OnDestroy {
   }
 
   get isTrialLesson(): boolean {
-    // First lesson with this tutor = trial lesson
+    // Only true when we've confirmed this is the first lesson (0), not when unknown (-1)
     return this.previousLessonsWithTutor === 0;
   }
 

@@ -23,6 +23,7 @@ export class LessonSummaryComponent implements OnInit {
 
   analysis: LessonAnalysis | null = null;
   loading = true;
+  analysisUnavailable = false;
   
   // Tutor info
   tutorInfo: {
@@ -101,16 +102,20 @@ export class LessonSummaryComponent implements OnInit {
             this.loading = false;
             clearInterval(interval);
             console.log('✅ Analysis loaded successfully');
-          } else if (analysis.status === 'failed') {
-            console.error('❌ Analysis failed');
+          } else if (analysis.status === 'failed' || analysis.status === 'insufficient_data') {
+            this.analysisUnavailable = true;
             this.loading = false;
             clearInterval(interval);
+            console.log(`⚠️ Analysis ${analysis.status}`);
           }
         },
-        error: (error) => {
-          // Still processing, keep polling
-          if (attempts >= maxAttempts) {
-            console.error('Analysis timeout');
+        error: (error: any) => {
+          if (error.status === 404 && error.error?.status === 'unavailable') {
+            this.analysisUnavailable = true;
+            this.loading = false;
+            clearInterval(interval);
+          } else if (attempts >= maxAttempts) {
+            this.analysisUnavailable = true;
             this.loading = false;
             clearInterval(interval);
           }

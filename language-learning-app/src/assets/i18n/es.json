@@ -96,6 +96,7 @@
     "JOIN_NOW": "Unirse ahora",
     "JOIN": "Unirse",
     "JOIN_LESSON": "Unirse a la lección",
+    "PARTICIPANT_IN_CALL": "{{name}} está en la llamada",
     "RESCHEDULE": "Reprogramar",
     "CANCEL_LESSON": "Cancelar lección",
     "CANCEL": "Cancelar",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "¿Estás seguro de que quieres retirar ${{amount}}? Se enviará a tu cuenta de {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmar",
     "WITHDRAW_SUCCESS": "¡Retiro de ${{amount}} solicitado exitosamente! Procesamiento en 1-2 días hábiles.",
+    "WITHDRAW_SUCCESS_TITLE": "¡Pago Enviado!",
+    "WITHDRAW_SUCCESS_DETAIL": "¡{{amount}} enviado a tu {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Los fondos suelen estar disponibles en 1–2 días hábiles.",
+    "WITHDRAW_SUCCESS_DONE": "Listo",
     "WITHDRAW_ERROR": "Error al solicitar el retiro. Inténtalo de nuevo.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Ingresa un monto de retiro válido",
     "WITHDRAW_MIN_PAYPAL_ERROR": "El monto mínimo de retiro es $10",
@@ -352,9 +357,9 @@
       "LOGOUT_CONFIRM": "¿Seguro que quieres cerrar sesión?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Bienvenido a Speak Freely",
+      "GREETING": "Bienvenido a Barnaby",
       "SUBTITLE": "La forma más inteligente de aprender y enseñar idiomas. Configuremos tu cuenta en unos pocos pasos.",
-      "TUTOR_GREETING": "Bienvenido a Speak Freely",
+      "TUTOR_GREETING": "Bienvenido a Barnaby",
       "TUTOR_SUBTITLE": "Únete a nuestra comunidad de tutores y comienza a enseñar a estudiantes de todo el mundo. Preparemos tu perfil.",
       "CTA": "Comenzar",
       "BACK": "Cambiar idioma"
@@ -814,6 +819,7 @@
     "INTRO_VIDEO": "Video de presentación",
     "INTRO_VIDEO_SUBTITLE": "Ayuda a los estudiantes a conocerte mejor",
     "INTRO_VIDEO_DESC": "Sube un video corto presentándote y explicando tu estilo de enseñanza. Este video se mostrará a los estudiantes cuando estén buscando tutores.",
+    "PAYOUTS": "Pagos",
     "REMOVE": "Eliminar",
     "CHANGE": "Cambiar"
   }

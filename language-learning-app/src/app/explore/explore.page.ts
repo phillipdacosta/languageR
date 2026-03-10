@@ -1,80 +1,51 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ToastController, ModalController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
 import { ClassService } from '../services/class.service';
 import { UserService } from '../services/user.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer } from '@angular/platform-browser';
 import { SharedModule } from '../shared/shared.module';
 import { formatTimeInTz, formatDateInTz } from '../shared/timezone.utils';
 import { ClassInvitationModalComponent } from '../components/class-invitation-modal/class-invitation-modal.component';
+import { ExploreFiltersModalComponent, ExploreFilters } from '../components/explore-filters-modal/explore-filters-modal.component';
+import { ScheduleClassPage } from '../tutor-calendar/schedule-class/schedule-class.page';
 
 @Component({
   selector: 'app-explore',
   templateUrl: './explore.page.html',
   styleUrls: ['./explore.page.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule]
+  imports: [CommonModule, IonicModule, RouterModule, FormsModule, SharedModule, ScheduleClassPage]
 })
 export class ExplorePage implements OnInit {
+  @Input() inline = false;
+  @Output() goBackEvent = new EventEmitter<void>();
+
   publicClasses: any[] = [];
   filteredClasses: any[] = [];
   isLoading = false;
   currentUser: any = null;
-  showFiltersView = false;
-  showLanguageDropdown = false;
-  showSecondaryFilters = false;
-  
-  filters = {
+  isTutorUser = false;
+  showScheduleForm = false;
+  activeFilterCount = 0;
+
+  filters: ExploreFilters = {
     language: 'any',
     priceMin: 0,
     priceMax: 200,
     dateFrom: '',
     dateTo: '',
-    sortBy: 'date_asc', // 'date_asc', 'date_desc', 'price_asc', 'price_desc', 'name_asc'
+    sortBy: 'date_asc',
     searchQuery: ''
   };
-  
-  priceRange = {
-    lower: 0,
-    upper: 200
-  };
-  
-  availableLanguages = [
-    { value: 'any', label: 'Any language' },
-    { value: 'Spanish', label: 'Spanish' },
-    { value: 'French', label: 'French' },
-    { value: 'German', label: 'German' },
-    { value: 'Italian', label: 'Italian' },
-    { value: 'Portuguese', label: 'Portuguese' },
-    { value: 'Russian', label: 'Russian' },
-    { value: 'Chinese', label: 'Chinese' },
-    { value: 'Japanese', label: 'Japanese' },
-    { value: 'Korean', label: 'Korean' },
-    { value: 'Arabic', label: 'Arabic' },
-    { value: 'Hindi', label: 'Hindi' },
-    { value: 'Dutch', label: 'Dutch' },
-    { value: 'Swedish', label: 'Swedish' },
-    { value: 'Norwegian', label: 'Norwegian' },
-    { value: 'Danish', label: 'Danish' },
-    { value: 'Finnish', label: 'Finnish' },
-    { value: 'Polish', label: 'Polish' },
-    { value: 'Czech', label: 'Czech' },
-    { value: 'Hungarian', label: 'Hungarian' },
-    { value: 'Turkish', label: 'Turkish' },
-    { value: 'Greek', label: 'Greek' },
-    { value: 'Hebrew', label: 'Hebrew' },
-    { value: 'Thai', label: 'Thai' },
-    { value: 'Vietnamese', label: 'Vietnamese' },
-    { value: 'Indonesian', label: 'Indonesian' },
-    { value: 'Malay', label: 'Malay' },
-    { value: 'Tagalog', label: 'Tagalog' },
-    { value: 'Swahili', label: 'Swahili' },
-    { value: 'English', label: 'English' }
-  ];
 
-  private get userTz(): string | undefined { return this.currentUser?.profile?.timezone || undefined; }
+  private get userTz(): string | undefined {
+    return this.currentUser?.profile?.timezone || undefined;
+  }
+
+  returningFromSchedule = false;
 
   constructor(
     private classService: ClassService,
@@ -82,42 +53,198 @@ export class ExplorePage implements OnInit {
     private router: Router,
     private toast: ToastController,
     private sanitizer: DomSanitizer,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
     this.userService.currentUser$.subscribe(user => {
       this.currentUser = user;
+      this.isTutorUser = user?.userType === 'tutor';
     });
     this.loadPublicClasses();
+  }
+
+  scheduleClass() {
+    // === FLIP Animation: Schedule Class btn → Go back link ===
+    const srcBtn = document.querySelector('.schedule-class-btn') as HTMLElement;
+    const srcRect = srcBtn?.getBoundingClientRect();
+
+    const scheduleBtnLabel = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>Schedule Class</span>';
+
+    let clone: HTMLElement | null = null;
+    if (srcRect && srcBtn) {
+      clone = document.createElement('div');
+      clone.innerHTML = scheduleBtnLabel;
+      Object.assign(clone.style, {
+        position: 'fixed',
+        left: `${srcRect.left}px`,
+        top: `${srcRect.top}px`,
+        width: `${srcRect.width}px`,
+        height: `${srcRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#ffffff',
+        backgroundColor: '#222222',
+        border: 'none',
+        borderRadius: '12px',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(clone);
+    }
+
+    this.showScheduleForm = true;
+    this.cdr.detectChanges();
+
+    if (clone && srcRect) {
+      // Immediate feedback: float up slightly
+      requestAnimationFrame(() => {
+        if (!clone) return;
+        clone.style.top = `${srcRect.top - 10}px`;
+      });
+
+      // After layout, find go-back link and fly to it
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const dest = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+
+          if (dest && clone) {
+            dest.style.transition = 'none';
+            dest.style.opacity = '0';
+            const destRect = dest.getBoundingClientRect();
+
+            clone.style.transition = 'left 0.36s cubic-bezier(0.32, 0.72, 0, 1), top 0.36s cubic-bezier(0.32, 0.72, 0, 1), width 0.36s cubic-bezier(0.32, 0.72, 0, 1), height 0.36s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.36s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.36s ease, color 0.36s ease';
+            clone.textContent = 'Go back';
+            clone.style.left = `${destRect.left}px`;
+            clone.style.top = `${destRect.top}px`;
+            clone.style.width = `${destRect.width}px`;
+            clone.style.height = `${destRect.height}px`;
+            clone.style.backgroundColor = 'transparent';
+            clone.style.color = '#222222';
+            clone.style.borderRadius = '0';
+            clone.style.textDecoration = 'underline';
+
+            setTimeout(() => {
+              dest.style.opacity = '1';
+              requestAnimationFrame(() => {
+                if (clone?.parentNode) clone.remove();
+              });
+              setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+            }, 420);
+          } else if (clone) {
+            clone.style.opacity = '0';
+            setTimeout(() => { if (clone?.parentNode) clone.remove(); }, 350);
+          }
+        });
+      });
+    }
+  }
+
+  onScheduleGoBack() {
+    // === FLIP Animation: Go back link → Schedule Class btn ===
+    const srcLink = document.querySelector('.schedule-class-inline .go-back-link') as HTMLElement;
+    const srcRect = srcLink?.getBoundingClientRect();
+
+    let clone: HTMLElement | null = null;
+    if (srcRect) {
+      clone = document.createElement('div');
+      clone.textContent = 'Go back';
+      Object.assign(clone.style, {
+        position: 'fixed',
+        left: `${srcRect.left}px`,
+        top: `${srcRect.top}px`,
+        width: `${srcRect.width}px`,
+        height: `${srcRect.height}px`,
+        zIndex: '10000',
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxSizing: 'border-box',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#222222',
+        backgroundColor: 'transparent',
+        textDecoration: 'underline',
+        border: 'none',
+        transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s',
+      });
+      document.body.appendChild(clone);
+    }
+
+    this.returningFromSchedule = true;
+    this.showScheduleForm = false;
+    this.cdr.detectChanges();
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const destBtn = document.querySelector('.schedule-class-btn') as HTMLElement;
+
+        if (clone && destBtn) {
+          const destRect = destBtn.getBoundingClientRect();
+          destBtn.style.transition = 'none';
+          destBtn.style.opacity = '0';
+
+          clone.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32" stroke-linecap="round"><line x1="256" y1="112" x2="256" y2="400"/><line x1="112" y1="256" x2="400" y2="256"/></svg><span>Schedule Class</span>';
+          clone.style.textDecoration = 'none';
+          clone.style.gap = '8px';
+          clone.style.left = `${destRect.left}px`;
+          clone.style.top = `${destRect.top}px`;
+          clone.style.width = `${destRect.width}px`;
+          clone.style.height = `${destRect.height}px`;
+          clone.style.backgroundColor = '#222222';
+          clone.style.color = '#ffffff';
+          clone.style.borderRadius = '12px';
+
+          setTimeout(() => {
+            destBtn.style.opacity = '1';
+            requestAnimationFrame(() => {
+              if (clone?.parentNode) clone.remove();
+            });
+            setTimeout(() => {
+              destBtn.style.transition = '';
+              destBtn.style.opacity = '';
+              this.returningFromSchedule = false;
+              this.cdr.detectChanges();
+            }, 50);
+          }, 480);
+        } else {
+          if (clone) clone.remove();
+          this.returningFromSchedule = false;
+          this.cdr.detectChanges();
+        }
+      });
+    });
+  }
+
+  onClassCreated() {
+    this.showScheduleForm = false;
+    this.loadPublicClasses();
+  }
+
+  goBack() {
+    if (this.inline) {
+      this.goBackEvent.emit();
+    } else {
+      this.router.navigate(['/tabs/home']);
+    }
   }
 
   loadPublicClasses() {
     this.isLoading = true;
     this.classService.getPublicClasses().subscribe({
       next: (response) => {
-        console.log('📚 Public classes loaded:', response);
-        console.log('📚 Number of classes:', response.classes?.length || 0);
-        if (response.classes && response.classes.length > 0) {
-          console.log('📚 First class details:', {
-            name: response.classes[0].name,
-            startTime: response.classes[0].startTime,
-            endTime: response.classes[0].endTime,
-            isPublic: response.classes[0].isPublic,
-            duration: response.classes[0].duration,
-            level: response.classes[0].level
-          });
-        }
         if (response.success) {
-          // Show ALL classes including cancelled ones with status
-          this.publicClasses = response.classes.map((cls: any) => ({
-            ...cls,
-            sanitizedDescription: cls.description ? this.sanitizer.bypassSecurityTrustHtml(cls.description) : '',
-            plainTextDescription: this.getPlainTextDescription(cls.description),
-            tutorName: this.formatDisplayName(cls.name)
-          }));
-          this.filteredClasses = [...this.publicClasses]; // Initialize with all classes
-          console.log('📚 After filtering, showing', this.filteredClasses.length, 'classes (including cancelled)');
+          this.publicClasses = response.classes.map((cls: any) => this.enrichClassItem(cls));
           this.applyFilters();
         } else {
           this.publicClasses = [];
@@ -137,12 +264,29 @@ export class ExplorePage implements OnInit {
     });
   }
 
-  
-  
+  private enrichClassItem(cls: any): any {
+    const tz = this.userTz;
+    const start = new Date(cls.startTime);
+    const end = new Date(cls.endTime);
+    const startStr = formatTimeInTz(start, tz);
+    const endStr = formatTimeInTz(end, tz);
+
+    return {
+      ...cls,
+      plainTextDescription: this.getPlainTextDescription(cls.description),
+      displayDate: formatDateInTz(start, tz, { weekday: 'short', month: 'short', day: 'numeric', year: undefined }),
+      displayTimeRange: `${startStr} – ${endStr}`,
+      displayDuration: `${cls.duration || Math.round((end.getTime() - start.getTime()) / 60000)} min`,
+      displayTutorName: this.formatTutorName(cls.tutorId),
+      displayLevel: this.getLevelLabel(cls.level),
+      displayPrice: (cls.price || 0).toFixed(2),
+      displayStudentCount: `${cls.confirmedStudents?.length || 0}/${cls.capacity}`,
+    };
+  }
+
   applyFilters() {
     let filtered = [...this.publicClasses];
-    
-    // Language filter (extract from class name or description)
+
     if (this.filters.language && this.filters.language !== 'any') {
       filtered = filtered.filter(cls => {
         const name = (cls.name || '').toLowerCase();
@@ -151,32 +295,23 @@ export class ExplorePage implements OnInit {
         return name.includes(lang) || desc.includes(lang);
       });
     }
-    
-    // Price filter
+
     filtered = filtered.filter(cls => {
       const price = cls.price || 0;
       return price >= this.filters.priceMin && price <= this.filters.priceMax;
     });
-    
-    // Date range filter
+
     if (this.filters.dateFrom) {
       const fromDate = new Date(this.filters.dateFrom);
-      filtered = filtered.filter(cls => {
-        const classDate = new Date(cls.startTime);
-        return classDate >= fromDate;
-      });
+      filtered = filtered.filter(cls => new Date(cls.startTime) >= fromDate);
     }
-    
+
     if (this.filters.dateTo) {
       const toDate = new Date(this.filters.dateTo);
-      toDate.setHours(23, 59, 59); // Include entire day
-      filtered = filtered.filter(cls => {
-        const classDate = new Date(cls.startTime);
-        return classDate <= toDate;
-      });
+      toDate.setHours(23, 59, 59);
+      filtered = filtered.filter(cls => new Date(cls.startTime) <= toDate);
     }
-    
-    // Search query filter
+
     if (this.filters.searchQuery) {
       const query = this.filters.searchQuery.toLowerCase();
       filtered = filtered.filter(cls => {
@@ -186,66 +321,22 @@ export class ExplorePage implements OnInit {
         return name.includes(query) || desc.includes(query) || tutorName.includes(query);
       });
     }
-    
-    // Sort
+
     filtered.sort((a, b) => {
       switch (this.filters.sortBy) {
-        case 'date_asc':
-          return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-        case 'date_desc':
-          return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
-        case 'price_asc':
-          return (a.price || 0) - (b.price || 0);
-        case 'price_desc':
-          return (b.price || 0) - (a.price || 0);
-        case 'name_asc':
-          return (a.name || '').localeCompare(b.name || '');
-        default:
-          return 0;
+        case 'date_asc': return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+        case 'date_desc': return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+        case 'price_asc': return (a.price || 0) - (b.price || 0);
+        case 'price_desc': return (b.price || 0) - (a.price || 0);
+        case 'name_asc': return (a.name || '').localeCompare(b.name || '');
+        default: return 0;
       }
     });
-    
+
     this.filteredClasses = filtered;
+    this.computeActiveFilterCount();
   }
-  
-  toggleLanguageDropdown() {
-    this.showLanguageDropdown = !this.showLanguageDropdown;
-  }
-  
-  selectLanguage(language: string) {
-    this.filters.language = language;
-    this.showLanguageDropdown = false;
-    this.applyFilters();
-  }
-  
-  getCurrentLanguageLabel(): string {
-    const currentLang = this.availableLanguages.find(lang => lang.value === this.filters.language);
-    return currentLang ? currentLang.label : 'Any language';
-  }
-  
-  onPriceRangeChange(event: any) {
-    const value = event.detail.value;
-    this.priceRange = {
-      lower: value.lower,
-      upper: value.upper
-    };
-    this.filters.priceMin = value.lower;
-    this.filters.priceMax = value.upper;
-    this.applyFilters();
-  }
-  
-  toggleSecondaryFilters() {
-    this.showSecondaryFilters = !this.showSecondaryFilters;
-  }
-  
-  openFiltersView() {
-    this.showFiltersView = true;
-  }
-  
-  closeFilters() {
-    this.showFiltersView = false;
-  }
-  
+
   clearFilters() {
     this.filters = {
       language: 'any',
@@ -256,14 +347,10 @@ export class ExplorePage implements OnInit {
       sortBy: 'date_asc',
       searchQuery: ''
     };
-    this.priceRange = {
-      lower: 0,
-      upper: 200
-    };
     this.applyFilters();
   }
-  
-  getActiveFilterCount(): number {
+
+  private computeActiveFilterCount() {
     let count = 0;
     if (this.filters.language && this.filters.language !== 'any') count++;
     if (this.filters.priceMin !== 0 || this.filters.priceMax !== 200) count++;
@@ -271,13 +358,25 @@ export class ExplorePage implements OnInit {
     if (this.filters.dateTo) count++;
     if (this.filters.searchQuery) count++;
     if (this.filters.sortBy !== 'date_asc') count++;
-    return count;
+    this.activeFilterCount = count;
   }
-  
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event) {
-    if (this.showLanguageDropdown) {
-      this.showLanguageDropdown = false;
+
+  async openFiltersModal() {
+    const modal = await this.modalCtrl.create({
+      component: ExploreFiltersModalComponent,
+      componentProps: {
+        initialFilters: { ...this.filters },
+        totalClassCount: this.publicClasses.length
+      },
+      cssClass: 'explore-filters-modal-sheet'
+    });
+
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+    if (role === 'apply' && data) {
+      this.filters = data;
+      this.applyFilters();
     }
   }
 
@@ -289,32 +388,6 @@ export class ExplorePage implements OnInit {
       day: 'numeric',
       year: undefined
     });
-  }
-
-// Format user name as "FirstName L." (e.g., "Phillip D.")
-     formatDisplayName(user: any) {
-    if (!user) return 'User';
-    
-    const firstName = user.firstName;
-    const lastName = user.lastName;
-    const fullName = user.name;
-    
-    if (firstName && lastName) {
-      const lastInitial = lastName.charAt(0).toUpperCase();
-      return `${firstName} ${lastInitial}.`;
-    }
-    
-    if (fullName) {
-      const parts = fullName.trim().split(' ').filter((p: string) => p.length > 0);
-      if (parts.length >= 2) {
-        const first = parts[0];
-        const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
-        return `${first} ${lastInitial}.`;
-      }
-      return fullName;
-    }
-    
-    return 'User';
   }
 
   formatTime(dateString: string): string {
@@ -334,124 +407,56 @@ export class ExplorePage implements OnInit {
 
   formatTutorName(tutorData: any): string {
     if (!tutorData) return 'Tutor';
-    
-    // Check if we have firstName and lastName fields
     if (tutorData.firstName && tutorData.lastName) {
-      const lastInitial = tutorData.lastName.charAt(0).toUpperCase();
-      return `${tutorData.firstName} ${lastInitial}.`;
+      return `${tutorData.firstName} ${tutorData.lastName.charAt(0).toUpperCase()}.`;
     }
-    
-    // Fallback to name field if firstName/lastName not available
     const fullName = tutorData.name || tutorData;
     if (typeof fullName !== 'string') return 'Tutor';
-    
     const names = fullName.trim().split(' ');
-    if (names.length === 0) return 'Tutor';
-    if (names.length === 1) return names[0];
-    
-    const firstName = names[0];
-    const lastName = names[names.length - 1];
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    
-    return `${firstName} ${lastInitial}.`;
+    if (names.length <= 1) return names[0] || 'Tutor';
+    return `${names[0]} ${names[names.length - 1].charAt(0).toUpperCase()}.`;
   }
 
   getPlainTextDescription(htmlDescription: string | undefined): string {
     if (!htmlDescription) return '';
-    
-    // Create a temporary div to parse HTML
     const temp = document.createElement('div');
     temp.innerHTML = htmlDescription;
-    
-    // Get text content (strips all HTML tags)
     return temp.textContent || temp.innerText || '';
-  }
-
-  async enrollInClass(classItem: any) {
-    // If already enrolled
-    if (classItem.isEnrolled) {
-      this.toast.create({
-        message: 'You are already enrolled in this class',
-        duration: 2000,
-        color: 'primary'
-      }).then(t => t.present());
-      return;
-    }
-
-    // If they have a pending invitation, direct them to invitations
-    if (classItem.hasInvitation && classItem.invitationStatus === 'pending') {
-      this.toast.create({
-        message: 'You have been invited to this class. Check your class invitations on the home page.',
-        duration: 3000,
-        color: 'warning'
-      }).then(t => t.present());
-      return;
-    }
-
-    // If they already declined the invitation
-    if (classItem.hasInvitation && classItem.invitationStatus === 'declined') {
-      this.toast.create({
-        message: 'You previously declined this class invitation',
-        duration: 2000,
-        color: 'medium'
-      }).then(t => t.present());
-      return;
-    }
-
-    // If class is full
-    if (classItem.isFull) {
-      this.toast.create({
-        message: 'This class is full',
-        duration: 2000,
-        color: 'warning'
-      }).then(t => t.present());
-      return;
-    }
-
-    // For now, show message that enrollment needs to be implemented
-    // Later you can add logic to create a "join request" or auto-enroll if space available
-    this.toast.create({
-      message: 'Direct enrollment for public classes will be implemented soon. For now, ask the tutor for an invitation.',
-      duration: 3000,
-      color: 'primary'
-    }).then(t => t.present());
   }
 
   viewClassDetails(classItem: any) {
     if (classItem._id) {
-      this.router.navigate(['/tabs/home/explore', classItem._id]);
+      this.router.navigate(['/event', classItem._id]);
     }
   }
 
-  async openClassInvitation(classId: string) {
-    const modal = await this.modalCtrl.create({
-      component: ClassInvitationModalComponent,
-      componentProps: {
-        classId
-      },
-      cssClass: 'class-invitation-modal'
-    });
-
-    await modal.present();
-
-    const { data } = await modal.onWillDismiss();
-    if (data?.accepted || data?.declined) {
-      // Reload classes to reflect the change
-      this.loadPublicClasses();
-    }
-  }
-
-  handleClassAction(classItem: any, event: Event) {
+  async handleClassAction(classItem: any, event: Event) {
     event.stopPropagation();
-    
-    // If they have a pending invitation, open the invitation modal
     if (classItem.hasInvitation && classItem.invitationStatus === 'pending') {
-      this.openClassInvitation(classItem._id);
+      const modal = await this.modalCtrl.create({
+        component: ClassInvitationModalComponent,
+        componentProps: { classId: classItem._id },
+        cssClass: 'class-invitation-modal'
+      });
+      await modal.present();
+      const { data } = await modal.onWillDismiss();
+      if (data?.accepted || data?.declined) {
+        this.loadPublicClasses();
+      }
     } else {
-      // Otherwise, proceed with normal enrollment
       this.enrollInClass(classItem);
     }
   }
 
+  async enrollInClass(classItem: any) {
+    if (classItem.isEnrolled) {
+      (await this.toast.create({ message: 'You are already enrolled in this class', duration: 2000, color: 'primary' })).present();
+      return;
+    }
+    if (classItem.isFull) {
+      (await this.toast.create({ message: 'This class is full', duration: 2000, color: 'warning' })).present();
+      return;
+    }
+    (await this.toast.create({ message: 'Direct enrollment for public classes will be available soon.', duration: 3000, color: 'primary' })).present();
+  }
 }
-

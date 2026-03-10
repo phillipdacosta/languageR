@@ -2,6 +2,9 @@
 <ion-header class="ion-no-border desktop-header">
   <ion-toolbar>
     <ion-buttons slot="start">
+      <a class="app-icon-container" routerLink="/tabs/home">
+        <img src="assets/icons-app-bird.png" alt="Barnaby" class="app-icon">
+      </a>
       <ion-button 
         class="back-btn"
         *ngIf="!cameFromModal && !justLoggedIn"
@@ -207,6 +210,67 @@
           </button>
         </div>
 
+        <!-- Linked Channels -->
+        <div class="tutor-channels-section" *ngIf="hasLinkedChannels">
+          <div class="mobile-divider"></div>
+          <h2>Content Channels</h2>
+          <div class="tutor-channels-list">
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.youtubeChannelName" [href]="tutor.linkedChannels.youtubeChannelUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.youtubeChannelAvatar" [src]="tutor.linkedChannels.youtubeChannelAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.youtubeChannelName }}</span>
+                <span class="tutor-channel-meta" *ngIf="tutor.linkedChannels.youtubeSubscriberCount">{{ tutor.linkedChannels.youtubeSubscriberCount }}</span>
+              </div>
+              <ion-icon name="logo-youtube" class="tutor-channel-icon yt"></ion-icon>
+            </a>
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.vimeoChannelName" [href]="tutor.linkedChannels.vimeoChannelUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.vimeoChannelAvatar" [src]="tutor.linkedChannels.vimeoChannelAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.vimeoChannelName }}</span>
+                <span class="tutor-channel-meta">Vimeo</span>
+              </div>
+              <ion-icon name="videocam-outline" class="tutor-channel-icon vimeo"></ion-icon>
+            </a>
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.soundcloudProfileName" [href]="tutor.linkedChannels.soundcloudProfileUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.soundcloudProfileAvatar" [src]="tutor.linkedChannels.soundcloudProfileAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.soundcloudProfileName }}</span>
+                <span class="tutor-channel-meta">SoundCloud</span>
+              </div>
+              <ion-icon name="musical-notes-outline" class="tutor-channel-icon sc"></ion-icon>
+            </a>
+          </div>
+        </div>
+
+        <!-- Materials Section -->
+        <div class="tutor-materials-section" *ngIf="tutorMaterials.length > 0">
+          <div class="mobile-divider"></div>
+          <h2>Learning Materials</h2>
+          <p class="materials-subtitle">Practice resources created by this tutor. ({{ tutorMaterials.length }}) available.</p>
+          <div class="materials-grid">
+            <div class="material-tile" *ngFor="let m of tutorMaterials" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
+              <div class="material-tile-thumb" *ngIf="m.thumbnailUrl">
+                <img [src]="m.thumbnailUrl" [alt]="m.title" />
+              </div>
+              <div class="material-tile-body">
+                <div class="material-tile-type">
+                  <ion-icon [name]="getMaterialTypeIcon(m.materialType)"></ion-icon>
+                  <span>{{ getMaterialTypeLabel(m.materialType) }}</span>
+                </div>
+                <h3 class="material-tile-title">{{ m.title }}</h3>
+                <p class="material-tile-pitch" *ngIf="m.whyTakeThis">{{ m.whyTakeThis }}</p>
+                <p class="material-tile-desc" *ngIf="!m.whyTakeThis && m.description">{{ m.description }}</p>
+                <div class="material-tile-footer">
+                  <span class="material-tile-level">{{ m.level | titlecase }}</span>
+                  <span class="material-tile-price" *ngIf="m.pricingType === 'free'">Free</span>
+                  <span class="material-tile-price paid" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+                </div>
+                <span class="material-tile-date" *ngIf="m._addedDate">{{ m._addedDate }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="mobile-divider"></div>
 
         <!-- Availability Section -->
@@ -280,7 +344,7 @@
                 <div class="tutor-details">
                   <span class="detail-item languages">
                     <ng-container *ngFor="let lang of tutor?.languages; let last = last">
-                      <app-flag-icon [language]="lang" [size]="16"></app-flag-icon>
+                      <!-- <app-flag-icon [language]="lang" [size]="16"></app-flag-icon> -->
                       {{ lang }}{{ !last ? ', ' : '' }}
                     </ng-container>
                     <span class="tutor-label">tutor</span>
@@ -419,6 +483,65 @@
               <div class="highlight-text">
                 <strong>Verified profile</strong>
                 <span>Identity and credentials confirmed</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Linked Channels (Desktop) -->
+        <section class="tutor-channels-section" *ngIf="hasLinkedChannels" @fadeInUp>
+          <h2>Content Channels</h2>
+          <div class="tutor-channels-list">
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.youtubeChannelName" [href]="tutor.linkedChannels.youtubeChannelUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.youtubeChannelAvatar" [src]="tutor.linkedChannels.youtubeChannelAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.youtubeChannelName }}</span>
+                <span class="tutor-channel-meta" *ngIf="tutor.linkedChannels.youtubeSubscriberCount">{{ tutor.linkedChannels.youtubeSubscriberCount }}</span>
+              </div>
+              <ion-icon name="logo-youtube" class="tutor-channel-icon yt"></ion-icon>
+            </a>
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.vimeoChannelName" [href]="tutor.linkedChannels.vimeoChannelUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.vimeoChannelAvatar" [src]="tutor.linkedChannels.vimeoChannelAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.vimeoChannelName }}</span>
+                <span class="tutor-channel-meta">Vimeo</span>
+              </div>
+              <ion-icon name="videocam-outline" class="tutor-channel-icon vimeo"></ion-icon>
+            </a>
+            <a class="tutor-channel-chip" *ngIf="tutor.linkedChannels?.soundcloudProfileName" [href]="tutor.linkedChannels.soundcloudProfileUrl" target="_blank" rel="noopener">
+              <img *ngIf="tutor.linkedChannels.soundcloudProfileAvatar" [src]="tutor.linkedChannels.soundcloudProfileAvatar" class="tutor-channel-avatar" referrerpolicy="no-referrer" />
+              <div class="tutor-channel-info">
+                <span class="tutor-channel-name">{{ tutor.linkedChannels.soundcloudProfileName }}</span>
+                <span class="tutor-channel-meta">SoundCloud</span>
+              </div>
+              <ion-icon name="musical-notes-outline" class="tutor-channel-icon sc"></ion-icon>
+            </a>
+          </div>
+        </section>
+
+        <!-- Materials Section (Desktop) -->
+        <section class="tutor-materials-section desktop-materials" *ngIf="tutorMaterials.length > 0" @fadeInUp>
+          <h2>Learning Materials</h2>
+          <p class="materials-subtitle">Practice resources created by this tutor. ({{ tutorMaterials.length }}) available.</p>
+          <div class="materials-grid">
+            <div class="material-tile" *ngFor="let m of tutorMaterials" (click)="openMaterial(m)" [class.has-thumb]="m.thumbnailUrl">
+              <div class="material-tile-thumb" *ngIf="m.thumbnailUrl">
+                <img [src]="m.thumbnailUrl" [alt]="m.title" />
+              </div>
+              <div class="material-tile-body">
+                <div class="material-tile-type">
+                  <ion-icon [name]="getMaterialTypeIcon(m.materialType)"></ion-icon>
+                  <span>{{ getMaterialTypeLabel(m.materialType) }}</span>
+                </div>
+                <h3 class="material-tile-title">{{ m.title }}</h3>
+                <p class="material-tile-pitch" *ngIf="m.whyTakeThis">{{ m.whyTakeThis }}</p>
+                <p class="material-tile-desc" *ngIf="!m.whyTakeThis && m.description">{{ m.description }}</p>
+                <div class="material-tile-footer">
+                  <span class="material-tile-level">{{ m.level | titlecase }}</span>
+                  <span class="material-tile-price" *ngIf="m.pricingType === 'free'">Free</span>
+                  <span class="material-tile-price paid" *ngIf="m.pricingType === 'paid'">${{ m.price }}</span>
+                </div>
+                <span class="material-tile-date" *ngIf="m._addedDate">{{ m._addedDate }}</span>
               </div>
             </div>
           </div>

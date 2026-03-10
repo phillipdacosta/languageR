@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
 import { Router, NavigationStart } from '@angular/router';
@@ -119,10 +119,23 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Tutor earnings
   tutorTotalEarnings = 0;
   tutorPendingEarnings = 0;
+  private _earningsVisibilityHandler: (() => void) | null = null;
+  private _lastEarningsVisibilityRefresh = 0;
 
   // Inline earnings view toggle
   showEarningsView = false;
   returningFromEarnings = false;
+  @HostBinding('class.returning-from-inline') returningFromInline = false;
+
+  // Inline explore view toggle
+  showExploreView = false;
+  returningFromExplore = false;
+  private _savedScrollBeforeExplore = 0;
+
+  // Inline create-material view toggle
+  showCreateMaterialView = false;
+  private _savedScrollBeforeMaterial = 0;
+  private _scrollElRef: HTMLElement | null = null;
 
   // Getter for active (non-cancelled) invitations
   get activeInvitationsCount(): number {
@@ -342,6 +355,10 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     participantRole: 'tutor' | 'student';
     joinedAt: string;
   }> = new Map();
+
+  // Pre-computed presence state for the Up Next card (avoids function calls in template)
+  nextLessonOtherJoined = false;
+  nextLessonOtherName = '';
 
   private resizeListener: any;
 
@@ -919,7 +936,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
           participantRole: presence.participantRole,
           joinedAt: presence.joinedAt
         });
-        // Force change detection
+        this.updateNextLessonPresence();
         this.countdownTick = Date.now();
       });
     
@@ -929,7 +946,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       .subscribe(presence => {
         const normalizedLessonId = String(presence.lessonId);
         this.lessonPresence.delete(normalizedLessonId);
-        // Force change detection
+        this.updateNextLessonPresence();
         this.countdownTick = Date.now();
       });
 
@@ -1220,6 +1237,19 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
       }
     });
     
+    // Refresh tutor earnings when the tab/window becomes visible (laptop wake, tab switch)
+    this._earningsVisibilityHandler = () => {
+      if (document.visibilityState === 'visible' && this.isTutorUser) {
+        const now = Date.now();
+        if (now - this._lastEarningsVisibilityRefresh > 60000) {
+          console.log('💰 [TAB1] Page became visible, refreshing tutor earnings');
+          this._lastEarningsVisibilityRefresh = now;
+          this.loadTutorEarnings();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this._earningsVisibilityHandler);
+
     console.log('🌟 [TAB1] ngOnInit completed');
   }
   
@@ -1230,6 +1260,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     } else {
       console.error('❌ [TAB1] Smart Island component NOT available after view init!');
     }
+    this.ionContent?.getScrollElement().then(el => { this._scrollElRef = el || null; });
   }
 
   ionViewWillEnter() {
@@ -1625,6 +1656,12 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     
     // Stop dynamic card refresh interval
     this.stopDynamicCardRefreshInterval();
+    
+    // Remove earnings visibility handler
+    if (this._earningsVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this._earningsVisibilityHandler);
+      this._earningsVisibilityHandler = null;
+    }
     
     // Reset dynamic card ready flag so it animates in next time
     this.dynamicCardReady = false;
@@ -2073,9 +2110,18 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.router.navigate(['/tabs/lessons']);
   }
   
-  // Navigate to explore public classes page
   navigateToExplore() {
-    this.router.navigate(['/tabs/home/explore']);
+    this._savedScrollBeforeExplore = this._scrollElRef?.scrollTop || 0;
+    this.showExploreView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
+  }
+
+  navigateToCreateMaterial() {
+    this._savedScrollBeforeMaterial = this._scrollElRef?.scrollTop || 0;
+    this.showCreateMaterialView = true;
+    this.cdr.detectChanges();
+    this.ionContent?.scrollToTop(0);
   }
   
   // Open modal showing all tutors
@@ -4842,6 +4888,18 @@ navigateToLessons() {
   }
 
   // New method: Get other participant's avatar (with caching)
+  updateNextLessonPresence() {
+    const nl = this.nextLesson;
+    if (nl?.lesson?._id) {
+      const presence = this.lessonPresence.get(String(nl.lesson._id));
+      this.nextLessonOtherJoined = !!presence;
+      this.nextLessonOtherName = presence?.participantName || '';
+    } else {
+      this.nextLessonOtherJoined = false;
+      this.nextLessonOtherName = '';
+    }
+  }
+
   // Check if lesson has participant joined (presence)
   hasParticipantJoined(lesson: Lesson | null): boolean {
     if (!lesson) return false;
@@ -5811,10 +5869,10 @@ navigateToLessons() {
         }
       } catch (error) {
         console.error('📚 Tab1: Error checking presence for lesson', lesson._id, error);
-        // Continue with other lessons even if one fails
       }
     }
-    
+
+    this.updateNextLessonPresence();
   }
 
   getOtherParticipantName(lesson: Lesson): string {
@@ -6253,14 +6311,20 @@ navigateToLessons() {
     // === FLIP Animation: Home → Earnings ===
 
     // Step 1: Capture source button rects from the home earnings card
-    const srcWithdraw = document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
-    const srcViewDetails = document.querySelector('.grid-cell-earnings .view-details-link') as HTMLElement;
+    const earningsSrc = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
+    const srcWithdraw = this.isMobile ? null : document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
+    const srcViewDetails = document.querySelector(`${earningsSrc} .view-details-link`) as HTMLElement;
     const srcWithdrawRect = srcWithdraw?.getBoundingClientRect();
     const srcViewDetailsRect = srcViewDetails?.getBoundingClientRect();
 
     // Step 2: Create styled clones at source positions
     const withdrawClone: HTMLElement | null = srcWithdrawRect ? document.createElement('div') : null;
     const viewDetailsClone: HTMLElement | null = srcViewDetailsRect ? document.createElement('div') : null;
+
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+    const cloneFg = isDark ? '#f5f5f7' : '#222222';
+    const cloneSolidBg = isDark ? '#f5f5f7' : '#000000';
+    const cloneSolidFg = isDark ? '#000000' : 'white';
 
     if (withdrawClone && srcWithdrawRect) {
       withdrawClone.textContent = this.translateService.instant('HOME.WITHDRAW_FUNDS');
@@ -6279,9 +6343,9 @@ navigateToLessons() {
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         fontSize: '15px',
         fontWeight: '600',
-        color: '#222222',
+        color: cloneFg,
         backgroundColor: 'transparent',
-        border: '1px solid #222222',
+        border: `1px solid ${cloneFg}`,
         borderRadius: '12px',
         transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s, opacity 0.2s ease',
       });
@@ -6290,7 +6354,11 @@ navigateToLessons() {
 
     if (viewDetailsClone && srcViewDetailsRect) {
       const viewDetailsText = this.translateService.instant('HOME.VIEW_DETAILS');
-      viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsText}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+      if (this.isMobile) {
+        viewDetailsClone.textContent = `${viewDetailsText} →`;
+      } else {
+        viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsText}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+      }
       Object.assign(viewDetailsClone.style, {
         position: 'fixed',
         left: `${srcViewDetailsRect.left}px`,
@@ -6302,14 +6370,15 @@ navigateToLessons() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px', // Match real .view-details-link gap
+        gap: this.isMobile ? '3px' : '6px',
         boxSizing: 'border-box',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
-        fontSize: '14px',
+        fontSize: this.isMobile ? '11px' : '14px',
         fontWeight: '600',
-        color: '#222222',
+        color: this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : cloneFg,
         backgroundColor: 'transparent',
         border: 'none',
+        whiteSpace: 'nowrap',
         transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
       });
       document.body.appendChild(viewDetailsClone);
@@ -6326,16 +6395,18 @@ navigateToLessons() {
         const destGoBack = document.querySelector('.earnings-inline-panel .go-back-link') as HTMLElement;
 
         if (viewDetailsClone && destGoBack) {
-          // Disable CSS transition before hiding to prevent fade-flash
           destGoBack.style.transition = 'none';
           destGoBack.style.opacity = '0';
           const destRect = destGoBack.getBoundingClientRect();
           const goBackLabel = this.translateService.instant('EARNINGS.GO_BACK');
           viewDetailsClone.innerHTML = `<span style="text-decoration:underline">${goBackLabel}</span>`;
+          viewDetailsClone.style.whiteSpace = 'nowrap';
           viewDetailsClone.style.left = `${destRect.left}px`;
           viewDetailsClone.style.top = `${destRect.top}px`;
           viewDetailsClone.style.width = `${destRect.width}px`;
           viewDetailsClone.style.height = `${destRect.height}px`;
+          viewDetailsClone.style.fontSize = '14px';
+          viewDetailsClone.style.color = isDark ? '#8e8e93' : '#222222';
 
           // On landing: snap dest visible (still no transition), then remove clone next frame
           setTimeout(() => {
@@ -6359,13 +6430,12 @@ navigateToLessons() {
       let landed = false;
       let pulseAnim: Animation | null = null;
 
-      // Immediate visual feedback: float up slightly & morph to black
       requestAnimationFrame(() => {
         if (landed || !withdrawClone.parentNode) return;
         withdrawClone.style.top = `${srcWithdrawRect.top - 15}px`;
-        withdrawClone.style.backgroundColor = '#000000';
-        withdrawClone.style.color = 'white';
-        withdrawClone.style.borderColor = '#000000';
+        withdrawClone.style.backgroundColor = cloneSolidBg;
+        withdrawClone.style.color = cloneSolidFg;
+        withdrawClone.style.borderColor = cloneSolidBg;
         withdrawClone.style.borderRadius = '8px';
       });
 
@@ -6467,6 +6537,11 @@ navigateToLessons() {
     let withdrawClone: HTMLElement | null = null;
     let goBackClone: HTMLElement | null = null;
 
+    const isDark = document.documentElement.classList.contains('ion-palette-dark');
+    const cloneFg = isDark ? '#f5f5f7' : '#222222';
+    const cloneSolidBg = isDark ? '#f5f5f7' : '#000000';
+    const cloneSolidFg = isDark ? '#000000' : 'white';
+
     if (srcWithdrawRect) {
       withdrawClone = document.createElement('div');
       withdrawClone.textContent = this.translateService.instant('EARNINGS.WITHDRAW_FUNDS');
@@ -6485,9 +6560,9 @@ navigateToLessons() {
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         fontSize: '14px',
         fontWeight: '600',
-        color: 'white',
-        backgroundColor: '#000000',
-        border: '1px solid #000000',
+        color: cloneSolidFg,
+        backgroundColor: cloneSolidBg,
+        border: `1px solid ${cloneSolidBg}`,
         borderRadius: '8px',
         transition: 'left 0.46s cubic-bezier(0.32, 0.72, 0, 1), top 0.46s cubic-bezier(0.32, 0.72, 0, 1), width 0.46s cubic-bezier(0.32, 0.72, 0, 1), height 0.46s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.46s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.36s ease 0.1s, background-color 0.36s ease 0.1s, color 0.36s ease 0.1s, border-color 0.36s ease 0.1s',
       });
@@ -6509,21 +6584,25 @@ navigateToLessons() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px', // Match real .view-details-link gap
+        gap: '6px',
         boxSizing: 'border-box',
         fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
         fontSize: '14px',
         fontWeight: '600',
-        color: '#222222',
+        color: isDark ? '#8e8e93' : '#222222',
         backgroundColor: 'transparent',
         border: 'none',
+        whiteSpace: 'nowrap',
         transition: 'all 0.42s cubic-bezier(0.32, 0.72, 0, 1)',
       });
       document.body.appendChild(goBackClone);
     }
 
-    // Step 3: Suppress fadeInUp on home earnings card (FLIP clones handle the transition)
+    // Step 3: Suppress all entry animations on the home view so nothing flashes/drifts.
     this.returningFromEarnings = true;
+    if (this.isMobile) {
+      this.returningFromInline = true;
+    }
 
     // Step 4: Switch back to home view
     this.showEarningsView = false;
@@ -6532,17 +6611,19 @@ navigateToLessons() {
     // Step 5: Force-hide the earnings card via inline style BEFORE the browser paints.
     // This is synchronous after detectChanges(), so the card never appears at opacity 1.
     // CSS animations have timing gaps; inline JS does not.
-    const cardWidget = document.querySelector('.grid-cell-earnings .earnings-card-widget') as HTMLElement;
+    const earningsDest = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings .earnings-card-widget';
+    const cardWidget = document.querySelector(earningsDest) as HTMLElement;
     if (cardWidget) {
       cardWidget.style.opacity = '0';
     }
 
     // Step 6: After render, find home destinations and animate clones
     // Buttons start invisible via CSS (.skip-entry-animation .withdraw-btn/.view-details-link { opacity: 0 })
+    const earningsDestContainer = this.isMobile ? '.earnings-mobile-card' : '.grid-cell-earnings';
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        const destWithdraw = document.querySelector('.grid-cell-earnings .withdraw-btn') as HTMLElement;
-        const destViewDetails = document.querySelector('.grid-cell-earnings .view-details-link') as HTMLElement;
+        const destWithdraw = document.querySelector(`${earningsDestContainer} .withdraw-btn`) as HTMLElement;
+        const destViewDetails = document.querySelector(`${earningsDestContainer} .view-details-link`) as HTMLElement;
 
         // Fade the card in smoothly via JS transition (no CSS animation involved)
         if (cardWidget) {
@@ -6557,12 +6638,11 @@ navigateToLessons() {
           withdrawClone.style.top = `${destRect.top}px`;
           withdrawClone.style.width = `${destRect.width}px`;
           withdrawClone.style.height = `${destRect.height}px`;
-          // Morph: solid black → outlined card style (color/font delayed by 100ms via transition)
           withdrawClone.style.backgroundColor = 'transparent';
-          withdrawClone.style.color = '#222222';
-          withdrawClone.style.borderColor = '#222222';
+          withdrawClone.style.color = cloneFg;
+          withdrawClone.style.borderColor = cloneFg;
           withdrawClone.style.borderRadius = '12px';
-          withdrawClone.style.fontSize = '15px'; // Match home card button size
+          withdrawClone.style.fontSize = '15px';
 
           // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
           setTimeout(() => {
@@ -6579,13 +6659,19 @@ navigateToLessons() {
         // Animate Go back → View Details clone back to home card
         if (goBackClone && destViewDetails) {
           const destRect = destViewDetails.getBoundingClientRect();
-          // Arrow span matches ion-icon box: 16×16px, centered
           const viewDetailsLabel = this.translateService.instant('HOME.VIEW_DETAILS');
-          goBackClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsLabel}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+          if (this.isMobile) {
+            goBackClone.textContent = `${viewDetailsLabel} →`;
+          } else {
+            goBackClone.innerHTML = `<span style="text-decoration:underline">${viewDetailsLabel}</span><span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1">→</span>`;
+          }
+          goBackClone.style.whiteSpace = 'nowrap';
           goBackClone.style.left = `${destRect.left}px`;
           goBackClone.style.top = `${destRect.top}px`;
           goBackClone.style.width = `${destRect.width}px`;
           goBackClone.style.height = `${destRect.height}px`;
+          goBackClone.style.fontSize = this.isMobile ? '11px' : '14px';
+          goBackClone.style.color = this.isMobile ? (isDark ? '#60a5fa' : '#6b7280') : (isDark ? '#8e8e93' : '#222222');
 
           // On landing: snap dest visible (inline overrides CSS opacity:0), then remove clone
           setTimeout(() => {
@@ -6609,6 +6695,7 @@ navigateToLessons() {
             cardWidget.style.animation = 'none';
           }
           this.returningFromEarnings = false;
+          this.returningFromInline = false;
           this.cdr.detectChanges();
           // Clean inline overrides (keep animation:none for now)
           requestAnimationFrame(() => {
@@ -6619,15 +6706,30 @@ navigateToLessons() {
               cardWidget.style.opacity = '';
             }
           });
-          // NOTE: We intentionally keep inline animation:none permanently.
-          // Removing it would re-expose CSS fadeInUp which re-triggers from 0%.
-          // This is safe because the element is destroyed/recreated on next earnings navigation.
         }, 550);
       });
     });
 
     // Refresh earnings summary data when returning to home view
     this.loadTutorEarnings();
+  }
+
+  onExploreGoBack() {
+    this.showExploreView = false;
+    this.cdr.detectChanges();
+
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeExplore;
+    }
+  }
+
+  onCreateMaterialGoBack() {
+    this.showCreateMaterialView = false;
+    this.cdr.detectChanges();
+
+    if (this._scrollElRef) {
+      this._scrollElRef.scrollTop = this._savedScrollBeforeMaterial;
+    }
   }
 
   // Check Stripe Connect status for tutors
@@ -6686,6 +6788,14 @@ navigateToLessons() {
     } finally {
       this.isLoadingStripeConnect = false;
     }
+  }
+
+  onEarningsBalanceChanged(event: { available: number; pending: number }) {
+    this.tutorTotalEarnings = event.available || 0;
+    this.tutorPendingEarnings = event.pending || 0;
+    this.walletBalance = this.tutorTotalEarnings;
+    this.updateWalletDisplay();
+    this.cdr.detectChanges();
   }
 
   // Load tutor earnings summary

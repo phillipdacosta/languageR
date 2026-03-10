@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { IonicModule, ToastController, ModalController, ActionSheetController, ViewWillEnter, IonContent } from '@ionic/angular';
@@ -31,6 +31,10 @@ interface Student {
   imports: [CommonModule, IonicModule, FormsModule, ReactiveFormsModule, RouterModule, TutorAvailabilityViewerComponent, AvailabilitySetupComponent, QuillEditorComponent]
 })
 export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, AfterViewInit {
+  @Input() inline = false;
+  @Output() goBackEvent = new EventEmitter<void>();
+  @Output() classCreated = new EventEmitter<void>();
+
   // Flag to track if students have been loaded
   private studentsLoadAttempted = false;
   
@@ -777,7 +781,10 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
             const t = await this.toast.create({ message: 'Lesson scheduled successfully', duration: 1500, color: 'success' });
             await t.present();
             this.userService.getAvailability().subscribe({
-              next: () => this.router.navigate(['/tabs/tutor-calendar'])
+              next: () => {
+                if (this.inline) { this.classCreated.emit(); }
+                else { this.router.navigate(['/tabs/tutor-calendar']); }
+              }
             });
           },
           error: async (err) => {
@@ -835,7 +842,10 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
             });
             await t.present();
             this.userService.getAvailability().subscribe({
-              next: () => this.router.navigate(['/tabs/tutor-calendar'])
+              next: () => {
+                if (this.inline) { this.classCreated.emit(); }
+                else { this.router.navigate(['/tabs/tutor-calendar']); }
+              }
             });
           },
           error: async (err) => {
@@ -939,19 +949,26 @@ export class ScheduleClassPage implements OnInit, OnDestroy, ViewWillEnter, Afte
     const maxStudents = this.form.value.maxStudents || 2;
     const selectedIds = this.form.value.studentIds || [];
     
-    const modal = await this.modalController.create({
+    const isMobile = window.innerWidth <= 768;
+    
+    const modalOpts: any = {
       component: StudentSelectionActionsheetComponent,
       componentProps: {
         students: this.students,
         selectedStudentIds: selectedIds,
         maxStudents: maxStudents
       },
-      cssClass: 'student-selection-actionsheet-modal',
+      cssClass: isMobile ? 'student-selection-actionsheet-modal' : 'student-selection-desktop-modal',
       showBackdrop: true,
       backdropDismiss: true,
-      breakpoints: [0, 0.5, 0.75, 1],
-      initialBreakpoint: 0.75
-    });
+    };
+    
+    if (isMobile) {
+      modalOpts.breakpoints = [0, 0.5, 0.75, 1];
+      modalOpts.initialBreakpoint = 0.75;
+    }
+    
+    const modal = await this.modalController.create(modalOpts);
     
     await modal.present();
     

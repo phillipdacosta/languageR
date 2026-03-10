@@ -19,6 +19,8 @@ import { TutorAvailabilityViewerComponent } from '../components/tutor-availabili
 import { TutorNoteModalComponent } from '../components/tutor-note-modal/tutor-note-modal.component';
 import { SmartIslandComponent } from '../components/smart-island/smart-island.component';
 import { EarningsPage } from '../earnings/earnings.page';
+import { ExplorePage } from '../explore/explore.page';
+import { CreateMaterialPage } from '../create-material/create-material.page';
 
 import { Tab1PageRoutingModule } from './tab1-routing.module';
 
@@ -43,7 +45,9 @@ import { Tab1PageRoutingModule } from './tab1-routing.module';
     TutorAvailabilityViewerComponent,
     TutorNoteModalComponent,
     SmartIslandComponent,
-    EarningsPage
+    EarningsPage,
+    ExplorePage,
+    CreateMaterialPage
   ],
   declarations: [Tab1Page]
 })

@@ -96,6 +96,7 @@
     "JOIN_NOW": "Приєднатися зараз",
     "JOIN": "Приєднатися",
     "JOIN_LESSON": "Приєднатися до уроку",
+    "PARTICIPANT_IN_CALL": "{{name}} у дзвінку",
     "RESCHEDULE": "Перенести",
     "CANCEL_LESSON": "Скасувати урок",
     "CANCEL": "Скасувати",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Ви впевнені, що хочете вивести ${{amount}}? Це буде надіслано на ваш рахунок {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Підтвердити",
     "WITHDRAW_SUCCESS": "Виведення ${{amount}} успішно запитано! Обробка протягом 1–2 робочих днів.",
+    "WITHDRAW_SUCCESS_TITLE": "Платіж Надіслано!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} надіслано на ваш {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Кошти зазвичай надходять протягом 1–2 робочих днів.",
+    "WITHDRAW_SUCCESS_DONE": "Готово",
     "WITHDRAW_ERROR": "Не вдалося запитати виведення. Будь ласка, спробуйте ще раз.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Будь ласка, введіть дійсну суму виведення",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Мінімальна сума виведення — $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Ви впевнені, що хочете вийти?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Ласкаво просимо до Speak Freely",
+      "GREETING": "Ласкаво просимо до Barnaby",
       "SUBTITLE": "Розумніший спосіб вивчати та викладати мови. Налаштуймо ваш обліковий запис за кілька простих кроків.",
-      "TUTOR_GREETING": "Ласкаво просимо до Speak Freely",
+      "TUTOR_GREETING": "Ласкаво просимо до Barnaby",
       "TUTOR_SUBTITLE": "Приєднуйтесь до нашої спільноти репетиторів та починайте навчати студентів з усього світу. Підготуймо ваш профіль.",
       "CTA": "Розпочати",
       "BACK": "Змінити мову"

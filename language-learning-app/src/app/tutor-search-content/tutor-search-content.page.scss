@@ -1506,6 +1506,15 @@
       color: #fff;
     }
   }
+
+  &.materials {
+    background: #eef6ff;
+    color: #007aff;
+
+    ion-icon {
+      color: #007aff;
+    }
+  }
   
   @media (max-width: 768px) {
     padding: 5px 10px;

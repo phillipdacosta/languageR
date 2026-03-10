@@ -56,6 +56,10 @@ const routes: Routes = [
         loadComponent: () => import('../earnings/earnings.page').then(m => m.EarningsPage)
       },
       {
+        path: 'home/explore',
+        loadComponent: () => import('../explore/explore.page').then(m => m.ExplorePage)
+      },
+      {
         path: '',
         redirectTo: 'home',
         pathMatch: 'full'

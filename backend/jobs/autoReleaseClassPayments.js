@@ -301,12 +301,16 @@ async function reverseTutorEarnings(classObj, payments) {
     }
     
     if (totalToReverse > 0) {
-      // Deduct from pending balance
-      tutor.tutorEarnings.pendingBalance = Math.max(0, 
-        (tutor.tutorEarnings.pendingBalance || 0) - totalToReverse
-      );
-      await tutor.save();
-      console.log(`   📉 Reversed $${totalToReverse} from tutor ${tutor.name}'s pending balance`);
+      // Atomic deduction from pending balance (floor at 0)
+      const currentTutor = await User.findById(tutor._id);
+      const actualDeduction = Math.min(totalToReverse, currentTutor?.tutorEarnings?.pendingBalance || 0);
+      if (actualDeduction > 0) {
+        await User.findOneAndUpdate(
+          { _id: tutor._id },
+          { $inc: { 'tutorEarnings.pendingBalance': -actualDeduction } }
+        );
+      }
+      console.log(`   📉 Reversed $${actualDeduction} from tutor ${tutor.name}'s pending balance`);
     }
   } catch (error) {
     console.error(`   ⚠️ Error reversing tutor earnings:`, error.message);

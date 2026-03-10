@@ -96,6 +96,7 @@
     "JOIN_NOW": "Liity nyt",
     "JOIN": "Liity",
     "JOIN_LESSON": "Liity oppituntiin",
+    "PARTICIPANT_IN_CALL": "{{name}} on puhelussa",
     "RESCHEDULE": "Aikatauluta uudelleen",
     "CANCEL_LESSON": "Peruuta oppitunti",
     "CANCEL": "Peruuta",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Haluatko varmasti nostaa ${{amount}}? Tämä lähetetään {{method}}-tilillesi.",
     "WITHDRAW_CONFIRM_BTN": "Vahvista",
     "WITHDRAW_SUCCESS": "${{amount}} nosto pyydetty onnistuneesti! Käsittely 1–2 arkipäivän kuluessa.",
+    "WITHDRAW_SUCCESS_TITLE": "Maksu Lähetetty!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} lähetetty {{method}}-tilillesi!",
+    "WITHDRAW_SUCCESS_NOTE": "Varat ovat yleensä käytettävissä 1–2 arkipäivän kuluessa.",
+    "WITHDRAW_SUCCESS_DONE": "Valmis",
     "WITHDRAW_ERROR": "Noston pyytäminen epäonnistui. Yritä uudelleen.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Syötä kelvollinen nostosumma",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimnostosumma on $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Haluatko varmasti kirjautua ulos?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Tervetuloa Speak Freelyyn",
+      "GREETING": "Tervetuloa Barnabyyn",
       "SUBTITLE": "Älykkäämpi tapa oppia ja opettaa kieliä. Perustetaan tilisi muutamalla helpolla askeleella.",
-      "TUTOR_GREETING": "Tervetuloa Speak Freelyyn",
+      "TUTOR_GREETING": "Tervetuloa Barnabyyn",
       "TUTOR_SUBTITLE": "Liity opettajayhteisöömme ja aloita opiskelijoiden opettaminen maailmanlaajuisesti. Laitetaan profiilisi valmiiksi.",
       "CTA": "Aloita",
       "BACK": "Vaihda kieli"

@@ -11,6 +11,9 @@
       <div class="profile-container" *ngIf="getDisplayUser()">
         <!-- User Profile Card -->
         <ion-card class="profile-card">
+          <ion-card-header>
+            <ion-card-title>{{ 'PROFILE_SCREEN.PROFILE' | translate }}</ion-card-title>
+          </ion-card-header>
           <ion-card-content>
             <div class="profile-header">
               <div class="avatar-container" (click)="!isViewingOtherUser && !getDisplayUser()?.picture && triggerPictureUpload()" [class.clickable]="!isViewingOtherUser && !getDisplayUser()?.picture">
@@ -68,9 +71,9 @@
                     <ion-icon slot="start" name="camera"></ion-icon>
                     Change Photo
                   </ion-button>
-                  <ion-button fill="outline" size="small" color="danger" (click)="removePicture()">
-                    <ion-icon slot="start" name="trash"></ion-icon>
-                    Remove
+                  <ion-button fill="outline" size="small" (click)="editPicture()">
+                    <ion-icon slot="start" name="create-outline"></ion-icon>
+                    Edit
                   </ion-button>
                 </div>
                 
@@ -136,6 +139,9 @@
     </ion-card>
     
     <ion-card class="stripe-connect-card" *ngIf="!isViewingOtherUser && isTutor()">
+      <ion-card-header>
+        <ion-card-title>{{ 'PROFILE_SCREEN.PAYOUTS' | translate }}</ion-card-title>
+      </ion-card-header>
       <ion-card-content [class.stripe-connected]="hasPayoutSetup === true">
         <!-- Loading State -->
         <div class="stripe-connect-content" *ngIf="hasPayoutSetup === undefined">
@@ -468,11 +474,13 @@
           </iframe>
           
           <!-- Uploaded Video -->
-          <video 
+          <video
             *ngIf="videoPlayerData.videoType === 'upload'"
+            #modalVideoPlayer
             [src]="videoPlayerData.videoUrl"
             controls
-            autoplay
+            playsinline
+            (loadeddata)="onModalVideoReady($event)"
             class="video-player">
           </video>
         </div>

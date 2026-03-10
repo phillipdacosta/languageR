@@ -812,23 +812,6 @@ ion-header {
   margin: 0 auto;
   min-height: 0;
   
-  .step-icon-circle {
-    width: 60px;
-    height: 60px;
-    border-radius: 16px;
-    background: $ob-accent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px auto;
-    flex-shrink: 0;
-    
-    ion-icon {
-      font-size: 30px;
-      color: white;
-    }
-  }
-  
   .step-title {
     font-size: 22px;
     font-weight: 700;
@@ -1193,16 +1176,6 @@ ion-header {
 .experience-step {
   padding-bottom: 0;
   
-  .step-icon-circle {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 12px;
-    
-    ion-icon {
-      font-size: 26px;
-    }
-  }
-  
   .step-title {
     font-size: 20px;
     margin-bottom: 4px;
@@ -1218,16 +1191,6 @@ ion-header {
 .availability-step {
   padding-bottom: 0;
   
-  .step-icon-circle {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 12px;
-    
-    ion-icon {
-      font-size: 26px;
-    }
-  }
-  
   .step-title {
     font-size: 20px;
     margin-bottom: 4px;
@@ -1242,16 +1205,6 @@ ion-header {
 // Rate step specific styling
 .rate-step {
   padding-bottom: 0;
-  
-  .step-icon-circle {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 12px;
-    
-    ion-icon {
-      font-size: 26px;
-    }
-  }
   
   .step-title {
     font-size: 20px;
@@ -1374,16 +1327,6 @@ ion-header {
   }
   
   .step-content-card {
-    .step-icon-circle {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      
-      ion-icon {
-        font-size: 26px;
-      }
-    }
-    
     .step-title {
       font-size: 20px;
     }

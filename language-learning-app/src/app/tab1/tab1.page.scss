@@ -52,6 +52,13 @@ $green: #22c55e;
 }
 
 // Animation utility classes with staggered delays
+// When returning from an inline view (earnings/explore), skip all entry animations
+// so elements appear at their final state with no flash or drift.
+:host(.returning-from-inline) .content-wrapper * {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.35s ease-out both;
 }
@@ -419,7 +426,46 @@ ion-content {
 
 @keyframes earningsPanelReveal {
   0%   { opacity: 0; }
-  40%  { opacity: 0; }   // Invisible during first ~200ms (clones in flight)
+  40%  { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+// Inline Explore Panel (embedded explore view)
+.explore-inline-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+  height: 100%;
+  animation: explorePanelReveal 0.5s ease-out forwards;
+
+  @media (min-width: 769px) {
+    padding-top: 67px;
+  }
+
+  app-explore {
+    display: block;
+    height: 100%;
+  }
+}
+
+.create-material-inline-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+  height: 100%;
+  animation: explorePanelReveal 0.5s ease-out forwards;
+
+  @media (min-width: 769px) {
+    padding-top: 67px;
+  }
+
+  app-create-material {
+    display: block;
+    height: 100%;
+  }
+}
+
+@keyframes explorePanelReveal {
+  0%   { opacity: 0; }
+  25%  { opacity: 0; }
   100% { opacity: 1; }
 }
 
@@ -440,6 +486,10 @@ ion-content {
   margin-bottom: 0;
   padding-bottom: 6px;
   animation: fadeInUp 0.5s ease-out both;
+
+  @media (max-width: 968px) {
+    margin-bottom: 24px;
+  }
   
   .welcome-header {
     display: flex;
@@ -455,6 +505,8 @@ ion-content {
   .welcome-content {
     flex: 1 1 auto;
     padding-bottom: 20px;
+    position: relative;
+    top: 20px;
   }
   
   .welcome-title {
@@ -465,8 +517,9 @@ ion-content {
     letter-spacing: -0.3px;
     line-height: 1.2;
     
-    @media (max-width: 600px) {
-      font-size: 22px;
+    @media (max-width: 968px) {
+      font-size: 20px;
+      margin-bottom: 4px;
     }
   }
   
@@ -476,6 +529,10 @@ ion-content {
     color: $text-secondary;
     margin: 0;
     line-height: 1.4;
+    
+    @media (max-width: 968px) {
+      font-size: 13px;
+    }
     
     // Skeleton loading state
     &.skeleton-text {
@@ -567,6 +624,74 @@ ion-content {
     
     .earnings-chip-chevron {
       color: #666666;
+    }
+  }
+}
+
+// =============================================
+// COMPACT EARNINGS — mobile only, minimal card in welcome header
+// =============================================
+.earnings-mobile-card {
+  display: none;
+
+  @media (max-width: 968px) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    align-self: center;
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 10px 14px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    animation: fadeInUp 0.4s ease-out 0.1s both;
+
+    &.skip-entry-animation {
+      animation: none !important;
+
+      .view-details-link {
+        opacity: 0;
+        transition: none !important;
+      }
+    }
+
+    .emc-balance {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1f2937;
+      letter-spacing: -0.5px;
+      cursor: pointer;
+      line-height: 1;
+      margin-bottom: 4px;
+
+      .emc-dots {
+        color: #c5c8cd;
+        letter-spacing: 1px;
+      }
+    }
+
+    .view-details-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      padding: 2px 0;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s ease;
+
+      ion-icon {
+        font-size: 11px;
+      }
+
+      &:hover {
+        color: #222222;
+      }
     }
   }
 }
@@ -3270,6 +3395,42 @@ ion-content {
   }
 }
 
+.datepicker-action {
+  padding: 16px 24px 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.datepicker-set-btn {
+  width: 100%;
+  max-width: 360px;
+  padding: 14px 24px;
+  border-radius: 12px;
+  background: #222222;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover:not(:disabled) {
+    opacity: 0.88;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    background: #e5e5ea;
+    color: #aeaeb2;
+    cursor: default;
+  }
+}
+
 // Legacy styles (keeping for backwards compatibility)
 .all-lessons-modal-content {
   display: flex;
@@ -5259,7 +5420,6 @@ ion-content {
     grid-template-columns: 1fr;
     grid-template-areas:
       "upnext"
-      "earnings"
       "comingup"
       "stats";
     gap: 20px;
@@ -5324,6 +5484,10 @@ ion-content {
   grid-area: earnings;
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 968px) {
+    display: none !important;
+  }
 }
 
 .grid-cell-comingup {
@@ -6571,6 +6735,43 @@ ion-content {
       font-size: 15px;
     }
   }
+}
+
+.participant-in-call {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #f0fdf4;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  animation: fadeInCall 0.4s ease-out;
+
+  .in-call-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    flex-shrink: 0;
+    animation: pulseDot 1.5s ease-in-out infinite;
+  }
+
+  .in-call-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #16a34a;
+    letter-spacing: -0.1px;
+  }
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes fadeInCall {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .starts-in-card {
@@ -9491,6 +9692,113 @@ ion-content {
 
 // Dark mode specific overrides for tab1
 :host-context(html.ion-palette-dark) {
+
+  // ── Page background ──────────────────────────────────
+  ion-content {
+    --background: #000000 !important;
+  }
+  .content-wrapper {
+    background: transparent !important;
+  }
+
+  // ── Header / toolbar ─────────────────────────────────
+  .custom-header ion-toolbar {
+    --background: #1c1c1e !important;
+    --color: #ffffff !important;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  }
+  .header-avatar {
+    border-color: #3a3a3a !important;
+  }
+  .notification-btn {
+    --color: #ffffff !important;
+  }
+
+  // ── Welcome section ──────────────────────────────────
+  .welcome-section .welcome-title,
+  .welcome-banner .welcome-title {
+    color: #ffffff !important;
+  }
+  .welcome-section .welcome-subtitle,
+  .welcome-banner .welcome-subtitle {
+    color: #8e8e93 !important;
+  }
+
+  // ── Search bar ───────────────────────────────────────
+  .search-container-compact {
+    background: #2a2a2a !important;
+    border-color: #3a3a3a !important;
+    box-shadow: none !important;
+
+    &:hover {
+      border-color: #555 !important;
+    }
+
+    .search-icon { color: #8e8e93 !important; }
+    .search-input {
+      color: #ffffff !important;
+      &::placeholder { color: #666 !important; }
+    }
+  }
+
+  .search-container {
+    background: #2a2a2a !important;
+    border-color: #3a3a3a !important;
+    .search-icon { color: #8e8e93 !important; }
+    .search-input {
+      color: #ffffff !important;
+      &::placeholder { color: #666 !important; }
+    }
+  }
+
+  // ── Action cards ─────────────────────────────────────
+  .action-card {
+    background: #1c1c1e !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+
+    .card-title { color: #ffffff !important; }
+    .card-description { color: #8e8e93 !important; }
+    .card-avatar { border-color: #3a3a3a !important; }
+  }
+
+  // ── Invitation card ──────────────────────────────────
+  .invitation-card {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  // ── Quick actions ────────────────────────────────────
+  .airbnb-quick-actions-card {
+    background: #1c1c1e !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  }
+  .quick-actions-header {
+    border-bottom-color: #3a3a3a !important;
+    .quick-actions-title { color: #ffffff !important; }
+  }
+  .quick-action-item {
+    border-bottom-color: #2a2a2a !important;
+    &:hover { background: #2a2a2a !important; }
+  }
+  .quick-action-icon {
+    background: #333 !important;
+    ion-icon { color: #ffffff !important; }
+  }
+  .quick-action-title { color: #ffffff !important; }
+  .quick-action-subtitle { color: #8e8e93 !important; }
+  .chevron-icon { color: #555 !important; }
+
+  // ── Modal backgrounds ────────────────────────────────
+  .airbnb-modal-ion-header {
+    --background: #1c1c1e !important;
+    --color: #ffffff !important;
+  }
+  .airbnb-modal-ion-content {
+    --background: #1c1c1e !important;
+  }
+
   .section-header-new h2 {
     color: var(--ion-text-color, #ffffff) !important;
   }
@@ -9519,6 +9827,18 @@ ion-content {
       --border-color: #fff !important;
       --color: #fff !important;
       &:hover { --background: #fff !important; --color: #1a1a1a !important; }
+    }
+    .view-details-link { color: #60a5fa !important; }
+  }
+
+  // Compact earnings mobile card dark mode
+  .earnings-mobile-card {
+    background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+
+    .emc-balance {
+      color: var(--ion-text-color, #fff) !important;
+      .emc-dots { color: #555 !important; }
     }
     .view-details-link { color: #60a5fa !important; }
   }
@@ -9557,6 +9877,7 @@ ion-content {
   .card-name { color: var(--ion-text-color, #fff) !important; }
   .meta-item { color: #999 !important; }
   .meta-item ion-icon { color: #666 !important; }
+  .see-all-btn { --color: #60a5fa !important; }
   
   // Card top row dark mode (legacy)
   .card-top-row {
@@ -9618,13 +9939,15 @@ ion-content {
     p { color: var(--ion-text-color-step-400, #aaa) !important; }
   }
   .empty-state-clean-btn {
-    --background: #222222 !important;
+    --background: transparent !important;
     --color: #ffffff !important;
-    --border-color: #222222 !important;
+    --border-color: #ffffff !important;
+    --border-width: 1.5px;
+    --border-style: solid;
     &:hover:not([disabled]) {
-      --background: #000000 !important;
-      --color: #ffffff !important;
-      --border-color: #000000 !important;
+      --background: #ffffff !important;
+      --color: #1a1a1a !important;
+      --border-color: #ffffff !important;
     }
     &[disabled] {
       --background: transparent !important;
@@ -9635,6 +9958,26 @@ ion-content {
       --background: #222222 !important;
       --color: #ffffff !important;
       --border-color: #222222 !important;
+    }
+  }
+
+  // Tutor Up Next card (upnext-filled) — label, name, meta
+  .upnext-filled {
+    .upnext-filled-label { color: #ffffff !important; }
+    .upnext-filled-text {
+      h3 { color: #ffffff !important; }
+    }
+    .upnext-filled-meta,
+    .upnext-filled-meta .meta-dot { color: #b0b0b5 !important; }
+    .upnext-filled-countdown { color: #8e8e93 !important; }
+    .upnext-filled-avatar .avatar-placeholder {
+      background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
+      color: #ffffff !important;
+    }
+    .upnext-filled-menu {
+      --color: #b0b0b5 !important;
+      ion-icon { color: #b0b0b5 !important; }
+      &:hover { --color: #e5e5e7 !important; ion-icon { color: #e5e5e7 !important; } }
     }
   }
   
@@ -9670,6 +10013,162 @@ ion-content {
     &:hover {
       background: #333333 !important;
       border-color: #444444 !important;
+    }
+  }
+
+  // ── Feedback banner (Airbnb style) ────────────────────
+  .feedback-banner-airbnb {
+    background: #2a2a2a !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
+    &:hover {
+      background: #333333 !important;
+      border-color: rgba(255, 255, 255, 0.15) !important;
+    }
+    .feedback-banner-count {
+      background: #1c1c1e !important;
+      color: #ffffff !important;
+    }
+    .feedback-banner-title { color: #ffffff !important; }
+    .feedback-banner-subtitle { color: #8e8e93 !important; }
+    .feedback-banner-cta {
+      background: var(--ion-color-primary, #4298d2) !important;
+      color: #ffffff !important;
+      &:hover { background: #3583b8 !important; }
+    }
+  }
+  .feedback-banner-airbnb.grace-expired {
+    background: rgba(220, 38, 38, 0.15) !important;
+    border-color: rgba(248, 113, 113, 0.4) !important;
+    .feedback-banner-subtitle { color: #fca5a5 !important; }
+    .feedback-banner-count { background: #dc2626 !important; }
+  }
+
+  // ── Up Next section (student) ────────────────────────
+  .up-next-section {
+    .up-next-badge .badge-label {
+      background: #3a3a3c !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      span { color: #ffffff !important; font-weight: 600 !important; }
+    }
+    @media (max-width: 600px) {
+      .up-next-badge .badge-label {
+        background: #3a3a3c !important;
+        span { color: #ffffff !important; }
+      }
+    }
+  }
+  .up-next-card {
+    background: linear-gradient(135deg, #1c1c1e 0%, #2a2a2a 100%) !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
+    &.has-lesson {
+      background: #1c1c1e !important;
+      color: #f5f5f7 !important;
+    }
+    ion-card-content { --background: transparent !important; }
+  }
+  .up-next-content {
+    .up-next-icon {
+      background: rgba(66, 152, 210, 0.2) !important;
+      ion-icon { color: var(--ion-color-primary, #4298d2) !important; }
+    }
+    .up-next-title { color: #ffffff !important; }
+    .up-next-subtitle { color: #8e8e93 !important; }
+    .text-link-cta {
+      color: var(--ion-color-primary, #4298d2) !important;
+      ion-icon { color: var(--ion-color-primary, #4298d2) !important; }
+    }
+  }
+  .up-next-lesson-content {
+    .lesson-status-badges .status-badge {
+      &.badge-cancelled {
+        background: rgba(220, 38, 38, 0.2) !important;
+        color: #fca5a5 !important;
+      }
+      &.badge-trial {
+        background: rgba(255, 149, 0, 0.25) !important;
+        color: #ffb74d !important;
+      }
+      &.badge-rescheduled {
+        background: rgba(16, 185, 129, 0.2) !important;
+        color: #6ee7b7 !important;
+      }
+      &.badge-reschedule-sent {
+        background: rgba(245, 158, 11, 0.2) !important;
+        color: #fcd34d !important;
+      }
+      &.badge-reschedule-action {
+        background: rgba(66, 152, 210, 0.2) !important;
+        color: #7dd3fc !important;
+      }
+    }
+    .lesson-main-content {
+      .lesson-avatar {
+        border-color: #3a3a3a !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+      }
+      .avatar-placeholder {
+        background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
+        color: #ffffff !important;
+      }
+      .lesson-info {
+        .tutor-name,
+        .tutor-name.class-title {
+          color: #ffffff !important;
+        }
+        .instructor-name { color: #b0b0b5 !important; }
+        .detail-label,
+        .lesson-details-row .detail-group .detail-label,
+        .lesson-details-row .detail-group span { color: #b0b0b5 !important; }
+        ion-icon { color: #8e8e93 !important; }
+      }
+    }
+    .lesson-main-content.class-content {
+      .avatar-placeholder-icon { color: #8e8e93 !important; }
+    }
+  }
+  .up-next-loading ion-skeleton-text {
+    --background: #333333 !important;
+    --background-rgb: 51, 51, 51 !important;
+  }
+  .starts-in-card {
+    background: #2a2a2a !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+    .starts-label-modern { color: #8e8e93 !important; }
+    .countdown-modern { color: #ffffff !important; }
+    @media (max-width: 600px) {
+      background: linear-gradient(180deg, #252525 0%, #2a2a2a 100%) !important;
+      .starts-label-modern::before,
+      .starts-label-modern::after { background: #3a3a3a !important; }
+    }
+  }
+  .up-next-menu-button {
+    --color: #b0b0b5 !important;
+    --color-hover: #e5e5e7 !important;
+    ion-icon { color: #b0b0b5 !important; }
+    &:hover { --color: #e5e5e7 !important; ion-icon { color: #e5e5e7 !important; } }
+  }
+
+  // ── Pending feedback section ──────────────────────────
+  .pending-feedback-section {
+    .section-header-compact {
+      .section-title { color: #ffffff !important; }
+      .section-subtitle { color: #8e8e93 !important; }
+    }
+    .feedback-request-card {
+      background: #2a2a2a !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      &:hover {
+        background: #333333 !important;
+        border-color: var(--ion-color-primary, #4298d2) !important;
+      }
+    }
+    .feedback-request-card .feedback-info h3 { color: #ffffff !important; }
+    .feedback-request-card .feedback-info p { color: #8e8e93 !important; }
+    .feedback-request-card .feedback-arrow { color: #8e8e93 !important; }
+    .feedback-request-card .avatar-placeholder {
+      background: linear-gradient(135deg, #4298d2 0%, #3583b8 100%) !important;
     }
   }
   
@@ -9811,6 +10310,58 @@ ion-content {
     }
   }
 
+  // ── Tutor card ──────────────────────────────────────
+  .tutor-card {
+    background: #2a2a2a !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+
+    .tutor-card-content {
+      background: linear-gradient(135deg, #1f2937 0%, #312e3b 100%) !important;
+
+      .tutor-avatar {
+        border-color: #3a3a3a !important;
+      }
+
+      .rating-badge {
+        background: #333 !important;
+        color: #fff !important;
+      }
+
+      .avatar-placeholder-icon {
+        background: linear-gradient(135deg, #333 0%, #2a2a2a 100%) !important;
+        color: #666 !important;
+      }
+    }
+
+    .tutor-card-info {
+      h3 { color: #ffffff !important; }
+      p { color: #8e8e93 !important; }
+    }
+
+    .next-class-badge {
+      background: #333 !important;
+    }
+  }
+
+  // ── Tab item ───────────────────────────────────────
+  .tab-item {
+    background: #2a2a2a !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  // ── Onboarding / profile-hidden banners ────────────
+  .onboarding-banner,
+  .profile-hidden-banner {
+    background: #2a2a2a !important;
+    --background: #2a2a2a !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+
+    .banner-text h3,
+    .banner-content h3 { color: #ffffff !important; }
+    .banner-text p,
+    .banner-content p { color: #8e8e93 !important; }
+  }
+
   // ===== DAY SCHEDULE SECTION =====
   .day-schedule-section {
     margin: 24px 0;
@@ -9864,10 +10415,10 @@ ion-content {
     }
 
     .empty-timeline-card {
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      border: none;
+      background: linear-gradient(135deg, #1f1f1f 0%, #2a2a2a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 
       .empty-state {
         text-align: center;
@@ -9875,20 +10426,20 @@ ion-content {
 
         ion-icon {
           font-size: 64px;
-          color: #94a3b8;
+          color: #555;
           margin-bottom: 16px;
         }
 
         h3 {
           font-size: 20px;
           font-weight: 700;
-          color: #1e293b;
+          color: #ffffff;
           margin-bottom: 8px;
         }
 
         p {
           font-size: 15px;
-          color: #64748b;
+          color: #8e8e93;
           margin-bottom: 20px;
         }
 
@@ -9909,17 +10460,16 @@ ion-content {
     }
 
     .schedule-item {
-      background: #ffffff;
+      background: #2a2a2a;
       border-radius: 12px;
       padding: 12px 16px;
-      border: 1px solid rgba(148, 163, 184, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       transition: all 0.2s ease;
 
       &:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
       }
 
-      // Lesson/Class row
       .lesson-row {
         display: flex;
         align-items: center;
@@ -9928,13 +10478,13 @@ ion-content {
         .time-badge {
           font-size: 14px;
           font-weight: 700;
-          color: #1e293b;
+          color: #ffffff;
           min-width: 60px;
         }
 
         .time-duration {
           font-size: 12px;
-          color: #94a3b8;
+          color: #8e8e93;
           min-width: 45px;
         }
 
@@ -9983,7 +10533,7 @@ ion-content {
             h4 {
               font-size: 14px;
               font-weight: 600;
-              color: #1e293b;
+              color: #ffffff;
               margin: 0 0 2px 0;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -9992,7 +10542,7 @@ ion-content {
 
             p {
               font-size: 12px;
-              color: #64748b;
+              color: #8e8e93;
               margin: 0;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -10033,7 +10583,6 @@ ion-content {
         }
       }
 
-      // Availability row
       .availability-row {
         display: flex;
         align-items: center;
@@ -10042,13 +10591,13 @@ ion-content {
         .time-badge {
           font-size: 14px;
           font-weight: 700;
-          color: #1e293b;
+          color: #ffffff;
           min-width: 60px;
         }
 
         .time-duration {
           font-size: 12px;
-          color: #94a3b8;
+          color: #8e8e93;
           min-width: 45px;
         }
 
@@ -10061,7 +10610,7 @@ ion-content {
 
           ion-icon {
             font-size: 20px;
-            color: #3b82f6;
+            color: #60a5fa;
             flex-shrink: 0;
           }
 
@@ -10072,13 +10621,13 @@ ion-content {
             h4 {
               font-size: 14px;
               font-weight: 600;
-              color: #0369a1;
+              color: #93c5fd;
               margin: 0 0 2px 0;
             }
 
             p {
               font-size: 12px;
-              color: #0c4a6e;
+              color: #8e8e93;
               margin: 0;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -10089,8 +10638,8 @@ ion-content {
       }
 
       &.is-availability {
-        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        border-color: rgba(59, 130, 246, 0.15);
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+        border-color: rgba(59, 130, 246, 0.2);
       }
     }
 
@@ -10098,10 +10647,10 @@ ion-content {
       margin-top: 16px;
 
       .prompt-card {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        border: none;
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%);
+        border: 1px solid rgba(251, 191, 36, 0.2);
         border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 
         ion-card-content {
           padding: 16px;
@@ -10121,13 +10670,13 @@ ion-content {
             p {
               font-size: 14px;
               font-weight: 500;
-              color: #92400e;
+              color: #fbbf24;
               margin: 0 0 12px 0;
             }
 
             ion-button {
               --background: transparent;
-              --color: #92400e;
+              --color: #fbbf24;
               --padding-start: 0;
               --padding-end: 0;
               height: auto;
@@ -10135,7 +10684,7 @@ ion-content {
               font-size: 14px;
 
               &:hover {
-                --color: #78350f;
+                --color: #fcd34d;
               }
             }
           }

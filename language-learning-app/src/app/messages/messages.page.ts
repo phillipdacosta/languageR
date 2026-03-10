@@ -1865,11 +1865,9 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
               console.log(`📍 Scrolling to first unread message, count: ${storedUnreadCount}`);
               await this.scrollToFirstUnreadMessage(storedUnreadCount);
             } else {
-              // No unread messages - scroll to bottom
-              const container = this.getActiveChatContainer();
-              if (container) {
-                container.scrollTop = container.scrollHeight;
-              }
+              // No unread messages - scroll to bottom with retry for late-rendering content
+              await this.waitForMediaToLoad();
+              this.scrollToBottomWithRetry();
             }
             
             console.log(`✅ [${Date.now()}] Messages loaded and positioned`);
@@ -3054,7 +3052,7 @@ export class MessagesPage implements OnInit, AfterViewInit, OnDestroy {
     const user = this.selectedConversation?.otherUser;
     if (user?.timezone) {
       const time = this.getUserLocalTime(user);
-      this.otherUserLocalTime = time ? `It's ${time} their time` : '';
+      this.otherUserLocalTime = time ? ` ${time} local time` : '';
     } else {
       this.otherUserLocalTime = '';
     }

@@ -54,6 +54,79 @@
   gap: 28px;
 }
 
+// ─── Lottie Animation (plays big first, shrinks when revealed) ───
+.lottie-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 48px 0;
+  transition: padding 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .revealed & {
+    padding: 8px 0;
+  }
+}
+
+.lottie-glow {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 166, 153, 0.25) 0%, rgba(0, 166, 153, 0.06) 50%, transparent 70%);
+  animation: successGlowPulse 2.5s ease-in-out infinite;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              height 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              opacity 0.6s ease;
+
+  .revealed & {
+    width: 100px;
+    height: 100px;
+    opacity: 0.5;
+  }
+}
+
+@keyframes successGlowPulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.success-lottie {
+  width: 200px;
+  height: 200px;
+  position: relative;
+  z-index: 1;
+  transition: width 0.6s cubic-bezier(0.32, 0.72, 0, 1),
+              height 0.6s cubic-bezier(0.32, 0.72, 0, 1);
+
+  .revealed & {
+    width: 88px;
+    height: 88px;
+  }
+}
+
+// ─── Reveal Body (fades up after lottie shrinks) ───
+.reveal-body {
+  opacity: 0;
+  transform: translateY(20px);
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.5s ease 0.15s,
+              transform 0.5s ease 0.15s,
+              max-height 0.6s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+
+  .revealed & {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1200px;
+  }
+}
+
 // ─── Hero Section ───
 .hero-section {
   display: flex;
@@ -63,32 +136,8 @@
   gap: 12px;
 }
 
-.hero-check {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #00A699, #00C9B7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    0 8px 28px rgba(0, 166, 153, 0.30),
-    0 0 0 6px rgba(0, 166, 153, 0.08);
-  margin-bottom: 4px;
-  animation: heroPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-
-  ion-icon {
-    font-size: 36px;
-    color: #fff;
-    font-weight: bold;
-  }
-}
-
-@keyframes heroPopIn {
-  0%   { transform: scale(0); opacity: 0; }
-  60%  { transform: scale(1.15); opacity: 1; }
-  100% { transform: scale(1); }
-}
+// Hero check — commented out, kept for reference
+// .hero-check { ... }
 
 .hero-title {
   font-size: 32px;
@@ -113,14 +162,8 @@
   background: #fff;
   border: 1px solid #EBEBEB;
   border-radius: 16px;
-  padding: 24px;
+  padding: 17px;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
-  animation: cardSlideUp 0.5s ease-out 0.3s backwards;
-}
-
-@keyframes cardSlideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 // ─── Tutor Row ───
@@ -211,6 +254,24 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  opacity: 0;
+  transform: translateY(8px);
+
+  .revealed & {
+    animation: detailRowIn 0.4s ease-out forwards;
+  }
+
+  &.stagger-1 { .revealed & { animation-delay: 0.25s; } }
+  &.stagger-2 { .revealed & { animation-delay: 0.35s; } }
+  &.stagger-3 { .revealed & { animation-delay: 0.45s; } }
+  &.stagger-4 { .revealed & { animation-delay: 0.55s; } }
+}
+
+@keyframes detailRowIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .detail-icon-wrap {
@@ -324,16 +385,32 @@
     gap: 24px;
   }
 
-  .hero-check {
-    width: 64px;
-    height: 64px;
-    box-shadow:
-      0 6px 22px rgba(0, 166, 153, 0.28),
-      0 0 0 5px rgba(0, 166, 153, 0.07);
+  .lottie-wrapper {
+    padding: 36px 0;
+  }
 
-    ion-icon {
-      font-size: 32px;
+  .success-lottie {
+    width: 160px;
+    height: 160px;
+
+    .revealed & {
+      width: 72px;
+      height: 72px;
     }
+  }
+
+  .lottie-glow {
+    width: 160px;
+    height: 160px;
+
+    .revealed & {
+      width: 80px;
+      height: 80px;
+    }
+  }
+
+  .reveal-body {
+    gap: 24px;
   }
 
   .hero-title {

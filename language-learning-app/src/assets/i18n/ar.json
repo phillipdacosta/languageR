@@ -96,6 +96,7 @@
     "JOIN_NOW": "انضم الآن",
     "JOIN": "انضم",
     "JOIN_LESSON": "انضم للدرس",
+    "PARTICIPANT_IN_CALL": "{{name}} في المكالمة",
     "RESCHEDULE": "إعادة الجدولة",
     "CANCEL_LESSON": "إلغاء الدرس",
     "CANCEL": "إلغاء",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "هل أنت متأكد أنك تريد سحب ${{amount}}؟ سيتم إرساله إلى حسابك في {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "تأكيد",
     "WITHDRAW_SUCCESS": "تم طلب سحب ${{amount}} بنجاح! ستتم المعالجة خلال 1-2 أيام عمل.",
+    "WITHDRAW_SUCCESS_TITLE": "تم إرسال الدفعة!",
+    "WITHDRAW_SUCCESS_DETAIL": "تم إرسال {{amount}} إلى {{method}} الخاص بك!",
+    "WITHDRAW_SUCCESS_NOTE": "عادةً ما تكون الأموال متاحة خلال 1-2 أيام عمل.",
+    "WITHDRAW_SUCCESS_DONE": "تم",
     "WITHDRAW_ERROR": "فشل طلب السحب. يرجى المحاولة مرة أخرى.",
     "WITHDRAW_MIN_STRIPE_ERROR": "يرجى إدخال مبلغ سحب صالح",
     "WITHDRAW_MIN_PAYPAL_ERROR": "الحد الأدنى لمبلغ السحب هو $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "هل أنت متأكد أنك تريد تسجيل الخروج؟"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "مرحباً بك في Speak Freely",
+      "GREETING": "مرحباً بك في Barnaby",
       "SUBTITLE": "الطريقة الأذكى لتعلم وتعليم اللغات. لنقم بإعداد حسابك في بضع خطوات.",
-      "TUTOR_GREETING": "مرحباً بك في Speak Freely",
+      "TUTOR_GREETING": "مرحباً بك في Barnaby",
       "TUTOR_SUBTITLE": "انضم إلى مجتمع المعلمين لدينا وابدأ بتعليم الطلاب حول العالم. لنجهّز ملفك الشخصي.",
       "CTA": "ابدأ الآن",
       "BACK": "تغيير اللغة"

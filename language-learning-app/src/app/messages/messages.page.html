@@ -129,8 +129,8 @@
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/app-icon.png" 
-                   alt="Speak Freely" />
+                   src="assets/icons-app-bird.png" 
+                   alt="Barnaby" />
               <!-- Regular message: show user picture or fallback -->
               <img #avatarImg
                    *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
@@ -314,7 +314,7 @@
 
             <!-- System Message -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
+              <img src="assets/icons-app-bird.png" alt="Barnaby" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>
@@ -688,8 +688,8 @@
             <ion-avatar class="conversation-avatar">
               <!-- System message: show app icon -->
               <img *ngIf="conversation.lastMessage?.isSystemMessage || conversation.lastMessage?.type === 'system'" 
-                   src="assets/app-icon.png" 
-                   alt="Speak Freely" />
+                   src="assets/icons-app-bird.png" 
+                   alt="Barnaby" />
               <!-- Regular message: show user picture or fallback -->
               <img #mobileAvatarImg
                    *ngIf="!conversation.lastMessage?.isSystemMessage && conversation.lastMessage?.type !== 'system' && conversation.otherUser?.picture" 
@@ -823,7 +823,7 @@
 
             <!-- System Message (Mobile) -->
             <div *ngIf="message.type === 'system' || message.isSystemMessage" class="message-wrapper received">
-              <img src="assets/app-icon.png" alt="Speak Freely" class="message-avatar system-avatar">
+              <img src="assets/icons-app-bird.png" alt="Barnaby" class="message-avatar system-avatar">
               <div class="message-bubble system-message" (click)="handleSystemMessageClick($event)">
                 <span class="message-text" [innerHTML]="message.content | markdownLink"></span>
                 <span class="message-timestamp">{{ message.createdAt | date: 'short' }}</span>

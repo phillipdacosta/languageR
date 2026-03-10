@@ -96,6 +96,7 @@
     "JOIN_NOW": "Alătură-te acum",
     "JOIN": "Alătură-te",
     "JOIN_LESSON": "Alătură-te lecției",
+    "PARTICIPANT_IN_CALL": "{{name}} este în apel",
     "RESCHEDULE": "Reprogramează",
     "CANCEL_LESSON": "Anulează lecția",
     "CANCEL": "Anulează",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Ești sigur că vrei să retragi ${{amount}}? Aceasta va fi trimisă în contul tău {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmă",
     "WITHDRAW_SUCCESS": "Retragere de ${{amount}} solicitată cu succes! Procesare în 1-2 zile lucrătoare.",
+    "WITHDRAW_SUCCESS_TITLE": "Plată Trimisă!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} trimis către {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Fondurile sunt de obicei disponibile în 1–2 zile lucrătoare.",
+    "WITHDRAW_SUCCESS_DONE": "Gata",
     "WITHDRAW_ERROR": "Nu s-a putut solicita retragerea. Te rugăm să încerci din nou.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Te rugăm să introduci o sumă validă de retragere",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Suma minimă de retragere este $10",
@@ -365,9 +370,9 @@
       "LOGOUT_CONFIRM": "Ești sigur că vrei să te deconectezi?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Bine ați venit la Speak Freely",
+      "GREETING": "Bine ați venit la Barnaby",
       "SUBTITLE": "Modalitatea mai inteligentă de a învăța și preda limbi. Să vă configurăm contul în câțiva pași simpli.",
-      "TUTOR_GREETING": "Bine ați venit la Speak Freely",
+      "TUTOR_GREETING": "Bine ați venit la Barnaby",
       "TUTOR_SUBTITLE": "Alăturați-vă comunității noastre de tutori și începeți să predați studenților din toată lumea. Să vă pregătim profilul.",
       "CTA": "Începeți",
       "BACK": "Schimbați limba"

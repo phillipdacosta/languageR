@@ -96,6 +96,7 @@
     "JOIN_NOW": "Entrar agora",
     "JOIN": "Entrar",
     "JOIN_LESSON": "Entrar na lição",
+    "PARTICIPANT_IN_CALL": "{{name}} está na chamada",
     "RESCHEDULE": "Reagendar",
     "CANCEL_LESSON": "Cancelar lição",
     "CANCEL": "Cancelar",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Tem certeza de que deseja sacar ${{amount}}? Será enviado para sua conta {{method}}.",
     "WITHDRAW_CONFIRM_BTN": "Confirmar",
     "WITHDRAW_SUCCESS": "Saque de ${{amount}} solicitado com sucesso! Processamento em 1-2 dias úteis.",
+    "WITHDRAW_SUCCESS_TITLE": "Pagamento Enviado!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} enviado para o seu {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Os fundos costumam estar disponíveis em 1 a 2 dias úteis.",
+    "WITHDRAW_SUCCESS_DONE": "Concluído",
     "WITHDRAW_ERROR": "Falha ao solicitar o saque. Tente novamente.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Insira um valor de saque válido",
     "WITHDRAW_MIN_PAYPAL_ERROR": "O valor mínimo de saque é $10",
@@ -352,9 +357,9 @@
       "LOGOUT_CONFIRM": "Tem certeza de que deseja sair?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Bem-vindo ao Speak Freely",
+      "GREETING": "Bem-vindo ao Barnaby",
       "SUBTITLE": "A forma mais inteligente de aprender e ensinar idiomas. Vamos configurar sua conta em poucos passos.",
-      "TUTOR_GREETING": "Bem-vindo ao Speak Freely",
+      "TUTOR_GREETING": "Bem-vindo ao Barnaby",
       "TUTOR_SUBTITLE": "Junte-se à nossa comunidade de tutores e comece a ensinar alunos de todo o mundo. Vamos preparar seu perfil.",
       "CTA": "Começar",
       "BACK": "Alterar idioma"
@@ -815,6 +820,7 @@
     "PROFILE": "Perfil",
     "INTRO_VIDEO": "Vídeo de apresentação",
     "INTRO_VIDEO_SUBTITLE": "Ajude os alunos a conhecer você melhor",
-    "INTRO_VIDEO_DESC": "Envie um vídeo curto se apresentando e explicando seu estilo de ensino. Este vídeo será exibido aos alunos quando estiverem procurando tutores."
+    "INTRO_VIDEO_DESC": "Envie um vídeo curto se apresentando e explicando seu estilo de ensino. Este vídeo será exibido aos alunos quando estiverem procurando tutores.",
+    "PAYOUTS": "Pagamentos"
   }
 }

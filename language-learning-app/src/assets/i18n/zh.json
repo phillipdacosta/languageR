@@ -96,6 +96,7 @@
     "JOIN_NOW": "立即加入",
     "JOIN": "加入",
     "JOIN_LESSON": "加入课程",
+    "PARTICIPANT_IN_CALL": "{{name}}已加入通话",
     "RESCHEDULE": "改期",
     "CANCEL_LESSON": "取消课程",
     "CANCEL": "取消",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "您确定要提现 ${{amount}} 吗？款项将发送到您的 {{method}} 账户。",
     "WITHDRAW_CONFIRM_BTN": "确认",
     "WITHDRAW_SUCCESS": "成功申请提现 ${{amount}}！将在1-2个工作日内处理。",
+    "WITHDRAW_SUCCESS_TITLE": "付款已发送！",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}}已发送至您的{{method}}！",
+    "WITHDRAW_SUCCESS_NOTE": "资金通常在1-2个工作日内到账。",
+    "WITHDRAW_SUCCESS_DONE": "完成",
     "WITHDRAW_ERROR": "提现申请失败。请重试。",
     "WITHDRAW_MIN_STRIPE_ERROR": "请输入有效的提现金额",
     "WITHDRAW_MIN_PAYPAL_ERROR": "最低提现金额为 $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "您确定要退出吗？"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "欢迎来到 Speak Freely",
+      "GREETING": "欢迎来到 Barnaby",
       "SUBTITLE": "更智能的语言学习和教学方式。只需几步即可设置您的账户。",
-      "TUTOR_GREETING": "欢迎来到 Speak Freely",
+      "TUTOR_GREETING": "欢迎来到 Barnaby",
       "TUTOR_SUBTITLE": "加入我们的导师社区，开始向全球学生授课。让我们准备好您的个人资料。",
       "CTA": "开始",
       "BACK": "更改语言"

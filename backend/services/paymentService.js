@@ -783,23 +783,14 @@ class PaymentService {
     await payment.save();
     console.log(`💾 Payment saved: transferStatus=on_hold, revenueRecognized=true`);
     
-    // ─── Step 2: Increment tutor balance (safe now — payment is persisted) ───
-    const tutor = await User.findById(lesson.tutorId._id);
-    if (!tutor.tutorEarnings) {
-      tutor.tutorEarnings = {
-        availableBalance: 0,
-        pendingBalance: 0,
-        lifetimeEarnings: 0,
-        lastWithdrawal: null,
-        totalWithdrawn: 0
-      };
-    }
-    
-    tutor.tutorEarnings.pendingBalance += tutorPayout;
-    // NOTE: lifetimeEarnings is NOT incremented here. Pending payments can still
-    // be refunded/cancelled. Lifetime is only updated when funds are released
-    // from hold (in releaseEarnings job) and reflects confirmed earnings only.
-    await tutor.save();
+    // ─── Step 2: Atomically increment tutor pending balance ───
+    // lifetimeEarnings is NOT incremented here — only when funds are released
+    // from hold (in releaseEarnings job) to reflect confirmed earnings only.
+    const tutor = await User.findOneAndUpdate(
+      { _id: lesson.tutorId._id },
+      { $inc: { 'tutorEarnings.pendingBalance': tutorPayout } },
+      { new: true }
+    );
     
     console.log(`💼 Updated tutor balance:`);
     console.log(`   Pending: $${tutor.tutorEarnings.pendingBalance.toFixed(2)}`);
@@ -955,24 +946,23 @@ class PaymentService {
       console.log(`   Platform profit $${netPlatformProfit.toFixed(2)} remains in Stripe`);
     }
 
-    // 🔀 HYBRID PAYMENT: Also mark hybrid card payment revenue as recognized
-    const hybridCardPayment = await Payment.findOne({
+    // Mark ALL other payment records for this lesson as revenue-recognized.
+    // This handles hybrid payments, split payments, and retry scenarios.
+    const otherPayments = await Payment.find({
       lessonId,
-      paymentMethod: { $in: ['saved-card', 'card', 'apple_pay', 'google_pay'] },
-      'metadata.isHybridPayment': true
+      _id: { $ne: payment._id }
     });
 
-    if (hybridCardPayment && !hybridCardPayment.revenueRecognized) {
-      const hybridPlatformFee = hybridCardPayment.amount * (this.PLATFORM_FEE_PERCENTAGE / 100);
-      const hybridTutorPayout = hybridCardPayment.amount - hybridPlatformFee;
-      
-      hybridCardPayment.platformFee = hybridPlatformFee;
-      hybridCardPayment.tutorPayout = hybridTutorPayout;
-      hybridCardPayment.revenueRecognized = true;
-      hybridCardPayment.revenueRecognizedAt = new Date();
-      await hybridCardPayment.save();
-      
-      console.log(`✅ [HYBRID] Hybrid card payment revenue recognized: $${hybridPlatformFee} platform fee, Stripe fee: $${hybridCardPayment.stripeFee}`);
+    for (const otherPayment of otherPayments) {
+      if (!otherPayment.revenueRecognized) {
+        const otherFee = otherPayment.amount * (this.PLATFORM_FEE_PERCENTAGE / 100);
+        otherPayment.platformFee = otherFee;
+        otherPayment.tutorPayout = otherPayment.amount - otherFee;
+        otherPayment.revenueRecognized = true;
+        otherPayment.revenueRecognizedAt = new Date();
+        await otherPayment.save();
+        console.log(`✅ [MULTI-PAYMENT] Additional payment ${otherPayment._id} revenue recognized: amount $${otherPayment.amount}, payout $${otherPayment.tutorPayout}`);
+      }
     }
 
     // Step 4: Mark lesson billing complete and recognize revenue
@@ -1111,13 +1101,64 @@ class PaymentService {
    * @returns {Promise<Object>} Payment details
    */
   async getPaymentDetails(lessonId) {
-    const payment = await Payment.findOne({ lessonId }).populate('userId lessonId');
+    const payments = await Payment.find({ lessonId }).populate('userId lessonId');
     
-    if (!payment) {
+    if (!payments || payments.length === 0) {
       throw new Error('Payment not found for this lesson');
     }
 
-    return payment;
+    // Single payment — still check lesson-level values for accuracy
+    if (payments.length === 1) {
+      const lesson = await Lesson.findById(lessonId);
+      if (lesson?.tutorPayout != null && lesson.tutorPayout > 0) {
+        const single = payments[0].toObject();
+        single.amount = lesson.actualPrice || lesson.price || single.amount;
+        single.tutorPayout = lesson.tutorPayout;
+        single.platformFee = lesson.platformFee || 0;
+        return single;
+      }
+      return payments[0];
+    }
+
+    // Multiple payments (hybrid wallet+card) — merge into a single view.
+    // Pick the primary payment (the one with transferStatus or revenueRecognized)
+    // and aggregate the financial totals from all records.
+    const primary = payments.find(p => p.transferStatus && p.revenueRecognized)
+      || payments.find(p => p.revenueRecognized)
+      || payments.find(p => p.transferStatus)
+      || payments[0];
+
+    const totalAmount = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const totalRefund = payments.reduce((sum, p) => sum + (p.refundAmount || 0), 0);
+
+    // Use the lesson-level values set by completeLessonPayment (authoritative source).
+    // Fall back to recalculating from price if not available.
+    const lesson = await Lesson.findById(lessonId);
+    let tutorPayout, platformFee;
+    if (lesson?.tutorPayout != null && lesson.tutorPayout > 0) {
+      tutorPayout = lesson.tutorPayout;
+      platformFee = lesson.platformFee || 0;
+    } else {
+      const lessonPrice = lesson?.actualPrice || lesson?.price || totalAmount;
+      platformFee = lessonPrice * (this.PLATFORM_FEE_PERCENTAGE / 100);
+      tutorPayout = lessonPrice - platformFee;
+    }
+
+    // Return a merged view — spread the primary record, override financials
+    const merged = primary.toObject();
+    merged.amount = lesson?.actualPrice || lesson?.price || totalAmount;
+    merged.tutorPayout = tutorPayout;
+    merged.platformFee = platformFee;
+    merged.refundAmount = totalRefund;
+
+    // Carry over receipt/charge info from whichever record has it
+    for (const p of payments) {
+      if (p.receiptUrl && !merged.receiptUrl) merged.receiptUrl = p.receiptUrl;
+      if (p.stripeChargeId && !merged.stripeChargeId) merged.stripeChargeId = p.stripeChargeId;
+      if (p.stripePaymentIntentId && !merged.stripePaymentIntentId) merged.stripePaymentIntentId = p.stripePaymentIntentId;
+    }
+
+    return merged;
   }
 
   /**

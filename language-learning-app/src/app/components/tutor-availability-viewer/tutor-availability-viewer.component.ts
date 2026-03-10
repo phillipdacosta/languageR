@@ -53,6 +53,7 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   // Selected duration for filtering available slots (25 or 50 minutes)
   @Input() selectedDuration: 25 | 50 = 25; // Default to 25 minutes
   @Output() slotSelected = new EventEmitter<{ selectedDate: string; selectedTime: string; timezone?: string }>();
+  @Output() paymentRequested = new EventEmitter<{ tutorId: string; date: string; time: string; duration: number; isTrialLesson: boolean; timezone: string }>();
   
   private destroy$ = new Subject<void>();
   availability: AvailabilityBlock[] = [];
@@ -100,7 +101,21 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   
   // Pre-computed date-to-slots array for direct template iteration (avoids function calls in *ngFor)
   weekDateSlots: { date: Date; slots: { label: string; time: string; booked: boolean; isPast: boolean }[] }[] = [];
-  
+
+  // Confirmation step state
+  showConfirmation = false;
+  confirmedDate: Date | null = null;
+  confirmedDateIso = '';
+  confirmedTime = '';
+  confirmedDateFormatted = '';
+  confirmedTimeFormatted = '';
+  confirmedTimeEndFormatted = '';
+  confirmDuration: 25 | 50 | null = null;
+  canFit50Min = true;
+  confirmedSlotLabel = '';
+  confirmedSlotKey = '';
+  private lastSlotRect: { left: number; top: number; width: number; height: number } | null = null;
+
   // Format tutor name as "FirstName L."
   get formattedTutorName(): string {
     if (!this.tutorName) return '';
@@ -464,10 +479,14 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       }
 
       const startTime = new Date(lesson.startTime);
-      const endTime = new Date(lesson.endTime);
       const lessonDurationMinutes = lesson.duration || 60;
       const bufferMinutes = lessonDurationMinutes === 25 ? 5 : lessonDurationMinutes === 50 ? 10 : 10;
-      const endTimeWithBuffer = new Date(endTime.getTime() + bufferMinutes * 60000);
+
+      // Calculate blocked window from startTime + (duration + buffer) to avoid
+      // double-buffering if endTime already includes the buffer, and to avoid
+      // millisecond precision issues at 30-min boundaries.
+      const endTimeWithBuffer = new Date(startTime.getTime() + (lessonDurationMinutes + bufferMinutes) * 60000);
+      endTimeWithBuffer.setSeconds(0, 0);
 
       // Round start down to nearest 30-min boundary
       let currentUTC = new Date(startTime);
@@ -483,6 +502,8 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         currentUTC = new Date(currentUTC.getTime() + 30 * 60000);
       }
     }
+
+    console.log('🔒 [BookedSlots] Final booked slots:', [...set].sort());
 
     this.bookedSlots = set;
     this.slotsCache.clear();
@@ -612,6 +633,9 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
       
       try {
         const slots = this.computeAvailableTimeLabelsForDate(date);
+        if (slots.length > 0) {
+          console.log(`📅 [Slots] ${dateKey}: ${slots.map(s => `${s.time}${s.booked ? '(B)' : ''}${s.isPast ? '(P)' : ''}`).join(', ')}`);
+        }
         this.dateSlotsMap.set(dateKey, slots);
         
         // Build weekDateSlots array for direct template iteration (avoids function calls)
@@ -813,6 +837,10 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
         return tutorTimeMinutes >= blockStart && tutorTimeMinutes < blockEnd;
       });
 
+      // Debug logging for early morning slots to trace filtering
+      const viewerHour = parseInt(viewerTime.split(':')[0]);
+      const debugSlot = viewerHour >= 5 && viewerHour <= 8;
+
       if (hasAvailability) {
         // Booked check uses date-specific key in viewer timezone
         const bookedKey = `${viewerDateStr}-${viewerTime}`;
@@ -826,14 +854,22 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
           ? this.hasEnoughConsecutiveTime(date, viewerTime, dayIndex)
           : true;
 
+        if (debugSlot) {
+          console.log(`🔍 [Slot] ${viewerDateStr} ${viewerTime}: avail=✓ booked=${isBooked} past=${isPast} studentBusy=${isStudentBusy} enoughTime=${hasEnoughTime} → ${(!isStudentBusy && hasEnoughTime) ? 'INCLUDED' : 'FILTERED'}`);
+        }
+
         if (!isStudentBusy && hasEnoughTime) {
           slots.push({ label: this.timeLabels[i], time: viewerTime, booked: isBooked, isPast: isPast });
         }
+      } else if (debugSlot) {
+        console.log(`🔍 [Slot] ${viewerDateStr} ${viewerTime}: avail=✗ (no matching availability block)`);
       }
     }
 
-    if (shouldCache) this.slotsCache.set(cacheKey, slots);
-    return slots;
+    const available = slots.filter(s => !s.booked && !s.isPast);
+
+    if (shouldCache) this.slotsCache.set(cacheKey, available);
+    return available;
   }
 
   // Check if student has a conflicting lesson at this time slot
@@ -908,33 +944,27 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
   }
 
   /**
-   * Check if a time slot has enough consecutive available time for the selected duration + buffer
+   * Check if a time slot has enough consecutive available time for the selected duration + buffer.
+   * Uses viewer-timezone keys for booked-slot lookups (matching how bookedSlots was built).
    */
   private hasEnoughConsecutiveTime(date: Date, timeSlot: string, _dayIndex: number): boolean {
     const bufferMinutes = this.selectedDuration === 25 ? 5 : 10;
     const totalMinutesNeeded = this.selectedDuration + bufferMinutes;
+    const viewerDateStr = this.dateKey(date);
+    const [startH, startM] = timeSlot.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
 
-    const [hours, minutes] = timeSlot.split(':').map(Number);
-    let checkTime = new Date(date);
-    checkTime.setHours(hours, minutes, 0, 0);
-
-    const endTime = new Date(checkTime.getTime() + totalMinutesNeeded * 60000);
-
-    let currentCheck = new Date(checkTime);
-    while (currentCheck < endTime) {
-      const currentDateStr = this.dateKey(currentCheck);
-      const checkHours = currentCheck.getHours().toString().padStart(2, '0');
-      const checkMinutes = currentCheck.getMinutes().toString().padStart(2, '0');
-      const checkKey = `${currentDateStr}-${checkHours}:${checkMinutes}`;
-
-      if (this.bookedSlots.has(checkKey)) return false;
-      currentCheck = new Date(currentCheck.getTime() + 30 * 60000);
+    for (let offset = 0; offset < totalMinutesNeeded; offset += 30) {
+      const checkMinutes = startMinutes + offset;
+      const hh = Math.floor(checkMinutes / 60).toString().padStart(2, '0');
+      const mm = (checkMinutes % 60).toString().padStart(2, '0');
+      if (this.bookedSlots.has(`${viewerDateStr}-${hh}:${mm}`)) return false;
     }
 
     return true;
   }
 
-  onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean; isPast?: boolean }) {
+  onSelectSlot(date: Date, slot: { label: string; time: string; booked?: boolean; isPast?: boolean }, event?: Event) {
     // Don't allow booking if tutor is blocked (pending feedback)
     if (this.tutorBlocked) {
       return;
@@ -977,16 +1007,225 @@ export class TutorAvailabilityViewerComponent implements OnInit, OnDestroy, OnCh
     const day = String(date.getDate()).padStart(2, '0');
     const dateIso = `${year}-${month}-${day}`;
 
-    this.router.navigate(['/checkout'], {
-      queryParams: {
-        tutorId: this.tutorId,
-        date: dateIso,
-        time: slot.time,
-        duration: this.selectedDuration,
-        isTrialLesson: this.isTrialLesson,
-        timezone: this.selectedTimezone
-      }
+    // Capture the clicked slot's position BEFORE we swap panels
+    const slotEl = (event?.target as HTMLElement)?.closest('.slot') as HTMLElement | null;
+    const srcRect = slotEl ? slotEl.getBoundingClientRect() : null;
+    const slotLabel = slot.label;
+
+    // Store for the reverse animation so we don't need to query the DOM later
+    this.lastSlotRect = srcRect ? { left: srcRect.left, top: srcRect.top, width: srcRect.width, height: srcRect.height } : null;
+
+    this.confirmedDate = date;
+    this.confirmedDateIso = dateIso;
+    this.confirmedTime = slot.time;
+    this.confirmedSlotLabel = slot.label;
+    this.confirmedSlotKey = `${date.toISOString().slice(0, 10)}-${slot.time}`;
+    this.canFit50Min = this.checkCanFit(date, slot.time, 50);
+    this.confirmDuration = null;
+    this.updateConfirmationLabels();
+
+    // Swap panels instantly (*ngIf)
+    this.showConfirmation = true;
+    this.cdr.detectChanges();
+
+    if (!srcRect) return;
+
+    // Build clone at the slot's original position
+    const clone = document.createElement('div');
+    clone.textContent = slotLabel;
+    const t = '0.46s cubic-bezier(0.32,0.72,0,1)';
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+      fontSize: '11px',
+      fontWeight: '500',
+      letterSpacing: '-0.2px',
+      color: '#222222',
+      backgroundColor: '#ffffff',
+      border: '1px solid #DDDDDD',
+      borderRadius: '8px',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      transition: `left ${t}, top ${t}, width ${t}, height ${t}, border-radius ${t}, font-size 0.3s ease 0.06s, color 0.2s ease 0.06s, box-shadow 0.36s ease`,
+      overflow: 'hidden',
     });
+    document.body.appendChild(clone);
+
+    // Hide the real receipt card — the clone will stand in for it
+    const receipt = document.querySelector('.confirm-receipt') as HTMLElement;
+    if (receipt) {
+      receipt.style.transition = 'none';
+      receipt.style.opacity = '0';
+    }
+
+    // Next frame: receipt is in final layout position, morph the clone to it
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!receipt) { clone.remove(); return; }
+        const destRect = receipt.getBoundingClientRect();
+
+        // Morph: small pill → full card
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.borderRadius = '14px';
+        clone.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
+        clone.style.color = 'transparent';
+
+        // Once morph lands, reveal the real card and remove clone
+        setTimeout(() => {
+          receipt.style.transition = 'opacity 0.15s ease';
+          receipt.style.opacity = '1';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (clone.parentNode) clone.remove();
+              // Clean up inline styles
+              setTimeout(() => { receipt.style.transition = ''; receipt.style.opacity = ''; }, 200);
+            });
+          });
+        }, 440);
+      });
+    });
+  }
+
+  /**
+   * Check whether a lesson of `duration` minutes fits at the given slot
+   * by verifying no booked slots overlap within duration + buffer.
+   * The starting slot's availability is already guaranteed (only available slots are selectable).
+   * Server-side booking validates full tutor availability before confirming.
+   */
+  private checkCanFit(date: Date, timeSlot: string, duration: number): boolean {
+    const bufferMinutes = duration === 25 ? 5 : 10;
+    const totalMinutesNeeded = duration + bufferMinutes;
+    const viewerDateStr = this.dateKey(date);
+
+    const [startH, startM] = timeSlot.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+
+    for (let offset = 0; offset < totalMinutesNeeded; offset += 30) {
+      const viewerMinutes = startMinutes + offset;
+      const hh = Math.floor(viewerMinutes / 60).toString().padStart(2, '0');
+      const mm = (viewerMinutes % 60).toString().padStart(2, '0');
+      if (this.bookedSlots.has(`${viewerDateStr}-${hh}:${mm}`)) return false;
+    }
+
+    return true;
+  }
+
+  updateConfirmationLabels() {
+    if (!this.confirmedDate) return;
+    const opts: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+    this.confirmedDateFormatted = this.confirmedDate.toLocaleDateString(undefined, opts);
+
+    const [h, m] = this.confirmedTime.split(':').map(Number);
+    const startDate = new Date(this.confirmedDate);
+    startDate.setHours(h, m, 0, 0);
+
+    const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    this.confirmedTimeFormatted = startDate.toLocaleTimeString(undefined, timeFmt);
+
+    if (this.confirmDuration) {
+      const endDate = new Date(startDate.getTime() + this.confirmDuration * 60000);
+      this.confirmedTimeEndFormatted = endDate.toLocaleTimeString(undefined, timeFmt);
+    } else {
+      this.confirmedTimeEndFormatted = '';
+    }
+  }
+
+  onConfirmDurationChange(dur: 25 | 50) {
+    this.confirmDuration = dur;
+    this.updateConfirmationLabels();
+  }
+
+  backToCalendar() {
+    // Step 1: Capture the receipt card's position BEFORE the swap
+    const receipt = document.querySelector('.confirm-receipt') as HTMLElement;
+    if (!receipt) { this.showConfirmation = false; this.cdr.detectChanges(); return; }
+    const srcRect = receipt.getBoundingClientRect();
+    const destRect = this.lastSlotRect;
+
+    // Step 2: Create a clone that looks exactly like the receipt card
+    const clone = document.createElement('div');
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      boxSizing: 'border-box',
+      backgroundColor: '#ffffff',
+      border: '1px solid #DDDDDD',
+      borderRadius: '14px',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+      overflow: 'hidden',
+    });
+    document.body.appendChild(clone);
+
+    // Step 3: Swap panels
+    this.showConfirmation = false;
+    this.cdr.detectChanges();
+
+    if (!destRect) {
+      // No stored slot position — just fade out
+      clone.style.transition = 'opacity 0.25s ease';
+      clone.style.opacity = '0';
+      setTimeout(() => { if (clone.parentNode) clone.remove(); }, 300);
+      return;
+    }
+
+    // Step 4: Next frame — apply transition, then morph from card → slot position
+    requestAnimationFrame(() => {
+      const t = '0.46s cubic-bezier(0.32,0.72,0,1)';
+      clone.style.transition = `left ${t}, top ${t}, width ${t}, height ${t}, border-radius ${t}, box-shadow ${t}`;
+
+      requestAnimationFrame(() => {
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = `${destRect.width}px`;
+        clone.style.height = `${destRect.height}px`;
+        clone.style.borderRadius = '8px';
+        clone.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
+
+        // After morph lands, fade out clone
+        setTimeout(() => {
+          clone.style.transition = 'opacity 0.15s ease';
+          clone.style.opacity = '0';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 180);
+        }, 460);
+      });
+    });
+  }
+
+  goToPayment() {
+    if (!this.confirmDuration) return;
+
+    const paymentData = {
+      tutorId: this.tutorId,
+      date: this.confirmedDateIso,
+      time: this.confirmedTime,
+      duration: this.confirmDuration,
+      isTrialLesson: this.isTrialLesson,
+      timezone: this.selectedTimezone
+    };
+
+    if (this.paymentRequested.observed) {
+      this.paymentRequested.emit(paymentData);
+      return;
+    }
+
+    this.router.navigate(['/checkout'], { queryParams: paymentData });
   }
   
   /**

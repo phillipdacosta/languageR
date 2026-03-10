@@ -168,11 +168,12 @@ export class LessonAnalysisPage implements OnInit, OnDestroy {
       }
     } catch (err: any) {
       console.error('Error loading analysis:', err);
-      if (err.status === 404) {
+      if (err.status === 404 && err.error?.status === 'unavailable') {
+        this.error = 'No analysis available for this lesson. There wasn\'t enough speech captured to generate an analysis.';
+        this.stopPolling();
+      } else if (err.status === 404) {
         this.error = 'Analysis not available yet. It may still be generating...';
         this.canGenerate = err.error?.canGenerate || false;
-        
-        // If analysis doesn't exist yet, start polling (it might be generating)
         this.startPolling();
       } else {
         this.error = 'Failed to load lesson analysis';

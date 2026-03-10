@@ -51,6 +51,7 @@ interface SelectedSlot {
 })
 export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   @ViewChild('timeSlotsContainer', { static: false }) timeSlotsContainer?: ElementRef;
+  @ViewChild('mobileHeaderRef', { static: false }) mobileHeaderRef?: ElementRef;
 
   @Input() targetDate: string | null = null; // Date parameter from route (YYYY-MM-DD format)
   @Input() embeddedMode: boolean = false; // When true, hides navigation elements and emits events instead
@@ -77,6 +78,8 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   loadError = false; // Error state for data fetch
   private bookedSlotsLoaded = false; // Track if booked slots have been loaded
   private availabilityLoaded = false; // Track if availability data has been loaded
+  showStickyBackButton = false;
+  private headerObserver?: IntersectionObserver;
 
   // Getter for new slots count (only newly selected, not already saved)
   get newSlotsCount(): number {
@@ -504,77 +507,114 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
   }
 
   ngAfterViewInit() {
-    // Start time updater like tutor-calendar
     this.startTimeUpdater();
-    
-    // Recompute on resize
     window.addEventListener('resize', this.boundResizeHandler);
-    
-    // Don't scroll here - scroll will be triggered after data loads
+    this.setupHeaderObserver();
+  }
+
+  private setupHeaderObserver() {
+    if (this.embeddedMode) return;
+    setTimeout(() => {
+      const headerEl = this.mobileHeaderRef?.nativeElement as HTMLElement;
+      if (!headerEl || window.innerWidth > 768) return;
+
+      const ionContent = headerEl.closest('ion-content') as any;
+      if (!ionContent) return;
+
+      ionContent.getScrollElement().then((scrollEl: HTMLElement) => {
+        this.headerObserver = new IntersectionObserver(
+          (entries) => {
+            this.showStickyBackButton = !entries[0].isIntersecting;
+            this.cdr.detectChanges();
+          },
+          { root: scrollEl, threshold: 0 }
+        );
+        this.headerObserver.observe(headerEl);
+      });
+    }, 500);
   }
   
   /**
    * Scroll to the current time indicator with retry logic
    * Called after data loads to ensure the grid is rendered
    */
-  private scrollToCurrentTime(retryCount = 0) {
-    const maxRetries = 10;
-    
-    // Check if we're still loading - if so, wait and retry
+  private async scrollToCurrentTime(retryCount = 0) {
+    const maxRetries = 15;
+
     if (this.isLoading) {
       if (retryCount < maxRetries) {
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
+
     const timeSlotsElement = this.timeSlotsContainer?.nativeElement as HTMLElement | undefined;
     if (!timeSlotsElement) {
-      // Element not ready yet, retry
       if (retryCount < maxRetries) {
-        console.log(`📜 Time slots container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
-      } else {
-        console.warn('📜 Failed to find time slots container after retries');
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Find the scrollable container
+
+    const isMobile = window.innerWidth <= 768;
+
+    if (isMobile) {
+      const ionContent = timeSlotsElement.closest('ion-content') as any;
+      const scrollEl = ionContent ? await ionContent.getScrollElement() : null;
+
+      if (!scrollEl) {
+        if (retryCount < maxRetries) {
+          setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
+        }
+        return;
+      }
+
+      const timeIndicator = timeSlotsElement.querySelector('.time-indicator') as HTMLElement;
+      if (timeIndicator) {
+        const indicatorRect = timeIndicator.getBoundingClientRect();
+        const scrollElRect = scrollEl.getBoundingClientRect();
+        const scrollTarget = scrollEl.scrollTop + (indicatorRect.top - scrollElRect.top) - (window.innerHeight / 3);
+        scrollEl.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+        return;
+      }
+
+      if (this.currentTimePosition > 0) {
+        const gridContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
+        if (gridContainer) {
+          const gridRect = gridContainer.getBoundingClientRect();
+          const scrollElRect = scrollEl.getBoundingClientRect();
+          const scrollTarget = scrollEl.scrollTop + (gridRect.top - scrollElRect.top) + this.currentTimePosition - (window.innerHeight / 3);
+          scrollEl.scrollTo({ top: Math.max(0, scrollTarget), behavior: 'smooth' });
+          return;
+        }
+      }
+
+      if (retryCount < maxRetries) {
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
+      }
+      return;
+    }
+
     const scrollContainer = timeSlotsElement.closest('.time-grid-container') as HTMLElement;
     if (!scrollContainer) {
       if (retryCount < maxRetries) {
-        console.log(`📜 Scroll container not ready, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
-      } else {
-        console.warn('📜 Failed to find scroll container after retries');
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Check if the container has valid scroll dimensions
+
     if (scrollContainer.scrollHeight <= scrollContainer.clientHeight) {
       if (retryCount < maxRetries) {
-        console.log(`📜 Scroll container not fully rendered, retrying (${retryCount + 1}/${maxRetries})...`);
-        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 200);
+        setTimeout(() => this.scrollToCurrentTime(retryCount + 1), 300);
       }
       return;
     }
-    
-    // Calculate scroll position (position minus some offset to center it)
+
     const targetScroll = Math.max(0, this.currentTimePosition - 200);
-    
+
     scrollContainer.scrollTo({
       top: targetScroll,
       behavior: 'smooth'
-    });
-    
-    console.log('📜 ✅ Scrolled to current time:', {
-      currentTimePosition: this.currentTimePosition,
-      targetScroll,
-      scrollHeight: scrollContainer.scrollHeight,
-      clientHeight: scrollContainer.clientHeight,
-      retryCount
     });
   }
 
@@ -717,6 +757,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     this.destroy$.next();
     this.destroy$.complete();
     if (this.nowIntervalId) clearInterval(this.nowIntervalId);
+    if (this.headerObserver) this.headerObserver.disconnect();
     window.removeEventListener('resize', this.boundResizeHandler);
   }
 
@@ -1023,10 +1064,11 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
       // Trigger change detection to ensure view updates
       this.cdr.detectChanges();
       
-      // Scroll to current time after grid is rendered
+      // Scroll to current time after grid is rendered (longer delay on mobile for *ngIf to resolve)
+      const delay = window.innerWidth <= 768 ? 400 : 100;
       setTimeout(() => {
         this.scrollToCurrentTime();
-      }, 100);
+      }, delay);
     }
   }
   
@@ -1388,7 +1430,7 @@ export class AvailabilitySetupComponent implements OnInit, OnChanges, AfterViewI
     const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
     const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
     const startOffset = 0;
-    const slotHeight = 26;
+    const slotHeight = window.innerWidth <= 768 ? 37 : 26;
 
     const totalSlotsFromStart = ((currentHour - startOffset) * 2) + Math.floor(currentMinute / 30);
     const minutesIntoCurrentSlot = currentMinute % 30;

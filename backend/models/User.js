@@ -532,7 +532,25 @@ const userSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+
+  // Content channel linking (for material ownership verification)
+  linkedChannels: {
+    youtubeChannelUrl: { type: String, default: null, trim: true },
+    youtubeChannelName: { type: String, default: null },
+    youtubeChannelAvatar: { type: String, default: null },
+    youtubeSubscriberCount: { type: String, default: null },
+    vimeoChannelUrl: { type: String, default: null, trim: true },
+    vimeoChannelName: { type: String, default: null },
+    vimeoChannelAvatar: { type: String, default: null },
+    soundcloudProfileUrl: { type: String, default: null, trim: true },
+    soundcloudProfileName: { type: String, default: null },
+    soundcloudProfileAvatar: { type: String, default: null }
+  },
+
+  // Branding & referral tracking
+  materialReferralViews: { type: Number, default: 0 },
+  isAmbassador: { type: Boolean, default: false }
 });
 
 // Update the updatedAt field before saving

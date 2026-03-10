@@ -1,0 +1,79 @@
+<div class="mr-page">
+  <div class="mr-header">
+    <h2>Material Reports</h2>
+    <p>Review student-reported issues with learning materials</p>
+  </div>
+
+  <div class="mr-filters">
+    <button class="mr-filter-btn" [class.active]="statusFilter === 'open'" (click)="changeFilter('open')">Open</button>
+    <button class="mr-filter-btn" [class.active]="statusFilter === 'under_review'" (click)="changeFilter('under_review')">Under Review</button>
+    <button class="mr-filter-btn" [class.active]="statusFilter === 'resolved'" (click)="changeFilter('resolved')">Resolved</button>
+    <button class="mr-filter-btn" [class.active]="statusFilter === 'dismissed'" (click)="changeFilter('dismissed')">Dismissed</button>
+    <button class="mr-filter-btn" [class.active]="statusFilter === 'all'" (click)="changeFilter('all')">All</button>
+  </div>
+
+  <div class="mr-loading" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+  </div>
+
+  <div class="mr-error" *ngIf="error && !loading">
+    <ion-icon name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <div class="mr-empty" *ngIf="!loading && !error && filteredReports.length === 0">
+    <ion-icon name="checkmark-circle-outline"></ion-icon>
+    <p>No {{ statusFilter === 'all' ? '' : statusFilter }} reports</p>
+  </div>
+
+  <div class="mr-list" *ngIf="!loading && filteredReports.length > 0">
+    <div class="mr-card" *ngFor="let report of filteredReports" (click)="reviewReport(report)">
+      <div class="mr-card-top">
+        <div class="mr-material-info">
+          <span class="mr-type-badge">{{ getMaterialTypeLabel(report.materialId?.materialType) }}</span>
+          <span class="mr-material-title">{{ report.materialId?.title || 'Unknown Material' }}</span>
+        </div>
+        <ion-badge [color]="getStatusColor(report.status)">{{ report.status | titlecase }}</ion-badge>
+      </div>
+
+      <div class="mr-reason">
+        <ion-icon name="flag" color="danger"></ion-icon>
+        <span>{{ getReasonLabel(report.reason) }}</span>
+      </div>
+      <p class="mr-details" *ngIf="report.details">{{ report.details }}</p>
+
+      <div class="mr-people">
+        <div class="mr-person">
+          <img *ngIf="report.studentId?.picture" [src]="report.studentId.picture" referrerpolicy="no-referrer" />
+          <ion-icon *ngIf="!report.studentId?.picture" name="person-circle-outline"></ion-icon>
+          <div>
+            <span class="mr-person-label">Student</span>
+            <span class="mr-person-name">{{ report.studentId?.name || 'Unknown' }}</span>
+          </div>
+        </div>
+        <div class="mr-person">
+          <img *ngIf="report.tutorId?.picture" [src]="report.tutorId.picture" referrerpolicy="no-referrer" />
+          <ion-icon *ngIf="!report.tutorId?.picture" name="person-circle-outline"></ion-icon>
+          <div>
+            <span class="mr-person-label">Tutor</span>
+            <span class="mr-person-name">{{ report.tutorId?.name || 'Unknown' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mr-card-footer">
+        <span class="mr-date">{{ formatDate(report.createdAt) }}</span>
+        <div class="mr-tags">
+          <span class="mr-tag purchased" *ngIf="report.hasPurchased">Paid</span>
+          <span class="mr-tag refunded" *ngIf="report.refundIssued">Refunded ${{ report.refundAmount?.toFixed(2) }}</span>
+          <span class="mr-tag" *ngIf="report.hasCompletedQuiz">Quiz Taken</span>
+        </div>
+      </div>
+
+      <div class="mr-resolution" *ngIf="report.resolution">
+        <strong>Resolution:</strong> {{ report.resolution }}
+        <span *ngIf="report.resolvedBy"> — {{ report.resolvedBy.name }}</span>
+      </div>
+    </div>
+  </div>
+</div>

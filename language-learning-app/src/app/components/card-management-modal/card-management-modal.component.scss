@@ -1,20 +1,19 @@
 // ── Modal Backdrop & Card ──
 .modal-backdrop {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100%;
-  padding: 24px;
-  background: #f5f5f7;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
 }
 
 .modal-card {
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 520px;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  flex: 1;
 }
 
 // ── Header ──
@@ -22,11 +21,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 14px 20px;
   border-bottom: 1px solid #f2f2f7;
 
   h2 {
-    font-size: 20px;
+    font-size: 17px;
     font-weight: 700;
     color: #1c1c1e;
     margin: 0;
@@ -35,8 +34,8 @@
 }
 
 .close-btn {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid #e5e5ea;
   background: #ffffff;
@@ -47,7 +46,7 @@
   transition: all 0.15s ease;
   color: #8e8e93;
 
-  ion-icon { font-size: 20px; }
+  ion-icon { font-size: 17px; }
 
   &:hover {
     border-color: #1c1c1e;
@@ -57,7 +56,9 @@
 
 // ── Body ──
 .modal-body {
-  padding: 24px;
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
 }
 
 // ── Loading ──
@@ -65,11 +66,11 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 48px 24px;
+  gap: 10px;
+  padding: 32px 20px;
 
   p {
-    font-size: 14px;
+    font-size: 13px;
     color: #8e8e93;
     margin: 0;
   }
@@ -77,18 +78,18 @@
 
 // ── Section Title ──
 .section-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #1c1c1e;
-  margin: 0 0 14px 0;
-  letter-spacing: -0.2px;
+  margin: 0 0 10px 0;
+  letter-spacing: -0.1px;
 }
 
 .section-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 
   .section-title {
     margin-bottom: 0;
@@ -98,17 +99,17 @@
 .back-to-cards-link {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: none;
   border: none;
   color: #667eea;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
   transition: color 0.15s ease;
 
-  ion-icon { font-size: 16px; }
+  ion-icon { font-size: 14px; }
 
   &:hover {
     color: #5a6fd6;
@@ -119,36 +120,20 @@
 .saved-cards-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-  max-height: 320px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
-
-  &::-webkit-scrollbar {
-    width: 5px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 3px;
-  }
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .saved-card-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
+  gap: 12px;
+  padding: 12px 14px;
   border: 1px solid #e5e5ea;
-  border-radius: 16px;
+  border-radius: 12px;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 
   &:hover {
     border-color: #d1d1d6;
@@ -171,19 +156,19 @@
 
 // ── Card Brand Logo ──
 .card-brand-logo {
-  width: 56px;
-  height: 36px;
+  width: 44px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e5e5ea;
   flex-shrink: 0;
 
   img {
-    max-width: 40px;
-    max-height: 28px;
+    max-width: 32px;
+    max-height: 22px;
     object-fit: contain;
   }
 
@@ -193,7 +178,7 @@
     justify-content: center;
 
     ion-icon {
-      font-size: 24px;
+      font-size: 20px;
       color: #8e8e93;
     }
   }
@@ -205,16 +190,16 @@
   min-width: 0;
 
   .card-name {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     color: #1c1c1e;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.1px;
   }
 
   .card-expiry {
-    font-size: 13px;
+    font-size: 11px;
     color: #8e8e93;
-    margin-top: 3px;
+    margin-top: 2px;
   }
 }
 
@@ -222,17 +207,17 @@
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
 .saved-card-item .default-badge {
   background: #2c3e50;
   color: #ffffff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 20px;
+  padding: 4px 10px;
+  border-radius: 16px;
   white-space: nowrap;
 }
 
@@ -240,10 +225,10 @@
   background: transparent;
   border: none;
   color: #667eea;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 0;
+  padding: 4px 0;
   white-space: nowrap;
   transition: color 0.2s ease;
 
@@ -257,17 +242,17 @@
   background: transparent;
   border: 1.5px solid #ff3b30;
   color: #ff3b30;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 5px 12px;
-  border-radius: 20px;
+  padding: 3px 8px;
+  border-radius: 16px;
   white-space: nowrap;
 }
 
 .delete-card-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   border: none;
   background: #f2f2f7;
   color: #8e8e93;
@@ -278,7 +263,7 @@
   transition: all 0.2s ease;
   flex-shrink: 0;
 
-  ion-icon { font-size: 18px; }
+  ion-icon { font-size: 15px; }
 
   &:hover {
     background: #ffe5e5;
@@ -291,19 +276,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 14px;
+  padding: 10px;
   border: 1.5px dashed #c7c7cc;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
   color: #667eea;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 
-  ion-icon { font-size: 20px; }
+  ion-icon { font-size: 17px; }
 
   &:hover {
     border-color: #667eea;
@@ -313,21 +298,21 @@
 
 // ── Card Form ──
 .card-brands {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 
   img {
-    height: 28px;
+    height: 24px;
     object-fit: contain;
   }
 }
 
 .form-row {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 
   &.card-number-row {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
+    gap: 10px;
 
     .card-number-group {
       grid-column: 1 / -1;
@@ -351,10 +336,10 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 
   label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #1c1c1e;
     letter-spacing: -0.1px;
@@ -362,12 +347,12 @@
 }
 
 .stripe-element {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1.5px solid #e5e5ea;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  min-height: 44px;
+  min-height: 38px;
   display: flex;
   align-items: center;
 
@@ -378,11 +363,11 @@
 }
 
 .form-input {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1.5px solid #e5e5ea;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #ffffff;
-  font-size: 15px;
+  font-size: 14px;
   color: #1c1c1e;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -404,18 +389,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   border: none;
-  border-radius: 14px;
+  border-radius: 10px;
   background: #222;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-top: 8px;
+  margin-top: 4px;
   letter-spacing: -0.2px;
 
   &:hover:not(:disabled) {
@@ -428,8 +413,8 @@
   }
 
   ion-spinner {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     color: #ffffff;
   }
 }
@@ -439,24 +424,24 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 32px 16px;
+  gap: 6px;
+  padding: 24px 16px;
   color: #8e8e93;
 
   ion-icon {
-    font-size: 48px;
+    font-size: 40px;
     color: #c7c7cc;
   }
 
   p {
     margin: 0;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     color: #1c1c1e;
   }
 
   .subtitle {
-    font-size: 13px;
+    font-size: 12px;
     color: #8e8e93;
     font-weight: 400;
   }
@@ -464,66 +449,30 @@
 
 // ── Mobile Responsive ──
 @media (max-width: 480px) {
-  .modal-backdrop {
-    padding: 12px;
-  }
-
-  .modal-card {
-    border-radius: 16px;
-  }
-
   .modal-header {
-    padding: 16px 20px;
+    padding: 12px 16px;
   }
 
   .modal-body {
-    padding: 20px;
+    padding: 14px 16px;
   }
 
   .saved-card-item {
-    padding: 14px;
-    gap: 12px;
-    flex-wrap: wrap;
-
-    .card-brand-logo {
-      width: 48px;
-      height: 32px;
-
-      img {
-        max-width: 34px;
-        max-height: 24px;
-      }
-    }
-
-    .card-details {
-      flex: 1;
-      min-width: 120px;
-
-      .card-name { font-size: 14px; }
-      .card-expiry { font-size: 12px; }
-    }
+    padding: 10px 12px;
+    gap: 10px;
 
     .card-actions {
-      width: 100%;
-      margin-top: 8px;
-      padding-top: 10px;
-      border-top: 1px solid #f2f2f7;
-      justify-content: flex-start;
-      gap: 8px;
-
       .default-badge {
-        font-size: 10px;
-        padding: 4px 10px;
+        font-size: 9px;
+        padding: 3px 8px;
       }
 
-      .set-default-btn { font-size: 12px; }
+      .set-default-btn { font-size: 11px; }
 
       .delete-card-btn {
-        margin-left: auto;
-        width: 32px;
-        height: 32px;
-
-        ion-icon { font-size: 16px; }
+        width: 28px;
+        height: 28px;
+        ion-icon { font-size: 14px; }
       }
     }
   }
@@ -534,5 +483,88 @@
     .card-number-group {
       grid-column: 1 / -1 !important;
     }
+  }
+
+  .purchase-summary {
+    padding: 12px 16px;
+  }
+
+  .purchase-footer {
+    padding: 12px 16px;
+  }
+}
+
+// ── Purchase Summary ──
+
+.purchase-summary {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f2f2f7;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.purchase-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.purchase-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+.purchase-item-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+// ── Purchase Footer ──
+
+.purchase-footer {
+  padding: 12px 20px 14px;
+  border-top: 1px solid #f2f2f7;
+  flex-shrink: 0;
+}
+
+.pay-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: #007aff;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+
+  &:hover:not(:disabled) {
+    background: #0066d6;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    background: #c7c7cc;
+    cursor: not-allowed;
+  }
+}
+
+.pay-secure-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #86868b;
+
+  ion-icon {
+    font-size: 11px;
   }
 }

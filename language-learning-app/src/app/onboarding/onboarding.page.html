@@ -13,7 +13,7 @@
 <div class="pre-step-container" *ngIf="preStepPhase === 'language'">
   <div class="pre-step-inner">
     <div class="pre-step-logo">
-      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon">
+      <img src="assets/icons-app-bird.png" alt="Barnaby" class="pre-step-app-icon">
     </div>
 
     <div class="pre-step-rotating-heading">
@@ -65,9 +65,9 @@
 </ion-header>
 <div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
   <div class="pre-step-inner welcome-inner">
-    <div class="pre-step-logo">
-      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon welcome-icon">
-    </div>
+    <!-- <div class="pre-step-logo">
+      <img src="assets/icons-app-bird.png" alt="Barnaby" class="pre-step-app-icon welcome-icon">
+    </div> -->
 
     <div class="welcome-hero">
       <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
@@ -118,7 +118,7 @@
   <ion-toolbar class="onboarding-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
-        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+        <img src="assets/icons-app-bird.png" alt="Barnaby" class="app-icon">
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
@@ -257,6 +257,7 @@
 
         <ion-button 
           fill="clear" 
+          class="next-step-btn"
           *ngIf="currentStep < totalSteps"
           [disabled]="!canProceed()"
           (click)="nextStep()">
@@ -276,9 +277,6 @@
         
         <!-- Step 1: Name -->
         <div *ngIf="currentStep === 1">
-          <div class="step-icon-circle">
-            <ion-icon name="person"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP1_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP1_SUBTITLE' | translate }}</p>
 
@@ -308,9 +306,6 @@
 
         <!-- Step 2: Native Language -->
         <div *ngIf="currentStep === 2">
-          <div class="step-icon-circle">
-            <ion-icon name="language"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP2_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP2_SUBTITLE' | translate }}</p>
 
@@ -328,9 +323,6 @@
 
         <!-- Step 3: Languages to Learn -->
         <div *ngIf="currentStep === 3">
-          <div class="step-icon-circle">
-            <ion-icon name="globe"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP3_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP3_SUBTITLE' | translate }}</p>
 
@@ -347,9 +339,6 @@
 
         <!-- Step 4: Learning Goals -->
         <div *ngIf="currentStep === 4">
-          <div class="step-icon-circle">
-            <ion-icon name="trophy"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP4_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP4_SUBTITLE' | translate }}</p>
 
@@ -370,9 +359,6 @@
 
         <!-- Step 5: Experience & Schedule -->
         <div *ngIf="currentStep === 5">
-          <div class="step-icon-circle">
-            <ion-icon name="school"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.STUDENT.STEP5_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.STUDENT.STEP5_SUBTITLE' | translate }}</p>
 

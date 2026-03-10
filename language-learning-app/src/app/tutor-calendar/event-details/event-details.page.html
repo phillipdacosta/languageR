@@ -1,8 +1,11 @@
 <ion-header class="ion-no-border">
   <ion-toolbar>
-    <div class="ed-toolbar-inner">
-      <button class="go-back-link" (click)="goBack()">Go back</button>
-    </div>
+    <ion-buttons slot="start">
+      <button class="go-back-btn" (click)="goBack()">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+        <span>Back</span>
+      </button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -348,6 +351,15 @@
       </section>
     </ng-container>
 
+    <!-- Analysis unavailable -->
+    <ng-container *ngIf="!analysisLoading && !hasAnalysis && analysisUnavailable && isStudentUser && isLessonCompleted">
+      <div class="ed-divider"></div>
+      <section class="ed-row ed-analysis-unavailable">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <p>No analysis available for this lesson. This can happen when audio wasn't captured or there wasn't enough speech detected.</p>
+      </section>
+    </ng-container>
+
     <!-- ── Tutor Note (Student view only - separate section) ───────────────────────────────────────── -->
     <ng-container *ngIf="hasTutorNote && isStudentUser">
       <div class="ed-divider"></div>
@@ -594,7 +606,7 @@
       <div class="ed-detail">
         <ion-icon name="people-outline"></ion-icon>
         <div>
-          <span class="ed-detail-primary">{{ classData.studentIds?.length || 0 }} / {{ classData.maxStudents }} students</span>
+          <span class="ed-detail-primary">{{ classData.confirmedStudents?.length || 0 }} / {{ classData.maxStudents || classData.capacity }} students</span>
         </div>
       </div>
       <div class="ed-detail" *ngIf="classData.price > 0">
@@ -621,32 +633,57 @@
       </section>
     </ng-container>
 
-    <ng-container *ngIf="classData.studentIds?.length > 0">
-      <div class="ed-divider"></div>
-      <section class="ed-row">
-        <h2 class="ed-section-label">
-          Enrolled students
-          <span class="ed-count">{{ classData.studentIds.length }}</span>
-        </h2>
-        <div class="ed-enrolled">
-          <div class="ed-enrolled-item" *ngFor="let student of classData.studentIds">
-            <div class="ed-mini-avatar" *ngIf="student.picture">
-              <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer">
-            </div>
-            <div class="ed-mini-avatar placeholder" *ngIf="!student.picture">
-              {{ student.name?.charAt(0)?.toUpperCase() || 'S' }}
-            </div>
-            <span>{{ student.name || 'Student' }}</span>
-          </div>
-        </div>
-      </section>
-    </ng-container>
+    <div class="ed-divider"></div>
+    <section class="ed-row">
+      <h2 class="ed-section-label">
+        Students
+        <span class="ed-count" *ngIf="classData.confirmedStudents?.length">{{ classData.confirmedStudents.length }} / {{ classData.maxStudents || classData.capacity }}</span>
+      </h2>
 
-    <ng-container *ngIf="classData.price && classData.studentIds?.length">
+      <div class="ed-enrolled" *ngIf="classStudentsDisplay.length > 0">
+        <div class="ed-enrolled-item" *ngFor="let student of classStudentsDisplay">
+          <div class="ed-mini-avatar" *ngIf="student.picture">
+            <img [src]="student.picture" [alt]="student.name" referrerpolicy="no-referrer">
+          </div>
+          <div class="ed-mini-avatar placeholder" *ngIf="!student.picture">
+            {{ student.initials }}
+          </div>
+          <span>{{ student.name }}</span>
+        </div>
+      </div>
+
+      <span class="ed-no-students" *ngIf="!classData.confirmedStudents?.length">{{ classData.status === 'completed' || classData.status === 'cancelled' ? 'No students enrolled' : 'No students enrolled yet' }}</span>
+    </section>
+
+    <ng-container *ngIf="classRevenue && classData.status !== 'cancelled'">
       <div class="ed-divider"></div>
       <section class="ed-row">
         <h2 class="ed-section-label">Revenue</h2>
         <span class="ed-revenue">{{ classRevenue }}</span>
+      </section>
+    </ng-container>
+
+    <ng-container *ngIf="hasClassPaymentStatus">
+      <div class="ed-divider"></div>
+      <section class="ed-row">
+        <h2 class="ed-section-label">Payment status</h2>
+        <div class="ed-payment-status" [ngClass]="classPaymentStatusClass">
+          <div class="ed-payment-status-header">
+            <div class="ed-payment-icon" [ngClass]="classPaymentStatusClass">
+              <ion-icon [name]="classPaymentStatusIcon"></ion-icon>
+            </div>
+            <div class="ed-payment-text">
+              <span class="ed-payment-title">{{ classPaymentStatusTitle }}</span>
+              <span class="ed-payment-desc">{{ classPaymentStatusDescription }}</span>
+            </div>
+          </div>
+          <div class="ed-payment-details" *ngIf="classPaymentDetails.length > 0">
+            <div class="ed-kv" *ngFor="let detail of classPaymentDetails">
+              <span class="ed-kv-key">{{ detail.key }}</span>
+              <span class="ed-kv-val">{{ detail.value }}</span>
+            </div>
+          </div>
+        </div>
       </section>
     </ng-container>
 

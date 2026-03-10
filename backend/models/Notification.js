@@ -26,6 +26,7 @@ const NotificationSchema = new mongoose.Schema({
       'office_hours_booking',
       'office_hours_starting',
       'lesson_analysis_ready',
+      'class_cancelled',
       'class_auto_cancelled',
       'class_invitation_cancelled',
       'tutor_video_approved',
@@ -47,7 +48,9 @@ const NotificationSchema = new mongoose.Schema({
       'progress_milestone',
       'credential_approved',
       'credential_rejected',
-      'tutor_note_saved'
+      'tutor_note_saved',
+      'material_approved',
+      'material_rejected'
     ],
     required: true
   },

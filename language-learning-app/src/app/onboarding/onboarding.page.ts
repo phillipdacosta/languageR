@@ -457,7 +457,102 @@ export class OnboardingPage implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   startOnboarding() {
+    const srcTitle = document.querySelector('.welcome-title') as HTMLElement;
+    const srcRect = srcTitle?.getBoundingClientRect();
+
+    if (!srcTitle || !srcRect) {
+      this.preStepPhase = 'done';
+      return;
+    }
+
+    const srcText = srcTitle.textContent?.trim() || '';
+    const srcStyles = window.getComputedStyle(srcTitle);
+
+    const clone = document.createElement('div');
+    clone.textContent = srcText;
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${srcRect.left}px`,
+      top: `${srcRect.top}px`,
+      width: `${srcRect.width}px`,
+      height: `${srcRect.height}px`,
+      zIndex: '10000',
+      pointerEvents: 'none',
+      fontFamily: srcStyles.fontFamily,
+      fontSize: srcStyles.fontSize,
+      fontWeight: '700',
+      color: '#222222',
+      letterSpacing: '-0.5px',
+      lineHeight: '1.2',
+      whiteSpace: 'nowrap',
+      transition: 'left 0.5s cubic-bezier(0.32, 0.72, 0, 1), top 0.5s cubic-bezier(0.32, 0.72, 0, 1), width 0.5s cubic-bezier(0.32, 0.72, 0, 1), height 0.5s cubic-bezier(0.32, 0.72, 0, 1), font-size 0.5s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease',
+    });
+    document.body.appendChild(clone);
+
     this.preStepPhase = 'done';
+    this.cdr.detectChanges();
+
+    let landed = false;
+    const flyToDestination = (dest: HTMLElement) => {
+      if (landed) return;
+      landed = true;
+      dest.style.transition = 'none';
+      dest.style.opacity = '0';
+      const destRect = dest.getBoundingClientRect();
+      const destStyles = window.getComputedStyle(dest);
+      const destText = dest.textContent?.trim() || '';
+
+      requestAnimationFrame(() => {
+        clone.textContent = destText;
+        clone.style.left = `${destRect.left}px`;
+        clone.style.top = `${destRect.top}px`;
+        clone.style.width = 'auto';
+        clone.style.height = `${destRect.height}px`;
+        clone.style.fontSize = destStyles.fontSize;
+      });
+
+      setTimeout(() => {
+        const finalRect = dest.getBoundingClientRect();
+        clone.style.transition = 'none';
+        clone.style.left = `${finalRect.left}px`;
+        clone.style.top = `${finalRect.top}px`;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            dest.style.opacity = '1';
+            if (clone.parentNode) clone.remove();
+            setTimeout(() => { dest.style.transition = ''; dest.style.opacity = ''; }, 50);
+          });
+        });
+      }, 550);
+    };
+
+    const destSelector = '.onboarding-header h1';
+    const checkDest = () => {
+      const dest = document.querySelector(destSelector) as HTMLElement;
+      if (dest) flyToDestination(dest);
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(checkDest));
+
+    const container = document.querySelector('.onboarding-container');
+    if (container) {
+      const observer = new MutationObserver(() => {
+        const dest = document.querySelector(destSelector) as HTMLElement;
+        if (dest) {
+          observer.disconnect();
+          flyToDestination(dest);
+        }
+      });
+      observer.observe(container, { childList: true, subtree: true });
+      setTimeout(() => {
+        observer.disconnect();
+        if (!landed) {
+          clone.style.opacity = '0';
+          clone.style.transition = 'opacity 0.3s ease';
+          setTimeout(() => { if (clone.parentNode) clone.remove(); }, 350);
+        }
+      }, 5000);
+    }
   }
 
   nextStep() {

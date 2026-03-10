@@ -64,21 +64,36 @@
   &:hover { opacity: 0.8; }
 }
 
-.go-back-link {
+.ed-toolbar-inner {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.go-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   background: none;
   border: none;
-  color: #222222;
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: underline;
+  color: var(--ed-text-primary);
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  white-space: nowrap;
-  padding: 8px 0;
-  flex-shrink: 0;
+  padding: 8px 4px;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+
+  ion-icon {
+    font-size: 22px;
+  }
 
   &:hover {
     opacity: 0.7;
+  }
+
+  &:active {
+    opacity: 0.5;
   }
 }
 
@@ -749,7 +764,6 @@
   }
 }
 
-.ed-cancel-section {}
 
 /* ── Payment / Financial Status ───────────────────────── */
 .ed-payment-status {
@@ -827,7 +841,53 @@
   }
 }
 
-/* ── Enrolled Students ────────────────────────────────── */
+/* ── Students Section ─────────────────────────────────── */
+.ed-stacked-avatars {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+
+  .ed-stacked-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #ffffff;
+    margin-left: -12px;
+    flex-shrink: 0;
+    background: #f0f0f0;
+
+    &:first-child {
+      margin-left: 0;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .ed-avatar-initials {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      background: #222222;
+    }
+  }
+}
+
+.ed-no-students {
+  font-size: 15px;
+  color: var(--ed-text-secondary);
+}
+
+/* ── Enrolled Students List ──────────────────────────── */
 .ed-enrolled {
   display: flex;
   flex-direction: column;
@@ -890,6 +950,26 @@
     --color: var(--ed-text-tertiary);
     width: 18px;
     height: 18px;
+  }
+}
+
+.ed-analysis-unavailable {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--ed-text-secondary);
+
+  ion-icon {
+    font-size: 20px;
+    color: var(--ed-text-tertiary);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  p {
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
   }
 }
 
@@ -981,23 +1061,6 @@ ion-header {
   }
 }
 
-.ed-toolbar-inner {
-  max-width: var(--ed-page-max);
-  margin: 0 auto;
-  padding: 8px var(--ed-pad-x) 4px;
-  display: flex;
-  justify-content: flex-end;
-
-  .go-back-link {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    padding: 6px 14px;
-    border-radius: 20px;
-    position: relative;
-    left: 200px;
-  }
-}
 
 /* ── Feedback Status Banner ───────────────────────────── */
 .ed-feedback-status {
@@ -1152,5 +1215,321 @@ ion-header {
   .ed-fb-action-btn {
     width: 100%;
     text-align: center;
+  }
+}
+
+// ── Dark mode ────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  :host {
+    --ed-divider: rgba(255, 255, 255, 0.12);
+    --ed-text-primary: #f5f5f7;
+    --ed-text-secondary: #8e8e93;
+    --ed-text-tertiary: #636366;
+    --ed-accent: #4298d2;
+    --ed-cta: #4298d2;
+    --ed-cta-text: #fff;
+    --ed-green: #34c759;
+    --ed-amber: #fbbf24;
+    --ed-red: #ff6b6b;
+  }
+
+  ion-content {
+    --background: #000000;
+  }
+
+  ion-header ion-toolbar {
+    --background: #000000;
+  }
+
+  .go-back-btn {
+    color: #f5f5f7;
+  }
+
+  .state-container {
+    .error-icon {
+      color: #ff6b6b;
+    }
+  }
+
+  .link-btn {
+    color: #4298d2;
+  }
+
+  .skeleton-badge,
+  .skeleton-title,
+  .skeleton-avatar,
+  .skeleton-text,
+  .skeleton-section-label,
+  .skeleton-icon {
+    background: linear-gradient(90deg, #2c2c2e 25%, #3a3a3c 50%, #2c2c2e 75%) !important;
+    background-size: 200% 100%;
+  }
+
+  .ed-status {
+    &.upcoming {
+      background: rgba(66, 152, 210, 0.2);
+      color: #4298d2;
+    }
+    &.in-progress {
+      background: rgba(96, 165, 250, 0.2);
+      color: #60a5fa;
+    }
+    &.completed {
+      background: rgba(52, 199, 89, 0.2);
+      color: #34c759;
+    }
+    &.cancelled {
+      background: rgba(255, 107, 107, 0.2);
+      color: #ff6b6b;
+    }
+  }
+
+  .ed-type-label {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+
+  .ed-count {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+
+  .ed-host.clickable:hover {
+    background: #2c2c2e;
+  }
+
+  .ed-host.clickable:active {
+    background: #3a3a3c;
+  }
+
+  .ed-host-avatar,
+  .ed-host-avatar.placeholder {
+    background: #2c2c2e;
+  }
+
+  .ed-host-avatar.placeholder {
+    color: #8e8e93;
+  }
+
+  .ed-detail ion-icon {
+    color: #8e8e93;
+  }
+
+  .ed-cefr-level {
+    background: #4298d2;
+    color: #fff;
+  }
+
+  .ed-score {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .ed-topic {
+    background: #2c2c2e;
+    color: #f5f5f7;
+  }
+
+  .ed-impression {
+    background: rgba(66, 152, 210, 0.2);
+    color: #4298d2;
+  }
+
+  .ed-note-hw {
+    border-top-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .ed-cefr-sm {
+    background: #4298d2;
+    color: #fff;
+  }
+
+  .ed-feedback-toggle-icon {
+    color: #8e8e93;
+  }
+
+  .ed-kv {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .ed-late-tag {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+  }
+
+  .ed-investigation-tag {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+
+    &.resolved {
+      background: rgba(52, 199, 89, 0.2);
+      color: #34c759;
+    }
+  }
+
+  .ed-payment-status {
+    background: #1c1c1e;
+
+    &.refunded {
+      background: rgba(255, 107, 107, 0.15);
+    }
+    &.partial {
+      background: rgba(251, 191, 36, 0.15);
+    }
+    &.cancelled {
+      background: #1c1c1e;
+    }
+    &.paid {
+      background: rgba(52, 199, 89, 0.15);
+    }
+    &.pending {
+      background: rgba(66, 152, 210, 0.15);
+    }
+    &.on-hold {
+      background: rgba(251, 191, 36, 0.15);
+    }
+  }
+
+  .ed-payment-icon {
+    background: rgba(255, 255, 255, 0.08);
+
+    ion-icon {
+      color: #f5f5f7;
+    }
+    &.refunded {
+      background: rgba(255, 107, 107, 0.25);
+      ion-icon {
+        color: #ff6b6b;
+      }
+    }
+    &.partial {
+      background: rgba(251, 191, 36, 0.25);
+      ion-icon {
+        color: #fbbf24;
+      }
+    }
+    &.cancelled {
+      background: #2c2c2e;
+      ion-icon {
+        color: #8e8e93;
+      }
+    }
+    &.paid {
+      background: rgba(52, 199, 89, 0.25);
+      ion-icon {
+        color: #34c759;
+      }
+    }
+    &.pending {
+      background: rgba(66, 152, 210, 0.25);
+      ion-icon {
+        color: #4298d2;
+      }
+    }
+    &.on-hold {
+      background: rgba(251, 191, 36, 0.25);
+      ion-icon {
+        color: #fbbf24;
+      }
+    }
+  }
+
+  .ed-payment-details {
+    border-top-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .ed-stacked-avatars .ed-stacked-avatar {
+    border-color: #1c1c1e;
+    background: #2c2c2e;
+
+    .ed-avatar-initials {
+      background: #2c2c2e;
+      color: #f5f5f7;
+    }
+  }
+
+  .ed-mini-avatar,
+  .ed-mini-avatar.placeholder {
+    background: #2c2c2e;
+  }
+
+  .ed-mini-avatar.placeholder {
+    color: #8e8e93;
+  }
+
+  .ed-inline-loader ion-spinner {
+    --color: #8e8e93;
+  }
+
+  .ed-analysis-unavailable ion-icon {
+    color: #8e8e93;
+  }
+
+  .ed-action-bar {
+    background: #000000;
+    border-top-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .ed-btn-primary {
+    background: #4298d2;
+
+    &:hover:not(:disabled) {
+      background: #3583b8;
+    }
+  }
+
+  .ed-btn-cancel {
+    background: transparent;
+    border-color: #3a3a3c;
+    color: #f5f5f7;
+
+    &:hover {
+      background: #2c2c2e;
+    }
+  }
+
+  .ed-feedback-status {
+    &.pending {
+      background: rgba(249, 115, 22, 0.15);
+      border-color: rgba(251, 191, 36, 0.4);
+    }
+    &.provided {
+      background: rgba(52, 199, 89, 0.15);
+      border-color: rgba(52, 199, 89, 0.3);
+    }
+    &.awaiting {
+      background: rgba(66, 152, 210, 0.15);
+      border-color: rgba(66, 152, 210, 0.3);
+    }
+  }
+
+  .ed-fb-status-icon {
+    &.pending {
+      background: rgba(249, 115, 22, 0.3);
+      color: #fbbf24;
+    }
+    &.provided {
+      background: rgba(52, 199, 89, 0.3);
+      color: #34c759;
+    }
+    &.awaiting {
+      background: rgba(66, 152, 210, 0.3);
+      color: #4298d2;
+    }
+  }
+
+  .ed-fb-action-btn.primary {
+    background: #4298d2;
+
+    &:hover {
+      background: #3583b8;
+    }
+  }
+
+  .ed-fb-action-btn.subtle {
+    border-color: rgba(255, 255, 255, 0.2);
+
+    &:hover {
+      background: #2c2c2e;
+    }
   }
 }

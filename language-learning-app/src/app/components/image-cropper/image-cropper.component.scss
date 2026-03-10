@@ -1,3 +1,10 @@
+$text-primary: #222222;
+$text-secondary: #717171;
+$text-tertiary: #b0b0b0;
+$border-color: #ebebeb;
+$border-color-dark: #dddddd;
+$background-hover: #f7f7f7;
+
 :host {
   display: flex;
   flex-direction: column;
@@ -13,174 +20,258 @@ ion-content {
 ion-footer {
   flex-shrink: 0;
   margin-top: auto;
+
+  ion-toolbar {
+    --background: #ffffff;
+    --border-width: 0;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --min-height: auto;
+  }
 }
 
-// Floating close button (matches reschedule modal)
 .floating-close-button {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 12px;
+  right: 12px;
   z-index: 1001;
-  --background: #f5f5f7;
-  --background-hover: #e8e8ed;
-  --border-radius: 50%;
-  --color: #1d1d1f;
-  --padding-start: 0;
-  --padding-end: 0;
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   margin: 0;
+  padding: 0;
+  --background: #ffffff;
+  --background-hover: #{$background-hover};
+  --background-activated: #{$border-color};
+  --color: #{$text-secondary};
+  --border-radius: 50%;
+  border: 1px solid $border-color-dark;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    --color: #{$text-primary};
+    border-color: $text-tertiary;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
 
   ion-icon {
-    font-size: 24px;
+    font-size: 16px;
   }
 }
 
 .modal-content {
-  padding: 60px 24px 24px 24px;
+  padding: 44px 20px 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
 .modal-title {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0 0 24px 0;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
+  font-size: 18px;
+  font-weight: 600;
+  color: $text-primary;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.3px;
+  line-height: 1.3;
   text-align: center;
 }
 
 .controls {
   width: 100%;
-  max-width: 500px;
-  margin: 0 auto 24px;
-  background: #f8f9fa;
-  border-radius: 16px;
-  padding: 16px;
-  
+  max-width: 420px;
+  margin: 0 auto 16px;
+
   .controls-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: 8px;
     flex-wrap: wrap;
-    
+
     @media (max-width: 576px) {
-      flex-direction: column;
-      gap: 12px;
+      gap: 6px;
     }
   }
 
   .control-group {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    gap: 4px;
+    padding: 4px 8px;
+    background: $background-hover;
+    border-radius: 8px;
+    border: 1px solid $border-color;
 
     .control-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #6b7280;
-      min-width: 50px;
+      font-size: 12px;
+      font-weight: 500;
+      color: $text-secondary;
+      min-width: 36px;
       text-align: center;
     }
 
     .control-btn {
-      --padding-start: 6px;
-      --padding-end: 6px;
-      --color: #1d1d1f;
+      --padding-start: 4px;
+      --padding-end: 4px;
+      --color: #{$text-primary};
       margin: 0;
-      
+      height: 28px;
+
       &[disabled] {
-        --color: #d1d5db;
-        opacity: 0.5;
+        --color: #{$text-tertiary};
+        opacity: 0.4;
       }
-      
+
       ion-icon {
-        font-size: 20px;
+        font-size: 18px;
       }
     }
   }
 
   .reset-btn {
-    --border-color: #d1d5db;
-    --color: #1d1d1f;
+    --border-color: #{$border-color-dark};
+    --color: #{$text-secondary};
     text-transform: none;
-    font-weight: 600;
-    --border-radius: 10px;
-    --padding-top: 10px;
-    --padding-bottom: 10px;
-    --padding-start: 16px;
-    --padding-end: 16px;
-    font-size: 14px;
+    font-weight: 500;
+    --border-radius: 8px;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --padding-start: 10px;
+    --padding-end: 10px;
+    font-size: 12px;
     margin: 0;
-    height: 40px;
-    
-    @media (max-width: 576px) {
-      width: 100%;
+    height: 30px;
+
+    ion-icon {
+      font-size: 14px;
     }
   }
 }
 
 .cropper-wrapper {
   width: 100%;
-  max-width: 500px;
-  height: 350px;
+  max-width: 420px;
+  height: 320px;
   margin: 0 auto;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  background: #f8f9fa;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: $background-hover;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
   @media (max-width: 768px) {
-    height: 280px;
+    height: 260px;
     max-width: 100%;
   }
 }
 
-// Button group for footer (matches reschedule modal)
 .button-group {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 16px;
+  display: flex;
+  gap: 10px;
+  padding: 12px 20px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: #ffffff;
+  border-top: 1px solid $border-color;
 
   ion-button {
+    flex: 1;
     margin: 0;
     text-transform: none;
     font-weight: 600;
-    --border-radius: 12px;
-    --padding-top: 16px;
-    --padding-bottom: 16px;
-    font-size: 16px;
-    
+    font-size: 14px;
+    letter-spacing: -0.1px;
+    --border-radius: 8px;
+    height: 40px;
+
+    &.cancel-btn,
     &[fill="outline"] {
-      --border-color: #d1d5db;
-      --color: #1d1d1f;
+      --border-width: 1px;
+      --border-color: #{$border-color-dark};
+      --color: #{$text-primary};
+      --background: #ffffff;
+      --background-hover: #{$background-hover};
     }
-    
-    &[color="primary"] {
-      --background: #007aff;
-      --background-hover: #0051d5;
+
+    &.cancel-btn:hover,
+    &[fill="outline"]:hover {
+      --border-color: #{$text-secondary};
+    }
+
+    &.crop-save-btn {
+      --background: #{$text-primary};
+      --background-hover: #444444;
+      --background-activated: #000000;
       --color: #ffffff;
-      
+      --box-shadow: none;
+
+      &:active:not([disabled]) {
+        transform: scale(0.98);
+      }
+
       &[disabled] {
-        --background: #d1d5db;
-        --color: #9ca3af;
-        opacity: 0.6;
+        --background: #{$border-color};
+        --color: #ffffff;
+        opacity: 0.3;
+        cursor: not-allowed;
       }
     }
   }
 }
 
+// ── Dark mode ─────────────────────────────────────────────
+:host-context(html.ion-palette-dark) {
+  ion-content { --background: #242426 !important; }
 
+  .floating-close-button {
+    --background: #3a3a3c !important;
+    --color: #f5f5f7 !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    &:hover { --color: #fff !important; border-color: rgba(255, 255, 255, 0.3) !important; }
+  }
 
+  .modal-title { color: #f5f5f7 !important; }
 
+  .controls {
+    .control-group {
+      background: #1c1c1e !important;
+      border-color: rgba(255, 255, 255, 0.1) !important;
+      .control-label { color: #8e8e93 !important; }
+      .control-btn { --color: #f5f5f7 !important; &[disabled] { --color: #636366 !important; } }
+    }
+    .reset-btn {
+      --border-color: rgba(255, 255, 255, 0.15) !important;
+      --color: #8e8e93 !important;
+    }
+  }
 
+  .cropper-wrapper {
+    background: #1c1c1e !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  ion-footer ion-toolbar { --background: #242426 !important; }
+
+  .button-group {
+    background: #242426 !important;
+    border-top-color: rgba(255, 255, 255, 0.1) !important;
+
+    ion-button {
+      &.cancel-btn {
+        --background: transparent !important;
+        --border-color: rgba(255, 255, 255, 0.2) !important;
+        --color: #f5f5f7 !important;
+        &:hover { --border-color: rgba(255, 255, 255, 0.35) !important; }
+      }
+      &.crop-save-btn {
+        --background: #f5f5f7 !important;
+        --color: #000 !important;
+        &:hover { --background: #ffffff !important; }
+        &[disabled] { --background: #3a3a3c !important; --color: #636366 !important; opacity: 0.5; }
+      }
+    }
+  }
+}

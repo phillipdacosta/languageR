@@ -19,6 +19,155 @@ $ob-accent: #222222;
   --background: transparent;
 }
 
+.schedule-class-content-inline {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .onboarding-container {
+    min-height: 0;
+    height: 100%;
+    padding: 12px 12px 0;
+    align-items: stretch;
+  }
+
+  .go-back-link {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+  }
+
+  .onboarding-content {
+    height: 100%;
+    max-height: none;
+    padding: 20px 24px;
+    gap: 20px;
+    border-radius: 14px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  .onboarding-header {
+    h1 {
+      font-size: 20px;
+      margin: 0 0 2px 0;
+    }
+    p {
+      font-size: 13px;
+    }
+  }
+
+  .left-column {
+    gap: 14px;
+    padding: 16px 14px 14px;
+  }
+
+  .progress-section .progress-text {
+    font-size: 12px;
+    margin: 4px 0 0 0;
+  }
+
+  .steps-list .step-item {
+    padding: 8px 10px;
+    gap: 10px;
+
+    .step-indicator {
+      width: 26px;
+      height: 26px;
+
+      .step-number {
+        font-size: 12px;
+      }
+    }
+
+    .step-info {
+      h3 {
+        font-size: 13px;
+        margin: 0 0 1px 0;
+      }
+      p {
+        font-size: 11px;
+        line-height: 1.3;
+      }
+    }
+  }
+
+  .card-section {
+    padding: 16px;
+    min-height: 0;
+    margin-bottom: 12px;
+  }
+
+  .step-content {
+    padding-bottom: 8px;
+  }
+
+  .form-field {
+    margin-bottom: 14px;
+
+    .field-label {
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .modern-input {
+      min-height: 40px;
+      font-size: 14px;
+      --padding-top: 8px;
+      --padding-bottom: 8px;
+    }
+
+    .modern-select {
+      min-height: 40px;
+      font-size: 14px;
+    }
+  }
+
+  .description-editor-wrapper ::ng-deep .ql-editor {
+    min-height: 100px;
+  }
+
+  .nav-buttons {
+    padding-top: 12px;
+
+    ion-button {
+      height: 36px;
+      font-size: 13px;
+    }
+  }
+
+  .econ-group {
+    padding: 0 16px;
+
+    &:first-child { padding-top: 16px; }
+    &:last-child { padding-bottom: 16px; }
+  }
+
+  .econ-group-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  .econ-divider {
+    margin: 14px 0;
+  }
+
+  .econ-baseline-row,
+  .econ-suggested-row,
+  .econ-toggle-row {
+    padding: 10px 0;
+  }
+
+  .econ-baseline-amount,
+  .econ-suggested-amount {
+    font-size: 16px;
+  }
+
+  .econ-hint-row {
+    padding: 10px 12px;
+    margin: 8px 0;
+  }
+}
+
 .onboarding-container {
   min-height: 100vh;
   display: flex;
@@ -103,7 +252,7 @@ $ob-accent: #222222;
   overflow-y: auto;
   height: 100%;
   min-height: 0;
-  background: linear-gradient(181deg, #b0d7ff99 0%, #e0e5ffb5 30%, #fdf2f89c 70%, #fce7f34f 100%);
+  // background: linear-gradient(181deg, #b0d7ff99 0%, #e0e5ffb5 30%, #fdf2f89c 70%, #fce7f34f 100%);
   border-radius: 16px;
   padding: 24px 20px 20px 20px;
   margin: -4px;
@@ -591,27 +740,15 @@ $ob-accent: #222222;
     --padding-end: 16px;
     --padding-top: 12px;
     --padding-bottom: 12px;
-    --border-width: 1px;
-    --border-style: solid;
     --border-color: #{$ob-border};
-    --highlight-height: 0;
-    --highlight-color-focused: transparent;
-    border-radius: 12px;
+    --border-radius: 12px;
+    --border-width: 1px;
+    --highlight-color-focused: #{$ob-accent};
+    --highlight-color-valid: #{$ob-accent};
+    --highlight-color-invalid: #ff3b30;
     font-size: 16px;
     color: $ob-text-primary;
     min-height: 48px;
-    transition: border-color 0.25s ease, box-shadow 0.25s ease;
-    
-    &::placeholder {
-      color: $ob-text-tertiary;
-      font-size: 16px;
-    }
-    
-    &:focus-within,
-    &.item-has-focus {
-      --border-color: #{$ob-accent};
-      box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
-    }
     
     &.error {
       --border-color: #ff3b30;
@@ -630,14 +767,12 @@ $ob-accent: #222222;
     --padding-end: 16px;
     --padding-top: 12px;
     --padding-bottom: 12px;
-    --border-width: 1px;
-    --border-style: solid;
     --border-color: #{$ob-border};
-    --highlight-height: 0;
-    border-radius: 12px;
+    --border-radius: 12px;
+    --border-width: 1px;
+    --highlight-color-focused: #{$ob-accent};
     font-size: 16px;
     min-height: 48px;
-    transition: border-color 0.25s ease, box-shadow 0.25s ease;
     
     &::part(placeholder) {
       color: $ob-text-tertiary;
@@ -647,11 +782,6 @@ $ob-accent: #222222;
     &::part(text) {
       font-size: 16px;
       color: $ob-text-primary;
-    }
-    
-    &:focus {
-      --border-color: #{$ob-accent};
-      box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
     }
   }
   
@@ -744,460 +874,307 @@ $ob-accent: #222222;
 }
 
 // ============================================
-// ECONOMICS SECTION
+// ECONOMICS SECTION — Airbnb-style
 // ============================================
 
 .economics-section {
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
+  background: #ffffff;
+  border: none;
+  padding: 0 !important;
+  box-shadow: none;
 }
 
-.baseline-display {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: white;
-  border-radius: 16px;
-  border: 1px solid $ob-border-light;
-  margin-bottom: 24px;
-  
-  .baseline-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    
-    ion-icon {
-      font-size: 24px;
-      color: white;
-    }
+.econ-group {
+  padding: 0 24px;
+
+  &:first-child {
+    padding-top: 24px;
   }
-  
-  .baseline-info {
-    flex: 1;
-    
-    .baseline-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: $ob-text-secondary;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    
-    .baseline-amount {
-      font-size: 24px;
-      font-weight: 700;
-      color: $ob-text-primary;
-      letter-spacing: -0.5px;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    
-    .baseline-net {
-      font-size: 13px;
-      font-weight: 500;
-      color: $ob-text-secondary;
-    }
+
+  &:last-child {
+    padding-bottom: 24px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0 20px;
+
+    &:first-child { padding-top: 20px; }
+    &:last-child { padding-bottom: 20px; }
   }
 }
 
-.price-section {
-  margin-bottom: 24px;
-  
-  .suggested-price {
-    background: linear-gradient(135deg, #fff7ed 0%, #fffbf0 100%);
-    border: 1px solid rgba(255, 159, 10, 0.2);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-    
-    .suggested-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-      
-      ion-icon {
-        font-size: 18px;
-        color: #ff9f0a;
-      }
-      
-      span {
-        font-size: 15px;
-        color: $ob-text-primary;
-        font-weight: 500;
-        
-        strong {
-          font-weight: 700;
-          font-size: 17px;
-        }
-      }
-    }
-    
-    .suggested-note {
-      font-size: 13px;
-      color: $ob-text-secondary;
-    }
-  }
-  
-  .price-toggle {
-    margin-bottom: 16px;
-    
-    ion-item {
-      --background: transparent;
-      --padding-start: 0;
-      --padding-end: 0;
-      --min-height: auto;
-      
-      ion-label {
-        font-size: 15px;
-        font-weight: 500;
-        color: $ob-text-primary;
-      }
-    }
+.econ-group-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.2px;
+
+  .econ-optional {
+    font-size: 13px;
+    font-weight: 400;
+    color: $ob-text-secondary;
+    margin-left: 6px;
   }
 }
 
-.class-size-section {
-  padding-top: 24px;
-  border-top: 1px solid $ob-border-light;
-  margin-top: 24px;
+.econ-divider {
+  height: 1px;
+  background: $ob-border-light;
+  margin: 20px 0;
 }
 
-.recommendation-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  border-radius: 16px;
-  margin: 16px 0;
-  
-  .recommendation-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: #0ea5e9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    
-    ion-icon {
-      font-size: 22px;
-      color: white;
-    }
-  }
-  
-  .recommendation-content {
-    flex: 1;
-    
-    .recommendation-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: #075985;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-    
-    .recommendation-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: #0c4a6e;
-      letter-spacing: -0.3px;
-      margin-bottom: 4px;
-    }
-    
-    .recommendation-note {
-      font-size: 13px;
-      color: #075985;
-      font-weight: 400;
-      line-height: 1.4;
-    }
-  }
-}
-
-.breakdown-toggle {
+.econ-baseline-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  background: $ob-bg-subtle;
-  border-radius: 12px;
-  cursor: pointer;
-  margin: 16px 0;
-  transition: all 0.2s ease;
-  user-select: none;
-  
-  &:hover {
-    background: $ob-bg-hover;
-  }
-  
-  span {
-    font-size: 15px;
-    font-weight: 600;
-    color: $ob-accent;
-  }
-  
-  ion-icon {
-    font-size: 20px;
-    color: $ob-accent;
-    transition: transform 0.2s ease;
-  }
+  padding: 14px 0;
+  border-bottom: 1px solid $ob-border-light;
 }
 
-.earnings-table-wrapper {
-  animation: slideDown 0.3s ease-out;
-  margin: 16px 0;
+.econ-baseline-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 600px;
-  }
+.econ-baseline-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
 }
 
-.earnings-table {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid $ob-border-light;
-  overflow: hidden;
-  
-  .table-header {
+.econ-baseline-sub {
+  font-size: 13px;
+  color: $ob-text-secondary;
+}
+
+.econ-baseline-amount {
+  font-size: 18px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.econ-suggested-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+}
+
+.econ-suggested-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
+}
+
+.econ-suggested-amount {
+  font-size: 18px;
+  font-weight: 600;
+  color: $ob-text-primary;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.econ-suggested-note {
+  display: block;
+  font-size: 13px;
+  color: $ob-text-secondary;
+  margin-bottom: 12px;
+}
+
+.econ-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-top: 1px solid $ob-border-light;
+  gap: 16px;
+
+  > div {
     display: flex;
-    justify-content: space-between;
-    padding: 16px;
-    background: $ob-bg-subtle;
-    border-bottom: 1px solid $ob-border-light;
-    
-    span {
-      font-size: 11px;
-      font-weight: 700;
-      color: $ob-text-secondary;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  ion-toggle {
+    flex-shrink: 0;
+  }
+}
+
+.econ-toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: $ob-text-primary;
+}
+
+.econ-toggle-sub {
+  font-size: 13px;
+  color: $ob-text-secondary;
+  display: block;
+}
+
+.econ-hint-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  background: $ob-bg-subtle;
+  border-radius: 10px;
+  margin: 12px 0;
+
+  ion-icon {
+    font-size: 16px;
+    color: $ob-text-secondary;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  span {
+    font-size: 13px;
+    color: $ob-text-secondary;
+    line-height: 1.45;
+
+    strong {
+      font-weight: 600;
+      color: $ob-text-primary;
     }
   }
-  
-  .table-row {
+
+  &.warning {
+    background: #fff5f5;
+
+    ion-icon {
+      color: #e53e3e;
+    }
+
+    span {
+      color: #742a2a;
+
+      strong {
+        color: #742a2a;
+      }
+    }
+  }
+}
+
+.econ-helper-text {
+  display: block;
+  font-size: 13px;
+  color: $ob-text-secondary;
+  margin-top: 6px;
+}
+
+// Earnings breakdown
+.econ-breakdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+
+  span {
+    font-size: 14px;
+    font-weight: 600;
+    color: $ob-text-primary;
+    text-decoration: underline;
+  }
+
+  ion-icon {
+    font-size: 18px;
+    color: $ob-text-secondary;
+  }
+
+  &:hover span {
+    color: #000;
+  }
+}
+
+.econ-breakdown-table {
+  margin-top: 14px;
+  border: 1px solid $ob-border-light;
+  border-radius: 12px;
+  overflow: hidden;
+
+  .econ-table-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: $ob-text-primary;
     border-bottom: 1px solid $ob-border-light;
-    transition: background 0.15s ease;
-    
+
     &:last-of-type {
       border-bottom: none;
     }
-    
+
+    &.header {
+      background: $ob-bg-subtle;
+      font-size: 11px;
+      font-weight: 600;
+      color: $ob-text-secondary;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     &.baseline {
-      background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
-      
-      .row-label {
-        font-weight: 600;
-        color: #7c3aed;
-      }
-      
-      .amount {
-        font-weight: 700;
-        color: #7c3aed;
-      }
+      font-weight: 600;
+      background: $ob-bg-subtle;
     }
-    
-    &.profitable {
-      background: rgba(48, 209, 88, 0.03);
-      
-      &:hover {
-        background: rgba(48, 209, 88, 0.06);
-      }
-    }
-    
+
     &.below-target {
-      opacity: 0.5;
+      opacity: 0.45;
     }
-    
-    .row-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      
-      ion-icon {
-        font-size: 18px;
-        color: $ob-text-secondary;
-      }
-      
-      span {
-        font-size: 15px;
+
+    &.profitable {
+      span:first-child {
         font-weight: 500;
-        color: $ob-text-primary;
-      }
-    }
-    
-    .row-value {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      
-      .amount {
-        font-size: 17px;
-        font-weight: 700;
-        color: $ob-text-primary;
-        font-feature-settings: 'tnum';
-        font-variant-numeric: tabular-nums;
-      }
-      
-      .badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 4px 8px;
-        border-radius: 8px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        
-        &.neutral {
-          background: $ob-bg-subtle;
-          color: $ob-text-secondary;
-        }
-        
-        &.positive {
-          background: rgba(48, 209, 88, 0.1);
-          color: #34c759;
-        }
-        
-        &.negative {
-          background: rgba(255, 59, 48, 0.1);
-          color: #ff3b30;
-        }
-        
-        ion-icon {
-          font-size: 14px;
-        }
       }
     }
   }
-  
-  .table-footer {
+
+  .econ-table-value {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .econ-pct {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+
+    &.up {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.08);
+    }
+
+    &.down {
+      color: #dc2626;
+      background: rgba(220, 38, 38, 0.08);
+    }
+  }
+
+  .econ-table-footer {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: $ob-text-secondary;
     background: $ob-bg-subtle;
-    
-    ion-icon {
-      font-size: 14px;
-      color: $ob-text-secondary;
-    }
-    
-    span {
-      font-size: 12px;
-      color: $ob-text-secondary;
-      font-style: italic;
-    }
+    border-top: 1px solid $ob-border-light;
   }
 }
 
-.warning-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 16px;
-  background: rgba(255, 59, 48, 0.05);
-  border: 1px solid rgba(255, 59, 48, 0.2);
-  border-radius: 16px;
-  margin: 16px 0;
-  
-  .warning-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: #ff3b30;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    
-    ion-icon {
-      font-size: 22px;
-      color: white;
-    }
-  }
-  
-  .warning-content {
-    flex: 1;
-    
-    .warning-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #991b1b;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    
-    .warning-text {
-      font-size: 14px;
-      color: #7f1d1d;
-      line-height: 1.5;
-      
-      strong {
-        font-weight: 600;
-      }
-    }
-  }
-}
-
-.flexible-toggle-card {
-  padding: 16px;
-  background: $ob-bg-subtle;
-  border-radius: 16px;
-  border: 1px solid $ob-border-light;
-  margin-top: 16px;
-  
-  ion-item {
-    --background: transparent;
-    --padding-start: 0;
-    --padding-end: 0;
-    --min-height: auto;
-    
-    ion-label {
-      h3 {
-        font-size: 15px;
-        font-weight: 600;
-        color: $ob-text-primary;
-        margin: 0 0 4px 0;
-      }
-      
-      p {
-        font-size: 13px;
-        color: $ob-text-secondary;
-        margin: 0;
-      }
-    }
-  }
-}
-
-// ============================================
-// STUDENT SELECTION
-// ============================================
-
-.invite-students-section {
-  padding-top: 24px;
-  border-top: 1px solid $ob-border-light;
-  margin-top: 24px;
+// Student selector (kept, just spacing cleaned up)
+.student-selector {
   position: relative;
   z-index: 10;
   overflow: visible;
@@ -1679,6 +1656,439 @@ $ob-accent: #222222;
       ion-icon {
         font-size: 20px;
         margin-right: 8px;
+      }
+    }
+  }
+}
+
+// ============================================
+// DARK MODE
+// ============================================
+
+$dk-bg: #000000;
+$dk-surface: #1c1c1e;
+$dk-card: #2c2c2e;
+$dk-card-hover: #3a3a3c;
+$dk-border: rgba(255, 255, 255, 0.1);
+$dk-border-strong: rgba(255, 255, 255, 0.18);
+$dk-text: #f5f5f7;
+$dk-text-secondary: #8e8e93;
+$dk-text-tertiary: #636366;
+$dk-accent: #f5f5f7;
+$dk-green: #30d158;
+$dk-red: #ff453a;
+
+:host-context(html.ion-palette-dark) {
+
+  .schedule-class-content {
+    --background: $dk-bg !important;
+  }
+
+  .schedule-class-content-inline {
+    background: $dk-bg;
+
+    .onboarding-content {
+      background: $dk-surface;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .onboarding-container {
+    background: linear-gradient(135deg, #0a0a0a 0%, #111 50%, #0d0d0d 100%);
+  }
+
+  .onboarding-content {
+    background: $dk-surface;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .go-back-link {
+    color: $dk-text;
+  }
+
+  // ── Left column ──
+  .left-column {
+    @media (max-width: 768px) {
+      border-bottom-color: $dk-border;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: $dk-card-hover;
+      &:hover { background: $dk-text-tertiary; }
+    }
+  }
+
+  .onboarding-header {
+    h1 { color: $dk-text; }
+    p { color: $dk-text-secondary; }
+  }
+
+  .progress-section {
+    .progress-bar-bg {
+      background: $dk-card;
+      .progress-bar-fill { background: $dk-accent; }
+    }
+    .progress-text { color: $dk-text-secondary; }
+  }
+
+  .steps-toggle-mobile {
+    @media (max-width: 768px) {
+      background: $dk-card;
+      border-color: $dk-border;
+      color: $dk-text;
+      &:hover { background: $dk-card-hover; }
+      ion-icon { color: $dk-text-secondary; }
+    }
+  }
+
+  .steps-list .step-item {
+    &:hover:not(.disabled) { background: $dk-card; }
+
+    &.current {
+      background: rgba(255, 255, 255, 0.06);
+      .step-indicator {
+        background: $dk-accent;
+        .step-number { color: #000; }
+      }
+    }
+
+    &.completed {
+      .step-indicator {
+        background: linear-gradient(135deg, #00A699, #00C9B7) !important;
+      }
+    }
+
+    .step-indicator {
+      background: $dk-card;
+      .step-number { color: $dk-text-secondary; }
+    }
+
+    .step-info {
+      h3 { color: $dk-text; }
+      p { color: $dk-text-secondary; }
+    }
+  }
+
+  .separator {
+    background: linear-gradient(to bottom,
+      transparent 0%, $dk-border 10%, $dk-border 90%, transparent 100%);
+  }
+
+  // ── Right column ──
+  .step-content-scrollable {
+    &::-webkit-scrollbar-thumb {
+      background: $dk-card-hover;
+      &:hover { background: $dk-text-tertiary; }
+    }
+  }
+
+  .nav-buttons {
+    border-top-color: $dk-border;
+    background: $dk-surface;
+
+    ion-button {
+      --background: #{$dk-text};
+      --color: #000;
+      --background-hover: #fff;
+      --background-activated: #ddd;
+
+      &[fill="outline"] {
+        --background: transparent;
+        --color: #{$dk-text};
+        --border-color: #{$dk-border-strong};
+      }
+    }
+  }
+
+  // ── Cards & forms ──
+  .card-section {
+    background: $dk-card;
+    border-color: $dk-border;
+
+    .card-content-scrollable {
+      &::-webkit-scrollbar-thumb {
+        background: $dk-card-hover;
+        &:hover { background: $dk-text-tertiary; }
+      }
+    }
+  }
+
+  .form-field {
+    .field-label { color: $dk-text; }
+
+    .modern-input {
+      --background: #{$dk-surface};
+      --border-color: #{$dk-border-strong};
+      --highlight-color-focused: #{$dk-accent};
+      --highlight-color-valid: #{$dk-accent};
+      color: $dk-text;
+
+      &.error {
+        --border-color: #{$dk-red};
+        --background: rgba(255, 69, 58, 0.06);
+      }
+    }
+
+    .modern-select {
+      --background: #{$dk-surface};
+      --border-color: #{$dk-border-strong};
+      --highlight-color-focused: #{$dk-accent};
+      color: $dk-text;
+
+      &::part(placeholder) { color: $dk-text-tertiary; }
+      &::part(text) { color: $dk-text; }
+      &::part(icon) { color: $dk-text-secondary; }
+    }
+
+    .error-note { color: $dk-red; }
+    .helper-note { color: $dk-text-secondary; }
+    .success-note { color: $dk-green; }
+  }
+
+  .description-editor-wrapper {
+    border-color: $dk-border-strong;
+    background: $dk-surface;
+
+    &:focus-within {
+      border-color: $dk-accent;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+    }
+
+    ::ng-deep {
+      .ql-toolbar {
+        background: $dk-surface;
+        border-bottom-color: $dk-border;
+
+        .ql-stroke { stroke: $dk-text-secondary; }
+        .ql-fill { fill: $dk-text-secondary; }
+        .ql-picker-label { color: $dk-text-secondary; }
+
+        button:hover .ql-stroke,
+        .ql-picker-label:hover { stroke: $dk-text; color: $dk-text; }
+      }
+
+      .ql-container { background: $dk-surface; }
+
+      .ql-editor {
+        color: $dk-text;
+        &.ql-blank::before { color: $dk-text-tertiary; }
+      }
+    }
+  }
+
+  // ── Economics section ──
+  .economics-section { background: transparent; }
+
+  .econ-group-title {
+    color: $dk-text;
+    .econ-optional { color: $dk-text-secondary; }
+  }
+
+  .econ-divider { background: $dk-border; }
+
+  .econ-baseline-row { border-bottom-color: $dk-border; }
+  .econ-baseline-label { color: $dk-text; }
+  .econ-baseline-sub { color: $dk-text-secondary; }
+  .econ-baseline-amount { color: $dk-text; }
+
+  .econ-suggested-label { color: $dk-text; }
+  .econ-suggested-amount { color: $dk-text; }
+  .econ-suggested-note { color: $dk-text-secondary; }
+
+  .econ-toggle-row {
+    border-top-color: $dk-border;
+    ion-toggle {
+      --track-background: #{$dk-card-hover};
+      --track-background-checked: #{$dk-green};
+      --handle-background: #fff;
+      --handle-background-checked: #fff;
+    }
+  }
+  .econ-toggle-label { color: $dk-text; }
+  .econ-toggle-sub { color: $dk-text-secondary; }
+
+  .econ-hint-row {
+    background: $dk-card;
+    ion-icon { color: $dk-text-secondary; }
+    span { color: $dk-text-secondary; strong { color: $dk-text; } }
+
+    &.warning {
+      background: rgba(255, 69, 58, 0.1);
+      ion-icon { color: $dk-red; }
+      span { color: rgba(255, 200, 200, 0.9); strong { color: #fff; } }
+    }
+  }
+
+  .econ-helper-text { color: $dk-text-secondary; }
+
+  .econ-breakdown-toggle {
+    span { color: $dk-text; }
+    ion-icon { color: $dk-text-secondary; }
+    &:hover span { color: #fff; }
+  }
+
+  .econ-breakdown-table {
+    border-color: $dk-border;
+
+    .econ-table-row {
+      color: $dk-text;
+      border-bottom-color: $dk-border;
+
+      &.header {
+        background: $dk-card;
+        color: $dk-text-secondary;
+      }
+      &.baseline {
+        background: $dk-card;
+      }
+    }
+
+    .econ-pct {
+      &.up { color: $dk-green; background: rgba(48, 209, 88, 0.1); }
+      &.down { color: $dk-red; background: rgba(255, 69, 58, 0.1); }
+    }
+
+    .econ-table-footer {
+      color: $dk-text-secondary;
+      background: $dk-card;
+      border-top-color: $dk-border;
+    }
+  }
+
+  // ── Student selector ──
+  .student-selector {
+    background: $dk-card;
+    border-color: $dk-border;
+
+    &:hover:not(.disabled) {
+      background: $dk-card-hover;
+      border-color: $dk-accent;
+    }
+
+    .selector-content {
+      .selected-avatars {
+        .avatar-sm { border-color: $dk-surface; }
+        .more-badge {
+          background: $dk-card-hover;
+          color: $dk-text;
+          border-color: $dk-surface;
+        }
+      }
+      .selector-text { color: $dk-text; }
+      .clear-btn { color: $dk-text-secondary; &:hover { color: $dk-red; } }
+    }
+
+    .placeholder-text { color: $dk-text-secondary; }
+    .chevron-icon { color: $dk-text-secondary; }
+  }
+
+  .avatar-placeholder {
+    background: $dk-card-hover !important;
+    color: $dk-text !important;
+  }
+
+  // ── Schedule section ──
+  .availability-btn {
+    --border-color: #{$dk-text};
+    --color: #{$dk-text};
+    &:hover:not([disabled]) { --background: rgba(255, 255, 255, 0.06); }
+  }
+
+  .datetime-row {
+    .date-input.ion-disabled,
+    .time-input.ion-disabled {
+      --background: #{$dk-card};
+    }
+  }
+
+  // ── Visibility & thumbnail ──
+  .visibility-toggle ion-item {
+    --background: transparent;
+    ion-label {
+      h3 { color: $dk-text !important; }
+      p { color: $dk-text-secondary !important; }
+    }
+    ion-toggle {
+      --track-background: #{$dk-card-hover};
+      --track-background-checked: #{$dk-green};
+      --handle-background: #fff;
+      --handle-background-checked: #fff;
+    }
+  }
+
+  .thumbnail-section {
+    border-top-color: $dk-border;
+
+    .thumbnail-info-card {
+      background: $dk-card;
+      ion-icon { color: $dk-text; }
+      .info-title { color: $dk-text; }
+      .info-subtitle { color: $dk-text-secondary; }
+    }
+
+    .thumbnail-preview {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      .remove-btn {
+        --background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+      }
+    }
+
+    .upload-btn {
+      --border-color: #{$dk-border-strong};
+      --color: #{$dk-text};
+    }
+
+    .error-card {
+      background: rgba(255, 69, 58, 0.1);
+      border-color: rgba(255, 69, 58, 0.25);
+      ion-icon { color: $dk-red; }
+      span { color: rgba(255, 200, 200, 0.9); }
+    }
+  }
+
+  // ── Currency symbol ──
+  .currency-symbol { color: $dk-text-secondary; }
+
+  // ── Availability picker modal ──
+  .availability-modal-content {
+    --background: #{$dk-surface} !important;
+
+    .modal-header {
+      background: $dk-surface;
+      border-bottom-color: $dk-border;
+
+      .back-btn {
+        background: $dk-card;
+        ion-icon { color: $dk-text; }
+        &:hover { background: $dk-card-hover; }
+      }
+
+      .modal-title { color: $dk-text; }
+
+      .close-btn {
+        background: $dk-card;
+        ion-icon { color: $dk-text-secondary; }
+        &:hover {
+          background: $dk-card-hover;
+          ion-icon { color: $dk-text; }
+        }
+      }
+    }
+
+    .add-availability-section {
+      .add-availability-divider {
+        &::before, &::after { background: $dk-border; }
+        span { color: $dk-text-secondary; }
+      }
+
+      .add-availability-btn {
+        --border-color: #{$dk-text};
+        --color: #{$dk-text};
+        --background-hover: rgba(255, 255, 255, 0.06);
       }
     }
   }

@@ -238,7 +238,7 @@ class StripeService {
    * @param {string} params.reason - Reason for refund
    * @returns {Promise<Object>} Refund object
    */
-  async createRefund({ paymentIntentId, amount = null, reason = 'requested_by_customer' }) {
+  async createRefund({ paymentIntentId, amount = null, reason = 'requested_by_customer', reverseTransfer = false }) {
     try {
       const refundParams = {
         payment_intent: paymentIntentId,
@@ -246,12 +246,17 @@ class StripeService {
       };
 
       if (amount) {
-        refundParams.amount = Math.round(amount * 100); // Convert to cents
+        refundParams.amount = Math.round(amount * 100);
+      }
+
+      if (reverseTransfer) {
+        refundParams.reverse_transfer = true;
+        refundParams.refund_application_fee = true;
       }
 
       const refund = await stripe.refunds.create(refundParams);
       
-      console.log(`💰 Created refund: ${refund.id} for PaymentIntent: ${paymentIntentId}`);
+      console.log(`💰 Created refund: ${refund.id} for PaymentIntent: ${paymentIntentId} (reverse_transfer: ${reverseTransfer})`);
       
       return refund;
     } catch (error) {

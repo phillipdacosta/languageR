@@ -883,7 +883,7 @@ export class TabsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateBrowserTabTitle(unreadCount: number) {
-    const baseTitle = 'Speak Freely'; // Base title for your app
+    const baseTitle = 'Barnaby'; // Base title for your app
     if (unreadCount > 0) {
       document.title = `${baseTitle} (${unreadCount})`;
     } else {

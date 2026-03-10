@@ -8,7 +8,7 @@
       </div>
     </div>
     <ion-buttons slot="end">
-      <ion-button (click)="endCall()" color="danger">
+      <ion-button (click)="confirmEndCall()" color="danger">
         <ion-icon name="call-outline"></ion-icon>
       </ion-button>
     </ion-buttons>
@@ -1004,7 +1004,7 @@
         <span class="control-label" [class.primary]="showMoreMenu">More</span>
       </div>
       
-      <div class="control-item end-call" (click)="!isEndingCall && endCall()" [class.disabled]="isEndingCall">
+      <div class="control-item end-call" (click)="!isEndingCall && confirmEndCall()" [class.disabled]="isEndingCall">
         <div class="control-btn danger">
           <ion-icon name="call" style="transform: rotate(135deg);"></ion-icon>
         </div>

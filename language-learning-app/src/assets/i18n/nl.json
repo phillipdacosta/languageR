@@ -96,6 +96,7 @@
     "JOIN_NOW": "Nu deelnemen",
     "JOIN": "Deelnemen",
     "JOIN_LESSON": "Deelnemen aan les",
+    "PARTICIPANT_IN_CALL": "{{name}} is in het gesprek",
     "RESCHEDULE": "Verplaatsen",
     "CANCEL_LESSON": "Les annuleren",
     "CANCEL": "Annuleren",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "Weet je zeker dat je ${{amount}} wilt opnemen? Dit wordt naar je {{method}}-rekening gestuurd.",
     "WITHDRAW_CONFIRM_BTN": "Bevestigen",
     "WITHDRAW_SUCCESS": "Opname van ${{amount}} succesvol aangevraagd! Verwerking binnen 1-2 werkdagen.",
+    "WITHDRAW_SUCCESS_TITLE": "Betaling Verzonden!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}} verzonden naar je {{method}}!",
+    "WITHDRAW_SUCCESS_NOTE": "Fondsen zijn doorgaans beschikbaar binnen 1–2 werkdagen.",
+    "WITHDRAW_SUCCESS_DONE": "Klaar",
     "WITHDRAW_ERROR": "Opname aanvragen mislukt. Probeer het opnieuw.",
     "WITHDRAW_MIN_STRIPE_ERROR": "Voer een geldig opnamebedrag in",
     "WITHDRAW_MIN_PAYPAL_ERROR": "Minimaal opnamebedrag is $10",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "Weet je zeker dat je wilt uitloggen?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Welkom bij Speak Freely",
+      "GREETING": "Welkom bij Barnaby",
       "SUBTITLE": "De slimmere manier om talen te leren en te onderwijzen. Laten we je account instellen in een paar stappen.",
-      "TUTOR_GREETING": "Welkom bij Speak Freely",
+      "TUTOR_GREETING": "Welkom bij Barnaby",
       "TUTOR_SUBTITLE": "Word lid van onze tutorgemeenschap en begin met lesgeven aan studenten wereldwijd. Laten we je profiel klaarmaken.",
       "CTA": "Aan de slag",
       "BACK": "Taal wijzigen"

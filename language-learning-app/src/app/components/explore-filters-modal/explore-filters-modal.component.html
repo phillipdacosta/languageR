@@ -1,0 +1,167 @@
+<div class="explore-filters-modal">
+  <!-- Header -->
+  <div class="modal-header">
+    <button class="close-btn" (click)="dismiss()">
+      <ion-icon name="close"></ion-icon>
+    </button>
+    <span class="header-title">Filters</span>
+    <span class="header-spacer"></span>
+  </div>
+
+  <!-- Scrollable Content -->
+  <div class="modal-body">
+
+    <!-- Active Filter Chips -->
+    <div class="selected-section" *ngIf="activeFilterCount > 0">
+      <span class="filter-chip" *ngIf="filters.language && filters.language !== 'any'" (click)="selectLanguage('any')">
+        <app-flag-icon [language]="filters.language" [size]="14"></app-flag-icon>
+        {{ filters.language }}
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+      <span class="filter-chip" *ngIf="filters.priceMin !== 0 || filters.priceMax !== 200"
+            (click)="filters.priceMin = 0; filters.priceMax = 200; priceRange = { lower: 0, upper: 200 }; computeActiveFilterCount()">
+        ${{ filters.priceMin }}–${{ filters.priceMax }}
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+      <span class="filter-chip" *ngIf="filters.dateFrom"
+            (click)="filters.dateFrom = ''; computeActiveFilterCount()">
+        From: {{ filters.dateFrom }}
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+      <span class="filter-chip" *ngIf="filters.dateTo"
+            (click)="filters.dateTo = ''; computeActiveFilterCount()">
+        To: {{ filters.dateTo }}
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+      <span class="filter-chip" *ngIf="filters.searchQuery"
+            (click)="filters.searchQuery = ''; computeActiveFilterCount()">
+        "{{ filters.searchQuery }}"
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+      <span class="filter-chip" *ngIf="filters.sortBy !== 'date_asc'"
+            (click)="filters.sortBy = 'date_asc'; computeActiveFilterCount()">
+        Sorted
+        <ion-icon name="close-outline" class="chip-close"></ion-icon>
+      </span>
+    </div>
+
+    <!-- Search Section -->
+    <div class="filter-section">
+      <div class="search-input-wrapper">
+        <ion-icon name="search-outline" class="search-icon"></ion-icon>
+        <input type="text" class="search-input" placeholder="Search classes by name or tutor"
+               [(ngModel)]="filters.searchQuery" (input)="onSearchChange()">
+      </div>
+    </div>
+
+    <!-- Language Section -->
+    <div class="filter-section">
+      <button class="section-header" (click)="toggleSection('language')">
+        <span class="section-label">Language</span>
+        <span class="section-value" *ngIf="filters.language && filters.language !== 'any'">{{ filters.language }}</span>
+        <ion-icon [name]="isSectionExpanded('language') ? 'chevron-up' : 'chevron-down'" class="section-chevron"></ion-icon>
+      </button>
+      <div class="section-content" *ngIf="isSectionExpanded('language')">
+        <div class="search-input-wrapper section-search">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" class="search-input" placeholder="Search languages"
+                 [(ngModel)]="languageSearch" (input)="onLanguageSearch()">
+        </div>
+        <div class="language-list">
+          <button class="language-item"
+                  *ngFor="let lang of filteredLanguages"
+                  [class.selected]="filters.language === lang.value"
+                  (click)="selectLanguage(lang.value)">
+            <app-flag-icon *ngIf="lang.value !== 'any'" [language]="lang.value" [size]="18"></app-flag-icon>
+            <span class="lang-label">{{ lang.label }}</span>
+            <ion-icon name="checkmark" class="check-icon" *ngIf="filters.language === lang.value"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price Section -->
+    <div class="filter-section">
+      <button class="section-header" (click)="toggleSection('price')">
+        <span class="section-label">Price per student</span>
+        <span class="section-value" *ngIf="filters.priceMin !== 0 || filters.priceMax !== 200">
+          ${{ filters.priceMin }}–${{ filters.priceMax }}
+        </span>
+        <ion-icon [name]="isSectionExpanded('price') ? 'chevron-up' : 'chevron-down'" class="section-chevron"></ion-icon>
+      </button>
+      <div class="section-content" *ngIf="isSectionExpanded('price')">
+        <div class="price-display">${{ priceRange.lower }} – ${{ priceRange.upper }}</div>
+        <ion-range
+          [value]="priceRange"
+          (ionChange)="onPriceRangeChange($event)"
+          [dualKnobs]="true"
+          [min]="0"
+          [max]="200"
+          [pin]="true"
+          class="price-range-slider">
+        </ion-range>
+        <div class="price-range-labels">
+          <span>$0</span>
+          <span>$200+</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date Range Section -->
+    <div class="filter-section">
+      <button class="section-header" (click)="toggleSection('date')">
+        <span class="section-label">Date range</span>
+        <span class="section-value" *ngIf="filters.dateFrom || filters.dateTo">
+          {{ filters.dateFrom || '...' }} → {{ filters.dateTo || '...' }}
+        </span>
+        <ion-icon [name]="isSectionExpanded('date') ? 'chevron-up' : 'chevron-down'" class="section-chevron"></ion-icon>
+      </button>
+      <div class="section-content" *ngIf="isSectionExpanded('date')">
+        <div class="date-row">
+          <div class="date-field">
+            <label>From</label>
+            <input type="date" [(ngModel)]="filters.dateFrom" (change)="onDateChange()">
+          </div>
+          <div class="date-field">
+            <label>To</label>
+            <input type="date" [(ngModel)]="filters.dateTo" (change)="onDateChange()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sort Section -->
+    <div class="filter-section">
+      <button class="section-header" (click)="toggleSection('sort')">
+        <span class="section-label">Sort by</span>
+        <span class="section-value" *ngIf="filters.sortBy !== 'date_asc'">
+          <ng-container *ngFor="let opt of sortOptions">
+            <ng-container *ngIf="opt.value === filters.sortBy">{{ opt.label }}</ng-container>
+          </ng-container>
+        </span>
+        <ion-icon [name]="isSectionExpanded('sort') ? 'chevron-up' : 'chevron-down'" class="section-chevron"></ion-icon>
+      </button>
+      <div class="section-content" *ngIf="isSectionExpanded('sort')">
+        <div class="sort-options">
+          <button class="segment-btn"
+                  *ngFor="let opt of sortOptions"
+                  [class.active]="filters.sortBy === opt.value"
+                  (click)="selectSort(opt.value)">
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="modal-footer">
+    <button class="clear-all-btn" [class.disabled]="activeFilterCount === 0" [disabled]="activeFilterCount === 0" (click)="clearAll()">
+      Clear all
+    </button>
+    <button class="show-results-btn" (click)="apply()">
+      Show classes
+    </button>
+  </div>
+</div>

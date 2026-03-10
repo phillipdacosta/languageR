@@ -182,41 +182,75 @@
   .early-exit-modal {
     padding: 24px 20px;
   }
-  
+
   .modal-header {
     .header-icon {
       font-size: 48px;
     }
-    
+
     h2 {
       font-size: 20px;
     }
-    
+
     p {
       font-size: 14px;
     }
   }
-  
+
   .action-btn {
     padding: 14px;
-    
+
     .btn-icon-wrapper {
       width: 44px;
       height: 44px;
-      
+
       ion-icon {
         font-size: 24px;
       }
     }
-    
+
     .btn-content {
       h3 {
         font-size: 15px;
       }
-      
+
       p {
         font-size: 12px;
       }
     }
+  }
+}
+
+// Dark mode
+:host-context(html.ion-palette-dark) {
+  .early-exit-modal {
+    background: #1c1c1e !important;
+  }
+  .modal-header {
+    .header-icon { color: var(--ion-color-primary); }
+    h2 { color: #f5f5f7 !important; }
+    p { color: #8e8e93 !important; }
+  }
+  .modal-content {
+    .info-text { color: #8e8e93 !important; }
+    .note-text {
+      color: #8e8e93 !important;
+      background: #2c2c2e !important;
+    }
+  }
+  .action-btn {
+    background: #2c2c2e !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    .btn-content h3 { color: #f5f5f7 !important; }
+    .btn-content p { color: #8e8e93 !important; }
+    .chevron { color: #8e8e93 !important; }
+    &:hover {
+      background: #3a3a3c !important;
+      border-color: var(--ion-color-primary);
+    }
+  }
+  .modal-footer {
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+    ion-button { --color: #8e8e93 !important; }
   }
 }

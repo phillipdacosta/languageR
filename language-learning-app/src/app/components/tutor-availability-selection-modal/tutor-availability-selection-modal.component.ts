@@ -3,8 +3,6 @@ import { ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { TutorAvailabilityViewerComponent } from '../tutor-availability-viewer/tutor-availability-viewer.component';
-import { UserService } from '../../services/user.service';
-import { formatTimeInTz, formatDateInTz } from '../../shared/timezone.utils';
 import { CheckoutPage } from '../../checkout/checkout.page';
 import { trigger, transition, style, animate } from '@angular/animations';
 
@@ -58,18 +56,13 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
   selectedTime: string | null = null;
   selectedDateFormatted: string = '';
   selectedTimeFormatted: string = '';
-  lessonDuration: 25 | 50 = 25; // Default lesson duration in minutes
+  lessonDuration: number = 25;
   animationDirection: 'forward' | 'backward' = 'forward';
 
   constructor(
     private modalController: ModalController,
-    private toastController: ToastController,
-    private userService: UserService
+    private toastController: ToastController
   ) {}
-
-  private get userTz(): string | undefined {
-    return this.userService.getCurrentUserValue()?.profile?.timezone || undefined;
-  }
 
   ngOnInit() {
     // If only one tutor, go directly to availability view
@@ -145,46 +138,16 @@ export class TutorAvailabilitySelectionModalComponent implements OnInit {
   }
 
   /**
-   * Handle time slot selection from availability viewer
+   * Handle payment request from availability viewer's confirmation step
    */
-  onTimeSlotSelected(event: any) {
-    if (!event.selectedDate || !event.selectedTime) {
-      return;
-    }
+  onPaymentRequested(event: { tutorId: string; date: string; time: string; duration: number; isTrialLesson: boolean; timezone: string }) {
+    this.selectedDate = event.date;
+    this.selectedTime = event.time;
+    this.lessonDuration = event.duration;
 
-    console.log('🎯 Time slot selected:', event);
-    console.log('🎯 Selected tutor:', this.selectedTutor);
-
-    // Parse and format the selected date/time
-    const [hours, minutes] = event.selectedTime.split(':').map(Number);
-    const [year, month, day] = event.selectedDate.split('-').map(Number);
-    const selectedDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
-    
-    // Store selected date and time
-    this.selectedDate = event.selectedDate;
-    this.selectedTime = event.selectedTime;
-    
-    console.log('🎯 Stored date:', this.selectedDate);
-    console.log('🎯 Stored time:', this.selectedTime);
-    console.log('🎯 Tutor ID:', this.getTutorId(this.selectedTutor!));
-    
-    // Format for display
-    this.selectedDateFormatted = formatDateInTz(selectedDateTime, this.userTz, {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    this.selectedTimeFormatted = formatTimeInTz(selectedDateTime, this.userTz);
-    
-    // Navigate to embedded checkout
     this.animationDirection = 'forward';
     this.showTutorList = false;
     this.showCheckout = true;
-    
-    console.log('🎯 Show checkout:', this.showCheckout);
-    console.log('🎯 Show tutor list:', this.showTutorList);
   }
   
   /**

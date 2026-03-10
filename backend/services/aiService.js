@@ -836,17 +836,60 @@ async function transcribeAudio(audioBuffer, targetLanguage = 'en', speaker = 'st
     console.log(`📝 Transcribed text: "${transcription.text?.substring(0, 200) || '(none)'}${transcription.text?.length > 200 ? '...' : ''}"`);
     console.log(`=======================================\n`);
     
-    // Accept all transcriptions - the AI analysis will handle mixed-language content
+    // LAYER 2: Filter segments by no_speech_prob to prevent hallucinations
+    const rawSegments = transcription.segments || [];
+    const NO_SPEECH_THRESHOLD = 0.6;
+    
+    let filteredSegments = rawSegments;
+    let noSpeechStats = { avgNoSpeechProb: 0, highNoSpeechCount: 0, noSpeechRatio: 0 };
+    
+    if (rawSegments.length > 0) {
+      const segProbs = rawSegments.map(seg => seg.no_speech_prob || 0);
+      const avgProb = segProbs.reduce((sum, p) => sum + p, 0) / segProbs.length;
+      const highCount = segProbs.filter(p => p > NO_SPEECH_THRESHOLD).length;
+      const ratio = highCount / rawSegments.length;
+      
+      noSpeechStats = {
+        avgNoSpeechProb: Math.round(avgProb * 1000) / 1000,
+        highNoSpeechCount: highCount,
+        noSpeechRatio: Math.round(ratio * 1000) / 1000
+      };
+      
+      console.log(`\n🔇 ===== NO-SPEECH PROBABILITY FILTER =====`);
+      console.log(`   Segments: ${rawSegments.length}`);
+      console.log(`   Avg no_speech_prob: ${noSpeechStats.avgNoSpeechProb}`);
+      console.log(`   High no_speech segments (>${NO_SPEECH_THRESHOLD}): ${highCount}/${rawSegments.length} (${(ratio * 100).toFixed(1)}%)`);
+      
+      // Filter out segments where Whisper is unsure if speech exists
+      filteredSegments = rawSegments.filter(seg => (seg.no_speech_prob || 0) < NO_SPEECH_THRESHOLD);
+      
+      if (filteredSegments.length < rawSegments.length) {
+        console.log(`   Removed ${rawSegments.length - filteredSegments.length} high no_speech_prob segments`);
+      }
+      
+      // If >70% of segments have high no_speech_prob, the whole chunk is likely noise
+      if (ratio > 0.7) {
+        console.log(`   ⚠️ >70% of segments flagged as no-speech — likely noise/silence hallucination`);
+        filteredSegments = [];
+      }
+      
+      console.log(`   Kept: ${filteredSegments.length}/${rawSegments.length} segments`);
+      console.log(`==========================================\n`);
+    }
+    
+    const filteredText = filteredSegments.map(s => s.text).join(' ').trim();
+    
     return {
-      text: transcription.text || '',
-      segments: transcription.segments || [],
+      text: filteredText,
+      segments: filteredSegments,
       language: targetLanguage,
       duration: transcription.duration,
-      originalSegmentCount: transcription.segments?.length || 0,
-      filteredSegmentCount: transcription.segments?.length || 0,
-      rejectedSegmentCount: 0,
+      originalSegmentCount: rawSegments.length,
+      filteredSegmentCount: filteredSegments.length,
+      rejectedSegmentCount: rawSegments.length - filteredSegments.length,
       detectedLanguage: detectedLanguage,
-      wasRejected: false
+      wasRejected: false,
+      noSpeechStats
     };
     
   } catch (error) {

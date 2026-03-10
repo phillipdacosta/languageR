@@ -657,6 +657,14 @@ export class ProfilePage implements OnInit {
     this.videoPlayerData = null;
   }
 
+  onModalVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
+  }
+
   private async updateTutorVideo(
     videoUrl: string, 
     thumbnailUrl?: string, 
@@ -934,8 +942,9 @@ export class ProfilePage implements OnInit {
       await alert.present();
     } finally {
       await loading.dismiss();
-      // Reset file input
-      event.target.value = '';
+      if (event?.target) {
+        event.target.value = '';
+      }
     }
   }
 
@@ -949,6 +958,54 @@ export class ProfilePage implements OnInit {
     // Check if it's a custom picture (uploaded to GCS)
     // Custom pictures will be in storage.googleapis.com with our bucket
     return picture.includes('storage.googleapis.com') && picture.includes('profile-pictures');
+  }
+
+  /**
+   * Open image cropper with current profile picture for zoom/rotate/crop
+   */
+  async editPicture() {
+    const pictureUrl = this.getDisplayUser()?.picture;
+    if (!pictureUrl) return;
+
+    const loading = await this.loadingController.create({
+      message: 'Loading photo...',
+      spinner: 'crescent'
+    });
+    await loading.present();
+
+    try {
+      const blob = await this.userService.getProfilePictureBlob().pipe(take(1)).toPromise();
+      if (!blob) throw new Error('No image data');
+
+      const file = new File([blob], 'profile.png', { type: 'image/png' });
+
+      const modal = await this.modalController.create({
+        component: ImageCropperComponent,
+        componentProps: {
+          imageFile: file
+        },
+        cssClass: 'image-cropper-modal'
+      });
+
+      await loading.dismiss();
+      await modal.present();
+
+      const { data, role } = await modal.onWillDismiss();
+
+      if (role === 'crop' && data) {
+        const croppedFile = new File([data], 'profile.png', { type: 'image/png' });
+        await this.uploadProfilePicture(croppedFile, null);
+      }
+    } catch (err) {
+      await loading.dismiss();
+      console.error('Error opening edit picture:', err);
+      const alert = await this.alertController.create({
+        header: 'Error',
+        message: 'Could not load your photo. Try changing the photo instead.',
+        buttons: ['OK']
+      });
+      await alert.present();
+    }
   }
 
   /**

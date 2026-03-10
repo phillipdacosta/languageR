@@ -664,9 +664,16 @@ export class TutorReviewPage implements OnInit, OnDestroy {
   }
 
   closeVideoModal() {
-    console.log('🎬 Closing video modal');
     this.isVideoModalOpen = false;
     this.selectedTutor = null;
+  }
+
+  onVideoReady(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      video.muted = false;
+      video.play().catch(() => {});
+    }
   }
 
   // ============================================================

@@ -96,10 +96,16 @@ ion-toolbar {
   border-radius: $radius;
   padding: 20px 0;
   margin-bottom: 24px;
+  overflow: hidden;
+
+  @media (max-width: 600px) {
+    padding: 14px 0;
+  }
 }
 
 .skeleton-stat {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -107,6 +113,10 @@ ion-toolbar {
 
   & + & {
     border-left: 1px solid $border;
+  }
+
+  @media (max-width: 600px) {
+    padding: 0 12px;
   }
 }
 
@@ -121,17 +131,34 @@ ion-toolbar {
   width: 64px;
   height: 12px;
   margin-bottom: 10px;
+
+  @media (max-width: 600px) {
+    width: 52px;
+    height: 11px;
+    margin-bottom: 8px;
+  }
 }
 
 .skeleton-value {
   width: 96px;
   height: 28px;
   margin-bottom: 8px;
+
+  @media (max-width: 600px) {
+    width: 72px;
+    height: 20px;
+    margin-bottom: 6px;
+  }
 }
 
 .skeleton-sub {
   width: 80px;
   height: 10px;
+
+  @media (max-width: 600px) {
+    width: 64px;
+    height: 9px;
+  }
 }
 
 .skeleton-withdraw-row {
@@ -281,13 +308,6 @@ ion-toolbar {
   border-radius: $radius;
   background: white;
   overflow: hidden;
-  
-  @media (max-width: 600px) {
-    // Horizontal scroll on small screens
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-  }
 }
 
 .balance-stat {
@@ -301,9 +321,7 @@ ion-toolbar {
   min-width: 0;
   
   @media (max-width: 600px) {
-    min-width: 140px;
-    padding: 16px 18px;
-    scroll-snap-align: start;
+    padding: 14px 12px;
   }
   
   .stat-label {
@@ -311,6 +329,10 @@ ion-toolbar {
     font-weight: 400;
     color: $text-secondary;
     line-height: 1.3;
+
+    @media (max-width: 600px) {
+      font-size: 12px;
+    }
   }
   
   .stat-value {
@@ -326,7 +348,7 @@ ion-toolbar {
     }
     
     @media (max-width: 600px) {
-      font-size: 18px;
+      font-size: 16px;
     }
   }
   
@@ -343,9 +365,9 @@ ion-toolbar {
     transition: opacity 0.2s;
     
     @media (max-width: 600px) {
-      left: 18px;
-      top: 34px;
-      font-size: 18px;
+      left: 12px;
+      top: 30px;
+      font-size: 16px;
     }
   }
   
@@ -353,6 +375,10 @@ ion-toolbar {
     font-size: 12px;
     color: $text-tertiary;
     margin-top: 2px;
+
+    @media (max-width: 600px) {
+      font-size: 11px;
+    }
   }
   
   // Hover reveal on desktop
@@ -2063,4 +2089,163 @@ ion-toolbar {
 @keyframes highlightPulse {
   0%, 100% { background: transparent; }
   50% { background: rgba(0, 0, 0, 0.03); }
+}
+
+// =============================================================
+// DARK MODE — In-page elements (routed page mode)
+// =============================================================
+// Overlay modals (.withdrawal-modal, .earnings-filters-modal) are
+// styled in global.scss because Angular encapsulation prevents
+// component-scoped selectors from reaching the overlay DOM.
+// =============================================================
+:host-context(html.ion-palette-dark) {
+
+  ion-content {
+    --background: #000000 !important;
+  }
+
+  ion-toolbar {
+    --background: #1c1c1e !important;
+    --color: #f5f5f7 !important;
+    ion-title { color: #f5f5f7 !important; }
+    .back-btn { --color: #f5f5f7 !important; }
+  }
+
+  .inline-earnings-header .inline-earnings-title {
+    color: #f5f5f7 !important;
+  }
+  .go-back-link {
+    color: #8e8e93 !important;
+  }
+
+  .loading-container,
+  .error-container {
+    ion-icon { color: #555 !important; }
+    ion-spinner { --color: #8e8e93 !important; }
+    p { color: #8e8e93 !important; }
+  }
+  .retry-btn {
+    color: #f5f5f7 !important;
+    border-color: #3a3a3c !important;
+    &:hover { background: #2c2c2e !important; }
+  }
+
+  .earnings-skeleton {
+    .skeleton-balance-strip {
+      background: #1c1c1e !important;
+      border-color: #2c2c2e !important;
+    }
+    .skeleton-stat + .skeleton-stat { border-left-color: #2c2c2e !important; }
+    .skeleton-line,
+    .skeleton-btn,
+    .skeleton-chart-area {
+      background: linear-gradient(90deg, #2c2c2e 25%, #3a3a3c 50%, #2c2c2e 75%) !important;
+      background-size: 200% 100% !important;
+    }
+    .skeleton-chart-card {
+      background: #1c1c1e !important;
+      border-color: #2c2c2e !important;
+    }
+  }
+
+  .balance-strip {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
+  }
+  .balance-stat {
+    .stat-label { color: #8e8e93 !important; }
+    .stat-value { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+    .stat-value-hover { color: #f5f5f7 !important; }
+    .stat-sub { color: #636366 !important; }
+  }
+  .pending-stat .stat-label { color: $accent-orange !important; }
+  .available-stat .stat-label { color: $accent-green !important; }
+  .stat-divider { background: #2c2c2e !important; }
+
+  .withdraw-btn {
+    background: #f5f5f7 !important;
+    border-color: #f5f5f7 !important;
+    color: #000000 !important;
+    &:hover:not(:disabled) { background: #fff !important; }
+    &:disabled { background: #2c2c2e !important; border-color: #3a3a3c !important; color: #555 !important; }
+  }
+
+  .earnings-chart-card {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
+  }
+  .chart-card-title { color: #f5f5f7 !important; }
+  .chart-card-subtitle { color: #8e8e93 !important; }
+  .chart-period-toggle {
+    background: #2c2c2e !important;
+    .period-btn {
+      color: #8e8e93 !important;
+      &:hover:not(.active) { color: #f5f5f7 !important; background: rgba(255,255,255,0.06) !important; }
+      &.active { background: #3a3a3c !important; color: #6eacd9 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important; }
+    }
+  }
+  .chart-total-row {
+    .chart-total-amount { color: #f5f5f7 !important; &.masked { color: #555 !important; } }
+    .chart-total-label { color: #8e8e93 !important; }
+  }
+  .chart-empty-state { ion-icon { color: #555 !important; } p { color: #8e8e93 !important; } }
+
+  .transactions-section .transactions-header h2 { color: #f5f5f7 !important; }
+  .clear-link { color: #f5f5f7 !important; }
+
+  .filters-trigger-btn {
+    background: #1c1c1e !important;
+    border-color: #3a3a3c !important;
+    color: #f5f5f7 !important;
+    &:hover { background: #2c2c2e !important; }
+    .filter-count { background: #f5f5f7 !important; color: #000 !important; }
+  }
+  .filter-chip-preview { background: #2c2c2e !important; color: #f5f5f7 !important; }
+  .clear-all-inline { color: #f5f5f7 !important; }
+
+  .table-wrap {
+    background: #1c1c1e !important;
+    border-color: #2c2c2e !important;
+    &.scrollable-table thead { background: #1c1c1e !important; }
+  }
+  .table-footer {
+    background: #1a1a1a !important;
+    border-top-color: #2c2c2e !important;
+    .showing-count { color: #636366 !important; }
+  }
+  .txn-table {
+    thead tr {
+      border-bottom-color: #2c2c2e !important;
+      th { color: #8e8e93 !important; }
+    }
+    tbody .txn-row {
+      border-bottom-color: rgba(255,255,255,0.06) !important;
+      &.clickable:hover { background: rgba(255,255,255,0.04) !important; }
+      &.refunded { background: rgba($accent-red,0.06) !important; &:hover { background: rgba($accent-red,0.1) !important; } }
+      td { color: #f5f5f7 !important; }
+    }
+    .date-col { .date-primary { color: #f5f5f7 !important; } .date-secondary { color: #8e8e93 !important; } }
+    .student-col {
+      .avatar.fallback { background: #2c2c2e !important; ion-icon { color: #636366 !important; } }
+      .student-meta { .name { color: #f5f5f7 !important; } .type-label { &.material-label { color: #4298d2 !important; } } }
+    }
+    .status-col { .status-text { color: #f5f5f7 !important; } .status-note { color: #8e8e93 !important; } }
+    .amount-col {
+      color: #f5f5f7 !important;
+      &.fee { color: #8e8e93 !important; }
+      &.earnings { color: #f5f5f7 !important; .zero { color: #555 !important; } .reduced { color: $accent-orange !important; } .tentative { color: #8e8e93 !important; } }
+      .struck { color: #636366 !important; }
+    }
+  }
+
+  .empty-state {
+    ion-icon { color: #555 !important; }
+    .empty-title { color: #f5f5f7 !important; }
+    .empty-sub { color: #8e8e93 !important; }
+  }
+
+  .withdrawal-success-title { color: #f5f5f7 !important; }
+  .withdrawal-success-detail { color: #f5f5f7 !important; }
+  .withdrawal-success-note { color: #8e8e93 !important; }
+  .withdrawal-success-done-btn { background: #f5f5f7 !important; color: #000 !important; }
 }

@@ -2,10 +2,18 @@
   <div class="modal-card">
     <!-- Header -->
     <div class="modal-header">
-      <h2>Payment method</h2>
+      <h2>{{ purchaseMode ? 'Confirm Purchase' : 'Payment method' }}</h2>
       <button class="close-btn" (click)="dismiss()">
         <ion-icon name="close-outline"></ion-icon>
       </button>
+    </div>
+
+    <!-- Purchase Summary -->
+    <div class="purchase-summary" *ngIf="purchaseMode">
+      <div class="purchase-summary-row">
+        <span class="purchase-item-name">{{ purchaseTitle }}</span>
+        <span class="purchase-item-price">${{ purchaseAmount.toFixed(2) }}</span>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -117,6 +125,18 @@
         <p>No saved cards yet</p>
         <p class="subtitle">Add a card to get started</p>
       </div>
+
+    </div>
+
+    <!-- Purchase Confirm Button (outside scrollable body) -->
+    <div class="purchase-footer" *ngIf="purchaseMode && savedCards.length > 0 && !isAddingNewCard && !isLoading">
+      <button class="pay-btn" [disabled]="!selectedCardId" (click)="confirmPurchase()">
+        Pay ${{ purchaseAmount.toFixed(2) }}
+      </button>
+      <p class="pay-secure-note">
+        <ion-icon name="lock-closed"></ion-icon>
+        Secure payment via Stripe
+      </p>
     </div>
   </div>
 </div>

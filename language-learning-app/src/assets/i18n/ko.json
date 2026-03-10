@@ -96,6 +96,7 @@
     "JOIN_NOW": "지금 참여",
     "JOIN": "참여",
     "JOIN_LESSON": "수업 참여",
+    "PARTICIPANT_IN_CALL": "{{name}}님이 통화 중입니다",
     "RESCHEDULE": "일정 변경",
     "CANCEL_LESSON": "수업 취소",
     "CANCEL": "취소",
@@ -284,6 +285,10 @@
     "WITHDRAW_CONFIRM_MSG": "${{amount}}을(를) 출금하시겠습니까? {{method}} 계정으로 송금됩니다.",
     "WITHDRAW_CONFIRM_BTN": "확인",
     "WITHDRAW_SUCCESS": "${{amount}} 출금 요청이 성공적으로 처리되었습니다! 1~2 영업일 내에 처리됩니다.",
+    "WITHDRAW_SUCCESS_TITLE": "결제 완료!",
+    "WITHDRAW_SUCCESS_DETAIL": "{{amount}}이(가) {{method}}(으)로 전송되었습니다!",
+    "WITHDRAW_SUCCESS_NOTE": "일반적으로 1~2 영업일 내에 반영됩니다.",
+    "WITHDRAW_SUCCESS_DONE": "완료",
     "WITHDRAW_ERROR": "출금 요청에 실패했습니다. 다시 시도해주세요.",
     "WITHDRAW_MIN_STRIPE_ERROR": "유효한 출금 금액을 입력하세요",
     "WITHDRAW_MIN_PAYPAL_ERROR": "최소 출금 금액은 $10입니다",
@@ -479,9 +484,9 @@
       "LOGOUT_CONFIRM": "로그아웃하시겠습니까?"
     },
     "WELCOME_SCREEN": {
-      "GREETING": "Speak Freely에 오신 것을 환영합니다",
+      "GREETING": "Barnaby에 오신 것을 환영합니다",
       "SUBTITLE": "더 스마트한 언어 학습 및 교육 방법입니다. 몇 단계만으로 계정을 설정하세요.",
-      "TUTOR_GREETING": "Speak Freely에 오신 것을 환영합니다",
+      "TUTOR_GREETING": "Barnaby에 오신 것을 환영합니다",
       "TUTOR_SUBTITLE": "튜터 커뮤니티에 참여하여 전 세계 학생들을 가르치기 시작하세요. 프로필을 준비합시다.",
       "CTA": "시작하기",
       "BACK": "언어 변경"

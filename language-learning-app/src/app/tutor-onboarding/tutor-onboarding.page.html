@@ -13,7 +13,7 @@
 <div class="pre-step-container" *ngIf="preStepPhase === 'language'">
   <div class="pre-step-inner">
     <div class="pre-step-logo">
-      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon">
+      <img src="assets/icons-app-bird.png" alt="Barnaby" class="pre-step-app-icon">
     </div>
 
     <div class="pre-step-rotating-heading">
@@ -65,9 +65,9 @@
 </ion-header>
 <div class="pre-step-container welcome-phase" [class.welcome-revealed]="welcomeRevealed" *ngIf="preStepPhase === 'welcome'">
   <div class="pre-step-inner welcome-inner">
-    <div class="pre-step-logo">
-      <img src="assets/app-icon.png" alt="Speak Freely" class="pre-step-app-icon welcome-icon">
-    </div>
+    <!-- <div class="pre-step-logo">
+      <img src="assets/icons-app-bird.png" alt="Barnaby" class="pre-step-app-icon welcome-icon">
+    </div> -->
 
     <div class="welcome-hero">
       <dotlottie-player src="/assets/Celebration.lottie" autoplay speed="1" class="welcome-celebration-lottie"></dotlottie-player>
@@ -118,7 +118,7 @@
   <ion-toolbar class="onboarding-toolbar">
     <ion-buttons slot="start">
       <div class="app-icon-container">
-        <img src="assets/app-icon.png" alt="Speak Freely" class="app-icon">
+        <img src="assets/icons-app-bird.png" alt="Barnaby" class="app-icon">
       </div>
     </ion-buttons>
     <ion-buttons slot="end">
@@ -315,8 +315,9 @@
           {{ 'ONBOARDING.NAV.PREVIOUS' | translate }}
         </ion-button>
 
-        <ion-button 
-          fill="clear" 
+        <ion-button
+          fill="clear"
+          class="next-step-btn"
           *ngIf="currentStep < totalSteps"
           [disabled]="!canProceed()"
           (click)="nextStep()">
@@ -336,9 +337,6 @@
         
         <!-- Step 1: Name & Country -->
         <div *ngIf="currentStep === 1">
-          <div class="step-icon-circle">
-            <ion-icon name="person"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP1_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP1_SUBTITLE' | translate }}</p>
 
@@ -384,9 +382,6 @@
 
         <!-- Step 2: Residence Country -->
         <div *ngIf="currentStep === 2">
-          <div class="step-icon-circle">
-            <ion-icon name="location"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP2_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP2_SUBTITLE' | translate }}</p>
 
@@ -412,9 +407,6 @@
 
         <!-- Step 3: Native Language -->
         <div *ngIf="currentStep === 3">
-          <div class="step-icon-circle">
-            <ion-icon name="language"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP3_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP3_SUBTITLE' | translate }}</p>
 
@@ -432,9 +424,6 @@
 
         <!-- Step 4: Languages -->
         <div *ngIf="currentStep === 4">
-          <div class="step-icon-circle">
-            <ion-icon name="globe"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP4_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP4_SUBTITLE' | translate }}</p>
 
@@ -451,9 +440,6 @@
 
         <!-- Step 5: Experience -->
         <div *ngIf="currentStep === 5" class="experience-step">
-          <div class="step-icon-circle">
-            <ion-icon name="school"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP5_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP5_SUBTITLE' | translate }}</p>
 
@@ -470,9 +456,6 @@
 
         <!-- Step 6: Availability -->
         <div *ngIf="currentStep === 6" class="availability-step">
-          <div class="step-icon-circle">
-            <ion-icon name="calendar"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP6_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP6_SUBTITLE' | translate }}</p>
 
@@ -489,9 +472,6 @@
 
         <!-- Step 7: Bio -->
         <div *ngIf="currentStep === 7">
-          <div class="step-icon-circle">
-            <ion-icon name="create"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP7_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP7_SUBTITLE' | translate }}</p>
 
@@ -533,9 +513,6 @@
 
         <!-- Step 8: Hourly Rate -->
         <div *ngIf="currentStep === 8" class="rate-step">
-          <div class="step-icon-circle">
-            <ion-icon name="cash"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP8_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP8_SUBTITLE' | translate }}</p>
 
@@ -564,9 +541,6 @@
 
         <!-- Step 9: Introduction Video -->
         <div *ngIf="currentStep === 9">
-          <div class="step-icon-circle">
-            <ion-icon name="videocam"></ion-icon>
-          </div>
           <h2 class="step-title">{{ 'ONBOARDING.TUTOR_OB.STEP9_TITLE' | translate }}</h2>
           <p class="step-description">{{ 'ONBOARDING.TUTOR_OB.STEP9_SUBTITLE' | translate }}</p>
 
@@ -826,11 +800,12 @@
         </iframe>
         
         <!-- Uploaded Video -->
-        <video 
+        <video
           *ngIf="videoPlayerData.videoType === 'upload'"
           [src]="videoPlayerData.videoUrl"
           controls
-          autoplay
+          playsinline
+          (loadeddata)="onVideoReady($event)"
           class="video-player">
         </video>
       </div>

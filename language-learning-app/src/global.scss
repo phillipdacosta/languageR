@@ -111,24 +111,11 @@ input, textarea, ion-input, ion-textarea {
   font-weight: 400;
 }
 
-/* Remove default focus outline for modern-input class */
+/* Modern input — let fill="outline" handle borders natively */
 ion-input.modern-input {
-  --highlight-height: 0;
-  --highlight-color-focused: transparent;
-  
-  .native-input,
-  input {
-    outline: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    
-    &:focus,
-    &:focus-visible {
-      outline: none !important;
-      border: none !important;
-      box-shadow: none !important;
-    }
-  }
+  --highlight-color-focused: #222222;
+  --highlight-color-valid: #222222;
+  --highlight-color-invalid: #ff3b30;
 }
 
 /* Image Cropper Modal */
@@ -1195,6 +1182,160 @@ ion-modal.lessons-filters-modal {
   }
 }
 
+// Notifications Filters Modal (same design as lessons filters)
+ion-modal.notifications-filters-modal {
+  --width: 100%;
+  --max-width: 700px;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
+
+  @media (min-width: 769px) {
+    --width: 95%;
+    --height: 90vh;
+    --max-height: 500px;
+    --border-radius: 45px;
+    --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+}
+
+.notifications-filters-modal {
+  .nf-header {
+    ion-toolbar {
+      --background: #fff;
+      --border-width: 0;
+      padding: 8px 0;
+
+      ion-title {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.2px;
+        color: #1d1d1f;
+      }
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #ebebeb;
+    }
+  }
+
+  .nf-close-btn {
+    --color: #1d1d1f;
+    font-size: 22px;
+  }
+
+  .nf-content {
+    --background: #fff;
+    --padding-start: 24px;
+    --padding-end: 24px;
+    --padding-top: 16px;
+    --padding-bottom: 100px;
+  }
+
+  .nf-section { padding: 4px 0; }
+
+  .nf-section-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin: 0 0 16px;
+    letter-spacing: -0.3px;
+  }
+
+  .nf-time-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+
+    @media (min-width: 500px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .nf-time-btn {
+    padding: 14px 16px;
+    background: #fff;
+    border: 1px solid #dddddd;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1d1d1f;
+    cursor: pointer;
+    transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, font-weight 0.25s ease, transform 0.15s ease;
+    text-align: center;
+
+    &:hover { border-color: #b0b0b0; }
+
+    &.active {
+      border-color: #1d1d1f;
+      border-width: 2px;
+      background: #f7f7f7;
+      font-weight: 600;
+    }
+  }
+
+  .nf-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 1px solid #ebebeb;
+    padding: 16px 24px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 100;
+  }
+
+  .nf-footer-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nf-clear-btn {
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1d1d1f;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+
+    &:hover { opacity: 0.7; }
+    &:disabled { opacity: 0.3; cursor: not-allowed; }
+  }
+
+  .nf-apply-btn {
+    padding: 14px 24px;
+    background: #1d1d1f;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 160px;
+
+    &:hover { background: #000; }
+    &:active { transform: scale(0.98); }
+  }
+}
+
 // Earnings Filters Modal (Airbnb-style — matches tutor-search)
 ion-modal.earnings-filters-modal {
   --width: 100%;
@@ -1212,6 +1353,35 @@ ion-modal.earnings-filters-modal {
   }
 
   .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+}
+
+// Explore Filters Modal (Airbnb-style — matches tutor-search)
+ion-modal.explore-filters-modal-sheet {
+  --width: 100%;
+  --max-width: 700px;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
+
+  @media (min-width: 769px) {
+    --width: 95%;
+    --height: 90vh;
+    --max-height: 800px;
+    --border-radius: 45px;
+    --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .ion-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  app-explore-filters-modal {
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -1251,15 +1421,33 @@ ion-modal.tutor-note-modal {
 }
 
 
-// Student Selection Actionsheet Modal
+// Student Selection Actionsheet Modal (mobile bottom sheet)
 ion-modal.student-selection-actionsheet-modal {
   --border-radius: 20px 20px 0 0;
   --backdrop-opacity: 0.4;
-  
+
   @media (max-width: 768px) {
     --border-radius: 16px 16px 0 0;
   }
-  
+
+  app-student-selection-actionsheet {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #f5f5f7;
+  }
+}
+
+// Student Selection Modal (desktop centered)
+ion-modal.student-selection-desktop-modal {
+  --width: 420px;
+  --max-width: 90%;
+  --height: auto;
+  --max-height: 70vh;
+  --border-radius: 16px;
+  --backdrop-opacity: 0.4;
+  --box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+
   app-student-selection-actionsheet {
     display: flex;
     flex-direction: column;
@@ -1290,6 +1478,14 @@ div[class*="avatar"] {
 [style*="border-radius: 50%"][class*="avatar"],
 [style*="border-radius:50%"][class*="avatar"] {
   border-radius: 16px !important;
+}
+
+// Toolbar avatar should remain circular
+.desktop-nav-toolbar .user-profile .user-avatar,
+.desktop-nav-toolbar .user-profile .user-avatar img,
+.desktop-nav-toolbar .user-profile ion-avatar,
+.desktop-nav-toolbar .user-profile ion-avatar img {
+  border-radius: 50% !important;
 }
 
 // Modern Modal Styling (Apple-inspired)
@@ -1683,16 +1879,17 @@ ion-modal.video-player-modal {
   --height: 100%;
   --border-radius: 0;
   --box-shadow: none;
-  
+
   &::part(backdrop) {
-    display: none; // We handle our own overlay
+    display: none;
   }
-  
+
   &::part(content) {
     background: transparent;
     box-shadow: none;
   }
 }
+
 
 // Booking Confirmation Alert Styles
 .booking-confirmation-alert {
@@ -1754,6 +1951,900 @@ ion-modal.video-player-modal {
       color: #007aff !important;
       font-weight: 600 !important;
       border-bottom-right-radius: 14px !important;
+    }
+  }
+}
+
+// Leave lesson confirmation alert
+.leave-confirmation-alert {
+  .alert-button-role-destructive {
+    color: #ff3b30 !important;
+    font-weight: 600 !important;
+  }
+}
+
+
+.ed-toolbar-inner {
+  max-width: var(--ed-page-max);
+  margin: 0 auto;
+  padding: 8px var(--ed-pad-x) 4px;
+  display: flex;
+  justify-content: flex-end;
+
+  .go-back-link {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 6px 14px;
+    border-radius: 20px;
+    position: relative;
+    left: 200px;
+  }
+}
+
+// =============================================================
+// DARK MODE — ALL MODALS (global overlay)
+// =============================================================
+// Modals are rendered in an overlay; use html.ion-palette-dark so
+// styles apply regardless of which page opened the modal.
+// =============================================================
+
+html.ion-palette-dark {
+  // Dark mode modal surface: lighter than page (#000) so the modal reads as a distinct layer
+  $modal-bg-dark: #242426;
+  $modal-border-dark: rgba(255, 255, 255, 0.12);
+
+  // Base modal wrapper — elevated shadow + border so it doesn’t blend into background
+  ion-modal {
+    --background: #{$modal-bg-dark};
+    --box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px #{$modal-border-dark};
+  }
+
+  // All modals: header and content use same surface
+  ion-modal ion-header,
+  ion-modal ion-toolbar {
+    --background: #{$modal-bg-dark} !important;
+    --color: #f5f5f7 !important;
+    --border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  ion-modal ion-title {
+    color: #f5f5f7 !important;
+  }
+  ion-modal ion-content {
+    --background: #{$modal-bg-dark} !important;
+    --color: #f5f5f7 !important;
+  }
+  ion-modal ion-footer {
+    --background: #{$modal-bg-dark} !important;
+    --border-color: rgba(255, 255, 255, 0.1) !important;
+  }
+
+  // Modal content part — border and shadow for clear separation from backdrop
+  ion-modal::part(content) {
+    background: #{$modal-bg-dark} !important;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px #{$modal-border-dark} !important;
+    border: 1px solid $modal-border-dark !important;
+  }
+  ion-modal::part(backdrop) {
+    background: #000000;
+  }
+
+  // Event details modal needs transparent backgrounds — it draws its own overlay
+  ion-modal.event-details-modal {
+    --background: transparent !important;
+    &::part(content) {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+    &::part(backdrop) {
+      display: none !important;
+    }
+  }
+
+  // ----- Specific modal wrappers (same elevated surface) -----
+  ion-modal.image-cropper-modal,
+  ion-modal.reschedule-proposal-modal,
+  ion-modal.payment-dispute-modal,
+  ion-modal.class-invitation-modal,
+  ion-modal.invitations-list-modal,
+  ion-modal.invite-student-modal,
+  ion-modal.tutor-availability-selection-modal,
+  ion-modal.reschedule-modal,
+  ion-modal.cancel-reason-modal,
+  ion-modal.confirm-action-modal,
+  ion-modal.tutor-filters-modal,
+  ion-modal.lessons-filters-modal,
+  ion-modal.notifications-filters-modal,
+  ion-modal.explore-filters-modal-sheet,
+  ion-modal.all-lessons-modal,
+  ion-modal.modern-modal,
+  ion-modal.availability-picker-modal {
+    --background: #{$modal-bg-dark} !important;
+
+    ion-content {
+      --background: #{$modal-bg-dark} !important;
+    }
+    app-image-cropper ion-content,
+    app-reschedule-proposal-modal ion-content,
+    app-payment-dispute-modal ion-content,
+    app-class-invitation-modal ion-content,
+    app-invitations-list-modal ion-content,
+    app-invite-student-modal ion-content,
+    app-tutor-availability-selection-modal ion-content,
+    app-reschedule-lesson-modal ion-content,
+    app-cancel-reason-modal ion-content,
+    app-confirm-action-modal ion-content,
+    app-tutor-filters-modal ion-content,
+    app-explore-filters-modal ion-content {
+      --background: #{$modal-bg-dark} !important;
+    }
+  }
+
+  // Early exit modal (uses divs, not ion-content)
+  ion-modal.early-exit-modal {
+    --background: #{$modal-bg-dark} !important;
+    .early-exit-modal {
+      .modal-header {
+        color: #f5f5f7;
+        .header-icon { color: #8e8e93; }
+        h2 { color: #f5f5f7; }
+        p { color: #8e8e93; }
+      }
+      .modal-content {
+        color: #8e8e93;
+        .info-text { color: #8e8e93; }
+        .note-text { color: #8e8e93; }
+      }
+      .action-buttons .action-btn {
+        background: #2c2c2e !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: #f5f5f7 !important;
+        .btn-content h3 { color: #f5f5f7; }
+        .btn-content p { color: #8e8e93; }
+      }
+      .modal-footer ion-button {
+        --color: #8e8e93;
+      }
+    }
+  }
+
+  // Tutor note modal
+  ion-modal.tutor-note-modal {
+    --background: #{$modal-bg-dark} !important;
+    .note-modal-container {
+      background: #{$modal-bg-dark} !important;
+      .note-modal-header { color: #f5f5f7; }
+      .note-modal-body { color: #8e8e93; }
+      .note-modal-close { color: #8e8e93; }
+    }
+  }
+
+  // Student selection modals
+  ion-modal.student-selection-actionsheet-modal,
+  ion-modal.student-selection-desktop-modal {
+    app-student-selection-actionsheet {
+      background: #{$modal-bg-dark} !important;
+    }
+  }
+
+  // Payout selection modal (class on host, not ion-modal)
+  .payout-selection-modal {
+    --background: #{$modal-bg-dark} !important;
+  }
+
+  // Video player modal (keep dark content for video)
+  ion-modal.video-player-modal {
+    ion-header ion-toolbar {
+      --background: #{$modal-bg-dark} !important;
+      --color: #f5f5f7 !important;
+    }
+    .video-player-content,
+    .video-player-container {
+      background: #000000 !important;
+    }
+  }
+
+  // Airbnb-style modal header/body (all-lessons, feedback, etc.)
+  .airbnb-modal-ion-header,
+  ion-modal .airbnb-modal-ion-header {
+    --background: #{$modal-bg-dark} !important;
+    --color: #f5f5f7 !important;
+  }
+  .airbnb-modal-ion-content,
+  ion-modal .airbnb-modal-ion-content {
+    --background: #{$modal-bg-dark} !important;
+  }
+  .airbnb-modal-header,
+  .airbnb-modal-body {
+    .airbnb-modal-close,
+    .airbnb-modal-back {
+      color: #f5f5f7 !important;
+    }
+    h1, h2, h3 { color: #f5f5f7 !important; }
+    p, span { color: #8e8e93 !important; }
+  }
+  .feedback-modal-icon {
+    background: #2c2c2e !important;
+    color: #8e8e93 !important;
+  }
+
+  // Generic modal content classes used inside various modals
+  ion-modal .modal-header,
+  ion-modal .modal-title,
+  ion-modal .modal-heading {
+    color: #f5f5f7 !important;
+  }
+  ion-modal .modal-subtitle,
+  ion-modal .modal-description,
+  ion-modal .modal-body,
+  ion-modal .modal-content {
+    color: #8e8e93 !important;
+  }
+  ion-modal .modal-header-section .modal-title {
+    color: #f5f5f7 !important;
+  }
+  ion-modal .floating-close-button {
+    background: #2c2c2e !important;
+    color: #8e8e93 !important;
+    border-color: #3a3a3c !important;
+    &:hover { color: #f5f5f7 !important; }
+  }
+
+  // Common card/panel classes inside modals (confirm-action, cancel-reason, etc.)
+  ion-modal .participant-card,
+  ion-modal .action-info-section,
+  ion-modal .notification-section {
+    background: #2c2c2e !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+  }
+  ion-modal .participant-details .participant-name,
+  ion-modal .action-info-section .main-message,
+  ion-modal .action-message .main-message {
+    color: #f5f5f7 !important;
+  }
+  ion-modal .action-info-section .action-icon ion-icon {
+    opacity: 1;
+  }
+  ion-modal .notification-section span {
+    color: #8e8e93 !important;
+  }
+  ion-modal .notification-section ion-icon {
+    color: #8e8e93 !important;
+  }
+  ion-modal .avatar-placeholder {
+    background: #3a3a3c !important;
+    ion-icon { color: #8e8e93 !important; }
+  }
+
+  // Cancel reason / reschedule modal content
+  ion-modal .cancel-reason-content,
+  ion-modal .cancel-modal-content,
+  ion-modal .reschedule-modal-content,
+  ion-modal .reschedule-proposal-content,
+  ion-modal .dispute-modal-content,
+  ion-modal .invite-modal-content,
+  ion-modal .availability-selection-modal-content,
+  ion-modal .tutor-note-modal-content {
+    --background: #{$modal-bg-dark} !important;
+  }
+  ion-modal .lesson-info-card,
+  ion-modal .reason-option,
+  ion-modal .time-slot-card {
+    background: #2c2c2e !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: #f5f5f7 !important;
+  }
+  ion-modal .reason-option:hover,
+  ion-modal .time-slot-card:hover {
+    background: #3a3a3c !important;
+  }
+
+  // Alerts (modal-like overlay)
+  ion-alert .alert-wrapper {
+    background: #{$modal-bg-dark} !important;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px #{$modal-border-dark} !important;
+    border: 1px solid $modal-border-dark !important;
+    .alert-head .alert-title { color: #f5f5f7 !important; }
+    .alert-message { color: #8e8e93 !important; }
+    .alert-button { color: #f5f5f7 !important; }
+    .alert-button-group {
+      border-top-color: rgba(255, 255, 255, 0.08) !important;
+    }
+  }
+  .booking-confirmation-alert .alert-wrapper {
+    .alert-title { color: #f5f5f7 !important; }
+    .alert-message { color: #8e8e93 !important; }
+  }
+
+  // ── Withdrawal Modal (overlay — must be in global.scss) ───────
+  .withdrawal-modal {
+    --background: #{$modal-bg-dark} !important;
+
+    ion-content { --background: #{$modal-bg-dark} !important; }
+
+    .floating-close-button {
+      --color: #8e8e93 !important;
+      &:hover { --color: #f5f5f7 !important; }
+    }
+
+    .modal-header {
+      .icon-wrapper { background: #008A05 !important; }
+      .modal-heading { color: #f5f5f7 !important; }
+      .modal-description { color: #8e8e93 !important; }
+    }
+
+    .fee-breakdown-card {
+      background: #333336 !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+
+      .breakdown-row {
+        .breakdown-label { color: #8e8e93 !important; }
+        .breakdown-value { color: #f5f5f7 !important; }
+        &.total-row .breakdown-label { color: #f5f5f7 !important; }
+      }
+      .breakdown-divider { background: rgba(255, 255, 255, 0.08) !important; }
+      .fee-note {
+        background: rgba(224, 121, 18, 0.15) !important;
+        border-color: rgba(224, 121, 18, 0.3) !important;
+        span { color: #ffb74d !important; }
+      }
+      .breakdown-placeholder {
+        ion-icon { color: #636366 !important; }
+        p { color: #8e8e93 !important; }
+      }
+      &.stripe-card {
+        border-color: rgba(0, 138, 5, 0.5) !important;
+        .no-fee-badge { background: #008A05 !important; }
+        .stripe-benefit-note {
+          background: rgba(0, 138, 5, 0.12) !important;
+          span { color: #f5f5f7 !important; }
+        }
+      }
+    }
+
+    .amount-section {
+      .section-label { color: #f5f5f7 !important; }
+      .amount-input-wrapper {
+        background: #333336 !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        &:focus-within { border-color: #f5f5f7 !important; }
+        .currency-symbol { color: #f5f5f7 !important; }
+        .amount-input {
+          color: #f5f5f7 !important;
+          &::placeholder { color: #636366 !important; }
+        }
+        .max-button {
+          background: #f5f5f7 !important;
+          color: #000 !important;
+          &:hover { background: #fff !important; }
+        }
+      }
+    }
+
+    .method-section {
+      .section-label { color: #f5f5f7 !important; }
+      .method-card {
+        background: #333336 !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+        &.selected { border-color: #f5f5f7 !important; border-width: 2px !important; }
+        .method-info {
+          .method-name { color: #f5f5f7 !important; }
+          .method-detail { color: #8e8e93 !important; }
+          .method-timing { color: #008A05 !important; }
+        }
+        .method-radio .custom-radio {
+          border-color: rgba(255, 255, 255, 0.2) !important;
+          .radio-dot { background: #f5f5f7 !important; }
+          &.checked { border-color: #f5f5f7 !important; }
+        }
+      }
+      .no-method-message {
+        background: rgba(224, 121, 18, 0.15) !important;
+        border-color: rgba(224, 121, 18, 0.3) !important;
+        p { color: #ffb74d !important; }
+      }
+    }
+
+    .button-container ion-button {
+      &[fill="outline"] {
+        --border-color: rgba(255, 255, 255, 0.2) !important;
+        --color: #f5f5f7 !important;
+        --background: transparent !important;
+        &:hover { --border-color: rgba(255, 255, 255, 0.35) !important; }
+      }
+      &:not([fill="outline"]) {
+        --background: #f5f5f7 !important;
+        --color: #000 !important;
+        --background-hover: #ffffff !important;
+      }
+    }
+
+    .info-note {
+      background: #333336 !important;
+      ion-icon { color: #636366 !important; }
+      span { color: #8e8e93 !important; }
+    }
+  }
+
+  // ── Shared filter modal dark tokens ────────────────────────────
+  // These apply to ALL filter modals (tutor, lessons, earnings, explore)
+  $fm-bg: $modal-bg-dark;
+  $fm-card: #333336;
+  $fm-card-hover: #3a3a3c;
+  $fm-border: rgba(255, 255, 255, 0.12);
+  $fm-text: #f5f5f7;
+  $fm-muted: #8e8e93;
+  $fm-accent: #4298d2;
+  $fm-accent-hover: #3583b8;
+  $fm-accent-bg: rgba(66, 152, 210, 0.2);
+
+  // ── Tutor Filters Modal ───────────────────────────────────────
+  .tutor-filters-modal {
+    --background: $fm-bg !important;
+
+    app-tutor-filters-modal {
+      .modal-header {
+        ion-toolbar {
+          --background: $fm-bg !important;
+          --color: $fm-text !important;
+        }
+        .close-btn { --color: $fm-muted !important; }
+        &::after { background: $fm-border !important; }
+      }
+      .modal-content { --background: $fm-bg !important; }
+      .section-title { color: $fm-text !important; }
+      .divider, .divider-selected.visible { background: $fm-border !important; }
+
+      .selected-section .filter-chip {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        color: $fm-text !important;
+        &:hover { background: $fm-card-hover !important; }
+        ion-icon { color: $fm-muted !important; }
+      }
+
+      .quick-pick-card {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+        &.active { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+        .pick-icon { background: rgba(255, 255, 255, 0.08) !important; ion-icon { color: $fm-text !important; } }
+        .pick-label { color: $fm-text !important; }
+      }
+
+      .filter-section .section-header {
+        .section-label { color: $fm-text !important; }
+        .section-value { color: $fm-muted !important; }
+        ion-icon { color: $fm-muted !important; }
+      }
+
+      .search-input-wrapper .search-input {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        color: $fm-text !important;
+        &::placeholder { color: #636366 !important; }
+        &:focus { border-color: $fm-accent !important; }
+      }
+      .search-input-wrapper .search-icon { color: $fm-muted !important; }
+
+      .checkbox-item {
+        &:hover { background: $fm-card !important; }
+        &.selected { background: $fm-card-hover !important; }
+        span { color: $fm-text !important; }
+        .checkbox {
+          border-color: rgba(255, 255, 255, 0.2) !important;
+          &.checked { background: $fm-accent !important; border-color: $fm-accent !important; ion-icon { color: #fff !important; } }
+        }
+      }
+
+      .specialty-item {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+        &.selected { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+        ion-icon { color: $fm-text !important; }
+        span { color: $fm-text !important; }
+        .check-indicator { background: $fm-accent !important; ion-icon { color: #fff !important; } }
+      }
+
+      .segment-btn {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        color: $fm-text !important;
+        &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+        &.active { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+      }
+
+      .toggle-row {
+        .toggle-label { color: $fm-text !important; }
+        .toggle-description { color: $fm-muted !important; }
+        ion-icon { color: $fm-text !important; }
+        ion-toggle { --background: #3a3a3c !important; --background-checked: #{$fm-accent} !important; --handle-background: #fff !important; }
+      }
+
+      .gender-section {
+        .mini-label { color: $fm-muted !important; }
+        .gender-btn {
+          background: $fm-card !important;
+          border-color: $fm-border !important;
+          color: $fm-text !important;
+          &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+          &.active { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+        }
+      }
+
+      .price-display { color: $fm-text !important; }
+      .price-slider {
+        --bar-background: #3a3a3c !important;
+        --bar-background-active: #{$fm-accent} !important;
+        --knob-background: #{$fm-accent} !important;
+        --knob-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+      }
+
+      .modal-footer {
+        background: $fm-bg !important;
+        border-top-color: $fm-border !important;
+        .clear-all-btn { color: $fm-accent !important; }
+        .show-results-btn { background: $fm-accent !important; color: #fff !important; &:hover { background: $fm-accent-hover !important; } }
+      }
+    }
+  }
+
+  // ── Lessons Filters Modal ─────────────────────────────────────
+  .lessons-filters-modal {
+    --background: $fm-bg !important;
+
+    .lf-header {
+      ion-toolbar { --background: $fm-bg !important; --color: $fm-text !important; }
+      ion-title { color: $fm-text !important; }
+      .lf-close-btn { --color: $fm-text !important; }
+      &::after { background: $fm-border !important; }
+    }
+    .lf-content { --background: $fm-bg !important; }
+    .lf-section-title { color: $fm-text !important; }
+    .lf-divider { background: $fm-border !important; }
+
+    .lf-filter-chip {
+      background: $fm-card !important;
+      border-color: $fm-border !important;
+      color: $fm-text !important;
+      &:hover { background: $fm-card-hover !important; }
+      ion-icon { color: $fm-muted !important; }
+    }
+
+    .lf-time-btn {
+      background: $fm-card !important;
+      border-color: $fm-border !important;
+      color: $fm-text !important;
+      &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+      &.active { border-color: #4298d2 !important; background: rgba(66, 152, 210, 0.2) !important; }
+    }
+
+    .lf-participant-btn {
+      &:hover { background: $fm-card !important; }
+      &.active { background: $fm-card !important; }
+      span { color: $fm-text !important; }
+    }
+    .lf-avatar.fallback { background: $fm-card !important; ion-icon { color: $fm-muted !important; } }
+    .lf-check { background: #4298d2 !important; ion-icon { color: #fff !important; } }
+
+    .lf-status-btn {
+      &:hover { background: $fm-card !important; }
+      &.active { background: $fm-card !important; }
+      span:not(.lf-status-dot) { color: $fm-text !important; }
+    }
+
+    .lf-participant-list::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2) !important;
+      &:hover { background: rgba(255, 255, 255, 0.3) !important; }
+    }
+
+    .lf-footer {
+      background: $fm-bg !important;
+      border-top-color: $fm-border !important;
+    }
+    .lf-clear-btn { color: #4298d2 !important; }
+    .lf-apply-btn { background: #4298d2 !important; color: #fff !important; &:hover { background: #3583b8 !important; } }
+  }
+
+  // ── Notifications Filters Modal ───────────────────────────────
+  .notifications-filters-modal {
+    --background: $fm-bg !important;
+
+    .nf-header {
+      ion-toolbar { --background: $fm-bg !important; --color: $fm-text !important; }
+      ion-title { color: $fm-text !important; }
+      .nf-close-btn { --color: $fm-text !important; }
+      &::after { background: $fm-border !important; }
+    }
+    .nf-content { --background: $fm-bg !important; }
+    .nf-section-title { color: $fm-text !important; }
+
+    .nf-time-btn {
+      background: $fm-card !important;
+      border-color: $fm-border !important;
+      color: $fm-text !important;
+      &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+      &.active { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+    }
+
+    .nf-footer {
+      background: $fm-bg !important;
+      border-top-color: $fm-border !important;
+    }
+    .nf-clear-btn { color: $fm-accent !important; &:disabled { opacity: 0.3; } }
+    .nf-apply-btn { background: $fm-accent !important; color: #fff !important; &:hover { background: $fm-accent-hover !important; } }
+  }
+
+  // ── Explore Filters Modal ─────────────────────────────────────
+  .explore-filters-modal-sheet {
+    --background: $fm-bg !important;
+
+    app-explore-filters-modal {
+      .explore-filters-modal { background: $fm-bg !important; }
+
+      .modal-header {
+        border-bottom-color: $fm-border !important;
+        .close-btn {
+          background: $fm-card !important;
+          border-color: $fm-border !important;
+          ion-icon { color: $fm-text !important; }
+        }
+        .header-title { color: $fm-text !important; }
+      }
+
+      .modal-body { background: $fm-bg !important; }
+
+      .selected-section {
+        border-bottom-color: $fm-border !important;
+      }
+      .filter-chip {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        color: $fm-text !important;
+        &:hover { background: $fm-card-hover !important; }
+        .chip-close { color: $fm-muted !important; }
+      }
+
+      .filter-section { border-bottom-color: $fm-border !important; }
+      .section-header {
+        .section-label { color: $fm-text !important; }
+        .section-value { color: $fm-muted !important; }
+        .section-chevron { color: $fm-muted !important; }
+      }
+
+      .search-input-wrapper {
+        .search-input {
+          background: $fm-card !important;
+          border-color: $fm-border !important;
+          color: $fm-text !important;
+          &::placeholder { color: #636366 !important; }
+          &:focus { border-color: $fm-accent !important; }
+        }
+        .search-icon { color: $fm-muted !important; }
+      }
+
+      .language-list {
+        border-color: $fm-border !important;
+      }
+      .language-item {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+        &:hover { background: $fm-card !important; }
+        &.selected { background: $fm-accent-bg !important; }
+        .lang-label { color: $fm-text !important; }
+        .check-icon { color: $fm-accent !important; }
+      }
+
+      .segment-btn {
+        background: $fm-card !important;
+        border-color: $fm-border !important;
+        color: $fm-text !important;
+        &:hover { background: $fm-card-hover !important; }
+        &.active { border-color: $fm-accent !important; background: $fm-accent-bg !important; }
+      }
+
+      .price-display { color: $fm-text !important; }
+      .price-range-slider {
+        --bar-background: #3a3a3c !important;
+        --bar-background-active: #{$fm-accent} !important;
+        --knob-background: #{$fm-accent} !important;
+      }
+      .price-range-labels { color: $fm-muted !important; }
+
+      .date-field {
+        label { color: $fm-muted !important; }
+        input[type="date"] {
+          background: $fm-card !important;
+          border-color: $fm-border !important;
+          color: $fm-text !important;
+          &:focus { border-color: #{$fm-accent} !important; }
+        }
+      }
+
+      .modal-footer {
+        background: $fm-bg !important;
+        border-top-color: $fm-border !important;
+      }
+      .clear-all-btn { color: $fm-accent !important; }
+      .show-results-btn { background: $fm-accent !important; color: #fff !important; &:hover { background: $fm-accent-hover !important; } }
+    }
+  }
+
+  // ── Earnings Filters Modal (overlay) ──────────────────────────
+  .earnings-filters-modal {
+    --background: #{$modal-bg-dark} !important;
+
+    .ef-header {
+      ion-toolbar { --background: #{$modal-bg-dark} !important; --color: #f5f5f7 !important; }
+      .ef-close-btn { --color: #f5f5f7 !important; }
+      &::after { background: rgba(255, 255, 255, 0.1) !important; }
+    }
+    .ef-content { --background: #{$modal-bg-dark} !important; }
+    .ef-section-title { color: #f5f5f7 !important; }
+    .ef-divider { background: rgba(255, 255, 255, 0.08) !important; }
+    .ef-filter-chip {
+      background: #333336 !important;
+      border-color: rgba(255, 255, 255, 0.15) !important;
+      color: #f5f5f7 !important;
+      &:hover { background: #3a3a3c !important; }
+      ion-icon { color: #8e8e93 !important; }
+    }
+    .ef-time-btn {
+      background: #333336 !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: #f5f5f7 !important;
+      &:hover { border-color: rgba(255, 255, 255, 0.25) !important; }
+      &.active { border-color: #4298d2 !important; background: rgba(66, 152, 210, 0.2) !important; }
+    }
+    .ef-date-field {
+      label { color: #8e8e93 !important; }
+      input { background: #333336 !important; border-color: rgba(255, 255, 255, 0.12) !important; color: #f5f5f7 !important; &:focus { border-color: #4298d2 !important; } }
+    }
+    .ef-student-btn {
+      &:hover { background: #333336 !important; }
+      &:active { background: #3a3a3c !important; }
+      &.active { background: #333336 !important; }
+      span { color: #f5f5f7 !important; }
+    }
+    .ef-avatar.fallback { background: #333336 !important; ion-icon { color: #636366 !important; } }
+    .ef-check { background: #4298d2 !important; ion-icon { color: #fff !important; } }
+    .ef-status-btn {
+      &:hover { background: #333336 !important; }
+      &:active { background: #3a3a3c !important; }
+      &.active { background: #333336 !important; }
+      span:not(.ef-status-dot) { color: #f5f5f7 !important; }
+    }
+    .ef-footer { background: #{$modal-bg-dark} !important; border-top-color: rgba(255, 255, 255, 0.1) !important; }
+    .ef-clear-btn { color: #4298d2 !important; &:disabled { opacity: 0.3; } }
+    .ef-apply-btn { background: #4298d2 !important; color: #fff !important; &:hover { background: #3583b8 !important; } }
+  }
+
+  // ── Notification text (global override for innerHTML strong tags) ──
+  // [class] boosts specificity above Angular's [_ngcontent-xxx] attribute selectors
+  .notification-text[class] strong {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+  }
+  .notification-text[class] {
+    color: #f5f5f7 !important;
+  }
+
+  // ── Notification Dropdown (desktop hover) ──────────────────────
+  // [class] on key selectors boosts specificity above Angular's [_ngcontent-xxx]
+  .notification-dropdown[class] {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+
+    .notification-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+
+      .notification-title { color: #f5f5f7 !important; }
+      .notification-settings-icon { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+      .notification-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+
+    .notification-dropdown-content {
+      .notification-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .notification-section-title[class] { color: #8e8e93 !important; }
+
+      .notification-item[class] {
+        background: transparent !important;
+        box-shadow: none !important;
+
+        &.unread { background: rgba(66, 152, 210, 0.08) !important; }
+        &:hover { background: rgba(255, 255, 255, 0.05) !important; }
+        &.unread:hover { background: rgba(66, 152, 210, 0.12) !important; }
+      }
+
+      .notification-text[class] {
+        color: #f5f5f7 !important;
+      }
+
+      .notification-text[class] strong {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+      }
+
+      .notification-time[class], .notification-time-inline[class] { color: #636366 !important; }
+      .notification-avatar[class] { border-color: rgba(255, 255, 255, 0.12) !important; }
+
+      .notification-icon-wrapper {
+        &:not(.lesson-icon):not(.analysis-icon):not(.class-invitation-icon):not(.payment-icon):not(.payment-cancelled-icon):not(.system-notification) {
+          .notification-item-icon { color: #8e8e93 !important; }
+        }
+      }
+
+      .add-availability-btn[class] {
+        background: #f5f5f7 !important;
+        color: #000 !important;
+        &:hover { background: #ffffff !important; }
+        &.milestone-btn {
+          background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+          color: #fff !important;
+        }
+      }
+
+      .notification-options-btn {
+        color: #636366 !important;
+        &:hover { background: rgba(255, 255, 255, 0.08) !important; color: #f5f5f7 !important; }
+      }
+
+      .notification-empty p { color: #8e8e93 !important; }
+    }
+
+    .notification-dropdown-footer {
+      border-top-color: rgba(255, 255, 255, 0.1) !important;
+      background: #1c1c1e !important;
+
+      .view-all-btn {
+        color: #4298d2 !important;
+        &:hover { background: rgba(66, 152, 210, 0.12) !important; }
+      }
+    }
+  }
+
+  // ── Messages Dropdown (desktop hover) ─────────────────────────
+  .messages-dropdown[class] {
+    background: #242426 !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+
+    .messages-dropdown-header {
+      border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+      .messages-title { color: #f5f5f7 !important; }
+      .messages-close-btn { color: #8e8e93 !important; &:hover { color: #f5f5f7 !important; } }
+    }
+
+    .messages-dropdown-content {
+      .messages-loading {
+        ion-spinner { --color: #4298d2 !important; }
+        p { color: #8e8e93 !important; }
+      }
+
+      .conversation-item[class] {
+        border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+        &.unread { background-color: rgba(66, 152, 210, 0.08) !important; border-left-color: #4298d2 !important; }
+        &:hover { background-color: rgba(255, 255, 255, 0.05) !important; }
+        &.unread:hover { background-color: rgba(66, 152, 210, 0.12) !important; }
+      }
+
+      .conversation-name { color: #f5f5f7 !important; }
+      .conversation-time { color: #636366 !important; }
+      .conversation-preview { color: #8e8e93 !important; }
+      .conversation-avatar .avatar-fallback { background: #3a3a3c !important; color: #f5f5f7 !important; }
+
+      .messages-empty {
+        p { color: #8e8e93 !important; }
+        .messages-empty-subtitle { color: #636366 !important; }
+      }
     }
   }
 }

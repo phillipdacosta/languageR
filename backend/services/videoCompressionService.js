@@ -20,10 +20,10 @@ class VideoCompressionService {
 
   async compressVideo(inputBuffer, options = {}) {
     const {
-      maxSizeMB = 50,
-      maxWidth = 1280,
-      maxHeight = 720,
-      quality = 28,
+      maxSizeMB = 100,
+      maxWidth = 1920,
+      maxHeight = 1080,
+      quality = 23,
       format = 'mp4'
     } = options;
 
@@ -108,10 +108,8 @@ class VideoCompressionService {
   calculateCompressionSettings(metadata, options) {
     const { maxSizeMB, maxWidth, maxHeight, quality } = options;
     
-    // Calculate target bitrate based on desired file size
     const targetBitrate = Math.floor((maxSizeMB * 8 * 1024) / metadata.duration); // kbps
     
-    // Calculate scale dimensions
     let scaleWidth = metadata.width;
     let scaleHeight = metadata.height;
     
@@ -120,23 +118,20 @@ class VideoCompressionService {
       scaleWidth = Math.floor(metadata.width * ratio);
       scaleHeight = Math.floor(metadata.height * ratio);
       
-      // Ensure even dimensions for better compression
       scaleWidth = scaleWidth % 2 === 0 ? scaleWidth : scaleWidth - 1;
       scaleHeight = scaleHeight % 2 === 0 ? scaleHeight : scaleHeight - 1;
     }
 
-    // Calculate CRF based on quality and target size
     let crf = quality;
     if (metadata.size > maxSizeMB * 1024 * 1024) {
-      // More aggressive compression for larger files
-      crf = Math.min(quality + 5, 35);
+      crf = Math.min(quality + 3, 28);
     }
 
     return {
-      scale: `${scaleWidth}x${scaleHeight}`, // Fixed: use 'x' instead of ':'
+      scale: `${scaleWidth}x${scaleHeight}`,
       crf: crf,
-      videoBitrate: Math.min(targetBitrate * 0.8, 2000), // Reserve 20% for audio
-      audioBitrate: Math.min(targetBitrate * 0.2, 128),
+      videoBitrate: Math.min(targetBitrate * 0.85, 5000),
+      audioBitrate: Math.min(targetBitrate * 0.15, 192),
       preset: metadata.size > maxSizeMB * 1024 * 1024 ? 'slow' : 'medium'
     };
   }
@@ -191,10 +186,10 @@ class VideoCompressionService {
   // Stream-based compression for very large files
   async compressVideoStream(inputStream, options = {}) {
     const {
-      maxSizeMB = 50,
-      maxWidth = 1280,
-      maxHeight = 720,
-      quality = 28
+      maxSizeMB = 100,
+      maxWidth = 1920,
+      maxHeight = 1080,
+      quality = 23
     } = options;
 
     const inputPath = path.join(this.tempDir, `stream_input_${Date.now()}.tmp`);

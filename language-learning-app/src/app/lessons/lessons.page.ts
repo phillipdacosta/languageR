@@ -5,6 +5,7 @@ import { IonicModule, LoadingController, ToastController, AlertController, ViewW
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { LessonService, Lesson } from '../services/lesson.service';
+import { ClassService } from '../services/class.service';
 import { UserService } from '../services/user.service';
 import { AgoraService } from '../services/agora.service';
 import { TutorFeedbackService } from '../services/tutor-feedback.service';
@@ -51,6 +52,12 @@ interface ProcessedLesson {
   tipSent: boolean;
   tipAmount: string;
   canTip: boolean;
+  isClass: boolean;
+  className: string;
+  classStudentCount: number;
+  classCapacity: number;
+  classAttendees: { name: string; picture?: string; initials: string }[];
+  classAttendeesOverflow: number;
 }
 
 @Component({
@@ -118,6 +125,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
 
   constructor(
     private lessonService: LessonService,
+    private classService: ClassService,
     private userService: UserService,
     private agoraService: AgoraService,
     private tutorFeedbackService: TutorFeedbackService,
@@ -180,24 +188,25 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     this.isLoading = true;
     this.cdr.detectChanges();
     try {
-      const response = await firstValueFrom(this.lessonService.getMyLessons());
-      if (response?.success) {
-        // Include ALL lessons, sorted by most recent first
-        this.allLessons = response.lessons.sort((a, b) =>
-          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-        );
+      const [lessonResponse, classResponse] = await Promise.all([
+        firstValueFrom(this.lessonService.getMyLessons()),
+        firstValueFrom(this.classService.getMyClasses()).catch(() => ({ success: false, classes: [] }))
+      ]);
 
-        // Compute counts from all lessons
-        this.computeCounts();
+      const lessons: Lesson[] = lessonResponse?.success ? lessonResponse.lessons : [];
 
-        // Extract unique tutors/students for filter
-        this.extractUniqueParticipants();
+      const classesAsLessons: Lesson[] = classResponse?.success
+        ? classResponse.classes.map((cls: any) => this.classToLessonShape(cls))
+        : [];
 
-        // Apply filters and process
-        this.applyFilters();
+      this.allLessons = [...lessons, ...classesAsLessons].sort((a, b) =>
+        new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      );
 
-        this.hasInitiallyLoaded = true;
-      }
+      this.computeCounts();
+      this.extractUniqueParticipants();
+      this.applyFilters();
+      this.hasInitiallyLoaded = true;
     } catch (error) {
       console.error('Error loading lessons:', error);
       const toast = await this.toastController.create({
@@ -210,6 +219,29 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       this.isLoading = false;
       this.cdr.detectChanges();
     }
+  }
+
+  private classToLessonShape(cls: any): Lesson {
+    const isTutor = cls.tutorId?._id === this.currentUser?._id;
+    const firstStudent = cls.confirmedStudents?.[0];
+    return {
+      _id: cls._id,
+      tutorId: cls.tutorId || { _id: '', name: 'Unknown', email: '' },
+      studentId: isTutor
+        ? (firstStudent || { _id: '', name: `${cls.confirmedStudents?.length || 0} student(s)`, email: '' })
+        : { _id: this.currentUser?._id || '', name: this.currentUser?.name || '', email: this.currentUser?.email || '' },
+      startTime: cls.startTime,
+      endTime: cls.endTime,
+      channelName: cls._id,
+      status: cls.status === 'scheduled' ? 'scheduled' : cls.status === 'in_progress' ? 'in_progress' : cls.status === 'completed' ? 'completed' : 'cancelled',
+      subject: cls.name || 'Class',
+      price: cls.price || 0,
+      duration: cls.duration || 60,
+      isClass: true,
+      className: cls.name,
+      attendees: cls.confirmedStudents || [],
+      capacity: cls.capacity || 1,
+    } as any;
   }
 
   // ─── Counts ──────────────────────────────────────────
@@ -494,8 +526,22 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
       tipSent: !!(lesson as any).tip && !!(lesson as any).tip.amount,
       tipAmount: (lesson as any).tip?.amount ? (lesson as any).tip.amount.toFixed(2) : '0.00',
       canTip: role === 'student' && status === 'completed' && !isTrial
-        && !((lesson as any).tip && (lesson as any).tip.amount)
+        && !((lesson as any).tip && (lesson as any).tip.amount),
+      isClass: !!lesson.isClass,
+      className: lesson.className || '',
+      classStudentCount: lesson.attendees?.length || 0,
+      classCapacity: lesson.capacity || 0,
+      classAttendees: (lesson.attendees || []).slice(0, 3).map((a: any) => ({
+        name: a.name || a.firstName || '',
+        picture: a.picture || a.profilePicture,
+        initials: this.getInitials(a.name || a.firstName || ''),
+      })),
+      classAttendeesOverflow: Math.max(0, (lesson.attendees?.length || 0) - 3),
     };
+  }
+
+  private getInitials(name: string): string {
+    return name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2);
   }
 
   // ─── Pagination ──────────────────────────────────────
@@ -647,7 +693,7 @@ export class LessonsPage implements OnInit, OnDestroy, ViewWillEnter {
     if (!pl.lesson || !this.currentUser) return;
     
     const lesson = pl.lesson;
-    const isClass = (lesson as any).isClass || false;
+    const isClass = !!lesson.isClass;
     
     console.log('🎯 LESSONS: joinLesson navigating to pre-call:', {
       lessonId: lesson._id,

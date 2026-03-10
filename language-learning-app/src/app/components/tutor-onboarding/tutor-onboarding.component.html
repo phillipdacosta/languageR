@@ -676,7 +676,8 @@
             [src]="videoPlayerData.videoUrl"
             [poster]="getCurrentThumbnailUrl()"
             controls
-            autoplay
+            playsinline
+            (loadeddata)="onVideoReady($event)"
             class="video-player">
           </video>
         </div>

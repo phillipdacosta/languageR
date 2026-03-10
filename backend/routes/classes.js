@@ -4,7 +4,7 @@ const ClassModel = require('../models/Class');
 const User = require('../models/User');
 const Lesson = require('../models/Lesson');
 const Notification = require('../models/Notification');
-const { verifyToken, uploadImage, uploadImageToGCS } = require('../middleware/videoUploadMiddleware');
+const { verifyToken, uploadImage, uploadImageToGCS, getUserFromRequest } = require('../middleware/videoUploadMiddleware');
 const { RtcRole, RtcTokenBuilder } = require('agora-token');
 const { formatNameWithInitial } = require('../utils/nameFormatter');
 
@@ -50,7 +50,7 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Thumbnail is required for public classes' });
     }
 
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     if (tutor.userType !== 'tutor') return res.status(403).json({ success: false, message: 'Only tutors can create classes' });
 
@@ -263,7 +263,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const cls = await ClassModel.findById(classId).populate('tutorId', 'name email picture');
@@ -430,20 +430,30 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
         if (useWallet) {
           console.log('💰 Student requested wallet payment for class');
           
-          // Check wallet balance
-          const walletBalance = student.walletBalance?.available || 0;
-          if (walletBalance < cls.price) {
-            throw new Error(`Insufficient wallet balance. You have $${walletBalance.toFixed(2)} but need $${cls.price.toFixed(2)}`);
-          }
-          
-          // Deduct from wallet
+          // Atomic wallet deduction — prevents double-spend on concurrent bookings
           const PLATFORM_FEE_PERCENTAGE = 20;
           const platformFee = cls.price * (PLATFORM_FEE_PERCENTAGE / 100);
           const tutorPayout = cls.price - platformFee;
           
-          student.walletBalance.available -= cls.price;
-          student.walletBalance.totalSpent = (student.walletBalance.totalSpent || 0) + cls.price;
-          await student.save();
+          const updatedStudent = await User.findOneAndUpdate(
+            {
+              _id: student._id,
+              'walletBalance.available': { $gte: cls.price }
+            },
+            {
+              $inc: {
+                'walletBalance.available': -cls.price,
+                'walletBalance.totalSpent': cls.price
+              }
+            },
+            { new: true }
+          );
+          
+          if (!updatedStudent) {
+            const freshStudent = await User.findById(student._id);
+            const currentBalance = freshStudent?.walletBalance?.available || 0;
+            throw new Error(`Insufficient wallet balance. You have $${currentBalance.toFixed(2)} but need $${cls.price.toFixed(2)}`);
+          }
           
           // Create payment record for wallet transaction
           const Payment = require('../models/Payment');
@@ -470,12 +480,11 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           });
           await payment.save();
           
-          // Update tutor's pending earnings
-          if (!tutor.tutorEarnings) {
-            tutor.tutorEarnings = { availableBalance: 0, pendingBalance: 0, lifetimeEarnings: 0, totalWithdrawn: 0 };
-          }
-          tutor.tutorEarnings.pendingBalance = (tutor.tutorEarnings.pendingBalance || 0) + tutorPayout;
-          await tutor.save();
+          // Atomic tutor pending earnings increment
+          await User.findOneAndUpdate(
+            { _id: tutor._id },
+            { $inc: { 'tutorEarnings.pendingBalance': tutorPayout } }
+          );
           
           // Add payment tracking to studentPayments array
           cls.studentPayments.push({
@@ -491,7 +500,7 @@ router.post('/:classId/accept', verifyToken, async (req, res) => {
           
           console.log('💰 Wallet payment successful:', {
             amount: cls.price,
-            newBalance: student.walletBalance.available,
+            newBalance: updatedStudent.walletBalance.available,
             tutorPayout,
             platformFee
           });
@@ -698,7 +707,7 @@ router.post('/:classId/decline', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const cls = await ClassModel.findById(classId).populate('tutorId', 'name email picture');
@@ -731,7 +740,7 @@ router.post('/:classId/decline', verifyToken, async (req, res) => {
 // GET /api/classes/invitations/pending - Get pending class invitations for current user
 router.get('/invitations/pending', verifyToken, async (req, res) => {
   try {
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student has a pending invitation
@@ -755,10 +764,33 @@ router.get('/invitations/pending', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/classes/my-classes - Get all classes for current user (tutor or confirmed student)
+router.get('/my-classes', verifyToken, async (req, res) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const classes = await ClassModel.find({
+      $or: [
+        { tutorId: user._id },
+        { confirmedStudents: user._id }
+      ]
+    })
+    .populate('tutorId', 'name email picture profilePicture firstName lastName')
+    .populate('confirmedStudents', 'name email picture profilePicture firstName lastName')
+    .sort({ startTime: -1 });
+
+    res.json({ success: true, classes });
+  } catch (error) {
+    console.error('Error fetching my classes:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // GET /api/classes/student/accepted - Get accepted classes for current student
 router.get('/student/accepted', verifyToken, async (req, res) => {
   try {
-    const student = await User.findOne({ auth0Id: req.user.sub });
+    const student = await getUserFromRequest(req);
     if (!student) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all classes where this student is in confirmedStudents (meaning they accepted the invitation)
@@ -787,7 +819,7 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Student IDs array is required' });
     }
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     // Check if tutor has completed payment setup (Stripe Connect, PayPal, or Manual)
@@ -868,12 +900,10 @@ router.post('/:classId/invite', verifyToken, async (req, res) => {
               title: `Class Invitation: ${cls.name}`,
               message: `<strong>${tutorName}</strong> invited you to join <strong>"${cls.name}"</strong> on <strong>${formattedDate}</strong> from <strong>${formattedStartTime} to ${formattedEndTime}</strong>.`,
               relatedUserPicture: tutor.picture || null,
-              relatedId: cls._id,
-              relatedModel: 'Class',
-              metadata: {
-                classId: cls._id,
+              data: {
+                classId: cls._id.toString(),
                 className: cls.name,
-                tutorId: tutor._id,
+                tutorId: tutor._id.toString(),
                 tutorName: tutorName,
                 startTime: cls.startTime,
                 endTime: cls.endTime
@@ -908,7 +938,7 @@ router.get('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -949,7 +979,43 @@ router.get('/:classId', verifyToken, async (req, res) => {
     
     classObj.hasInvitation = !!invitation;
     classObj.invitationStatus = invitation?.status || null;
-    
+
+    // Fetch payment records for this class (visible to tutor or the specific student)
+    const Payment = require('../models/Payment');
+    const paymentQuery = { classId: cls._id };
+    if (!isTutor) {
+      paymentQuery.studentId = user._id;
+    }
+    const payments = await Payment.find(paymentQuery).select(
+      'studentId amount status tutorPayout platformFee transferStatus earningsReleaseDate capturedAt refundedAt refundReason createdAt'
+    ).lean();
+
+    classObj.payments = payments;
+
+    // Summarize payment status for the tutor
+    if (isTutor && payments.length > 0) {
+      const captured = payments.filter(p => p.status === 'succeeded');
+      const totalCaptured = captured.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const totalTutorPayout = captured.reduce((sum, p) => sum + (p.tutorPayout || 0), 0);
+      const totalFees = captured.reduce((sum, p) => sum + (p.platformFee || 0), 0);
+      const allAvailable = captured.length > 0 && captured.every(p => p.transferStatus === 'available' || p.transferStatus === 'withdrawn' || p.transferStatus === 'pending_withdrawal');
+      const allWithdrawn = captured.length > 0 && captured.every(p => p.transferStatus === 'withdrawn');
+      const anyOnHold = captured.some(p => p.transferStatus === 'on_hold');
+      const anyPending = captured.some(p => p.transferStatus === 'pending' || !p.transferStatus);
+
+      classObj.paymentSummary = {
+        totalCaptured,
+        totalTutorPayout,
+        totalFees,
+        paymentCount: captured.length,
+        allAvailable,
+        allWithdrawn,
+        anyOnHold,
+        anyPending,
+        earningsStatus: allWithdrawn ? 'withdrawn' : allAvailable ? 'available' : anyOnHold ? 'on_hold' : anyPending ? 'pending' : 'none'
+      };
+    }
+
     res.json({ success: true, class: classObj });
   } catch (error) {
     console.error('Error fetching class:', error);
@@ -1038,7 +1104,7 @@ router.post('/:classId/join', verifyToken, async (req, res) => {
   
   try {
     // Get user ID from auth token
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ 
@@ -1357,7 +1423,7 @@ router.post('/:classId/leave', verifyToken, async (req, res) => {
   console.log('🚪 Request user:', req.user);
   
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub }).select('name email picture auth0Id');
+    const user = await getUserFromRequest(req);
     if (!user) {
       console.log('❌ User not found for auth0Id:', req.user.sub);
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -1443,7 +1509,7 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
   try {
     const { classId, studentId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId);
@@ -1510,12 +1576,10 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
         title: wasAccepted ? 'Removed from Class' : 'Class Invitation Cancelled',
         message: notificationMessage,
         relatedUserPicture: tutor.picture || null,
-        relatedId: cls._id,
-        relatedModel: 'Class',
-        metadata: {
-          classId: cls._id,
+        data: {
+          classId: cls._id.toString(),
           className: cls.name,
-          tutorId: tutor._id,
+          tutorId: tutor._id.toString(),
           tutorName: tutorDisplayName,
           startTime: cls.startTime,
           wasAccepted
@@ -1543,7 +1607,7 @@ router.delete('/:classId/student/:studentId', verifyToken, async (req, res) => {
 // GET /api/classes/public/all - Get all public classes for explore page
 router.get('/public/all', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Find all public classes that haven't ended yet
@@ -1589,7 +1653,7 @@ router.get('/public/all', verifyToken, async (req, res) => {
 // Update class data (e.g., whiteboard room UUID)
 router.patch('/:id', verifyToken, async (req, res) => {
   try {
-    const user = await User.findOne({ auth0Id: req.user.sub });
+    const user = await getUserFromRequest(req);
     
     if (!user) {
       return res.status(404).json({ 
@@ -1654,7 +1718,7 @@ router.delete('/:classId', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -1764,9 +1828,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
           title: 'Class Cancelled',
           message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>. You have not been charged.`,
           relatedUserPicture: tutor.picture || null,
-          relatedItemId: cls._id,
-          relatedItemType: 'Class',
-          metadata: {
+          data: {
+            classId: cls._id.toString(),
             className: cls.name,
             tutorName: tutorName,
             startTime: cls.startTime,
@@ -1813,9 +1876,8 @@ router.delete('/:classId', verifyToken, async (req, res) => {
             title: 'Class Invitation Cancelled',
             message: `<strong>${tutorName}</strong> cancelled the class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong>.`,
             relatedUserPicture: tutor.picture || null,
-            relatedItemId: cls._id,
-            relatedItemType: 'Class',
-            metadata: {
+            data: {
+              classId: cls._id.toString(),
               className: cls.name,
               tutorName: tutorName,
               startTime: cls.startTime,
@@ -1864,7 +1926,7 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
   try {
     const { classId } = req.params;
     
-    const tutor = await User.findOne({ auth0Id: req.user.sub });
+    const tutor = await getUserFromRequest(req);
     if (!tutor) return res.status(404).json({ success: false, message: 'Tutor not found' });
     
     const cls = await ClassModel.findById(classId)
@@ -1929,9 +1991,8 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
       type: 'class_auto_cancelled',
       title: 'Class Auto-Cancelled (TEST)',
       message: `Your class <strong>"${cls.name}"</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been automatically cancelled (TEST MODE).`,
-      relatedItemId: cls._id,
-      relatedItemType: 'Class',
-      metadata: {
+      data: {
+        classId: cls._id.toString(),
         className: cls.name,
         startTime: cls.startTime,
         minStudents: cls.minStudents,
@@ -1974,9 +2035,8 @@ router.post('/:classId/test-auto-cancel', verifyToken, async (req, res) => {
           type: 'class_auto_cancelled',
           title: 'Class Cancelled (TEST)',
           message: `The class <strong>"${cls.name}"</strong> with <strong>${tutorName}</strong> scheduled for <strong>${formattedDate} at ${formattedTime}</strong> has been cancelled (TEST MODE).`,
-          relatedItemId: cls._id,
-          relatedItemType: 'Class',
-          metadata: {
+          data: {
+            classId: cls._id.toString(),
             className: cls.name,
             tutorName: tutorName,
             startTime: cls.startTime,

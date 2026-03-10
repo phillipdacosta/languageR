@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
@@ -45,6 +46,7 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
   tutor: any = null;
   analysis: LessonAnalysis | null = null;
   analysisReady = false;
+  analysisUnavailable = false;
   
   // Trial lesson properties
   isTrialLesson = false;
@@ -127,7 +129,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
     private vocabularyService: VocabularyService,
-    private reviewDeckService: ReviewDeckService
+    private reviewDeckService: ReviewDeckService,
+    private location: Location
   ) {}
 
   async ngOnInit() {
@@ -244,7 +247,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
       this.pollCount++;
       if (this.pollCount >= this.maxPollAttempts) {
         clearInterval(this.pollingInterval);
-        console.log('⏰ Max poll attempts reached');
+        this.analysisUnavailable = true;
+        console.log('⏰ Max poll attempts reached — marking analysis unavailable');
         return;
       }
       this.checkAnalysis();
@@ -260,20 +264,30 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
         this.http.get(`${environment.apiUrl}/transcription/lesson/${this.lessonId}/analysis`, { headers })
       );
       
-      if (response?.analysis?.status === 'completed') {
+      const status = response?.analysis?.status;
+      
+      if (status === 'completed') {
         this.analysis = response.analysis;
         this.analysisReady = true;
-        
-        // Stop polling
         if (this.pollingInterval) {
           clearInterval(this.pollingInterval);
         }
-        
         console.log('✅ Analysis ready:', this.analysis);
+      } else if (status === 'insufficient_data' || status === 'failed') {
+        this.analysisUnavailable = true;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        console.log(`⚠️ Analysis ${status}:`, response?.analysis?.error || 'No details');
       }
     } catch (error: any) {
-      // Analysis not ready yet - continue polling
-      if (error.status !== 404) {
+      if (error.status === 404 && error.error?.status === 'unavailable') {
+        this.analysisUnavailable = true;
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+        }
+        console.log('⚠️ Analysis will never be generated:', error.error?.transcriptStatus);
+      } else if (error.status !== 404) {
         console.error('Error checking analysis:', error);
       }
     }
@@ -281,7 +295,6 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
 
   toggleTipSection() {
     this.showTipSection = !this.showTipSection;
-    // Load cards on first open
     if (this.showTipSection && !this.hasLoadedCards) {
       this.loadSavedCards();
     }
@@ -470,8 +483,8 @@ export class PostLessonStudentPage implements OnInit, OnDestroy {
     }
   }
 
-  async goHome() {
-    await this.router.navigate(['/tabs/home']);
+  goBack() {
+    this.location.back();
   }
 
   formatDate(date: Date): string {

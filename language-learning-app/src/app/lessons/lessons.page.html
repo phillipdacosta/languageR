@@ -112,6 +112,8 @@
                 <span class="lesson-duration">{{ pl.duration }} min</span>
                 <span class="meta-sep">·</span>
                 <span class="lesson-price">${{ pl.formattedPrice }}</span>
+                <span class="meta-sep" *ngIf="pl.isClass">·</span>
+                <span class="class-students-meta" *ngIf="pl.isClass">{{ pl.classStudentCount }}/{{ pl.classCapacity }} students</span>
                 <span class="meta-sep" *ngIf="pl.isTrial">·</span>
                 <span class="trial-badge" *ngIf="pl.isTrial">Trial</span>
                 <span class="meta-sep" *ngIf="pl.tipSent">·</span>
@@ -119,8 +121,8 @@
               </div>
             </div>
 
-            <!-- Right: Participant + Status -->
-            <div class="lesson-right-block">
+            <!-- Right: Participant + Status (1:1 lessons) -->
+            <div class="lesson-right-block" *ngIf="!pl.isClass">
               <div class="lesson-participant-col">
                 <span class="participant-name">{{ pl.otherName }}</span>
                 <span class="lesson-status-badge" [ngClass]="'status-' + pl.status">{{ pl.statusLabel }}</span>
@@ -130,15 +132,34 @@
                 <span *ngIf="!pl.otherPicture" class="avatar-initials">{{ pl.otherInitials }}</span>
               </div>
             </div>
+
+            <!-- Right: Avatars + Status (classes) -->
+            <div class="lesson-right-block" *ngIf="pl.isClass">
+              <div class="lesson-participant-col">
+                <span class="no-attendees" *ngIf="pl.classAttendees.length === 0">N/A</span>
+                <div class="stacked-avatars" *ngIf="pl.classAttendees.length > 1">
+                  <div class="stacked-avatar" *ngFor="let att of pl.classAttendees; let i = index" [style.z-index]="3 - i">
+                    <img *ngIf="att.picture" [src]="att.picture" [alt]="att.name">
+                    <span *ngIf="!att.picture" class="avatar-initials">{{ att.initials }}</span>
+                  </div>
+                  <span class="stacked-overflow" *ngIf="pl.classAttendeesOverflow > 0">+{{ pl.classAttendeesOverflow }}</span>
+                </div>
+                <span class="lesson-status-badge" [ngClass]="'status-' + pl.status">{{ pl.statusLabel }}</span>
+              </div>
+              <div class="participant-avatar" *ngIf="pl.classAttendees.length === 1">
+                <img *ngIf="pl.classAttendees[0].picture" [src]="pl.classAttendees[0].picture" [alt]="pl.classAttendees[0].name">
+                <span *ngIf="!pl.classAttendees[0].picture" class="avatar-initials">{{ pl.classAttendees[0].initials }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- Actions Row (always visible for lessons with actions) -->
-          <div class="lesson-actions-row" *ngIf="pl.showActions">
+          <div class="lesson-actions-row" *ngIf="pl.showActions && (!pl.isClass || pl.canJoin)">
 
             <!-- Join button (in-progress / about to start) -->
             <button *ngIf="pl.canJoin" class="action-btn join" (click)="joinLesson(pl); $event.stopPropagation()">
               <ion-icon name="videocam-outline"></ion-icon>
-              Join Lesson
+              {{ pl.isClass ? 'Join Class' : 'Join Lesson' }}
             </button>
 
             <!-- Completed lesson actions -->
@@ -157,6 +178,10 @@
                 <span *ngIf="pl.feedbackPendingForStudent && pl.analysisStatus !== 'generating'" class="student-feedback-awaiting">
                   <ion-icon name="time-outline"></ion-icon>
                   Awaiting tutor feedback
+                </span>
+                <span *ngIf="pl.analysisStatus === 'unavailable' && !pl.feedbackPendingForStudent" class="action-analysis-unavailable">
+                  <ion-icon name="document-text-outline"></ion-icon>
+                  No analysis available
                 </span>
                 <button *ngIf="pl.canTip" class="action-btn subtle" (click)="tipTutor(pl); $event.stopPropagation()">
                   <ion-icon name="heart-outline"></ion-icon>
@@ -225,7 +250,7 @@
 
       <!-- Show all count at bottom -->
       <div class="lessons-footer">
-        <span class="footer-count">{{ processedDisplayed.length }} of {{ processedLessons.length }} lessons</span>
+        <span class="footer-count">{{ processedDisplayed.length }} of {{ processedLessons.length }}</span>
       </div>
     </div>
 

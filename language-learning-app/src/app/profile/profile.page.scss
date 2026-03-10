@@ -45,7 +45,7 @@
   padding: 0 24px;
   animation: _ngcontent-ng-c19668573_fadeIn 0.3s ease-out;
   top: 100px;
-  
+  padding-bottom: 50px;
   @media (max-width: 768px) {
     max-width: 100%;
     padding: 0 20px;
@@ -54,7 +54,7 @@
 
 .profile-card {
   margin: 0;
-  padding-bottom: 32px;
+  padding: 32px 0;
   border-bottom: 1px solid #ebebeb;
   border-radius: 0;
   box-shadow: none;
@@ -64,15 +64,27 @@
   background: transparent;
   
   @media (max-width: 768px) {
-    padding-bottom: 24px;
+    padding: 24px 0;
+  }
+  
+  ion-card-header {
+    padding: 0 0 16px 0;
+
+    ion-card-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #222222;
+      letter-spacing: -0.2px;
+      margin: 0;
+
+      @media (max-width: 768px) {
+        font-size: 18px;
+      }
+    }
   }
   
   ion-card-content {
-    padding: 32px 0 0 0;
-    
-    @media (max-width: 768px) {
-      padding: 24px 0 0 0;
-    }
+    padding: 0;
   }
   
   .profile-header {
@@ -933,13 +945,24 @@
   .stats-card,
   .content-card,
   .settings-card,
-  .tutor-video-card {
+  .tutor-video-card,
+  .stripe-connect-card {
     background: transparent;
     border-bottom-color: #3a3a3c;
     box-shadow: none;
   }
+
+  .stripe-connect-card {
+    ion-card-header ion-card-title {
+      color: #f5f5f7;
+    }
+  }
   
   .profile-card {
+    ion-card-header ion-card-title {
+      color: #f5f5f7;
+    }
+
     .profile-header {
       .profile-info {
         .profile-name {
@@ -1161,6 +1184,200 @@
   }
 }
 
+// ── Dark mode (class-based: html.ion-palette-dark) ─────────────────────
+:host-context(html.ion-palette-dark) {
+  ion-header ion-toolbar {
+    --background: #1c1c1e !important;
+    --color: #f5f5f7 !important;
+    --border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  ion-header ion-title,
+  ion-header ion-back-button {
+    --color: #f5f5f7 !important;
+    color: #f5f5f7 !important;
+  }
+
+  .profile-content {
+    --background: #000000 !important;
+  }
+
+  .profile-card,
+  .stats-card,
+  .content-card,
+  .settings-card,
+  .tutor-video-card,
+  .stripe-connect-card {
+    background: transparent !important;
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+  }
+
+  .profile-card {
+    ion-card-header ion-card-title { color: #f5f5f7 !important; }
+
+    .profile-header .profile-info {
+      .profile-name { color: #f5f5f7 !important; }
+      .profile-email { color: #8e8e93 !important; }
+      .profile-discoverable-name { color: #8e8e93 !important; strong { color: #f5f5f7 !important; } }
+
+      .visibility-status {
+        .visibility-reason { color: #8e8e93 !important; }
+        .feedback-action-btn {
+          background: #f5f5f7 !important;
+          color: #1c1c1e !important;
+          &:hover { background: #ffffff !important; }
+        }
+      }
+
+      .languages-section {
+        .languages-list { color: #8e8e93 !important; }
+        ion-icon { color: #8e8e93 !important; }
+      }
+
+      .picture-actions-inline ion-button {
+        --color: #f5f5f7 !important;
+        --border-color: rgba(255, 255, 255, 0.2) !important;
+        &:hover { --background: rgba(255, 255, 255, 0.08) !important; }
+      }
+    }
+
+    .profile-header .avatar-container .profile-initials {
+      background: #3a3a3c !important;
+      color: #f5f5f7 !important;
+    }
+  }
+
+  .warning-banner {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+
+    .warning-content {
+      background: rgba(255, 149, 0, 0.15) !important;
+      border-color: rgba(255, 149, 0, 0.4) !important;
+
+      .warning-text h3 { color: #f5f5f7 !important; }
+      .warning-text p { color: #e5e5e7 !important; strong { color: #f5f5f7 !important; } }
+      ion-icon { color: #ff9500 !important; }
+    }
+  }
+
+  .stripe-connect-card {
+    ion-card-header ion-card-title { color: #f5f5f7 !important; }
+
+    .stripe-connect-content {
+      p { color: #8e8e93 !important; }
+      .stripe-icon ion-icon { color: #4298d2 !important; }
+      .stripe-text h3 { color: #f5f5f7 !important; }
+      .stripe-text p { color: #8e8e93 !important; }
+      .compact-button {
+        --color: #f5f5f7 !important;
+        --border-color: rgba(255, 255, 255, 0.2) !important;
+        --background-hover: rgba(255, 255, 255, 0.08) !important;
+        &:hover { --border-color: #f5f5f7 !important; }
+      }
+    }
+
+    .stripe-connect-success {
+      .success-header {
+        background: rgba(52, 199, 89, 0.12) !important;
+        border: 1px solid rgba(52, 199, 89, 0.25);
+      }
+      .stripe-success-text h4 { color: #34c759 !important; }
+      .stripe-success-text p { color: #8e8e93 !important; }
+      .compact-button {
+        --color: #f5f5f7 !important;
+        --border-color: rgba(255, 255, 255, 0.2) !important;
+        --background-hover: rgba(255, 255, 255, 0.08) !important;
+        &:hover { --border-color: #f5f5f7 !important; }
+      }
+    }
+  }
+
+  .stats-card {
+    ion-card-header ion-card-title { color: #f5f5f7 !important; }
+    .stats-grid .stat-item {
+      &:not(:last-child) { border-right-color: rgba(255, 255, 255, 0.08) !important; }
+      .stat-info .stat-number { color: #f5f5f7 !important; }
+      .stat-info .stat-label { color: #8e8e93 !important; }
+    }
+  }
+
+  .view-progress-link {
+    --color: #4298d2 !important;
+  }
+
+  .content-card,
+  .tutor-video-card {
+    ion-card-header ion-card-title { color: #f5f5f7 !important; }
+    ion-card-header ion-card-subtitle { color: #8e8e93 !important; }
+    ion-card-content p { color: #e5e5e7 !important; }
+  }
+
+  .tutor-video-card .video-section .video-description {
+    color: #8e8e93 !important;
+  }
+
+  .content-card ion-card-content ion-chip {
+    --background: #4298d2 !important;
+    --color: #fff !important;
+  }
+
+  .settings-card {
+    ion-card-header ion-card-title { color: #f5f5f7 !important; }
+    ion-list ion-item {
+      --border-color: rgba(255, 255, 255, 0.08) !important;
+      --background-hover: rgba(255, 255, 255, 0.04) !important;
+      --background-activated: rgba(255, 255, 255, 0.06) !important;
+
+      ion-icon:not([slot="end"]) { color: #8e8e93 !important; }
+      ion-label { color: #f5f5f7 !important; }
+      ion-label h3 { color: #f5f5f7 !important; }
+      ion-label p { color: #8e8e93 !important; }
+      ion-select { color: #f5f5f7 !important; }
+      ion-toggle {
+        --background: #3a3a3c !important;
+        --background-checked: #4298d2 !important;
+        --handle-background: #f5f5f7 !important;
+      }
+
+      &.timezone-item .timezone-content {
+        .timezone-icon-wrapper {
+          background: #2c2c2e !important;
+          ion-icon { color: #8e8e93 !important; }
+        }
+        .timezone-info h3 { color: #8e8e93 !important; }
+        .timezone-info .timezone-value { color: #f5f5f7 !important; }
+        .chevron-icon { color: #8e8e93 !important; }
+      }
+    }
+  }
+
+  .logout-button {
+    --background: transparent !important;
+    --background-hover: rgba(255, 59, 48, 0.12) !important;
+    --background-activated: rgba(255, 59, 48, 0.18) !important;
+    --color: #ff453a !important;
+    --border-color: rgba(255, 255, 255, 0.15) !important;
+    &:hover { --border-color: #ff453a !important; }
+  }
+
+  .loading-container {
+    p { color: #8e8e93 !important; }
+    ion-spinner { --color: #4298d2 !important; }
+  }
+
+  .earnings-card {
+    .earnings-summary { border-bottom-color: rgba(255, 255, 255, 0.08) !important; }
+    .earning-stat .stat-label { color: #8e8e93 !important; }
+    .earning-stat .stat-value { color: #f5f5f7 !important; }
+    .recent-payments h4 { color: #8e8e93 !important; }
+    .payment-item { border-bottom-color: rgba(255, 255, 255, 0.08) !important; }
+    .payment-info .payment-student { color: #f5f5f7 !important; }
+    .payment-info .payment-date { color: #8e8e93 !important; }
+    .payment-amount .amount-earned { color: #f5f5f7 !important; }
+  }
+}
+
 // Video Player Modal Styling
 ion-modal.video-player-modal {
   --width: 90%;
@@ -1281,16 +1498,35 @@ ion-modal.video-player-modal {
 // Payout Setup Section
 .stripe-connect-card {
   margin: 0;
-  padding: 24px 0;
+  padding: 32px 0;
   border-bottom: 1px solid #ebebeb;
   border-radius: 0;
   box-shadow: none;
   background: transparent;
 
-  // ion-card-content.stripe-connected {
-  //   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  //   border: 2px solid var(--ion-color-success);
-  // }
+  @media (max-width: 768px) {
+    padding: 24px 0;
+  }
+
+  ion-card-header {
+    padding: 0 0 16px 0;
+
+    ion-card-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #222222;
+      letter-spacing: -0.2px;
+      margin: 0;
+
+      @media (max-width: 768px) {
+        font-size: 18px;
+      }
+    }
+  }
+
+  ion-card-content {
+    padding: 0;
+  }
 
   .stripe-connect-content {
     display: flex;

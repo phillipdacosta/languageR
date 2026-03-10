@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, take, switchMap } from 'rxjs';
+import { Observable, take, switchMap, filter } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { UserService } from './user.service';
 
@@ -58,6 +58,7 @@ export class ClassService {
 
   createClass(payload: CreateClassRequest): Observable<{ success: boolean; classes: any[] }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -68,6 +69,7 @@ export class ClassService {
 
   acceptInvitation(classId: string, paymentMethodId?: string, useWallet?: boolean): Observable<{ success: boolean; class: any }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -81,6 +83,7 @@ export class ClassService {
 
   declineInvitation(classId: string): Observable<{ success: boolean; message: string }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -91,6 +94,7 @@ export class ClassService {
 
   getPendingInvitations(): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -101,6 +105,7 @@ export class ClassService {
 
   getClassesForTutor(tutorId: string, startDate?: string, endDate?: string): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -126,6 +131,7 @@ export class ClassService {
 
   inviteStudentsToClass(classId: string, studentIds: string[]): Observable<{ success: boolean; message: string; newInvitationsCount: number }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -140,6 +146,7 @@ export class ClassService {
 
   removeStudentFromClass(classId: string, studentId: string): Observable<{ success: boolean; message: string }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -153,6 +160,7 @@ export class ClassService {
 
   joinClass(classId: string, role: string, userId?: string): Observable<any> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -167,6 +175,7 @@ export class ClassService {
 
   getClass(classId: string): Observable<{ success: boolean; class: any }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -189,6 +198,7 @@ export class ClassService {
 
   leaveClass(classId: string): Observable<{ success: boolean; message: string }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -203,6 +213,7 @@ export class ClassService {
 
   getAcceptedClasses(): Observable<{ success: boolean; classes: ClassInvitation[] }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -214,8 +225,23 @@ export class ClassService {
     );
   }
 
+  getMyClasses(): Observable<{ success: boolean; classes: any[] }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(user => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ success: boolean; classes: any[] }>(
+          `${this.apiUrl}/classes/my-classes`,
+          { headers }
+        );
+      })
+    );
+  }
+
   getPublicClasses(): Observable<{ success: boolean; classes: any[] }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
@@ -229,6 +255,7 @@ export class ClassService {
 
   cancelClass(classId: string): Observable<{ success: boolean; message: string; class: any }> {
     return this.userService.currentUser$.pipe(
+      filter(user => !!user),
       take(1),
       switchMap(user => {
         const headers = this.userService.getAuthHeadersSync();
