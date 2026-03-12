@@ -83,10 +83,12 @@ export interface CreateMaterialPayload {
 }
 
 export interface LinkedChannels {
+  youtubeChannelId?: string | null;
   youtubeChannelUrl?: string | null;
   youtubeChannelName?: string | null;
   youtubeChannelAvatar?: string | null;
   youtubeSubscriberCount?: string | null;
+  youtubeVerified?: boolean;
   vimeoChannelUrl?: string | null;
   vimeoChannelName?: string | null;
   vimeoChannelAvatar?: string | null;
@@ -262,6 +264,35 @@ export class MaterialService {
         return this.http.put<{ success: boolean; linkedChannels: LinkedChannels }>(
           `${this.apiUrl}/linked-channels`,
           channels,
+          { headers }
+        );
+      })
+    );
+  }
+
+  getYouTubeAuthUrl(): Observable<{ url: string }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.get<{ url: string }>(
+          `${environment.apiUrl}/auth/youtube/url`,
+          { headers }
+        );
+      })
+    );
+  }
+
+  unlinkYouTube(): Observable<{ success: boolean }> {
+    return this.userService.currentUser$.pipe(
+      filter(user => !!user),
+      take(1),
+      switchMap(() => {
+        const headers = this.userService.getAuthHeadersSync();
+        return this.http.post<{ success: boolean }>(
+          `${environment.apiUrl}/auth/youtube/unlink`,
+          {},
           { headers }
         );
       })

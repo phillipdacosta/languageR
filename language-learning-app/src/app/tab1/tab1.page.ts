@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, AfterViewInit, HostBinding } from '@angular/core';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { ModalController, LoadingController, ToastController, ActionSheetController, PopoverController, AlertController, ViewDidLeave, NavController, IonContent } from '@ionic/angular';
-import { Router, NavigationStart } from '@angular/router';
+import { Router, NavigationStart, ActivatedRoute } from '@angular/router';
 import { TutorSearchPage } from '../tutor-search/tutor-search.page';
 import { PlatformService } from '../services/platform.service';
 import { AuthService } from '../services/auth.service';
@@ -388,7 +388,8 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     private http: HttpClient,
     private smartIslandService: SmartIslandService,
     private navCtrl: NavController,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private activatedRoute: ActivatedRoute
   ) {
     // Subscribe to currentUser$ observable to get updates automatically
     // Use asyncScheduler to prevent synchronous emission from blocking
@@ -2123,6 +2124,7 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
     this.cdr.detectChanges();
     this.ionContent?.scrollToTop(0);
   }
+
   
   // Open modal showing all tutors
   openAllTutorsModal() {
@@ -4600,6 +4602,14 @@ export class Tab1Page implements OnInit, AfterViewInit, OnDestroy, ViewDidLeave 
   // Get count of scheduled (non-cancelled) timeline events
   get scheduledTimelineCount(): number {
     return this.timelineEvents.filter(e => !e.isCancelled).length;
+  }
+
+  // Count of additional lessons on the same day as the first timeline event
+  get sameDayExtraCount(): number {
+    const events = this.timelineEvents;
+    if (events.length < 2) return 0;
+    const firstDate = events[0].date;
+    return events.filter((e: any, i: number) => i > 0 && e.date === firstDate).length;
   }
   
   // Get count of cancelled timeline events

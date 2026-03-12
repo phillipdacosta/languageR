@@ -536,10 +536,14 @@ const userSchema = new mongoose.Schema({
 
   // Content channel linking (for material ownership verification)
   linkedChannels: {
+    youtubeChannelId: { type: String, default: null },
     youtubeChannelUrl: { type: String, default: null, trim: true },
     youtubeChannelName: { type: String, default: null },
     youtubeChannelAvatar: { type: String, default: null },
     youtubeSubscriberCount: { type: String, default: null },
+    youtubeVerified: { type: Boolean, default: false },
+    youtubeAccessToken: { type: String, default: null, select: false },
+    youtubeRefreshToken: { type: String, default: null, select: false },
     vimeoChannelUrl: { type: String, default: null, trim: true },
     vimeoChannelName: { type: String, default: null },
     vimeoChannelAvatar: { type: String, default: null },

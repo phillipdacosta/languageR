@@ -839,108 +839,56 @@
           </button>
         </div>
       </div>
-
-      <!-- Coming Up (Row 2, Left) — hidden on mobile unless there are lessons beyond Up Next -->
-      <div class="grid-cell-comingup" *ngIf="!isMobile || timelineEvents.length > 0">
+      <!-- Coming Up (Row 2, Left) — only when lessons exist -->
+      <div class="grid-cell-comingup" *ngIf="timelineEvents.length > 0">
         <div class="timeline-section" *ngIf="!isLoadingLessons">
           <div class="section-header-new">
             <h2>{{ 'HOME.COMING_UP' | translate }}</h2>
             <ion-button *ngIf="isTutorUser" fill="clear" class="see-all-btn" routerLink="/tabs/tutor-calendar">{{ 'HOME.FULL_SCHEDULE' | translate }}</ion-button>
           </div>
-          
-          <!-- Table-style lesson list -->
           <div class="coming-up-single">
-            <!-- Column Headers (desktop only) -->
-            <div class="coming-up-headers" *ngIf="timelineEvents.length > 0">
-              <span class="cu-header cu-h-time">{{ 'HOME.COL_TIME' | translate }}</span>
-              <span class="cu-header cu-h-person">{{ isTutorUser ? ('HOME.COL_STUDENT' | translate) : ('HOME.COL_TUTOR' | translate) }}</span>
-              <span class="cu-header cu-h-status">{{ 'HOME.COL_STATUS' | translate }}</span>
-            </div>
-
-            <!-- Lesson rows -->
-            <div class="coming-up-list" *ngIf="timelineEvents.length > 0">
-              <div class="coming-up-row-v2" *ngFor="let event of timelineEvents; let i = index; let last = last"
-                   [class.cancelled]="event.isCancelled"
-                   (click)="navigateToLesson(event.lesson)">
-                <!-- Time Column -->
-                <div class="cu-col cu-time-col">
-                  <span class="cu-time-text">{{ event.time }}</span>
-                  <span class="cu-duration">{{ event.duration }} {{ 'HOME.MINS' | translate }}</span>
-                </div>
-                <!-- Person Column -->
-                <div class="cu-col cu-person-col">
-                  <div class="cu-avatar">
-                    <img *ngIf="event.avatar" [src]="event.avatar" [alt]="event.name">
-                    <ion-icon *ngIf="!event.avatar" name="person"></ion-icon>
-                  </div>
-                  <span class="cu-name">{{ event.name }}</span>
-                </div>
-                <!-- Status Column -->
-                <div class="cu-col cu-status-col">
-                  <span class="cu-status-badge" [ngClass]="event.statusClass">{{ event.statusLabel }}</span>
-                </div>
-                <ion-popover 
-                  *ngIf="event.lesson && !isMobile && !isLessonInProgress(event.lesson) && !event.isCancelled"
-                  [trigger]="'upcoming-menu-' + event.lesson._id"
-                  triggerAction="click"
-                  side="start"
-                  [dismissOnSelect]="true">
-                  <ng-template>
-                    <ion-content class="ion-padding">
-                      <ion-list>
-                        <ion-item *ngIf="!hasLessonStarted(event.lesson)" [button]="true" (click)="event.lesson?.isClass ? rescheduleClass(event.lesson._id, event.lesson) : rescheduleLesson(event.lesson._id, event.lesson)" [detail]="false">
-                          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                          <ion-label>{{ 'HOME.RESCHEDULE' | translate }}</ion-label>
-                        </ion-item>
-                        <ion-item [button]="true" (click)="event.lesson?.isClass ? cancelClass(event.lesson._id, event.lesson) : cancelLesson(event.lesson._id, event.lesson)" class="ion-text-danger" [detail]="false">
-                          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-                          <ion-label>{{ 'HOME.CANCEL' | translate }}</ion-label>
-                        </ion-item>
-                      </ion-list>
-                    </ion-content>
-                  </ng-template>
-                </ion-popover>
-              </div>
-              
-              <!-- Show all link (only when more than one lesson) -->
-              <button class="coming-up-show-all" *ngIf="timelineEvents.length > 1" (click)="openAllLessonsModal()">
-                {{ 'HOME.VIEW_MORE_LESSONS' | translate }}
-                <ion-icon name="arrow-forward-outline"></ion-icon>
-              </button>
-            </div>
-            
-            <!-- Empty state when no more lessons -->
-            <div class="coming-up-empty" *ngIf="timelineEvents.length === 0">
-              <p>{{ getComingUpEmptyMessage() }}</p>
-            </div>
-            
-            <!-- Contextual action prompt (feedback or find tutors) -->
-            <!-- <div class="coming-up-action" *ngIf="isTutorUser && pendingFeedbackCount > 0" (click)="openPendingFeedback()">
-              <div class="action-left">
-                <span class="action-count">{{ pendingFeedbackCount }}</span>
-                <div class="action-text">
-                  <span class="action-title">Feedback needed</span>
-                  <span class="action-subtitle">{{ feedbackBannerSubtitle }}</span>
+            <div class="coming-up-preview" (click)="navigateToLesson(timelineEvents[0].lesson)">
+              <div class="cu-preview-left">
+                <div class="cu-preview-date">{{ timelineEvents[0].date }}</div>
+                <div class="cu-preview-time">
+                  <span class="cu-time-text">{{ timelineEvents[0].time }}</span>
+                  <span class="cu-duration">{{ timelineEvents[0].duration }} {{ 'HOME.MINS' | translate }}</span>
                 </div>
               </div>
-              <span class="action-cta">Review <ion-icon name="arrow-forward-outline"></ion-icon></span>
-            </div> -->
+              <div class="cu-preview-center">
+                <div class="cu-avatar">
+                  <img *ngIf="timelineEvents[0].avatar" [src]="timelineEvents[0].avatar" [alt]="timelineEvents[0].name">
+                  <ion-icon *ngIf="!timelineEvents[0].avatar" name="person"></ion-icon>
+                </div>
+                <span class="cu-name">{{ timelineEvents[0].name }}</span>
+              </div>
+              <div class="cu-preview-right">
+                <span class="cu-status-badge" [ngClass]="timelineEvents[0].statusClass">{{ timelineEvents[0].statusLabel }}</span>
+              </div>
+              <button class="cu-extra-badge" *ngIf="sameDayExtraCount > 0" (click)="openAllLessonsModal(); $event.stopPropagation()">{{ 'HOME.PLUS_MORE' | translate }}</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Stats (Row 2, Right) -->
-      <div class="grid-cell-stats" *ngIf="!insightsLoading">
-        <div class="sidebar-stats-row">
-          <div class="sidebar-stat-card">
-            <span class="stat-card-label">{{ 'HOME.STATS_LESSONS' | translate }}</span>
-            <span class="stat-card-value">{{ lessonsThisWeek }}</span>
-            <span class="stat-card-sub">{{ 'HOME.STATS_THIS_WEEK' | translate }}</span>
+      <!-- Quick Actions (Row 2, Right / full-width when no Coming Up) -->
+      <div class="grid-cell-actions" *ngIf="!isMobile && !isLoadingLessons" [class.full-width]="timelineEvents.length === 0">
+        <div class="actions-grid">
+          <div class="quick-action-card" (click)="navigateToExplore()">
+            <div class="qa-icon"><ion-icon name="people-outline"></ion-icon></div>
+            <span class="qa-label">{{ 'HOME.CLASSES' | translate }}</span>
           </div>
-          <div class="sidebar-stat-card">
-            <span class="stat-card-label">{{ 'HOME.STATS_RATING' | translate }}</span>
-            <span class="stat-card-value">{{ tutorRating }} <ion-icon name="star" class="star-icon"></ion-icon></span>
-            <span class="stat-card-sub">{{ 'HOME.STATS_OVERALL' | translate }}</span>
+          <div class="quick-action-card" (click)="navigateToCreateMaterial()">
+            <div class="qa-icon"><ion-icon name="create-outline"></ion-icon></div>
+            <span class="qa-label">{{ 'HOME.CREATE_MATERIAL' | translate }}</span>
+          </div>
+          <div class="quick-action-card">
+            <div class="qa-icon"><ion-icon name="chatbubbles-outline"></ion-icon></div>
+            <span class="qa-label">{{ 'HOME.FORUM' | translate }}</span>
+          </div>
+          <div class="quick-action-card">
+            <div class="qa-icon"><ion-icon name="star"></ion-icon></div>
+            <span class="qa-label">{{ 'HOME.STATS_RATING' | translate }} {{ tutorRating }}</span>
           </div>
         </div>
       </div>
@@ -1096,8 +1044,8 @@
       </button>
     </div>
 
-    <!-- Explore Pills — Tutors -->
-    <div class="explore-pills" *ngIf="!isLoadingLessons && isTutorUser">
+    <!-- Explore Pills — Tutors (mobile only, desktop uses quick-actions-strip) -->
+    <div class="explore-pills" *ngIf="!isLoadingLessons && isTutorUser && isMobile">
       <button class="explore-pill explore-pill-classes" (click)="navigateToExplore()">
         <ion-icon name="people-outline"></ion-icon>
         {{ 'HOME.CLASSES' | translate }}

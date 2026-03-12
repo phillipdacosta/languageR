@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { IonicModule, ToastController, AlertController } from '@ionic/angular';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { MaterialService, CreateMaterialPayload, QuizQuestion, MaterialType, TutorMaterial, LinkedChannels } from '../services/material.service';
 import { UserService } from '../services/user.service';
 import { SharedModule } from '../shared/shared.module';
@@ -99,7 +99,8 @@ export class CreateMaterialPage implements OnInit {
     private alertCtrl: AlertController,
     private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
@@ -431,6 +432,7 @@ export class CreateMaterialPage implements OnInit {
   editingYouTube = false;
   editingVimeo = false;
   editingSoundCloud = false;
+  isLinkingYouTube = false;
 
   selectType(type: MaterialType) {
     this.selectedType = type;
@@ -811,6 +813,81 @@ export class CreateMaterialPage implements OnInit {
 
   hasLinkedChannel(): boolean {
     return !!(this.linkedChannels.youtubeChannelUrl || this.linkedChannels.vimeoChannelUrl || this.linkedChannels.soundcloudProfileUrl);
+  }
+
+  linkYouTube() {
+    this.isLinkingYouTube = true;
+    this.materialService.getYouTubeAuthUrl().subscribe({
+      next: (res) => {
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.innerWidth - width) / 2;
+        const top = window.screenY + (window.innerHeight - height) / 2;
+        const popup = window.open(
+          res.url,
+          'youtube-auth',
+          `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
+        );
+
+        const onMessage = (event: MessageEvent) => {
+          if (event.data?.type !== 'youtube_linked') return;
+          window.removeEventListener('message', onMessage);
+          this.isLinkingYouTube = false;
+
+          if (event.data.success) {
+            this.loadLinkedChannels();
+            this.showToast('YouTube channel linked successfully!');
+          } else {
+            this.showToast('YouTube linking failed. Please try again.');
+          }
+          this.cdr.detectChanges();
+        };
+        window.addEventListener('message', onMessage);
+
+        const checkClosed = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', onMessage);
+            this.isLinkingYouTube = false;
+            this.cdr.detectChanges();
+          }
+        }, 1000);
+      },
+      error: async (err) => {
+        this.isLinkingYouTube = false;
+        console.error('YouTube auth URL error:', err);
+        await this.showToast('Failed to start YouTube linking');
+      }
+    });
+  }
+
+  async unlinkYouTube() {
+    const alert = await this.alertCtrl.create({
+      header: 'Unlink YouTube',
+      message: 'Are you sure you want to disconnect your YouTube channel?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Unlink',
+          role: 'destructive',
+          handler: () => {
+            this.materialService.unlinkYouTube().subscribe({
+              next: () => {
+                this.linkedChannels.youtubeChannelId = null;
+                this.linkedChannels.youtubeChannelUrl = null;
+                this.linkedChannels.youtubeChannelName = null;
+                this.linkedChannels.youtubeChannelAvatar = null;
+                this.linkedChannels.youtubeSubscriberCount = null;
+                this.linkedChannels.youtubeVerified = false;
+                this.showToast('YouTube channel unlinked');
+              },
+              error: () => this.showToast('Failed to unlink YouTube')
+            });
+          }
+        }
+      ]
+    });
+    alert.present();
   }
 
   getReviewStatusLabel(status: string | undefined): string {

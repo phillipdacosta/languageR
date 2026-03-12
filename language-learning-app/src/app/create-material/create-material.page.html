@@ -83,26 +83,28 @@
       </div>
       <div class="cm-channel-fields">
 
-        <!-- YouTube -->
+        <!-- YouTube (OAuth verified) -->
         <div class="cm-channel-field">
           <label>
             <ion-icon name="logo-youtube"></ion-icon>
             YouTube Channel
           </label>
-          <div class="cm-channel-resolved" *ngIf="linkedChannels.youtubeChannelName && !editingYouTube">
+          <div class="cm-channel-resolved" *ngIf="linkedChannels.youtubeChannelName && linkedChannels.youtubeVerified">
             <img [src]="linkedChannels.youtubeChannelAvatar" *ngIf="linkedChannels.youtubeChannelAvatar" class="cm-channel-avatar" referrerpolicy="no-referrer" />
             <div class="cm-channel-info">
               <span class="cm-channel-name">{{ linkedChannels.youtubeChannelName }}</span>
               <span class="cm-channel-subs" *ngIf="linkedChannels.youtubeSubscriberCount">{{ linkedChannels.youtubeSubscriberCount }}</span>
             </div>
-            <button class="cm-channel-edit" (click)="editingYouTube = true">
-              <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button class="cm-channel-remove" (click)="linkedChannels.youtubeChannelUrl = null; linkedChannels.youtubeChannelName = null; linkedChannels.youtubeChannelAvatar = null; linkedChannels.youtubeSubscriberCount = null; saveLinkedChannels()">
+            <span class="cm-verified-badge"><ion-icon name="checkmark-circle"></ion-icon> Verified</span>
+            <button class="cm-channel-remove" (click)="unlinkYouTube()">
               <ion-icon name="close-outline"></ion-icon>
             </button>
           </div>
-          <input *ngIf="!linkedChannels.youtubeChannelName || editingYouTube" type="url" [(ngModel)]="linkedChannels.youtubeChannelUrl" [ngModelOptions]="{standalone: true}" placeholder="https://youtube.com/@yourchannel" />
+          <button class="cm-youtube-signin" *ngIf="!linkedChannels.youtubeChannelName || !linkedChannels.youtubeVerified" (click)="linkYouTube()" [disabled]="isLinkingYouTube">
+            <ion-icon name="logo-youtube"></ion-icon>
+            <span *ngIf="!isLinkingYouTube">Sign in with YouTube</span>
+            <span *ngIf="isLinkingYouTube">Connecting...</span>
+          </button>
         </div>
 
         <!-- Vimeo -->
@@ -466,7 +468,7 @@
           </ion-range>
           <div class="cm-price-display">
             <span class="cm-price-value">${{ materialForm.get('price')?.value || 0 }}</span>
-            <span class="cm-price-note">per quiz</span>
+            <span class="cm-price-note">per quiz per student</span>
           </div>
         </div>
         <p class="cm-price-hint">Students view content for free, but pay to access the quiz</p>

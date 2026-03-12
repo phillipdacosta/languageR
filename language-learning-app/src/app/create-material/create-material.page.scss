@@ -1878,6 +1878,44 @@
 
 .cm-channel-remove:hover { color: #ff3b30; }
 
+.cm-youtube-signin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: #ff0000;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  width: fit-content;
+
+  ion-icon { font-size: 20px; }
+
+  &:hover { background: #cc0000; }
+  &:active { transform: scale(0.97); }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.cm-verified-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #34c759;
+  margin-left: auto;
+  margin-right: 4px;
+
+  ion-icon { font-size: 16px; }
+}
+
 .cm-channel-actions {
   display: flex;
   justify-content: flex-end;
@@ -2040,7 +2078,17 @@
   }
   .cm-char-count { color: #666; }
 
+  .cm-price-field label { color: #e5e5e5; }
+  .cm-price-slider-container { color: #f5f5f7; }
   .cm-price-slider {
+    --bar-background: #3a3a3c;
+    --bar-background-active: #4298d2;
+    --knob-background: #4298d2;
+    --pin-background: #4298d2;
+    --pin-color: #fff;
+    --ion-color-base: #4298d2;
+  }
+  ion-range.cm-price-slider {
     --bar-background: #3a3a3c;
     --bar-background-active: #4298d2;
     --knob-background: #4298d2;
@@ -2109,29 +2157,154 @@
   .cm-channel-name { color: #f5f5f5; }
   .cm-channel-subs { color: #999; }
   .cm-channel-edit, .cm-channel-remove { color: #777; }
-
-  .cm-quiz-builder-header { color: #f5f5f7; }
-  .cm-quiz-card {
-    background: #1c1c1e;
-    border-color: #333;
+  .cm-youtube-signin {
+    background: #cc0000;
+    &:hover { background: #b30000; }
   }
-  .cm-quiz-card-header { color: #e5e5e5; }
-  .cm-q-row input, .cm-q-row textarea {
+  .cm-verified-badge { color: #30d158; }
+
+  .cm-step-label { color: #8e8e93; }
+  .cm-label-hint { color: #8e8e93; }
+  .cm-field-hint { color: #8e8e93; }
+  .cm-field-hint.neutral { color: #8e8e93; }
+  .cm-error-hint { color: #ff6b6b; }
+  .cm-btn-copy {
+    background: #4298d2;
+    color: #fff;
+    &:hover { background: #3583b8; }
+  }
+  .cm-pricing-card.selected {
     background: #2c2c2e;
-    border-color: #444;
+    border-color: #4298d2;
+    h3, p { color: #f5f5f7; }
+  }
+  .cm-pricing-card h3, .cm-pricing-card p { color: #f5f5f7; }
+  .cm-pricing-card p { color: #8e8e93; }
+  .cm-mc-thumb { background: #2c2c2e; }
+  .cm-mc-unavailable {
+    background: rgba(230, 81, 0, 0.15);
+    border-color: rgba(230, 81, 0, 0.35);
+    color: #ffab91;
+    ion-icon { color: #ff8a65; }
+  }
+  .cm-mc-status {
+    &.published { background: rgba(46, 125, 50, 0.25); color: #81c784; }
+    &.draft { background: rgba(230, 81, 0, 0.2); color: #ffab91; }
+    &.archived { background: #3a3a3c; color: #8e8e93; }
+  }
+  .cm-mc-actions { border-top-color: #2c2c2e; }
+  .cm-mc-action.cm-mc-action--danger {
+    color: #666;
+    &:hover { background: rgba(211, 47, 47, 0.2); border-color: #e57373; color: #ef5350; }
+  }
+  .cm-mc-review-badge {
+    background: rgba(245, 124, 0, 0.2);
+    color: #ffb74d;
+    &.verified { background: rgba(46, 125, 50, 0.25); color: #81c784; }
+    &.rejected { background: rgba(183, 28, 28, 0.2); color: #e57373; }
+  }
+  .cm-quiz-instructions {
+    background: #2c2c2e;
+    border-radius: 14px;
+  }
+  .cm-instruction-item {
+    color: #8e8e93;
+    ion-icon { color: #4298d2; }
+    strong { color: #f5f5f7; }
+  }
+  .cm-question-card {
+    background: #1c1c1e;
+    border-color: #3a3a3c;
+  }
+  .cm-question-num {
+    background: #4298d2;
+    color: #fff;
+  }
+  .cm-remove-question {
+    color: #8e8e93;
+    &:hover { color: #ff6b6b; }
+  }
+  .cm-option-row input {
+    background: #2c2c2e;
+    border-color: #3a3a3c;
     color: #f5f5f5;
     &::placeholder { color: #666; }
+    &:focus { border-color: #4298d2; background: #2c2c2e; }
   }
-  .cm-opt-row input {
+  .cm-option-radio {
+    color: #666;
+    &.correct { color: #34c759; }
+  }
+  .cm-remove-option {
+    color: #666;
+    &:hover { color: #ff6b6b; }
+  }
+  .cm-add-option {
+    color: #8e8e93;
+    &:hover { color: #4298d2; }
+    ion-icon { color: #4298d2; }
+  }
+  .cm-explanation-field { border-top-color: #2c2c2e; }
+  .cm-add-question {
+    border-color: #3a3a3c;
+    color: #8e8e93;
+    &:hover { border-color: #4298d2; color: #4298d2; }
+    ion-icon { color: #4298d2; }
+  }
+  .cm-quiz-empty {
+    color: #8e8e93;
+    p { color: #8e8e93; }
+    ion-icon { color: #3a3a3c; }
+  }
+  .cm-audio-player {
     background: #2c2c2e;
-    border-color: #444;
-    color: #f5f5f5;
   }
-  .cm-add-option, .cm-remove-option { color: #4298d2; }
   .cm-preview-card {
     background: #1c1c1e;
-    border-color: #333;
+    border-color: #3a3a3c;
   }
-  .cm-preview-title { color: #f5f5f7; }
-  .cm-preview-meta { color: #8e8e93; }
+  .cm-preview-info h2 { color: #f5f5f7; }
+  .cm-preview-info .cm-preview-desc { color: #8e8e93; }
+  .cm-preview-pitch {
+    background: rgba(245, 158, 11, 0.15);
+    ion-icon { color: #fbbf24; }
+    span { color: #fcd34d; }
+  }
+  .cm-preview-type-badge {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+  .cm-preview-passage {
+    border-top-color: #2c2c2e;
+    h3 { color: #f5f5f7; }
+  }
+  .cm-passage-text {
+    background: #2c2c2e;
+    color: #e5e5e5;
+    h1, h2, h3 { color: #f5f5f7; }
+    blockquote { border-left-color: #555; color: #8e8e93; }
+  }
+  .cm-preview-badge {
+    background: #2c2c2e;
+    color: #8e8e93;
+    &.paid { background: #4298d2; color: #fff; }
+  }
+  .cm-preview-quiz {
+    border-top-color: #2c2c2e;
+    h3 { color: #f5f5f7; }
+  }
+  .cm-pq-num {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+  .cm-pq-text { color: #f5f5f7; }
+  .cm-pq-option { color: #8e8e93; }
+  .cm-pq-option.correct { color: #f5f5f7; }
+  .cm-pq-option.correct .cm-pq-letter { background: #4298d2; color: #fff; }
+  .cm-pq-letter {
+    background: #2c2c2e;
+    color: #8e8e93;
+  }
+  .cm-preview-audio { background: #1c1c1e; }
+  .cm-preview-audio-player { background: #2c2c2e; }
 }

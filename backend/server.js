@@ -122,6 +122,7 @@ app.use('/api/disputes', require('./routes/disputes')); // Dispute system
 app.use('/api/admin', require('./routes/admin')); // Admin routes
 app.use('/api/transcription', require('./routes/transcription'));
 app.use('/api/materials', require('./routes/materials'));
+app.use('/api/auth', require('./routes/youtubeAuth'));
 app.use('/api/analysis', require('./routes/analysis'));
 app.use('/api/tutor-feedback', require('./routes/tutorFeedback'));
 app.use('/api/review-deck', require('./routes/review-deck'));
